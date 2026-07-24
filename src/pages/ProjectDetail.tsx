@@ -35,7 +35,36 @@ import {
   ChevronRight,
   Home,
   FileSpreadsheet,
+  Globe,
 } from "lucide-react";
+
+// Tunisian region labels
+const REGION_LABELS: Record<string, string> = {
+  tunis: "Tunis",
+  ariana: "Ariana",
+  ben_arous: "Ben Arous",
+  manouba: "Manouba",
+  nabeul: "Nabeul",
+  zaghouan: "Zaghouan",
+  bizerte: "Bizerte",
+  beja: "Béja",
+  jendouba: "Jendouba",
+  le_kef: "Le Kef",
+  siliana: "Siliana",
+  kairouan: "Kairouan",
+  kasserine: "Kasserine",
+  sidi_bouzid: "Sidi Bouzid",
+  sousse: "Sousse",
+  monastir: "Monastir",
+  mahdia: "Mahdia",
+  sfax: "Sfax",
+  gabes: "Gabès",
+  medenine: "Médenine",
+  tataouine: "Tataouine",
+  gafsa: "Gafsa",
+  tozeur: "Tozeur",
+  kebili: "Kébili",
+};
 import {
   ChartContainer,
   ChartTooltip,
@@ -267,7 +296,7 @@ export default function ProjectDetail() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Surface</p>
-                      <p className="text-sm font-semibold">{project.builtArea || '-'} m²</p>
+                      <p className="text-sm font-semibold">{project.surface || '-'} m²</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -542,27 +571,21 @@ export default function ProjectDetail() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {project.location && (
+                  {project.region ? (
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Emplacement</p>
+                      <p className="text-xs text-muted-foreground mb-1">Région</p>
                       <div className="flex items-center gap-1.5 text-sm">
-                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                        {project.location}
+                        <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                        {REGION_LABELS[project.region] || project.region}
                       </div>
                     </div>
-                  )}
-                  {project.landArea && (
+                  ) : null}
+                  {project.surface ? (
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Terrain</p>
-                      <p className="text-sm font-medium">{project.landArea} m²</p>
+                      <p className="text-xs text-muted-foreground mb-1">Surface</p>
+                      <p className="text-sm font-medium">{project.surface} m²</p>
                     </div>
-                  )}
-                  {project.builtArea && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Surface construite</p>
-                      <p className="text-sm font-medium">{project.builtArea} m²</p>
-                    </div>
-                  )}
+                  ) : null}
                   {project.floors && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Étages</p>

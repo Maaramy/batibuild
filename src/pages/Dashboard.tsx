@@ -139,10 +139,10 @@ function ProjectCard({ project }: { project: any }) {
             <Building2 className="h-3 w-3" />
             {categoryLabels[project.category] || project.category}
           </span>
-          {project.builtArea && (
+          {project.surface && (
             <span className="flex items-center gap-1">
               <HardHat className="h-3 w-3" />
-              {project.builtArea} m²
+              {project.surface} m²
             </span>
           )}
           <span className="flex items-center gap-1">

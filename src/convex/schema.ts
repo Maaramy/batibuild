@@ -31,6 +31,69 @@ export const subscriptionPlanValidator = v.union(
 export type SubscriptionPlan = Infer<typeof subscriptionPlanValidator>;
 
 // ============================================================================
+// Tunisian Regions (Gouvernorats)
+// ============================================================================
+
+export const TUNISIA_REGIONS = [
+  "tunis",
+  "ariana",
+  "ben_arous",
+  "manouba",
+  "nabeul",
+  "zaghouan",
+  "bizerte",
+  "beja",
+  "jendouba",
+  "le_kef",
+  "siliana",
+  "kairouan",
+  "kasserine",
+  "sidi_bouzid",
+  "sousse",
+  "monastir",
+  "mahdia",
+  "sfax",
+  "gabes",
+  "medenine",
+  "tataouine",
+  "gafsa",
+  "tozeur",
+  "kebili",
+] as const;
+
+export const regionValidator = v.union(
+  ...TUNISIA_REGIONS.map((r) => v.literal(r)),
+);
+export type TunisiaRegion = (typeof TUNISIA_REGIONS)[number];
+
+export const REGION_LABELS: Record<TunisiaRegion, string> = {
+  tunis: "Tunis",
+  ariana: "Ariana",
+  ben_arous: "Ben Arous",
+  manouba: "Manouba",
+  nabeul: "Nabeul",
+  zaghouan: "Zaghouan",
+  bizerte: "Bizerte",
+  beja: "Béja",
+  jendouba: "Jendouba",
+  le_kef: "Le Kef",
+  siliana: "Siliana",
+  kairouan: "Kairouan",
+  kasserine: "Kasserine",
+  sidi_bouzid: "Sidi Bouzid",
+  sousse: "Sousse",
+  monastir: "Monastir",
+  mahdia: "Mahdia",
+  sfax: "Sfax",
+  gabes: "Gabès",
+  medenine: "Médenine",
+  tataouine: "Tataouine",
+  gafsa: "Gafsa",
+  tozeur: "Tozeur",
+  kebili: "Kébili",
+};
+
+// ============================================================================
 // Project Categories (40+ types)
 // ============================================================================
 
@@ -171,13 +234,10 @@ const schema = defineSchema(
       category: projectCategoryValidator,
       status: projectStatusValidator,
       description: v.optional(v.string()),
-      location: v.optional(v.string()),
+      region: v.optional(regionValidator),
       
-      // Dimensions (from AI analysis or manual input)
-      landArea: v.optional(v.number()), // m²
-      builtArea: v.optional(v.number()), // m²
-      length: v.optional(v.number()),
-      width: v.optional(v.number()),
+      // Surface (unified field, in m²)
+      surface: v.optional(v.number()),
       floors: v.optional(v.number()),
       
       // AI Analysis results
@@ -273,10 +333,7 @@ const schema = defineSchema(
       // Manual input source data
       manualInput: v.optional(
         v.object({
-          landArea: v.optional(v.number()),
-          builtArea: v.optional(v.number()),
-          length: v.optional(v.number()),
-          width: v.optional(v.number()),
+          surface: v.optional(v.number()),
           floors: v.optional(v.number()),
           description: v.optional(v.string()),
         }),

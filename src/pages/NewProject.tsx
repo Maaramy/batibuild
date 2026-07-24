@@ -26,8 +26,40 @@ import {
   HardHat,
   Image,
   FileUp,
+  MapPin,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+// ============================================================================
+// Tunisian Regions
+// ============================================================================
+
+const TUNISIA_REGIONS = [
+  { value: "tunis", label: "Tunis" },
+  { value: "ariana", label: "Ariana" },
+  { value: "ben_arous", label: "Ben Arous" },
+  { value: "manouba", label: "Manouba" },
+  { value: "nabeul", label: "Nabeul" },
+  { value: "zaghouan", label: "Zaghouan" },
+  { value: "bizerte", label: "Bizerte" },
+  { value: "beja", label: "Béja" },
+  { value: "jendouba", label: "Jendouba" },
+  { value: "le_kef", label: "Le Kef" },
+  { value: "siliana", label: "Siliana" },
+  { value: "kairouan", label: "Kairouan" },
+  { value: "kasserine", label: "Kasserine" },
+  { value: "sidi_bouzid", label: "Sidi Bouzid" },
+  { value: "sousse", label: "Sousse" },
+  { value: "monastir", label: "Monastir" },
+  { value: "mahdia", label: "Mahdia" },
+  { value: "sfax", label: "Sfax" },
+  { value: "gabes", label: "Gabès" },
+  { value: "medenine", label: "Médenine" },
+  { value: "tataouine", label: "Tataouine" },
+  { value: "gafsa", label: "Gafsa" },
+  { value: "tozeur", label: "Tozeur" },
+  { value: "kebili", label: "Kébili" },
+];
 
 // ============================================================================
 // Constants
@@ -93,11 +125,8 @@ export default function NewProject() {
   const [dragOver, setDragOver] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [landArea, setLandArea] = useState("");
-  const [builtArea, setBuiltArea] = useState("");
-  const [length, setLength] = useState("");
-  const [width, setWidth] = useState("");
+  const [region, setRegion] = useState("");
+  const [surface, setSurface] = useState("");
   const [floors, setFloors] = useState("1");
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -144,12 +173,11 @@ export default function NewProject() {
         name: projectName,
         category: selectedCategory as any,
         description: description || undefined,
-        location: location || undefined,
+        region: (region || undefined) as any,
+        surface: surface ? parseFloat(surface) : undefined,
+        floors: floors ? parseInt(floors) : undefined,
         manualInput: {
-          landArea: landArea ? parseFloat(landArea) : undefined,
-          builtArea: builtArea ? parseFloat(builtArea) : undefined,
-          length: length ? parseFloat(length) : undefined,
-          width: width ? parseFloat(width) : undefined,
+          surface: surface ? parseFloat(surface) : undefined,
           floors: floors ? parseInt(floors) : undefined,
           description: description || undefined,
         },
@@ -402,14 +430,22 @@ export default function NewProject() {
                   </div>
 
                   <div>
-                    <Label htmlFor="location">Emplacement</Label>
-                    <Input
-                      id="location"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="ex: Tunis, Ariana"
-                      className="mt-1.5"
-                    />
+                    <Label htmlFor="region">Région (Gouvernorat)</Label>
+                    <div className="mt-1.5 relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <select
+                        id="region"
+                        value={region}
+                        onChange={(e) => setRegion(e.target.value)}
+                        className="h-10 w-full rounded-lg border border-border/50 bg-background pl-9 pr-3 text-sm appearance-none focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                      >
+                        <option value="">Sélectionnez une région</option>
+                        {TUNISIA_REGIONS.map((r) => (
+                          <option key={r.value} value={r.value}>{r.label}</option>
+                        ))}
+                      </select>
+                      <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none rotate-90" />
+                    </div>
                   </div>
 
                   <div>
@@ -427,56 +463,23 @@ export default function NewProject() {
 
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
                 <CardHeader>
-                  <CardTitle className="text-base">Dimensions</CardTitle>
-                  <CardDescription>Optionnel - l'IA peut estimer les dimensions à partir des fichiers</CardDescription>
+                  <CardTitle className="text-base">Surface</CardTitle>
+                  <CardDescription>Optionnel - l'IA peut estimer la surface à partir des fichiers importés</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="landArea">Superficie du terrain (m²)</Label>
+                    <div className="col-span-2 sm:col-span-1">
+                      <Label htmlFor="surface">Surface (m²)</Label>
                       <Input
-                        id="landArea"
+                        id="surface"
                         type="number"
-                        value={landArea}
-                        onChange={(e) => setLandArea(e.target.value)}
-                        placeholder="ex: 500"
-                        className="mt-1.5"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="builtArea">Surface construite (m²)</Label>
-                      <Input
-                        id="builtArea"
-                        type="number"
-                        value={builtArea}
-                        onChange={(e) => setBuiltArea(e.target.value)}
+                        value={surface}
+                        onChange={(e) => setSurface(e.target.value)}
                         placeholder="ex: 200"
                         className="mt-1.5"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="length">Longueur (m)</Label>
-                      <Input
-                        id="length"
-                        type="number"
-                        value={length}
-                        onChange={(e) => setLength(e.target.value)}
-                        placeholder="ex: 20"
-                        className="mt-1.5"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="width">Largeur (m)</Label>
-                      <Input
-                        id="width"
-                        type="number"
-                        value={width}
-                        onChange={(e) => setWidth(e.target.value)}
-                        placeholder="ex: 15"
-                        className="mt-1.5"
-                      />
-                    </div>
-                    <div>
+                    <div className="col-span-2 sm:col-span-1">
                       <Label htmlFor="floors">Nombre d'étages</Label>
                       <Input
                         id="floors"

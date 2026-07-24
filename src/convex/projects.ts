@@ -6,6 +6,7 @@ import {
   projectStatusValidator,
   PROJECT_STATUS,
   materialCategoryValidator,
+  regionValidator,
 } from "./schema";
 
 // ============================================================================
@@ -153,13 +154,12 @@ export const createProject = mutation({
     name: v.string(),
     category: projectCategoryValidator,
     description: v.optional(v.string()),
-    location: v.optional(v.string()),
+    region: v.optional(regionValidator),
+    surface: v.optional(v.number()),
+    floors: v.optional(v.number()),
     manualInput: v.optional(
       v.object({
-        landArea: v.optional(v.number()),
-        builtArea: v.optional(v.number()),
-        length: v.optional(v.number()),
-        width: v.optional(v.number()),
+        surface: v.optional(v.number()),
         floors: v.optional(v.number()),
         description: v.optional(v.string()),
       }),
@@ -176,7 +176,9 @@ export const createProject = mutation({
       category: args.category,
       status: PROJECT_STATUS.DRAFT,
       description: args.description,
-      location: args.location,
+      region: args.region,
+      surface: args.surface,
+      floors: args.floors,
       manualInput: args.manualInput,
       isFavorite: false,
       createdAt: now,
@@ -314,10 +316,7 @@ export const updateProjectAnalysis = mutation({
 export const updateProjectDimensions = mutation({
   args: {
     projectId: v.id("projects"),
-    landArea: v.optional(v.number()),
-    builtArea: v.optional(v.number()),
-    length: v.optional(v.number()),
-    width: v.optional(v.number()),
+    surface: v.optional(v.number()),
     floors: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -331,10 +330,7 @@ export const updateProjectDimensions = mutation({
     }
 
     await ctx.db.patch(args.projectId, {
-      ...(args.landArea !== undefined && { landArea: args.landArea }),
-      ...(args.builtArea !== undefined && { builtArea: args.builtArea }),
-      ...(args.length !== undefined && { length: args.length }),
-      ...(args.width !== undefined && { width: args.width }),
+      ...(args.surface !== undefined && { surface: args.surface }),
       ...(args.floors !== undefined && { floors: args.floors }),
       updatedAt: Date.now(),
     });
@@ -436,26 +432,25 @@ export const simulateAnalysis = mutation({
     if (!project) return;
 
     // Simulated AI analysis
-    const landArea = project.landArea || project.manualInput?.landArea || 200;
-    const builtArea = project.builtArea || project.manualInput?.builtArea || 150;
+    const surface = project.surface || project.manualInput?.surface || 200;
 
     const baseCostPerM2 = 1200; // TND per m² (average Tunisian construction cost)
-    const estimatedTotal = builtArea * baseCostPerM2;
+    const estimatedTotal = surface * baseCostPerM2;
 
     const analysis = {
       category: project.category,
       confidence: 0.85,
       dimensions: {
         detected: true,
-        estimatedLength: Math.sqrt(landArea),
-        estimatedWidth: Math.sqrt(landArea),
-        estimatedArea: landArea,
+        estimatedLength: Math.sqrt(surface),
+        estimatedWidth: Math.sqrt(surface),
+        estimatedArea: surface,
       },
       features: [
         { type: "walls", detected: true, quantity: 4 },
         { type: "roof", detected: true, quantity: 1 },
-        { type: "doors", detected: true, quantity: Math.round(builtArea / 30) },
-        { type: "windows", detected: true, quantity: Math.round(builtArea / 20) },
+        { type: "doors", detected: true, quantity: Math.round(surface / 30) },
+        { type: "windows", detected: true, quantity: Math.round(surface / 20) },
         { type: "foundation", detected: true, quantity: 1 },
       ],
       anomalies: [],
@@ -463,13 +458,13 @@ export const simulateAnalysis = mutation({
         "construction traditionnelle (parpaings et poutres)",
         "dalle pleine en béton armé",
       ],
-      estimatedDuration: `${Math.ceil(builtArea / 20)} mois`,
+      estimatedDuration: `${Math.ceil(surface / 20)} mois`,
       laborEstimate: {
-        totalWorkers: Math.ceil(builtArea / 30),
-        totalDays: Math.ceil(builtArea / 10) * 22,
+        totalWorkers: Math.ceil(surface / 30),
+        totalDays: Math.ceil(surface / 10) * 22,
         estimatedCost: estimatedTotal * 0.35,
       },
-      rawAnalysis: `Analyse du projet ${project.name}:\nType détecté: ${project.category}\nSurface estimée: ${builtArea}m²\nNombre d'étages: ${project.floors || 1}\nRésultat: Projet résidentiel standard.`,
+      rawAnalysis: `Analyse du projet ${project.name}:\nType détecté: ${project.category}\nSurface estimée: ${surface}m²\nNombre d'étages: ${project.floors || 1}\nRésultat: Projet résidentiel standard.`,
     };
 
     const breakdown = [
@@ -479,7 +474,7 @@ export const simulateAnalysis = mutation({
         estimatedCost: estimatedTotal * 0.08,
         percentage: 8,
         items: [
-          { name: "Ciment CPJ 42.5", quantity: Math.round(builtArea * 3.5), unit: "sacs", unitPrice: 12, totalPrice: Math.round(builtArea * 3.5 * 12) },
+          { name: "Ciment CPJ 42.5", quantity: Math.round(surface * 3.5), unit: "sacs", unitPrice: 12, totalPrice: Math.round(surface * 3.5 * 12) },
         ],
       },
       {
@@ -488,7 +483,7 @@ export const simulateAnalysis = mutation({
         estimatedCost: estimatedTotal * 0.04,
         percentage: 4,
         items: [
-          { name: "Sable de construction", quantity: Math.round(builtArea * 0.5), unit: "m³", unitPrice: 35, totalPrice: Math.round(builtArea * 0.5 * 35) },
+          { name: "Sable de construction", quantity: Math.round(surface * 0.5), unit: "m³", unitPrice: 35, totalPrice: Math.round(surface * 0.5 * 35) },
         ],
       },
       {
@@ -497,7 +492,7 @@ export const simulateAnalysis = mutation({
         estimatedCost: estimatedTotal * 0.12,
         percentage: 12,
         items: [
-          { name: "Acier à béton (T12)", quantity: Math.round(builtArea * 1.2), unit: "tonnes", unitPrice: 3200, totalPrice: Math.round(builtArea * 1.2 * 3200) },
+          { name: "Acier à béton (T12)", quantity: Math.round(surface * 1.2), unit: "tonnes", unitPrice: 3200, totalPrice: Math.round(surface * 1.2 * 3200) },
         ],
       },
       {
@@ -575,8 +570,7 @@ export const simulateAnalysis = mutation({
       status: "completed" as const,
       aiAnalysis: analysis,
       costEstimate,
-      landArea,
-      builtArea,
+      surface,
       optimizationTips: [
         "Utiliser des matériaux locaux pour réduire les coûts de transport",
         "Optimiser la conception pour réduire les déchets de chantier",
