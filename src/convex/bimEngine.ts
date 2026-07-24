@@ -1,15 +1,18 @@
-import {
-  PROJECT_STATUS,
-  type materialCategoryValidator,
-} from "./schema";
-
 // ============================================================================
 // PROFESSIONAL BIM COST ESTIMATION ENGINE
-// Tunisia 2026 - 6 Macro-Categories, 40+ Project Types
+// Tunisia 2026 - Market-Based Pricing (Top-Down)
+// 6 Macro-Categories, 40+ Project Types
+// ============================================================================
+// Methodology:
+// - Base cost = REAL Tunisian market price per m² × surface
+// - Distributed across 6 macro-categories using specified percentages
+// - Material items generated pro-rata within each category
+// - 3 budget scenarios based on quality level
 // ============================================================================
 
-// Prices Tunisia 2026 (TND)
+// Tunisian 2026 Market Prices (TND/m²) - Standard finish, Tunisia average
 export const P = {
+  // Unit prices for material items (used for itemized lists only)
   cement: { bag42_5: 15, bag32_5: 12.5 },
   sand: { construction: 20, fine: 18, remblai: 15 },
   gravel: { "15_25mm": 35, "8_15mm": 32 },
@@ -27,10 +30,6 @@ export const P = {
   labor: { worker_day: 55, mason_day: 70, electrician_day: 65, plumber_day: 65, painter_day: 55, tiler_day: 70 },
   transport: { truck_trip: 150, mixer_m3: 25, benne: 180 },
   equipment: { excavator_day: 250, compactor_day: 180, mixer_day: 80 },
-  finishing: { plaster_m2: 8, stucco_m2: 12, tiling_m2: 15, painting_m2: 6, demolition_m3: 25 },
-  solar: { panel_450w: 600, battery_5kwh: 2500, inverter: 3000, support: 50, cable_ml: 15 },
-  pool: { pump_filter: 1500, mosaic_m2: 45, gunite_m3: 250 },
-  garden: { soil_m3: 35, plant: 25, grass_m2: 8, paillage_m2: 12, bordure_ml: 12 },
 };
 
 export const MACRO_LABELS: Record<string, string> = {
@@ -52,6 +51,74 @@ export const MACRO_COLORS: Record<string, string> = {
 };
 
 type Percentages = [number, number, number, number, number, number];
+
+// ============================================================================
+// REAL TUNISIAN MARKET PRICES 2026 (TND/m² - clé en main, standard)
+// Based on Marché tunisien 2025-2026, toutes fournitures + main d'œuvre
+// ============================================================================
+
+const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium: number }> = {
+  // Maisons & Villa
+  maison:             { eco: 900,  std: 1400, premium: 2200 },
+  maison_r_plus_1:    { eco: 950,  std: 1500, premium: 2400 },
+  villa:              { eco: 1100, std: 1700, premium: 2800 },
+  immeuble_residentiel:{ eco: 1200, std: 1800, premium: 2600 },
+  appartement:        { eco: 1300, std: 1900, premium: 2800 },
+
+  // Piscine & Extérieur
+  piscine:            { eco: 900,  std: 1300, premium: 2000 },
+  jardin:             { eco: 90,   std: 150,  premium: 300 },
+  amenagement_paysager:{ eco: 100,  std: 160, premium: 320 },
+  garage:             { eco: 600,  std: 900,  premium: 1500 },
+  cloture:            { eco: 350,  std: 550,  premium: 900 },
+  mur_de_separation:  { eco: 300,  std: 500,  premium: 800 },
+  cuisine_exterieure: { eco: 1000, std: 1500, premium: 2500 },
+  terrasse:           { eco: 400,  std: 600,  premium: 1000 },
+  pergola:            { eco: 500,  std: 800,  premium: 1300 },
+  toiture:            { eco: 300,  std: 450,  premium: 750 },
+  extension_batiment: { eco: 1000, std: 1500, premium: 2400 },
+
+  // Commercial & Industriel
+  entrepot:           { eco: 500,  std: 800,  premium: 1300 },
+  local_commercial:   { eco: 900,  std: 1400, premium: 2200 },
+  bureau:             { eco: 1000, std: 1600, premium: 2500 },
+  ferme:              { eco: 500,  std: 700,  premium: 1100 },
+  serre_agricole:     { eco: 250,  std: 400,  premium: 650 },
+  parking:            { eco: 200,  std: 350,  premium: 600 },
+  aire_de_jeux:       { eco: 150,  std: 250,  premium: 450 },
+
+  // Institutionnel
+  mosquee:            { eco: 1200, std: 1800, premium: 2800 },
+  ecole:              { eco: 1100, std: 1700, premium: 2600 },
+  hotel:              { eco: 1500, std: 2300, premium: 3500 },
+  restaurant:         { eco: 1300, std: 2000, premium: 3200 },
+  cafe:               { eco: 1200, std: 1800, premium: 2800 },
+
+  // Industrie
+  atelier:            { eco: 400,  std: 600,  premium: 1000 },
+  usine:              { eco: 600,  std: 900,  premium: 1500 },
+  depot:              { eco: 350,  std: 500,  premium: 850 },
+
+  // Énergie
+  installation_solaire:{ eco: 2500, std: 3500, premium: 5000 },
+  chateau_d_eau:      { eco: 1500, std: 2000, premium: 3000 },
+  systeme_irrigation: { eco: 200,  std: 350,  premium: 600 },
+
+  // VRD
+  route:              { eco: 150,  std: 250,  premium: 400 },
+  trottoir:           { eco: 120,  std: 200,  premium: 350 },
+
+  // Rénovation
+  renovation_interieure:    { eco: 400,  std: 700,  premium: 1300 },
+  renovation_salle_de_bain: { eco: 1500, std: 2500, premium: 4000 },
+  renovation_cuisine:       { eco: 1500, std: 2500, premium: 4000 },
+  renovation_facade:        { eco: 250,  std: 400,  premium: 700 },
+
+  // Démolition
+  demolition:                { eco: 100,  std: 150,  premium: 250 },
+  installations_sanitaires:  { eco: 1200, std: 2000, premium: 3500 },
+  installations_electricite: { eco: 200,  std: 350,  premium: 600 },
+};
 
 const PROJECT_PCT: Record<string, Percentages> = {
   maison: [38, 29, 15, 10, 3, 5],
@@ -127,290 +194,295 @@ const REGION_MULTIPLIER: Record<string, number> = {
   le_kef: 0.90, siliana: 0.90, zaghouan: 0.95,
 };
 
-const FINISH_MULTIPLIER: Record<string, number> = {
-  economique: 0.75, standard: 1.0, premium: 1.35, luxe: 1.80,
-};
+// ============================================================================
+// MATERIAL CALCULATORS (Generate items with realistic quantities)
+// ============================================================================
 
-// --- Calculators ---
-function calcGO(surface: number, floors: number, cat: string) {
+function genGOItems(surface: number, floors: number, cat: string, targetBudget: number) {
   const tb = surface * (floors || 1);
   const isSmall = ["cloture","mur_de_separation","trottoir","pergola","terrasse","garage"].includes(cat);
   const isHeavy = ["immeuble_residentiel","usine","depot","entrepot","chateau_d_eau","mosquee","ecole"].includes(cat);
   const d = isSmall ? 0.5 : isHeavy ? 1.3 : 1;
+  // Realistic Tunisian quantities per m²
   const items = [
-    {n:"Ciment CPJ 42.5 (Sac 50kg)",q:Math.round(tb*4.2*d),u:"sacs",up:P.cement.bag42_5,t:0},
-    {n:"Ciment CPJ 32.5 (Maçonnerie)",q:Math.round(tb*1.26*d),u:"sacs",up:P.cement.bag32_5,t:0},
-    {n:"Sable de construction 0/4",q:Math.round(tb*0.6*d),u:"m³",up:P.sand.construction,t:0},
-    {n:"Gravier 15/25mm",q:Math.round(tb*0.4*d),u:"m³",up:P.gravel["15_25mm"],t:0},
-    {n:"Acier à béton T12",q:Math.round(tb*1.5*d*100)/100,u:"tonnes",up:P.steel.t12_ton,t:0},
-    {n:"Treillis soudé ST25",q:Math.round(tb*0.15),u:"m²",up:P.steel.treillis_m2,t:0},
-    {n:"Brique creuse 10cm",q:Math.round(tb*65*d),u:"unités",up:P.bricks.hollow_10,t:0},
-    {n:"Hourdis 16x50",q:Math.round(tb*8.5*d),u:"unités",up:P.bricks.hourdis_16,t:0},
-    {n:"Béton prêt à l'emploi 300kg/m³",q:Math.round(tb*0.35*d*100)/100,u:"m³",up:P.concrete.ready_mix_300,t:0},
-    {n:"Bois de coffrage",q:Math.round(tb*0.08*100)/100,u:"m³",up:P.wood.formwork_m3,t:0},
-    {n:"Fouilles en rigole",q:Math.round(tb*0.15),u:"m³",up:18,t:0},
-    {n:"Sable de remblai",q:Math.round(tb*0.1),u:"m³",up:P.sand.remblai,t:0},
+    {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*3.5*d), u:"sacs", up:P.cement.bag42_5},
+    {n:"Ciment CPJ 32.5 (Maçonnerie)", q:Math.round(tb*1.0*d), u:"sacs", up:P.cement.bag32_5},
+    {n:"Sable de construction 0/4", q:Math.round(tb*0.25*d*10)/10, u:"m³", up:P.sand.construction},
+    {n:"Gravier 15/25mm", q:Math.round(tb*0.15*d*10)/10, u:"m³", up:P.gravel["15_25mm"]},
+    {n:"Acier à béton T12", q:Math.round(tb*0.02*d*100)/100, u:"tonnes", up:P.steel.t12_ton},
+    {n:"Treillis soudé ST25", q:Math.round(tb*0.12), u:"m²", up:P.steel.treillis_m2},
+    {n:"Brique creuse 10cm", q:Math.round(tb*45*d), u:"unités", up:P.bricks.hollow_10},
+    {n:"Hourdis 16x50", q:Math.round(tb*7*d), u:"unités", up:P.bricks.hourdis_16},
+    {n:"Béton prêt à l'emploi 300kg/m³", q:Math.round(tb*0.25*d*10)/10, u:"m³", up:P.concrete.ready_mix_300},
+    {n:"Bois de coffrage", q:Math.round(tb*0.04*100)/100, u:"m³", up:P.wood.formwork_m3},
+    {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
+    {n:"Parpaing creux 20cm", q:Math.round(tb*12*d), u:"unités", up:P.bricks.parpaing_20},
   ];
-  items.forEach(i => i.t = Math.round(i.q * i.up));
-  const total = items.reduce((s,i) => s + i.t, 0);
-  return {items: items.map(i => ({name:i.n,quantity:i.q,unit:i.u,unitPrice:i.up,totalPrice:i.t})), total};
+  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
+  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
+  return items.map(i => ({
+    name:i.n, quantity:Math.round(i.q*scale*10)/10 || 1, unit:i.u,
+    unitPrice:i.up, totalPrice:Math.round(Math.round(i.q*i.up)*scale)
+  }));
 }
 
-function calcSO(surface: number, floors: number, cat: string) {
+function genSOItems(surface: number, floors: number, cat: string, targetBudget: number) {
   const tb = surface * (floors || 1);
   const isRenov = cat.startsWith("renovation");
-  const isExt = ["terrasse","pergola","toiture","jardin","amenagement_paysager","cloture","mur_de_separation"].includes(cat) || cat.includes("facade");
-  const tileQty = Math.round(tb * (isRenov ? 0.6 : 0.7));
-  const paintL = Math.round(tb * (isRenov ? 0.5 : 0.4));
-  const doorC = Math.round(tb / (isRenov ? 50 : 35));
-  const winC = Math.round(tb / 25);
+  const tileQty = Math.round(tb * (isRenov ? 0.5 : 0.65));
+  const paintL = Math.round(tb * (isRenov ? 0.4 : 0.3));
+  const doorC = Math.max(1, Math.round(tb / 45));
+  const winC = Math.max(1, Math.round(tb / 30));
   const items: any[] = [
-    {n:"Carrelage sol grès cérame",q:tileQty,u:"m²",up:P.tiles.floor_m2},
-    {n:"Carrelage mural faïence",q:Math.round(tileQty*0.3),u:"m²",up:P.tiles.wall_m2},
-    {n:"Peinture intérieure mate",q:paintL,u:"litres",up:P.paint.interior_l},
-    {n:"Peinture extérieure acrylique",q:Math.round(paintL*0.3),u:"litres",up:P.paint.exterior_l},
-    {n:"Enduit de lissage",q:Math.round(tb*2.5),u:"kg",up:1.5},
-    {n:"Bois de charpente",q:Math.round(tb*0.02*100)/100,u:"m³",up:P.wood.framing_m3},
-    {n:"Plinthe céramique",q:Math.round(tb*0.4),u:"ml",up:P.tiles.plinthe_ml},
-    {n:"Porte intérieure en bois",q:Math.max(1,doorC),u:"unités",up:P.doors.simple},
-    {n:"Porte d'entrée métallique",q:1,u:"unité",up:P.doors.metal},
-    {n:"Fenêtre coulissante alu",q:Math.max(2,winC),u:"unités",up:P.windows.alu_simple},
-    {n:"Grille de protection métallique",q:Math.max(2,winC),u:"unités",up:P.windows.iron_grille},
-    {n:"Étanchéité liquide",q:Math.round(tb*0.3),u:"m²",up:P.roofing.waterproof_m2},
-    {n:"Isolation thermique polystyrène",q:Math.round(tb*0.7),u:"m²",up:P.roofing.insulation_m2},
-    {n:"Tuile canal",q:Math.round(tb*0.7),u:"m²",up:P.roofing.tile_m2},
+    {n:"Carrelage sol grès cérame 40x40", q:tileQty, u:"m²", up:30},
+    {n:"Carrelage mural faïence 20x30", q:Math.round(tileQty*0.25), u:"m²", up:25},
+    {n:"Peinture intérieure mate lessivable", q:paintL, u:"litres", up:20},
+    {n:"Peinture extérieure acrylique", q:Math.round(paintL*0.2), u:"litres", up:25},
+    {n:"Enduit de lissage prêt à gâcher", q:Math.round(tb*2.0), u:"kg", up:1.2},
+    {n:"Plinthe céramique 8x30", q:Math.round(tb*0.35), u:"ml", up:7},
+    {n:"Porte intérieure en bois pleine", q:Math.max(1,doorC), u:"unités", up:300},
+    {n:"Porte d'entrée métallique blindée", q:1, u:"unité", up:450},
+    {n:"Fenêtre coulissante alu simple vitrage", q:Math.max(2,winC), u:"unités", up:380},
+    {n:"Grille de protection métallique", q:Math.max(2,winC), u:"unités", up:180},
+    {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.25), u:"m²", up:15},
+    {n:"Tuile canal rouge", q:Math.round(tb*0.65), u:"m²", up:12},
   ];
-  if (isExt) items.push({n:"Carrelage extérieur antidérapant",q:Math.round(tb*0.3),u:"m²",up:P.tiles.ext_m2});
-  const mapped = items.map(i => ({name:i.n,quantity:i.q,unit:i.u,unitPrice:i.up,totalPrice:Math.round(i.q*i.up)}));
-  return {items:mapped, total:mapped.reduce((s,i) => s + i.totalPrice, 0)};
+  if (isRenov) {
+    items.push({n:"Panneau de placoplâtre BA13", q:Math.round(tb*0.15), u:"m²", up:20});
+    items.push({n:"Corniche en plâtre", q:Math.round(tb*0.2), u:"ml", up:8});
+  }
+  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
+  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
+  return items.map(i => ({
+    name:i.n, quantity:Math.round(i.q*scale*10)/10 || 1, unit:i.u,
+    unitPrice:i.up, totalPrice:Math.round(Math.round(i.q*i.up)*scale)
+  }));
 }
 
-function calcEQ(surface: number, floors: number, cat: string) {
+function genEQItems(surface: number, floors: number, cat: string, targetBudget: number) {
   const tb = surface * (floors || 1);
-  const doorC = Math.round(tb / 35);
+  const items: any[] = [];
   const isPool = cat === "piscine";
   const isSolar = cat === "installation_solaire";
-  const isKitchen = cat.includes("cuisine") && !cat.includes("exterieure");
-  const isBath = cat.includes("salle_de_bain");
-  const items: any[] = [];
+  const doorC = Math.max(1, Math.round(tb / 40));
+
   if (isPool) {
-    items.push({n:"Système de filtration pompe+filtre",q:1,u:"forfait",up:P.pool.pump_filter},
-      {n:"Mosaïque piscine",q:Math.round(surface*1.2),u:"m²",up:P.pool.mosaic_m2},
-      {n:"Béton projeté gunite",q:Math.round(surface*0.5),u:"m³",up:P.pool.gunite_m3});
+    items.push({n:"Pompe de filtration + filtre à sable", q:1, u:"forfait", up:1200},
+      {n:"Projecteur LED piscine", q:2, u:"unités", up:250},
+      {n:"Skimmer + buses de refoulement", q:1, u:"forfait", up:300});
   } else if (isSolar) {
-    const pc = Math.round(surface * 0.4), bc = Math.round(pc * 0.3);
-    items.push({n:"Panneau photovoltaïque 450Wc",q:pc,u:"unités",up:P.solar.panel_450w},
-      {n:"Batterie lithium 5kWh",q:bc,u:"unités",up:P.solar.battery_5kwh},
-      {n:"Onduleur hybride",q:1,u:"unité",up:P.solar.inverter},
-      {n:"Support métallique kit",q:pc,u:"unités",up:P.solar.support});
-  } else if (isKitchen) {
-    items.push({n:"Cuisine équipée meubles+plan",q:1,u:"forfait",up:3500},
-      {n:"Évier+robinetterie",q:1,u:"unité",up:P.plumbing.evier},
-      {n:"Hotte aspirante",q:1,u:"unité",up:350});
-  } else if (isBath) {
-    items.push({n:"Receveur de douche+paroi",q:1,u:"forfait",up:600},
-      {n:"WC suspendu+réservoir",q:1,u:"unité",up:P.plumbing.wc+120},
-      {n:"Lavabo vasque+robinetterie",q:1,u:"unité",up:P.plumbing.lavabo},
-      {n:"Chauffe-eau électrique 100L",q:1,u:"unité",up:P.plumbing.geyser});
+    const panels = Math.round(surface * 0.3);
+    items.push({n:"Panneau photovoltaïque 450Wc monocristallin", q:panels, u:"unités", up:550},
+      {n:"Onduleur central", q:1, u:"unité", up:2500},
+      {n:"Coffret de protection DC/AC", q:1, u:"unité", up:400});
+  } else {
+    items.push(
+      {n:"WC complet avec réservoir", q:Math.max(1,Math.round(doorC*0.3)), u:"unités", up:250},
+      {n:"Lavabo vasque + robinetterie", q:Math.max(1,Math.round(doorC*0.25)), u:"unités", up:140},
+      {n:"Chauffe-eau électrique 80L", q:Math.max(1,Math.round(doorC*0.2)), u:"unités", up:400},
+      {n:"Receveur de douche 90x90", q:Math.max(1,Math.round(doorC*0.15)), u:"unités", up:200},
+      {n:"Tuyau PER Ø16", q:Math.round(tb*0.5), u:"ml", up:4},
+      {n:"Tuyau PVC Ø100 évacuation", q:Math.round(tb*0.05), u:"ml", up:10},
+      {n:"Câble électrique 2.5mm² (rouleau 100m)", q:Math.round(tb*2), u:"ml", up:1.5},
+      {n:"Disjoncteur divisionnaire 20A", q:Math.max(2,Math.round(doorC*0.3)), u:"unités", up:35},
+      {n:"Tableau électrique 13 modules", q:1, u:"unité", up:150},
+      {n:"Prise de courant 2P+T encastrée", q:Math.max(4,doorC*2), u:"unités", up:6},
+      {n:"Interrupteur va-et-vient", q:Math.max(3,doorC*1.5), u:"unités", up:5},
+      {n:"Luminaire LED plafonnier", q:Math.max(2,doorC*2), u:"unités", up:30});
   }
-  items.push(
-    {n:"WC complet avec réservoir",q:Math.max(1,Math.round(doorC*0.4)),u:"unités",up:P.plumbing.wc},
-    {n:"Lavabo avec robinetterie",q:Math.max(1,Math.round(doorC*0.3)),u:"unités",up:P.plumbing.lavabo},
-    {n:"Chauffe-eau 100L",q:Math.max(1,Math.round(doorC*0.3)),u:"unités",up:P.plumbing.geyser},
-    {n:"Tuyau cuivre Ø14",q:Math.round(tb*0.3),u:"ml",up:P.plumbing.copper_m},
-    {n:"Tuyau PVC Ø110 évacuation",q:Math.round(tb*0.06),u:"ml",up:P.plumbing.pvc_110},
-    {n:"Câble électrique 2.5mm²",q:Math.round(tb*4),u:"ml",up:P.electrical.cable_2_5_m},
-    {n:"Disjoncteur différentiel",q:Math.max(1,Math.round(doorC*0.5)),u:"unités",up:P.electrical.breaker},
-    {n:"Tableau électrique",q:1,u:"unité",up:P.electrical.panel},
-    {n:"Prises de courant",q:Math.max(4,doorC*3),u:"unités",up:P.electrical.socket},
-    {n:"Interrupteurs",q:Math.max(3,doorC*2),u:"unités",up:P.electrical.switch},
-    {n:"Luminaires LED",q:Math.max(2,doorC*2),u:"unités",up:P.electrical.led_light});
-  const mapped = items.map(i => ({name:i.n,quantity:i.q,unit:i.u,unitPrice:i.up,totalPrice:Math.round(i.q*i.up)}));
-  return {items:mapped, total:mapped.reduce((s,i) => s + i.totalPrice, 0)};
+  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
+  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
+  return items.map(i => ({
+    name:i.n, quantity:i.q, unit:i.u,
+    unitPrice:i.up, totalPrice:Math.round(Math.round(i.q*i.up)*scale)
+  }));
 }
 
-function calcMO(surface: number, floors: number, cat: string) {
+function genMOItems(surface: number, floors: number, cat: string, targetBudget: number) {
   const tb = surface * (floors || 1);
-  const ih = ["immeuble_residentiel","usine","mosquee","ecole","hotel"].includes(cat) ? 1.3 : 1;
+  const ih = ["immeuble_residentiel","usine","mosquee","ecole","hotel"].includes(cat) ? 1.2 : 1;
   const items = [
-    {n:"Maçon journalier",q:Math.round(tb/20*ih),u:"jours",up:P.labor.mason_day},
-    {n:"Manœuvre journalier",q:Math.round(tb/15*ih),u:"jours",up:P.labor.worker_day},
-    {n:"Électricien",q:Math.round(tb/80*ih),u:"jours",up:P.labor.electrician_day},
-    {n:"Plombier",q:Math.round(tb/100*ih),u:"jours",up:P.labor.plumber_day},
-    {n:"Carreleur",q:Math.round(tb/60*ih),u:"jours",up:P.labor.tiler_day},
-    {n:"Peintre",q:Math.round(tb/80*ih),u:"jours",up:P.labor.painter_day},
+    {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:65},
+    {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:45},
+    {n:"Électricien", q:Math.round(tb/60*ih*10)/10, u:"jours", up:60},
+    {n:"Plombier", q:Math.round(tb/80*ih*10)/10, u:"jours", up:60},
+    {n:"Carreleur", q:Math.round(tb/45*ih*10)/10, u:"jours", up:65},
+    {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:50},
+    {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:90},
   ];
-  const mapped = items.map(i => ({name:i.n,quantity:i.q,unit:i.u,unitPrice:i.up,totalPrice:Math.round(i.q*i.up)}));
-  return {items:mapped, total:mapped.reduce((s,i) => s + i.totalPrice, 0)};
+  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
+  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
+  return items.map(i => ({
+    name:i.n, quantity:i.q, unit:i.u,
+    unitPrice:i.up, totalPrice:Math.round(Math.round(i.q*i.up)*scale)
+  }));
 }
 
-function calcTR(surface: number, floors: number) {
+function genTRItems(surface: number, floors: number, targetBudget: number) {
   const tb = surface * (floors || 1);
   const items = [
-    {n:"Transport de matériaux camion",q:Math.max(1,Math.round(tb/40)),u:"voyages",up:P.transport.truck_trip},
-    {n:"Pompe à béton",q:Math.round(tb*0.35),u:"m³",up:P.transport.mixer_m3},
-    {n:"Évacuation des déchets",q:Math.max(1,Math.round(tb/50)),u:"bennes",up:P.transport.benne},
+    {n:"Transport matériaux (benne 10t)", q:Math.max(2,Math.round(tb/30)), u:"voyages", up:120},
+    {n:"Pompe à béton stationnaire", q:Math.round(tb*0.25), u:"m³", up:20},
+    {n:"Location tractopelle", q:Math.max(1,Math.round(tb/100)), u:"jours", up:200},
+    {n:"Évacuation gravats (benne 8m³)", q:Math.max(1,Math.round(tb/60)), u:"bennes", up:150},
   ];
-  const mapped = items.map(i => ({name:i.n,quantity:i.q,unit:i.u,unitPrice:i.up,totalPrice:Math.round(i.q*i.up)}));
-  return {items:mapped, total:mapped.reduce((s,i) => s + i.totalPrice, 0)};
+  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
+  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
+  return items.map(i => ({
+    name:i.n, quantity:i.q, unit:i.u,
+    unitPrice:i.up, totalPrice:Math.round(Math.round(i.q*i.up)*scale)
+  }));
 }
 
-function calcEI(total: number) {
-  const p = Math.min(total*0.02, 5000);
+function genEIItems(totalBudget: number, targetBudget: number) {
   const items = [
-    {n:"Permis de construire & taxes",q:1,u:"forfait",up:p},
-    {n:"Honoraires architecte/bureau d'études",q:1,u:"forfait",up:Math.round(total*0.03)},
-    {n:"Assurance chantier Tous Risques",q:1,u:"forfait",up:Math.round(total*0.005)},
-    {n:"Étude géotechnique G1+G2",q:1,u:"forfait",up:2500},
-    {n:"Frais raccordement eau+électricité",q:1,u:"forfait",up:1500},
+    {n:"Permis de construire + taxe voirie", q:1, u:"forfait", up:Math.round(Math.min(totalBudget*0.015, 4000))},
+    {n:"Honoraires architecte/BET", q:1, u:"forfait", up:Math.round(totalBudget*0.03)},
+    {n:"Assurance chantier tous risques", q:1, u:"forfait", up:Math.round(totalBudget*0.008)},
+    {n:"Étude de sol G12", q:1, u:"forfait", up:2000},
+    {n:"Raccordement eau potable (SONEDE)", q:1, u:"forfait", up:800},
+    {n:"Raccordement électricité (STEG)", q:1, u:"forfait", up:1000},
   ];
-  const mapped = items.map(i => ({name:i.n,quantity:i.q,unit:i.u,unitPrice:i.up,totalPrice:Math.round(i.q*i.up)}));
-  return {items:mapped, total:mapped.reduce((s,i) => s + i.totalPrice, 0)};
+  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
+  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
+  return items.map(i => ({
+    name:i.n, quantity:i.q, unit:i.u,
+    unitPrice:i.up, totalPrice:Math.round((i.q*i.up)*scale)
+  }));
 }
 
 function estimateDuration(s: number, fl: number, cat: string): string {
   const tb = s * (fl || 1);
-  if (cat.startsWith("renovation")) return `${Math.max(1, Math.round(tb/60))} mois`;
-  if (["pergola","terrasse","cloture","mur_de_separation","trottoir","garage"].includes(cat)) return `${Math.max(1, Math.round(tb/80))} mois`;
-  if (cat==="piscine") return `${Math.max(2, Math.round(s/15))} mois`;
-  if (["jardin","amenagement_paysager","aire_de_jeux"].includes(cat)) return `${Math.max(1, Math.round(tb/150))} mois`;
-  if (cat==="installation_solaire") return `${Math.max(1, Math.round(tb/100))} mois`;
-  return `${Math.max(2, Math.round(tb/50*(fl||1)))} mois`;
-}
-
-function genTips(cat: string, s: number, reg?: string, fLvl?: string, mt?: Record<string,number>): string[] {
-  const t: string[] = [];
-  if (mt) {
-    const go = (mt.gros_oeuvre||0)/(Object.values(mt).reduce((a,b) => a+b,0)||1);
-    if (go > 0.45) t.push("Le gros œuvre est important. Envisagez blocs béton cellulaire pour réduire poids et fondations.");
-  }
-  t.push("Privilégiez matériaux locaux tunisiens (ciment Bizerte, carrelage Kairouan, marbre Thala) pour réduire transport.");
-  if (s > 200) t.push("Pour >200m², négociez tarifs de gros fournisseurs pour 5-10% de réduction.");
-  if (cat==="maison"||cat==="villa") {
-    t.push("Plan carré = 15% plus économique qu'un plan complexe. Optimisez le ratio surface/volume.");
-    t.push("Briques alvéolaires 10cm pour cloisons : 20% moins cher et meilleure isolation.");
-  }
-  if (cat==="piscine") {
-    t.push("Revêtement liner plutôt que mosaïque : économie de 30%.");
-    t.push("Pompe à vitesse variable pour -40% consommation électrique.");
-  }
-  if (cat.startsWith("renovation")) {
-    t.push("Conservez structures existantes (murs porteurs, charpente) quand possible : 70% du coût.");
-    t.push("Peinture lessivable pour pièces humides : durée de vie doublée.");
-  }
-  if (reg && ["tunis","ariana","ben_arous"].includes(reg)) t.push("Région Tunis : prix 10-15% plus élevés. Achetez en vrac et stockez.");
-  t.push("Scénario Économique -25% : matériaux qualité standard, finitions simples.");
-  t.push("Regroupez achats ciment+sable+gravier pour remises 5-8%.");
-  return t.slice(0,8);
-}
-
-function genTechRecs(cat: string, s: number, fl: number): string[] {
-  const r: string[] = [];
-  if (fl >= 3) {
-    r.push("Étude de sol G2 obligatoire pour >3 étages.");
-    r.push("Béton dosé 350kg/m³ minimum pour éléments porteurs verticaux.");
-  }
-  if (s > 150) {
-    r.push("Joint de dilatation tous les 25-30m pour éviter fissures thermiques.");
-    r.push("Drainage périphérique (drain français) pour protéger fondations.");
-  }
-  if (cat==="piscine") r.push("Ferraillage acier galvanisé/inox anti-corrosion.","Test étanchéité 72h minimum.");
-  if (cat==="toiture") r.push("Pente minimale tuile canal 27%. Isolation R ≥ 2.5 m².K/W.");
-  if (cat==="installation_solaire") r.push("Orientation sud, inclinaison 30-35° pour Tunisie.","Parafoudre et mise à terre NF C 15-100.");
-  if (cat.startsWith("renovation")) r.push("Vérifier amiante avant démolition.","Renforcer planchers si changement d'usage.");
-  r.push("Norme tunisienne NT 47.01 : maison 150 kg/m², bureau 250 kg/m².");
-  r.push("Vide sanitaire ≥ 30cm pour aération et isolation plancher bas.");
-  return r.slice(0,8);
+  if (cat.startsWith("renovation")) return `${Math.max(1, Math.round(tb/40))} mois`;
+  if (["pergola","terrasse","cloture","mur_de_separation","trottoir","garage"].includes(cat)) return `${Math.max(1, Math.round(tb/60))} mois`;
+  if (cat==="piscine") return `${Math.max(2, Math.round(s/12))} mois`;
+  if (["jardin","amenagement_paysager","aire_de_jeux"].includes(cat)) return `${Math.max(1, Math.round(tb/100))} mois`;
+  if (cat==="installation_solaire") return `${Math.max(1, Math.round(tb/80))} mois`;
+  return `${Math.max(2, Math.round(tb/40*(fl||1)))} mois`;
 }
 
 function detectAnomalies(cat: string, s: number, fl: number) {
   const a: any[] = [];
   if (s > 500 && (!fl || fl===1)) a.push({type:"Dimension excessive",severity:"moyenne",desc:`Surface ${s}m² sur un seul niveau.`,rec:"Envisager un étage pour réduire emprise au sol."});
   if (fl && fl >= 5) a.push({type:"Hauteur importante",severity:"élevée",desc:`${fl} étages = ascenseur obligatoire.`,rec:"Prévoir ascenseur PMR et voies d'évacuation incendie."});
-  if (s < 20 && !["terrasse","pergola","garage"].includes(cat)) a.push({type:"Surface insuffisante",severity:"faible",desc:`${s}m² très réduit pour ce projet.`,rec:"Vérifier les dimensions saisies."});
-  if (cat==="piscine" && s > 200) a.push({type:"Piscine très grande",severity:"moyenne",desc:`${s}m² coûts d'entretien élevés.`,rec:"Chauffage solaire pour réduire coûts énergétiques."});
+  if (s < 20 && !["terrasse","pergola","garage","piscine"].includes(cat)) a.push({type:"Surface insuffisante",severity:"faible",desc:`${s}m² très réduit pour ce projet.`,rec:"Vérifier les dimensions saisies."});
+  if (cat==="piscine" && s > 150) a.push({type:"Piscine très grande",severity:"moyenne",desc:`${s}m² coûts d'entretien élevés.`,rec:"Chauffage solaire pour réduire coûts énergétiques."});
+  if (cat==="toiture" && s < 30) a.push({type:"Petite surface de toiture",severity:"faible",desc:`${s}m² - vérifier rentabilité.`,rec:"Regrouper avec d'autres travaux."});
   return a.map(x => ({type:x.type,severity:x.severity,description:x.desc,recommendation:x.rec}));
 }
+
+function getMethods(cat: string): string[] {
+  if (cat==="piscine") return ["Béton projeté gunite","Coffrage traditionnel","Revêtement carrelage","Filtration à sable"];
+  if (cat==="installation_solaire") return ["Structures alu toiture","Raccordement STEG","Compteur bidirectionnel"];
+  if (cat.startsWith("renovation")) return ["Démolition sélective","Nettoyage/reprise support","Enduit projeté","Peinture acrylique"];
+  if (["jardin","amenagement_paysager"].includes(cat)) return ["Terrassement mécanique","Irrigation goutte-à-goutte","Plantation manuelle"];
+  return ["Fondations semelles filantes","Maçonnerie briques creuses","Dalle pleine béton armé","Enduit traditionnel","Carrelage collé"];
+}
+
+// ============================================================================
+// MAIN ENTRY POINT
+// ============================================================================
 
 export function runBIMEstimation(
   category: string, surface: number, floors: number,
   region?: string, finishLevel?: string
 ) {
   const pct = PROJECT_PCT[category] || [35, 30, 15, 10, 3, 7];
+  const marketPrices = MARKET_PRICE_M2[category] || { eco: 1000, std: 1500, premium: 2500 };
   const rMult = region ? (REGION_MULTIPLIER[region] || 1.0) : 1.0;
-  const fMult = finishLevel ? (FINISH_MULTIPLIER[finishLevel] || 1.0) : 1.0;
 
-  const go = calcGO(surface, floors, category);
-  const so = calcSO(surface, floors, category);
-  const eq = calcEQ(surface, floors, category);
-  const mo = calcMO(surface, floors, category);
-  const tr = calcTR(surface, floors);
-  const ei = calcEI(go.total + so.total + eq.total + mo.total + tr.total);
+  // Determine finish level multiplier
+  const fLevel = finishLevel || "standard";
+  let fMult = 1.0;
+  let basePriceM2 = marketPrices.std;
+  if (fLevel === "economique") { fMult = 0.8; basePriceM2 = marketPrices.eco; }
+  else if (fLevel === "premium") { fMult = 1.3; basePriceM2 = marketPrices.premium; }
+  else if (fLevel === "luxe") { fMult = 1.7; basePriceM2 = marketPrices.premium * 1.3; }
+  else { fMult = 1.0; basePriceM2 = marketPrices.std; }
 
-  const rawTotal = go.total + so.total + eq.total + mo.total + tr.total + ei.total;
-  const target = Math.round(rawTotal * rMult * fMult);
-  const rawVals = [go.total, so.total, eq.total, mo.total, tr.total, ei.total];
-  const rawSum = rawVals.reduce((a,b) => a+b, 0) || 1;
+  const tb = surface * (floors || 1);
+  const totalBeforeRegion = Math.round(basePriceM2 * tb * fMult / (rMult || 1));
+  const finalTotal = Math.round(totalBeforeRegion * rMult);
+  const costM2 = tb > 0 ? Math.round(finalTotal / tb) : 0;
+
   const keys = ["gros_oeuvre","second_oeuvre","equipements","main_oeuvre","transport","etudes_imprevus"];
   const labels = ["Gros œuvre","Second œuvre","Équipements","Main-d'œuvre","Transport","Études, permis & imprévus"];
-  const allItems = [go.items, so.items, eq.items, mo.items, tr.items, ei.items];
 
-  const macroTotals: Record<string, number> = {};
-  const macroItems: Record<string, any[]> = {};
+  // Generate category budgets from percentages
+  const categoryBudgets: Record<string, number> = {};
   keys.forEach((k, i) => {
-    const targetPct = pct[i] / 100;
-    const targeted = Math.round(target * targetPct);
-    const scale = targeted / (rawVals[i] || 1);
-    const items = allItems[i].map(item => ({
-      ...item,
-      totalPrice: Math.round(item.totalPrice * scale),
-      unitPrice: Math.round(item.unitPrice * scale),
+    categoryBudgets[k] = Math.round(finalTotal * (pct[i] / 100));
+  });
+  // Adjust for rounding
+  const sum = keys.reduce((s, k) => s + categoryBudgets[k], 0);
+  categoryBudgets.main_oeuvre = Math.max(1, categoryBudgets.main_oeuvre - (sum - finalTotal));
+
+  // Generate itemized lists per category
+  const genMap: Record<string, (s: number, f: number, c: string, b: number) => any[]> = {
+    gros_oeuvre: genGOItems,
+    second_oeuvre: genSOItems,
+    equipements: genEQItems,
+    main_oeuvre: genMOItems,
+    transport: (s: number, f: number, c: string, b: number) => genTRItems(s, f, b),
+    etudes_imprevus: (s: number, f: number, c: string, b: number) => genEIItems(finalTotal, b),
+  };
+
+  const breakdown = keys.map((k, i) => {
+    const budget = categoryBudgets[k];
+    const items = genMap[k](surface, floors, category, budget);
+    const itemTotal = items.reduce((s, it) => s + it.totalPrice, 0);
+    // Scale items to match budget exactly
+    const scale = itemTotal > 0 ? budget / itemTotal : 1;
+    const scaledItems = items.map(it => ({
+      ...it,
+      totalPrice: Math.round(it.totalPrice * scale),
     }));
-    macroTotals[k] = targeted;
-    macroItems[k] = items;
+    const finalItemTotal = scaledItems.reduce((s, it) => s + it.totalPrice, 0);
+    return {
+      category: k, label: labels[i],
+      estimatedCost: finalItemTotal, percentage: pct[i],
+      items: scaledItems,
+    };
   });
 
-  const sumCheck = keys.reduce((s,k) => s + macroTotals[k], 0);
-  const diff = target - sumCheck;
-  if (diff !== 0) macroTotals.main_oeuvre = (macroTotals.main_oeuvre || 0) + diff;
-
-  const breakdown = keys.map((k,i) => ({
-    category: k, label: labels[i],
-    estimatedCost: macroTotals[k], percentage: pct[i],
-    items: macroItems[k],
-  }));
-
-  const finalTotal = keys.reduce((s,k) => s + macroTotals[k], 0);
   const contingencyPct = 5;
   const buffer = Math.round(finalTotal * contingencyPct / 100);
   const totalWithBuffer = finalTotal + buffer;
-  const costM2 = surface > 0 ? Math.round(totalWithBuffer / surface) : 0;
+  const finalCostM2 = tb > 0 ? Math.round(totalWithBuffer / tb) : 0;
 
+  // Budget scenarios using REAL market price ranges
+  const totalEco = Math.round(marketPrices.eco * tb * rMult);
+  const totalPremium = Math.round(marketPrices.premium * tb * rMult);
   const scenarios = {
-    economique: { label:"Économique", totalCost: Math.round(totalWithBuffer*0.75), costPerM2: Math.round(costM2*0.75), multiplier:0.75 },
-    standard: { label:"Standard", totalCost: totalWithBuffer, costPerM2: costM2, multiplier:1.0 },
-    premium: { label:"Premium", totalCost: Math.round(totalWithBuffer*1.35), costPerM2: Math.round(costM2*1.35), multiplier:1.35 },
+    economique: { label:"Économique", totalCost: totalEco + Math.round(totalEco * contingencyPct / 100), costPerM2: Math.round(totalEco / tb), multiplier: 0.8 },
+    standard: { label:"Standard", totalCost: totalWithBuffer, costPerM2: finalCostM2, multiplier: 1.0 },
+    premium: { label:"Premium", totalCost: totalPremium + Math.round(totalPremium * contingencyPct / 100), costPerM2: Math.round(totalPremium / tb), multiplier: 1.3 },
   };
 
-  let confidence = 0.85;
+  // Confidence index
+  let confidence = 0.90;
   if (!region) confidence -= 0.05;
   if (!finishLevel) confidence -= 0.03;
-  if (surface <= 0) confidence -= 0.15;
-  if (surface < 30) confidence -= 0.08;
-  if (category === "projet_personnalise") confidence -= 0.10;
+  if (surface <= 0) confidence -= 0.20;
+  if (surface < 30) confidence -= 0.10;
+  if (!MARKET_PRICE_M2[category]) confidence -= 0.10;
   confidence = Math.max(0.3, Math.min(1.0, confidence));
 
-  const laborTotal = macroTotals.main_oeuvre || 0;
-  const totalDays = Math.round(laborTotal / 65);
-  const avgWorkers = Math.max(1, Math.round(totalDays / 26));
+  const laborTotal = breakdown[3]?.estimatedCost || 0;
+  const avgWorkerCost = 55;
+  const totalDays = laborTotal > 0 ? Math.round(laborTotal / avgWorkerCost) : 0;
+  const avgWorkers = Math.max(1, Math.round(totalDays / 22));
 
   const anomalies = detectAnomalies(category, surface, floors);
   const duration = estimateDuration(surface, floors, category);
 
+  // Optimization tips
+  const tips = generateTips(category, surface, region, finishLevel, costM2);
+
   return {
     costEstimate: {
       totalCost: totalWithBuffer,
-      costPerSquareMeter: costM2,
+      costPerSquareMeter: finalCostM2,
       currency: "TND",
       breakdown,
       contingencyBuffer: buffer,
@@ -426,17 +498,50 @@ export function runBIMEstimation(
       constructionMethods: getMethods(category),
       estimatedDuration: duration,
       laborEstimate: { totalWorkers: avgWorkers, totalDays, estimatedCost: laborTotal },
-      rawAnalysis: "Analyse BIM basée sur les prix Tunisie 2026",
+      rawAnalysis: "Analyse BIM basée sur les prix du marché tunisien 2026",
     },
-    optimizationTips: genTips(category, surface, region, finishLevel, macroTotals),
-    technicalRecommendations: genTechRecs(category, surface, floors),
+    optimizationTips: tips,
+    technicalRecommendations: generateTechRecs(category, surface, floors),
   };
 }
 
-function getMethods(cat: string): string[] {
-  if (cat==="piscine") return ["Béton projeté gunite","Coffrage traditionnel","Revêtement mosaïque","Filtration à sable"];
-  if (cat==="installation_solaire") return ["Structures métalliques sur toiture","Raccordement STEG","Batteries Lithium-ion"];
-  if (cat.startsWith("renovation")) return ["Démolition sélective","Renforcement structurel","Enduit projeté","Peinture acrylique"];
-  if (["jardin","amenagement_paysager"].includes(cat)) return ["Terrassement mécanique","Drainage agricole","Irrigation goutte-à-goutte","Plantation manuelle"];
-  return ["Fondations semelles filantes","Maçonnerie briques creuses","Dalle pleine béton armé","Enduit ciment projeté","Carrelage collé"];
+function generateTips(cat: string, s: number, reg?: string, fLvl?: string, costM2?: number): string[] {
+  const t: string[] = [];
+  t.push("Privilégiez les matériaux locaux (ciment Bizerte, carrelage Kairouan, marbre Thala) pour réduire le transport.");
+  if (s > 200) t.push("Pour plus de 200m², négociez des remises de 5-10% auprès des fournisseurs en gros.");
+  if (cat==="maison"||cat==="villa") {
+    t.push("Un plan carré est 15% plus économique qu'un plan complexe. Optimisez le ratio surface/volume.");
+    t.push("Utilisez des briques alvéolaires 10cm pour les cloisons : 20% moins cher et meilleure isolation.");
+  }
+  if (cat==="piscine") {
+    t.push("Revêtement liner plutôt que mosaïque : économie de 30% sur le budget revêtement.");
+    t.push("Pompe à vitesse variable : réduit de 40% la consommation électrique.");
+  }
+  if (cat.startsWith("renovation")) {
+    t.push("Conservez les structures existantes (murs porteurs, charpente) quand c'est possible.");
+    t.push("Peinture lessivable dans les pièces humides : durée de vie doublée.");
+  }
+  if (reg && ["tunis","ariana","ben_arous"].includes(reg)) t.push("Région Tunis : prix 10-15% plus élevés. Achetez en région pour économiser.");
+  if (costM2 && costM2 > 1800) t.push("Budget premium : envisagez un suivi par un maître d'œuvre pour optimiser les finitions.");
+  t.push("Regroupez vos achats (ciment + sable + gravier) pour obtenir des remises de 5-8%.");
+  return t.slice(0, 8);
+}
+
+function generateTechRecs(cat: string, s: number, fl: number): string[] {
+  const r: string[] = [];
+  if (fl >= 3) {
+    r.push("Étude de sol G2 obligatoire pour plus de 3 étages (NT 47.01).");
+    r.push("Béton dosé à 350 kg/m³ minimum pour les éléments porteurs verticaux.");
+  }
+  if (s > 150) {
+    r.push("Prévoyez des joints de dilatation tous les 25-30 mètres.");
+    r.push("Drainage périphérique (drain français) pour protéger les fondations.");
+  }
+  if (cat==="piscine") r.push("Utilisez des aciers galvanisés ou inox pour les parties immergées.", "Test d'étanchéité de 72 heures minimum avant mise en eau.");
+  if (cat==="toiture") r.push("Pente minimale de 27% pour les tuiles canal. Isolation R ≥ 2.5 m².K/W.");
+  if (cat==="installation_solaire") r.push("Orientation sud avec inclinaison de 30-35° (optimal pour la Tunisie).", "Installez un parafoudre et une mise à la terre conforme à la NF C 15-100.");
+  if (cat.startsWith("renovation")) r.push("Vérifiez la présence d'amiante avant toute démolition.", "Renforcez les planchers si le changement d'usage le nécessite.");
+  r.push("Norme tunisienne NT 47.01 : charge d'exploitation maison 150 kg/m², bureau 250 kg/m².");
+  r.push("Prévoyez un vide sanitaire d'au moins 30 cm pour l'aération et l'isolation.");
+  return r.slice(0, 8);
 }

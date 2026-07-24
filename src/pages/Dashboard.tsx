@@ -276,7 +276,7 @@ export default function Dashboard() {
   );
 
   return (
-    <main className="min-h-screen bg-background pb-16 sm:pb-0">
+    <main className="min-h-screen bg-background">
       {/* Mobile sidebar overlay */}
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
@@ -469,26 +469,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Mobile bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/40 bg-background/95 backdrop-blur-md lg:hidden safe-area-bottom">
-        <div className="flex items-center justify-around h-14 px-2">
-          {[
-            { icon: LayoutDashboard, label: "Dashboard", active: true, onClick: () => {} },
-            { icon: Plus, label: "Nouveau", onClick: () => navigate("/dashboard/new") },
-            { icon: Star, label: "Favoris", onClick: () => setActiveTab("favorites") },
-            { icon: TrendingUp, label: "Prix", onClick: () => navigate("/dashboard/materials") },
-            { icon: Settings, label: "Plus", onClick: () => setMobileSidebarOpen(true) },
-          ].map((item) => (
-            <button key={item.label} onClick={item.onClick}
-              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors active:scale-95 ${
-                item.active ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              }`}>
-              <item.icon className="h-5 w-5" />
-              <span className="text-[10px] font-medium">{item.label}</span>
-            </button>
-          ))}
-        </div>
-      </nav>
+
     </main>
   );
 }
