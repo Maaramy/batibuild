@@ -142,44 +142,46 @@ export default function AdminPanel() {
   return (
     <main className="min-h-screen bg-background">
       <header className="border-b border-border/30 bg-background/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 flex items-center justify-between h-16">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate("/dashboard")}>
+        <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-between h-14 sm:h-16">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Button variant="ghost" size="sm" className="gap-1 sm:gap-2 h-8 sm:h-9 shrink-0" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-4 w-4" />
-              Retour
+              <span className="hidden sm:inline">Retour</span>
             </Button>
-            <div className="h-4 w-px bg-border" />
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-primary" />
-              <h1 className="text-sm font-semibold">Administration</h1>
+            <div className="h-4 w-px bg-border shrink-0" />
+            <div className="flex items-center gap-2 min-w-0">
+              <Shield className="h-4 w-4 text-primary shrink-0" />
+              <h1 className="text-sm font-semibold truncate">Administration</h1>
             </div>
           </div>
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0">
             Admin
           </Badge>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6 bg-background border border-border/50 p-1">
-            <TabsTrigger value="dashboard" className="text-xs gap-1.5">
-              <BarChart3 className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="materials" className="text-xs gap-1.5">
-              <Package className="h-4 w-4" />
-              Matériaux
-            </TabsTrigger>
-            <TabsTrigger value="projects" className="text-xs gap-1.5">
-              <Building2 className="h-4 w-4" />
-              Projets
-            </TabsTrigger>
-            <TabsTrigger value="users" className="text-xs gap-1.5">
-              <Users className="h-4 w-4" />
-              Utilisateurs
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0 mb-4 sm:mb-6">
+            <TabsList className="bg-background border border-border/50 p-1 w-fit min-w-max">
+              <TabsTrigger value="dashboard" className="text-xs gap-1.5">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden xs:inline">Dashboard</span>
+              </TabsTrigger>
+              <TabsTrigger value="materials" className="text-xs gap-1.5">
+                <Package className="h-4 w-4" />
+                <span className="hidden xs:inline">Matériaux</span>
+              </TabsTrigger>
+              <TabsTrigger value="projects" className="text-xs gap-1.5">
+                <Building2 className="h-4 w-4" />
+                <span className="hidden xs:inline">Projets</span>
+              </TabsTrigger>
+              <TabsTrigger value="users" className="text-xs gap-1.5">
+                <Users className="h-4 w-4" />
+                <span className="hidden xs:inline">Utilisateurs</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Admin Dashboard */}
           <TabsContent value="dashboard">
@@ -259,28 +261,29 @@ export default function AdminPanel() {
           {/* Materials Management */}
           <TabsContent value="materials">
             <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <CardTitle className="text-base">Gestion des prix des matériaux</CardTitle>
-                  <CardDescription>Base de données des prix du marché tunisien</CardDescription>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-6">
+              <div className="min-w-0">
+                <CardTitle className="text-sm sm:text-base">Gestion des prix des matériaux</CardTitle>
+                <CardDescription className="text-xs">Base de données des prix du marché tunisien</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Rechercher..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-9 w-32 sm:w-48 pl-9 text-sm"
+                  />
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Rechercher..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-9 w-48 pl-9 text-sm"
-                    />
-                  </div>
-                  <Button size="sm" className="gap-1.5 h-9" onClick={() => setShowNewMaterial(!showNewMaterial)}>
-                    <Plus className="h-4 w-4" />
-                    Ajouter
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
+                <Button size="sm" className="gap-1.5 h-9 shrink-0" onClick={() => setShowNewMaterial(!showNewMaterial)}>
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden xs:inline">Ajouter</span>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0 sm:p-6">
+              <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                 {/* New material form */}
                 {showNewMaterial && (
                   <motion.div
@@ -325,97 +328,98 @@ export default function AdminPanel() {
                     </div>
                   </motion.div>
                 )}
+              </div>
 
-                {/* Materials table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border/30">
-                        <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Nom</th>
-                        <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Catégorie</th>
-                        <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Unité</th>
-                        <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Prix (TND)</th>
-                        <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Actions</th>
+              {/* Materials table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/30">
+                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Nom</th>
+                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Catégorie</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Unité</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Prix (TND)</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMaterials.map((material: any) => (
+                      <tr key={material._id} className="border-b border-border/20 hover:bg-muted/30 transition-colors">
+                        <td className="py-2.5 px-2">
+                          {editingMaterial === material._id ? (
+                            <Input
+                              value={editValues[material._id]?.name || material.name}
+                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], name: e.target.value } })}
+                              className="h-8 text-sm"
+                            />
+                          ) : (
+                            <span className="font-medium">{material.name}</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2">
+                          <Badge variant="secondary" className="text-xs font-normal">
+                            {categoryLabels[material.category] || material.category}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 px-2 text-right">
+                          {editingMaterial === material._id ? (
+                            <Input
+                              value={editValues[material._id]?.unit || material.unit}
+                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], unit: e.target.value } })}
+                              className="h-8 text-sm w-20 ml-auto"
+                            />
+                          ) : (
+                            material.unit
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-medium">
+                          {editingMaterial === material._id ? (
+                            <Input
+                              type="number"
+                              value={editValues[material._id]?.unitPrice ?? material.unitPrice}
+                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], unitPrice: parseFloat(e.target.value) } })}
+                              className="h-8 text-sm w-24 ml-auto"
+                            />
+                          ) : (
+                            `${material.unitPrice.toFixed(3)} TND`
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2 text-right">
+                          {editingMaterial === material._id ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-500" onClick={() => handleUpdateMaterial(material._id)}>
+                                <Save className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingMaterial(null)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingMaterial(material._id)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={async () => {
+                                  if (confirm("Supprimer ce matériau ?")) {
+                                    await deleteMaterial({ id: material._id });
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {filteredMaterials.map((material: any) => (
-                        <tr key={material._id} className="border-b border-border/20 hover:bg-muted/30 transition-colors">
-                          <td className="py-2.5 px-2">
-                            {editingMaterial === material._id ? (
-                              <Input
-                                value={editValues[material._id]?.name || material.name}
-                                onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], name: e.target.value } })}
-                                className="h-8 text-sm"
-                              />
-                            ) : (
-                              <span className="font-medium">{material.name}</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-2">
-                            <Badge variant="secondary" className="text-xs font-normal">
-                              {categoryLabels[material.category] || material.category}
-                            </Badge>
-                          </td>
-                          <td className="py-2.5 px-2 text-right">
-                            {editingMaterial === material._id ? (
-                              <Input
-                                value={editValues[material._id]?.unit || material.unit}
-                                onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], unit: e.target.value } })}
-                                className="h-8 text-sm w-20 ml-auto"
-                              />
-                            ) : (
-                              material.unit
-                            )}
-                          </td>
-                          <td className="py-2.5 px-2 text-right font-medium">
-                            {editingMaterial === material._id ? (
-                              <Input
-                                type="number"
-                                value={editValues[material._id]?.unitPrice ?? material.unitPrice}
-                                onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], unitPrice: parseFloat(e.target.value) } })}
-                                className="h-8 text-sm w-24 ml-auto"
-                              />
-                            ) : (
-                              `${material.unitPrice.toFixed(3)} TND`
-                            )}
-                          </td>
-                          <td className="py-2.5 px-2 text-right">
-                            {editingMaterial === material._id ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-500" onClick={() => handleUpdateMaterial(material._id)}>
-                                  <Save className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingMaterial(null)}>
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-end gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingMaterial(material._id)}>
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-destructive"
-                                  onClick={async () => {
-                                    if (confirm("Supprimer ce matériau ?")) {
-                                      await deleteMaterial({ id: material._id });
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
             </Card>
           </TabsContent>
 

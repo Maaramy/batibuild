@@ -157,56 +157,60 @@ export default function ProjectDetail() {
     <main className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border/30 bg-background/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 flex items-center justify-between h-16">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate("/dashboard")}>
+        <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-between h-14 sm:h-16">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Button variant="ghost" size="sm" className="gap-1 sm:gap-2 shrink-0 h-8 sm:h-9" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-4 w-4" />
-              Retour
+              <span className="hidden sm:inline">Retour</span>
             </Button>
-            <div className="h-4 w-px bg-border" />
-            <div>
-              <h1 className="text-sm font-semibold truncate max-w-[200px] sm:max-w-md">{project.name}</h1>
-              <p className="text-xs text-muted-foreground">
+            <div className="h-4 w-px bg-border shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-sm font-semibold truncate max-w-[120px] xs:max-w-[200px] sm:max-w-md">{project.name}</h1>
+              <p className="text-xs text-muted-foreground truncate max-w-[120px] xs:max-w-[200px] sm:max-w-md">
                 {categoryLabels[project.category] || project.category}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9"
+              className="h-8 w-8 sm:h-9 sm:w-9"
               onClick={() => toggleFavorite({ projectId: project._id })}
             >
               <Heart className={`h-4 w-4 ${project.isFavorite ? 'fill-red-400 text-red-400' : ''}`} />
             </Button>
             {isCompleted && (
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Exporter</span>
-              </Button>
+              <div className="flex gap-1">
+                <Button variant="outline" size="icon" className="h-8 w-8 sm:hidden">
+                  <Download className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" className="hidden sm:inline-flex gap-1.5 h-8 sm:h-9">
+                  <Download className="h-4 w-4" />
+                  Exporter
+                </Button>
+              </div>
             )}
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Status Banner */}
-        {!isCompleted && !isAnalyzing && (
-          <Card className="border border-yellow-500/30 bg-yellow-500/5">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-500/10 text-yellow-600">
+        {!isCompleted && !isAnalyzing && (              <Card className="border border-yellow-500/30 bg-yellow-500/5">
+            <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:justify-between">
+              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-yellow-500/10 text-yellow-600">
                   <Cpu className="h-4 w-4" />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">Projet en attente d'analyse</p>
                   <p className="text-xs text-muted-foreground">Lancez l'analyse IA pour obtenir une estimation</p>
                 </div>
               </div>
               <Button
                 size="sm"
-                className="gap-1.5"
+                className="gap-1.5 w-full sm:w-auto mt-2 sm:mt-0"
                 onClick={async () => {
                   await startAnalysis({ projectId: project._id });
                   await simulateAnalysis({ projectId: project._id });
@@ -243,11 +247,11 @@ export default function ProjectDetail() {
                 className="lg:col-span-2"
               >
                 <Card className="border border-border/50 bg-gradient-to-br from-primary/5 to-background">
-                  <CardContent className="p-6 lg:p-8">
+                  <CardContent className="p-4 sm:p-6 lg:p-8">
                     <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
                       <div>
                         <p className="text-sm text-muted-foreground font-medium mb-1">Coût total estimé</p>
-                        <p className="text-4xl sm:text-5xl font-bold gradient-text">
+                        <p className="text-2xl xs:text-3xl sm:text-4xl lg:text-5xl font-bold gradient-text break-words">
                           {new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(costEstimate.totalCost)}
                         </p>
                         <div className="flex items-center gap-4 mt-3">
@@ -263,18 +267,15 @@ export default function ProjectDetail() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="gap-1.5">
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                        <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" title="Exporter PDF">
                           <FileText className="h-4 w-4" />
-                          PDF
                         </Button>
-                        <Button variant="outline" size="sm" className="gap-1.5">
+                        <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" title="Exporter Excel">
                           <FileSpreadsheet className="h-4 w-4" />
-                          Excel
                         </Button>
-                        <Button variant="outline" size="sm" className="gap-1.5">
+                        <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" title="Exporter CSV">
                           <Download className="h-4 w-4" />
-                          CSV
                         </Button>
                       </div>
                     </div>
@@ -287,7 +288,7 @@ export default function ProjectDetail() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="space-y-3"
+                className="grid grid-cols-3 lg:grid-cols-1 gap-3"
               >
                 <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
                   <CardContent className="p-4 flex items-center gap-3">
@@ -340,7 +341,7 @@ export default function ProjectDetail() {
                     <CardDescription>Par catégorie de matériaux</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[300px]">
+                    <div className="h-[250px] sm:h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
@@ -378,7 +379,7 @@ export default function ProjectDetail() {
                       </ResponsiveContainer>
                     </div>
                     {/* Legend */}
-                    <div className="grid grid-cols-2 gap-2 mt-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 gap-1.5 sm:gap-2 mt-3 sm:mt-4">
                       {costEstimate.breakdown.filter((b: any) => b.percentage > 2).map((item: any) => (
                         <div key={item.label} className="flex items-center gap-2 text-xs">
                           <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: CATEGORY_COLORS[item.category] || "#6b7280" }} />
@@ -521,15 +522,15 @@ export default function ProjectDetail() {
             {/* Materials List */}
             {costEstimate.breakdown.some((b: any) => b.items && b.items.length > 0) && (
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-                <CardHeader>
+                <CardHeader className="p-4 sm:p-6">
                   <div className="flex items-center gap-2">
-                    <Truck className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-base">Liste des matériaux</CardTitle>
-                    <CardDescription>Quantités et prix unitaires</CardDescription>
+                    <Truck className="h-5 w-5 text-primary shrink-0" />
+                    <CardTitle className="text-sm sm:text-base">Liste des matériaux</CardTitle>
+                    <CardDescription className="hidden sm:block">Quantités et prix unitaires</CardDescription>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
+                <CardContent className="p-0 sm:p-6">
+                  <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border/30">
@@ -566,11 +567,11 @@ export default function ProjectDetail() {
 
             {/* Project Details */}
             <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-base">Détails du projet</CardTitle>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-sm sm:text-base">Détails du projet</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                   {project.region ? (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Région</p>

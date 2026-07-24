@@ -214,23 +214,23 @@ export default function NewProject() {
     <main className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border/30 bg-background/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 flex items-center h-16">
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate("/dashboard")}>
+        <div className="mx-auto max-w-5xl px-3 sm:px-6 flex items-center h-14 sm:h-16">
+          <Button variant="ghost" size="sm" className="gap-1 sm:gap-2 h-8 sm:h-9 shrink-0" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4" />
-            Retour
+            <span className="hidden sm:inline">Retour</span>
           </Button>
-          <div className="ml-4 flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <HardHat className="h-3.5 w-3.5" />
+          <div className="ml-2 sm:ml-4 flex items-center gap-2">
+            <div className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <HardHat className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             </div>
-            <span className="font-semibold text-sm">Nouveau projet</span>
+            <span className="font-semibold text-xs sm:text-sm">Nouveau projet</span>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8">
+      <div className="mx-auto max-w-3xl px-3 sm:px-6 py-4 sm:py-8">
         {/* Progress steps */}
-        <div className="flex items-center justify-center gap-2 mb-8">
+        <div className="flex items-center justify-center gap-1 sm:gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2">
           {[
             { label: "Méthode", key: "method" },
             { label: "Import", key: "upload" },
@@ -244,18 +244,18 @@ export default function NewProject() {
             const isDone = stepIdx < currentIdx;
             
             return (
-              <div key={s.key} className="flex items-center gap-2">
-                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-all ${
+              <div key={s.key} className="flex items-center gap-1 sm:gap-2 shrink-0">
+                <div className={`flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full text-[10px] sm:text-xs font-medium transition-all ${
                   isDone ? "bg-primary text-primary-foreground" :
                   isActive ? "bg-primary/10 text-primary border border-primary/30" :
                   "bg-muted text-muted-foreground"
                 }`}>
-                  {isDone ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                  {isDone ? <Check className="h-3 sm:h-3.5 w-3 sm:w-3.5" /> : i + 1}
                 </div>
-                <span className={`text-xs hidden sm:inline ${isActive ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                <span className={`text-[10px] sm:text-xs ${isActive ? "text-foreground font-medium" : "text-muted-foreground"}`}>
                   {s.label}
                 </span>
-                {i < 3 && <div className={`w-8 h-px ${isDone ? "bg-primary" : "bg-border"}`} />}
+                {i < 3 && <div className={`w-4 sm:w-8 h-px ${isDone ? "bg-primary" : "bg-border"}`} />}
               </div>
             );
           })}
@@ -276,18 +276,18 @@ export default function NewProject() {
                 <p className="mt-2 text-muted-foreground">Choisissez la méthode qui vous convient</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                 {IMPORT_METHODS.map((method) => (
                   <Card key={method.id}
                     className="group cursor-pointer border border-border/50 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 bg-background/50 backdrop-blur-sm"
                     onClick={() => handleMethodSelect(method.id)}
                   >
-                    <CardContent className="p-5 text-center">
-                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/5 text-primary group-hover:bg-primary/10 transition-colors">
-                        <method.icon className="h-5 w-5" />
+                    <CardContent className="p-3 sm:p-5 text-center">
+                      <div className="mx-auto mb-2 sm:mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-primary/5 text-primary group-hover:bg-primary/10 transition-colors">
+                        <method.icon className="h-4 w-4 sm:h-5 sm:w-5" />
                       </div>
-                      <h3 className="text-sm font-semibold mb-1">{method.label}</h3>
-                      <p className="text-xs text-muted-foreground">{method.desc}</p>
+                      <h3 className="text-xs sm:text-sm font-semibold mb-0.5 sm:mb-1">{method.label}</h3>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground hidden xs:block">{method.desc}</p>
                     </CardContent>
                   </Card>
                 ))}
@@ -365,14 +365,14 @@ export default function NewProject() {
                 </div>
               )}
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setStep("method")}>
-                  <ArrowLeft className="h-4 w-4 mr-1.5" />
-                  Retour
+              <div className="flex justify-between gap-3">
+                <Button variant="outline" size="sm" className="gap-1 sm:gap-1.5 h-9" onClick={() => setStep("method")}>
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Retour</span>
                 </Button>
-                <Button onClick={() => setStep("form")} disabled={files.length === 0 && importMethod !== "manual"}>
+                <Button size="sm" className="gap-1 sm:gap-1.5 h-9" onClick={() => setStep("form")} disabled={files.length === 0 && importMethod !== "manual"}>
                   Continuer
-                  <ChevronRight className="h-4 w-4 ml-1.5" />
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </motion.div>
@@ -385,18 +385,18 @@ export default function NewProject() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
+              className="space-y-4 sm:space-y-6"
             >
-              <div className="text-center mb-6">
+              <div className="text-center mb-4 sm:mb-6">
                 <h1 className="text-2xl font-bold tracking-tight">Détails du projet</h1>
                 <p className="mt-2 text-muted-foreground">Complétez les informations de votre projet</p>
               </div>
 
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-base">Informations générales</CardTitle>
+                <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-4">
+                  <CardTitle className="text-sm sm:text-base">Informations générales</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-2 sm:pt-4">
                   <div>
                     <Label htmlFor="projectName">Nom du projet *</Label>
                     <Input
@@ -462,12 +462,12 @@ export default function NewProject() {
               </Card>
 
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-base">Surface</CardTitle>
-                  <CardDescription>Optionnel - l'IA peut estimer la surface à partir des fichiers importés</CardDescription>
+                <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-4">
+                  <CardTitle className="text-sm sm:text-base">Surface</CardTitle>
+                  <CardDescription className="text-xs">Optionnel - l'IA peut estimer la surface à partir des fichiers importés</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
+                <CardContent className="p-4 sm:p-6 pt-2 sm:pt-4">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     <div className="col-span-2 sm:col-span-1">
                       <Label htmlFor="surface">Surface (m²)</Label>
                       <Input
@@ -495,21 +495,22 @@ export default function NewProject() {
                 </CardContent>
               </Card>
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setStep(importMethod === "manual" ? "method" : "upload")}>
-                  <ArrowLeft className="h-4 w-4 mr-1.5" />
-                  Retour
+              <div className="flex justify-between gap-3">
+                <Button variant="outline" size="sm" className="gap-1 sm:gap-1.5 h-9" onClick={() => setStep(importMethod === "manual" ? "method" : "upload")}>
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Retour</span>
                 </Button>
-                <Button onClick={handleStartAnalysis} disabled={!projectName || !selectedCategory || analyzing}>
+                <Button size="sm" className="gap-1 sm:gap-1.5 h-9" onClick={handleStartAnalysis} disabled={!projectName || !selectedCategory || analyzing}>
                   {analyzing ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-                      Analyse en cours...
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="hidden sm:inline">Analyse en cours...</span>
                     </>
                   ) : (
                     <>
-                      Lancer l'analyse IA
-                      <ChevronRight className="h-4 w-4 ml-1.5" />
+                      <span className="hidden sm:inline">Lancer l'analyse IA</span>
+                      <span className="sm:hidden">Analyser</span>
+                      <ChevronRight className="h-4 w-4" />
                     </>
                   )}
                 </Button>

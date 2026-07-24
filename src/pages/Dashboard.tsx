@@ -43,6 +43,8 @@ import {
   ChevronRight,
   AlertCircle,
   Loader2,
+  Menu,
+  X,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
@@ -259,83 +261,112 @@ export default function Dashboard() {
     maximumFractionDigits: 0,
   });
 
-  return (
-    <main className="min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 border-r border-border/50 bg-background/80 backdrop-blur-sm hidden lg:flex flex-col">
-        <div className="p-5 border-b border-border/30">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <HardHat className="h-4 w-4" />
-            </div>
-            <div>
-              <span className="text-base font-semibold">BuildEase</span>
-              <p className="text-[10px] text-muted-foreground">Tableau de bord</p>
-            </div>
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  const sidebarContent = (
+    <>
+      <div className="p-5 border-b border-border/30">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <HardHat className="h-4 w-4" />
+          </div>
+          <div>
+            <span className="text-base font-semibold">BuildEase</span>
+            <p className="text-[10px] text-muted-foreground">Tableau de bord</p>
           </div>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
-          {[
-            { icon: LayoutDashboard, label: "Tableau de bord", active: true, onClick: () => {} },
-            { icon: Plus, label: "Nouveau projet", onClick: () => navigate("/dashboard/new") },
-            { icon: Star, label: "Projets favoris", onClick: () => setActiveTab("favorites") },
-            { icon: BarChart3, label: "Comparer", onClick: () => {} },
-            { icon: FileText, label: "Rapports", onClick: () => {} },
-            { icon: TrendingUp, label: "Prix matériaux", onClick: () => navigate("/dashboard/materials") },
-          ].map((item) => (
-            <button
-              key={item.label}
-              onClick={item.onClick}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
-                item.active
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}
-            >
-              <item.icon className="h-4 w-4 shrink-0" />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-border/30 space-y-2">
+      </div>
+      <nav className="flex-1 p-4 space-y-1">
+        {[
+          { icon: LayoutDashboard, label: "Tableau de bord", active: true, onClick: () => setMobileSidebarOpen(false) },
+          { icon: Plus, label: "Nouveau projet", onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
+          { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
+          { icon: BarChart3, label: "Comparer", onClick: () => setMobileSidebarOpen(false) },
+          { icon: FileText, label: "Rapports", onClick: () => setMobileSidebarOpen(false) },
+          { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
+        ].map((item) => (
           <button
-            onClick={() => navigate("/dashboard/settings")}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+            key={item.label}
+            onClick={item.onClick}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+              item.active
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
           >
-            <Settings className="h-4 w-4 shrink-0" />
-            Paramètres
+            <item.icon className="h-4 w-4 shrink-0" />
+            {item.label}
           </button>
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all"
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            Déconnexion
-          </button>
+        ))}
+      </nav>
+      <div className="p-4 border-t border-border/30 space-y-2">
+        <button
+          onClick={() => navigate("/dashboard/settings")}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+        >
+          <Settings className="h-4 w-4 shrink-0" />
+          Paramètres
+        </button>
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          Déconnexion
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <main className="min-h-screen bg-background">
+      {/* Mobile sidebar overlay */}
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileSidebarOpen(false)} />
+          <aside className="relative w-72 h-full bg-background border-r border-border/50 flex flex-col animate-in slide-in-from-left duration-300">
+            <div className="flex justify-end p-2">
+              <button
+                onClick={() => setMobileSidebarOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/50 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {sidebarContent}
+          </aside>
         </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      <aside className="fixed left-0 top-0 h-full w-64 border-r border-border/50 bg-background/80 backdrop-blur-sm hidden lg:flex flex-col">
+        {sidebarContent}
       </aside>
 
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top header */}
         <header className="sticky top-0 z-30 border-b border-border/30 bg-background/80 backdrop-blur-md">
-          <div className="flex items-center justify-between px-4 sm:px-6 h-16">
-            <div className="flex items-center gap-3 lg:gap-4">
-              <button className="lg:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-border/50">
-                <HardHat className="h-4 w-4" />
+          <div className="flex items-center justify-between px-3 sm:px-6 h-14 sm:h-16">
+            <div className="flex items-center gap-2 lg:gap-4 min-w-0">
+              <button
+                onClick={() => setMobileSidebarOpen(true)}
+                className="lg:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/50"
+              >
+                <Menu className="h-4 w-4" />
               </button>
-              <div>
-                <h1 className="text-base font-semibold">Tableau de bord</h1>
-                <p className="text-xs text-muted-foreground">
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-base font-semibold truncate">Tableau de bord</h1>
+                <p className="text-xs text-muted-foreground truncate">
                   {user?.name ? `Bienvenue, ${user.name}` : "Gérez vos projets"}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 relative"
+                className="h-8 w-8 sm:h-9 sm:w-9 relative"
                 onClick={() => {}}
               >
                 <Bell className="h-4 w-4" />
@@ -344,14 +375,14 @@ export default function Dashboard() {
               {mounted && (
                 <button
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 bg-background/80 backdrop-blur-sm text-foreground/80 hover:text-foreground transition-all"
+                  className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-border/50 bg-background/80 backdrop-blur-sm text-foreground/80 hover:text-foreground transition-all"
                 >
                   <Sun className={`h-4 w-4 transition-all ${theme === "dark" ? "rotate-90 scale-0" : "rotate-0 scale-100"}`} />
                   <Moon className={`absolute h-4 w-4 transition-all ${theme === "dark" ? "rotate-0 scale-100" : "-rotate-90 scale-0"}`} />
                 </button>
               )}
-              <Avatar className="h-8 w-8 border border-border/50 cursor-pointer">
-                <AvatarFallback className="bg-primary/10 text-primary text-xs">
+              <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border border-border/50 cursor-pointer">
+                <AvatarFallback className="bg-primary/10 text-primary text-[10px] sm:text-xs">
                   {user?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
                 </AvatarFallback>
               </Avatar>
@@ -359,9 +390,9 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+        <div className="p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
           {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatsCard
               icon={HardHat}
               label="Total projets"
@@ -394,10 +425,10 @@ export default function Dashboard() {
 
           {/* Projects section */}
           <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 sm:p-6">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-6">
               <div>
-                <CardTitle className="text-lg">Mes projets</CardTitle>
-                <CardDescription>Gérez et suivez vos estimations</CardDescription>
+                <CardTitle className="text-base sm:text-lg">Mes projets</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Gérez et suivez vos estimations</CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1 sm:flex-initial">
@@ -410,15 +441,15 @@ export default function Dashboard() {
                     className="h-9 w-full sm:w-48 rounded-lg border border-border/50 bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
-                <Button size="sm" className="gap-1.5 h-9" onClick={() => navigate("/dashboard/new")}>
+                <Button size="sm" className="gap-1.5 h-9 shrink-0" onClick={() => navigate("/dashboard/new")}>
                   <Plus className="h-4 w-4" />
-                  Nouveau projet
+                  <span className="hidden xs:inline">Nouveau projet</span>
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="px-4 sm:px-6">
-                <TabsList className="mb-4 bg-transparent border-b border-border/30 rounded-none p-0 h-auto w-full justify-start gap-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="px-3 sm:px-6 overflow-x-auto">
+                <TabsList className="mb-4 bg-transparent border-b border-border/30 rounded-none p-0 h-auto w-full justify-start gap-4 sm:gap-6 min-w-max">
                   {[
                     { value: "all", label: "Tous" },
                     { value: "completed", label: "Terminés" },
@@ -429,7 +460,7 @@ export default function Dashboard() {
                     <TabsTrigger
                       key={tab.value}
                       value={tab.value}
-                      className="px-0 py-2.5 text-sm data-[state=active]:text-primary data-[state=active]:shadow-none relative rounded-none bg-transparent after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-primary after:scale-x-0 data-[state=active]:after:scale-x-100 after:transition-transform"
+                      className="px-0 py-2 sm:py-2.5 text-xs sm:text-sm data-[state=active]:text-primary data-[state=active]:shadow-none relative rounded-none bg-transparent after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-primary after:scale-x-0 data-[state=active]:after:scale-x-100 after:transition-transform"
                     >
                       {tab.label}
                     </TabsTrigger>
@@ -437,7 +468,7 @@ export default function Dashboard() {
                 </TabsList>
               </Tabs>
 
-              <div className="px-4 sm:px-6 pb-6">
+              <div className="px-3 sm:px-6 pb-4 sm:pb-6">
                 {filteredProjects.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
@@ -464,7 +495,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Quick actions */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <Card className="border border-border/50 bg-background/50 backdrop-blur-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
               onClick={() => navigate("/dashboard/new")}>
               <CardContent className="p-5 flex items-center gap-4">
