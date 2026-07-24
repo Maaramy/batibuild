@@ -96,8 +96,7 @@ export default function NewProject() {
     const errs: Record<string, string> = {};
     if (!projectName.trim()) errs.name = "Le nom du projet est requis";
     if (!selectedCategory) errs.category = "Sélectionnez un type de projet";
-    if (!region) errs.region = "La région est requise pour l'estimation";
-    if (!surface || parseFloat(surface) <= 0) errs.surface = "La surface doit être > 0 m²";
+    // region and surface are optional
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -135,8 +134,8 @@ export default function NewProject() {
         name: projectName.trim(),
         category: selectedCategory as any,
         description: description || undefined,
-        region: region as any,
-        surface: parseFloat(surface),
+        region: region ? (region as any) : undefined,
+        surface: surface ? parseFloat(surface) : undefined,
         floors: floors ? parseInt(floors) : 1,
       });
 
@@ -286,7 +285,7 @@ export default function NewProject() {
             <motion.div key="form" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}>
               <div className="text-center mb-4 sm:mb-6">
                 <h1 className="text-xl sm:text-2xl font-bold">Détails du projet</h1>
-                <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Tous les champs marqués * sont obligatoires</p>
+
               </div>
 
               <div className="space-y-4">
@@ -325,7 +324,7 @@ export default function NewProject() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                     <Label htmlFor="region" className="text-xs sm:text-sm font-semibold">
-                      Région <span className="text-primary">*</span>
+                      Région
                     </Label>
                     <div className="mt-1.5 relative">
                       <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -341,7 +340,7 @@ export default function NewProject() {
 
                   <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                     <Label htmlFor="surface" className="text-xs sm:text-sm font-semibold">
-                      Surface (m²) <span className="text-primary">*</span>
+                      Surface (m²)
                     </Label>
                     <Input id="surface" type="number" value={surface} onChange={(e) => { setSurface(e.target.value); setErrors((e) => ({...e, surface: ''})); }}
                       placeholder="ex: 150" min="1" className="mt-1.5 h-9 sm:h-10 text-xs sm:text-sm" />

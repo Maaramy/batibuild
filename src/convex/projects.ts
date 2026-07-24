@@ -154,8 +154,8 @@ export const createProject = mutation({
     name: v.string(),
     category: projectCategoryValidator,
     description: v.optional(v.string()),
-    region: regionValidator,
-    surface: v.number(),
+    region: v.optional(regionValidator),
+    surface: v.optional(v.number()),
     floors: v.optional(v.number()),
     manualInput: v.optional(
       v.object({
