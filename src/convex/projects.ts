@@ -154,8 +154,8 @@ export const createProject = mutation({
     name: v.string(),
     category: projectCategoryValidator,
     description: v.optional(v.string()),
-    region: v.optional(regionValidator),
-    surface: v.optional(v.number()),
+    region: regionValidator,
+    surface: v.number(),
     floors: v.optional(v.number()),
     manualInput: v.optional(
       v.object({
@@ -463,10 +463,10 @@ export const simulateAnalysis = mutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) return;
 
-    const surface = project.surface || project.manualInput?.surface || 150;
-    const floors = project.floors || project.manualInput?.floors || 1;
+    const surface = project.surface ?? 150;
+    const floors = project.floors ?? 1;
     const category = project.category;
-    const region = project.region;
+    const region = project.region ?? "tunis";
     const finishLevel = (project as any).finish_level || "standard";
 
     const result = runBIMEstimation(category, surface, floors, region, finishLevel);
