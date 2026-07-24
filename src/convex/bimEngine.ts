@@ -401,8 +401,7 @@ export function runBIMEstimation(
   else { fMult = 1.0; basePriceM2 = marketPrices.std; }
 
   const tb = surface * (floors || 1);
-  const totalBeforeRegion = Math.round(basePriceM2 * tb * fMult / (rMult || 1));
-  const finalTotal = Math.round(totalBeforeRegion * rMult);
+  const finalTotal = Math.round(basePriceM2 * tb * fMult * rMult);
   const costM2 = tb > 0 ? Math.round(finalTotal / tb) : 0;
 
   const keys = ["gros_oeuvre","second_oeuvre","equipements","main_oeuvre","transport","etudes_imprevus"];
@@ -450,7 +449,7 @@ export function runBIMEstimation(
   const totalWithBuffer = finalTotal + buffer;
   const finalCostM2 = tb > 0 ? Math.round(totalWithBuffer / tb) : 0;
 
-  // Budget scenarios using REAL market price ranges
+  // Budget scenarios using REAL market price ranges (already include region)
   const totalEco = Math.round(marketPrices.eco * tb * rMult);
   const totalPremium = Math.round(marketPrices.premium * tb * rMult);
   const scenarios = {
