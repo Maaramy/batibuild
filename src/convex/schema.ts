@@ -167,6 +167,14 @@ export type ProjectStatus = Infer<typeof projectStatusValidator>;
 // ============================================================================
 
 export const MATERIAL_CATEGORIES = [
+  // BIM Macro-categories
+  "gros_oeuvre",
+  "second_oeuvre",
+  "equipements",
+  "main_oeuvre",
+  "transport",
+  "etudes_imprevus",
+  // Traditional material categories
   "ciment",
   "sable",
   "gravier",
@@ -186,9 +194,7 @@ export const MATERIAL_CATEGORIES = [
   "etancheite",
   "isolation",
   "revetements",
-  "main_oeuvre",
   "location_engins",
-  "transport",
   "terrassement",
   "fondations",
   "finition",
@@ -310,6 +316,28 @@ const schema = defineSchema(
           ),
           contingencyBuffer: v.number(),
           contingencyPercentage: v.number(),
+          budgetScenarios: v.optional(
+            v.object({
+              economique: v.object({
+                totalCost: v.number(),
+                costPerM2: v.number(),
+                label: v.string(),
+                multiplier: v.number(),
+              }),
+              standard: v.object({
+                totalCost: v.number(),
+                costPerM2: v.number(),
+                label: v.string(),
+                multiplier: v.number(),
+              }),
+              premium: v.object({
+                totalCost: v.number(),
+                costPerM2: v.number(),
+                label: v.string(),
+                multiplier: v.number(),
+              }),
+            }),
+          ),
         }),
       ),
       
