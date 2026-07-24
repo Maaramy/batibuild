@@ -13,7 +13,7 @@ import {
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
   Target, TrendingUp, TriangleAlert, Users, Globe,
   PiggyBank, Sparkles, Wallet, Gauge,
-  ChevronDown, ChevronUp, CheckCheck, Info,
+  ChevronDown, ChevronUp, ChevronsUpDown, CheckCheck, Info,
   Truck, FileText, Paintbrush, Plug,
   Percent, ChevronRight,
 } from "lucide-react";
@@ -118,7 +118,7 @@ export default function ProjectDetail() {
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
 
   const [analyzing, setAnalyzing] = useState(false);
-  const [openCat, setOpenCat] = useState<string | null>("__all");
+  const [openCat, setOpenCat] = useState<string>("__all");
 
   // ── Memos ───────────────────────────────────────────────────────────────
 
@@ -535,8 +535,7 @@ export default function ProjectDetail() {
             {/* ═══ Materials Table ═══ */}
             {ce.breakdown.some((b: any) => b.items?.length) && (
               <motion.div variants={fadeUp} custom={7}
-                className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                <button onClick={() => setOpenCat(openCat ? null : "__all")}
+                className="rounded-xl border bg-card shadow-sm overflow-hidden">                  <button onClick={() => setOpenCat(openCat ? "" : "__all")}
                   className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
                   <div className="flex items-center gap-2">
                     <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -545,11 +544,20 @@ export default function ProjectDetail() {
                     <h3 className="text-sm font-semibold">Quantitatif détaillé</h3>
                     <Badge variant="secondary" className="text-[9px] ml-1">{totalItems} postes</Badge>
                   </div>
-                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", openCat && "rotate-180")} />
+                  <div className="flex items-center gap-1">
+                    {openCat !== "" && (
+                      <span onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === "__all_expanded" ? "__all" : "__all_expanded"); }}
+                        className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/30 text-muted-foreground transition-colors"
+                        title={openCat === "__all_expanded" ? "Tout replier" : "Tout déplier"}>
+                        {openCat === "__all_expanded" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </span>
+                    )}
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", openCat && "rotate-180")} />
+                  </div>
                 </button>
 
                 <AnimatePresence initial={false}>
-                  {openCat === "__all" && (
+                  {openCat !== "" && (
                     <motion.div key="table" initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
                       <div className="overflow-x-auto border-t border-border/10">
                         <table className="w-full text-xs">
@@ -571,11 +579,11 @@ export default function ProjectDetail() {
                                       <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[cat.category] ?? "#888" }} />
                                       <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{cat.label}</span>
                                       <span className="text-[9px] text-muted-foreground/50 ml-auto">{cat.items.length} postes — {fmt(cat.estimatedCost)}</span>
-                                      {openCat === cat.label ? <ChevronUp className="h-3 w-3 text-muted-foreground/50" /> : <ChevronDown className="h-3 w-3 text-muted-foreground/50" />}
+                                      {openCat === cat.label || openCat === "__all_expanded" ? <ChevronUp className="h-3 w-3 text-muted-foreground/50" /> : <ChevronDown className="h-3 w-3 text-muted-foreground/50" />}
                                     </button>
                                   </td>
                                 </tr>
-                                {openCat === cat.label && cat.items.map((item: any, i: number) => (
+                                {(openCat === cat.label || openCat === "__all_expanded") && cat.items.map((item: any, i: number) => (
                                   <motion.tr key={i}
                                     initial={{ opacity: 0, x: -8 }}
                                     animate={{ opacity: 1, x: 0 }}
