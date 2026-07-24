@@ -118,7 +118,7 @@ export default function ProjectDetail() {
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
 
   const [analyzing, setAnalyzing] = useState(false);
-  const [openCat, setOpenCat] = useState<string | null>(null);
+  const [openCat, setOpenCat] = useState<string | null>("__all");
 
   // ── Memos ───────────────────────────────────────────────────────────────
 
