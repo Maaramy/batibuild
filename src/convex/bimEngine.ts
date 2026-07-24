@@ -476,8 +476,29 @@ export function runBIMEstimation(
   const anomalies = detectAnomalies(category, surface, floors);
   const duration = estimateDuration(surface, floors, category);
 
-  // Optimization tips
+  // Optimization tips with region context
   const tips = generateTips(category, surface, region, finishLevel, costM2);
+
+  // Region impact info for UI
+  const regionLabel = region ? ({
+    tunis: "Tunis", ariana: "Ariana", ben_arous: "Ben Arous", manouba: "Manouba",
+    nabeul: "Nabeul", zaghouan: "Zaghouan", bizerte: "Bizerte", beja: "Béja",
+    jendouba: "Jendouba", le_kef: "Le Kef", siliana: "Siliana", kairouan: "Kairouan",
+    kasserine: "Kasserine", sidi_bouzid: "Sidi Bouzid", sousse: "Sousse",
+    monastir: "Monastir", mahdia: "Mahdia", sfax: "Sfax", gabes: "Gabès",
+    medenine: "Médenine", tataouine: "Tataouine", gafsa: "Gafsa", tozeur: "Tozeur",
+    kebili: "Kébili",
+  } as Record<string, string>)[region] : undefined;
+
+  const regionImpact = region ? {
+    region,
+    regionLabel: regionLabel || region,
+    multiplier: rMult,
+    impactPct: Math.round((rMult - 1) * 100),
+    totalWithRegion: totalWithBuffer,
+    totalWithoutRegion: Math.round(totalWithBuffer / rMult),
+    difference: totalWithBuffer - Math.round(totalWithBuffer / rMult),
+  } : undefined;
 
   return {
     costEstimate: {
@@ -502,6 +523,7 @@ export function runBIMEstimation(
     },
     optimizationTips: tips,
     technicalRecommendations: generateTechRecs(category, surface, floors),
+    regionImpact,
   };
 }
 

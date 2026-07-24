@@ -29,6 +29,24 @@ const REGION_LABELS: Record<string, string> = {
   kebili: "Kébili",
 };
 
+const REGION_MULTIPLIER: Record<string, number> = {
+  tunis: 1.15, ariana: 1.10, ben_arous: 1.10, manouba: 1.05,
+  nabeul: 1.05, bizerte: 1.05, sousse: 1.10, monastir: 1.05, mahdia: 1.00,
+  sfax: 1.05, gabes: 1.00, medenine: 0.95, tataouine: 0.95,
+  gafsa: 0.95, tozeur: 0.95, kebili: 0.95, kairouan: 0.95,
+  kasserine: 0.90, sidi_bouzid: 0.90, beja: 0.95, jendouba: 0.90,
+  le_kef: 0.90, siliana: 0.90, zaghouan: 0.95,
+};
+
+const REGION_COMPARISON = [
+  { key: "tunis", name: "Tunis", desc: "Capitale, coût élevé" },
+  { key: "sousse", name: "Sousse", desc: "Côte est, prix moyens-hauts" },
+  { key: "sfax", name: "Sfax", desc: "Sud-est, prix moyens" },
+  { key: "nabeul", name: "Nabeul", desc: "Cap Bon, prix moyens" },
+  { key: "kairouan", name: "Kairouan", desc: "Centre, prix modérés" },
+  { key: "kasserine", name: "Kasserine", desc: "Intérieur, coût réduit" },
+];
+
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent,
 } from "@/components/ui/chart";
@@ -455,8 +473,13 @@ export default function ProjectDetail() {
               )}
               <SummaryBadge icon={Clock} label="Durée estimée" value={analysis.estimatedDuration || '—'}
                 color="bg-amber-500/10 text-amber-600" />
-              <SummaryBadge icon={Layers} label="Postes détaillés" value={`${totalItems} matériaux`}
-                color="bg-violet-500/10 text-violet-600" />
+              {project.region ? (
+                <SummaryBadge icon={Globe} label="Région" value={REGION_LABELS[project.region] || project.region}
+                  color="bg-rose-500/10 text-rose-600" />
+              ) : (
+                <SummaryBadge icon={Layers} label="Postes détaillés" value={`${totalItems} matériaux`}
+                  color="bg-violet-500/10 text-violet-600" />
+              )}
             </motion.div>
 
             {/* --- BUDGET SCENARIOS --- */}
@@ -493,6 +516,115 @@ export default function ProjectDetail() {
                 </div>
               </motion.div>
             )}
+
+            {/* --- REGION IMPACT --- */}
+            {project.region && costEstimate.totalCost > 0 && (() => {
+              const rMult = REGION_MULTIPLIER[project.region] || 1.0;
+              const impactPct = Math.round((rMult - 1) * 100);
+              const baseCost = Math.round(costEstimate.totalCost / rMult);
+              const diff = costEstimate.totalCost - baseCost;
+              const isHigher = impactPct > 0;
+              return (
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.14 }}
+                >
+                  <div className="rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/[0.04] to-background p-4 sm:p-5 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Globe className="h-4 w-4" />
+                      </div>
+                      <h2 className="text-sm sm:text-base font-bold">Impact de la région</h2>
+                      <Badge variant="secondary" className="text-[10px] ml-auto">
+                        {REGION_LABELS[project.region] || project.region}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      {/* Left: Impact explanation */}
+                      <div className="p-3 sm:p-4 rounded-xl bg-background/50 border border-border/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={cn(
+                            "flex h-8 w-8 items-center justify-center rounded-lg shrink-0",
+                            isHigher ? "bg-amber-500/10 text-amber-600" : "bg-emerald-500/10 text-emerald-600"
+                          )}>
+                            {isHigher ? <TrendingUp className="h-4 w-4" /> : <TrendingUp className="h-4 w-4 rotate-180" />}
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold">
+                              {isHigher
+                                ? `${impactPct}% plus cher que la moyenne nationale`
+                                : `${Math.abs(impactPct)}% moins cher que la moyenne nationale`
+                              }
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">Multiplicateur régional : ×{rMult}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs py-1.5 border-t border-border/10 mt-2 pt-2">
+                          <span className="text-muted-foreground">Prix moyen Tunisie</span>
+                          <span className="font-semibold">{formatTND(baseCost)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs py-1.5">
+                          <span className="text-muted-foreground">Ajustement région</span>
+                          <span className={cn("font-semibold", isHigher ? "text-amber-500" : "text-emerald-500")}>
+                            {isHigher ? '+' : ''}{formatTND(diff)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs py-1.5 border-t border-border/10 mt-1 pt-2">
+                          <span className="font-medium">Total pour {REGION_LABELS[project.region] || project.region}</span>
+                          <span className="font-bold text-sm">{formatTND(costEstimate.totalCost)}</span>
+                        </div>
+                      </div>
+                      {/* Right: Region comparison */}
+                      <div className="p-3 sm:p-4 rounded-xl bg-background/50 border border-border/30">
+                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-2">
+                          Comparatif par région
+                        </p>
+                        <div className="space-y-1.5">
+                          {REGION_COMPARISON.map((r) => {
+                            const rm = REGION_MULTIPLIER[r.key] || 1.0;
+                            const regionCost = Math.round(baseCost * rm);
+                            const isSelected = r.key === project.region;
+                            const barWidth = ((rm - 0.85) / 0.35) * 100;
+                            return (
+                              <div
+                                key={r.key}
+                                className={cn(
+                                  "flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors",
+                                  isSelected ? "bg-primary/10 ring-1 ring-primary/20" : "hover:bg-muted/30"
+                                )}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={cn("text-[10px] sm:text-xs", isSelected && "font-bold text-primary")}>
+                                      {r.name}
+                                    </span>
+                                    {isSelected && (
+                                      <Badge variant="outline" className="text-[8px] h-3.5 px-1 border-primary/30 text-primary">
+                                        Actuel
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="h-1 rounded-full bg-muted/50 mt-1 overflow-hidden max-w-[120px]">
+                                    <div
+                                      className={cn("h-full rounded-full", isSelected ? "bg-primary" : "bg-muted-foreground/20")}
+                                      style={{ width: `${Math.min(barWidth, 100)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                                <span className={cn("text-[10px] sm:text-xs font-mono shrink-0", isSelected && "font-bold text-primary")}>
+                                  {formatTND(regionCost)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })()}
 
             {/* --- PIE CHART + COST BREAKDOWN --- */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
