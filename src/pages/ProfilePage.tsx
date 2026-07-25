@@ -257,18 +257,6 @@ export default function ProfilePage() {
                 </Badge>
               </div>
 
-              {!isAdmin && (
-                <div className="mt-3 p-3 rounded-xl bg-amber-50/50 border border-amber-200/30">
-                  <p className="text-xs font-medium text-amber-800 mb-1">Premier administrateur ?</p>
-                  <p className="text-[10px] text-amber-600/80 mb-2">
-                    Si vous êtes le premier à utiliser l'application, vous pouvez devenir administrateur.
-                  </p>
-                  <Button size="sm" variant="outline" className="h-8 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-100" onClick={handleMakeAdmin}>
-                    <Crown className="h-3.5 w-3.5" />
-                    Devenir administrateur
-                  </Button>
-                </div>
-              )}
             </CardContent>
           </Card>
         </motion.div>
