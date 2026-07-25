@@ -134,13 +134,68 @@ export default function ProjectDetail() {
   const [showPicker, setShowPicker] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  // ── Helper: inline computed colors to avoid html2canvas oklch() parser bug ──
+  // ── Helper: replace oklch() in ALL document stylesheets before html2canvas ──
 
-  const fixOklchBeforeCapture = (root: HTMLElement): (() => void) => {
+  const fixOklchInAllStylesheets = async (): Promise<() => void> => {
+    const restoreFns: Array<() => void> = [];
+
+    // 1. Fix inline <style> elements — just replace oklch() in textContent
+    const styleEls = document.querySelectorAll('style');
+    styleEls.forEach((style) => {
+      const orig = style.textContent;
+      if (orig && orig.includes('oklch(')) {
+        style.textContent = orig.replace(/oklch\([^)]+\)/g, '#888888');
+        restoreFns.push(() => { style.textContent = orig; });
+      }
+    });
+
+    // 2. Fix <link rel="stylesheet"> — fetch content, replace, convert to <style>
+    const linkEls = document.querySelectorAll('link[rel="stylesheet"]');
+    const linkPromises: Array<Promise<void>> = [];
+
+    linkEls.forEach((link) => {
+      const href = link.getAttribute('href');
+      if (!href) return;
+
+      const p = (async () => {
+        try {
+          const res = await fetch(href);
+          const cssText = await res.text();
+          if (!cssText.includes('oklch(')) return;
+
+          const fixed = cssText.replace(/oklch\([^)]+\)/g, '#888888');
+          const style = document.createElement('style');
+          style.textContent = fixed;
+          link.parentNode?.insertBefore(style, link);
+          link.remove();
+
+          restoreFns.push(() => {
+            style.remove();
+            link.parentNode?.insertBefore(link, style);
+          });
+        } catch {
+          // Can't fetch cross-origin — skip silently
+        }
+      })();
+
+      linkPromises.push(p);
+    });
+
+    await Promise.all(linkPromises);
+
+    return () => {
+      for (let i = restoreFns.length - 1; i >= 0; i--) {
+        restoreFns[i]();
+      }
+    };
+  };
+
+  // ── Helper: inline computed colors to preserve correct appearance in PDF ──
+
+  const fixColorsBeforeCapture = (root: HTMLElement): (() => void) => {
     const allElements = root.querySelectorAll('*') as any;
     const styleOrigins: Array<{ el: any; orig: string | null }> = [];
 
-    // CSS properties that can have color values (camelCase for getComputedStyle)
     const colorProps: string[] = [
       'color', 'backgroundColor', 'borderTopColor', 'borderRightColor',
       'borderBottomColor', 'borderLeftColor', 'outlineColor',
@@ -218,11 +273,16 @@ export default function ProjectDetail() {
       return;
     }
 
-    // Fix oklch colors before capture (html2canvas doesn't support oklch)
-    const restoreColors = fixOklchBeforeCapture(reportRef.current);
+    // ── STEP 1: Remove oklch() from ALL document stylesheets ──
+    // html2canvas v1.4.1 does not support the oklch() CSS color function.
+    // We modify the real document's stylesheets before capture so the
+    // cloned document never contains oklch().
+    const restoreStylesheets = await fixOklchInAllStylesheets();
 
-    // Save original style text contents for onclone restoration
-    const origStyles: Array<{ el: HTMLStyleElement; text: string }> = [];
+    // ── STEP 2: Inline computed RGB colors on report elements ──
+    // This ensures correct colors in the PDF even with the gray fallback
+    // we put in place of oklch().
+    const restoreColors = fixColorsBeforeCapture(reportRef.current);
 
     try {
       const canvas = await html2canvas(reportRef.current, {
@@ -233,22 +293,7 @@ export default function ProjectDetail() {
         allowTaint: true,
         windowWidth: reportRef.current.scrollWidth,
         windowHeight: reportRef.current.scrollHeight,
-        onclone: (clonedDoc: Document) => {
-          // In the cloned document, replace all oklch() with a neutral fallback
-          // in <style> elements. The inline !important styles from
-          // fixOklchBeforeCapture will override these fallbacks, so colors
-          // remain correct in the PDF.
-          clonedDoc.querySelectorAll('style').forEach((style) => {
-            const text = style.textContent;
-            if (text && text.includes('oklch(')) {
-              style.textContent = text.replace(/oklch\([^)]+\)/g, '#888888');
-            }
-          });
-        },
       });
-
-      // Restore original colors immediately after capture
-      restoreColors();
 
       if (!canvas || canvas.width === 0 || canvas.height === 0) {
         throw new Error("Le canvas généré est vide");
@@ -267,11 +312,9 @@ export default function ProjectDetail() {
       let position = 0;
       let remainingHeight = pdfHeight;
 
-      // Add first page
       pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
       remainingHeight -= pageHeight;
 
-      // Add subsequent pages as needed
       while (remainingHeight > 0) {
         position -= pageHeight;
         pdf.addPage();
@@ -289,7 +332,6 @@ export default function ProjectDetail() {
       const safeName = project.name.replace(/[^a-zA-Z0-9-_]/g, "_");
       const filename = `Devis-${scenarioLabel}-${safeName}.pdf`;
 
-      // Try pdf.save() first, fall back to manual download
       try {
         pdf.save(filename);
       } catch (saveErr) {
@@ -307,12 +349,15 @@ export default function ProjectDetail() {
 
       toast.success(`Devis ${scenarioLabel} téléchargé avec succès`);
     } catch (err) {
-      restoreColors();
       const msg =
         err instanceof Error ? err.message : "Erreur inconnue lors de la génération du PDF";
       console.error("PDF generation error:", err);
       toast.error(`Échec du téléchargement : ${msg}`);
     } finally {
+      // Restore in reverse order
+      restoreColors();
+      restoreStylesheets();
+
       if (scenarioChanged) setSelectedScenario(prevScenario);
       setOpenCat(prevOpenCat);
       setExporting(false);
