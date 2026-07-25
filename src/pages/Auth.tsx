@@ -105,9 +105,9 @@ function FormField({ label, id, name, type = "text", placeholder, icon: Icon, di
 }) {
   return (
     <motion.div variants={fadeUp}>
-      <Label htmlFor={id} className="text-sm font-medium" style={{ color: "var(--auth-primary-dark)" }}>{label}</Label>
+      <Label htmlFor={id} className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{label}</Label>
       <div className="auth-input-focus relative mt-1.5 rounded-lg auth-card-border bg-background/50">
-        {Icon && <div className="absolute left-3 top-1/2 -translate-y-1/2"><Icon className="h-4 w-4" style={{ color: "var(--auth-primary)", opacity: 0.5 }} /></div>}
+        {Icon && <div className="absolute left-3 top-1/2 -translate-y-1/2"><Icon className="h-4 w-4" style={{ color: "var(--foreground)", opacity: 0.5 }} /></div>}
         <Input id={id} name={name ?? id} type={type} placeholder={placeholder}
           className={`h-11 border-0 bg-transparent shadow-none focus-visible:ring-0 ${Icon ? "pl-9" : ""} ${children ? "pr-10" : ""}`}
           disabled={disabled} required={required} minLength={minLength} autoComplete={autoComplete}
@@ -136,7 +136,7 @@ function ErrorBanner({ message }: { message: string }) {
   return (
     <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
       className="flex items-center gap-2 text-sm py-2.5 px-3.5 rounded-lg"
-      style={{ color: "var(--auth-primary)", background: "color-mix(in srgb, var(--auth-primary) 10%, transparent)" }}>
+      style={{ color: "var(--foreground)", background: "color-mix(in srgb, var(--auth-primary) 10%, transparent)" }}>
       <AlertCircle className="h-4 w-4 shrink-0" /> <span>{message}</span>
     </motion.div>
   );
@@ -150,7 +150,7 @@ function Divider({ label }: { label: string }) {
         <span className="w-full border-t" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 10%, transparent)" }} />
       </div>
       <div className="relative flex justify-center text-xs uppercase">
-        <span className="bg-card/80 px-2" style={{ color: "var(--auth-primary)", opacity: 0.5 }}>{label}</span>
+        <span className="bg-card/80 px-2" style={{ color: "var(--foreground)", opacity: 0.5 }}>{label}</span>
       </div>
     </div>
   );
@@ -166,8 +166,8 @@ function SuccessCheck({ message, subtitle, actionLabel, onAction }: {
         className="inline-flex items-center justify-center w-16 h-16 rounded-full mx-auto mb-4" style={{ background: "color-mix(in srgb, var(--auth-primary) 12%, transparent)" }}>
         <CheckCircle2 className="h-8 w-8" style={{ color: "var(--auth-primary)" }} />
       </motion.div>
-      <h2 className="text-xl font-semibold mb-1" style={{ color: "var(--auth-primary-dark)" }}>{message}</h2>
-      <p className="text-sm mb-6" style={{ color: "var(--auth-primary)", opacity: 0.6 }}>{subtitle}</p>
+      <h2 className="text-xl font-semibold mb-1" style={{ color: "var(--foreground)" }}>{message}</h2>
+      <p className="text-sm mb-6" style={{ color: "var(--foreground)", opacity: 0.6 }}>{subtitle}</p>
       <Button type="button" className="w-full h-11 text-white border-0 shadow-lg"
         style={{ background: "linear-gradient(135deg, var(--auth-primary), var(--auth-primary-light))", boxShadow: "0 4px 14px color-mix(in srgb, var(--auth-primary) 30%, transparent)" }}
         onClick={onAction}><LogIn className="mr-2 h-4 w-4" />{actionLabel}</Button>
@@ -202,7 +202,7 @@ function TabSwitcher({ tab, setTab }: {
         <button key={item.key} type="button"
           onClick={() => setTab(item.key)}
           className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${tab === item.key ? "bg-white dark:bg-card shadow-sm" : "hover:opacity-80"}`}
-          style={tab === item.key ? { color: "var(--auth-primary-dark)" } : { color: "var(--auth-primary)", opacity: 0.6 }}>
+          style={tab === item.key ? { color: "var(--foreground)" } : { color: "var(--foreground)", opacity: 0.6 }}>
           <item.icon className="h-4 w-4" /> {item.label}
         </button>
       ))}
@@ -274,7 +274,7 @@ function MobileLogo() {
       <Link to="/">
         <div className="flex items-center gap-2">
           <img src={logo} alt="BudgetBati" width={36} height={36} className="rounded-lg" />
-          <span className="font-bold text-lg" style={{ color: "var(--auth-primary-dark)" }}>BudgetBati</span>
+          <span className="font-bold text-lg" style={{ color: "var(--foreground)" }}>BudgetBati</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "color-mix(in srgb, var(--auth-accent) 12%, transparent)", color: "var(--auth-accent)" }}>Tunisie</span>
         </div>
       </Link>
@@ -419,8 +419,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4 mx-auto" style={{ background: "color-mix(in srgb, var(--auth-accent) 12%, transparent)" }}>
                 <Mail className="h-5 w-5" style={{ color: "var(--auth-accent)" }} />
               </div>
-              <h1 className="text-lg font-semibold" style={{ color: "var(--auth-primary-dark)" }}>V\u00e9rifiez votre email</h1>
-              <p className="text-sm mt-1" style={{ color: "var(--auth-primary)", opacity: 0.6 }}>
+              <h1 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>V\u00e9rifiez votre email</h1>
+              <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>
                 Un code a \u00e9t\u00e9 envoy\u00e9 \u00e0<br /><strong>{step.email}</strong>
               </p>
             </div>
@@ -441,9 +441,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   : <>V\u00e9rifier le code<ArrowRight className="ml-2 h-4 w-4" /></>}
               </Button>
               <div className="mt-4 text-center space-y-2">
-                <button type="button" onClick={() => setStep("email")} className="text-sm hover:underline font-medium" style={{ color: "var(--auth-primary)" }}>Renvoyer le code</button>
+                <button type="button" onClick={() => setStep("email")} className="text-sm hover:underline font-medium" style={{ color: "var(--foreground)" }}>Renvoyer le code</button>
                 <br />
-                <button type="button" onClick={() => { switchToPassword(); setStep("email"); }} className="text-sm hover:underline" style={{ color: "var(--auth-primary)", opacity: 0.6 }}>\u2190 Mot de passe</button>
+                <button type="button" onClick={() => { switchToPassword(); setStep("email"); }} className="text-sm hover:underline" style={{ color: "var(--foreground)", opacity: 0.6 }}>\u2190 Mot de passe</button>
               </div>
             </form>
           </AuthCard>
@@ -474,15 +474,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3 mx-auto" style={{ background: "color-mix(in srgb, var(--auth-primary) 12%, transparent)" }}>
                         <Lock className="h-5 w-5" style={{ color: "var(--auth-primary)" }} />
                       </div>
-                      <h2 className="text-lg font-semibold" style={{ color: "var(--auth-primary-dark)" }}>Mot de passe oubli\u00e9</h2>
-                      <p className="text-sm mt-1" style={{ color: "var(--auth-primary)", opacity: 0.6 }}>Entrez votre email pour recevoir un code</p>
+                      <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>Mot de passe oubli\u00e9</h2>
+                      <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Entrez votre email pour recevoir un code</p>
                     </div>
                     <form onSubmit={handleForgotEmail} className="space-y-4">
                       <FormField label="Email" id="forgot-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required />
                       {error && <ErrorBanner message={error} />}
                       <PrimaryButton loading={isLoading} loadingText="Envoi...">Envoyer le code</PrimaryButton>
                     </form>
-                    <button type="button" onClick={() => { setForgotPassword(false); resetError(); }} className="w-full text-sm text-center mt-5 hover:underline" style={{ color: "var(--auth-primary)", opacity: 0.6 }}>\u2190 Retour</button>
+                    <button type="button" onClick={() => { setForgotPassword(false); resetError(); }} className="w-full text-sm text-center mt-5 hover:underline" style={{ color: "var(--foreground)", opacity: 0.6 }}>\u2190 Retour</button>
                   </motion.div>
                 ) : resetStep === "otp" ? (
                   <motion.div variants={stagger} initial="hidden" animate="visible">
@@ -490,8 +490,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3 mx-auto" style={{ background: "color-mix(in srgb, var(--auth-accent) 12%, transparent)" }}>
                         <Mail className="h-5 w-5" style={{ color: "var(--auth-accent)" }} />
                       </div>
-                      <h2 className="text-lg font-semibold" style={{ color: "var(--auth-primary-dark)" }}>V\u00e9rifiez votre email</h2>
-                      <p className="text-sm mt-1" style={{ color: "var(--auth-primary)", opacity: 0.6 }}>Un code a \u00e9t\u00e9 envoy\u00e9 \u00e0 <strong>{resetEmail}</strong></p>
+                      <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>V\u00e9rifiez votre email</h2>
+                      <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Un code a \u00e9t\u00e9 envoy\u00e9 \u00e0 <strong>{resetEmail}</strong></p>
                     </div>
                     <div className="flex justify-center mb-4">
                       <InputOTP value={resetOtp} onChange={(v) => { setResetOtp(v); if (v.length === 6) setTimeout(() => setResetStep("password"), 300); }} maxLength={6} disabled={isLoading}>
@@ -499,7 +499,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </InputOTP>
                     </div>
                     {error && <ErrorBanner message={error} />}
-                    <button type="button" onClick={() => setResetStep("email")} className="w-full text-sm text-center mt-2 hover:underline" style={{ color: "var(--auth-primary)", opacity: 0.6 }}>\u2190 Modifier l\u0027email</button>
+                    <button type="button" onClick={() => setResetStep("email")} className="w-full text-sm text-center mt-2 hover:underline" style={{ color: "var(--foreground)", opacity: 0.6 }}>\u2190 Modifier l\u0027email</button>
                   </motion.div>
                 ) : (
                   // NEW PASSWORD
@@ -508,8 +508,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3 mx-auto" style={{ background: "color-mix(in srgb, var(--auth-primary) 12%, transparent)" }}>
                         <KeyRound className="h-5 w-5" style={{ color: "var(--auth-primary)" }} />
                       </div>
-                      <h2 className="text-lg font-semibold" style={{ color: "var(--auth-primary-dark)" }}>Nouveau mot de passe</h2>
-                      <p className="text-sm mt-1" style={{ color: "var(--auth-primary)", opacity: 0.6 }}>Choisissez un mot de passe s\u00e9curis\u00e9</p>
+                      <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>Nouveau mot de passe</h2>
+                      <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Choisissez un mot de passe s\u00e9curis\u00e9</p>
                     </div>
                     <form onSubmit={handleResetSubmit} className="space-y-4">
                       <FormField label="Nouveau mot de passe" id="new-pw" type="password" placeholder="Min. 8 caract\u00e8res" icon={Lock} value={newPw} onChange={(e) => setNewPw(e.target.value)} required minLength={8} />
@@ -525,28 +525,28 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 // -- LOGIN --
                 <motion.div key="login-pw" variants={stagger} initial="hidden" animate="visible" exit={{ opacity: 0, y: -8 }}>
                   <div className="mb-5">
-                    <h2 className="text-lg font-semibold" style={{ color: "var(--auth-primary-dark)" }}>Bon retour parmi nous</h2>
-                    <p className="text-sm mt-1" style={{ color: "var(--auth-primary)", opacity: 0.6 }}>Connectez-vous \u00e0 votre compte</p>
+                    <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>Bon retour parmi nous</h2>
+                    <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Connectez-vous \u00e0 votre compte</p>
                   </div>
                   <form onSubmit={handlePasswordLogin} className="space-y-4">
                     <FormField label="Email" id="login-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required autoComplete="email" />
                     <FormField label="Mot de passe" id="login-password" name="password" type={loginShowPw ? "text" : "password"} placeholder="Votre mot de passe" icon={Lock} disabled={isLoading} required minLength={8} autoComplete="current-password">
-                      <button type="button" onClick={() => setLoginShowPw(!loginShowPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--auth-primary)", opacity: 0.5 }} tabIndex={-1}>
+                      <button type="button" onClick={() => setLoginShowPw(!loginShowPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--foreground)", opacity: 0.5 }} tabIndex={-1}>
                         {loginShowPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </FormField>
                     <div className="flex justify-end -mt-1">
                       <button type="button" onClick={() => { setForgotPassword(true); resetError(); setResetStep("email"); }}
-                        className="text-xs hover:underline transition-colors" style={{ color: "var(--auth-primary)", opacity: 0.7 }}>Mot de passe oubli\u00e9 ?</button>
+                        className="text-xs hover:underline transition-colors" style={{ color: "var(--foreground)", opacity: 0.7 }}>Mot de passe oubli\u00e9 ?</button>
                     </div>
                     {error && <ErrorBanner message={error} />}
                     <PrimaryButton loading={isLoading} loadingText="Connexion...">Se connecter</PrimaryButton>
                   </form>
                   <Divider label="Autres options" />
                   <div className="space-y-2.5">
-                    <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--auth-primary)" }}
+                    <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--foreground)" }}
                       onClick={switchToOtp} disabled={isLoading}><Mail className="mr-2 h-4 w-4" /> Connexion rapide par email</Button>
-                    <Button type="button" variant="ghost" className="w-full h-10" style={{ color: "var(--auth-primary)", opacity: 0.6 }} onClick={handleGuestLogin} disabled={isLoading}>
+                    <Button type="button" variant="ghost" className="w-full h-10" style={{ color: "var(--foreground)", opacity: 0.6 }} onClick={handleGuestLogin} disabled={isLoading}>
                       <UserX className="mr-2 h-4 w-4" /> Continuer en invit\u00e9</Button>
                   </div>
                 </motion.div>
@@ -554,8 +554,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 // -- REGISTER --
                 <motion.div key="register-pw" variants={stagger} initial="hidden" animate="visible" exit={{ opacity: 0, y: -8 }}>
                   <div className="mb-5">
-                    <h2 className="text-lg font-semibold" style={{ color: "var(--auth-primary-dark)" }}>Cr\u00e9er un compte</h2>
-                    <p className="text-sm mt-1" style={{ color: "var(--auth-primary)", opacity: 0.6 }}>Rejoignez BudgetBati et estimez vos projets</p>
+                    <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>Cr\u00e9er un compte</h2>
+                    <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Rejoignez BudgetBati et estimez vos projets</p>
                   </div>
                   <form onSubmit={handlePasswordRegister} className="space-y-4">
                     <FormField label="Nom complet" id="reg-name" name="name" placeholder="Votre nom" icon={User} disabled={isLoading} required autoComplete="name" />
@@ -565,28 +565,28 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     </div>
                     <FormField label="Email" id="reg-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required autoComplete="email" />
                     <FormField label="Mot de passe" id="reg-password" name="password" type={regShowPw ? "text" : "password"} placeholder="Min. 8 caract\u00e8res" icon={Lock} disabled={isLoading} required minLength={8} autoComplete="new-password">
-                      <button type="button" onClick={() => setRegShowPw(!regShowPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--auth-primary)", opacity: 0.5 }} tabIndex={-1}>
+                      <button type="button" onClick={() => setRegShowPw(!regShowPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--foreground)", opacity: 0.5 }} tabIndex={-1}>
                         {regShowPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </FormField>
                     <FormField label="Confirmer le mot de passe" id="reg-confirm-password" name="confirmPassword" type={regShowConfirmPw ? "text" : "password"} placeholder="R\u00e9p\u00e9ter" icon={Lock} disabled={isLoading} required minLength={8} autoComplete="new-password">
-                      <button type="button" onClick={() => setRegShowConfirmPw(!regShowConfirmPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--auth-primary)", opacity: 0.5 }} tabIndex={-1}>
+                      <button type="button" onClick={() => setRegShowConfirmPw(!regShowConfirmPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--foreground)", opacity: 0.5 }} tabIndex={-1}>
                         {regShowConfirmPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </FormField>
                     {error && <ErrorBanner message={error} />}
                     <motion.div variants={fadeUp}>
-                      <p className="text-xs" style={{ color: "var(--auth-primary)", opacity: 0.5 }}>
-                        En cr\u00e9ant un compte, vous acceptez nos <a href="#" className="hover:underline font-medium" style={{ color: "var(--auth-primary)" }}>conditions</a> et notre <a href="#" className="hover:underline font-medium" style={{ color: "var(--auth-primary)" }}>politique de confidentialit\u00e9</a>.
+                      <p className="text-xs" style={{ color: "var(--foreground)", opacity: 0.5 }}>
+                        En cr\u00e9ant un compte, vous acceptez nos <a href="#" className="hover:underline font-medium" style={{ color: "var(--foreground)" }}>conditions</a> et notre <a href="#" className="hover:underline font-medium" style={{ color: "var(--foreground)" }}>politique de confidentialit\u00e9</a>.
                       </p>
                     </motion.div>
                     <PrimaryButton loading={isLoading} loadingText="Inscription...">Cr\u00e9er mon compte</PrimaryButton>
                   </form>
                   <Divider label="Ou" />
                   <div className="space-y-2.5">
-                    <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--auth-primary)" }}
+                    <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--foreground)" }}
                       onClick={switchToOtp} disabled={isLoading}><Mail className="mr-2 h-4 w-4" /> Inscription rapide par email</Button>
-                    <Button type="button" variant="ghost" className="w-full h-10" style={{ color: "var(--auth-primary)", opacity: 0.6 }} onClick={handleGuestLogin} disabled={isLoading}>
+                    <Button type="button" variant="ghost" className="w-full h-10" style={{ color: "var(--foreground)", opacity: 0.6 }} onClick={handleGuestLogin} disabled={isLoading}>
                       <UserX className="mr-2 h-4 w-4" /> Continuer en invit\u00e9</Button>
                   </div>
                 </motion.div>
@@ -598,8 +598,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3 mx-auto" style={{ background: "color-mix(in srgb, var(--auth-accent) 12%, transparent)" }}>
                     <Mail className="h-5 w-5" style={{ color: "var(--auth-accent)" }} />
                   </div>
-                  <h2 className="text-lg font-semibold" style={{ color: "var(--auth-primary-dark)" }}>{tab === "login" ? "Connexion rapide" : "Inscription rapide"}</h2>
-                  <p className="text-sm mt-1" style={{ color: "var(--auth-primary)", opacity: 0.6 }}>Entrez votre email pour recevoir un code</p>
+                  <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>{tab === "login" ? "Connexion rapide" : "Inscription rapide"}</h2>
+                  <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Entrez votre email pour recevoir un code</p>
                 </div>
                 <form onSubmit={handleEmailSubmit} className="space-y-4">
                   <FormField label="Email" id="otp-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required />
@@ -608,9 +608,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 </form>
                 <Divider label="Ou" />
                 <div className="space-y-2.5">
-                  <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--auth-primary)" }}
+                  <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--foreground)" }}
                     onClick={switchToPassword} disabled={isLoading}><Lock className="mr-2 h-4 w-4" /> Utiliser mot de passe</Button>
-                  <Button type="button" variant="ghost" className="w-full h-10" style={{ color: "var(--auth-primary)", opacity: 0.6 }} onClick={handleGuestLogin} disabled={isLoading}>
+                  <Button type="button" variant="ghost" className="w-full h-10" style={{ color: "var(--foreground)", opacity: 0.6 }} onClick={handleGuestLogin} disabled={isLoading}>
                     <UserX className="mr-2 h-4 w-4" /> Continuer en invit\u00e9</Button>
                 </div>
               </motion.div>
