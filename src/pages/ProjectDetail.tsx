@@ -134,6 +134,55 @@ export default function ProjectDetail() {
   const [showPicker, setShowPicker] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
+  // ── Helper: inline computed colors to avoid html2canvas oklch() parser bug ──
+
+  const fixOklchBeforeCapture = (root: HTMLElement): (() => void) => {
+    const allElements = root.querySelectorAll('*') as any;
+    const styleOrigins: Array<{ el: any; orig: string | null }> = [];
+
+    // CSS properties that can have color values (camelCase for getComputedStyle)
+    const colorProps: string[] = [
+      'color', 'backgroundColor', 'borderTopColor', 'borderRightColor',
+      'borderBottomColor', 'borderLeftColor', 'outlineColor',
+      'textDecorationColor', 'fill', 'stroke', 'stopColor',
+      'borderColor',
+    ];
+
+    for (let i = 0; i < allElements.length; i++) {
+      const el = allElements[i] as HTMLElement;
+      const cs = getComputedStyle(el);
+      const overrides: string[] = [];
+
+      for (let j = 0; j < colorProps.length; j++) {
+        const prop = colorProps[j];
+        const value = (cs as any)[prop];
+        if (
+          value &&
+          value !== 'transparent' &&
+          value !== 'currentcolor' &&
+          value !== 'rgba(0, 0, 0, 0)'
+        ) {
+          const cssProp = prop.replace(/([A-Z])/g, '-$1').toLowerCase();
+          overrides.push(cssProp + ': ' + value + ' !important');
+        }
+      }
+
+      if (overrides.length > 0) {
+        const orig = el.getAttribute('style');
+        styleOrigins.push({ el, orig });
+        el.setAttribute('style', (orig ? orig + '; ' : '') + overrides.join('; '));
+      }
+    }
+
+    return () => {
+      for (let i = 0; i < styleOrigins.length; i++) {
+        const { el, orig } = styleOrigins[i];
+        if (orig) el.setAttribute('style', orig);
+        else el.removeAttribute('style');
+      }
+    };
+  };
+
   // ── PDF Export ────────────────────────────────────────────────────────
 
   const generatePDF = async (scenario: string) => {
@@ -169,6 +218,9 @@ export default function ProjectDetail() {
       return;
     }
 
+    // Fix oklch colors before capture (html2canvas doesn't support oklch)
+    const restoreColors = fixOklchBeforeCapture(reportRef.current);
+
     try {
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
@@ -179,6 +231,9 @@ export default function ProjectDetail() {
         windowWidth: reportRef.current.scrollWidth,
         windowHeight: reportRef.current.scrollHeight,
       });
+
+      // Restore original colors immediately after capture
+      restoreColors();
 
       if (!canvas || canvas.width === 0 || canvas.height === 0) {
         throw new Error("Le canvas généré est vide");
@@ -237,6 +292,7 @@ export default function ProjectDetail() {
 
       toast.success(`Devis ${scenarioLabel} téléchargé avec succès`);
     } catch (err) {
+      restoreColors();
       const msg =
         err instanceof Error ? err.message : "Erreur inconnue lors de la génération du PDF";
       console.error("PDF generation error:", err);
