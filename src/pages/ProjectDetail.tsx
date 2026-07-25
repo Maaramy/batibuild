@@ -266,10 +266,18 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-1">
             {done && (
               <button onClick={generatePDF} disabled={exporting}
-                className={cn("flex h-8 w-8 items-center justify-center rounded-lg transition-all",
-                  exporting ? "opacity-50 cursor-not-allowed" : "hover:bg-muted/50 active:scale-95"
+                className={cn("flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-border/30",
+                  exporting
+                    ? "opacity-50 cursor-not-allowed bg-muted/30"
+                    : "hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-95 bg-background"
                 )}>
-                <Download className={cn("h-4 w-4", exporting && "animate-pulse")} />
+                {exporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden sm:inline">Télécharger le devis</span>
+                <span className="sm:hidden">PDF</span>
               </button>
             )}
             <button onClick={() => toggleFav({ projectId: project._id })}
