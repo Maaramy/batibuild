@@ -48,7 +48,7 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [setupMode, setSetupMode] = useState<"login" | "register" | "success">("login");
   const [isFirstSetup, setIsFirstSetup] = useState(false);
-  const [showRegisterToggle, setShowRegisterToggle] = useState(false);
+
   const [seeding, setSeeding] = useState(false);
   const [seedMessages, setSeedMessages] = useState<string[]>([]);
 
@@ -58,7 +58,6 @@ export default function AdminLoginPage() {
       setIsFirstSetup(!adminExists);
       if (!adminExists) {
         setSetupMode("register");
-        setShowRegisterToggle(false);
       }
     }
   }, [adminExists]);
@@ -311,11 +310,9 @@ export default function AdminLoginPage() {
                     <p className="text-sm text-slate-400 mb-2">
                       Compte créé et promu administrateur
                     </p>
-                    {isFirstSetup && (
-                      <p className="text-xs text-slate-500 mb-4">
-                        Initialisez maintenant les prix des matériaux pour commencer
-                      </p>
-                    )}
+                    <p className="text-xs text-slate-500 mb-4">
+                      Initialisez les prix des matériaux pour commencer
+                    </p>
 
                     {seedMessages.length > 0 && (
                       <div className="mb-4 p-3 rounded-lg bg-slate-900/50 border border-slate-700/30 space-y-1 text-left">
@@ -329,25 +326,23 @@ export default function AdminLoginPage() {
                     )}
 
                     <div className="flex flex-col gap-2">
-                      {isFirstSetup && (
-                        <Button
-                          onClick={handleSeed}
-                          disabled={seeding}
-                          className="w-full h-10 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white border-0 shadow-lg shadow-emerald-500/20"
-                        >
-                          {seeding ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Initialisation...
-                            </>
-                          ) : (
-                            <>
-                              <Database className="mr-2 h-4 w-4" />
-                              Initialiser les données
-                            </>
-                          )}
-                        </Button>
-                      )}
+                      <Button
+                        onClick={handleSeed}
+                        disabled={seeding}
+                        className="w-full h-10 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white border-0 shadow-lg shadow-emerald-500/20"
+                      >
+                        {seeding ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Initialisation...
+                          </>
+                        ) : (
+                          <>
+                            <Database className="mr-2 h-4 w-4" />
+                            Initialiser les données
+                          </>
+                        )}
+                      </Button>
                       <Button
                         onClick={handleGoToAdmin}
                         variant="outline"
