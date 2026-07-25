@@ -602,7 +602,7 @@ export default function ProjectDetail() {
                         <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Projets illimités</p>
                         <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Paiement par virement bancaire</p>
                       </div>
-                      <Button className="w-full" onClick={() => { setShowUpgradeDialog(false); navigate("/pricing"); }}>
+                      <Button className="w-full" onClick={() => { setShowUpgradeDialog(false); navigate("/dashboard/pricing"); }}>
                         Passer à Pro
                         <ChevronRight className="h-3.5 w-3.5 ml-1" />
                       </Button>
