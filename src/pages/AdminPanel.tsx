@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
+import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import {
@@ -32,6 +33,12 @@ import {
   Package,
   Shield,
   UserCheck,
+  Banknote,
+  ThumbsUp,
+  ThumbsDown,
+  Clock,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -60,6 +67,10 @@ export default function AdminPanel() {
   });
   const [editingMaterial, setEditingMaterial] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
+
+  const pendingSubs = useQuery(api.subscriptions.getPendingSubscriptions) || [];
+  const approveSub = useMutation(api.subscriptions.adminApproveSubscription);
+  const rejectSub = useMutation(api.subscriptions.adminRejectSubscription);
 
   const createMaterial = useMutation(api.materials.createMaterialPrice);
   const updateMaterial = useMutation(api.materials.updateMaterialPrice);
@@ -179,6 +190,15 @@ export default function AdminPanel() {
               <TabsTrigger value="users" className="text-xs gap-1.5">
                 <Users className="h-4 w-4" />
                 <span className="hidden xs:inline">Utilisateurs</span>
+              </TabsTrigger>
+              <TabsTrigger value="virements" className="text-xs gap-1.5 relative">
+                <Banknote className="h-4 w-4" />
+                <span className="hidden xs:inline">Virements</span>
+                {pendingSubs.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white">
+                    {pendingSubs.length}
+                  </span>
+                )}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -480,6 +500,148 @@ export default function AdminPanel() {
                 <p className="text-sm text-muted-foreground text-center py-8">
                   Interface de gestion des utilisateurs en cours de développement.
                 </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Virements Bancaires */}
+          <TabsContent value="virements">
+            <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+              <CardHeader className="p-4 sm:p-6">
+                <div className="flex items-center gap-2">
+                  <Banknote className="h-5 w-5 text-primary" />
+                  <div>
+                    <CardTitle className="text-sm sm:text-base">Validation des virements bancaires</CardTitle>
+                    <CardDescription className="text-xs">
+                      {pendingSubs.length > 0
+                        ? `${pendingSubs.length} abonnement(s) en attente de validation`
+                        : "Aucun virement en attente"}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 sm:p-6">
+                {pendingSubs.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="flex justify-center mb-4">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                        <Check className="h-8 w-8 text-emerald-600" />
+                      </div>
+                    </div>
+                    <p className="text-sm font-semibold">Tout est à jour</p>
+                    <p className="text-xs text-muted-foreground mt-1">Aucun virement en attente de validation.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead>
+                        <tr className="border-b border-border/30">
+                          <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Client</th>
+                          <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Contact</th>
+                          <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Offre</th>
+                          <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
+                          <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Date</th>
+                          <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingSubs.map((sub: any) => {
+                          const user = sub.user;
+                          const subDate = new Date(sub.createdAt).toLocaleDateString("fr-FR", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          });
+
+                          return (
+                            <tr key={sub._id} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
+                              <td className="py-3 px-2 sm:px-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+                                    {user?.name ? user.name.charAt(0).toUpperCase() : "?"}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-xs sm:text-sm truncate max-w-[120px] sm:max-w-[180px]">
+                                      {user?.name || "Anonyme"}
+                                    </p>
+                                    {user?.company && (
+                                      <p className="text-[9px] text-muted-foreground truncate">{user.company}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-muted-foreground hidden sm:table-cell">
+                                <div className="space-y-0.5">
+                                  {user?.email && (
+                                    <div className="flex items-center gap-1 text-xs">
+                                      <Mail className="h-3 w-3 shrink-0" />
+                                      <span className="truncate max-w-[160px]">{user.email}</span>
+                                    </div>
+                                  )}
+                                  {user?.phone && (
+                                    <div className="flex items-center gap-1 text-xs">
+                                      <Phone className="h-3 w-3 shrink-0" />
+                                      <span>{user.phone}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center">
+                                <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[9px]">
+                                  {sub.plan === "pro" ? "Pro" : sub.plan}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-right hidden sm:table-cell">
+                                <span className="font-semibold text-xs">
+                                  {sub.amount ? `${sub.amount} TND` : "79 TND"}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-right text-muted-foreground hidden sm:table-cell">
+                                <div className="flex items-center gap-1 justify-end text-xs">
+                                  <Clock className="h-3 w-3" />
+                                  {subDate}
+                                </div>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await approveSub({ subscriptionId: sub._id });
+                                        toast.success(`Abonnement ${user?.name || ""} activé avec succès`);
+                                      } catch (err) {
+                                        toast.error("Erreur lors de l'activation");
+                                      }
+                                    }}
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 hover:bg-emerald-200 active:scale-95 transition-all"
+                                    title="Approuver le virement"
+                                  >
+                                    <ThumbsUp className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm(`Annuler la demande de ${user?.name || "cet utilisateur"} ?`)) return;
+                                      try {
+                                        await rejectSub({ subscriptionId: sub._id });
+                                        toast.success("Demande annulée");
+                                      } catch (err) {
+                                        toast.error("Erreur lors de l'annulation");
+                                      }
+                                    }}
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100 text-red-500 hover:bg-red-200 active:scale-95 transition-all"
+                                    title="Refuser le virement"
+                                  >
+                                    <ThumbsDown className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

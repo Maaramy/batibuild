@@ -215,3 +215,101 @@ export const adminUpdateSubscription = mutation({
     });
   },
 });
+
+/** Get pending subscriptions with user info (admin only) */
+export const getPendingSubscriptions = query({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const pendingSubs = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .order("desc")
+      .collect();
+
+    // Enrich with user info
+    const result = await Promise.all(
+      pendingSubs.map(async (sub) => {
+        const user = await ctx.db.get(sub.userId);
+        return {
+          ...sub,
+          user: user
+            ? {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                company: user.company,
+              }
+            : null,
+        };
+      }),
+    );
+
+    return result;
+  },
+});
+
+/** Approve a pending bank transfer subscription (admin only) */
+export const adminApproveSubscription = mutation({
+  args: {
+    subscriptionId: v.id("subscriptions"),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new Error("Abonnement introuvable");
+    if (sub.status !== "pending") throw new Error("Cet abonnement n'est pas en attente");
+
+    const now = Date.now();
+    const planDuration = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+    // Update subscription to active
+    await ctx.db.patch(args.subscriptionId, {
+      status: "active",
+      startDate: now,
+      endDate: now + planDuration,
+      updatedAt: now,
+    });
+
+    // Update user's plan
+    await ctx.db.patch(sub.userId, {
+      subscriptionPlan: "pro",
+      subscriptionEndDate: now + planDuration,
+    });
+
+    return { success: true };
+  },
+});
+
+/** Reject a pending bank transfer subscription (admin only) */
+export const adminRejectSubscription = mutation({
+  args: {
+    subscriptionId: v.id("subscriptions"),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new Error("Abonnement introuvable");
+    if (sub.status !== "pending") throw new Error("Cet abonnement n'est pas en attente");
+
+    await ctx.db.patch(args.subscriptionId, {
+      status: "canceled",
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
