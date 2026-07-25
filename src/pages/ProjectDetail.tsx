@@ -119,6 +119,7 @@ export default function ProjectDetail() {
 
   const [analyzing, setAnalyzing] = useState(false);
   const [openCat, setOpenCat] = useState<string>("__all_expanded");
+  const [selectedScenario, setSelectedScenario] = useState<string>("standard");
 
   // ── Memos ───────────────────────────────────────────────────────────────
 
@@ -135,9 +136,45 @@ export default function ProjectDetail() {
 
   const scenarios = ce?.budgetScenarios;
 
+  // Scale factor based on selected scenario vs standard
+  const scaleFactor = useMemo(() => {
+    if (!scenarios || !scenarios.standard) return 1;
+    const sel = scenarios[selectedScenario as keyof typeof scenarios];
+    if (!sel || selectedScenario === "standard") return 1;
+    return sel.totalCost / scenarios.standard.totalCost;
+  }, [scenarios, selectedScenario]);
+
+  // Scaled breakdown for current scenario
+  const scaledBreakdown = useMemo(() => {
+    if (!ce?.breakdown) return [] as any[];
+    if (scaleFactor === 1) return ce.breakdown;
+    return ce.breakdown.map((cat: any) => ({
+      ...cat,
+      estimatedCost: Math.round(cat.estimatedCost * scaleFactor),
+      items: cat.items?.map((item: any) => ({
+        ...item,
+        totalPrice: Math.round(item.totalPrice * scaleFactor),
+      })),
+    }));
+  }, [ce?.breakdown, scaleFactor]);
+
+  // Current total cost for selected scenario
+  const currentTotal = useMemo(() => {
+    if (!scenarios) return ce?.totalCost || 0;
+    const sel = scenarios[selectedScenario as keyof typeof scenarios];
+    return sel?.totalCost || ce?.totalCost || 0;
+  }, [scenarios, selectedScenario, ce?.totalCost]);
+
+  // Current cost per m²
+  const currentCostM2 = useMemo(() => {
+    if (!scenarios) return ce?.costPerSquareMeter || 0;
+    const sel = scenarios[selectedScenario as keyof typeof scenarios];
+    return sel?.costPerM2 || ce?.costPerSquareMeter || 0;
+  }, [scenarios, selectedScenario, ce?.costPerSquareMeter]);
+
   const totalItems = useMemo(
-    () => ce?.breakdown?.reduce((s: number, b: any) => s + (b.items?.length || 0), 0) ?? 0,
-    [ce],
+    () => scaledBreakdown?.reduce((s: number, b: any) => s + (b.items?.length || 0), 0) ?? 0,
+    [scaledBreakdown],
   );
 
   const { rMult, impactPct, baseCost, diff } = useMemo(() => {
@@ -251,16 +288,21 @@ export default function ProjectDetail() {
 
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wider mb-0.5">Coût total estimé TTC</p>
+                    <p className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wider mb-0.5">
+                      Coût total estimé TTC
+                      {selectedScenario !== "standard" && scenarios && (
+                        <span className="ml-1.5 text-primary">({scenarios[selectedScenario as keyof typeof scenarios]?.label})</span>
+                      )}
+                    </p>
                     <p className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight">
-                      {fmt(ce.totalCost)}
+                      {fmt(currentTotal)}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    {ce.costPerSquareMeter && (
+                    {currentCostM2 > 0 && (
                       <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-muted/50 border border-border/30 text-[10px]">
                         <Ruler className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-semibold">{fmt(ce.costPerSquareMeter)}</span>
+                        <span className="font-semibold">{fmt(currentCostM2)}</span>
                         <span className="text-muted-foreground">/m²</span>
                       </div>
                     )}
@@ -349,32 +391,42 @@ export default function ProjectDetail() {
 
             {/* ═══ Budget Scenarios ═══ */}
             {scenarios && (
-              <SectionCard icon={PiggyBank} title="Scénarios budgétaires" badge="selon finition">
+              <SectionCard icon={PiggyBank} title="Scénarios budgétaires" badge="cliquez pour appliquer">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {(["economique", "standard", "premium"] as const).map((key) => {
                     const s = scenarios[key];
                     if (!s) return null;
+                    const isActive = key === selectedScenario;
                     const isStd = key === "standard";
                     const Icon = key === "economique" ? Wallet : key === "standard" ? Gauge : Sparkles;
                     return (
-                      <div key={key} className={cn("relative rounded-xl border-2 p-4 transition-all hover:shadow-md active:scale-[0.98]",
-                        isStd ? "border-primary/30 bg-gradient-to-br from-primary/[0.04] to-background" : "border-border/40 bg-card")}>
-                        {isStd && (
+                      <button key={key} onClick={() => setSelectedScenario(key)}
+                        className={cn("relative rounded-xl border-2 p-4 transition-all text-left w-full",
+                          isActive
+                            ? "border-primary/50 bg-gradient-to-br from-primary/[0.08] to-background shadow-md ring-1 ring-primary/20 scale-[1.02]"
+                            : "border-border/40 bg-card hover:shadow-md hover:border-border/60 active:scale-[0.98]"
+                        )}>
+                        {isStd && !isActive && (
                           <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                             <Badge className="bg-primary text-primary-foreground text-[9px] h-4.5 px-2 shadow">Recommandé</Badge>
                           </div>
                         )}
+                        {isActive && (
+                          <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+                            <Badge className="bg-primary text-primary-foreground text-[9px] h-4.5 px-2 shadow ring-1 ring-primary/30">Sélectionné</Badge>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mb-2">
-                          <Icon className={cn("h-4 w-4", isStd ? "text-primary" : "text-muted-foreground")} />
-                          <span className="font-semibold text-sm">{s.label}</span>
+                          <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                          <span className={cn("font-semibold text-sm", isActive && "text-primary")}>{s.label}</span>
                         </div>
-                        <p className={cn("text-xl font-extrabold", isStd && "text-primary")}>{fmt(s.totalCost)}</p>
+                        <p className={cn("text-xl font-extrabold", isActive && "text-primary")}>{fmt(s.totalCost)}</p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">{fmt(s.costPerM2)} /m²</p>
                         <div className="mt-3 h-1.5 rounded-full bg-muted/50 overflow-hidden">
                           <div className={cn("h-full rounded-full", key === "economique" ? "bg-emerald-400" : key === "standard" ? "bg-blue-400" : "bg-violet-400")}
                             style={{ width: `${key === "economique" ? 60 : key === "standard" ? 80 : 100}%` }} />
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -389,8 +441,8 @@ export default function ProjectDetail() {
                 <div className="h-[180px] sm:h-[210px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={ce.breakdown} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="estimatedCost" nameKey="label">
-                        {ce.breakdown.map((e: any) => <Cell key={e.label} fill={BIM_COLORS[e.category] ?? "#888"} />)}
+                      <Pie data={scaledBreakdown} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="estimatedCost" nameKey="label">
+                        {scaledBreakdown.map((e: any) => <Cell key={e.label} fill={BIM_COLORS[e.category] ?? "#888"} />)}
                       </Pie>
                       <Tooltip content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
@@ -407,7 +459,7 @@ export default function ProjectDetail() {
                   </ResponsiveContainer>
                 </div>
                 <div className="grid grid-cols-2 gap-1 mt-2 pt-3 border-t border-border/10">
-                  {ce.breakdown.map((item: any) => {
+                  {scaledBreakdown.map((item: any) => {
                     const Icon = BIM_ICONS[item.category] ?? Layers;
                     return (
                       <div key={item.label} className="flex items-center gap-1.5 text-[10px] sm:text-xs">
@@ -425,7 +477,7 @@ export default function ProjectDetail() {
                 <h3 className="text-sm font-semibold mb-1">Détail par catégorie</h3>
                 <p className="text-[10px] text-muted-foreground mb-3">Postes de travaux</p>
                 <div className="space-y-3">
-                  {[...ce.breakdown].sort((a: any, b: any) => b.estimatedCost - a.estimatedCost).map((item: any, i: number) => {
+                  {[...scaledBreakdown].sort((a: any, b: any) => b.estimatedCost - a.estimatedCost).map((item: any, i: number) => {
                     const Icon = BIM_ICONS[item.category] ?? Layers;
                     const color = BIM_COLORS[item.category] ?? "#888";
                     return (
@@ -454,7 +506,7 @@ export default function ProjectDetail() {
                       <Shield className="h-3.5 w-3.5 text-amber-500" />
                       <span className="font-medium">Imprévus</span>
                     </div>
-                    <span className="font-bold">{fmt(ce.contingencyBuffer)}</span>
+                    <span className="font-bold">{fmt(Math.round(ce.contingencyBuffer * scaleFactor))}</span>
                   </div>
                   <Progress value={ce.contingencyPercentage} className="h-1.5 bg-amber-500/10 [&>div]:bg-amber-500" />
                 </div>
@@ -533,7 +585,7 @@ export default function ProjectDetail() {
             </div>
 
             {/* ═══ Materials Table ═══ */}
-            {ce.breakdown.some((b: any) => b.items?.length) && (
+            {scaledBreakdown?.some((b: any) => b.items?.length) && (
               <motion.div variants={fadeUp} custom={7}
                 className="rounded-xl border bg-card shadow-sm overflow-hidden">                  <button onClick={() => setOpenCat(openCat ? "" : "__all")}
                   className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
@@ -542,7 +594,12 @@ export default function ProjectDetail() {
                       <Layers className="h-3.5 w-3.5" />
                     </div>
                     <h3 className="text-sm font-semibold">Quantitatif détaillé</h3>
-                    <Badge variant="secondary" className="text-[9px] ml-1">{totalItems} postes</Badge>
+                    {selectedScenario !== "standard" && scenarios && (
+                      <Badge variant="outline" className="text-[9px] text-primary border-primary/30">
+                        {scenarios[selectedScenario as keyof typeof scenarios]?.label}
+                      </Badge>
+                    )}
+                    <Badge variant="secondary" className="text-[9px]">{totalItems} postes</Badge>
                   </div>
                   <div className="flex items-center gap-1">
                     {openCat !== "" && (
@@ -570,7 +627,7 @@ export default function ProjectDetail() {
                             </tr>
                           </thead>
                           <tbody>
-                            {ce.breakdown.filter((b: any) => b.items?.length).map((cat: any) => (
+                            {scaledBreakdown.filter((b: any) => b.items?.length).map((cat: any) => (
                               <Fragment key={cat.label}>
                                 <tr className="border-b border-border/5 bg-muted/10">
                                   <td colSpan={4} className="py-2 px-3">
