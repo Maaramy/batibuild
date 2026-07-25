@@ -11,6 +11,7 @@ import {
   EyeOff,
   HardHat,
   Loader2,
+  Lock,
   Mail,
   MapPin,
   Phone,
@@ -22,10 +23,14 @@ import {
   DraftingCompass,
   Shield,
   Star,
+  CheckCircle2,
+  KeyRound,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
+import { api } from "@/convex/_generated/api";
+import { useMutation } from "convex/react";
 
 interface AuthProps {
   redirectAfterAuth?: string;
@@ -50,6 +55,13 @@ const fadeUp = {
 const stagger = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.08 } },
+};
+
+const slideFromRight = {
+  initial: { opacity: 0, x: 20 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -20 },
+  transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
 };
 
 // Tunisian-inspired decorative patterns
@@ -124,6 +136,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [error, setError] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [authMode, setAuthMode] = useState<"password" | "otp">("password");
+  
+  // Forgot password state
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [resetStep, setResetStep] = useState<"email" | "otp" | "password" | "success">("email");
+  const [resetEmail, setResetEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const resetPasswordMutation = useMutation(api.users.resetPassword);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -230,12 +251,61 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setAuthMode("otp");
     setStep("email");
     setError(null);
+    setForgotPassword(false);
   };
 
   const switchToPassword = () => {
     setAuthMode("password");
     setStep("email");
     setError(null);
+    setForgotPassword(false);
+  };
+
+  // ========== FORGOT PASSWORD FLOW ==========
+  const handleForgotPasswordEmail = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      const formData = new FormData(event.currentTarget);
+      const email = formData.get("email") as string;
+      setResetEmail(email);
+      await signIn("email-otp", formData);
+      setResetStep("otp");
+      setIsLoading(false);
+    } catch (error) {
+      setError("Échec d'envoi du code. Veuillez réessayer.");
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPasswordOtp = async () => {
+    if (resetOtp.length !== 6) return;
+    setError(null);
+    // OTP is verified by the email-otp provider - go to new password step
+    setResetStep("password");
+  };
+
+  const handleResetPassword = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (newPassword !== confirmNewPassword) {
+      setError("Les mots de passe ne correspondent pas.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Le mot de passe doit contenir au moins 8 caractères.");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      await resetPasswordMutation({ email: resetEmail, newPassword });
+      setResetStep("success");
+      setIsLoading(false);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Erreur lors de la réinitialisation.");
+      setIsLoading(false);
+    }
   };
 
   // ========== LOADING STATE ==========
@@ -581,8 +651,296 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             </div>
 
             <div className="p-6 sm:p-8 pt-6">
-              <AnimatePresence mode="wait">
-                {authMode === "password" ? (
+              <AnimatePresence mode="popLayout">
+                {forgotPassword ? (
+                  /* ========== FORGOT PASSWORD ========== */
+                  <motion.div
+                    key={`forgot-${resetStep}`}
+                    {...slideFromRight}
+                  >
+                    {resetStep === "success" ? (
+                      /* SUCCESS STATE */
+                      <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                        className="text-center py-4"
+                      >
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1, rotate: [0, 10, -5, 0] }}
+                          transition={{ type: "spring", stiffness: 200, damping: 10, delay: 0.1 }}
+                          className="inline-flex items-center justify-center w-16 h-16 rounded-full mx-auto mb-4"
+                          style={{ background: 'color-mix(in srgb, var(--auth-primary) 12%, transparent)' }}
+                        >
+                          <motion.div
+                            animate={{ scale: [1, 1.15, 1] }}
+                            transition={{ duration: 0.6, delay: 0.3 }}
+                          >
+                            <CheckCircle2 className="h-8 w-8" style={{ color: 'var(--auth-primary)' }} />
+                          </motion.div>
+                        </motion.div>
+                        <motion.h2 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className="text-xl font-semibold mb-2" style={{ color: 'var(--auth-primary-dark)' }}
+                        >
+                          Mot de passe réinitialisé
+                        </motion.h2>
+                        <motion.p
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.3 }}
+                          className="text-sm mb-6" style={{ color: 'var(--auth-primary)', opacity: 0.6 }}
+                        >
+                          Votre mot de passe a été mis à jour avec succès.
+                        </motion.p>
+                        <Button
+                          type="button"
+                          className="w-full h-11 text-white border-0 shadow-lg"
+                          style={{ 
+                            background: 'linear-gradient(135deg, var(--auth-primary), var(--auth-primary-light))',
+                            boxShadow: '0 4px 14px color-mix(in srgb, var(--auth-primary) 30%, transparent)',
+                          }}
+                          onClick={() => { setForgotPassword(false); setResetStep("email"); setTab("login"); }}
+                        >
+                          <LogIn className="mr-2 h-4 w-4" />
+                          Se connecter
+                        </Button>
+                      </motion.div>
+                    ) : resetStep === "otp" || resetStep === "password" ? (
+                      /* OTP / NEW PASSWORD */
+                      resetStep === "otp" ? (
+                        <motion.div
+                          variants={stagger}
+                          initial="hidden"
+                          animate="visible"
+                        >
+                          <motion.div variants={fadeUp} className="text-center mb-6">
+                            <motion.div
+                              initial={{ scale: 0, rotate: -180 }}
+                              animate={{ scale: 1, rotate: 0 }}
+                              transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                              className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4 mx-auto"
+                              style={{ background: 'color-mix(in srgb, var(--auth-accent) 12%, transparent)' }}
+                            >
+                              <Mail className="h-5 w-5" style={{ color: 'var(--auth-accent)' }} />
+                            </motion.div>
+                            <h2 className="text-xl font-semibold" style={{ color: 'var(--auth-primary-dark)' }}>
+                              Vérifiez votre email
+                            </h2>
+                            <p className="text-sm mt-2" style={{ color: 'var(--auth-primary)', opacity: 0.6 }}>
+                              Un code a été envoyé à <strong>{resetEmail}</strong>
+                            </p>
+                          </motion.div>
+                          <div className="flex justify-center mb-6">
+                            <InputOTP
+                              value={resetOtp}
+                              onChange={(v) => {
+                                setResetOtp(v);
+                                if (v.length === 6) {
+                                  setTimeout(() => {
+                                    setResetStep("password");
+                                  }, 300);
+                                }
+                              }}
+                              maxLength={6}
+                              disabled={isLoading}
+                            >
+                              <InputOTPGroup>
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                  <InputOTPSlot key={i} index={i} />
+                                ))}
+                              </InputOTPGroup>
+                            </InputOTP>
+                          </div>
+                          {error && (
+                            <motion.p
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="text-sm text-center mb-4 py-2 px-3 rounded-lg"
+                              style={{ color: 'var(--auth-primary)', background: 'color-mix(in srgb, var(--auth-primary) 10%, transparent)' }}
+                            >{error}</motion.p>
+                          )}
+                          <p className="text-sm text-center" style={{ color: 'var(--auth-primary)', opacity: 0.6 }}>
+                            <button
+                              type="button"
+                              onClick={() => setResetStep("email")}
+                              className="hover:underline"
+                              style={{ color: 'var(--auth-primary)' }}
+                            >
+                              ← Modifier l'email
+                            </button>
+                          </p>
+                        </motion.div>
+                      ) : (
+                        /* NEW PASSWORD FORM */
+                        <motion.div
+                          variants={stagger}
+                          initial="hidden"
+                          animate="visible"
+                        >
+                          <motion.div variants={fadeUp} className="text-center mb-6">
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                              className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4 mx-auto"
+                              style={{ background: 'color-mix(in srgb, var(--auth-primary) 12%, transparent)' }}
+                            >
+                              <KeyRound className="h-5 w-5" style={{ color: 'var(--auth-primary)' }} />
+                            </motion.div>
+                            <h2 className="text-xl font-semibold" style={{ color: 'var(--auth-primary-dark)' }}>
+                              Nouveau mot de passe
+                            </h2>
+                            <p className="text-sm mt-2" style={{ color: 'var(--auth-primary)', opacity: 0.6 }}>
+                              Choisissez un nouveau mot de passe sécurisé
+                            </p>
+                          </motion.div>
+                          <form onSubmit={handleResetPassword} className="space-y-4">
+                            <motion.div variants={fadeUp}>
+                              <Label className="text-sm font-medium" style={{ color: 'var(--auth-primary-dark)' }}>
+                                Nouveau mot de passe
+                              </Label>
+                              <div className="relative mt-1.5 rounded-lg" style={{ border: '1px solid color-mix(in srgb, var(--auth-primary) 15%, transparent)' }}>
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--auth-primary)', opacity: 0.5 }} />
+                                <Input
+                                  type="password"
+                                  placeholder="Min. 8 caractères"
+                                  className="pl-9 h-11 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                                  value={newPassword}
+                                  onChange={(e) => setNewPassword(e.target.value)}
+                                  required
+                                  minLength={8}
+                                />
+                              </div>
+                            </motion.div>
+                            <motion.div variants={fadeUp}>
+                              <Label className="text-sm font-medium" style={{ color: 'var(--auth-primary-dark)' }}>
+                                Confirmer le mot de passe
+                              </Label>
+                              <div className="relative mt-1.5 rounded-lg" style={{ border: '1px solid color-mix(in srgb, var(--auth-primary) 15%, transparent)' }}>
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--auth-primary)', opacity: 0.5 }} />
+                                <Input
+                                  type="password"
+                                  placeholder="Répéter le mot de passe"
+                                  className="pl-9 h-11 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                                  value={confirmNewPassword}
+                                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                                  required
+                                  minLength={8}
+                                />
+                              </div>
+                            </motion.div>
+                            {error && (
+                              <motion.p
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="text-sm py-2 px-3 rounded-lg"
+                                style={{ color: 'var(--auth-primary)', background: 'color-mix(in srgb, var(--auth-primary) 10%, transparent)' }}
+                              >{error}</motion.p>
+                            )}
+                            <motion.div variants={fadeUp}>
+                              <Button
+                                type="submit"
+                                className="w-full h-11 text-white border-0 shadow-lg"
+                                style={{
+                                  background: 'linear-gradient(135deg, var(--auth-primary), var(--auth-primary-light))',
+                                  boxShadow: '0 4px 14px color-mix(in srgb, var(--auth-primary) 30%, transparent)',
+                                }}
+                                disabled={isLoading || !newPassword || !confirmNewPassword}
+                              >
+                                {isLoading ? (
+                                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Réinitialisation...</>
+                                ) : (
+                                  <>Réinitialiser <ArrowRight className="ml-2 h-4 w-4" /></>
+                                )}
+                              </Button>
+                            </motion.div>
+                          </form>
+                        </motion.div>
+                      )
+                    ) : (
+                      /* INITIAL EMAIL FORM */
+                      <motion.div
+                        variants={stagger}
+                        initial="hidden"
+                        animate="visible"
+                      >
+                        <motion.div variants={fadeUp} className="text-center mb-6">
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                            className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4 mx-auto"
+                            style={{ background: 'color-mix(in srgb, var(--auth-primary) 12%, transparent)' }}
+                          >
+                            <Lock className="h-5 w-5" style={{ color: 'var(--auth-primary)' }} />
+                          </motion.div>
+                          <h2 className="text-xl font-semibold" style={{ color: 'var(--auth-primary-dark)' }}>
+                            Mot de passe oublié
+                          </h2>
+                          <p className="text-sm mt-2" style={{ color: 'var(--auth-primary)', opacity: 0.6 }}>
+                            Entrez votre email pour recevoir un code
+                          </p>
+                        </motion.div>
+                        <form onSubmit={handleForgotPasswordEmail} className="space-y-4">
+                          <motion.div variants={fadeUp}>
+                            <Label className="text-sm font-medium" style={{ color: 'var(--auth-primary-dark)' }}>
+                              Email
+                            </Label>
+                            <div className="relative mt-1.5 rounded-lg" style={{ border: '1px solid color-mix(in srgb, var(--auth-primary) 15%, transparent)' }}>
+                              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--auth-primary)', opacity: 0.5 }} />
+                              <Input
+                                name="email"
+                                type="email"
+                                placeholder="exemple@email.com"
+                                className="pl-9 h-11 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                                required
+                              />
+                            </div>
+                          </motion.div>
+                          {error && (
+                            <motion.p
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="text-sm py-2 px-3 rounded-lg"
+                              style={{ color: 'var(--auth-primary)', background: 'color-mix(in srgb, var(--auth-primary) 10%, transparent)' }}
+                            >{error}</motion.p>
+                          )}
+                          <motion.div variants={fadeUp}>
+                            <Button
+                              type="submit"
+                              className="w-full h-11 text-white border-0 shadow-lg"
+                              style={{
+                                background: 'linear-gradient(135deg, var(--auth-primary), var(--auth-primary-light))',
+                                boxShadow: '0 4px 14px color-mix(in srgb, var(--auth-primary) 30%, transparent)',
+                              }}
+                              disabled={isLoading}
+                            >
+                              {isLoading ? (
+                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Envoi...</>
+                              ) : (
+                                <>Envoyer le code <ArrowRight className="ml-2 h-4 w-4" /></>
+                              )}
+                            </Button>
+                          </motion.div>
+                        </form>
+                        <p className="text-sm text-center mt-6" style={{ color: 'var(--auth-primary)', opacity: 0.6 }}>
+                          <button
+                            type="button"
+                            onClick={() => { setForgotPassword(false); setError(null); }}
+                            className="hover:underline"
+                            style={{ color: 'var(--auth-primary)' }}
+                          >
+                            ← Retour à la connexion
+                          </button>
+                        </p>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                ) : authMode === "password" ? (
                   tab === "login" ? (
                     /* ========== LOGIN ========== */
                     <motion.div

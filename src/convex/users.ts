@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, mutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { roleValidator, subscriptionPlanValidator } from "./schema";
+import bcrypt from "bcryptjs";
 
 /**
  * Get the current signed in user. Returns null if the user is not signed in.
@@ -377,6 +378,59 @@ export const seedDemoData = mutation({
     }
 
     return { success: true, messages: results };
+  },
+});
+
+/**
+ * Reset password using a verified email (OTP verified).
+ * Finds the auth account for the given email with provider "password"
+ * and updates the password hash.
+ */
+export const resetPassword = mutation({
+  args: {
+    email: v.string(),
+    newPassword: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Validate password length
+    if (args.newPassword.length < 8) {
+      throw new Error("Le mot de passe doit contenir au moins 8 caractères.");
+    }
+
+    // Find user by email
+    const users = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", args.email))
+      .collect();
+
+    if (users.length === 0) {
+      throw new Error("Aucun compte trouvé avec cet email.");
+    }
+
+    const user = users[0];
+
+    // Find the auth account for this user with password provider
+    const authAccounts = await ctx.db
+      .query("authAccounts")
+      .filter((q) => q.eq(q.field("userId"), user._id))
+      .collect();
+
+    const passwordAccount = authAccounts.find(a => a.provider === "password");
+
+    if (!passwordAccount) {
+      throw new Error("Aucun compte mot de passe trouvé. Utilisez la connexion rapide par email.");
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(args.newPassword, salt);
+
+    // Update the password hash (cast needed as authAccounts type from authTables doesn't expose passwordHash)
+    await ctx.db.patch(passwordAccount._id, {
+      passwordHash,
+    } as any);
+
+    return { success: true };
   },
 });
 

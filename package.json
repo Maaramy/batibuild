@@ -45,6 +45,7 @@
     "@vly-ai/integrations": "^0.6.12",
     "@zumer/snapdom": "^2.0.1",
     "axios": "^1.13.2",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -72,6 +73,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/bcryptjs": "^3.0.0",
     "@types/jspdf": "^2.0.0",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
