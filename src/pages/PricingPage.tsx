@@ -5,8 +5,19 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Building2, FileText, Download, Banknote, Copy, CheckCheck } from "lucide-react";
 import { motion } from "framer-motion";
+import { useState } from "react";
+import { toast } from "sonner";
+
+const BANK_INFO = {
+  bank: "Banque de Tunisie (BT)",
+  rib: "07 001 1234567890123 47",
+  iban: "TN59 0700 1123 4567 8901 2347",
+  swift: "BTBK TN TT",
+  titulaire: "BudgetBati SARL",
+  montant: "79 TND",
+};
 
 const PLANS = [
   {
@@ -14,26 +25,27 @@ const PLANS = [
     name: "Gratuit",
     price: "0",
     period: "TND/mois",
-    description: "Pour démarrer avec des projets simples",
+    description: "Pour découvrir l'outil",
     features: [
       "3 projets par mois",
       "Estimation de base",
       "Analyse IA standard",
-      "Export PDF",
       "Support email",
     ],
     gradient: "from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-800/30",
+    note: "Export PDF non inclus",
   },
   {
     id: "pro",
     name: "Pro",
-    price: "49",
+    price: "79",
     period: "TND/mois",
     description: "Pour les professionnels de la construction",
     features: [
       "Projets illimités",
       "Analyse IA avancée",
-      "Export PDF, Excel, CSV",
+      "Export PDF du devis détaillé",
+      "10 téléchargements de devis / mois",
       "Rapports détaillés",
       "Comparaison de projets",
       "Historique complet",
@@ -41,24 +53,6 @@ const PLANS = [
     ],
     popular: true,
     gradient: "from-blue-500/10 to-violet-500/10 dark:from-blue-500/20 dark:to-violet-500/20",
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    price: "149",
-    period: "TND/mois",
-    description: "Pour les entreprises et bureaux d'études",
-    features: [
-      "Tout ce qui est inclus dans Pro",
-      "Utilisateurs multiples (jusqu'à 10)",
-      "API dédiée",
-      "Intégration personnalisée",
-      "Gestion des équipes",
-      "Support dédié 24/7",
-      "SLA garanti",
-      "Formation incluse",
-    ],
-    gradient: "from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20",
   },
 ];
 
@@ -68,13 +62,20 @@ export default function PricingPage() {
   const currentSubscription = useQuery(api.subscriptions.getMySubscription);
   const createSubscription = useMutation(api.subscriptions.createSubscription);
   const cancelSubscription = useMutation(api.subscriptions.cancelSubscription);
+  const [copying, setCopying] = useState<string | null>(null);
 
   const currentPlan = user?.subscriptionPlan || "free";
+  const isPro = currentPlan === "pro";
+  const isPending = currentSubscription?.status === "pending";
+  const remainingDownloads = currentSubscription?.monthlyDownloadCount != null
+    ? (currentSubscription.downloadLimit ?? 10) - currentSubscription.monthlyDownloadCount
+    : null;
 
   const handleSelectPlan = async (planId: string) => {
     if (planId === "free") {
       if (currentPlan !== "free") {
         await cancelSubscription();
+        toast.success("Abonnement gratuit activé");
       }
       return;
     }
@@ -84,16 +85,32 @@ export default function PricingPage() {
       return;
     }
 
-    // For paid plans, show the subscription flow
+    // For paid plans, create subscription with virement bancaire
     await createSubscription({
       plan: planId as any,
+      paymentMethod: "bank_transfer",
+      amount: 79,
+      currency: "TND",
     });
+
+    toast.success("Demande d'abonnement envoyée ! En attente de validation du virement.");
+  };
+
+  const handleCopy = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopying(label);
+      toast.success(`${label} copié`);
+      setTimeout(() => setCopying(null), 2000);
+    } catch {
+      toast.error("Impossible de copier");
+    }
   };
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="border-b border-border/30 bg-background/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 flex items-center h-16">
+      <header className="border-b border-border/30 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 flex items-center h-14">
           <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
             Retour
@@ -107,20 +124,21 @@ export default function PricingPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-12">
-        <div className="text-center mb-10">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-10">
+        <div className="text-center mb-8">
           <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Abonnement actuel: {currentPlan === "free" ? "Gratuit" : currentPlan === "pro" ? "Pro" : "Enterprise"}
+            Offre actuelle : {currentPlan === "free" ? "Gratuit" : "Pro"}
+            {isPending && " (En attente de validation)"}
           </Badge>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre offre</h1>
-          <p className="mt-3 text-muted-foreground max-w-lg mx-auto">
-            Passez à une offre supérieure pour débloquer plus de fonctionnalités.
+          <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
+            Passez à l'offre Pro pour télécharger vos devis en PDF.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 mb-10">
           {PLANS.map((plan, index) => {
-            const isCurrentPlan = currentPlan === plan.id;
+            const isCurrentPlan = currentPlan === plan.id && !isPending;
 
             return (
               <motion.div
@@ -151,15 +169,32 @@ export default function PricingPage() {
                   </div>
                 )}
 
-                <div className="mb-6">
+                {isPending && plan.id === "pro" && (
+                  <div className="absolute -top-3 right-4">
+                    <Badge variant="outline" className="px-3 py-0.5 text-xs border-amber-300 text-amber-600 bg-amber-50">
+                      En attente
+                    </Badge>
+                  </div>
+                )}
+
+                <div className="mb-5">
                   <h3 className="text-lg font-semibold">{plan.name}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
                 </div>
 
-                <div className="mb-6">
+                <div className="mb-5">
                   <span className="text-4xl font-bold">{plan.price}</span>
                   <span className="ml-1 text-sm text-muted-foreground">/{plan.period}</span>
                 </div>
+
+                {plan.note && (
+                  <div className="mb-4 px-3 py-2 rounded-lg bg-muted/30 border border-border/20">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <FileText className="h-3 w-3 text-amber-500 shrink-0" />
+                      {plan.note}
+                    </p>
+                  </div>
+                )}
 
                 <ul className="mb-8 space-y-3 flex-1">
                   {plan.features.map((feature) => (
@@ -171,22 +206,97 @@ export default function PricingPage() {
                 </ul>
 
                 <Button
-                  variant={plan.popular || isCurrentPlan ? "default" : "outline"}
+                  variant={plan.popular && !isCurrentPlan ? "default" : "outline"}
                   className="w-full h-11 text-sm gap-1"
                   onClick={() => handleSelectPlan(plan.id)}
-                  disabled={isCurrentPlan && plan.id === "free"}
+                  disabled={isCurrentPlan || (isPending && plan.id === "pro")}
                 >
                   {isCurrentPlan
                     ? "Offre actuelle"
+                    : isPending && plan.id === "pro"
+                    ? "En attente..."
                     : plan.id === "free"
                     ? "Rester gratuit"
                     : `Choisir ${plan.name}`}
-                  {!isCurrentPlan && plan.id !== "free" && <ChevronRight className="h-3.5 w-3.5" />}
+                  {!isCurrentPlan && plan.id !== "free" && !isPending && <ChevronRight className="h-3.5 w-3.5" />}
                 </Button>
               </motion.div>
             );
           })}
         </div>
+
+        {/* ═══ Bank Transfer Section ═══ */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="rounded-2xl border-2 border-primary/10 bg-gradient-to-br from-primary/[0.02] to-background p-6 sm:p-8"
+        >
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <Banknote className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Paiement par virement bancaire</h2>
+              <p className="text-xs text-muted-foreground">
+                Effectuez un virement de <strong>79 TND</strong> sur le compte ci-dessous, votre abonnement sera activé sous 24h.
+              </p>
+            </div>
+          </div>
+
+          <Card className="border-border/30 bg-muted/20">
+            <CardContent className="p-4 sm:p-6 space-y-3">
+              {[
+                { label: "Banque", value: BANK_INFO.bank },
+                { label: "Titulaire", value: BANK_INFO.titulaire },
+                { label: "RIB", value: BANK_INFO.rib, copyable: true },
+                { label: "IBAN", value: BANK_INFO.iban, copyable: true },
+                { label: "Swift/BIC", value: BANK_INFO.swift, copyable: true },
+                { label: "Montant", value: BANK_INFO.montant, highlight: true },
+                { label: "Motif", value: "Abonnement BudgetBati Pro - [Votre email]", copyable: true },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-border/5 last:border-0">
+                  <span className="text-xs text-muted-foreground">{item.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-semibold text-right ${item.highlight ? "text-primary text-sm" : ""}`}>
+                      {item.value}
+                    </span>
+                    {item.copyable && (
+                      <button
+                        onClick={() => handleCopy(item.value, item.label)}
+                        className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
+                        title={`Copier ${item.label}`}
+                      >
+                        {copying === item.label ? (
+                          <CheckCheck className="h-3 w-3 text-emerald-500" />
+                        ) : (
+                          <Copy className="h-3 w-3 text-muted-foreground" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <div className="mt-4 flex items-start gap-2 text-[10px] text-muted-foreground/60">
+            <Shield className="h-3 w-3 shrink-0 mt-0.5" />
+            <p>
+              Une fois le virement effectué, votre abonnement sera activé manuellement sous 24h ouvrées.
+              Vous recevrez une confirmation par email. Pour toute question : support@budgetbati.tn
+            </p>
+          </div>
+
+          {isPro && (
+            <div className="mt-4 px-4 py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
+              <p className="text-xs text-emerald-700 flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5" />
+                Vous êtes déjà abonné Pro. Il vous reste <strong>{remainingDownloads ?? 10} téléchargement(s)</strong> ce mois-ci.
+              </p>
+            </div>
+          )}
+        </motion.div>
       </div>
     </main>
   );

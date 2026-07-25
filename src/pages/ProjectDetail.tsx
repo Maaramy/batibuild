@@ -19,12 +19,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
   Target, TrendingUp, TriangleAlert, Users, Globe,
   PiggyBank, Sparkles, Wallet, Gauge,
-  ChevronDown, ChevronUp, ChevronsUpDown, CheckCheck, Info,
+  ChevronDown, ChevronUp, ChevronsUpDown, Check, CheckCheck, Info,
   Truck, FileText, Paintbrush, Plug,
   Percent, ChevronRight, Download,
 } from "lucide-react";
@@ -124,9 +125,12 @@ export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const project = useQuery(api.projects.getProject, { projectId: id as any });
+  const { user: currentUser } = useAuth();
   const toggleFav = useMutation(api.projects.toggleFavorite);
   const startAnalysis = useMutation(api.projects.startAnalysis);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
+  const checkDownloadAllowed = useQuery(api.subscriptions.checkDownloadAllowed);
+  const consumeDownload = useMutation(api.subscriptions.consumeDownload);
 
   const PROGRESS_STEPS = [
     "Préparation du rapport...",
@@ -143,6 +147,7 @@ export default function ProjectDetail() {
   const [exportProgress, setExportProgress] = useState(0);
   const [exportLabel, setExportLabel] = useState("");
   const [showPicker, setShowPicker] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   // ── Helper: replace oklch() in ALL document stylesheets before html2canvas ──
@@ -258,6 +263,16 @@ export default function ProjectDetail() {
 
   // ── PDF Export ────────────────────────────────────────────────────────
 
+  const handleDownloadClick = () => {
+    if (checkDownloadAllowed?.allowed) {
+      setShowPicker(true);
+    } else if (checkDownloadAllowed?.reason === "limite_atteinte") {
+      toast.error("Vous avez atteint votre limite de 10 téléchargements pour ce mois");
+    } else {
+      setShowUpgradeDialog(true);
+    }
+  };
+
   const generatePDF = async (scenario: string) => {
     if (!reportRef.current || !project) {
       toast.error("Le rapport n'est pas prêt");
@@ -368,6 +383,13 @@ export default function ProjectDetail() {
       }
 
       toast.success(`Devis ${scenarioLabel} téléchargé avec succès`);
+
+      // Consume download for Pro users
+      try {
+        await consumeDownload();
+      } catch {
+        // Silently fail — the PDF was already downloaded
+      }
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Erreur inconnue lors de la génération du PDF";
@@ -486,7 +508,7 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-1">
             {done && (
               <>
-                <button onClick={() => setShowPicker(true)} disabled={exporting}
+                <button onClick={handleDownloadClick} disabled={exporting}
                   className={cn("flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-border/30",
                     exporting
                       ? "opacity-50 cursor-not-allowed bg-muted/30"
@@ -553,6 +575,41 @@ export default function ProjectDetail() {
                     </div>
                     <div className="text-center text-[9px] text-muted-foreground/50 pt-1">
                       Le rapport sera généré avec les données du scénario choisi
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Upgrade dialog for Free users */}
+                <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+                  <DialogContent className="sm:max-w-sm rounded-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-base">Offre Gratuite</DialogTitle>
+                      <DialogDescription className="text-xs">
+                        Le téléchargement de devis en PDF est réservé aux abonnés Pro
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-2 text-center">
+                      <div className="flex justify-center mb-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+                          <Download className="h-7 w-7 text-amber-600" />
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Passez à l'offre <strong>Pro à 79 TND/mois</strong> pour télécharger vos devis en PDF.
+                      </p>
+                      <div className="text-xs text-muted-foreground/60 space-y-1 mb-4">
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />10 téléchargements de devis / mois</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Projets illimités</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Paiement par virement bancaire</p>
+                      </div>
+                      <Button className="w-full" onClick={() => { setShowUpgradeDialog(false); navigate("/pricing"); }}>
+                        Passer à Pro
+                        <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                      </Button>
+                      <button onClick={() => setShowUpgradeDialog(false)}
+                        className="mt-2 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                        Rester gratuit
+                      </button>
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -680,7 +737,7 @@ export default function ProjectDetail() {
                         <span className="font-semibold">{ai.estimatedDuration}</span>
                       </div>
                     )}
-                    <button onClick={() => setShowPicker(true)} disabled={exporting}
+                    <button onClick={handleDownloadClick} disabled={exporting}
                       className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border",
                         exporting
                           ? "opacity-50 cursor-not-allowed bg-muted/30 border-border/20"

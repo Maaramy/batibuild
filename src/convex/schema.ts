@@ -20,13 +20,11 @@ export type Role = Infer<typeof roleValidator>;
 export const SUBSCRIPTION_PLANS = {
   FREE: "free",
   PRO: "pro",
-  ENTERPRISE: "enterprise",
 } as const;
 
 export const subscriptionPlanValidator = v.union(
   v.literal(SUBSCRIPTION_PLANS.FREE),
   v.literal(SUBSCRIPTION_PLANS.PRO),
-  v.literal(SUBSCRIPTION_PLANS.ENTERPRISE),
 );
 export type SubscriptionPlan = Infer<typeof subscriptionPlanValidator>;
 
@@ -441,6 +439,8 @@ const schema = defineSchema(
       paymentId: v.optional(v.string()),
       amount: v.optional(v.number()),
       currency: v.optional(v.string()),
+      monthlyDownloadCount: v.optional(v.number()),
+      downloadLimit: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
