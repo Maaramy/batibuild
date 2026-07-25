@@ -3,10 +3,17 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useParams, useNavigate } from "react-router";
-import { useState, useMemo, Fragment, useRef, useCallback, useEffect } from "react";
+import { useState, useMemo, Fragment, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -123,24 +130,21 @@ export default function ProjectDetail() {
   const [openCat, setOpenCat] = useState<string>("__all_expanded");
   const [selectedScenario, setSelectedScenario] = useState<string>("standard");
   const [exporting, setExporting] = useState(false);
-  const [pdfScenario, setPdfScenario] = useState<string>("standard");
-  const [showScenarioPicker, setShowScenarioPicker] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
 
   // ── PDF Export ────────────────────────────────────────────────────────
 
   const generatePDF = async (scenario: string) => {
     if (!reportRef.current || !project) return;
 
-    // Save current scenario
     const prevScenario = selectedScenario;
-    // Switch to chosen scenario for PDF capture
     setSelectedScenario(scenario);
     setExporting(true);
+    setShowPicker(false);
 
-    // Wait for React re-render with new scenario
-    await new Promise((r) => setTimeout(r, 100));
+    // Wait for React re-render with new scenario data
+    await new Promise((r) => setTimeout(r, 200));
 
     try {
       const canvas = await html2canvas(reportRef.current, {
@@ -173,27 +177,10 @@ export default function ProjectDetail() {
     } catch (err) {
       console.error("PDF generation error:", err);
     } finally {
-      // Restore previous scenario
       setSelectedScenario(prevScenario);
       setExporting(false);
-      setShowScenarioPicker(false);
     }
   };
-
-  // ── Close dropdown on outside click ───────────────────────────────────
-
-  const closePicker = useCallback((e: MouseEvent) => {
-    if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-      setShowScenarioPicker(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (showScenarioPicker) {
-      document.addEventListener("mousedown", closePicker);
-      return () => document.removeEventListener("mousedown", closePicker);
-    }
-  }, [showScenarioPicker, closePicker]);
 
   // ── Memos ───────────────────────────────────────────────────────────────
 
@@ -296,8 +283,8 @@ export default function ProjectDetail() {
           </div>
           <div className="flex items-center gap-1">
             {done && (
-              <div className="relative" ref={pickerRef}>
-                <button onClick={() => setShowScenarioPicker(!showScenarioPicker)} disabled={exporting}
+              <>
+                <button onClick={() => setShowPicker(true)} disabled={exporting}
                   className={cn("flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-border/30",
                     exporting
                       ? "opacity-50 cursor-not-allowed bg-muted/30"
@@ -312,41 +299,62 @@ export default function ProjectDetail() {
                   <span className="sm:hidden">PDF</span>
                 </button>
 
-                {/* Scenario picker dropdown */}
-                {showScenarioPicker && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-xl border border-border/30 bg-background shadow-lg overflow-hidden"
-                  >
-                    <div className="px-3 py-2 text-[9px] font-medium text-muted-foreground bg-muted/30 border-b border-border/20">
-                      Choisir un scénario
+                {/* Scenario picker modal */}
+                <Dialog open={showPicker} onOpenChange={setShowPicker}>
+                  <DialogContent className="sm:max-w-sm rounded-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-base">Choisir un scénario</DialogTitle>
+                      <DialogDescription className="text-xs">
+                        Sélectionnez le scénario budgétaire à exporter en PDF
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2 pt-2">
+                      {(["economique", "standard", "premium"] as const).map((key) => {
+                        const s = scenarios?.[key];
+                        if (!s) return null;
+                        const icons: Record<string, any> = { economique: Wallet, standard: Gauge, premium: Sparkles };
+                        const Icon = icons[key];
+                        const colors: Record<string, string> = {
+                          economique: "border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/30 from-emerald-500/10",
+                          standard: "border-primary/20 hover:border-primary/40 hover:bg-primary/5 from-primary/10",
+                          premium: "border-violet-200 hover:border-violet-400 hover:bg-violet-50/30 from-violet-500/10",
+                        };
+                        const txtColors: Record<string, string> = {
+                          economique: "text-emerald-600",
+                          standard: "text-primary",
+                          premium: "text-violet-600",
+                        };
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => generatePDF(key)}
+                            className={cn(
+                              "w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all hover:shadow-sm active:scale-[0.98] bg-gradient-to-br",
+                              colors[key]
+                            )}
+                          >
+                            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br", txtColors[key], "from-current/10 to-current/5")}>
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className={cn("font-semibold text-sm", txtColors[key])}>{s.label}</span>
+                              <span className="block text-[11px] text-muted-foreground mt-0.5">
+                                Total: {fmt(s.totalCost)}
+                              </span>
+                            </div>
+                            <Badge variant="secondary" className={cn("text-[9px] shrink-0", txtColors[key])}>
+                              {fmt(s.costPerM2)}/m²
+                            </Badge>
+                          </button>
+                        );
+                      })}
                     </div>
-                    {(["economique", "standard", "premium"] as const).map((key) => {
-                      const s = scenarios?.[key];
-                      if (!s) return null;
-                      const icons: Record<string, any> = { economique: Wallet, standard: Gauge, premium: Sparkles };
-                      const Icon = icons[key];
-                      return (
-                        <button
-                          key={key}
-                          onClick={() => generatePDF(key)}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 text-xs hover:bg-muted/20 transition-colors text-left border-b border-border/10 last:border-b-0"
-                        >
-                          <Icon className={cn("h-4 w-4 shrink-0", key === "standard" ? "text-primary" : "text-muted-foreground")} />
-                          <div className="flex-1 min-w-0">
-                            <span className="font-medium">{s.label}</span>
-                            <span className="block text-[9px] text-muted-foreground">{fmt(s.totalCost)}</span>
-                          </div>
-                          <Badge variant="outline" className={cn("text-[8px]", key === "standard" ? "border-primary/30 text-primary" : "")}>
-                            {fmt(s.costPerM2)}/m²
-                          </Badge>
-                        </button>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </div>
+                    <div className="text-center text-[9px] text-muted-foreground/50 pt-1">
+                      Le rapport sera généré avec les données du scénario choisi
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </>
             )}
             <button onClick={() => toggleFav({ projectId: project._id })}
               className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all">
