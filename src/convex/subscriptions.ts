@@ -36,6 +36,37 @@ export const getAllSubscriptions = query({
   },
 });
 
+/** Get all subscriptions with user info (admin only) */
+export const getAllSubscriptionsWithUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    const subs = await ctx.db.query("subscriptions").order("desc").collect();
+
+    const result = await Promise.all(
+      subs.map(async (sub) => {
+        const user = await ctx.db.get(sub.userId);
+        return {
+          ...sub,
+          user: user
+            ? {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+              }
+            : null,
+        };
+      }),
+    );
+
+    return result;
+  },
+});
+
 // ============================================================================
 // Download Limit Helpers
 // ============================================================================

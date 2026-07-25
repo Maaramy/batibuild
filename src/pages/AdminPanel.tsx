@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -39,6 +40,15 @@ import {
   Clock,
   Mail,
   Phone,
+  Crown,
+  CreditCard,
+  Activity,
+  UserPlus,
+  RefreshCw,
+  Smartphone,
+  Globe,
+  FileText,
+  Calendar,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -67,10 +77,17 @@ export default function AdminPanel() {
   });
   const [editingMaterial, setEditingMaterial] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
+  const [userSearch, setUserSearch] = useState("");
+  const [subSearch, setSubSearch] = useState("");
 
   const pendingSubs = useQuery(api.subscriptions.getPendingSubscriptions) || [];
+  const allSubsWithUsers = useQuery(api.subscriptions.getAllSubscriptionsWithUsers) || [];
+  const allUsers = useQuery(api.users.getAllUsers) || [];
+
   const approveSub = useMutation(api.subscriptions.adminApproveSubscription);
   const rejectSub = useMutation(api.subscriptions.adminRejectSubscription);
+  const updateUserRole = useMutation(api.users.adminUpdateUserRole);
+  const updateUserPlan = useMutation(api.users.adminUpdateUserPlan);
 
   const createMaterial = useMutation(api.materials.createMaterialPrice);
   const updateMaterial = useMutation(api.materials.updateMaterialPrice);
@@ -200,77 +217,163 @@ export default function AdminPanel() {
                   </span>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="subscriptions" className="text-xs gap-1.5">
+                <CreditCard className="h-4 w-4" />
+                <span className="hidden xs:inline">Abonnements</span>
+              </TabsTrigger>
             </TabsList>
           </div>
 
           {/* Admin Dashboard */}
           <TabsContent value="dashboard">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-                <CardContent className="p-5">
+                <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground">Total projets</p>
-                      <p className="text-2xl font-bold mt-1">{allProjects.length}</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Utilisateurs</p>
+                      <p className="text-xl sm:text-2xl font-bold mt-1">{allUsers.length}</p>
                     </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Building2 className="h-5 w-5" />
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+                      <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5"><Crown className="h-3 w-3 text-amber-500" />{allUsers.filter((u: any) => u.role === "admin").length} admin</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-0.5">{allUsers.filter((u: any) => u.subscriptionPlan === "pro").length} Pro</span>
                   </div>
                 </CardContent>
               </Card>
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-                <CardContent className="p-5">
+                <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground">Coût total estimé</p>
-                      <p className="text-2xl font-bold mt-1">{new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(totalCost)}</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Total projets</p>
+                      <p className="text-xl sm:text-2xl font-bold mt-1">{allProjects.length}</p>
                     </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                      <TrendingUp className="h-5 w-5" />
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
+                    <span>{allProjects.filter((p: any) => p.status === "completed").length} terminés</span>
+                    <span>•</span>
+                    <span>{allProjects.filter((p: any) => p.status === "draft").length} brouillons</span>
                   </div>
                 </CardContent>
               </Card>
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-                <CardContent className="p-5">
+                <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground">Matériaux</p>
-                      <p className="text-2xl font-bold mt-1">{materialPrices.length}</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Abonnés Pro</p>
+                      <p className="text-xl sm:text-2xl font-bold mt-1">{allSubsWithUsers.filter((s: any) => s.status === "active").length}</p>
                     </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
-                      <Package className="h-5 w-5" />
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+                      <Crown className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5"><Clock className="h-3 w-3" />{pendingSubs.length} en attente</span>
+                    <span>•</span>
+                    <span>{allSubsWithUsers.filter((s: any) => s.status === "canceled").length} annulés</span>
                   </div>
                 </CardContent>
               </Card>
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-                <CardContent className="p-5">
+                <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground">Catégories</p>
-                      <p className="text-2xl font-bold mt-1">{materialCategories.length}</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Revenus estimés</p>
+                      <p className="text-xl sm:text-2xl font-bold mt-1">
+                        {new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(allSubsWithUsers.filter((s: any) => s.status === "active").length * 79)}
+                      </p>
                     </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
-                      <BarChart3 className="h-5 w-5" />
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+                      <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
+                    <span>{allSubsWithUsers.filter((s: any) => s.status === "active").length * 79} TND/mois</span>
+                    <span>•</span>
+                    <span>{materialPrices.length} matériaux</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+                <CardHeader className="p-4 pb-2">
+                  <CardTitle className="text-sm">Projets récents</CardTitle>
+                  <CardDescription className="text-[10px]">Les 5 derniers projets créés</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <div className="space-y-1.5">
+                    {allProjects.slice(0, 5).map((p: any) => (
+                      <div key={p._id} className="flex items-center justify-between py-1.5 border-b border-border/5 last:border-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-xs truncate max-w-[150px]">{p.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant={p.status === "completed" ? "default" : "secondary"} className="text-[8px] h-4 px-1.5">
+                            {p.status === "completed" ? "Terminé" : p.status}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(p.createdAt).toLocaleDateString("fr-FR")}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+                <CardHeader className="p-4 pb-2">
+                  <CardTitle className="text-sm">Abonnements (30 jours)</CardTitle>
+                  <CardDescription className="text-[10px]">Récapitulatif des abonnements</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {[
+                      { label: "Actifs", count: allSubsWithUsers.filter((s: any) => s.status === "active").length, color: "text-emerald-600", bg: "bg-emerald-100" },
+                      { label: "En attente", count: pendingSubs.length, color: "text-amber-600", bg: "bg-amber-100" },
+                      { label: "Annulés", count: allSubsWithUsers.filter((s: any) => s.status === "canceled").length, color: "text-red-500", bg: "bg-red-100" },
+                    ].map((s) => (
+                      <div key={s.label} className="text-center p-2 rounded-lg bg-muted/20 border border-border/10">
+                        <p className={cn("text-lg font-bold", s.color)}>{s.count}</p>
+                        <p className="text-[9px] text-muted-foreground">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-1.5">
+                    {allSubsWithUsers.filter((s: any) => s.status === "active" || s.status === "pending").slice(0, 4).map((sub: any) => (
+                      <div key={sub._id} className="flex items-center justify-between py-1 border-b border-border/5 last:border-0">
+                        <span className="text-xs truncate max-w-[130px]">{sub.user?.name || "Anonyme"}</span>
+                        <Badge variant={sub.status === "active" ? "default" : "outline"} className={cn("text-[8px] h-4 px-1.5", sub.status === "pending" && "border-amber-300 text-amber-600")}>
+                          {sub.status === "active" ? "Actif" : "En attente"}
+                        </Badge>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
             </div>
 
             <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-base">Aperçu des catégories de matériaux</CardTitle>
-                <CardDescription>Nombre d'articles par catégorie</CardDescription>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-sm sm:text-base">Aperçu des catégories de matériaux</CardTitle>
+                <CardDescription className="text-xs">Nombre d'articles par catégorie</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <CardContent className="p-4 sm:p-6 pt-0">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
                   {materialCategories.map((cat: any) => (
-                    <div key={cat.category} className="p-3 rounded-xl bg-muted/30 border border-border/30 text-center">
-                      <p className="text-lg font-bold">{cat.count}</p>
-                      <p className="text-xs text-muted-foreground">{categoryLabels[cat.category] || cat.category}</p>
+                    <div key={cat.category} className="p-2 sm:p-3 rounded-xl bg-muted/30 border border-border/30 text-center">
+                      <p className="text-base sm:text-lg font-bold">{cat.count}</p>
+                      <p className="text-[9px] sm:text-xs text-muted-foreground">{categoryLabels[cat.category] || cat.category}</p>
                     </div>
                   ))}
                 </div>
@@ -492,14 +595,145 @@ export default function AdminPanel() {
           {/* Users Management */}
           <TabsContent value="users">
             <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-base">Gestion des utilisateurs</CardTitle>
-                <CardDescription>Liste des utilisateurs inscrits</CardDescription>
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-6">
+                <div className="min-w-0">
+                  <CardTitle className="text-sm sm:text-base">Gestion des utilisateurs</CardTitle>
+                  <CardDescription className="text-xs">{allUsers.length} utilisateur(s) inscrit(s)</CardDescription>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Rechercher..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="h-9 w-full sm:w-56 pl-9 text-sm"
+                  />
+                </div>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  Interface de gestion des utilisateurs en cours de développement.
-                </p>
+              <CardContent className="p-0 sm:p-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs sm:text-sm">
+                    <thead>
+                      <tr className="border-b border-border/30">
+                        <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Utilisateur</th>
+                        <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Email</th>
+                        <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Rôle</th>
+                        <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Abonnement</th>
+                        <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Inscription</th>
+                        <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allUsers
+                        .filter((u: any) =>
+                          userSearch
+                            ? (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+                              (u.email || "").toLowerCase().includes(userSearch.toLowerCase())
+                            : true
+                        )
+                        .map((u: any) => {
+                          const userInitial = (u.name || u.email || "?").charAt(0).toUpperCase();
+                          const isAdmin = u.role === "admin";
+                          const isPro = u.subscriptionPlan === "pro";
+
+                          return (
+                            <tr key={u._id} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
+                              <td className="py-3 px-2 sm:px-3">
+                                <div className="flex items-center gap-2">
+                                  <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                                    isAdmin ? "bg-amber-100 text-amber-600" : "bg-primary/10 text-primary"
+                                  )}>
+                                    {userInitial}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">
+                                      {u.name || "Anonyme"}
+                                    </p>
+                                    {u.company && (
+                                      <p className="text-[9px] text-muted-foreground truncate">{u.company}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-muted-foreground hidden sm:table-cell">
+                                <span className="text-xs truncate max-w-[180px] block">{u.email || "—"}</span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center">
+                                <select
+                                  value={u.role || "user"}
+                                  onChange={async (e) => {
+                                    try {
+                                      await updateUserRole({ userId: u._id, role: e.target.value as any });
+                                      toast.success(`Rôle de ${u.name || "l'utilisateur"} mis à jour`);
+                                    } catch {
+                                      toast.error("Erreur lors de la mise à jour");
+                                    }
+                                  }}
+                                  className={cn(
+                                    "h-7 rounded-lg border px-2 text-[9px] font-medium cursor-pointer focus:outline-none focus:ring-1",
+                                    isAdmin
+                                      ? "bg-amber-50 border-amber-200 text-amber-700"
+                                      : "bg-muted/30 border-border/40 text-muted-foreground"
+                                  )}
+                                >
+                                  <option value="user">Utilisateur</option>
+                                  <option value="admin">Admin</option>
+                                </select>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center">
+                                <select
+                                  value={u.subscriptionPlan || "free"}
+                                  onChange={async (e) => {
+                                    try {
+                                      await updateUserPlan({ userId: u._id, plan: e.target.value as any });
+                                      toast.success(`Abonnement de ${u.name || "l'utilisateur"} mis à jour`);
+                                    } catch {
+                                      toast.error("Erreur lors de la mise à jour");
+                                    }
+                                  }}
+                                  className={cn(
+                                    "h-7 rounded-lg border px-2 text-[9px] font-medium cursor-pointer focus:outline-none focus:ring-1",
+                                    isPro
+                                      ? "bg-blue-50 border-blue-200 text-blue-700"
+                                      : "bg-muted/30 border-border/40 text-muted-foreground"
+                                  )}
+                                >
+                                  <option value="free">Gratuit</option>
+                                  <option value="pro">Pro (79 TND)</option>
+                                </select>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-right hidden sm:table-cell">
+                                <span className="text-[10px] text-muted-foreground">
+                                  {u.createdAt ? new Date(u.createdAt).toLocaleDateString("fr-FR") : "—"}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  {isAdmin && (
+                                    <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[8px] h-4.5">
+                                      <Crown className="h-2.5 w-2.5 mr-0.5" />
+                                      Admin
+                                    </Badge>
+                                  )}
+                                  {isPro && (
+                                    <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[8px] h-4.5">
+                                      Pro
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+                {allUsers.length === 0 && (
+                  <div className="text-center py-12">
+                    <Users className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">Aucun utilisateur trouvé</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -634,6 +868,105 @@ export default function AdminPanel() {
                                     <ThumbsDown className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* All Subscriptions History */}
+          <TabsContent value="subscriptions">
+            <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-6">
+                <div className="min-w-0">
+                  <CardTitle className="text-sm sm:text-base">Historique des abonnements</CardTitle>
+                  <CardDescription className="text-xs">{allSubsWithUsers.length} abonnement(s) au total</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-[10px] sm:text-xs">
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Actifs: {allSubsWithUsers.filter((s: any) => s.status === "active").length}</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" /> Attente: {pendingSubs.length}</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400" /> Annulés: {allSubsWithUsers.filter((s: any) => s.status === "canceled").length}</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 sm:p-6">
+                {allSubsWithUsers.length === 0 ? (
+                  <div className="text-center py-12">
+                    <CreditCard className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">Aucun abonnement</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead>
+                        <tr className="border-b border-border/30">
+                          <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Client</th>
+                          <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Email</th>
+                          <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Offre</th>
+                          <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Statut</th>
+                          <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Paiement</th>
+                          <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Date</th>
+                          <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Fin</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allSubsWithUsers.map((sub: any) => {
+                          const statusColors: Record<string, string> = {
+                            active: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                            pending: "bg-amber-50 text-amber-700 border-amber-200",
+                            canceled: "bg-red-50 text-red-600 border-red-200",
+                            expired: "bg-slate-100 text-slate-500 border-slate-200",
+                          };
+                          const statusLabels: Record<string, string> = {
+                            active: "Actif",
+                            pending: "En attente",
+                            canceled: "Annulé",
+                            expired: "Expiré",
+                          };
+                          const payLabels: Record<string, string> = {
+                            bank_transfer: "Virement",
+                            admin: "Admin",
+                          };
+
+                          return (
+                            <tr key={sub._id} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
+                              <td className="py-3 px-2 sm:px-3">
+                                <span className="text-xs sm:text-sm font-medium">{sub.user?.name || "Anonyme"}</span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-muted-foreground hidden sm:table-cell">
+                                <span className="text-xs">{sub.user?.email || "—"}</span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center">
+                                <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[9px]">
+                                  {sub.plan === "pro" ? "Pro" : sub.plan}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center">
+                                <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium border", statusColors[sub.status] || "")}>
+                                  {statusLabels[sub.status] || sub.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-right hidden sm:table-cell">
+                                <span className="text-[10px] text-muted-foreground">
+                                  {payLabels[sub.paymentMethod] || sub.paymentMethod || "—"}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-right hidden sm:table-cell">
+                                <span className="text-[10px] text-muted-foreground">
+                                  {new Date(sub.createdAt).toLocaleDateString("fr-FR")}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-right">
+                                <span className="text-[10px] text-muted-foreground">
+                                  {sub.endDate ? new Date(sub.endDate).toLocaleDateString("fr-FR") : "—"}
+                                </span>
                               </td>
                             </tr>
                           );
