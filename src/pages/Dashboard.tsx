@@ -42,6 +42,7 @@ import {
   X,
   Home,
   Shield,
+  User,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
@@ -253,6 +254,7 @@ export default function Dashboard() {
           { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
           { icon: BarChart3, label: "Comparer", onClick: () => setMobileSidebarOpen(false) },
           { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
+          { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
           ...(user?.role === "admin" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
         ].map((item) => (
           <button key={item.label} onClick={item.onClick}
@@ -341,6 +343,10 @@ export default function Dashboard() {
                     <p className="text-xs font-medium truncate">{user?.name || "Utilisateur"}</p>
                     <p className="text-[10px] text-muted-foreground truncate">{user?.email || ""}</p>
                   </div>
+                  <DropdownMenuItem onClick={() => navigate("/dashboard/profile")} className="cursor-pointer gap-2 text-xs">
+                    <User className="h-3.5 w-3.5" />
+                    Mon profil
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/dashboard/pricing")} className="cursor-pointer gap-2 text-xs">
                     <CreditCard className="h-3.5 w-3.5" />
                     Abonnement
