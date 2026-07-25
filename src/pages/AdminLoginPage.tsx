@@ -48,6 +48,7 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [setupMode, setSetupMode] = useState<"login" | "register" | "success">("login");
   const [isFirstSetup, setIsFirstSetup] = useState(false);
+  const [showRegisterToggle, setShowRegisterToggle] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedMessages, setSeedMessages] = useState<string[]>([]);
 
@@ -57,6 +58,7 @@ export default function AdminLoginPage() {
       setIsFirstSetup(!adminExists);
       if (!adminExists) {
         setSetupMode("register");
+        setShowRegisterToggle(false);
       }
     }
   }, [adminExists]);
@@ -72,29 +74,27 @@ export default function AdminLoginPage() {
     }
   }, [authLoading, isAuthenticated, user, navigate, setupMode]);
 
-  // Handle first-time setup: register + auto-promote to admin
-  const handleFirstSetup = async (e: React.FormEvent<HTMLFormElement>) => {
+  // Handle register + optionally promote to admin
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
       const formData = new FormData(e.currentTarget);
-      // First, check if user already exists by trying sign-in
       formData.set("flow", "signUp");
       await signIn("password", formData);
 
       // Wait for auth to propagate
       await new Promise((r) => setTimeout(r, 1000));
 
-      // Promote to admin (safe because no admin exists yet)
+      // Try to promote to admin if no admin exists yet
       try {
         await makeMeAdmin();
       } catch (err: any) {
-        console.warn("Auto-promotion note:", err.message);
+        console.warn("Promotion note:", err.message);
       }
 
-      // Show success and seed option
       setSetupMode("success");
       setIsLoading(false);
     } catch (err: any) {
@@ -102,16 +102,18 @@ export default function AdminLoginPage() {
       if (msg.includes("already exists") || msg.includes("Account already")) {
         // User already exists, try to sign in instead
         try {
-          const formData = new FormData();
-          formData.set("email", email);
-          formData.set("password", password);
-          formData.set("flow", "signIn");
-          await signIn("password", formData);
+          const fd = new FormData();
+          fd.set("email", email);
+          fd.set("password", password);
+          fd.set("flow", "signIn");
+          await signIn("password", fd);
           await new Promise((r) => setTimeout(r, 1000));
-          await makeMeAdmin();
+          try {
+            await makeMeAdmin();
+          } catch { /* admin exists, ignore */ }
           setSetupMode("success");
         } catch {
-          setError("Email déjà utilisé. Essayez de vous connecter avec vos identifiants existants.");
+          setError("Email déjà utilisé. Connectez-vous ou utilisez un autre email.");
         }
       } else {
         setError(msg || "Erreur lors de la création du compte.");
@@ -200,20 +202,30 @@ export default function AdminLoginPage() {
           </motion.div>
 
           <h1 className="text-3xl font-bold text-white mb-3">BudgetBati</h1>
-          <p className="text-lg text-slate-400 mb-6">Panneau d'administration</p>
-
-          {isFirstSetup && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.4 }}
-            >
-              <Badge className="mb-4 px-3 py-1 bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-xs">
-                <Sparkles className="h-3 w-3 mr-1" />
-                Première configuration
-              </Badge>
-            </motion.div>
-          )}
+          <p className="text-lg text-slate-400 mb-6">Panneau d'administration</p>                  {isFirstSetup && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.4 }}
+                    >
+                      <Badge className="mb-4 px-3 py-1 bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-xs">
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        Première configuration
+                      </Badge>
+                    </motion.div>
+                  )}
+                  {!isFirstSetup && setupMode === "register" && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.4 }}
+                    >
+                      <Badge className="mb-4 px-3 py-1 bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-xs">
+                        <UserPlus className="h-3 w-3 mr-1" />
+                        Nouveau compte admin
+                      </Badge>
+                    </motion.div>
+                  )}
 
           <div
             className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium ${
@@ -225,10 +237,10 @@ export default function AdminLoginPage() {
             <MapPin className="h-3.5 w-3.5" />
             {isFirstSetup
               ? "Créez votre compte administrateur"
+              : setupMode === "register"
+              ? "Créez un compte administrateur"
               : "Accès réservé aux administrateurs"}
-          </div>
-
-          <div className="mt-12 space-y-4 text-left max-w-sm mx-auto">
+          </div>                        <div className="mt-12 space-y-4 text-left max-w-sm mx-auto">
             {[
               { icon: Shield, text: "Gestion des utilisateurs et rôles" },
               { icon: Lock, text: "Validation des abonnements Pro" },
@@ -354,14 +366,16 @@ export default function AdminLoginPage() {
                           <UserPlus className="h-6 w-6 text-emerald-400" />
                         </div>
                         <CardTitle className="text-white text-lg">
-                          Configuration initiale
+                          {isFirstSetup ? "Configuration initiale" : "Créer un compte"}
                         </CardTitle>
                         <p className="text-sm text-slate-400 mt-1">
                           Créez votre compte administrateur
                         </p>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Ce sera le premier administrateur de l'application
-                        </p>
+                        {isFirstSetup && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            Ce sera le premier administrateur de l'application
+                          </p>
+                        )}
                       </>
                     ) : (
                       <>
@@ -382,13 +396,12 @@ export default function AdminLoginPage() {
             </CardHeader>
 
             <CardContent className="p-6 pt-4">
-              {setupMode !== "success" && (
-                <form
-                  onSubmit={isFirstSetup ? handleFirstSetup : handleLogin}
+              {setupMode !== "success" && (                  <form
+                  onSubmit={setupMode === "register" ? handleRegister : handleLogin}
                   className="space-y-4"
                 >
-                  {/* Name field for first-time setup */}
-                  {isFirstSetup && (
+                  {/* Name field for register mode */}
+                  {setupMode === "register" && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -435,9 +448,7 @@ export default function AdminLoginPage() {
                         id="admin-email"
                         name="email"
                         type="email"
-                        placeholder={
-                          isFirstSetup ? "admin@budgetbati.tn" : "admin@budgetbati.tn"
-                        }
+                        placeholder="admin@budgetbati.tn"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="h-11 pl-9 bg-slate-900/50 border-slate-700/50 text-slate-200 placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
@@ -513,14 +524,14 @@ export default function AdminLoginPage() {
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          {isFirstSetup ? "Création du compte..." : "Connexion..."}
+                          {setupMode === "register" ? "Création du compte..." : "Connexion..."}
                         </>
                       ) : (
                         <>
-                          {isFirstSetup ? (
+                          {setupMode === "register" ? (
                             <>
                               <UserPlus className="mr-2 h-4 w-4" />
-                              Créer & configurer
+                              {isFirstSetup ? "Créer & configurer" : "Créer le compte"}
                             </>
                           ) : (
                             <>
@@ -533,15 +544,35 @@ export default function AdminLoginPage() {
                     </Button>
                   </motion.div>
 
-                  {!isFirstSetup && (
-                    <p className="text-center text-xs text-slate-600 mt-2">
-                      <Link
-                        to="/auth"
-                        className="text-slate-500 hover:text-slate-300 transition-colors"
+                          {!isFirstSetup && setupMode === "login" && (
+                    <div className="mt-4 pt-4 border-t border-slate-700/30 space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => { setSetupMode("register"); setError(null); }}
+                        className="w-full text-sm text-slate-400 hover:text-slate-200 transition-colors"
                       >
-                        ← Retour à l'accueil
-                      </Link>
-                    </p>
+                        👤 Premier accès ? Créer un compte administrateur
+                      </button>
+                      <p className="text-center text-xs text-slate-600">
+                        <Link
+                          to="/auth"
+                          className="text-slate-500 hover:text-slate-300 transition-colors"
+                        >
+                          ← Retour à l'accueil
+                        </Link>
+                      </p>
+                    </div>
+                  )}
+                  {!isFirstSetup && setupMode === "register" && (
+                    <div className="mt-4 pt-4 border-t border-slate-700/30">
+                      <button
+                        type="button"
+                        onClick={() => { setSetupMode("login"); setError(null); }}
+                        className="w-full text-center text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                      >
+                        ← J'ai déjà un compte
+                      </button>
+                    </div>
                   )}
                 </form>
               )}
