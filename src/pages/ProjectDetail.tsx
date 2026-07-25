@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -127,10 +128,20 @@ export default function ProjectDetail() {
   const startAnalysis = useMutation(api.projects.startAnalysis);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
 
+  const PROGRESS_STEPS = [
+    "Préparation du rapport...",
+    "Correction des couleurs...",
+    "Capture de l'écran...",
+    "Génération du PDF...",
+    "Téléchargement...",
+  ];
+
   const [analyzing, setAnalyzing] = useState(false);
   const [openCat, setOpenCat] = useState<string>("__all_expanded");
   const [selectedScenario, setSelectedScenario] = useState<string>("standard");
   const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportLabel, setExportLabel] = useState("");
   const [showPicker, setShowPicker] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -238,6 +249,13 @@ export default function ProjectDetail() {
     };
   };
 
+  // ── Progress helper ──────────────────────────────────────────────────
+
+  const advanceProgress = (step: number) => {
+    setExportProgress(Math.round((step / (PROGRESS_STEPS.length - 1)) * 100));
+    setExportLabel(PROGRESS_STEPS[step] ?? "");
+  };
+
   // ── PDF Export ────────────────────────────────────────────────────────
 
   const generatePDF = async (scenario: string) => {
@@ -248,6 +266,7 @@ export default function ProjectDetail() {
 
     setShowPicker(false);
     setExporting(true);
+    advanceProgress(0);
 
     const prevScenario = selectedScenario;
     const prevOpenCat = openCat;
@@ -274,17 +293,15 @@ export default function ProjectDetail() {
     }
 
     // ── STEP 1: Remove oklch() from ALL document stylesheets ──
-    // html2canvas v1.4.1 does not support the oklch() CSS color function.
-    // We modify the real document's stylesheets before capture so the
-    // cloned document never contains oklch().
+    advanceProgress(1);
     const restoreStylesheets = await fixOklchInAllStylesheets();
 
     // ── STEP 2: Inline computed RGB colors on report elements ──
-    // This ensures correct colors in the PDF even with the gray fallback
-    // we put in place of oklch().
     const restoreColors = fixColorsBeforeCapture(reportRef.current);
 
     try {
+      // ── STEP 3: Capture screen with html2canvas ──
+      advanceProgress(2);
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
         useCORS: true,
@@ -304,6 +321,8 @@ export default function ProjectDetail() {
         throw new Error("L'image générée est invalide");
       }
 
+      // ── STEP 4: Generate PDF from captured image ──
+      advanceProgress(3);
       const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
@@ -332,6 +351,7 @@ export default function ProjectDetail() {
       const safeName = project.name.replace(/[^a-zA-Z0-9-_]/g, "_");
       const filename = `Devis-${scenarioLabel}-${safeName}.pdf`;
 
+      advanceProgress(4);
       try {
         pdf.save(filename);
       } catch (saveErr) {
@@ -545,6 +565,37 @@ export default function ProjectDetail() {
           </div>
         </div>
       </header>
+
+      {/* ── Export Progress Overlay ── */}
+      {exporting && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="w-[320px] sm:w-[360px] rounded-2xl border bg-card p-6 shadow-2xl"
+          >
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Spinner className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Génération du devis</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{exportLabel}</p>
+              </div>
+              <div className="w-full space-y-1.5">
+                <Progress value={exportProgress} className="h-2 [&>div]:bg-primary [&>div]:transition-all [&>div]:duration-500" />
+                <p className="text-[10px] text-muted-foreground/60 tabular-nums">{exportProgress}%</p>
+              </div>
+              <p className="text-[9px] text-muted-foreground/40">Veuillez patienter pendant la génération...</p>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
 
       <div className="max-w-5xl mx-auto px-4 py-4 sm:py-6 space-y-4">
         {/* ── Pending Banner ─────────────────────────────────────────── */}
