@@ -241,7 +241,7 @@ function Navbar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <HardHat className="h-4.5 w-4.5" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">BuildEase</span>
+          <span className="text-lg font-semibold tracking-tight">BudgetBati</span>
           <span className="hidden sm:inline-block ml-1 text-xs font-medium text-muted-foreground/60">Tunisia</span>
         </div>
 
@@ -703,7 +703,7 @@ function Footer() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <HardHat className="h-4 w-4" />
               </div>
-              <span className="text-base font-semibold">BuildEase</span>
+              <span className="text-base font-semibold">BudgetBati</span>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">
               Solution IA pour l'estimation des coûts de construction en Tunisie.
@@ -734,7 +734,7 @@ function Footer() {
           </div>
         </div>
         <div className="mt-10 pt-6 border-t border-border/50 text-center text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} BuildEase Tunisia. Tous droits réservés.
+          &copy; {new Date().getFullYear()} BudgetBati. Tous droits réservés.
         </div>
       </div>
     </footer>

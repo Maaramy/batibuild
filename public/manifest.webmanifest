@@ -1,7 +1,7 @@
 {
-  "name": "freebuff.com application",
-  "short_name": "freebuff.com",
-  "description": "freebuff.com application",
+  "name": "BudgetBati",
+  "short_name": "BudgetBati",
+  "description": "Estimation de construction par IA pour la Tunisie",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
