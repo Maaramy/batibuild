@@ -48,13 +48,13 @@ export const getUserProjects = query({
   },
 });
 
-/** Get all projects (admin only) */
+/** Get all projects (admin only, returns empty if not admin) */
 export const getAllProjects = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
     if (!user || user.role !== "admin") {
-      throw new Error("Unauthorized: Admin access required");
+      return [];
     }
     return await ctx.db.query("projects").order("desc").collect();
   },

@@ -35,17 +35,16 @@ export const checkAdminExists = query({
 });
 
 /**
- * Get all users (admin only)
+ * Get all users (admin only, returns empty if not admin)
  */
 export const getAllUsers = query({
   args: {},
   handler: async (ctx) => {
     const admin = await getCurrentUser(ctx);
     if (!admin || admin.role !== "admin") {
-      throw new Error("Unauthorized: Admin access required");
+      return [];
     }
 
-    const identity = await ctx.auth.getUserIdentity();
     const users = await ctx.db.query("users").collect();
 
     // Sort by creation date descending

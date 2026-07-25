@@ -24,25 +24,25 @@ export const getMySubscription = query({
   },
 });
 
-/** Get all subscriptions (admin only) */
+/** Get all subscriptions (admin only, returns empty if not admin) */
 export const getAllSubscriptions = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
     if (!user || user.role !== "admin") {
-      throw new Error("Unauthorized");
+      return [];
     }
     return await ctx.db.query("subscriptions").order("desc").collect();
   },
 });
 
-/** Get all subscriptions with user info (admin only) */
+/** Get all subscriptions with user info (admin only, returns empty if not admin) */
 export const getAllSubscriptionsWithUsers = query({
   args: {},
   handler: async (ctx) => {
     const admin = await getCurrentUser(ctx);
     if (!admin || admin.role !== "admin") {
-      throw new Error("Unauthorized");
+      return [];
     }
 
     const subs = await ctx.db.query("subscriptions").order("desc").collect();
@@ -247,13 +247,13 @@ export const adminUpdateSubscription = mutation({
   },
 });
 
-/** Get pending subscriptions with user info (admin only) */
+/** Get pending subscriptions with user info (admin only, returns empty if not admin) */
 export const getPendingSubscriptions = query({
   args: {},
   handler: async (ctx) => {
     const admin = await getCurrentUser(ctx);
     if (!admin || admin.role !== "admin") {
-      throw new Error("Unauthorized: Admin access required");
+      return [];
     }
 
     const pendingSubs = await ctx.db
