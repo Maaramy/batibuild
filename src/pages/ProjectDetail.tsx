@@ -139,12 +139,15 @@ export default function ProjectDetail() {
     if (!reportRef.current || !project) return;
 
     const prevScenario = selectedScenario;
+    const prevOpenCat = openCat;
+    // Force all categories expanded & switch scenario for PDF
+    setOpenCat("__all_expanded");
     setSelectedScenario(scenario);
     setExporting(true);
     setShowPicker(false);
 
     // Wait for React re-render with new scenario data
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 400));
 
     try {
       const canvas = await html2canvas(reportRef.current, {
@@ -153,6 +156,9 @@ export default function ProjectDetail() {
         backgroundColor: "#ffffff",
         logging: false,
       });
+
+      // Restore collapsed state after capture
+      setOpenCat(prevOpenCat);
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
