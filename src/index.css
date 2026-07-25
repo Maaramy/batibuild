@@ -163,3 +163,109 @@ html {
 
 /* Inter font */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ============================================================================
+   BudgetBati Auth Theme — Tunisian Construction Palette
+   ============================================================================ */
+
+/* Auth page theme tokens */
+:root {
+  --auth-primary: oklch(0.52 0.175 35.5);       /* Terracotta — Tunisian clay */
+  --auth-primary-light: oklch(0.62 0.16 38);      /* Lighter terracotta */
+  --auth-primary-dark: oklch(0.42 0.18 32);       /* Darker terracotta */
+  --auth-accent: oklch(0.55 0.15 230);            /* Mediterranean blue */
+  --auth-accent-light: oklch(0.65 0.12 235);      /* Sky blue */
+  --auth-warm: oklch(0.92 0.04 75);               /* Warm sand */
+  --auth-warm-dark: oklch(0.85 0.06 70);          /* Darker sand */
+  --auth-bg-light: oklch(0.98 0.008 60);          /* Warm cream */
+  --auth-bg-dark: oklch(0.15 0.025 30);           /* Deep warm dark */
+  --auth-gold: oklch(0.72 0.16 75);               /* Gold accent */
+  --auth-terracotta-bg: oklch(0.95 0.025 50);      /* Terracotta tinted bg */
+}
+
+.dark {
+  --auth-primary: oklch(0.65 0.16 38);
+  --auth-primary-light: oklch(0.72 0.14 40);
+  --auth-primary-dark: oklch(0.52 0.18 34);
+  --auth-accent: oklch(0.58 0.14 235);
+  --auth-accent-light: oklch(0.48 0.13 240);
+  --auth-warm: oklch(0.25 0.03 40);
+  --auth-warm-dark: oklch(0.2 0.03 35);
+  --auth-bg-light: oklch(0.12 0.02 30);
+  --auth-bg-dark: oklch(0.08 0.02 25);
+  --auth-gold: oklch(0.65 0.14 75);
+  --auth-terracotta-bg: oklch(0.18 0.03 35);
+}
+
+/* Auth-specific utility classes */
+@layer utilities {
+  .auth-gradient {
+    background: linear-gradient(135deg, var(--auth-primary) 0%, var(--auth-primary-light) 50%, var(--auth-accent) 100%);
+  }
+  .auth-gradient-text {
+    background: linear-gradient(135deg, var(--auth-primary) 0%, var(--auth-accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .auth-bg-pattern {
+    background-color: var(--auth-bg-light);
+    background-image:
+      linear-gradient(var(--auth-warm) 1px, transparent 1px),
+      linear-gradient(90deg, var(--auth-warm) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .dark .auth-bg-pattern {
+    background-color: var(--auth-bg-dark);
+    background-image:
+      linear-gradient(var(--auth-warm-dark) 1px, transparent 1px),
+      linear-gradient(90deg, var(--auth-warm-dark) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .auth-card-border {
+    border: 1px solid var(--auth-warm);
+  }
+  .dark .auth-card-border {
+    border: 1px solid var(--auth-warm-dark);
+  }
+  .auth-input-focus {
+    transition: all 0.2s ease;
+  }
+  .auth-input-focus:focus-within {
+    border-color: var(--auth-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--auth-primary) 15%, transparent);
+  }
+}
+
+/* Decorative construction pattern (invisible lines like blueprints) */
+.blueprint-grid {
+  background-image:
+    linear-gradient(to right, oklch(0.5 0.15 230 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.5 0.15 230 / 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.dark .blueprint-grid {
+  background-image:
+    linear-gradient(to right, oklch(0.6 0.12 235 / 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.6 0.12 235 / 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Decorative ruler/measurement marks */
+.measure-mark {
+  position: relative;
+}
+.measure-mark::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: oklch(0.5 0.15 230 / 0.15);
+}
+.measure-mark::after {
+  content: '▲';
+  position: absolute;
+  font-size: 6px;
+  color: oklch(0.5 0.15 230 / 0.3);
+}
