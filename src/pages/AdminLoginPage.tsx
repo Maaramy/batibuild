@@ -2,8 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
   ArrowLeft,
@@ -17,8 +18,16 @@ import {
   AlertCircle,
   LogIn,
   MapPin,
+  UserPlus,
+  Crown,
+  CheckCircle2,
+  Sparkles,
+  Database,
+  Building2,
+  Ruler,
+  Star,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { toast } from "sonner";
@@ -27,25 +36,91 @@ export default function AdminLoginPage() {
   const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
   const navigate = useNavigate();
   const user = useQuery(api.users.currentUser);
+  const adminExists = useQuery(api.users.checkAdminExists);
+  const makeMeAdmin = useMutation(api.users.makeMeAdmin);
+  const seedDemoData = useMutation(api.users.seedDemoData);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [setupMode, setSetupMode] = useState<"login" | "register" | "success">("login");
+  const [isFirstSetup, setIsFirstSetup] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedMessages, setSeedMessages] = useState<string[]>([]);
+
+  // Determine if this is first-time setup (no admin exists yet)
+  useEffect(() => {
+    if (adminExists !== undefined) {
+      setIsFirstSetup(!adminExists);
+      if (!adminExists) {
+        setSetupMode("register");
+      }
+    }
+  }, [adminExists]);
 
   // Check if already authenticated as admin
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
       if (user.role === "admin") {
         navigate("/dashboard/admin");
-      } else {
-        // User is logged in but not admin - still try to redirect
+      } else if (setupMode === "login") {
         setError("Votre compte n'a pas les droits d'administration.");
       }
     }
-  }, [authLoading, isAuthenticated, user, navigate]);
+  }, [authLoading, isAuthenticated, user, navigate, setupMode]);
 
+  // Handle first-time setup: register + auto-promote to admin
+  const handleFirstSetup = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      // First, check if user already exists by trying sign-in
+      formData.set("flow", "signUp");
+      await signIn("password", formData);
+
+      // Wait for auth to propagate
+      await new Promise((r) => setTimeout(r, 1000));
+
+      // Promote to admin (safe because no admin exists yet)
+      try {
+        await makeMeAdmin();
+      } catch (err: any) {
+        console.warn("Auto-promotion note:", err.message);
+      }
+
+      // Show success and seed option
+      setSetupMode("success");
+      setIsLoading(false);
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.includes("already exists") || msg.includes("Account already")) {
+        // User already exists, try to sign in instead
+        try {
+          const formData = new FormData();
+          formData.set("email", email);
+          formData.set("password", password);
+          formData.set("flow", "signIn");
+          await signIn("password", formData);
+          await new Promise((r) => setTimeout(r, 1000));
+          await makeMeAdmin();
+          setSetupMode("success");
+        } catch {
+          setError("Email déjà utilisé. Essayez de vous connecter avec vos identifiants existants.");
+        }
+      } else {
+        setError(msg || "Erreur lors de la création du compte.");
+      }
+      setIsLoading(false);
+    }
+  };
+
+  // Handle normal login (admin already exists)
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -56,22 +131,37 @@ export default function AdminLoginPage() {
       formData.set("flow", "signIn");
       await signIn("password", formData);
 
-      // Wait a moment for the auth to propagate and check
-      setTimeout(async () => {
-        // The RequireAuth + role check in AdminPanel will handle redirection
+      setTimeout(() => {
         navigate("/dashboard/admin");
       }, 500);
     } catch (err: any) {
-      const message =
+      setError(
         err?.message?.includes("Invalid") || err?.message?.includes("incorrect")
           ? "Email ou mot de passe incorrect."
-          : "Erreur de connexion. Vérifiez vos identifiants.";
-      setError(message);
+          : "Erreur de connexion. Vérifiez vos identifiants."
+      );
     }
     setIsLoading(false);
   };
 
-  if (authLoading) {
+  const handleSeed = async () => {
+    setSeeding(true);
+    setSeedMessages([]);
+    try {
+      const result = await seedDemoData();
+      setSeedMessages(result.messages);
+      toast.success("Données initialisées avec succès !");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    }
+    setSeeding(false);
+  };
+
+  const handleGoToAdmin = () => {
+    navigate("/dashboard/admin");
+  };
+
+  if (authLoading || adminExists === undefined) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
@@ -83,7 +173,6 @@ export default function AdminLoginPage() {
     <main className="min-h-screen flex bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Left decorative panel */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center p-12 bg-gradient-to-br from-emerald-900/40 via-slate-900 to-blue-900/30">
-        {/* Grid pattern */}
         <div
           className="absolute inset-0 opacity-[0.03]"
           style={{
@@ -92,12 +181,9 @@ export default function AdminLoginPage() {
             backgroundSize: "40px 40px",
           }}
         />
-
-        {/* Decorative circles */}
         <div className="absolute top-20 left-20 w-72 h-72 rounded-full bg-emerald-500/5 blur-3xl" />
         <div className="absolute bottom-20 right-20 w-96 h-96 rounded-full bg-blue-500/5 blur-3xl" />
 
-        {/* Animated shield icon */}
         <motion.div
           className="relative z-10 text-center"
           initial={{ opacity: 0, y: 30 }}
@@ -116,9 +202,30 @@ export default function AdminLoginPage() {
           <h1 className="text-3xl font-bold text-white mb-3">BudgetBati</h1>
           <p className="text-lg text-slate-400 mb-6">Panneau d'administration</p>
 
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          {isFirstSetup && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              <Badge className="mb-4 px-3 py-1 bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-xs">
+                <Sparkles className="h-3 w-3 mr-1" />
+                Première configuration
+              </Badge>
+            </motion.div>
+          )}
+
+          <div
+            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium ${
+              isFirstSetup
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                : "bg-slate-700/30 text-slate-400 border border-slate-600/30"
+            }`}
+          >
             <MapPin className="h-3.5 w-3.5" />
-            Accès réservé aux administrateurs
+            {isFirstSetup
+              ? "Créez votre compte administrateur"
+              : "Accès réservé aux administrateurs"}
           </div>
 
           <div className="mt-12 space-y-4 text-left max-w-sm mx-auto">
@@ -144,7 +251,7 @@ export default function AdminLoginPage() {
         </motion.div>
       </div>
 
-      {/* Right panel - Login form */}
+      {/* Right panel */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -153,7 +260,6 @@ export default function AdminLoginPage() {
           className="w-full max-w-sm"
         >
           <Card className="border-slate-700/50 bg-slate-800/50 backdrop-blur-xl shadow-2xl">
-            {/* Top bar */}
             <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-blue-500 rounded-t-xl" />
 
             <CardHeader className="p-6 pb-2 text-center">
@@ -170,124 +276,275 @@ export default function AdminLoginPage() {
                 </div>
               </div>
 
-              <div className="mb-2">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 mx-auto bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 border border-emerald-500/10">
-                  <Lock className="h-6 w-6 text-emerald-400" />
-                </div>
-                <CardTitle className="text-white text-lg">Accès administrateur</CardTitle>
-                <p className="text-sm text-slate-400 mt-1">
-                  Connectez-vous avec vos identifiants
-                </p>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-6 pt-4">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  <Label htmlFor="admin-email" className="text-sm font-medium text-slate-300">
-                    Email
-                  </Label>
-                  <div className="relative mt-1.5">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                    <Input
-                      id="admin-email"
-                      name="email"
-                      type="email"
-                      placeholder="admin@budgetbati.tn"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="h-11 pl-9 bg-slate-900/50 border-slate-700/50 text-slate-200 placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                      disabled={isLoading}
-                      required
-                      autoComplete="email"
-                    />
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15 }}
-                >
-                  <Label htmlFor="admin-password" className="text-sm font-medium text-slate-300">
-                    Mot de passe
-                  </Label>
-                  <div className="relative mt-1.5">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                    <Input
-                      id="admin-password"
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="h-11 pl-9 pr-10 bg-slate-900/50 border-slate-700/50 text-slate-200 placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                      disabled={isLoading}
-                      required
-                      minLength={8}
-                      autoComplete="current-password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </motion.div>
-
-                {error && (
+              <AnimatePresence mode="popLayout">
+                {setupMode === "success" ? (
                   <motion.div
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-2 text-sm py-2.5 px-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400"
+                    key="success"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                    className="py-4"
                   >
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    <span>{error}</span>
-                  </motion.div>
-                )}
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1, rotate: [0, 10, -5, 0] }}
+                      transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+                      className="inline-flex items-center justify-center w-16 h-16 rounded-full mx-auto mb-4 bg-emerald-500/15 border border-emerald-500/20"
+                    >
+                      <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                    </motion.div>
+                    <CardTitle className="text-white text-lg mb-1">
+                      Administration activée
+                    </CardTitle>
+                    <p className="text-sm text-slate-400 mb-2">
+                      Compte créé et promu administrateur
+                    </p>
+                    {isFirstSetup && (
+                      <p className="text-xs text-slate-500 mb-4">
+                        Initialisez maintenant les prix des matériaux pour commencer
+                      </p>
+                    )}
 
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <Button
-                    type="submit"
-                    disabled={isLoading || !email || !password}
-                    className="w-full h-11 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white border-0 shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition-all duration-200"
-                  >
-                    {isLoading ? (
+                    {seedMessages.length > 0 && (
+                      <div className="mb-4 p-3 rounded-lg bg-slate-900/50 border border-slate-700/30 space-y-1 text-left">
+                        {seedMessages.map((msg, i) => (
+                          <p key={i} className="text-xs text-slate-400 flex items-center gap-1.5">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
+                            {msg}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-2">
+                      {isFirstSetup && (
+                        <Button
+                          onClick={handleSeed}
+                          disabled={seeding}
+                          className="w-full h-10 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white border-0 shadow-lg shadow-emerald-500/20"
+                        >
+                          {seeding ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Initialisation...
+                            </>
+                          ) : (
+                            <>
+                              <Database className="mr-2 h-4 w-4" />
+                              Initialiser les données
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      <Button
+                        onClick={handleGoToAdmin}
+                        variant="outline"
+                        className="w-full h-10 border-slate-600/50 text-slate-300 hover:text-white hover:bg-slate-700/50"
+                      >
+                        <Shield className="mr-2 h-4 w-4" />
+                        Accéder au panneau d'administration
+                      </Button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div key="form">
+                    {isFirstSetup ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Connexion...
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 mx-auto bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 border border-emerald-500/10">
+                          <UserPlus className="h-6 w-6 text-emerald-400" />
+                        </div>
+                        <CardTitle className="text-white text-lg">
+                          Configuration initiale
+                        </CardTitle>
+                        <p className="text-sm text-slate-400 mt-1">
+                          Créez votre compte administrateur
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Ce sera le premier administrateur de l'application
+                        </p>
                       </>
                     ) : (
                       <>
-                        <LogIn className="mr-2 h-4 w-4" />
-                        Accéder à l'administration
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 mx-auto bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 border border-emerald-500/10">
+                          <Lock className="h-6 w-6 text-emerald-400" />
+                        </div>
+                        <CardTitle className="text-white text-lg">
+                          Accès administrateur
+                        </CardTitle>
+                        <p className="text-sm text-slate-400 mt-1">
+                          Connectez-vous avec vos identifiants
+                        </p>
                       </>
                     )}
-                  </Button>
-                </motion.div>
-              </form>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </CardHeader>
 
-              <div className="mt-6 pt-4 border-t border-slate-700/30">
-                <Link to="/auth" className="flex items-center justify-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors">
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  Retour à l'accueil
-                </Link>
-              </div>
+            <CardContent className="p-6 pt-4">
+              {setupMode !== "success" && (
+                <form
+                  onSubmit={isFirstSetup ? handleFirstSetup : handleLogin}
+                  className="space-y-4"
+                >
+                  {/* Name field for first-time setup */}
+                  {isFirstSetup && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 }}
+                    >
+                      <Label
+                        htmlFor="admin-name"
+                        className="text-sm font-medium text-slate-300"
+                      >
+                        Nom complet
+                      </Label>
+                      <div className="relative mt-1.5">
+                        <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                        <Input
+                          id="admin-name"
+                          name="name"
+                          type="text"
+                          placeholder="Votre nom"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className="h-11 pl-9 bg-slate-900/50 border-slate-700/50 text-slate-200 placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
+                          disabled={isLoading}
+                          required
+                          autoComplete="name"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                  >
+                    <Label
+                      htmlFor="admin-email"
+                      className="text-sm font-medium text-slate-300"
+                    >
+                      Email
+                    </Label>
+                    <div className="relative mt-1.5">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                      <Input
+                        id="admin-email"
+                        name="email"
+                        type="email"
+                        placeholder={
+                          isFirstSetup ? "admin@budgetbati.tn" : "admin@budgetbati.tn"
+                        }
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="h-11 pl-9 bg-slate-900/50 border-slate-700/50 text-slate-200 placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
+                        disabled={isLoading}
+                        required
+                        autoComplete="email"
+                      />
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                  >
+                    <Label
+                      htmlFor="admin-password"
+                      className="text-sm font-medium text-slate-300"
+                    >
+                      Mot de passe
+                    </Label>
+                    <div className="relative mt-1.5">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                      <Input
+                        id="admin-password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="h-11 pl-9 pr-10 bg-slate-900/50 border-slate-700/50 text-slate-200 placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
+                        disabled={isLoading}
+                        required
+                        minLength={8}
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2 text-sm py-2.5 px-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400"
+                    >
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>{error}</span>
+                    </motion.div>
+                  )}
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <Button
+                      type="submit"
+                      disabled={isLoading || !email || !password}
+                      className="w-full h-11 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white border-0 shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition-all duration-200"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {isFirstSetup ? "Création du compte..." : "Connexion..."}
+                        </>
+                      ) : (
+                        <>
+                          {isFirstSetup ? (
+                            <>
+                              <UserPlus className="mr-2 h-4 w-4" />
+                              Créer & configurer
+                            </>
+                          ) : (
+                            <>
+                              <LogIn className="mr-2 h-4 w-4" />
+                              Accéder à l'administration
+                            </>
+                          )}
+                        </>
+                      )}
+                    </Button>
+                  </motion.div>
+
+                  {!isFirstSetup && (
+                    <p className="text-center text-xs text-slate-600 mt-2">
+                      <Link
+                        to="/auth"
+                        className="text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        ← Retour à l'accueil
+                      </Link>
+                    </p>
+                  )}
+                </form>
+              )}
             </CardContent>
           </Card>
 

@@ -23,6 +23,17 @@ export const currentUser = query({
 });
 
 /**
+ * Check if at least one admin exists in the system
+ */
+export const checkAdminExists = query({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    return users.some((u) => u.role === "admin");
+  },
+});
+
+/**
  * Get all users (admin only)
  */
 export const getAllUsers = query({
