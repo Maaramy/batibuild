@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
@@ -640,11 +640,16 @@ export default function AdminPanel() {
                             <tr key={u._id} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
                               <td className="py-3 px-2 sm:px-3">
                                 <div className="flex items-center gap-2">
-                                  <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                                    isAdmin ? "bg-amber-100 text-amber-600" : "bg-primary/10 text-primary"
-                                  )}>
-                                    {userInitial}
-                                  </div>
+                                  <Avatar className={cn("h-8 w-8 shrink-0 border",
+                                isAdmin ? "border-amber-200" : "border-border/40"
+                              )}>
+                                <AvatarImage src={u.image || ""} alt="Photo" className="object-cover" />
+                                <AvatarFallback className={cn("text-xs font-bold",
+                                  isAdmin ? "bg-amber-100 text-amber-600" : "bg-primary/10 text-primary"
+                                )}>
+                                  {userInitial}
+                                </AvatarFallback>
+                              </Avatar>
                                   <div className="min-w-0">
                                     <p className="font-medium text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">
                                       {u.name || "Anonyme"}
@@ -791,9 +796,12 @@ export default function AdminPanel() {
                             <tr key={sub._id} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
                               <td className="py-3 px-2 sm:px-3">
                                 <div className="flex items-center gap-2">
-                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-                                    {user?.name ? user.name.charAt(0).toUpperCase() : "?"}
-                                  </div>
+                                  <Avatar className="h-8 w-8 shrink-0 border border-border/40">
+                                    <AvatarImage src={user?.image || ""} alt="Photo" className="object-cover" />
+                                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                                      {user?.name ? user.name.charAt(0).toUpperCase() : "?"}
+                                    </AvatarFallback>
+                                  </Avatar>
                                   <div className="min-w-0">
                                     <p className="font-medium text-xs sm:text-sm truncate max-w-[120px] sm:max-w-[180px]">
                                       {user?.name || "Anonyme"}
