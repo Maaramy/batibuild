@@ -3,6 +3,7 @@ import { query, mutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { roleValidator, subscriptionPlanValidator } from "./schema";
 import bcrypt from "bcryptjs";
+import { P, runBIMEstimation } from "./bimEngine";
 
 /**
  * Get the current signed in user. Returns null if the user is not signed in.
@@ -223,8 +224,7 @@ export const seedDemoData = mutation({
     // 2. Seed materials if empty
     const existingMaterials = await ctx.db.query("materialPrices").first();
     if (!existingMaterials) {
-      // Import material seeds from the existing function
-      const { P } = await import("./bimEngine");
+      // Use material prices from bimEngine
       const materials: { category: string; name: string; unit: string; unitPrice: number }[] = [];
 
       // ... use same seed logic as seedMaterialPrices
@@ -364,8 +364,7 @@ export const seedDemoData = mutation({
       .first();
 
     if (!existingProjects) {
-      // Import and run BIM estimation for a demo project
-      const { runBIMEstimation } = await import("./bimEngine");
+      // Run BIM estimation for a demo project
       const demoResult = runBIMEstimation("maison", 150, 1, "tunis", "standard");
 
       await ctx.db.insert("projects", {
