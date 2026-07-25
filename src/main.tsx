@@ -21,6 +21,7 @@ const PricingPage = lazy(() => import("./pages/PricingPage.tsx"));
 const MaterialsPage = lazy(() => import("./pages/MaterialsPage.tsx"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage.tsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
+const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -203,6 +204,7 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
+                <Route path="/admin" element={<AdminLoginPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
