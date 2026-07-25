@@ -221,6 +221,9 @@ export default function ProjectDetail() {
     // Fix oklch colors before capture (html2canvas doesn't support oklch)
     const restoreColors = fixOklchBeforeCapture(reportRef.current);
 
+    // Save original style text contents for onclone restoration
+    const origStyles: Array<{ el: HTMLStyleElement; text: string }> = [];
+
     try {
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
@@ -230,6 +233,18 @@ export default function ProjectDetail() {
         allowTaint: true,
         windowWidth: reportRef.current.scrollWidth,
         windowHeight: reportRef.current.scrollHeight,
+        onclone: (clonedDoc: Document) => {
+          // In the cloned document, replace all oklch() with a neutral fallback
+          // in <style> elements. The inline !important styles from
+          // fixOklchBeforeCapture will override these fallbacks, so colors
+          // remain correct in the PDF.
+          clonedDoc.querySelectorAll('style').forEach((style) => {
+            const text = style.textContent;
+            if (text && text.includes('oklch(')) {
+              style.textContent = text.replace(/oklch\([^)]+\)/g, '#888888');
+            }
+          });
+        },
       });
 
       // Restore original colors immediately after capture
