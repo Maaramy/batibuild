@@ -27,7 +27,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
@@ -130,10 +130,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
   const [tab, setTab] = useState<"login" | "register">("login");
   const [step, setStep] = useState<"email" | { email: string; name?: string }>("email");
-  const [loginShowPw, setLoginShowPw] = useState(false);
-  const [regShowPw, setRegShowPw] = useState(false);
-  const [regShowConfirmPw, setRegShowConfirmPw] = useState(false);
-  const [regPassword, setRegPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
@@ -279,6 +277,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setError("Échec d'envoi du code. Veuillez réessayer.");
       setIsLoading(false);
     }
+  };
+
+  const handleForgotPasswordOtp = async () => {
+    if (resetOtp.length !== 6) return;
+    setError(null);
+    // OTP is verified by the email-otp provider - go to new password step
+    setResetStep("password");
   };
 
   const handleResetPassword = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -991,9 +996,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           <Label htmlFor="login-password" className="text-sm font-medium" style={{ color: 'var(--auth-primary-dark)' }}>
                             Mot de passe
                           </Label>
-                          <button type="button" onClick={() => { setForgotPassword(true); setError(null); }} className="text-xs hover:underline font-medium" style={{ color: 'var(--auth-primary)', opacity: 0.7 }}>
-                            Mot de passe oublié ?
-                          </button>
                           <div
                             className="relative mt-1.5 rounded-lg transition-all duration-200"
                             style={{
@@ -1016,7 +1018,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             <Input
                               id="login-password"
                               name="password"
-                              type={loginShowPw ? "text" : "password"}
+                              type={showPassword ? "text" : "password"}
                               placeholder="Votre mot de passe"
                               className="pl-9 pr-10 h-11 border-0 bg-transparent shadow-none focus-visible:ring-0"
                               disabled={isLoading}
@@ -1025,12 +1027,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             />
                             <button
                               type="button"
-                              onClick={() => setLoginShowPw(!loginShowPw)}
+                              onClick={() => setShowPassword(!showPassword)}
                               className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
                               style={{ color: 'var(--auth-primary)', opacity: 0.5 }}
                               tabIndex={-1}
                             >
-                              {loginShowPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                           </div>
                         </motion.div>
@@ -1211,7 +1213,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             <Input
                               id="reg-password"
                               name="password"
-                              type={regShowPw ? "text" : "password"}
+                              type={showPassword ? "text" : "password"}
                               placeholder="Min. 8 caractères"
                               className="pl-9 pr-10 h-11 border-0 bg-transparent shadow-none focus-visible:ring-0"
                               disabled={isLoading}
@@ -1220,12 +1222,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             />
                             <button
                               type="button"
-                              onClick={() => setRegShowPw(!regShowPw)}
+                              onClick={() => setShowPassword(!showPassword)}
                               className="absolute right-3 top-1/2 -translate-y-1/2"
                               style={{ color: 'var(--auth-primary)', opacity: 0.5 }}
                               tabIndex={-1}
                             >
-                              {regShowPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                           </div>
                         </motion.div>
@@ -1243,7 +1245,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             <Input
                               id="reg-confirm-password"
                               name="confirmPassword"
-                              type={regShowConfirmPw ? "text" : "password"}
+                              type={showConfirmPassword ? "text" : "password"}
                               placeholder="Répéter le mot de passe"
                               className="pl-9 pr-10 h-11 border-0 bg-transparent shadow-none focus-visible:ring-0"
                               disabled={isLoading}
@@ -1252,12 +1254,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             />
                             <button
                               type="button"
-                              onClick={() => setRegShowConfirmPw(!regShowConfirmPw)}
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                               className="absolute right-3 top-1/2 -translate-y-1/2"
                               style={{ color: 'var(--auth-primary)', opacity: 0.5 }}
                               tabIndex={-1}
                             >
-                              {regShowConfirmPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                           </div>
                         </motion.div>
@@ -1496,4 +1498,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   );
 }
 
-export default Auth;
+
+export default function AuthPage(props: AuthProps) {
+  return (
+    <Suspense>
+      <Auth {...props} />
+    </Suspense>
+  );
+}
