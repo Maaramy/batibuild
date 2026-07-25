@@ -261,49 +261,6 @@ export default function ProfilePage() {
           </Card>
         </motion.div>
 
-        {/* Seed Data Card */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-            <CardHeader className="p-5 sm:p-6">
-              <CardTitle className="text-sm">Données de démonstration</CardTitle>
-              <CardDescription className="text-xs">
-                Initialisez l'application avec des données exemple
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-5 sm:p-6 pt-0 space-y-3">
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-primary" /> Prix des matériaux Tunisie 2026</p>
-                <p className="flex items-center gap-1.5"><HardHat className="h-3.5 w-3.5 text-primary" /> Projet de démonstration (Maison 150m²)</p>
-                <p className="flex items-center gap-1.5"><Crown className="h-3.5 w-3.5 text-amber-500" /> Promotion automatique en admin si nécessaire</p>
-              </div>
-
-              <Button
-                onClick={handleSeedData}
-                disabled={seeding}
-                className="gap-1.5"
-                variant="outline"
-              >
-                {seeding ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                {seeding ? "Génération..." : "Initialiser les données de démo"}
-              </Button>
-
-              {seedMessages.length > 0 && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-                  className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
-                  <div className="space-y-1">
-                    {seedMessages.map((msg, i) => (
-                      <p key={i} className="text-xs text-emerald-700">{msg}</p>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
       </div>
     </main>
   );
