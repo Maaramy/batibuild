@@ -17,6 +17,7 @@ import { useState, useMemo, Fragment, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { toast } from "sonner";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
@@ -136,18 +137,37 @@ export default function ProjectDetail() {
   // ── PDF Export ────────────────────────────────────────────────────────
 
   const generatePDF = async (scenario: string) => {
-    if (!reportRef.current || !project) return;
+    if (!reportRef.current || !project) {
+      toast.error("Le rapport n'est pas prêt");
+      return;
+    }
+
+    setShowPicker(false);
+    setExporting(true);
 
     const prevScenario = selectedScenario;
     const prevOpenCat = openCat;
-    // Force all categories expanded & switch scenario for PDF
-    setOpenCat("__all_expanded");
-    setSelectedScenario(scenario);
-    setExporting(true);
-    setShowPicker(false);
 
-    // Wait for React re-render with new scenario data
-    await new Promise((r) => setTimeout(r, 400));
+    // Force all categories expanded for the PDF
+    setOpenCat("__all_expanded");
+
+    // Only switch scenario if different from current
+    const scenarioChanged = scenario !== prevScenario;
+    if (scenarioChanged) {
+      setSelectedScenario(scenario);
+    }
+
+    // Wait for React to re-render with new data
+    await new Promise((r) => setTimeout(r, 600));
+
+    // Double-check the ref is still attached to the DOM
+    if (!reportRef.current || !document.body.contains(reportRef.current)) {
+      toast.error("Le rapport n'est plus visible, veuillez réessayer");
+      setExporting(false);
+      if (scenarioChanged) setSelectedScenario(prevScenario);
+      setOpenCat(prevOpenCat);
+      return;
+    }
 
     try {
       const canvas = await html2canvas(reportRef.current, {
@@ -155,35 +175,75 @@ export default function ProjectDetail() {
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
+        allowTaint: true,
+        windowWidth: reportRef.current.scrollWidth,
+        windowHeight: reportRef.current.scrollHeight,
       });
 
-      // Restore collapsed state after capture
-      setOpenCat(prevOpenCat);
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      let heightLeft = pdfHeight;
-      let position = 0;
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - pdfHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
+      if (!canvas || canvas.width === 0 || canvas.height === 0) {
+        throw new Error("Le canvas généré est vide");
       }
 
-      const scenarioLabel = scenario === "economique" ? "Economique" : scenario === "premium" ? "Premium" : "Standard";
-      pdf.save(`Devis-${scenarioLabel}-${project.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`);
+      const imgData = canvas.toDataURL("image/png");
+      if (imgData === "data:," || !imgData.startsWith("data:image")) {
+        throw new Error("L'image générée est invalide");
+      }
+
+      const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      let position = 0;
+      let remainingHeight = pdfHeight;
+
+      // Add first page
+      pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
+      remainingHeight -= pageHeight;
+
+      // Add subsequent pages as needed
+      while (remainingHeight > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
+        remainingHeight -= pageHeight;
+      }
+
+      const scenarioLabel =
+        scenario === "economique"
+          ? "Economique"
+          : scenario === "premium"
+            ? "Premium"
+            : "Standard";
+
+      const safeName = project.name.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const filename = `Devis-${scenarioLabel}-${safeName}.pdf`;
+
+      // Try pdf.save() first, fall back to manual download
+      try {
+        pdf.save(filename);
+      } catch (saveErr) {
+        console.warn("pdf.save() failed, trying blob download:", saveErr);
+        const blob = pdf.output("blob");
+        const url = URL.createObjectURL(blob);
+        const a = window.document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        window.document.body.appendChild(a);
+        a.click();
+        window.document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      toast.success(`Devis ${scenarioLabel} téléchargé avec succès`);
     } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Erreur inconnue lors de la génération du PDF";
       console.error("PDF generation error:", err);
+      toast.error(`Échec du téléchargement : ${msg}`);
     } finally {
-      setSelectedScenario(prevScenario);
+      if (scenarioChanged) setSelectedScenario(prevScenario);
+      setOpenCat(prevOpenCat);
       setExporting(false);
     }
   };
