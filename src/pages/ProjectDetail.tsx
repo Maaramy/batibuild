@@ -433,6 +433,85 @@ export default function ProjectDetail() {
               </SectionCard>
             )}
 
+            {/* ═══ Materials Table ═══ */}
+            {scaledBreakdown?.some((b: any) => b.items?.length) && (
+              <motion.div variants={fadeUp} custom={7}
+                className="rounded-xl border bg-card shadow-sm overflow-hidden">                  <button onClick={() => setOpenCat(openCat ? "" : "__all")}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Layers className="h-3.5 w-3.5" />
+                    </div>
+                    <h3 className="text-sm font-semibold">Quantitatif détaillé</h3>
+                    {selectedScenario !== "standard" && scenarios && (
+                      <Badge variant="outline" className="text-[9px] text-primary border-primary/30">
+                        {scenarios[selectedScenario as keyof typeof scenarios]?.label}
+                      </Badge>
+                    )}
+                    <Badge variant="secondary" className="text-[9px]">{totalItems} postes</Badge>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {openCat !== "" && (
+                      <span onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === "__all_expanded" ? "__all" : "__all_expanded"); }}
+                        className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/30 text-muted-foreground transition-colors"
+                        title={openCat === "__all_expanded" ? "Tout replier" : "Tout déplier"}>
+                        {openCat === "__all_expanded" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </span>
+                    )}
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", openCat && "rotate-180")} />
+                  </div>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {openCat !== "" && (
+                    <motion.div key="table" initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+                      <div className="overflow-x-auto border-t border-border/10">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="bg-muted/30">
+                              <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Matériau / Prestation</th>
+                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Qté</th>
+                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground hidden sm:table-cell">P.U.</th>
+                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {scaledBreakdown.filter((b: any) => b.items?.length).map((cat: any) => (
+                              <Fragment key={cat.label}>
+                                <tr className="border-b border-border/5 bg-muted/10">
+                                  <td colSpan={4} className="py-2 px-3">
+                                    <button onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === cat.label ? "__all" : cat.label); }}
+                                      className="flex items-center gap-1.5 w-full text-left">
+                                      <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[cat.category] ?? "#888" }} />
+                                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{cat.label}</span>
+                                      <span className="text-[9px] text-muted-foreground/50 ml-auto">{cat.items.length} postes — {fmt(cat.estimatedCost)}</span>
+                                      {openCat === cat.label || openCat === "__all_expanded" ? <ChevronUp className="h-3 w-3 text-muted-foreground/50" /> : <ChevronDown className="h-3 w-3 text-muted-foreground/50" />}
+                                    </button>
+                                  </td>
+                                </tr>
+                                {(openCat === cat.label || openCat === "__all_expanded") && cat.items.map((item: any, i: number) => (
+                                  <motion.tr key={i}
+                                    initial={{ opacity: 0, x: -8 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: i * 0.02 }}
+                                    className="border-b border-border/5 hover:bg-muted/10 transition-colors">
+                                    <td className="py-2 px-3 font-medium truncate max-w-[140px] sm:max-w-none">{item.name}</td>
+                                    <td className="text-right py-2 px-3 font-mono text-muted-foreground">{item.quantity} {item.unit}</td>
+                                    <td className="text-right py-2 px-3 text-muted-foreground font-mono hidden sm:table-cell">{fmt(item.unitPrice)}</td>
+                                    <td className="text-right py-2 px-3 font-semibold font-mono">{fmt(item.totalPrice)}</td>
+                                  </motion.tr>
+                                ))}
+                              </Fragment>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
+
             {/* ═══ Pie + Detail ═══ */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
               <motion.div variants={fadeUp} custom={3} className="lg:col-span-2 rounded-xl border bg-card shadow-sm p-4">
@@ -583,85 +662,6 @@ export default function ProjectDetail() {
                 </motion.div>
               )}
             </div>
-
-            {/* ═══ Materials Table ═══ */}
-            {scaledBreakdown?.some((b: any) => b.items?.length) && (
-              <motion.div variants={fadeUp} custom={7}
-                className="rounded-xl border bg-card shadow-sm overflow-hidden">                  <button onClick={() => setOpenCat(openCat ? "" : "__all")}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Layers className="h-3.5 w-3.5" />
-                    </div>
-                    <h3 className="text-sm font-semibold">Quantitatif détaillé</h3>
-                    {selectedScenario !== "standard" && scenarios && (
-                      <Badge variant="outline" className="text-[9px] text-primary border-primary/30">
-                        {scenarios[selectedScenario as keyof typeof scenarios]?.label}
-                      </Badge>
-                    )}
-                    <Badge variant="secondary" className="text-[9px]">{totalItems} postes</Badge>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {openCat !== "" && (
-                      <span onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === "__all_expanded" ? "__all" : "__all_expanded"); }}
-                        className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/30 text-muted-foreground transition-colors"
-                        title={openCat === "__all_expanded" ? "Tout replier" : "Tout déplier"}>
-                        {openCat === "__all_expanded" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      </span>
-                    )}
-                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", openCat && "rotate-180")} />
-                  </div>
-                </button>
-
-                <AnimatePresence initial={false}>
-                  {openCat !== "" && (
-                    <motion.div key="table" initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-                      <div className="overflow-x-auto border-t border-border/10">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="bg-muted/30">
-                              <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Matériau / Prestation</th>
-                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Qté</th>
-                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground hidden sm:table-cell">P.U.</th>
-                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {scaledBreakdown.filter((b: any) => b.items?.length).map((cat: any) => (
-                              <Fragment key={cat.label}>
-                                <tr className="border-b border-border/5 bg-muted/10">
-                                  <td colSpan={4} className="py-2 px-3">
-                                    <button onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === cat.label ? "__all" : cat.label); }}
-                                      className="flex items-center gap-1.5 w-full text-left">
-                                      <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[cat.category] ?? "#888" }} />
-                                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{cat.label}</span>
-                                      <span className="text-[9px] text-muted-foreground/50 ml-auto">{cat.items.length} postes — {fmt(cat.estimatedCost)}</span>
-                                      {openCat === cat.label || openCat === "__all_expanded" ? <ChevronUp className="h-3 w-3 text-muted-foreground/50" /> : <ChevronDown className="h-3 w-3 text-muted-foreground/50" />}
-                                    </button>
-                                  </td>
-                                </tr>
-                                {(openCat === cat.label || openCat === "__all_expanded") && cat.items.map((item: any, i: number) => (
-                                  <motion.tr key={i}
-                                    initial={{ opacity: 0, x: -8 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: i * 0.02 }}
-                                    className="border-b border-border/5 hover:bg-muted/10 transition-colors">
-                                    <td className="py-2 px-3 font-medium truncate max-w-[140px] sm:max-w-none">{item.name}</td>
-                                    <td className="text-right py-2 px-3 font-mono text-muted-foreground">{item.quantity} {item.unit}</td>
-                                    <td className="text-right py-2 px-3 text-muted-foreground font-mono hidden sm:table-cell">{fmt(item.unitPrice)}</td>
-                                    <td className="text-right py-2 px-3 font-semibold font-mono">{fmt(item.totalPrice)}</td>
-                                  </motion.tr>
-                                ))}
-                              </Fragment>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            )}
 
             {/* ═══ Recommendations ═══ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
