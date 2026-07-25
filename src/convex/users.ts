@@ -138,6 +138,35 @@ export const updateProfile = mutation({
 });
 
 /**
+ * Generate a URL for client-side file upload to Convex storage
+ */
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Upload profile photo — stores image in Convex storage and saves URL
+ */
+export const updateProfileImage = mutation({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Non connecté");
+
+    const imageUrl = await ctx.storage.getUrl(args.storageId);
+    if (!imageUrl) throw new Error("Impossible de récupérer l'image");
+
+    await ctx.db.patch(user._id, { image: imageUrl });
+    return { url: imageUrl };
+  },
+});
+
+/**
  * Self-promote to admin (only works if no admin exists yet)
  */
 export const makeMeAdmin = mutation({

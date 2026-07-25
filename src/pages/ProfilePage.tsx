@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { useNavigate } from "react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   ArrowLeft,
   Check,
@@ -23,6 +24,9 @@ import {
   Phone,
   Mail,
   Sparkles,
+  Camera,
+  ImageUp,
+  X,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -38,12 +42,44 @@ export default function ProfilePage() {
   const [seeding, setSeeding] = useState(false);
   const [seedMessages, setSeedMessages] = useState<string[]>([]);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const updateProfile = useMutation(api.users.updateProfile);
+  const updateProfileImage = useMutation(api.users.updateProfileImage);
   const makeMeAdmin = useMutation(api.users.makeMeAdmin);
   const seedDemoData = useMutation(api.users.seedDemoData);
 
   const isAdmin = user?.role === "admin";
   const isPro = user?.subscriptionPlan === "pro";
+
+  const handleUploadPhoto = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Veuillez sélectionner une image");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("L'image ne doit pas dépasser 5 Mo");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const postUrl = await generateUploadUrl();
+      const result = await fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      const { storageId } = await result.json();
+      await updateProfileImage({ storageId });
+      toast.success("Photo de profil mise à jour");
+    } catch (err) {
+      toast.error("Erreur lors de l'upload");
+    }
+    setUploading(false);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -101,9 +137,35 @@ export default function ProfilePage() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
             <CardHeader className="p-5 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary text-lg font-bold">
-                  {(user?.name || user?.email || "U").charAt(0).toUpperCase()}
+              <div className="flex items-center gap-4">
+                <div className="relative group">
+                  <Avatar className="h-16 w-16 border-2 border-border/40">
+                    <AvatarImage src={user?.image || ""} alt="Photo" className="object-cover" />
+                    <AvatarFallback className="bg-primary/10 text-primary text-lg font-bold">
+                      {(user?.name || user?.email || "U").charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-5 w-5 text-white animate-spin" />
+                    ) : (
+                      <Camera className="h-5 w-5 text-white" />
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleUploadPhoto(file);
+                    }}
+                  />
                 </div>
                 <div>
                   <CardTitle className="text-base">{user?.name || "Mon profil"}</CardTitle>
