@@ -655,7 +655,7 @@ export default function ProjectDetail() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wider mb-0.5">
                       Coût total estimé TTC
                       {selectedScenario !== "standard" && scenarios && (
@@ -680,6 +680,19 @@ export default function ProjectDetail() {
                         <span className="font-semibold">{ai.estimatedDuration}</span>
                       </div>
                     )}
+                    <button onClick={() => setShowPicker(true)} disabled={exporting}
+                      className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border",
+                        exporting
+                          ? "opacity-50 cursor-not-allowed bg-muted/30 border-border/20"
+                          : "bg-primary text-primary-foreground border-primary hover:bg-primary/90 active:scale-95 shadow-xs"
+                      )}>
+                      {exporting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Download className="h-3 w-3" />
+                      )}
+                      Télécharger le devis
+                    </button>
                   </div>
                 </div>
 
