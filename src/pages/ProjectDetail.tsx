@@ -6,8 +6,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useParams, useNavigate } from "react-router";
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, Fragment, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
@@ -15,7 +17,7 @@ import {
   PiggyBank, Sparkles, Wallet, Gauge,
   ChevronDown, ChevronUp, ChevronsUpDown, CheckCheck, Info,
   Truck, FileText, Paintbrush, Plug,
-  Percent, ChevronRight,
+  Percent, ChevronRight, Download,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -120,6 +122,47 @@ export default function ProjectDetail() {
   const [analyzing, setAnalyzing] = useState(false);
   const [openCat, setOpenCat] = useState<string>("__all_expanded");
   const [selectedScenario, setSelectedScenario] = useState<string>("standard");
+  const [exporting, setExporting] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  // ── PDF Export ────────────────────────────────────────────────────────
+
+  const generatePDF = async () => {
+    if (!reportRef.current || !project) return;
+    setExporting(true);
+    try {
+      const canvas = await html2canvas(reportRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      let heightLeft = pdfHeight;
+      let position = 0;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Devis-${project.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`);
+    } catch (err) {
+      console.error("PDF generation error:", err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // ── Memos ───────────────────────────────────────────────────────────────
 
@@ -221,6 +264,14 @@ export default function ProjectDetail() {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {done && (
+              <button onClick={generatePDF} disabled={exporting}
+                className={cn("flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                  exporting ? "opacity-50 cursor-not-allowed" : "hover:bg-muted/50 active:scale-95"
+                )}>
+                <Download className={cn("h-4 w-4", exporting && "animate-pulse")} />
+              </button>
+            )}
             <button onClick={() => toggleFav({ projectId: project._id })}
               className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all">
               <Heart className={cn("h-4 w-4 transition-all", project.isFavorite && "fill-red-400 text-red-400 scale-110")} />
@@ -272,7 +323,7 @@ export default function ProjectDetail() {
 
         {/* ── REPORT ──────────────────────────────────────────── */}
         {done && ce && ai && (
-          <motion.div initial="initial" animate="animate" className="space-y-4">
+          <motion.div ref={reportRef} initial="initial" animate="animate" className="space-y-4">
             {/* ═══ Hero Total ═══ */}
             <motion.div variants={fadeUp} custom={0}
               className="rounded-2xl bg-gradient-to-br from-primary/[0.05] via-background to-background border border-primary/10 shadow-sm overflow-hidden">
