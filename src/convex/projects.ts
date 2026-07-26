@@ -7,6 +7,7 @@ import {
   PROJECT_STATUS,
   materialCategoryValidator,
   regionValidator,
+  SPECIALTY_TO_PROVIDER_TYPE,
 } from "./schema";
 
 // ============================================================================
@@ -521,6 +522,75 @@ export const simulateAnalysis = mutation({
     matchedSuppliers.forEach((ms: any) => {
       supplierMap.set(ms.type, ms.suppliers);
     });
+
+    // ── Also fetch registered suppliers from the database ──
+    const now = Date.now();
+    const activeProfiles = await ctx.db
+      .query("supplierProfiles")
+      .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "active"))
+      .collect();
+
+    const trialProfiles = await ctx.db
+      .query("supplierProfiles")
+      .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "trial"))
+      .collect();
+
+    const allProfiles = [...activeProfiles, ...trialProfiles].filter(
+      (s) => s.isVisible
+    );
+
+    // Filter out expired trials/subscriptions
+    const validProfiles = allProfiles.filter((s) => {
+      if (
+        s.subscriptionStatus === "trial" &&
+        s.trialStartDate &&
+        s.trialStartDate + 7 * 24 * 60 * 60 * 1000 < now
+      ) {
+        return false;
+      }
+      if (
+        s.subscriptionStatus === "active" &&
+        s.subscriptionEndDate &&
+        s.subscriptionEndDate < now
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    // Map registered suppliers to provider types via their specialties
+    for (const profile of validProfiles) {
+      // Determine which provider types this supplier matches
+      const matchedTypes = new Set<string>();
+      for (const specialty of profile.specialties) {
+        const providerTypesForSpecialty =
+          SPECIALTY_TO_PROVIDER_TYPE[specialty] || [];
+        providerTypesForSpecialty.forEach((t: string) => matchedTypes.add(t));
+      }
+
+      // For each matched provider type that's in our recommendations, add this supplier
+      for (const type of matchedTypes) {
+        if (providerTypes.includes(type)) {
+          const existing = supplierMap.get(type) || [];
+          const supplierEntry = {
+            id: `registered_${profile._id}`,
+            name: profile.companyName,
+            phone: profile.phone,
+            email: profile.email || undefined,
+            address: profile.address,
+            website: profile.website || undefined,
+            description:
+              profile.description || `Fournisseur inscrit - ${profile.companyName}`,
+            rating: 4.5,
+          };
+          // Avoid duplicates
+          if (!existing.some((s: any) => s.id === supplierEntry.id)) {
+            existing.push(supplierEntry);
+          }
+          supplierMap.set(type, existing);
+        }
+      }
+    }
 
     const enhancedProviders = recommendations.providers.map((p: any) => ({
       ...p,
