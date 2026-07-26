@@ -315,9 +315,10 @@ export default function ProjectDetail() {
       doc.text("Devis estimatif — Prix Tunisie 2026", titleX, 16);
 
       // ── Right side info ──
+      const devisNum = `DEV-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`;
       doc.setFontSize(6);
       doc.setFont("helvetica", "bold");
-      doc.text(`N° ${safeName.substring(0, 12)}`, pw - mr, 8, { align: "right" });
+      doc.text(`N° ${devisNum}`, pw - mr, 8, { align: "right" });
       doc.setFont("helvetica", "normal");
       doc.text(`${dateStr} · ${scenarioLabel}`, pw - mr, 14, { align: "right" });
       doc.text("Document non contractuel", pw - mr, 18, { align: "right" });
