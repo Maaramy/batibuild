@@ -219,6 +219,9 @@ export default function Dashboard() {
     totalProjects: 0, completedProjects: 0, analyzingProjects: 0, draftProjects: 0,
     totalEstimatedCost: 0, averageCostPerProject: 0, recentProjects: [],
   };
+  const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowed);
+  const remainingDownloads = downloadInfo?.remaining ?? 0;
+  const isProAllowed = downloadInfo?.reason === "ok" || downloadInfo?.reason === "limite_atteinte";
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
@@ -319,6 +322,30 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              {/* Download counter */}
+              {isProAllowed && (
+                <a href="/dashboard/pricing"
+                  className="hidden sm:inline-flex items-center gap-1.5 h-7 sm:h-8 lg:h-9 px-2 sm:px-2.5 rounded-lg border border-border/40 text-foreground/70 hover:text-foreground hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer"
+                  title="Téléchargements restants">
+                  <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span className={`text-[10px] sm:text-[11px] font-semibold tabular-nums ${remainingDownloads === 0 ? 'text-amber-600' : ''}`}>
+                    {remainingDownloads}
+                  </span>
+                </a>
+              )}
+
+              {/* Mobile download counter - compact */}
+              {isProAllowed && (
+                <a href="/dashboard/pricing"
+                  className="sm:hidden inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border/40 text-foreground/70 hover:text-foreground hover:border-primary/30 transition-all cursor-pointer relative"
+                  title={`${remainingDownloads} téléchargement(s) restant(s)`}>
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[7px] font-bold leading-none bg-primary text-primary-foreground">
+                    {remainingDownloads > 9 ? '9+' : remainingDownloads}
+                  </span>
+                </a>
+              )}
+
               <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 relative">
                 <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-primary" />
