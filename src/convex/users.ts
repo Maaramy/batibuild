@@ -391,6 +391,99 @@ export const seedDemoData = mutation({
 });
 
 /**
+ * Admin: delete a user and all associated data
+ */
+export const deleteUser = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    // Cannot delete yourself
+    if (admin._id === args.userId) {
+      throw new Error("Vous ne pouvez pas supprimer votre propre compte.");
+    }
+
+    const userId = args.userId;
+
+    // 1. Delete all user's projects
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const project of projects) {
+      await ctx.db.delete(project._id);
+    }
+
+    // 2. Delete all user's subscriptions
+    const subscriptions = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const sub of subscriptions) {
+      await ctx.db.delete(sub._id);
+    }
+
+    // 3. Delete all user's notifications
+    const notifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const notif of notifications) {
+      await ctx.db.delete(notif._id);
+    }
+
+    // 4. Delete all user's reports
+    const reports = await ctx.db
+      .query("reports")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const report of reports) {
+      await ctx.db.delete(report._id);
+    }
+
+    // 5. Delete auth accounts linked to this user
+    const authAccounts = await ctx.db
+      .query("authAccounts")
+      .filter((q) => q.eq(q.field("userId"), userId))
+      .collect();
+    for (const account of authAccounts) {
+      await ctx.db.delete(account._id);
+    }
+
+    // 6. Delete auth sessions linked to this user
+    const sessions = await ctx.db
+      .query("authSessions")
+      .filter((q) => q.eq(q.field("userId"), userId))
+      .collect();
+    for (const session of sessions) {
+      await ctx.db.delete(session._id);
+    }
+
+    // 7. Delete verification codes linked to this user (via auth accounts)
+    const accountIds = authAccounts.map((a) => a._id);
+    for (const accId of accountIds) {
+      const verifications = await ctx.db
+        .query("authVerificationCodes")
+        .withIndex("accountId", (q) => q.eq("accountId", accId))
+        .collect();
+      for (const verif of verifications) {
+        await ctx.db.delete(verif._id);
+      }
+    }
+
+    // 8. Finally, delete the user document
+    await ctx.db.delete(userId);
+
+    return { success: true };
+  },
+});
+
+/**
  * Reset password using a verified email (OTP verified).
  * Finds the auth account for the given email with provider "password"
  * and updates the password hash.

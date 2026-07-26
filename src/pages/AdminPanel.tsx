@@ -88,10 +88,27 @@ export default function AdminPanel() {
   const rejectSub = useMutation(api.subscriptions.adminRejectSubscription);
   const updateUserRole = useMutation(api.users.adminUpdateUserRole);
   const updateUserPlan = useMutation(api.users.adminUpdateUserPlan);
+  const deleteUser = useMutation(api.users.deleteUser);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const createMaterial = useMutation(api.materials.createMaterialPrice);
   const updateMaterial = useMutation(api.materials.updateMaterialPrice);
   const deleteMaterial = useMutation(api.materials.deleteMaterialPrice);
+
+  // Handle user deletion
+  useEffect(() => {
+    if (!deletingUserId) return;
+    const doDelete = async () => {
+      try {
+        await deleteUser({ userId: deletingUserId as any });
+        toast.success("Utilisateur supprimé avec succès");
+      } catch (err: any) {
+        toast.error(err.message || "Erreur lors de la suppression");
+      }
+      setDeletingUserId(null);
+    };
+    doDelete();
+  }, [deletingUserId, deleteUser]);
 
   // Check if user is admin
   if (user && user.role !== "admin") {
@@ -738,6 +755,23 @@ export default function AdminPanel() {
                                       Pro
                                     </Badge>
                                   )}
+                                  <button
+                                    onClick={() => {
+                                      const name = u.name || u.email || "cet utilisateur";
+                                      if (window.confirm(`⚠️ Supprimer définitivement ${name} ?\n\nToutes ses données (projets, abonnements, notifications) seront supprimées. Cette action est irréversible.`)) {
+                                        setDeletingUserId(u._id);
+                                      }
+                                    }}
+                                    disabled={deletingUserId === u._id}
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all disabled:opacity-50"
+                                    title="Supprimer l'utilisateur"
+                                  >
+                                    {deletingUserId === u._id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
                                 </div>
                               </td>
                             </tr>
