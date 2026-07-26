@@ -197,7 +197,9 @@ export default function ProjectDetail() {
     advanceProgress(0);
 
     try {
+      await new Promise((r) => setTimeout(r, 400));
       advanceProgress(1);
+      await new Promise((r) => setTimeout(r, 300));
 
       const scenarioData = scenarios?.[scenario as keyof typeof scenarios];
       const totalCost = scenarioData?.totalCost || ce.totalCost;
@@ -228,7 +230,7 @@ export default function ProjectDetail() {
             }));
 
       advanceProgress(2);
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 400));
 
       // ── Build PDF programmatically (no html2canvas, no oklch!) ──
       const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
