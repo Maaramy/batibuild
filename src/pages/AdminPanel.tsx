@@ -97,12 +97,25 @@ export default function AdminPanel() {
   if (user && user.role !== "admin") {
     return (
       <main className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="border border-border/50">
-          <CardContent className="p-8 text-center">
-            <Shield className="h-12 w-12 mx-auto mb-4 text-destructive" />
-            <h2 className="text-lg font-bold mb-2">Accès refusé</h2>
-            <p className="text-sm text-muted-foreground mb-4">Vous n'avez pas les droits d'administration.</p>
-            <Button onClick={() => navigate("/dashboard")}>Retour au tableau de bord</Button>
+        <Card className="border border-border/50 max-w-md">
+          <CardContent className="p-8 text-center space-y-4">
+            <Shield className="h-12 w-12 mx-auto text-destructive" />
+            <h2 className="text-lg font-bold">Accès refusé</h2>
+            <p className="text-sm text-muted-foreground">
+              Vous n'avez pas les droits d'administration.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <Button variant="outline" onClick={() => navigate("/dashboard")}>
+                Retour au tableau de bord
+              </Button>
+              <Button onClick={() => navigate("/admin")}>
+                <Shield className="h-4 w-4 mr-2" />
+                Administration
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Connectez-vous avec un compte administrateur sur la page d'administration.
+            </p>
           </CardContent>
         </Card>
       </main>

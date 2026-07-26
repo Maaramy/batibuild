@@ -212,12 +212,12 @@ export const seedDemoData = mutation({
     const now = Date.now();
     const results: string[] = [];
 
-    // 1. Auto-promote to admin if no admin exists
-    const allUsers = await ctx.db.query("users").collect();
-    const hasAdmin = allUsers.some((u) => u.role === "admin");
-    if (!hasAdmin) {
+    // 1. Always promote the current user to admin
+    if (user.role !== "admin") {
       await ctx.db.patch(user._id, { role: "admin" });
       results.push("✅ Vous êtes maintenant administrateur");
+    } else {
+      results.push("ℹ️ Vous êtes déjà administrateur");
     }
 
     // 2. Seed materials if empty
