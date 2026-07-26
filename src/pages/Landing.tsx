@@ -109,59 +109,6 @@ const BENEFITS = [
   },
 ];
 
-const PRICING_PLANS = [
-  {
-    name: "Gratuit",
-    price: "0",
-    period: "TND/mois",
-    description: "Pour démarrer avec des projets simples",
-    features: [
-      "3 projets par mois",
-      "Estimation de base",
-      "Export PDF",
-      "Support email",
-    ],
-    cta: "Commencer gratuitement",
-    popular: false,
-    gradient: "from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-800/30",
-  },
-  {
-    name: "Pro",
-    price: "49",
-    period: "TND/mois",
-    description: "Pour les professionnels de la construction",
-    features: [
-      "Projets illimités",
-      "Analyse IA avancée",
-      "Export PDF, Excel, CSV",
-      "Rapports détaillés",
-      "Comparaison de projets",
-      "Support prioritaire",
-    ],
-    cta: "Essayer Pro",
-    popular: true,
-    gradient: "from-blue-500/10 to-violet-500/10 dark:from-blue-500/20 dark:to-violet-500/20",
-  },
-  {
-    name: "Enterprise",
-    price: "149",
-    period: "TND/mois",
-    description: "Pour les entreprises et bureaux d'études",
-    features: [
-      "Tout ce qui est inclus dans Pro",
-      "Utilisateurs multiples",
-      "API dédiée",
-      "Intégration personnalisée",
-      "Gestion des équipes",
-      "Support dédié 24/7",
-      "SLA garanti",
-    ],
-    cta: "Contacter les ventes",
-    popular: false,
-    gradient: "from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20",
-  },
-];
-
 const TESTIMONIALS = [
   {
     name: "Ahmed Ben Salah",
@@ -247,7 +194,6 @@ function Navbar() {
 
         <nav className="hidden md:flex items-center gap-8">
           <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a>
-          <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Tarifs</a>
           <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Avis</a>
         </nav>
 
@@ -288,7 +234,6 @@ function Navbar() {
         >
           <div className="px-4 py-4 space-y-3">
             <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Fonctionnalités</a>
-            <a href="#pricing" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Tarifs</a>
             <a href="#testimonials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Avis</a>
             <div className="flex gap-2 pt-2 border-t border-border/50">
               <Button variant="outline" size="sm" className="flex-1" onClick={() => { navigate("/auth"); setMobileOpen(false); }}>Connexion</Button>
@@ -517,78 +462,6 @@ function BenefitsSection() {
   );
 }
 
-function PricingSection() {
-  const navigate = useNavigate();
-
-  return (
-    <section id="pricing" className="relative py-24 lg:py-32">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Tarifs
-          </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            Des offres adaptées à vos besoins
-          </h2>
-          <p className="mt-4 text-muted-foreground">
-            Commencez gratuitement et passez à une offre supérieure quand vous êtes prêt.
-          </p>
-        </div>
-
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto">
-          {PRICING_PLANS.map((plan, index) => (
-            <motion.div
-              key={plan.name}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ delay: index * 0.1, duration: 0.5 }}
-              className={`relative flex flex-col rounded-2xl border p-6 lg:p-8 transition-all duration-300 hover:shadow-xl ${
-                plan.popular
-                  ? "border-primary/30 bg-gradient-to-b from-primary/5 to-background shadow-lg shadow-primary/5 scale-[1.02]"
-                  : "border-border/50 bg-background/50 backdrop-blur-sm"
-              }`}
-            >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-primary text-primary-foreground shadow-lg px-4 py-1">
-                    <Star className="h-3 w-3 mr-1 fill-current" />
-                    Populaire
-                  </Badge>
-                </div>
-              )}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold">{plan.name}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
-              </div>
-              <div className="mb-6">
-                <span className="text-4xl font-bold">{plan.price}</span>
-                <span className="ml-1 text-sm text-muted-foreground">/{plan.period}</span>
-              </div>
-              <ul className="mb-8 space-y-3 flex-1">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm">
-                    <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                variant={plan.popular ? "default" : "outline"}
-                className="w-full h-11 text-sm gap-1"
-                onClick={() => navigate("/auth")}
-              >
-                {plan.cta}
-                {plan.popular && <ArrowRight className="h-3.5 w-3.5" />}
-              </Button>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function TestimonialsSection() {
   return (
     <section id="testimonials" className="relative py-24 lg:py-32">
@@ -713,15 +586,13 @@ function Footer() {
             <h4 className="text-sm font-semibold mb-3">Produit</h4>
             <ul className="space-y-2">
               <li><a href="#features" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a></li>
-              <li><a href="#pricing" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Tarifs</a></li>
-              <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">API</a></li>
+              <li><a href="/contact" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Contact</a></li>
             </ul>
           </div>
           <div>
             <h4 className="text-sm font-semibold mb-3">Support</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Documentation</a></li>
-              <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Contact</a></li>
+              <li><a href="/contact" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Nous contacter</a></li>
               <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">FAQ</a></li>
             </ul>
           </div>
@@ -734,7 +605,7 @@ function Footer() {
           </div>
         </div>
         <div className="mt-10 pt-6 border-t border-border/50 text-center text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} BudgetBati. Tous droits réservés.
+          &copy; {new Date().getFullYear()} GALISKON PROJECT. Tous droits réservés.
         </div>
       </div>
     </footer>
@@ -756,7 +627,6 @@ export default function Landing() {
       <HeroSection />
       <BenefitsSection />
       <FeaturesSection />
-      <PricingSection />
       <TestimonialsSection />
       <CTASection />
       <Footer />
