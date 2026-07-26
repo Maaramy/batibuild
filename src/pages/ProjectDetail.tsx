@@ -146,15 +146,21 @@ export default function ProjectDetail() {
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportLabel, setExportLabel] = useState("");
+  const [exportStep, setExportStep] = useState(0);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+
+  // ── Progress steps with icons ──────────────────────────────────
+  const PROGRESS_ICONS = ["FileText", "Layers", "File", "Download"];
 
   // ── Progress helper ──────────────────────────────────────────────────
 
   const advanceProgress = (step: number) => {
     setExportProgress(Math.round((step / (PROGRESS_STEPS.length - 1)) * 100));
     setExportLabel(PROGRESS_STEPS[step] ?? "");
+    setExportStep(Math.min(step, PROGRESS_ICONS.length - 1));
   };
 
   // ── PDF Export ────────────────────────────────────────────────────────
@@ -749,7 +755,10 @@ export default function ProjectDetail() {
       const filename = `Devis-${scenarioLabel}-${safeName}.pdf`;
       doc.save(filename);
 
-      toast.success(`Devis ${scenarioLabel} téléchargé avec succès`);
+      // Show success animation before completing
+      setShowSuccess(true);
+      setExportLabel("Devis prêt !");
+      await new Promise((r) => setTimeout(r, 800));
 
       try {
         await consumeDownload();
@@ -765,6 +774,7 @@ export default function ProjectDetail() {
       toast.error(`Échec du téléchargement : ${msg}`);
     } finally {
       setExporting(false);
+      setShowSuccess(false);
     }
   };
 
@@ -990,27 +1000,160 @@ export default function ProjectDetail() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-md"
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="w-[320px] sm:w-[360px] rounded-2xl border bg-card p-6 shadow-2xl"
+            initial={{ scale: 0.85, opacity: 0, y: 20 }}
+            animate={{
+              scale: 1,
+              opacity: 1,
+              y: 0,
+              transition: { type: "spring", stiffness: 350, damping: 22 },
+            }}
+            className="relative w-[340px] sm:w-[380px] rounded-2xl border bg-card p-7 shadow-2xl overflow-hidden"
           >
-            <div className="flex flex-col items-center gap-4 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                <Spinner className="h-6 w-6 text-primary" />
-              </div>
+            {/* Animated background gradient */}
+            <motion.div
+              className="absolute inset-0 opacity-[0.04]"
+              animate={{
+                background: [
+                  "radial-gradient(circle at 20% 50%, #3b82f6 0%, transparent 50%)",
+                  "radial-gradient(circle at 80% 50%, #3b82f6 0%, transparent 50%)",
+                  "radial-gradient(circle at 20% 50%, #3b82f6 0%, transparent 50%)",
+                ],
+              }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            />
+
+            <div className="relative flex flex-col items-center gap-5 text-center">
+              {/* Animated icon */}
+              <motion.div
+                key={exportStep}
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                className={cn(
+                  "flex h-14 w-14 items-center justify-center rounded-full transition-colors duration-700",
+                  showSuccess
+                    ? "bg-emerald-100 text-emerald-600"
+                    : "bg-primary/10 text-primary",
+                )}
+              >
+                {showSuccess ? (
+                  <motion.svg
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                    viewBox="0 0 24 24"
+                    className="h-7 w-7"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <motion.path
+                      d="M20 6L9 17l-5-5"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 0.5, delay: 0.1 }}
+                    />
+                  </motion.svg>
+                ) : (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  >
+                    <FileText className="h-6 w-6" />
+                  </motion.div>
+                )}
+              </motion.div>
+
+              {/* Title + label */}
               <div>
-                <p className="text-sm font-semibold">Génération du devis</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">{exportLabel}</p>
+                <motion.p
+                  className="text-sm font-semibold"
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  {showSuccess ? "Devis prêt !" : "Génération du devis"}
+                </motion.p>
+                <motion.p
+                  key={exportLabel}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-[11px] text-muted-foreground mt-1"
+                >
+                  {showSuccess ? "Téléchargement en cours..." : exportLabel}
+                </motion.p>
               </div>
-              <div className="w-full space-y-1.5">
-                <Progress value={exportProgress} className="h-2 [&>div]:bg-primary [&>div]:transition-all [&>div]:duration-500" />
-                <p className="text-[10px] text-muted-foreground/60 tabular-nums">{exportProgress}%</p>
+
+              {/* Animated progress bar */}
+              <div className="w-full space-y-2">
+                <div className="relative h-2.5 rounded-full bg-muted/50 overflow-hidden">
+                  <motion.div
+                    className={cn(
+                      "absolute inset-y-0 left-0 rounded-full transition-colors duration-500",
+                      showSuccess ? "bg-emerald-500" : "bg-primary",
+                    )}
+                    initial={{ width: "0%" }}
+                    animate={{ width: `${exportProgress}%` }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                  />
+                  {!showSuccess && (
+                    <motion.div
+                      className="absolute inset-y-0 left-0 w-8 rounded-full bg-white/30"
+                      animate={{ x: ["-20px", "calc(100% + 20px)"] }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        repeatDelay: 0.5,
+                      }}
+                      style={{ width: exportProgress > 5 ? "6%" : "0%" }}
+                    />
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-muted-foreground/60 tabular-nums">
+                    {exportProgress}%
+                  </p>
+                  {/* Animated dots */}
+                  <div className="flex gap-1">
+                    {[0, 1, 2].map((dot) => (
+                      <motion.div
+                        key={dot}
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          exportStep > dot
+                            ? "bg-primary"
+                            : exportStep === dot
+                              ? "bg-primary/60"
+                              : "bg-muted-300",
+                        )}
+                        animate={
+                          exportStep === dot
+                            ? { scale: [1, 1.5, 1], opacity: [0.6, 1, 0.6] }
+                            : {}
+                        }
+                        transition={{
+                          duration: 1.2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
-              <p className="text-[9px] text-muted-foreground/40">Veuillez patienter pendant la génération...</p>
+
+              <p className="text-[9px] text-muted-foreground/40">
+                {showSuccess
+                  ? ""
+                  : "Veuillez patienter pendant la génération..."}
+              </p>
             </div>
           </motion.div>
         </motion.div>
