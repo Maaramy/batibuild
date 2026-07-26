@@ -342,6 +342,21 @@ export const adminApproveSubscription = mutation({
       subscriptionEndDate: now + planDuration,
     });
 
+    // Notify the user
+    try {
+      await ctx.db.insert("notifications", {
+        userId: sub.userId,
+        type: "subscription",
+        title: "Abonnement activé",
+        message: `Félicitations ! Votre abonnement Pro a été activé. Vous pouvez désormais télécharger vos devis en PDF.`,
+        read: false,
+        link: "/pricing",
+        createdAt: Date.now(),
+      });
+    } catch (e) {
+      // Notification is optional, don't block approval
+    }
+
     return { success: true };
   },
 });
@@ -365,6 +380,21 @@ export const adminRejectSubscription = mutation({
       status: "canceled",
       updatedAt: Date.now(),
     });
+
+    // Notify the user
+    try {
+      await ctx.db.insert("notifications", {
+        userId: sub.userId,
+        type: "subscription",
+        title: "Abonnement refusé",
+        message: `Votre demande d'abonnement a été refusée. Contactez le support pour plus d'informations.`,
+        read: false,
+        link: "/pricing",
+        createdAt: Date.now(),
+      });
+    } catch (e) {
+      // Notification is optional
+    }
 
     return { success: true };
   },

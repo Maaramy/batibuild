@@ -386,6 +386,53 @@ export default function AdminPanel() {
                   </div>
                 </CardContent>
               </Card>
+              {/* Payment method breakdown */}
+              <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Moyens de paiement</p>
+                      <p className="text-xl sm:text-2xl font-bold mt-1">
+                        {allSubsWithUsers.filter((s: any) => s.paymentMethod === "bank_transfer" || s.paymentMethod === "d17").length}
+                      </p>
+                    </div>
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
+                      <Smartphone className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5"><Banknote className="h-3 w-3" /> Virement: {allSubsWithUsers.filter((s: any) => s.paymentMethod === "bank_transfer").length}</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-0.5"><Smartphone className="h-3 w-3" /> D17: {allSubsWithUsers.filter((s: any) => s.paymentMethod === "d17").length}</span>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Activation rate */}
+              <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Taux d'activation</p>
+                      <p className="text-xl sm:text-2xl font-bold mt-1">
+                        {(() => {
+                          const total = allSubsWithUsers.filter((s: any) => s.plan === "pro").length;
+                          const active = allSubsWithUsers.filter((s: any) => s.status === "active").length;
+                          if (total === 0) return "0%";
+                          return Math.round((active / total) * 100) + "%";
+                        })()}
+                      </p>
+                    </div>
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600">
+                      <Activity className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5"><ThumbsUp className="h-3 w-3 text-emerald-500" />{allSubsWithUsers.filter((s: any) => s.status === "active").length} actifs</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-0.5"><Clock className="h-3 w-3 text-amber-500" />{pendingSubs.length} en attente</span>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -1025,11 +1072,23 @@ export default function AdminPanel() {
                                     href={sub.paymentProofUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-[9px] text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
+                                    className="group relative inline-flex items-center justify-center"
                                     title="Voir le reçu de paiement"
                                   >
-                                    <FileText className="h-3 w-3" />
-                                    Reçu
+                                    <div className="h-10 w-10 rounded-lg border border-border/40 bg-muted/20 overflow-hidden hover:ring-2 hover:ring-primary/30 transition-all">
+                                      <img
+                                        src={sub.paymentProofUrl}
+                                        alt="Reçu"
+                                        className="h-full w-full object-cover"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).style.display = "none";
+                                          (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                                        }}
+                                      />
+                                      <div className="hidden absolute inset-0 flex items-center justify-center bg-muted/50 text-[8px] text-muted-foreground">
+                                        PDF
+                                      </div>
+                                    </div>
                                   </a>
                                 ) : (
                                   <span className="text-[9px] text-muted-foreground/50">—</span>
