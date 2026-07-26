@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Building2, FileText, Download, Banknote, Copy, CheckCheck } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Building2, FileText, Download, Banknote, Copy, CheckCheck, Smartphone, Wallet } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -17,6 +17,14 @@ const BANK_INFO = {
   swift: "BTBK TN TT",
   titulaire: "BudgetBati SARL",
   montant: "79 TND",
+};
+
+const D17_INFO = {
+  merchantName: "GALISKON PROJECT",
+  phone: "+216 XX XXX XXX",
+  email: "paiement@budgetbati.tn",
+  montant: "79 TND",
+  notice: "Envoyez le paiement via l'application D17 de La Poste Tunisienne"
 };
 
 const PLANS = [
@@ -63,6 +71,7 @@ export default function PricingPage() {
   const createSubscription = useMutation(api.subscriptions.createSubscription);
   const cancelSubscription = useMutation(api.subscriptions.cancelSubscription);
   const [copying, setCopying] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
 
   const currentPlan = user?.subscriptionPlan || "free";
   const isPro = currentPlan === "pro";
@@ -88,12 +97,16 @@ export default function PricingPage() {
     // For paid plans, create subscription with virement bancaire
     await createSubscription({
       plan: planId as any,
-      paymentMethod: "bank_transfer",
+      paymentMethod: paymentMethod,
       amount: 79,
       currency: "TND",
     });
 
-    toast.success("Demande d'abonnement envoyée ! En attente de validation du virement.");
+    toast.success(
+      paymentMethod === "d17"
+        ? "Demande d'abonnement envoyée ! En attente de validation du paiement D17."
+        : "Demande d'abonnement envoyée ! En attente de validation du virement."
+    );
   };
 
   const handleCopy = async (text: string, label: string) => {
@@ -225,7 +238,7 @@ export default function PricingPage() {
           })}
         </div>
 
-        {/* ═══ Bank Transfer Section ═══ */}
+        {/* ═══ Payment Method Section ═══ */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -234,59 +247,143 @@ export default function PricingPage() {
         >
           <div className="flex items-center gap-3 mb-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-              <Banknote className="h-5 w-5 text-primary" />
+              <Wallet className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Paiement par virement bancaire</h2>
+              <h2 className="text-lg font-semibold">Moyen de paiement</h2>
               <p className="text-xs text-muted-foreground">
-                Effectuez un virement de <strong>79 TND</strong> sur le compte ci-dessous, votre abonnement sera activé sous 24h.
+                Choisissez votre méthode de paiement pour l'abonnement <strong>Pro à 79 TND/mois</strong>.
               </p>
             </div>
           </div>
 
-          <Card className="border-border/30 bg-muted/20">
-            <CardContent className="p-4 sm:p-6 space-y-3">
-              {[
-                { label: "Banque", value: BANK_INFO.bank },
-                { label: "Titulaire", value: BANK_INFO.titulaire },
-                { label: "RIB", value: BANK_INFO.rib, copyable: true },
-                { label: "IBAN", value: BANK_INFO.iban, copyable: true },
-                { label: "Swift/BIC", value: BANK_INFO.swift, copyable: true },
-                { label: "Montant", value: BANK_INFO.montant, highlight: true },
-                { label: "Motif", value: "Abonnement BudgetBati Pro - [Votre email]", copyable: true },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-border/5 last:border-0">
-                  <span className="text-xs text-muted-foreground">{item.label}</span>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-semibold text-right ${item.highlight ? "text-primary text-sm" : ""}`}>
-                      {item.value}
-                    </span>
-                    {item.copyable && (
-                      <button
-                        onClick={() => handleCopy(item.value, item.label)}
-                        className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
-                        title={`Copier ${item.label}`}
-                      >
-                        {copying === item.label ? (
-                          <CheckCheck className="h-3 w-3 text-emerald-500" />
-                        ) : (
-                          <Copy className="h-3 w-3 text-muted-foreground" />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <div className="mt-4 flex items-start gap-2 text-[10px] text-muted-foreground/60">
-            <Shield className="h-3 w-3 shrink-0 mt-0.5" />
-            <p>
-              Une fois le virement effectué, votre abonnement sera activé manuellement sous 24h ouvrées.
-              Vous recevrez une confirmation par email. Pour toute question : support@budgetbati.tn
-            </p>
+          {/* Payment method tabs */}
+          <div className="flex gap-2 mb-5">
+            <button
+              onClick={() => setPaymentMethod("bank_transfer")}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-medium border transition-all ${
+                paymentMethod === "bank_transfer"
+                  ? "border-primary/40 bg-primary/5 text-primary shadow-sm"
+                  : "border-border/30 bg-background text-muted-foreground hover:border-border/60"
+              }`}
+            >
+              <Banknote className="h-4 w-4" />
+              Virement bancaire
+            </button>
+            <button
+              onClick={() => setPaymentMethod("d17")}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-medium border transition-all ${
+                paymentMethod === "d17"
+                  ? "border-primary/40 bg-primary/5 text-primary shadow-sm"
+                  : "border-border/30 bg-background text-muted-foreground hover:border-border/60"
+              }`}
+            >
+              <Smartphone className="h-4 w-4" />
+              D17 (Poste Tunisienne)
+            </button>
           </div>
+
+          {paymentMethod === "bank_transfer" ? (
+            <>
+              <Card className="border-border/30 bg-muted/20">
+                <CardContent className="p-4 sm:p-6 space-y-3">
+                  {[
+                    { label: "Banque", value: BANK_INFO.bank },
+                    { label: "Titulaire", value: BANK_INFO.titulaire },
+                    { label: "RIB", value: BANK_INFO.rib, copyable: true },
+                    { label: "IBAN", value: BANK_INFO.iban, copyable: true },
+                    { label: "Swift/BIC", value: BANK_INFO.swift, copyable: true },
+                    { label: "Montant", value: BANK_INFO.montant, highlight: true },
+                    { label: "Motif", value: "Abonnement BudgetBati Pro - [Votre email]", copyable: true },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-border/5 last:border-0">
+                      <span className="text-xs text-muted-foreground">{item.label}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-semibold text-right ${item.highlight ? "text-primary text-sm" : ""}`}>
+                          {item.value}
+                        </span>
+                        {item.copyable && (
+                          <button
+                            onClick={() => handleCopy(item.value, item.label)}
+                            className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
+                            title={`Copier ${item.label}`}
+                          >
+                            {copying === item.label ? (
+                              <CheckCheck className="h-3 w-3 text-emerald-500" />
+                            ) : (
+                              <Copy className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <div className="mt-4 flex items-start gap-2 text-[10px] text-muted-foreground/60">
+                <Shield className="h-3 w-3 shrink-0 mt-0.5" />
+                <p>
+                  Une fois le virement effectué, votre abonnement sera activé manuellement sous 24h ouvrées.
+                  Vous recevrez une confirmation par email. Pour toute question : support@budgetbati.tn
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <Card className="border-border/30 bg-muted/20">
+                <CardContent className="p-4 sm:p-6 space-y-3">
+                  {[
+                    { label: "Bénéficiaire", value: D17_INFO.merchantName },
+                    { label: "Téléphone D17", value: D17_INFO.phone, copyable: true },
+                    { label: "Email", value: D17_INFO.email, copyable: true },
+                    { label: "Montant", value: D17_INFO.montant, highlight: true },
+                    { label: "Motif", value: "Abonnement BudgetBati Pro - [Votre email]", copyable: true },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-border/5 last:border-0">
+                      <span className="text-xs text-muted-foreground">{item.label}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-semibold text-right ${item.highlight ? "text-primary text-sm" : ""}`}>
+                          {item.value}
+                        </span>
+                        {item.copyable && (
+                          <button
+                            onClick={() => handleCopy(item.value, item.label)}
+                            className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
+                            title={`Copier ${item.label}`}
+                          >
+                            {copying === item.label ? (
+                              <CheckCheck className="h-3 w-3 text-emerald-500" />
+                            ) : (
+                              <Copy className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <div className="mt-4 space-y-2">
+                <div className="flex items-start gap-2 text-[10px] text-muted-foreground/60">
+                  <Shield className="h-3 w-3 shrink-0 mt-0.5" />
+                  <p>
+                    {D17_INFO.notice}. Votre abonnement sera activé manuellement sous 24h ouvrées.
+                    Vous recevrez une confirmation par email.
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/50 flex items-start gap-2">
+                  <Smartphone className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-amber-700">
+                    <strong>Comment payer avec D17 ?</strong> Ouvrez l'application D17 sur votre téléphone,
+                    sélectionnez "Paiement marchand", entrez le téléphone ci-dessus et le montant de 79 TND.
+                    Envoyez-nous la confirmation par email.
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
 
           {isPro && (
             <div className="mt-4 px-4 py-3 sm:py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
@@ -300,6 +397,20 @@ export default function PricingPage() {
                 <span className="text-xs sm:text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-full sm:rounded-md whitespace-nowrap">
                   {remainingDownloads ?? 10} téléchargement{remainingDownloads && remainingDownloads > 1 ? "s" : ""} restant{remainingDownloads && remainingDownloads > 1 ? "s" : ""}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {isPending && (
+            <div className="mt-4 px-4 py-3 rounded-xl bg-amber-50/50 border border-amber-200/30">
+              <div className="flex items-start gap-2">
+                <Loader2 className="h-4 w-4 text-amber-600 shrink-0 mt-0.5 animate-spin" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-700">Paiement en attente de validation</p>
+                  <p className="text-[10px] text-amber-600/70 mt-0.5">
+                    Votre abonnement sera activé dès réception du {paymentMethod === "d17" ? "paiement D17" : "virement"}.
+                  </p>
+                </div>
               </div>
             </div>
           )}

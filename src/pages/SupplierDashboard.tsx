@@ -16,7 +16,7 @@ import {
   Building2, Phone, Mail, MapPin, Globe, CheckCircle2,
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard,
   Store, ShieldCheck, Trash2, AlertTriangle,
-  Sparkles, Timer, Gift,
+  Sparkles, Timer, Gift, Banknote, Smartphone,
 } from "lucide-react";
 
 // ============================================================================
@@ -89,6 +89,8 @@ export default function SupplierDashboard() {
   const [activating, setActivating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [supplierPaymentMethod, setSupplierPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
+  const [showPaymentChoice, setShowPaymentChoice] = useState(false);
 
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
@@ -182,7 +184,9 @@ export default function SupplierDashboard() {
     setActivating(true);
     try {
       await activateSub();
-      toast.success("Abonnement mensuel activé ! (120 TND/mois - virement)");
+      const method = supplierPaymentMethod === "d17" ? "D17" : "virement bancaire";
+      toast.success(`Abonnement mensuel activé ! (120 TND/mois - paiement par ${method})`);
+      setShowPaymentChoice(false);
     } catch (err: any) {
       toast.error(err.message || "Erreur d'activation");
     } finally {
@@ -297,16 +301,16 @@ export default function SupplierDashboard() {
                             Essai gratuit {TRIAL_DAYS} jours
                           </Button>
                           <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
-                            onClick={handleActivate} disabled={activating}>
-                            {activating ? <Loader2 className="h-3 w-3 animate-spin" /> : <CreditCard className="h-3 w-3" />}
-                            120 TND/mois (virement)
+                            onClick={() => setShowPaymentChoice(true)}>
+                            <CreditCard className="h-3 w-3" />
+                            120 TND/mois
                           </Button>
                         </>
                       )}
                       {effStatus === "trial" && (
                         <Button size="sm" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
-                          onClick={handleActivate} disabled={activating}>
-                          {activating ? <Loader2 className="h-3 w-3 animate-spin" /> : <CreditCard className="h-3 w-3" />}
+                          onClick={() => setShowPaymentChoice(true)}>
+                          <CreditCard className="h-3 w-3" />
                           Passer à 120 TND/mois
                         </Button>
                       )}
@@ -356,7 +360,7 @@ export default function SupplierDashboard() {
 
                   {/* Monthly card */}
                   <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.03] to-background ring-1 ring-primary/10 hover:shadow-sm transition-all cursor-pointer"
-                    onClick={handleActivate}>
+                    onClick={() => setShowPaymentChoice(true)}>
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -365,7 +369,7 @@ export default function SupplierDashboard() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold">Abonnement Pro</p>
                           <p className="text-lg font-black text-primary mt-1">{MONTHLY_PRICE} TND<small className="text-[9px] font-normal text-muted-foreground">/mois</small></p>
-                          <p className="text-[10px] text-muted-foreground mt-1">Paiement par virement bancaire</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">Virement bancaire ou D17</p>
                           <ul className="mt-2 space-y-1">
                             {["Tout l'essai gratuit +", "Avant-première : 1ère position", "Badge certifié", "Statistiques de visibilité", "Support prioritaire"].map((f) => (
                               <li key={f} className="flex items-center gap-1 text-[9px] text-muted-foreground">
@@ -379,6 +383,57 @@ export default function SupplierDashboard() {
                     </CardContent>
                   </Card>
                 </div>
+              )}
+
+              {/* ═══ Payment Method Choice Popup ═══ */}
+              {showPaymentChoice && (
+                <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.02] to-background">
+                  <CardContent className="p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">Choisissez votre moyen de paiement</p>
+                      <button onClick={() => setShowPaymentChoice(false)} className="text-xs text-muted-foreground hover:text-foreground">
+                        Annuler
+                      </button>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => { setSupplierPaymentMethod("bank_transfer"); handleActivate(); }}
+                        disabled={activating}
+                        className={`flex-1 flex flex-col items-center gap-2 px-4 py-4 rounded-xl border text-xs font-medium transition-all ${
+                          supplierPaymentMethod === "bank_transfer"
+                            ? "border-primary/30 bg-primary/5 text-primary"
+                            : "border-border/30 bg-background text-muted-foreground hover:border-border/60"
+                        }`}
+                      >
+                        <Banknote className="h-6 w-6" />
+                        Virement bancaire
+                        <span className="text-[9px] text-muted-foreground">120 TND/mois</span>
+                        {activating && supplierPaymentMethod === "bank_transfer" && <Loader2 className="h-3 w-3 animate-spin" />}
+                      </button>
+                      <button
+                        onClick={() => { setSupplierPaymentMethod("d17"); handleActivate(); }}
+                        disabled={activating}
+                        className={`flex-1 flex flex-col items-center gap-2 px-4 py-4 rounded-xl border text-xs font-medium transition-all ${
+                          supplierPaymentMethod === "d17"
+                            ? "border-primary/30 bg-primary/5 text-primary"
+                            : "border-border/30 bg-background text-muted-foreground hover:border-border/60"
+                        }`}
+                      >
+                        <Smartphone className="h-6 w-6" />
+                        D17 Poste Tunisienne
+                        <span className="text-[9px] text-muted-foreground">120 TND/mois</span>
+                        {activating && supplierPaymentMethod === "d17" && <Loader2 className="h-3 w-3 animate-spin" />}
+                      </button>
+                    </div>
+                    <div className="p-3 rounded-lg bg-amber-50/30 border border-amber-200/30">
+                      <p className="text-[9px] text-amber-700 flex items-center gap-1">
+                        <Smartphone className="h-3 w-3 shrink-0" />
+                        <strong>D17 :</strong> Envoyez 120 TND via l'application D17 au +216 XX XXX XXX (GALISKON PROJECT).
+                        <strong>Virement :</strong> RIB TN59 0700 1123 4567 8901 2347 — Banque de Tunisie.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* ═══ Profile Form ═══ */}
@@ -550,6 +605,15 @@ export default function SupplierDashboard() {
               </div>
 
               {/* Create form */}
+
+              {/* Payment info for new suppliers */}
+              <div className="p-3 rounded-xl bg-amber-50/20 border border-amber-200/20 flex items-start gap-2">
+                <Smartphone className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-[9px] text-muted-foreground">
+                  <strong>Paiement accepté :</strong> Virement bancaire ou <strong>D17 (Poste Tunisienne)</strong> —
+                  Envoyez 120 TND par D17 au +216 XX XXX XXX ou par virement RIB TN59 0700 1123 4567 8901 2347.
+                </p>
+              </div>
               <Card className="border-border/40">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold">Créer votre profil fournisseur</CardTitle>
