@@ -170,17 +170,25 @@ export const createProject = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
 
-    // ── Project limit for free plan (max 3 projects) ──
+    // ── Project limits by plan ──
     const userPlan = user.subscriptionPlan ?? "free";
-    if (userPlan === "free") {
+    const planLimits: Record<string, number> = {
+      free: 3,
+      pro: 10,
+    };
+    const limit = planLimits[userPlan] ?? Infinity;
+    if (limit !== Infinity) {
       const existingProjects = await ctx.db
         .query("projects")
         .withIndex("by_user", (q) => q.eq("userId", user._id))
         .collect();
-      if (existingProjects.length >= 3) {
+      if (existingProjects.length >= limit) {
+        const planLabel = userPlan === "free" ? "Gratuit" : "Pro";
         throw new Error(
-          "LIMITE_ATTEINTE:Vous avez atteint la limite de 3 projets offerte avec le forfait Gratuit. " +
-          "Passez à l'offre Pro pour créer des projets illimités."
+          `LIMITE_ATTEINTE:Vous avez atteint la limite de ${limit} projets offerte avec le forfait ${planLabel}. ` +
+          (userPlan === "free"
+            ? "Passez à l'offre Pro pour bénéficier de 10 projets."
+            : "Contactez le support pour augmenter votre limite de projets.")
         );
       }
     }
