@@ -110,6 +110,7 @@ const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium: numbe
 
   // Rénovation
   renovation_interieure:    { eco: 400,  std: 700,  premium: 1300 },
+  renovation_exterieure:   { eco: 300,  std: 500,  premium: 900 },
   renovation_salle_de_bain: { eco: 1500, std: 2500, premium: 4000 },
   renovation_cuisine:       { eco: 1500, std: 2500, premium: 4000 },
   renovation_facade:        { eco: 250,  std: 400,  premium: 700 },
@@ -158,6 +159,7 @@ const PROJECT_PCT: Record<string, Percentages> = {
   route: [57, 15, 10, 10, 3, 5],
   trottoir: [52, 20, 10, 10, 3, 5],
   renovation_interieure: [10, 48, 30, 5, 2, 5],
+  renovation_exterieure: [35, 40, 8, 7, 3, 7],
   renovation_salle_de_bain: [20, 33, 35, 5, 2, 5],
   renovation_cuisine: [15, 33, 40, 5, 2, 5],
   renovation_facade: [30, 48, 10, 5, 2, 5],
@@ -179,7 +181,8 @@ const CATEGORY_LABEL: Record<string, string> = {
   cafe: "Café", atelier: "Atelier", usine: "Usine", depot: "Dépôt",
   installation_solaire: "Installation solaire", chateau_d_eau: "Château d'eau",
   systeme_irrigation: "Système d'irrigation", route: "Route", trottoir: "Trottoir",
-  renovation_interieure: "Rénovation intérieure", renovation_salle_de_bain: "Rénovation salle de bain",
+  renovation_interieure: "Rénovation intérieure", renovation_exterieure: "Rénovation extérieure",
+  renovation_salle_de_bain: "Rénovation salle de bain",
   renovation_cuisine: "Rénovation cuisine", renovation_facade: "Rénovation façade",
   demolition: "Démolition", installations_sanitaires: "Installations sanitaires",
   installations_electricite: "Installations électricité",
