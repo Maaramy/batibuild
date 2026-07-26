@@ -17,7 +17,8 @@ import { useParams, useNavigate } from "react-router";
 import { useState, useMemo, Fragment, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
+applyAutotablePlugin(jsPDF);
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import {
