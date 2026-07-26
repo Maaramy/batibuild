@@ -83,6 +83,17 @@ const fmt = (n: number) => new Intl.NumberFormat("fr-TN", {
   style: "currency", currency: "TND", maximumFractionDigits: 0,
 }).format(n);
 
+// PDF-specific formatter: dots as thousand separators, explicit "TND" suffix
+const fmtPdf = (n: number) => {
+  const sign = n < 0 ? "-" : "";
+  const parts = Math.floor(Math.abs(n)).toString().split("");
+  let result = "";
+  for (let i = parts.length - 1, j = 1; i >= 0; i--, j++) {
+    result = parts[i] + (j > 1 && (j - 1) % 3 === 0 ? "." : "") + result;
+  }
+  return `${sign}${result} TND`;
+};
+
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 const fadeUp = {
@@ -259,17 +270,22 @@ export default function ProjectDetail() {
         ? REGION_LABELS[project.region] ?? project.region
         : "Non définie";
       const dateStr = new Date().toLocaleDateString("fr-FR");
+      const safeName = project.name.replace(/[^a-zA-Z0-9-_]/g, "_");
 
       // ═══ HEADER BAR ════════════════════════════════════════════════
+      // Top accent line
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 0, pw, 2.5, "F");
+      // Main header background
       doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
-      doc.rect(0, 0, pw, 20, "F");
+      doc.rect(0, 2.5, pw, 20, "F");
 
       // ── Draw BudgetBati logo (vector building icon) ──
       const logoX = ml;
-      const logoY = 3;
-      const logoScale = 0.8;
+      const logoY = 5;
+      const logoScale = 0.9;
 
-      // Roof (triangle)
+      // Roof
       doc.setFillColor(255, 255, 255);
       doc.triangle(
         logoX + 6 * logoScale, logoY,
@@ -282,25 +298,27 @@ export default function ProjectDetail() {
       // Door
       doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
       doc.rect(logoX + 4 * logoScale, logoY + 10 * logoScale, 4 * logoScale, 5 * logoScale, "F");
-      // Left window
+      // Windows
       doc.rect(logoX + 2.5 * logoScale, logoY + 7.5 * logoScale, 2 * logoScale, 2 * logoScale, "F");
-      // Right window
       doc.rect(logoX + 7.5 * logoScale, logoY + 7.5 * logoScale, 2 * logoScale, 2 * logoScale, "F");
 
-      // ── Title text next to logo ──
-      const titleX = ml + 16;
+      // ── Title next to logo ──
+      const titleX = ml + 17;
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(15);
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("BudgetBati", titleX, 9);
+      doc.text("BudgetBati", titleX, 10);
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.text("Devis Estimatif - Tunisie 2026", titleX, 15);
+      doc.text("Devis estimatif — Prix Tunisie 2026", titleX, 16);
 
       // ── Right side info ──
       doc.setFontSize(6);
-      doc.text(`Généré le ${dateStr}`, pw - mr, 9, { align: "right" });
-      doc.text(`Scénario: ${scenarioLabel}`, pw - mr, 15, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.text(`N° ${safeName.substring(0, 12)}`, pw - mr, 8, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.text(`${dateStr} · ${scenarioLabel}`, pw - mr, 14, { align: "right" });
+      doc.text("Document non contractuel", pw - mr, 18, { align: "right" });
 
       y = 26;
 
@@ -345,16 +363,16 @@ export default function ProjectDetail() {
       doc.setFont("helvetica", "normal");
       doc.text("COÛT TOTAL ESTIMÉ TTC", ml + 3, y + 5);
 
-      const totalStr = fmt(totalCost);
+      const totalStr = fmtPdf(totalCost);
       doc.setTextColor(C.primary[0], C.primary[1], C.primary[2]);
-      doc.setFontSize(20);
+      doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
       doc.text(totalStr, ml + cw - 3, y + 17, { align: "right" });
 
       doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.text(`${fmt(costPerM2)} /m²`, ml + 3, y + 17);
+      doc.text(`${fmtPdf(costPerM2)} /m² · ${scenarioLabel}`, ml + 3, y + 17);
 
       y += 31;
 
@@ -432,7 +450,7 @@ export default function ProjectDetail() {
 
         doc.setFont("helvetica", "bold");
         doc.setTextColor(C.text[0], C.text[1], C.text[2]);
-        doc.text(fmt(cat.estimatedCost), ml + cw * 0.75, y + 3.5, { align: "right" });
+        doc.text(fmtPdf(cat.estimatedCost), ml + cw * 0.75, y + 3.5, { align: "right" });
 
         // Colored bar
         const barColor =
@@ -457,7 +475,7 @@ export default function ProjectDetail() {
       doc.setFont("helvetica", "bold");
       doc.setTextColor(180, 83, 9);
       doc.text(
-        fmt(Math.round(ce.contingencyBuffer * sf)),
+        fmtPdf(Math.round(ce.contingencyBuffer * sf)),
         ml + cw * 0.75,
         y + 3.5,
         { align: "right" },
@@ -515,7 +533,7 @@ export default function ProjectDetail() {
             isSel ? C.primary[1] : C.text[1],
             isSel ? C.primary[2] : C.text[2],
           );
-          doc.text(fmt(s.totalCost), x + 2, y + 10);
+          doc.text(fmtPdf(s.totalCost), x + 2, y + 10);
 
           doc.setFontSize(6);
           doc.setFont("helvetica", "normal");
@@ -524,7 +542,7 @@ export default function ProjectDetail() {
             C.textSecondary[1],
             C.textSecondary[2],
           );
-          doc.text(`${fmt(s.costPerM2)} /m²`, x + 2, y + 15);
+          doc.text(`${fmtPdf(s.costPerM2)} /m²`, x + 2, y + 15);
         });
 
         y += 24;
@@ -588,7 +606,7 @@ export default function ProjectDetail() {
               styles: { fillColor: [243, 244, 246] },
             },
             {
-              content: fmt(cat.estimatedCost),
+              content: fmtPdf(cat.estimatedCost),
               styles: {
                 fontSize: 7,
                 fontStyle: "bold",
@@ -613,7 +631,7 @@ export default function ProjectDetail() {
                 },
               },
               {
-                content: fmt(item.unitPrice),
+                content: fmtPdf(item.unitPrice),
                 styles: {
                   fontSize: 6.5,
                   halign: "right" as const,
@@ -621,7 +639,7 @@ export default function ProjectDetail() {
                 },
               },
               {
-                content: fmt(item.totalPrice),
+                content: fmtPdf(item.totalPrice),
                 styles: {
                   fontSize: 6.5,
                   halign: "right" as const,
@@ -664,7 +682,10 @@ export default function ProjectDetail() {
           alternatingRowBackgroundColor: [249, 250, 251],
           didDrawPage: (data: any) => {
             const pageCount = doc.getNumberOfPages();
-            doc.setFontSize(6);
+            // Footer line
+            doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+            doc.line(ml, ph - 8, pw - mr, ph - 8);
+            doc.setFontSize(5.5);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(
               C.textLight[0],
@@ -672,14 +693,14 @@ export default function ProjectDetail() {
               C.textLight[2],
             );
             doc.text(
-              `BudgetBati — Devis Estimatif — Page ${pageCount}`,
+              `BudgetBati — Devis estimatif — Page ${pageCount}`,
               ml,
-              ph - 5,
+              ph - 4,
             );
             doc.text(
-              "Estimation indicative — Prix moyens Tunisie 2026",
+              "Document généré automatiquement — Prix Tunisie 2026",
               pw - mr,
-              ph - 5,
+              ph - 4,
               { align: "right" },
             );
           },
@@ -779,7 +800,6 @@ export default function ProjectDetail() {
 
       // ═══ SAVE PDF ══════════════════════════════════════════════════
       advanceProgress(3);
-      const safeName = project.name.replace(/[^a-zA-Z0-9-_]/g, "_");
       const filename = `Devis-${scenarioLabel}-${safeName}.pdf`;
       doc.save(filename);
 
