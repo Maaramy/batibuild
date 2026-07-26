@@ -23,6 +23,7 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage.tsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
 const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage.tsx"));
 const ContactPage = lazy(() => import("./pages/ContactPage.tsx"));
+const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"),);
 
 // Simple loading fallback for route transitions
@@ -202,6 +203,14 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <SettingsPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/supplier"
+                  element={
+                    <RequireAuth>
+                      <SupplierDashboard />
                     </RequireAuth>
                   }
                 />

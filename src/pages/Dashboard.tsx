@@ -42,6 +42,7 @@ import {
   X,
   Home,
   Shield,
+  Store,
   User,
 } from "lucide-react";
 import { useNavigate } from "react-router";
@@ -257,6 +258,7 @@ export default function Dashboard() {
           { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
           { icon: BarChart3, label: "Comparer", onClick: () => setMobileSidebarOpen(false) },
           { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
+          { icon: Store, label: "Espace fournisseur", onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
           { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
           ...(user?.role === "admin" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
         ].map((item) => (
