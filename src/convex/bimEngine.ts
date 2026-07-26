@@ -14,22 +14,22 @@
 export const P = {
   // Unit prices for material items (used for itemized lists only)
   cement: { bag42_5: 15, bag32_5: 12.5 },
-  sand: { construction: 20, fine: 18, remblai: 15 },
-  gravel: { "15_25mm": 35, "8_15mm": 32 },
-  bricks: { hollow_10: 0.9, hollow_15: 1.3, hourdis_16: 1.5, noot_6: 0.35, parpaing_15: 1.2, parpaing_20: 1.6 },
-  concrete: { ready_mix_250: 180, ready_mix_300: 210, ready_mix_350: 240 },
-  steel: { t6_m: 0.8, t8_m: 1.2, t10_m: 1.8, t12_ton: 3400, t14_ton: 3500, treillis_m2: 12 },
-  wood: { formwork_m3: 650, framing_m3: 750, chevron_m: 8 },
-  paint: { interior_l: 22, exterior_l: 28, primer_l: 15 },
-  tiles: { floor_m2: 35, wall_m2: 28, marble_m2: 85, granite_m2: 120, ext_m2: 45, plinthe_ml: 8 },
-  plumbing: { pvc_110: 12, pvc_50: 6, copper_m: 18, geyser: 450, wc: 280, lavabo: 150, douche: 350, evier: 220 },
-  electrical: { cable_1_5_m: 1.2, cable_2_5_m: 2, cable_6_m: 4, breaker: 45, panel: 180, led_light: 35, socket: 8, switch: 6 },
-  doors: { simple: 350, double: 650, metal: 500, garage: 1200, sliding: 800 },
-  windows: { alu_simple: 450, alu_double: 650, pvc: 550, iron_grille: 200, roller_shutter: 350 },
-  roofing: { tile_m2: 15, steel_sheet_m2: 25, waterproof_m2: 18, insulation_m2: 22 },
-  labor: { worker_day: 55, mason_day: 70, electrician_day: 65, plumber_day: 65, painter_day: 55, tiler_day: 70 },
-  transport: { truck_trip: 150, mixer_m3: 25, benne: 180 },
-  equipment: { excavator_day: 250, compactor_day: 180, mixer_day: 80 },
+  sand: { construction: 25, fine: 22, remblai: 18 },
+  gravel: { "15_25mm": 38, "8_15mm": 35 },
+  bricks: { hollow_10: 1.0, hollow_15: 1.4, hourdis_16: 1.6, noot_6: 0.40, parpaing_15: 1.3, parpaing_20: 1.8 },
+  concrete: { ready_mix_250: 200, ready_mix_300: 230, ready_mix_350: 260 },
+  steel: { t6_m: 0.9, t8_m: 1.3, t10_m: 2.0, t12_ton: 3700, t14_ton: 3800, treillis_m2: 14 },
+  wood: { formwork_m3: 700, framing_m3: 800, chevron_m: 10 },
+  paint: { interior_l: 25, exterior_l: 30, primer_l: 18 },
+  tiles: { floor_m2: 38, wall_m2: 30, marble_m2: 90, granite_m2: 130, ext_m2: 48, plinthe_ml: 9 },
+  plumbing: { pvc_110: 14, pvc_50: 7, copper_m: 20, geyser: 500, wc: 300, lavabo: 170, douche: 380, evier: 250 },
+  electrical: { cable_1_5_m: 1.4, cable_2_5_m: 2.2, cable_6_m: 4.5, breaker: 50, panel: 200, led_light: 40, socket: 9, switch: 7 },
+  doors: { simple: 380, double: 700, metal: 550, garage: 1300, sliding: 850 },
+  windows: { alu_simple: 480, alu_double: 680, pvc: 580, iron_grille: 220, roller_shutter: 380 },
+  roofing: { tile_m2: 18, steel_sheet_m2: 28, waterproof_m2: 20, insulation_m2: 25 },
+  labor: { worker_day: 65, mason_day: 80, electrician_day: 75, plumber_day: 75, painter_day: 65, tiler_day: 80 },
+  transport: { truck_trip: 170, mixer_m3: 28, benne: 200 },
+  equipment: { excavator_day: 280, compactor_day: 200, mixer_day: 90 },
 };
 
 export const MACRO_LABELS: Record<string, string> = {
@@ -55,70 +55,71 @@ type Percentages = [number, number, number, number, number, number];
 // ============================================================================
 // REAL TUNISIAN MARKET PRICES 2026 (TND/m² - clé en main, standard)
 // Based on Marché tunisien 2025-2026, toutes fournitures + main d'œuvre
+// Ajustés pour refléter les prix réels constatés en Tunisie
 // ============================================================================
 
 const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium: number }> = {
   // Maisons & Villa (Marché tunisien 2026 - fournitures + main d'œuvre)
-  maison:             { eco: 600,  std: 850,  premium: 1400 },
-  maison_r_plus_1:    { eco: 650,  std: 900,  premium: 1500 },
-  villa:              { eco: 750,  std: 1050, premium: 1800 },
-  immeuble_residentiel:{ eco: 800,  std: 1100, premium: 1700 },
-  appartement:        { eco: 850,  std: 1200, premium: 1900 },
+  maison:             { eco: 750,  std: 1100, premium: 1800 },
+  maison_r_plus_1:    { eco: 800,  std: 1150, premium: 1900 },
+  villa:              { eco: 900,  std: 1350, premium: 2200 },
+  immeuble_residentiel:{ eco: 950,  std: 1400, premium: 2200 },
+  appartement:        { eco: 1000, std: 1500, premium: 2400 },
 
   // Piscine & Extérieur
-  piscine:            { eco: 600,  std: 850,  premium: 1400 },
-  jardin:             { eco: 60,   std: 100,  premium: 200 },
-  amenagement_paysager:{ eco: 70,   std: 110, premium: 220 },
-  garage:             { eco: 400,  std: 600,  premium: 1000 },
-  cloture:            { eco: 200,  std: 350,  premium: 600 },
-  mur_de_separation:  { eco: 200,  std: 350,  premium: 550 },
-  cuisine_exterieure: { eco: 600,  std: 900,  premium: 1500 },
-  terrasse:           { eco: 250,  std: 400,  premium: 700 },
-  pergola:            { eco: 350,  std: 550,  premium: 900 },
-  toiture:            { eco: 200,  std: 300,  premium: 500 },
-  extension_batiment: { eco: 650,  std: 950,  premium: 1600 },
+  piscine:            { eco: 750,  std: 1100, premium: 1800 },
+  jardin:             { eco: 80,   std: 130,  premium: 250 },
+  amenagement_paysager:{ eco: 90,   std: 140,  premium: 280 },
+  garage:             { eco: 500,  std: 750,  premium: 1200 },
+  cloture:            { eco: 280,  std: 450,  premium: 750 },
+  mur_de_separation:  { eco: 280,  std: 450,  premium: 700 },
+  cuisine_exterieure: { eco: 750,  std: 1100, premium: 1800 },
+  terrasse:           { eco: 320,  std: 500,  premium: 850 },
+  pergola:            { eco: 450,  std: 700,  premium: 1100 },
+  toiture:            { eco: 280,  std: 400,  premium: 650 },
+  extension_batiment: { eco: 800,  std: 1200, premium: 2000 },
 
   // Commercial & Industriel
-  entrepot:           { eco: 350,  std: 550,  premium: 900 },
-  local_commercial:   { eco: 600,  std: 900,  premium: 1500 },
-  bureau:             { eco: 700,  std: 1000, premium: 1700 },
-  ferme:              { eco: 350,  std: 500,  premium: 800 },
-  serre_agricole:     { eco: 180,  std: 280,  premium: 450 },
-  parking:            { eco: 150,  std: 250,  premium: 400 },
-  aire_de_jeux:       { eco: 100,  std: 180,  premium: 320 },
+  entrepot:           { eco: 450,  std: 700,  premium: 1100 },
+  local_commercial:   { eco: 750,  std: 1100, premium: 1800 },
+  bureau:             { eco: 850,  std: 1250, premium: 2100 },
+  ferme:              { eco: 450,  std: 650,  premium: 1000 },
+  serre_agricole:     { eco: 220,  std: 350,  premium: 550 },
+  parking:            { eco: 200,  std: 320,  premium: 500 },
+  aire_de_jeux:       { eco: 130,  std: 230,  premium: 400 },
 
   // Institutionnel
-  mosquee:            { eco: 800,  std: 1150, premium: 1900 },
-  ecole:              { eco: 750,  std: 1100, premium: 1700 },
-  hotel:              { eco: 1000, std: 1500, premium: 2500 },
-  restaurant:         { eco: 850,  std: 1200, premium: 2000 },
-  cafe:               { eco: 800,  std: 1100, premium: 1800 },
+  mosquee:            { eco: 950,  std: 1400, premium: 2300 },
+  ecole:              { eco: 900,  std: 1350, premium: 2100 },
+  hotel:              { eco: 1200, std: 1800, premium: 3000 },
+  restaurant:         { eco: 1000, std: 1500, premium: 2500 },
+  cafe:               { eco: 950,  std: 1400, premium: 2200 },
 
   // Industrie
-  atelier:            { eco: 280,  std: 400,  premium: 700 },
-  usine:              { eco: 400,  std: 600,  premium: 1000 },
-  depot:              { eco: 250,  std: 380,  premium: 600 },
+  atelier:            { eco: 350,  std: 520,  premium: 850 },
+  usine:              { eco: 500,  std: 750,  premium: 1200 },
+  depot:              { eco: 320,  std: 480,  premium: 750 },
 
   // Énergie
-  installation_solaire:{ eco: 1800, std: 2500, premium: 3800 },
-  chateau_d_eau:      { eco: 1000, std: 1400, premium: 2200 },
-  systeme_irrigation: { eco: 150,  std: 250,  premium: 400 },
+  installation_solaire:{ eco: 2000, std: 3000, premium: 4500 },
+  chateau_d_eau:      { eco: 1200, std: 1700, premium: 2700 },
+  systeme_irrigation: { eco: 180,  std: 320,  premium: 500 },
 
   // VRD
-  route:              { eco: 100,  std: 180,  premium: 300 },
-  trottoir:           { eco: 80,   std: 140,  premium: 250 },
+  route:              { eco: 130,  std: 220,  premium: 380 },
+  trottoir:           { eco: 100,  std: 180,  premium: 320 },
 
   // Rénovation (Marché tunisien 2026)
-  renovation_interieure:    { eco: 250,  std: 450,  premium: 850 },
-  renovation_exterieure:   { eco: 200,  std: 350,  premium: 650 },
-  renovation_salle_de_bain: { eco: 1000, std: 1600, premium: 3000 },
-  renovation_cuisine:       { eco: 1000, std: 1600, premium: 3000 },
-  renovation_facade:        { eco: 180,  std: 280,  premium: 500 },
+  renovation_interieure:    { eco: 320,  std: 550,  premium: 1000 },
+  renovation_exterieure:   { eco: 260,  std: 450,  premium: 800 },
+  renovation_salle_de_bain: { eco: 1300, std: 2000, premium: 3500 },
+  renovation_cuisine:       { eco: 1300, std: 2000, premium: 3500 },
+  renovation_facade:        { eco: 230,  std: 350,  premium: 600 },
 
   // Démolition
-  demolition:                { eco: 70,   std: 100,  premium: 180 },
-  installations_sanitaires:  { eco: 800,  std: 1300, premium: 2500 },
-  installations_electricite: { eco: 150,  std: 250,  premium: 450 },
+  demolition:                { eco: 90,   std: 130,  premium: 220 },
+  installations_sanitaires:  { eco: 1000, std: 1600, premium: 3000 },
+  installations_electricite: { eco: 180,  std: 320,  premium: 550 },
 };
 
 const PROJECT_PCT: Record<string, Percentages> = {
@@ -305,13 +306,13 @@ function genMOItems(surface: number, floors: number, cat: string, targetBudget: 
   const tb = surface * (floors || 1);
   const ih = ["immeuble_residentiel","usine","mosquee","ecole","hotel"].includes(cat) ? 1.2 : 1;
   const items = [
-    {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:65},
-    {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:45},
-    {n:"Électricien", q:Math.round(tb/60*ih*10)/10, u:"jours", up:60},
-    {n:"Plombier", q:Math.round(tb/80*ih*10)/10, u:"jours", up:60},
-    {n:"Carreleur", q:Math.round(tb/45*ih*10)/10, u:"jours", up:65},
-    {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:50},
-    {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:90},
+    {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:80},
+    {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:55},
+    {n:"Électricien", q:Math.round(tb/60*ih*10)/10, u:"jours", up:75},
+    {n:"Plombier", q:Math.round(tb/80*ih*10)/10, u:"jours", up:75},
+    {n:"Carreleur", q:Math.round(tb/45*ih*10)/10, u:"jours", up:80},
+    {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:65},
+    {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:100},
   ];
   const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
   const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
@@ -324,10 +325,10 @@ function genMOItems(surface: number, floors: number, cat: string, targetBudget: 
 function genTRItems(surface: number, floors: number, targetBudget: number) {
   const tb = surface * (floors || 1);
   const items = [
-    {n:"Transport matériaux (benne 10t)", q:Math.max(2,Math.round(tb/30)), u:"voyages", up:120},
-    {n:"Pompe à béton stationnaire", q:Math.round(tb*0.25), u:"m³", up:20},
-    {n:"Location tractopelle", q:Math.max(1,Math.round(tb/100)), u:"jours", up:200},
-    {n:"Évacuation gravats (benne 8m³)", q:Math.max(1,Math.round(tb/60)), u:"bennes", up:150},
+    {n:"Transport matériaux (benne 10t)", q:Math.max(2,Math.round(tb/30)), u:"voyages", up:170},
+    {n:"Pompe à béton stationnaire", q:Math.round(tb*0.25), u:"m³", up:28},
+    {n:"Location tractopelle", q:Math.max(1,Math.round(tb/100)), u:"jours", up:280},
+    {n:"Évacuation gravats (benne 8m³)", q:Math.max(1,Math.round(tb/60)), u:"bennes", up:200},
   ];
   const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
   const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
@@ -342,9 +343,9 @@ function genEIItems(totalBudget: number, targetBudget: number) {
     {n:"Permis de construire + taxe voirie", q:1, u:"forfait", up:Math.round(Math.min(totalBudget*0.015, 4000))},
     {n:"Honoraires architecte/BET", q:1, u:"forfait", up:Math.round(totalBudget*0.03)},
     {n:"Assurance chantier tous risques", q:1, u:"forfait", up:Math.round(totalBudget*0.008)},
-    {n:"Étude de sol G12", q:1, u:"forfait", up:2000},
-    {n:"Raccordement eau potable (SONEDE)", q:1, u:"forfait", up:800},
-    {n:"Raccordement électricité (STEG)", q:1, u:"forfait", up:1000},
+    {n:"Étude de sol G12", q:1, u:"forfait", up:2500},
+    {n:"Raccordement eau potable (SONEDE)", q:1, u:"forfait", up:1000},
+    {n:"Raccordement électricité (STEG)", q:1, u:"forfait", up:1200},
   ];
   const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
   const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;

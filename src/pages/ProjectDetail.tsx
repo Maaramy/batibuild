@@ -753,6 +753,59 @@ export default function ProjectDetail() {
         y += 3;
       }
 
+      // ═══ STAMP & SIGNATURE ═══════════════════════════════════════
+      addPageIfNeeded(50);
+
+      const stampW = 80;
+      const stampH = 35;
+      const stampX = pw - mr - stampW;
+      let stampY = Math.max(y, ph - 55);
+
+      // Outer stamp border (double rectangle for official look)
+      doc.setDrawColor(C.primary[0], C.primary[1], C.primary[2]);
+      doc.setLineWidth(0.8);
+      doc.rect(stampX - 1, stampY - 1, stampW + 2, stampH + 2, "S");
+      doc.setLineWidth(0.4);
+      doc.rect(stampX, stampY, stampW, stampH, "S");
+
+      // Inner fill (very light)
+      doc.setFillColor(239, 246, 255);
+      doc.rect(stampX + 0.5, stampY + 0.5, stampW - 1, stampH - 1, "F");
+
+      // Decorative top bar
+      doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
+      doc.rect(stampX + 2, stampY + 3, stampW - 4, 0.8, "F");
+
+      // Company name
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(C.primary[0], C.primary[1], C.primary[2]);
+      doc.text("GALISKON PROJECT", stampX + stampW / 2, stampY + 9, { align: "center" });
+
+      // Decorative bottom bar
+      doc.rect(stampX + 2, stampY + 11, stampW - 4, 0.8, "F");
+
+      // Email 1
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(C.text[0], C.text[1], C.text[2]);
+      doc.text("Rania.marzougui@budgetbati.com", stampX + stampW / 2, stampY + 18, { align: "center" });
+
+      // Email 2
+      doc.text("rami.maatougui@budgetbati.com", stampX + stampW / 2, stampY + 24, { align: "center" });
+
+      // Signature line
+      doc.setDrawColor(C.text[0], C.text[1], C.text[2]);
+      doc.setLineWidth(0.3);
+      doc.line(stampX + 8, stampY + 30, stampX + stampW - 8, stampY + 30);
+      doc.setFontSize(5.5);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(C.textLight[0], C.textLight[1], C.textLight[2]);
+      doc.text("Signature", stampX + stampW / 2, stampY + 34, { align: "center" });
+
+      // Update y to continue after stamp
+      y = stampY + stampH + 6;
+
       // ═══ DISCLAIMER ════════════════════════════════════════════════
       addPageIfNeeded(15);
       y = Math.max(y, ph - 25);
