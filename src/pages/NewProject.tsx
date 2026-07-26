@@ -34,7 +34,6 @@ const TUNISIA_REGIONS = [
 
 const PROJECT_CATEGORIES = [
   { value: "maison", label: "Maison", icon: "🏠" },
-  { value: "maison_r+1", label: "Maison R+1", icon: "🏗️" },
   { value: "villa", label: "Villa", icon: "🏡" },
   { value: "immeuble_residentiel", label: "Immeuble", icon: "🏢" },
   { value: "piscine", label: "Piscine", icon: "🏊" },
@@ -45,7 +44,8 @@ const PROJECT_CATEGORIES = [
   { value: "terrasse", label: "Terrasse", icon: "☀️" },
   { value: "pergola", label: "Pergola", icon: "🏗️" },
   { value: "toiture", label: "Toiture", icon: "🔺" },
-  { value: "renovation_interieure", label: "Rénovation", icon: "🔨" },
+  { value: "renovation_interieure", label: "Rénovation intérieure", icon: "🏠" },
+  { value: "renovation_exterieure", label: "Rénovation extérieure", icon: "🏗️" },
   { value: "renovation_salle_de_bain", label: "Salle de bain", icon: "🛁" },
   { value: "renovation_cuisine", label: "Cuisine", icon: "🍳" },
   { value: "bureau", label: "Bureau", icon: "💼" },
@@ -60,16 +60,15 @@ const PROJECT_CATEGORIES = [
   { value: "ferme", label: "Ferme", icon: "🌾" },
   { value: "usine", label: "Usine", icon: "🏭" },
   { value: "parking", label: "Parking", icon: "🅿️" },
-  { value: "route", label: "Route", icon: "🛣️" },
   { value: "demolition", label: "Démolition", icon: "🏚️" },
 ];
 
 const IMPORT_METHODS = [
+  { id: "manual", icon: Ruler, label: "Manuelle", desc: "Saisie directe" },
   { id: "photo", icon: Image, label: "Photo", desc: "Importez une photo" },
   { id: "satellite", icon: Map, label: "Satellite", desc: "Image satellite" },
   { id: "plan", icon: FileText, label: "Plan", desc: "PDF, JPG, DWG" },
   { id: "sketch", icon: Pen, label: "Croquis", desc: "Dessin à main levée" },
-  { id: "manual", icon: Ruler, label: "Manuelle", desc: "Saisie directe" },
 ];
 
 export default function NewProject() {
@@ -96,7 +95,8 @@ export default function NewProject() {
     const errs: Record<string, string> = {};
     if (!projectName.trim()) errs.name = "Le nom du projet est requis";
     if (!selectedCategory) errs.category = "Sélectionnez un type de projet";
-    // region and surface are optional
+    if (!region) errs.region = "La région est requise";
+    if (!surface || parseFloat(surface) <= 0) errs.surface = "La surface est requise";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -324,7 +324,7 @@ export default function NewProject() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                     <Label htmlFor="region" className="text-xs sm:text-sm font-semibold">
-                      Région
+                      Région <span className="text-primary">*</span>
                     </Label>
                     <div className="mt-1.5 relative">
                       <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -340,10 +340,13 @@ export default function NewProject() {
 
                   <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                     <Label htmlFor="surface" className="text-xs sm:text-sm font-semibold">
-                      Surface (m²)
+                      Surface (m²) <span className="text-primary">*</span>
                     </Label>
-                    <Input id="surface" type="number" value={surface} onChange={(e) => { setSurface(e.target.value); setErrors((e) => ({...e, surface: ''})); }}
-                      placeholder="ex: 150" min="1" className="mt-1.5 h-9 sm:h-10 text-xs sm:text-sm" />
+                    <div className="mt-1.5 relative">
+                      <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <Input id="surface" type="number" value={surface} onChange={(e) => { setSurface(e.target.value); setErrors((e) => ({...e, surface: ''})); }}
+                        placeholder="ex: 150" min="1" className="pl-9 h-9 sm:h-10 text-xs sm:text-sm" />
+                    </div>
                     {errors.surface && <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.surface}</p>}
                   </div>
                 </div>
@@ -352,8 +355,11 @@ export default function NewProject() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                     <Label htmlFor="floors" className="text-xs sm:text-sm font-semibold">Nombre d'étages</Label>
-                    <Input id="floors" type="number" value={floors} onChange={(e) => setFloors(e.target.value)}
-                      min="0" max="20" className="mt-1.5 h-9 sm:h-10 text-xs sm:text-sm" />
+                    <div className="mt-1.5 relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <Input id="floors" type="number" value={floors} onChange={(e) => setFloors(e.target.value)}
+                        min="0" max="20" className="pl-9 h-9 sm:h-10 text-xs sm:text-sm" />
+                    </div>
                   </div>
                   <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30 sm:col-span-2">
                     <Label htmlFor="description" className="text-xs sm:text-sm font-semibold">Description</Label>
