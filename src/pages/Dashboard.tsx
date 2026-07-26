@@ -411,6 +411,76 @@ export default function Dashboard() {
               gradient="from-amber-500/20 to-orange-500/20" iconColor="text-amber-600 dark:text-amber-400" />
           </div>
 
+          {/* ── Progression Indicator ── */}
+          {stats.totalProjects > 0 && (
+            <Card className="border border-border/40 bg-background/50 backdrop-blur-sm overflow-hidden">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-600 dark:text-emerald-400">
+                      <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-medium">Progression</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{stats.completedProjects}</span>
+                        <span className="text-muted-foreground/50"> / </span>
+                        <span className="tabular-nums">{stats.totalProjects}</span>
+                        {" "}projets terminés
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="text-xs sm:text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                      {Math.round((stats.completedProjects / stats.totalProjects) * 100)}%
+                    </div>
+                  </div>
+                </div>
+                {/* Progress bar */}
+                <div className="mt-2.5 sm:mt-3 relative h-2 sm:h-2.5 rounded-full bg-muted/50 overflow-hidden">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-700 ease-out"
+                    style={{ width: `${Math.round((stats.completedProjects / stats.totalProjects) * 100)}%` }}
+                  />
+                  {stats.analyzingProjects > 0 && (
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-400 to-blue-500 opacity-60"
+                      style={{
+                        width: `${Math.round(((stats.analyzingProjects + stats.completedProjects) / stats.totalProjects) * 100)}%`,
+                      }}
+                    />
+                  )}
+                  {/* Shimmer effect */}
+                  <div className="absolute inset-y-0 left-0 w-6 rounded-full bg-white/20 animate-shimmer"
+                    style={{
+                      width: `${Math.round((stats.completedProjects / stats.totalProjects) * 100)}%`,
+                      background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)',
+                      backgroundSize: '200% 100%',
+                      animation: 'shimmer 2s infinite',
+                    }}
+                  />
+                </div>
+                {/* Legend */}
+                <div className="mt-1.5 flex items-center gap-3 text-[8px] sm:text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-sm bg-emerald-500" />
+                    Terminés ({stats.completedProjects})
+                  </span>
+                  {stats.analyzingProjects > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-sm bg-blue-400" />
+                      En cours ({stats.analyzingProjects})
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-sm bg-muted-foreground/30" />
+                    Restants ({stats.totalProjects - stats.completedProjects - stats.analyzingProjects})
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Projects section */}
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
