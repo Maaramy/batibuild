@@ -263,13 +263,41 @@ export default function ProjectDetail() {
       // ═══ HEADER BAR ════════════════════════════════════════════════
       doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
       doc.rect(0, 0, pw, 20, "F");
+
+      // ── Draw BudgetBati logo (vector building icon) ──
+      const logoX = ml;
+      const logoY = 3;
+      const logoScale = 0.8;
+
+      // Roof (triangle)
+      doc.setFillColor(255, 255, 255);
+      doc.triangle(
+        logoX + 6 * logoScale, logoY,
+        logoX, logoY + 6 * logoScale,
+        logoX + 12 * logoScale, logoY + 6 * logoScale,
+        "F",
+      );
+      // Building body
+      doc.rect(logoX + 1 * logoScale, logoY + 6 * logoScale, 10 * logoScale, 9 * logoScale, "F");
+      // Door
+      doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
+      doc.rect(logoX + 4 * logoScale, logoY + 10 * logoScale, 4 * logoScale, 5 * logoScale, "F");
+      // Left window
+      doc.rect(logoX + 2.5 * logoScale, logoY + 7.5 * logoScale, 2 * logoScale, 2 * logoScale, "F");
+      // Right window
+      doc.rect(logoX + 7.5 * logoScale, logoY + 7.5 * logoScale, 2 * logoScale, 2 * logoScale, "F");
+
+      // ── Title text next to logo ──
+      const titleX = ml + 16;
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(15);
       doc.setFont("helvetica", "bold");
-      doc.text("BudgetBati", ml, 9);
+      doc.text("BudgetBati", titleX, 9);
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.text("Devis Estimatif - Tunisie 2026", ml, 15);
+      doc.text("Devis Estimatif - Tunisie 2026", titleX, 15);
+
+      // ── Right side info ──
       doc.setFontSize(6);
       doc.text(`Généré le ${dateStr}`, pw - mr, 9, { align: "right" });
       doc.text(`Scénario: ${scenarioLabel}`, pw - mr, 15, { align: "right" });
