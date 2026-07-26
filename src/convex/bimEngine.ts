@@ -58,67 +58,67 @@ type Percentages = [number, number, number, number, number, number];
 // ============================================================================
 
 const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium: number }> = {
-  // Maisons & Villa
-  maison:             { eco: 900,  std: 1400, premium: 2200 },
-  maison_r_plus_1:    { eco: 950,  std: 1500, premium: 2400 },
-  villa:              { eco: 1100, std: 1700, premium: 2800 },
-  immeuble_residentiel:{ eco: 1200, std: 1800, premium: 2600 },
-  appartement:        { eco: 1300, std: 1900, premium: 2800 },
+  // Maisons & Villa (Marché tunisien 2026 - fournitures + main d'œuvre)
+  maison:             { eco: 600,  std: 850,  premium: 1400 },
+  maison_r_plus_1:    { eco: 650,  std: 900,  premium: 1500 },
+  villa:              { eco: 750,  std: 1050, premium: 1800 },
+  immeuble_residentiel:{ eco: 800,  std: 1100, premium: 1700 },
+  appartement:        { eco: 850,  std: 1200, premium: 1900 },
 
   // Piscine & Extérieur
-  piscine:            { eco: 900,  std: 1300, premium: 2000 },
-  jardin:             { eco: 90,   std: 150,  premium: 300 },
-  amenagement_paysager:{ eco: 100,  std: 160, premium: 320 },
-  garage:             { eco: 600,  std: 900,  premium: 1500 },
-  cloture:            { eco: 350,  std: 550,  premium: 900 },
-  mur_de_separation:  { eco: 300,  std: 500,  premium: 800 },
-  cuisine_exterieure: { eco: 1000, std: 1500, premium: 2500 },
-  terrasse:           { eco: 400,  std: 600,  premium: 1000 },
-  pergola:            { eco: 500,  std: 800,  premium: 1300 },
-  toiture:            { eco: 300,  std: 450,  premium: 750 },
-  extension_batiment: { eco: 1000, std: 1500, premium: 2400 },
+  piscine:            { eco: 600,  std: 850,  premium: 1400 },
+  jardin:             { eco: 60,   std: 100,  premium: 200 },
+  amenagement_paysager:{ eco: 70,   std: 110, premium: 220 },
+  garage:             { eco: 400,  std: 600,  premium: 1000 },
+  cloture:            { eco: 200,  std: 350,  premium: 600 },
+  mur_de_separation:  { eco: 200,  std: 350,  premium: 550 },
+  cuisine_exterieure: { eco: 600,  std: 900,  premium: 1500 },
+  terrasse:           { eco: 250,  std: 400,  premium: 700 },
+  pergola:            { eco: 350,  std: 550,  premium: 900 },
+  toiture:            { eco: 200,  std: 300,  premium: 500 },
+  extension_batiment: { eco: 650,  std: 950,  premium: 1600 },
 
   // Commercial & Industriel
-  entrepot:           { eco: 500,  std: 800,  premium: 1300 },
-  local_commercial:   { eco: 900,  std: 1400, premium: 2200 },
-  bureau:             { eco: 1000, std: 1600, premium: 2500 },
-  ferme:              { eco: 500,  std: 700,  premium: 1100 },
-  serre_agricole:     { eco: 250,  std: 400,  premium: 650 },
-  parking:            { eco: 200,  std: 350,  premium: 600 },
-  aire_de_jeux:       { eco: 150,  std: 250,  premium: 450 },
+  entrepot:           { eco: 350,  std: 550,  premium: 900 },
+  local_commercial:   { eco: 600,  std: 900,  premium: 1500 },
+  bureau:             { eco: 700,  std: 1000, premium: 1700 },
+  ferme:              { eco: 350,  std: 500,  premium: 800 },
+  serre_agricole:     { eco: 180,  std: 280,  premium: 450 },
+  parking:            { eco: 150,  std: 250,  premium: 400 },
+  aire_de_jeux:       { eco: 100,  std: 180,  premium: 320 },
 
   // Institutionnel
-  mosquee:            { eco: 1200, std: 1800, premium: 2800 },
-  ecole:              { eco: 1100, std: 1700, premium: 2600 },
-  hotel:              { eco: 1500, std: 2300, premium: 3500 },
-  restaurant:         { eco: 1300, std: 2000, premium: 3200 },
-  cafe:               { eco: 1200, std: 1800, premium: 2800 },
+  mosquee:            { eco: 800,  std: 1150, premium: 1900 },
+  ecole:              { eco: 750,  std: 1100, premium: 1700 },
+  hotel:              { eco: 1000, std: 1500, premium: 2500 },
+  restaurant:         { eco: 850,  std: 1200, premium: 2000 },
+  cafe:               { eco: 800,  std: 1100, premium: 1800 },
 
   // Industrie
-  atelier:            { eco: 400,  std: 600,  premium: 1000 },
-  usine:              { eco: 600,  std: 900,  premium: 1500 },
-  depot:              { eco: 350,  std: 500,  premium: 850 },
+  atelier:            { eco: 280,  std: 400,  premium: 700 },
+  usine:              { eco: 400,  std: 600,  premium: 1000 },
+  depot:              { eco: 250,  std: 380,  premium: 600 },
 
   // Énergie
-  installation_solaire:{ eco: 2500, std: 3500, premium: 5000 },
-  chateau_d_eau:      { eco: 1500, std: 2000, premium: 3000 },
-  systeme_irrigation: { eco: 200,  std: 350,  premium: 600 },
+  installation_solaire:{ eco: 1800, std: 2500, premium: 3800 },
+  chateau_d_eau:      { eco: 1000, std: 1400, premium: 2200 },
+  systeme_irrigation: { eco: 150,  std: 250,  premium: 400 },
 
   // VRD
-  route:              { eco: 150,  std: 250,  premium: 400 },
-  trottoir:           { eco: 120,  std: 200,  premium: 350 },
+  route:              { eco: 100,  std: 180,  premium: 300 },
+  trottoir:           { eco: 80,   std: 140,  premium: 250 },
 
-  // Rénovation
-  renovation_interieure:    { eco: 400,  std: 700,  premium: 1300 },
-  renovation_exterieure:   { eco: 300,  std: 500,  premium: 900 },
-  renovation_salle_de_bain: { eco: 1500, std: 2500, premium: 4000 },
-  renovation_cuisine:       { eco: 1500, std: 2500, premium: 4000 },
-  renovation_facade:        { eco: 250,  std: 400,  premium: 700 },
+  // Rénovation (Marché tunisien 2026)
+  renovation_interieure:    { eco: 250,  std: 450,  premium: 850 },
+  renovation_exterieure:   { eco: 200,  std: 350,  premium: 650 },
+  renovation_salle_de_bain: { eco: 1000, std: 1600, premium: 3000 },
+  renovation_cuisine:       { eco: 1000, std: 1600, premium: 3000 },
+  renovation_facade:        { eco: 180,  std: 280,  premium: 500 },
 
   // Démolition
-  demolition:                { eco: 100,  std: 150,  premium: 250 },
-  installations_sanitaires:  { eco: 1200, std: 2000, premium: 3500 },
-  installations_electricite: { eco: 200,  std: 350,  premium: 600 },
+  demolition:                { eco: 70,   std: 100,  premium: 180 },
+  installations_sanitaires:  { eco: 800,  std: 1300, premium: 2500 },
+  installations_electricite: { eco: 150,  std: 250,  premium: 450 },
 };
 
 const PROJECT_PCT: Record<string, Percentages> = {
