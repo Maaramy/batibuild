@@ -27,7 +27,7 @@ import {
   Target, TrendingUp, TriangleAlert, Users, Globe,
   PiggyBank, Sparkles, Wallet, Gauge,
   ChevronDown, ChevronUp, ChevronsUpDown, Check, CheckCheck, Info,
-  Truck, FileText, Paintbrush, Plug,
+  Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
   Percent, ChevronRight, Download,
 } from "lucide-react";
 import {
@@ -164,6 +164,17 @@ export default function ProjectDetail() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
+  const [showSupplierDialog, setShowSupplierDialog] = useState(false);
+  
+  // Fetch supplier profile when one is selected
+  const selectedProfileId = selectedSupplierId?.startsWith('registered_') 
+    ? selectedSupplierId.replace('registered_', '') as any
+    : null;
+  const selectedProfile = useQuery(
+    api.supplierProfiles.getSupplierById,
+    selectedProfileId ? { supplierId: selectedProfileId } : 'skip'
+  );
   const reportRef = useRef<HTMLDivElement>(null);
 
   // ── Progress steps with icons ──────────────────────────────────
@@ -1731,7 +1742,14 @@ export default function ProjectDetail() {
                                     {p.suppliers && p.suppliers.length > 0 ? (
                                       <div className="mt-2 space-y-2">
                                         {p.suppliers.map((s: any, si: number) => (
-                                          <div key={si} className="p-2 rounded-lg bg-background/80 border border-border/20">
+                                          <div 
+                                            key={si} 
+                                            className={`p-2 rounded-lg border transition-all ${s.id && s.id.startsWith('registered_') ? 'cursor-pointer hover:bg-primary/[0.03] hover:border-primary/20 hover:shadow-sm active:scale-[0.99]' : 'bg-background/80 border-border/20'}`}
+                                            onClick={s.id && s.id.startsWith('registered_') ? () => { setSelectedSupplierId(s.id); setShowSupplierDialog(true); } : undefined}
+                                            role={s.id && s.id.startsWith('registered_') ? 'button' : undefined}
+                                            tabIndex={s.id && s.id.startsWith('registered_') ? 0 : undefined}
+                                            onKeyDown={s.id && s.id.startsWith('registered_') ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSupplierId(s.id); setShowSupplierDialog(true); } } : undefined}
+                                          >
                                             <p className="text-[10px] font-semibold text-foreground leading-tight flex items-center gap-1.5 flex-wrap">
                                                 {s.name}
                                                 {s.id && s.id.startsWith('registered_') && (
@@ -1858,6 +1876,109 @@ export default function ProjectDetail() {
           </motion.div>
         )}
       </div>
+      {/* ── Supplier Profile Dialog ── */}
+      <Dialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog}>
+        <DialogContent className="sm:max-w-md rounded-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <Building className="h-4 w-4 text-primary" />
+              {selectedProfile?.companyName || 'Profil fournisseur'}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Fournisseur inscrit et vérifié sur BudgetBati
+            </DialogDescription>
+          </DialogHeader>
+          {selectedProfile ? (
+            <div className="space-y-4 pt-2">
+              {/* Description */}
+              {selectedProfile.description && (
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
+                  <p className="text-xs text-muted-foreground leading-relaxed">{selectedProfile.description}</p>
+                </div>
+              )}
+
+              {/* Contact Info */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Coordonnées</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-background border border-border/20">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Phone className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Téléphone</p>
+                      <p className="text-xs font-medium">{selectedProfile.phone}</p>
+                    </div>
+                  </div>
+                  {selectedProfile.email && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-background border border-border/20">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Mail className="h-3.5 w-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Email</p>
+                        <p className="text-xs font-medium">{selectedProfile.email}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-background border border-border/20">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <MapPin className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Adresse</p>
+                      <p className="text-xs font-medium">{selectedProfile.address}</p>
+                    </div>
+                  </div>
+                  {selectedProfile.website && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-background border border-border/20">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <GlobeIcon className="h-3.5 w-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Site web</p>
+                        <p className="text-xs font-medium text-blue-600">{selectedProfile.website}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Spécialités */}
+              {selectedProfile.specialtiesLabels && selectedProfile.specialtiesLabels.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Spécialités</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedProfile.specialtiesLabels.map((spec: string, idx: number) => (
+                      <span key={idx} className="text-[10px] px-2 py-1 rounded-full bg-primary/5 text-primary border border-primary/10">
+                        {spec}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-1.5 text-xs"
+                onClick={() => {
+                  window.open(`tel:${selectedProfile.phone}`, '_blank');
+                }}
+              >
+                <Phone className="h-3 w-3" />
+                Appeler le fournisseur
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </main>
   );
 }
