@@ -375,10 +375,10 @@ export const seedDemoData = mutation({
 
       await ctx.db.insert("projects", {
         userId: user._id,
-        name: "🏠 Maison de démonstration",
+        name: "Projet de construction",
         category: "maison",
         status: "completed",
-        description: "Projet de démonstration généré automatiquement. Maison RDC de 150m² à Tunis.",
+        description: "Projet de démonstration généré automatiquement. Projet de construction RDC de 150m² à Tunis.",
         region: "tunis",
         surface: 150,
         floors: 1,

@@ -79,6 +79,9 @@ const CONFIDENCE_STEPS = [
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+// PDF-safe text: strip emojis that jspdf can't render
+const stripEmojis = (text: string) => text.replace(/[\u{1F000}-\u{1FFFF}]|\u{FE0F}|\u{200D}|[\u{2600}-\u{27BF}]|[\u{231A}-\u{23FF}]|[\u{24C2}-\u{1F9FF}]/gu, "").trim();
+
 const fmt = (n: number) => new Intl.NumberFormat("fr-TN", {
   style: "currency", currency: "TND", maximumFractionDigits: 0,
 }).format(n);
@@ -334,7 +337,7 @@ export default function ProjectDetail() {
       doc.setTextColor(C.text[0], C.text[1], C.text[2]);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text(project.name, ml + 3, y + 5.5);
+      doc.text(stripEmojis(project.name), ml + 3, y + 5.5);
 
       doc.setFontSize(6.5);
       doc.setFont("helvetica", "normal");
