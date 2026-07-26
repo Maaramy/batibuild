@@ -16,8 +16,8 @@ import { useQuery, useMutation } from "convex/react";
 import { useParams, useNavigate } from "react-router";
 import { useState, useMemo, Fragment, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import "jspdf-autotable";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -133,10 +133,9 @@ export default function ProjectDetail() {
   const consumeDownload = useMutation(api.subscriptions.consumeDownload);
 
   const PROGRESS_STEPS = [
-    "Préparation du rapport...",
-    "Correction des couleurs...",
-    "Capture de l'écran...",
-    "Génération du PDF...",
+    "Préparation des données...",
+    "Génération du tableau des matériaux...",
+    "Création du PDF...",
     "Téléchargement...",
   ];
 
@@ -169,87 +168,8 @@ export default function ProjectDetail() {
     }
   };
 
-  // ── Clone report to a hidden container (avoids modifying live DOM) ──
-
-  const captureReportToCanvas = async (root: HTMLElement): Promise<HTMLCanvasElement> => {
-    // Create a hidden container with same dimensions as the root
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = `
-      position: fixed; left: -9999px; top: 0;
-      width: ${root.offsetWidth || root.scrollWidth || 800}px;
-      z-index: -1; pointer-events: none;
-    `;
-    document.body.appendChild(wrapper);
-
-    // Deep clone the report content
-    const clone = root.cloneNode(true) as HTMLElement;
-    wrapper.appendChild(clone);
-
-    // Process all elements in the clone: inline computed colors (without oklch)
-    const colorCssProps = ['color', 'background-color', 'border-color', 'border-top-color',
-      'border-right-color', 'border-bottom-color', 'border-left-color',
-      'outline-color', 'text-decoration-color', 'fill', 'stroke'];
-
-    const allEls = clone.querySelectorAll('*');
-    allEls.forEach((el: Element) => {
-      const htmlEl = el as HTMLElement;
-      const cs = getComputedStyle(htmlEl);
-      const overrides: string[] = [];
-
-      for (const cssProp of colorCssProps) {
-        const jsProp = cssProp.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-        const value = (cs as any)[jsProp];
-        if (value && value !== 'transparent' && value !== 'currentcolor' && value !== 'rgba(0, 0, 0, 0)') {
-          // Only keep values that html2canvas can parse (non-oklch)
-          if (!value.includes('oklch')) {
-            overrides.push(cssProp + ': ' + value + ' !important');
-          } else {
-            // Fallback: just use a neutral color
-            overrides.push(cssProp + ': #888888 !important');
-          }
-        }
-      }
-
-      if (overrides.length > 0) {
-        const existing = htmlEl.getAttribute('style') || '';
-        htmlEl.setAttribute('style', existing + '; ' + overrides.join('; '));
-      }
-    });
-
-    // Also fix any inline styles or SVG attributes that might contain oklch
-    const allNodes = clone.querySelectorAll('*');
-    allNodes.forEach((el: Element) => {
-      // Fix inline style attribute
-      const styleAttr = el.getAttribute('style');
-      if (styleAttr && styleAttr.includes('oklch')) {
-        el.setAttribute('style', styleAttr.replace(/oklch\([^)]+\)/g, '#888888'));
-      }
-      // Fix fill/stroke SVG attributes
-      ['fill', 'stroke', 'stop-color'].forEach((attr) => {
-        const val = el.getAttribute(attr);
-        if (val && val.includes('oklch')) {
-          el.setAttribute(attr, val.replace(/oklch\([^)]+\)/g, '#888888'));
-        }
-      });
-    });
-
-    // Capture the clone with html2canvas
-    const canvas = await html2canvas(clone, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: "#ffffff",
-      logging: false,
-      allowTaint: true,
-    });
-
-    // Clean up: remove the wrapper from DOM
-    document.body.removeChild(wrapper);
-
-    return canvas;
-  };
-
   const generatePDF = async (scenario: string) => {
-    if (!reportRef.current || !project) {
+    if (!project || !ce || !ai) {
       toast.error("Le rapport n'est pas prêt");
       return;
     }
@@ -258,109 +178,591 @@ export default function ProjectDetail() {
     setExporting(true);
     advanceProgress(0);
 
-    const prevScenario = selectedScenario;
-    const prevOpenCat = openCat;
-
-    // Force all categories expanded for the PDF
-    setOpenCat("__all_expanded");
-
-    // Only switch scenario if different from current
-    const scenarioChanged = scenario !== prevScenario;
-    if (scenarioChanged) {
-      setSelectedScenario(scenario);
-    }
-
-    // Wait for React to re-render with new data
-    await new Promise((r) => setTimeout(r, 600));
-
-    // Double-check the ref is still attached to the DOM
-    if (!reportRef.current || !document.body.contains(reportRef.current)) {
-      toast.error("Le rapport n'est plus visible, veuillez réessayer");
-      setExporting(false);
-      if (scenarioChanged) setSelectedScenario(prevScenario);
-      setOpenCat(prevOpenCat);
-      return;
-    }
-
     try {
-      // ── STEP 1: Prepare and capture report ──
       advanceProgress(1);
-      await new Promise((r) => setTimeout(r, 100));
-      advanceProgress(2);
 
-      const canvas = await captureReportToCanvas(reportRef.current);
-
-      if (!canvas || canvas.width === 0 || canvas.height === 0) {
-        throw new Error("Le canvas généré est vide");
-      }
-
-      const imgData = canvas.toDataURL("image/png");
-      if (imgData === "data:," || !imgData.startsWith("data:image")) {
-        throw new Error("L'image générée est invalide");
-      }
-
-      // ── STEP 3: Generate PDF from captured image ──
-      advanceProgress(3);
-      const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      let position = 0;
-      let remainingHeight = pdfHeight;
-
-      pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
-      remainingHeight -= pageHeight;
-
-      while (remainingHeight > 0) {
-        position -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
-        remainingHeight -= pageHeight;
-      }
-
+      const scenarioData = scenarios?.[scenario as keyof typeof scenarios];
+      const totalCost = scenarioData?.totalCost || ce.totalCost;
+      const costPerM2 = scenarioData?.costPerM2 || ce.costPerSquareMeter || 0;
       const scenarioLabel =
         scenario === "economique"
-          ? "Economique"
+          ? "Économique"
           : scenario === "premium"
             ? "Premium"
             : "Standard";
 
+      // Build breakdown for the selected scenario
+      const isStandardScenario = scenario === "standard";
+      const sf =
+        isStandardScenario || !scenarios?.standard
+          ? 1
+          : (scenarioData?.totalCost || 0) / (scenarios.standard.totalCost || 1);
+      const breakdown =
+        sf === 1
+          ? ce.breakdown
+          : ce.breakdown.map((cat: any) => ({
+              ...cat,
+              estimatedCost: Math.round(cat.estimatedCost * sf),
+              items: cat.items?.map((item: any) => ({
+                ...item,
+                totalPrice: Math.round(item.totalPrice * sf),
+              })),
+            }));
+
+      advanceProgress(2);
+      await new Promise((r) => setTimeout(r, 50));
+
+      // ── Build PDF programmatically (no html2canvas, no oklch!) ──
+      const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
+      const pw = doc.internal.pageSize.getWidth();
+      const ph = doc.internal.pageSize.getHeight();
+      const ml = 15;
+      const mr = 15;
+      const cw = pw - ml - mr;
+      let y = ml;
+
+      const addPageIfNeeded = (needed: number) => {
+        if (y + needed > ph - ml) {
+          doc.addPage();
+          y = ml;
+        }
+      };
+
+      // Colors (all hex — no oklch!)
+      const C = {
+        primary: [30, 64, 175] as [number, number, number],
+        primaryLight: [219, 234, 254] as [number, number, number],
+        text: [31, 41, 55] as [number, number, number],
+        textSecondary: [107, 114, 128] as [number, number, number],
+        textLight: [156, 163, 175] as [number, number, number],
+        border: [229, 231, 235] as [number, number, number],
+        bgLight: [249, 250, 251] as [number, number, number],
+      };
+
+      const BIM_RGB: Record<string, [number, number, number]> = {
+        gros_oeuvre: [59, 130, 246],
+        second_oeuvre: [245, 158, 11],
+        equipements: [139, 92, 246],
+        main_oeuvre: [34, 197, 94],
+        transport: [132, 204, 22],
+        etudes_imprevus: [239, 68, 68],
+      };
+
+      const regionName = project.region
+        ? REGION_LABELS[project.region] ?? project.region
+        : "Non définie";
+      const dateStr = new Date().toLocaleDateString("fr-FR");
+
+      // ═══ HEADER BAR ════════════════════════════════════════════════
+      doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
+      doc.rect(0, 0, pw, 20, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(15);
+      doc.setFont("helvetica", "bold");
+      doc.text("BudgetBati", ml, 9);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text("Devis Estimatif - Tunisie 2026", ml, 15);
+      doc.setFontSize(6);
+      doc.text(`Généré le ${dateStr}`, pw - mr, 9, { align: "right" });
+      doc.text(`Scénario: ${scenarioLabel}`, pw - mr, 15, { align: "right" });
+
+      y = 26;
+
+      // ═══ PROJECT INFO BOX ══════════════════════════════════════════
+      doc.setFillColor(C.bgLight[0], C.bgLight[1], C.bgLight[2]);
+      doc.rect(ml, y, cw, 16, "F");
+      doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+      doc.rect(ml, y, cw, 16, "S");
+
+      doc.setTextColor(C.text[0], C.text[1], C.text[2]);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(project.name, ml + 3, y + 5.5);
+
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+      const infoRow = [
+        `Catégorie: ${ai.category || "N/A"}`,
+        `Région: ${regionName}`,
+        `Surface: ${project.surface ? `${project.surface} m²` : "N/A"}`,
+        `Durée: ${ai.estimatedDuration || "N/A"}`,
+      ];
+      let xInfo = ml + 3;
+      infoRow.forEach((item) => {
+        doc.text(item, xInfo, y + 11.5);
+        xInfo += doc.getTextWidth(item) + 10;
+      });
+
+      y += 21;
+
+      // ═══ TOTAL COST HERO ═══════════════════════════════════════════
+      addPageIfNeeded(28);
+
+      doc.setFillColor(C.primaryLight[0], C.primaryLight[1], C.primaryLight[2]);
+      doc.rect(ml, y, cw, 26, "F");
+      doc.setDrawColor(C.primary[0], C.primary[1], C.primary[2]);
+      doc.rect(ml, y, cw, 26, "S");
+
+      doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text("COÛT TOTAL ESTIMÉ TTC", ml + 3, y + 5);
+
+      const totalStr = fmt(totalCost);
+      doc.setTextColor(C.primary[0], C.primary[1], C.primary[2]);
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text(totalStr, ml + cw - 3, y + 17, { align: "right" });
+
+      doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${fmt(costPerM2)} /m²`, ml + 3, y + 17);
+
+      y += 31;
+
+      // ═══ CONFIDENCE BAR ════════════════════════════════════════════
+      addPageIfNeeded(12);
+
+      const confPct = ai.confidence ? Math.round(ai.confidence * 100) : 0;
+      const confLabel =
+        confPct >= 80 ? "Fiable" : confPct >= 60 ? "Moyenne" : "Indicative";
+
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+      doc.text(`Indice de confiance: ${confPct}% — ${confLabel}`, ml, y);
+
+      doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+      doc.setFillColor(C.bgLight[0], C.bgLight[1], C.bgLight[2]);
+      doc.rect(ml, y + 2, cw, 4, "F");
+      doc.rect(ml, y + 2, cw, 4, "S");
+
+      const confColor: [number, number, number] =
+        confPct >= 80
+          ? [16, 185, 129]
+          : confPct >= 60
+            ? [245, 158, 11]
+            : [239, 68, 68];
+      doc.setFillColor(confColor[0], confColor[1], confColor[2]);
+      doc.rect(ml, y + 2, cw * (confPct / 100), 4, "F");
+
+      y += 12;
+
+      // ═══ CATEGORY BREAKDOWN TABLE ══════════════════════════════════
+      addPageIfNeeded(8 + breakdown.length * 5.5 + 10);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(C.text[0], C.text[1], C.text[2]);
+      doc.text("Répartition par catégorie", ml, y);
+      y += 2;
+
+      // Table header row
+      doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
+      doc.rect(ml, y + 4, cw, 4.5, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(6);
+      doc.setFont("helvetica", "bold");
+      doc.text("Catégorie", ml + 2, y + 7);
+      doc.text("%", ml + cw * 0.55, y + 7, { align: "right" });
+      doc.text("Montant", ml + cw * 0.75, y + 7, { align: "right" });
+
+      const sortedBD = [...breakdown].sort(
+        (a: any, b: any) => b.estimatedCost - a.estimatedCost,
+      );
+
+      y += 8.5;
+
+      sortedBD.forEach((cat: any, i: number) => {
+        addPageIfNeeded(5.5);
+
+        if (i % 2 === 0) {
+          doc.setFillColor(C.bgLight[0], C.bgLight[1], C.bgLight[2]);
+          doc.rect(ml, y, cw, 5, "F");
+        }
+        doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+        doc.line(ml, y + 5, ml + cw, y + 5);
+
+        doc.setFontSize(6.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(C.text[0], C.text[1], C.text[2]);
+        doc.text(cat.label, ml + 2, y + 3.5);
+
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+        doc.text(`${cat.percentage}%`, ml + cw * 0.55, y + 3.5, { align: "right" });
+
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(C.text[0], C.text[1], C.text[2]);
+        doc.text(fmt(cat.estimatedCost), ml + cw * 0.75, y + 3.5, { align: "right" });
+
+        // Colored bar
+        const barColor =
+          BIM_RGB[cat.category] || (C.primary as [number, number, number]);
+        doc.setFillColor(barColor[0], barColor[1], barColor[2]);
+        doc.rect(ml + cw * 0.56, y + 1.5, cw * 0.17 * (cat.percentage / 100), 2.5, "F");
+
+        y += 5;
+      });
+
+      // Contingency row
+      addPageIfNeeded(6);
+      doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+      doc.line(ml, y, ml + cw, y);
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(180, 83, 9);
+      doc.text("Imprévus", ml + 2, y + 3.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+      doc.text(`${ce.contingencyPercentage}%`, ml + cw * 0.55, y + 3.5, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(180, 83, 9);
+      doc.text(
+        fmt(Math.round(ce.contingencyBuffer * sf)),
+        ml + cw * 0.75,
+        y + 3.5,
+        { align: "right" },
+      );
+
+      y += 10;
+
+      // ═══ BUDGET SCENARIOS COMPARISON ═══════════════════════════════
+      if (scenarios) {
+        addPageIfNeeded(22);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(C.text[0], C.text[1], C.text[2]);
+        doc.text("Scénarios budgétaires", ml, y);
+        y += 6;
+
+        const scKeys = ["economique", "standard", "premium"];
+        const scLabels = ["Économique", "Standard", "Premium"];
+        const scColors: [number, number, number][] = [
+          [16, 185, 129],
+          [59, 130, 246],
+          [139, 92, 246],
+        ];
+        const scColW = cw / 3;
+
+        scKeys.forEach((key, i) => {
+          const s = scenarios[key as keyof typeof scenarios];
+          if (!s) return;
+          const x = ml + i * scColW;
+          const isSel = key === scenario;
+
+          doc.setFillColor(
+            isSel ? C.primaryLight[0] : C.bgLight[0],
+            isSel ? C.primaryLight[1] : C.bgLight[1],
+            isSel ? C.primaryLight[2] : C.bgLight[2],
+          );
+          doc.rect(x, y, scColW - 2, 18, "F");
+          doc.setDrawColor(
+            isSel ? C.primary[0] : C.border[0],
+            isSel ? C.primary[1] : C.border[1],
+            isSel ? C.primary[2] : C.border[2],
+          );
+          doc.rect(x, y, scColW - 2, 18, "S");
+
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(scColors[i][0], scColors[i][1], scColors[i][2]);
+          doc.text(scLabels[i], x + 2, y + 4);
+
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(
+            isSel ? C.primary[0] : C.text[0],
+            isSel ? C.primary[1] : C.text[1],
+            isSel ? C.primary[2] : C.text[2],
+          );
+          doc.text(fmt(s.totalCost), x + 2, y + 10);
+
+          doc.setFontSize(6);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(
+            C.textSecondary[0],
+            C.textSecondary[1],
+            C.textSecondary[2],
+          );
+          doc.text(`${fmt(s.costPerM2)} /m²`, x + 2, y + 15);
+        });
+
+        y += 24;
+      }
+
+      // ═══ QUANTITATIF DÉTAILLÉ (autoTable) ══════════════════════════
+      advanceProgress(2);
+
+      const hasItems = breakdown.some((b: any) => b.items?.length > 0);
+      if (hasItems) {
+        addPageIfNeeded(12);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(C.text[0], C.text[1], C.text[2]);
+        doc.text(`Quantitatif détaillé — ${scenarioLabel}`, ml, y);
+        y += 6;
+
+        const totalItemsCount = breakdown.reduce(
+          (s: number, b: any) => s + (b.items?.length || 0),
+          0,
+        );
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(
+          C.textSecondary[0],
+          C.textSecondary[1],
+          C.textSecondary[2],
+        );
+        doc.text(`${totalItemsCount} postes de travaux`, ml, y);
+        y += 4;
+
+        // Build autoTable data
+        const tableBody: any[][] = [];
+        breakdown.forEach((cat: any) => {
+          const catItems = cat.items || [];
+          if (catItems.length === 0) return;
+          // Category header row
+          tableBody.push([
+            {
+              content: cat.label,
+              styles: {
+                fontStyle: "bold",
+                fontSize: 7,
+                fillColor: [243, 244, 246],
+                textColor: C.text,
+                halign: "left" as const,
+              },
+            },
+            {
+              content: `${catItems.length} postes`,
+              styles: {
+                fontSize: 6.5,
+                fillColor: [243, 244, 246],
+                textColor: C.textLight,
+                halign: "right" as const,
+              },
+            },
+            {
+              content: "",
+              styles: { fillColor: [243, 244, 246] },
+            },
+            {
+              content: fmt(cat.estimatedCost),
+              styles: {
+                fontSize: 7,
+                fontStyle: "bold",
+                halign: "right" as const,
+                fillColor: [243, 244, 246],
+              },
+            },
+          ]);
+          // Item rows
+          catItems.forEach((item: any) => {
+            tableBody.push([
+              {
+                content: item.name,
+                styles: { fontSize: 6.5, halign: "left" as const },
+              },
+              {
+                content: `${item.quantity} ${item.unit}`,
+                styles: {
+                  fontSize: 6.5,
+                  halign: "right" as const,
+                  textColor: C.textSecondary,
+                },
+              },
+              {
+                content: fmt(item.unitPrice),
+                styles: {
+                  fontSize: 6.5,
+                  halign: "right" as const,
+                  textColor: C.textSecondary,
+                },
+              },
+              {
+                content: fmt(item.totalPrice),
+                styles: {
+                  fontSize: 6.5,
+                  halign: "right" as const,
+                  fontStyle: "bold",
+                },
+              },
+            ]);
+          });
+        });
+
+        (doc as any).autoTable({
+          startY: y,
+          margin: { left: ml, right: mr },
+          tableWidth: cw,
+          head: [
+            [
+              { content: "Matériau / Prestation", styles: { halign: "left" } },
+              { content: "Qté", styles: { halign: "right" } },
+              { content: "P.U.", styles: { halign: "right" } },
+              { content: "Total", styles: { halign: "right" } },
+            ],
+          ],
+          body: tableBody,
+          theme: "grid",
+          styles: {
+            fontSize: 6.5,
+            cellPadding: 1.5,
+            textColor: C.text,
+            lineColor: C.border,
+            lineWidth: 0.3,
+          },
+          headStyles: {
+            fillColor: C.primary,
+            textColor: 255,
+            fontStyle: "bold",
+            fontSize: 7,
+            cellPadding: 2,
+          },
+          alternatingRowBackground: true,
+          alternatingRowBackgroundColor: [249, 250, 251],
+          didDrawPage: (data: any) => {
+            const pageCount = doc.getNumberOfPages();
+            doc.setFontSize(6);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(
+              C.textLight[0],
+              C.textLight[1],
+              C.textLight[2],
+            );
+            doc.text(
+              `BudgetBati — Devis Estimatif — Page ${pageCount}`,
+              ml,
+              ph - 5,
+            );
+            doc.text(
+              "Estimation indicative — Prix moyens Tunisie 2026",
+              pw - mr,
+              ph - 5,
+              { align: "right" },
+            );
+          },
+        });
+
+        y = (doc as any).lastAutoTable?.finalY || y;
+        y += 8;
+      }
+
+      // ═══ ANOMALIES ═════════════════════════════════════════════════
+      if (ai.anomalies && ai.anomalies.length > 0) {
+        addPageIfNeeded(10 + ai.anomalies.length * 6);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(185, 28, 28);
+        doc.text("Anomalies détectées", ml, y);
+        y += 5;
+
+        ai.anomalies.forEach((a: any) => {
+          addPageIfNeeded(6);
+
+          doc.setFillColor(254, 242, 242);
+          doc.setDrawColor(254, 202, 202);
+          doc.rect(ml, y, cw, 5.5, "F");
+          doc.rect(ml, y, cw, 5.5, "S");
+
+          doc.setFontSize(6.5);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(185, 28, 28);
+          doc.text(a.type || "", ml + 2, y + 3.5);
+
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(
+            C.textSecondary[0],
+            C.textSecondary[1],
+            C.textSecondary[2],
+          );
+          doc.text(a.description || "", ml + 35, y + 3.5);
+
+          y += 7;
+        });
+
+        y += 3;
+      }
+
+      // ═══ RECOMMENDATIONS ═══════════════════════════════════════════
+      const allTips = [
+        ...(project.optimizationTips || []),
+        ...(project.technicalRecommendations || []),
+      ];
+      if (allTips.length > 0) {
+        addPageIfNeeded(10 + allTips.length * 4);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(4, 120, 87);
+        doc.text("Recommandations", ml, y);
+        y += 5;
+
+        allTips.forEach((tip: string) => {
+          addPageIfNeeded(4.5);
+
+          doc.setFontSize(6.5);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(
+            C.textSecondary[0],
+            C.textSecondary[1],
+            C.textSecondary[2],
+          );
+          const lines = doc.splitTextToSize(`• ${tip}`, cw - 4);
+          doc.text(lines, ml + 2, y + 3);
+          y += 3 + lines.length * 3.5;
+        });
+
+        y += 3;
+      }
+
+      // ═══ DISCLAIMER ════════════════════════════════════════════════
+      addPageIfNeeded(15);
+      y = Math.max(y, ph - 25);
+
+      doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+      doc.line(ml, y, ml + cw, y);
+      y += 3;
+
+      doc.setFontSize(5.5);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(C.textLight[0], C.textLight[1], C.textLight[2]);
+      const disclaimer =
+        "Ce document est un devis estimatif généré automatiquement par BudgetBati. " +
+        "Les prix indiqués sont basés sur les moyennes du marché tunisien 2026 et sont " +
+        "donnés à titre indicatif. Ils ne constituent pas un engagement contractuel. " +
+        "Pour un devis précis, veuillez consulter un professionnel du bâtiment.";
+      const discLines = doc.splitTextToSize(disclaimer, cw);
+      doc.text(discLines, ml, y + 3);
+
+      // ═══ SAVE PDF ══════════════════════════════════════════════════
+      advanceProgress(3);
       const safeName = project.name.replace(/[^a-zA-Z0-9-_]/g, "_");
       const filename = `Devis-${scenarioLabel}-${safeName}.pdf`;
-
-      advanceProgress(4);
-      try {
-        pdf.save(filename);
-      } catch (saveErr) {
-        console.warn("pdf.save() failed, trying blob download:", saveErr);
-        const blob = pdf.output("blob");
-        const url = URL.createObjectURL(blob);
-        const a = window.document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        window.document.body.appendChild(a);
-        a.click();
-        window.document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
+      doc.save(filename);
 
       toast.success(`Devis ${scenarioLabel} téléchargé avec succès`);
 
-      // Consume download for Pro users
       try {
         await consumeDownload();
       } catch {
-        // Silently fail — the PDF was already downloaded
+        // Silently fail
       }
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : "Erreur inconnue lors de la génération du PDF";
+        err instanceof Error
+          ? err.message
+          : "Erreur lors de la génération du PDF";
       console.error("PDF generation error:", err);
       toast.error(`Échec du téléchargement : ${msg}`);
     } finally {
-      if (scenarioChanged) setSelectedScenario(prevScenario);
-      setOpenCat(prevOpenCat);
       setExporting(false);
     }
   };
