@@ -150,110 +150,6 @@ export default function ProjectDetail() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  // ── Helper: replace oklch() in ALL document stylesheets before html2canvas ──
-
-  const fixOklchInAllStylesheets = async (): Promise<() => void> => {
-    const restoreFns: Array<() => void> = [];
-
-    // 1. Fix inline <style> elements — just replace oklch() in textContent
-    const styleEls = document.querySelectorAll('style');
-    styleEls.forEach((style) => {
-      const orig = style.textContent;
-      if (orig && orig.includes('oklch(')) {
-        style.textContent = orig.replace(/oklch\([^)]+\)/g, '#888888');
-        restoreFns.push(() => { style.textContent = orig; });
-      }
-    });
-
-    // 2. Fix <link rel="stylesheet"> — fetch content, replace, convert to <style>
-    const linkEls = document.querySelectorAll('link[rel="stylesheet"]');
-    const linkPromises: Array<Promise<void>> = [];
-
-    linkEls.forEach((link) => {
-      const href = link.getAttribute('href');
-      if (!href) return;
-
-      const p = (async () => {
-        try {
-          const res = await fetch(href);
-          const cssText = await res.text();
-          if (!cssText.includes('oklch(')) return;
-
-          const fixed = cssText.replace(/oklch\([^)]+\)/g, '#888888');
-          const style = document.createElement('style');
-          style.textContent = fixed;
-          link.parentNode?.insertBefore(style, link);
-          link.remove();
-
-          restoreFns.push(() => {
-            style.remove();
-            link.parentNode?.insertBefore(link, style);
-          });
-        } catch {
-          // Can't fetch cross-origin — skip silently
-        }
-      })();
-
-      linkPromises.push(p);
-    });
-
-    await Promise.all(linkPromises);
-
-    return () => {
-      for (let i = restoreFns.length - 1; i >= 0; i--) {
-        restoreFns[i]();
-      }
-    };
-  };
-
-  // ── Helper: inline computed colors to preserve correct appearance in PDF ──
-
-  const fixColorsBeforeCapture = (root: HTMLElement): (() => void) => {
-    const allElements = root.querySelectorAll('*') as any;
-    const styleOrigins: Array<{ el: any; orig: string | null }> = [];
-
-    const colorProps: string[] = [
-      'color', 'backgroundColor', 'borderTopColor', 'borderRightColor',
-      'borderBottomColor', 'borderLeftColor', 'outlineColor',
-      'textDecorationColor', 'fill', 'stroke', 'stopColor',
-      'borderColor',
-    ];
-
-    for (let i = 0; i < allElements.length; i++) {
-      const el = allElements[i] as HTMLElement;
-      const cs = getComputedStyle(el);
-      const overrides: string[] = [];
-
-      for (let j = 0; j < colorProps.length; j++) {
-        const prop = colorProps[j];
-        const value = (cs as any)[prop];
-        if (
-          value &&
-          value !== 'transparent' &&
-          value !== 'currentcolor' &&
-          value !== 'rgba(0, 0, 0, 0)'
-        ) {
-          const cssProp = prop.replace(/([A-Z])/g, '-$1').toLowerCase();
-          overrides.push(cssProp + ': ' + value + ' !important');
-        }
-      }
-
-      if (overrides.length > 0) {
-        const orig = el.getAttribute('style');
-        styleOrigins.push({ el, orig });
-        el.setAttribute('style', (orig ? orig + '; ' : '') + overrides.join('; '));
-      }
-    }
-
-    return () => {
-      for (let i = 0; i < styleOrigins.length; i++) {
-        const { el, orig } = styleOrigins[i];
-        if (orig) el.setAttribute('style', orig);
-        else el.removeAttribute('style');
-      }
-    };
-  };
-
   // ── Progress helper ──────────────────────────────────────────────────
 
   const advanceProgress = (step: number) => {
@@ -271,6 +167,85 @@ export default function ProjectDetail() {
     } else {
       setShowUpgradeDialog(true);
     }
+  };
+
+  // ── Clone report to a hidden container (avoids modifying live DOM) ──
+
+  const captureReportToCanvas = async (root: HTMLElement): Promise<HTMLCanvasElement> => {
+    // Create a hidden container with same dimensions as the root
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `
+      position: fixed; left: -9999px; top: 0;
+      width: ${root.offsetWidth || root.scrollWidth || 800}px;
+      z-index: -1; pointer-events: none;
+    `;
+    document.body.appendChild(wrapper);
+
+    // Deep clone the report content
+    const clone = root.cloneNode(true) as HTMLElement;
+    wrapper.appendChild(clone);
+
+    // Process all elements in the clone: inline computed colors (without oklch)
+    const colorCssProps = ['color', 'background-color', 'border-color', 'border-top-color',
+      'border-right-color', 'border-bottom-color', 'border-left-color',
+      'outline-color', 'text-decoration-color', 'fill', 'stroke'];
+
+    const allEls = clone.querySelectorAll('*');
+    allEls.forEach((el: Element) => {
+      const htmlEl = el as HTMLElement;
+      const cs = getComputedStyle(htmlEl);
+      const overrides: string[] = [];
+
+      for (const cssProp of colorCssProps) {
+        const jsProp = cssProp.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+        const value = (cs as any)[jsProp];
+        if (value && value !== 'transparent' && value !== 'currentcolor' && value !== 'rgba(0, 0, 0, 0)') {
+          // Only keep values that html2canvas can parse (non-oklch)
+          if (!value.includes('oklch')) {
+            overrides.push(cssProp + ': ' + value + ' !important');
+          } else {
+            // Fallback: just use a neutral color
+            overrides.push(cssProp + ': #888888 !important');
+          }
+        }
+      }
+
+      if (overrides.length > 0) {
+        const existing = htmlEl.getAttribute('style') || '';
+        htmlEl.setAttribute('style', existing + '; ' + overrides.join('; '));
+      }
+    });
+
+    // Also fix any inline styles or SVG attributes that might contain oklch
+    const allNodes = clone.querySelectorAll('*');
+    allNodes.forEach((el: Element) => {
+      // Fix inline style attribute
+      const styleAttr = el.getAttribute('style');
+      if (styleAttr && styleAttr.includes('oklch')) {
+        el.setAttribute('style', styleAttr.replace(/oklch\([^)]+\)/g, '#888888'));
+      }
+      // Fix fill/stroke SVG attributes
+      ['fill', 'stroke', 'stop-color'].forEach((attr) => {
+        const val = el.getAttribute(attr);
+        if (val && val.includes('oklch')) {
+          el.setAttribute(attr, val.replace(/oklch\([^)]+\)/g, '#888888'));
+        }
+      });
+    });
+
+    // Capture the clone with html2canvas
+    const canvas = await html2canvas(clone, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      logging: false,
+      allowTaint: true,
+    });
+
+    // Clean up: remove the wrapper from DOM
+    document.body.removeChild(wrapper);
+
+    return canvas;
   };
 
   const generatePDF = async (scenario: string) => {
@@ -307,25 +282,13 @@ export default function ProjectDetail() {
       return;
     }
 
-    // ── STEP 1: Remove oklch() from ALL document stylesheets ──
-    advanceProgress(1);
-    const restoreStylesheets = await fixOklchInAllStylesheets();
-
-    // ── STEP 2: Inline computed RGB colors on report elements ──
-    const restoreColors = fixColorsBeforeCapture(reportRef.current);
-
     try {
-      // ── STEP 3: Capture screen with html2canvas ──
+      // ── STEP 1: Prepare and capture report ──
+      advanceProgress(1);
+      await new Promise((r) => setTimeout(r, 100));
       advanceProgress(2);
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-        allowTaint: true,
-        windowWidth: reportRef.current.scrollWidth,
-        windowHeight: reportRef.current.scrollHeight,
-      });
+
+      const canvas = await captureReportToCanvas(reportRef.current);
 
       if (!canvas || canvas.width === 0 || canvas.height === 0) {
         throw new Error("Le canvas généré est vide");
@@ -336,7 +299,7 @@ export default function ProjectDetail() {
         throw new Error("L'image générée est invalide");
       }
 
-      // ── STEP 4: Generate PDF from captured image ──
+      // ── STEP 3: Generate PDF from captured image ──
       advanceProgress(3);
       const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -396,10 +359,6 @@ export default function ProjectDetail() {
       console.error("PDF generation error:", err);
       toast.error(`Échec du téléchargement : ${msg}`);
     } finally {
-      // Restore in reverse order
-      restoreColors();
-      restoreStylesheets();
-
       if (scenarioChanged) setSelectedScenario(prevScenario);
       setOpenCat(prevOpenCat);
       setExporting(false);
