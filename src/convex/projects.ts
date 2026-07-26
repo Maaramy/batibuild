@@ -480,6 +480,7 @@ export const startAnalysis = mutation({
 // ============================================================================
 
 import { runBIMEstimation, generateProviderRecommendations } from "./bimEngine";
+import { findMatchingSuppliers } from "./suppliers";
 
 // ============================================================================
 // Simulate Analysis (BIM Professional Engine)
@@ -512,6 +513,21 @@ export const simulateAnalysis = mutation({
       floors,
       finishLevel
     );
+
+    // Attach real Tunisian supplier data to each provider recommendation
+    const providerTypes = recommendations.providers.map((p: any) => p.type);
+    const matchedSuppliers = findMatchingSuppliers(providerTypes, region);
+    const supplierMap = new Map<string, any[]>();
+    matchedSuppliers.forEach((ms: any) => {
+      supplierMap.set(ms.type, ms.suppliers);
+    });
+
+    const enhancedProviders = recommendations.providers.map((p: any) => ({
+      ...p,
+      suppliers: supplierMap.get(p.type) || [],
+    }));
+
+    recommendations.providers = enhancedProviders;
 
     // Cast BIM categories to the valid union type for Convex schema
     const costEstimate = {

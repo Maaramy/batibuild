@@ -340,7 +340,7 @@ const schema = defineSchema(
         }),
       ),
       
-      // Provider recommendations (AI-generated)
+      // Provider recommendations (real Tunisian companies)
       providerRecommendations: v.optional(
         v.object({
           providers: v.array(
@@ -356,6 +356,21 @@ const schema = defineSchema(
               ),
               regionProximity: v.string(),
               localCities: v.array(v.string()),
+              // Real company contacts
+              suppliers: v.optional(
+                v.array(
+                  v.object({
+                    id: v.string(),
+                    name: v.string(),
+                    phone: v.string(),
+                    email: v.optional(v.string()),
+                    address: v.string(),
+                    website: v.optional(v.string()),
+                    description: v.optional(v.string()),
+                    rating: v.optional(v.number()),
+                  })
+                )
+              ),
             })
           ),
           stats: v.object({
