@@ -750,38 +750,6 @@ export default function ProjectDetail() {
         y += 3;
       }
 
-      // ═══ RECOMMENDATIONS ═══════════════════════════════════════════
-      const allTips = [
-        ...(project.optimizationTips || []),
-        ...(project.technicalRecommendations || []),
-      ];
-      if (allTips.length > 0) {
-        addPageIfNeeded(10 + allTips.length * 4);
-
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(4, 120, 87);
-        doc.text("Recommandations", ml, y);
-        y += 5;
-
-        allTips.forEach((tip: string) => {
-          addPageIfNeeded(4.5);
-
-          doc.setFontSize(6.5);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(
-            C.textSecondary[0],
-            C.textSecondary[1],
-            C.textSecondary[2],
-          );
-          const lines = doc.splitTextToSize(`• ${tip}`, cw - 4);
-          doc.text(lines, ml + 2, y + 3);
-          y += 3 + lines.length * 3.5;
-        });
-
-        y += 3;
-      }
-
       // ═══ DISCLAIMER ════════════════════════════════════════════════
       addPageIfNeeded(15);
       y = Math.max(y, ph - 25);
