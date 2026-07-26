@@ -141,6 +141,15 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const project = useQuery(api.projects.getProject, { projectId: id as any });
   const { user: currentUser } = useAuth();
+  const allProjects = useQuery(api.projects.getUserProjects, {});
+  
+  // Calculate project counter: index of current project in all user projects
+  const projectCounter = useMemo(() => {
+    if (!allProjects || !project) return null;
+    const idx = allProjects.findIndex((p: any) => p._id === project._id);
+    if (idx === -1) return null;
+    return { current: idx + 1, total: allProjects.length };
+  }, [allProjects, project]);
   const toggleFav = useMutation(api.projects.toggleFavorite);
   const startAnalysis = useMutation(api.projects.startAnalysis);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
@@ -960,6 +969,13 @@ export default function ProjectDetail() {
               <p className="text-[10px] text-muted-foreground truncate">
                 {project.surface ? `${project.surface}m²` : "Surface —"}
                 {project.region ? ` • ${REGION_LABELS[project.region] ?? project.region}` : ""}
+                {projectCounter && (
+                  <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/5 text-primary border border-primary/10 text-[8px] font-medium">
+                    #<span className="tabular-nums">{projectCounter.current}</span>
+                    <span className="text-muted-foreground/50">/</span>
+                    <span className="tabular-nums">{projectCounter.total}</span>
+                  </span>
+                )}
               </p>
             </div>
           </div>
