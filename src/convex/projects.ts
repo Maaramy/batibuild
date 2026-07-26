@@ -310,6 +310,35 @@ export const updateProjectAnalysis = mutation({
     ),
     optimizationTips: v.optional(v.array(v.string())),
     technicalRecommendations: v.optional(v.array(v.string())),
+    providerRecommendations: v.optional(
+      v.object({
+        providers: v.array(
+          v.object({
+            type: v.string(),
+            label: v.string(),
+            icon: v.string(),
+            reason: v.string(),
+            priority: v.union(
+              v.literal("essentiel"),
+              v.literal("recommande"),
+              v.literal("optionnel")
+            ),
+            regionProximity: v.string(),
+            localCities: v.array(v.string()),
+          })
+        ),
+        stats: v.object({
+          total: v.number(),
+          essential: v.number(),
+          recommended: v.number(),
+        }),
+        regionInfo: v.object({
+          name: v.string(),
+          cities: v.array(v.string()),
+          advice: v.string(),
+        }),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -328,6 +357,9 @@ export const updateProjectAnalysis = mutation({
       ...(args.optimizationTips && { optimizationTips: args.optimizationTips }),
       ...(args.technicalRecommendations && {
         technicalRecommendations: args.technicalRecommendations,
+      }),
+      ...(args.providerRecommendations && {
+        providerRecommendations: args.providerRecommendations,
       }),
       updatedAt: Date.now(),
     });
@@ -447,7 +479,7 @@ export const startAnalysis = mutation({
 // BIM Engine (professional cost estimation)
 // ============================================================================
 
-import { runBIMEstimation } from "./bimEngine";
+import { runBIMEstimation, generateProviderRecommendations } from "./bimEngine";
 
 // ============================================================================
 // Simulate Analysis (BIM Professional Engine)
@@ -471,6 +503,16 @@ export const simulateAnalysis = mutation({
 
     const result = runBIMEstimation(category, surface, floors, region, finishLevel);
 
+    // Generate AI provider recommendations
+    const recommendations = generateProviderRecommendations(
+      category,
+      region,
+      result.costEstimate.totalCost,
+      surface,
+      floors,
+      finishLevel
+    );
+
     // Cast BIM categories to the valid union type for Convex schema
     const costEstimate = {
       ...result.costEstimate,
@@ -486,6 +528,7 @@ export const simulateAnalysis = mutation({
       aiAnalysis: result.aiAnalysis,
       optimizationTips: result.optimizationTips,
       technicalRecommendations: result.technicalRecommendations,
+      providerRecommendations: recommendations,
       updatedAt: Date.now(),
     });
   },

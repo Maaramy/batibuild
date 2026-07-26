@@ -340,6 +340,37 @@ const schema = defineSchema(
         }),
       ),
       
+      // Provider recommendations (AI-generated)
+      providerRecommendations: v.optional(
+        v.object({
+          providers: v.array(
+            v.object({
+              type: v.string(),
+              label: v.string(),
+              icon: v.string(),
+              reason: v.string(),
+              priority: v.union(
+                v.literal("essentiel"),
+                v.literal("recommande"),
+                v.literal("optionnel")
+              ),
+              regionProximity: v.string(),
+              localCities: v.array(v.string()),
+            })
+          ),
+          stats: v.object({
+            total: v.number(),
+            essential: v.number(),
+            recommended: v.number(),
+          }),
+          regionInfo: v.object({
+            name: v.string(),
+            cities: v.array(v.string()),
+            advice: v.string(),
+          }),
+        })
+      ),
+
       // Budget optimization suggestions
       optimizationTips: v.optional(v.array(v.string())),
       technicalRecommendations: v.optional(v.array(v.string())),

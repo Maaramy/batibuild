@@ -1681,6 +1681,68 @@ export default function ProjectDetail() {
               )}
             </div>
 
+            {/* ═══ Fournisseurs & Prestataires ═══ */}
+            {project.providerRecommendations && (
+              <div className="col-span-full mb-2">
+                <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-border/10">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                      <Users className="h-3.5 w-3.5" />
+                    </div>
+                    <h3 className="text-sm font-semibold">Prestataires recommandés par l’IA</h3>
+                    <Badge variant="secondary" className="text-[9px]">{project.providerRecommendations.stats.total} prestataires</Badge>
+                  </div>
+                  <div className="px-4 py-4 space-y-3">
+                    <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/10">
+                      <p className="text-[10px] sm:text-xs text-primary/80 flex items-start gap-1.5">
+                        <MapPin className="h-3 w-3 shrink-0 mt-0.5" />
+                        <span>{project.providerRecommendations.regionInfo.advice}</span>
+                      </p>
+                    </div>
+                    {["essentiel", "recommande", "optionnel"].map((priority) => {
+                      const items = project.providerRecommendations!.providers.filter((p: any) => p.priority === priority);
+                      if (items.length === 0) return null;
+                      const cfg = priority === "essentiel"
+                        ? { label: "Essentiel", bg: "bg-red-100", txt: "text-red-700", dot: "bg-red-500", iconBg: "bg-red-50", iconTxt: "text-red-600" }
+                        : priority === "recommande"
+                          ? { label: "Recommandé", bg: "bg-blue-100", txt: "text-blue-700", dot: "bg-blue-500", iconBg: "bg-blue-50", iconTxt: "text-blue-600" }
+                          : { label: "Optionnel", bg: "bg-slate-100", txt: "text-slate-600", dot: "bg-slate-400", iconBg: "bg-slate-50", iconTxt: "text-slate-500" };
+                      return (
+                        <div key={priority}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <div className={`flex h-4 w-4 items-center justify-center rounded-full ${cfg.bg}`}>
+                              <span className={`text-[7px] font-bold ${cfg.txt}`}>{priority === "essentiel" ? "!" : priority === "recommande" ? "i" : "?"}</span>
+                            </div>
+                            <p className={`text-[10px] font-semibold ${cfg.txt}`}>{cfg.label} ({items.length})</p>
+                          </div>
+                          <div className="space-y-1">
+                            {items.map((p: any, i: number) => (
+                              <div key={i} className="flex items-start gap-2 p-2 rounded-lg hover:bg-muted/20 transition-colors border border-border/10">
+                                <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${cfg.iconBg} ${cfg.iconTxt}`}>
+                                  <Users className="h-3 w-3" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    <span className="text-[11px] font-medium">{p.label}</span>
+                                    <span className={`text-[7px] px-1 py-0.5 rounded-full ${cfg.bg} ${cfg.txt}`}>{p.priority}</span>
+                                  </div>
+                                  <p className="text-[9px] text-muted-foreground mt-0.5">{p.reason}</p>
+                                  <p className="text-[8px] text-muted-foreground/50 mt-0.5 flex items-center gap-1">
+                                    <MapPin className="h-2.5 w-2.5" />
+                                    {p.regionProximity}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ═══ Recommendations ═══ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {project.optimizationTips && project.optimizationTips.length > 0 && (
