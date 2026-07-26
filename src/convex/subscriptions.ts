@@ -203,6 +203,31 @@ export const createSubscription = mutation({
   },
 });
 
+/** Upload payment proof receipt (D17 screenshot or bank transfer) */
+export const uploadPaymentProof = mutation({
+  args: {
+    subscriptionId: v.id("subscriptions"),
+    storageId: v.id("_storage"),
+    url: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Non connecté");
+
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new Error("Abonnement introuvable");
+    if (sub.userId !== user._id) throw new Error("Cet abonnement ne vous appartient pas");
+
+    await ctx.db.patch(args.subscriptionId, {
+      paymentProofStorageId: args.storageId,
+      paymentProofUrl: args.url,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
 /** Cancel subscription */
 export const cancelSubscription = mutation({
   args: {},

@@ -625,6 +625,8 @@ const schema = defineSchema(
       currency: v.optional(v.string()),
       monthlyDownloadCount: v.optional(v.number()),
       downloadLimit: v.optional(v.number()),
+      paymentProofStorageId: v.optional(v.id("_storage")),
+      paymentProofUrl: v.optional(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })

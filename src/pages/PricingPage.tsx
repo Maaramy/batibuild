@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Building2, FileText, Download, Banknote, Copy, CheckCheck, Smartphone, Wallet } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Building2, FileText, Download, Banknote, Copy, CheckCheck, Smartphone, Wallet, Upload, Image, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -72,6 +72,12 @@ export default function PricingPage() {
   const [copying, setCopying] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
   const paymentConfig = useQuery(api.payments.getPaymentConfig);
+  const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+  const uploadPaymentProof = useMutation(api.subscriptions.uploadPaymentProof);
+  
+  const [uploading, setUploading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   
   // Build dynamic BANK_INFO and D17_INFO from config
   const BANK_INFO: Record<string, string> = paymentConfig ? {
@@ -141,6 +147,64 @@ export default function PricingPage() {
         ? "Demande d'abonnement envoyée ! En attente de validation du paiement D17."
         : "Demande d'abonnement envoyée ! En attente de validation du virement."
     );
+  };
+
+  const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentSubscription?._id) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+      toast.error("Format accepté : image (JPG, PNG) ou PDF");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux (max 5 Mo)");
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(10);
+
+    try {
+      // Get upload URL from Convex
+      const uploadUrl = await generateUploadUrl();
+      setUploadProgress(30);
+
+      // Upload to Convex storage
+      const result = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      setUploadProgress(70);
+
+      if (!result.ok) throw new Error("Échec de l'upload");
+
+      const { storageId } = await result.json();
+      setUploadProgress(85);
+
+      // Get the URL for the uploaded file
+      const fileUrl = `${window.location.origin}/api/storage/${storageId}`;
+
+      // Attach to subscription
+      await uploadPaymentProof({
+        subscriptionId: currentSubscription._id as any,
+        storageId: storageId as any,
+        url: fileUrl,
+      });
+
+      setUploadProgress(100);
+      setUploadedFile(file.name);
+      toast.success("Reçu de paiement envoyé avec succès !");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'upload du reçu");
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   const handleCopy = async (text: string, label: string) => {
@@ -436,15 +500,77 @@ export default function PricingPage() {
           )}
 
           {isPending && (
-            <div className="mt-4 px-4 py-3 rounded-xl bg-amber-50/50 border border-amber-200/30">
-              <div className="flex items-start gap-2">
-                <Loader2 className="h-4 w-4 text-amber-600 shrink-0 mt-0.5 animate-spin" />
-                <div>
-                  <p className="text-xs font-semibold text-amber-700">Paiement en attente de validation</p>
-                  <p className="text-[10px] text-amber-600/70 mt-0.5">
-                    Votre abonnement sera activé dès réception du {paymentMethod === "d17" ? "paiement D17" : "virement"}.
-                  </p>
+            <div className="mt-4 space-y-3">
+              <div className="px-4 py-3 rounded-xl bg-amber-50/50 border border-amber-200/30">
+                <div className="flex items-start gap-2">
+                  <Loader2 className="h-4 w-4 text-amber-600 shrink-0 mt-0.5 animate-spin" />
+                  <div>
+                    <p className="text-xs font-semibold text-amber-700">Paiement en attente de validation</p>
+                    <p className="text-[10px] text-amber-600/70 mt-0.5">
+                      Votre abonnement sera activé dès réception du {paymentMethod === "d17" ? "paiement D17" : "virement"}.
+                    </p>
+                  </div>
                 </div>
+              </div>
+
+              {/* ═══ Upload Receipt Section ═══ */}
+              <div className="px-4 py-3 rounded-xl bg-white/50 border border-border/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <Upload className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-xs font-semibold">Joindre votre reçu de paiement</p>
+                </div>
+                <p className="text-[9px] text-muted-foreground mb-3">
+                  Ajoutez une capture d'écran du {paymentMethod === "d17" ? "paiement D17" : "virement bancaire"} pour accélérer l'activation.
+                </p>
+
+                {uploadedFile ? (
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <span className="text-xs text-emerald-700 truncate">{uploadedFile}</span>
+                    </div>
+                    <button
+                      onClick={() => setUploadedFile(null)}
+                      className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-emerald-100 transition-colors shrink-0"
+                    >
+                      <X className="h-3 w-3 text-emerald-500" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    {uploading ? (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/20">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                        <div className="flex-1">
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary rounded-full transition-all duration-300"
+                              style={{ width: `${uploadProgress}%` }}
+                            />
+                          </div>
+                          <p className="text-[9px] text-muted-foreground mt-1">
+                            Téléchargement... {uploadProgress}%
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-2 p-3 rounded-lg border-2 border-dashed border-border/40 hover:border-primary/40 cursor-pointer transition-all hover:bg-muted/20">
+                        <Image className="h-5 w-5 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium">Cliquez pour ajouter un reçu</p>
+                          <p className="text-[9px] text-muted-foreground">Image ou PDF · Max 5 Mo</p>
+                        </div>
+                        <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={handleUploadReceipt}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}

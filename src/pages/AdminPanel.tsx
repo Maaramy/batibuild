@@ -963,6 +963,7 @@ export default function AdminPanel() {
                           <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Client</th>
                           <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Contact</th>
                           <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Offre</th>
+                          <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Reçu</th>
                           <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
                           <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Date</th>
                           <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Actions</th>
@@ -1017,6 +1018,22 @@ export default function AdminPanel() {
                                 <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[9px]">
                                   {sub.plan === "pro" ? "Pro" : sub.plan}
                                 </Badge>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center hidden sm:table-cell">
+                                {sub.paymentProofUrl ? (
+                                  <a
+                                    href={sub.paymentProofUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[9px] text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
+                                    title="Voir le reçu de paiement"
+                                  >
+                                    <FileText className="h-3 w-3" />
+                                    Reçu
+                                  </a>
+                                ) : (
+                                  <span className="text-[9px] text-muted-foreground/50">—</span>
+                                )}
                               </td>
                               <td className="py-3 px-2 sm:px-3 text-right hidden sm:table-cell">
                                 <span className="font-semibold text-xs">
