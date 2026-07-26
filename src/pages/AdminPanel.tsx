@@ -49,6 +49,10 @@ import {
   Globe,
   FileText,
   Calendar,
+  NotebookPen,
+  CheckCheck,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -89,7 +93,14 @@ export default function AdminPanel() {
   const updateUserRole = useMutation(api.users.adminUpdateUserRole);
   const updateUserPlan = useMutation(api.users.adminUpdateUserPlan);
   const deleteUser = useMutation(api.users.deleteUser);
+  const toggleUserStatus = useMutation(api.users.toggleUserStatus);
+  const batchDeleteUsers = useMutation(api.users.batchDeleteUsers);
+
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [batchDeleting, setBatchDeleting] = useState(false);
+
+  const adminLogs = useQuery(api.users.getAdminLogs, { limit: 100 }) || [];
 
   const createMaterial = useMutation(api.materials.createMaterialPrice);
   const updateMaterial = useMutation(api.materials.updateMaterialPrice);
@@ -109,6 +120,42 @@ export default function AdminPanel() {
     };
     doDelete();
   }, [deletingUserId, deleteUser]);
+
+  // Handle batch delete
+  const handleBatchDelete = async () => {
+    if (selectedUserIds.size === 0) return;
+    if (!window.confirm(`⚠️ Supprimer définitivement ${selectedUserIds.size} utilisateur(s) ?\n\nToutes leurs données seront supprimées. Cette action est irréversible.`)) return;
+
+    setBatchDeleting(true);
+    try {
+      const result = await batchDeleteUsers({ userIds: Array.from(selectedUserIds) as any });
+      if (result.deleted?.length) {
+        toast.success(`${result.deleted.length} utilisateur(s) supprimé(s)`);
+      }
+      if (result.errors?.length) {
+        toast.error(result.errors.join(", "));
+      }
+      setSelectedUserIds(new Set());
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la suppression");
+    }
+    setBatchDeleting(false);
+  };
+
+  // Toggle select all
+  const toggleSelectAll = () => {
+    const filtered = allUsers.filter((u: any) =>
+      userSearch
+        ? (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+          (u.email || "").toLowerCase().includes(userSearch.toLowerCase())
+        : true
+    );
+    if (selectedUserIds.size === filtered.length) {
+      setSelectedUserIds(new Set());
+    } else {
+      setSelectedUserIds(new Set(filtered.map((u: any) => u._id)));
+    }
+  };
 
   // Check if user is admin
   if (user && user.role !== "admin") {
@@ -250,6 +297,10 @@ export default function AdminPanel() {
               <TabsTrigger value="subscriptions" className="text-xs gap-1.5">
                 <CreditCard className="h-4 w-4" />
                 <span className="hidden xs:inline">Abonnements</span>
+              </TabsTrigger>
+              <TabsTrigger value="journal" className="text-xs gap-1.5">
+                <NotebookPen className="h-4 w-4" />
+                <span className="hidden xs:inline">Journal</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -630,14 +681,32 @@ export default function AdminPanel() {
                   <CardTitle className="text-sm sm:text-base">Gestion des utilisateurs</CardTitle>
                   <CardDescription className="text-xs">{allUsers.length} utilisateur(s) inscrit(s)</CardDescription>
                 </div>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Rechercher..."
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    className="h-9 w-full sm:w-56 pl-9 text-sm"
-                  />
+                <div className="flex items-center gap-2">
+                  {selectedUserIds.size > 0 && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-9 text-xs gap-1.5"
+                      onClick={handleBatchDelete}
+                      disabled={batchDeleting}
+                    >
+                      {batchDeleting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      Supprimer ({selectedUserIds.size})
+                    </Button>
+                  )}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Rechercher..."
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      className="h-9 w-full sm:w-56 pl-9 text-sm"
+                    />
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="p-0 sm:p-6">
@@ -645,8 +714,19 @@ export default function AdminPanel() {
                   <table className="w-full text-xs sm:text-sm">
                     <thead>
                       <tr className="border-b border-border/30">
+                        <th className="w-8 py-2.5 px-2 sm:px-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedUserIds.size > 0 && selectedUserIds.size === allUsers.filter((u: any) =>
+                              userSearch ? (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) || (u.email || "").toLowerCase().includes(userSearch.toLowerCase()) : true
+                            ).length}
+                            onChange={toggleSelectAll}
+                            className="h-4 w-4 rounded border-border/50 accent-primary cursor-pointer"
+                          />
+                        </th>
                         <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Utilisateur</th>
                         <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Email</th>
+                        <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Statut</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Rôle</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Abonnement</th>
                         <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Inscription</th>
@@ -665,9 +745,27 @@ export default function AdminPanel() {
                           const userInitial = (u.name || u.email || "?").charAt(0).toUpperCase();
                           const isAdmin = u.role === "admin";
                           const isPro = u.subscriptionPlan === "pro";
+                          const isDisabled = u.status === "disabled";
+                          const isSelected = selectedUserIds.has(u._id);
 
                           return (
-                            <tr key={u._id} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
+                            <tr key={u._id} className={cn(
+                              "border-b border-border/20 hover:bg-muted/20 transition-colors",
+                              isDisabled && "opacity-50"
+                            )}>
+                              <td className="py-3 px-2 sm:px-3">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    const next = new Set(selectedUserIds);
+                                    if (next.has(u._id)) next.delete(u._id);
+                                    else next.add(u._id);
+                                    setSelectedUserIds(next);
+                                  }}
+                                  className="h-4 w-4 rounded border-border/50 accent-primary cursor-pointer"
+                                />
+                              </td>
                               <td className="py-3 px-2 sm:px-3">
                                 <div className="flex items-center gap-2">
                                   <Avatar className={cn("h-8 w-8 shrink-0 border",
@@ -692,6 +790,17 @@ export default function AdminPanel() {
                               </td>
                               <td className="py-3 px-2 sm:px-3 text-muted-foreground hidden sm:table-cell">
                                 <span className="text-xs truncate max-w-[180px] block">{u.email || "—"}</span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center">
+                                {isDisabled ? (
+                                  <Badge className="bg-slate-100 text-slate-500 border-slate-200 text-[8px] h-4.5">
+                                    Désactivé
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[8px] h-4.5">
+                                    Actif
+                                  </Badge>
+                                )}
                               </td>
                               <td className="py-3 px-2 sm:px-3 text-center">
                                 <select
@@ -755,6 +864,31 @@ export default function AdminPanel() {
                                       Pro
                                     </Badge>
                                   )}
+                                  <button
+                                    onClick={async () => {
+                                      const newStatus = isDisabled ? "active" : "disabled";
+                                      const action = isDisabled ? "réactivé" : "désactivé";
+                                      try {
+                                        await toggleUserStatus({ userId: u._id, status: newStatus as any });
+                                        toast.success(`${u.name || "Utilisateur"} ${action} avec succès`);
+                                      } catch (err: any) {
+                                        toast.error(err.message || "Erreur");
+                                      }
+                                    }}
+                                    className={cn(
+                                      "flex h-7 w-7 items-center justify-center rounded-lg active:scale-95 transition-all",
+                                      isDisabled
+                                        ? "text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50"
+                                        : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                                    )}
+                                    title={isDisabled ? "Réactiver le compte" : "Désactiver le compte"}
+                                  >
+                                    {isDisabled ? (
+                                      <ToggleRight className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <ToggleLeft className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
                                   <button
                                     onClick={() => {
                                       const name = u.name || u.email || "cet utilisateur";
@@ -1021,6 +1155,92 @@ export default function AdminPanel() {
                               <td className="py-3 px-2 sm:px-3 text-right">
                                 <span className="text-[10px] text-muted-foreground">
                                   {sub.endDate ? new Date(sub.endDate).toLocaleDateString("fr-FR") : "—"}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Admin Action Logs */}
+          <TabsContent value="journal">
+            <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-6">
+                <div className="flex items-center gap-2 min-w-0">
+                  <NotebookPen className="h-5 w-5 text-primary shrink-0" />
+                  <div>
+                    <CardTitle className="text-sm sm:text-base">Journal d'activité</CardTitle>
+                    <CardDescription className="text-xs">{adminLogs.length} action(s) enregistrée(s)</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 sm:p-6">
+                {adminLogs.length === 0 ? (
+                  <div className="text-center py-12">
+                    <NotebookPen className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">Aucune action enregistrée</p>
+                    <p className="text-xs text-muted-foreground/50 mt-1">Les actions des administrateurs apparaîtront ici.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm">
+                      <thead>
+                        <tr className="border-b border-border/30">
+                          <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Admin</th>
+                          <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Action</th>
+                          <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Cible</th>
+                          <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Détails</th>
+                          <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminLogs.map((log: any) => {
+                          const actionLabels: Record<string, { label: string; icon: any; color: string }> = {
+                            delete_user: { label: "Suppression utilisateur", icon: Trash2, color: "text-red-500" },
+                            batch_delete_users: { label: "Suppression groupée", icon: Trash2, color: "text-red-500" },
+                            toggle_user_status: { label: "Statut utilisateur", icon: ToggleLeft, color: "text-amber-500" },
+                            update_user_role: { label: "Rôle modifié", icon: Crown, color: "text-amber-500" },
+                            update_user_plan: { label: "Abonnement modifié", icon: CreditCard, color: "text-blue-500" },
+                            approve_subscription: { label: "Abonnement activé", icon: ThumbsUp, color: "text-emerald-500" },
+                            reject_subscription: { label: "Abonnement refusé", icon: ThumbsDown, color: "text-red-500" },
+                            create_material: { label: "Matériau ajouté", icon: Plus, color: "text-emerald-500" },
+                            update_material: { label: "Matériau modifié", icon: Edit, color: "text-blue-500" },
+                            delete_material: { label: "Matériau supprimé", icon: Trash2, color: "text-red-500" },
+                          };
+                          const info = actionLabels[log.action] || { label: log.action, icon: Activity, color: "text-slate-400" };
+                          const Icon = info.icon;
+
+                          return (
+                            <tr key={log._id} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
+                              <td className="py-2.5 px-2 sm:px-3">
+                                <span className="font-medium">{log.adminName || "Admin"}</span>
+                              </td>
+                              <td className="py-2.5 px-2 sm:px-3">
+                                <span className={cn("inline-flex items-center gap-1 text-xs", info.color)}>
+                                  <Icon className="h-3 w-3" />
+                                  {info.label}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-2 sm:px-3 text-muted-foreground hidden sm:table-cell">
+                                <span className="text-xs">{log.targetUserEmail || "—"}</span>
+                              </td>
+                              <td className="py-2.5 px-2 sm:px-3 text-muted-foreground hidden md:table-cell">
+                                <span className="text-xs truncate max-w-[200px] block">{log.details || "—"}</span>
+                              </td>
+                              <td className="py-2.5 px-2 sm:px-3 text-right">
+                                <span className="text-[10px] text-muted-foreground">
+                                  {new Date(log.createdAt).toLocaleDateString("fr-FR", {
+                                    day: "numeric",
+                                    month: "short",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
                                 </span>
                               </td>
                             </tr>

@@ -69,6 +69,13 @@ export const adminUpdateUserRole = mutation({
     await ctx.db.patch(args.userId, {
       role: args.role,
     });
+
+    const targetUser = await ctx.db.get(args.userId);
+    await logAdminAction(
+      ctx, admin, "update_user_role",
+      { userId: args.userId, email: targetUser?.email },
+      `Rôle changé en ${args.role === "admin" ? "Administrateur" : "Utilisateur"}`,
+    );
   },
 });
 
@@ -409,6 +416,8 @@ export const deleteUser = mutation({
     }
 
     const userId = args.userId;
+    const targetUser = await ctx.db.get(userId);
+    if (!targetUser) throw new Error("Utilisateur introuvable");
 
     // 1. Delete all user's projects
     const projects = await ctx.db
@@ -479,6 +488,13 @@ export const deleteUser = mutation({
     // 8. Finally, delete the user document
     await ctx.db.delete(userId);
 
+    // Log the action
+    await logAdminAction(
+      ctx, admin, "delete_user",
+      { userId, email: targetUser?.email },
+      targetUser?.name || "Utilisateur supprimé",
+    );
+
     return { success: true };
   },
 });
@@ -533,6 +549,184 @@ export const resetPassword = mutation({
     } as any);
 
     return { success: true };
+  },
+});
+
+// ============================================================================
+// Admin Action Logging Helper
+// ============================================================================
+
+async function logAdminAction(
+  ctx: QueryCtx & { db: any },
+  admin: { _id: any; name?: string },
+  action: string,
+  target?: { userId?: any; email?: string },
+  details?: string,
+) {
+  await ctx.db.insert("adminLogs", {
+    adminId: admin._id,
+    adminName: admin.name,
+    action,
+    targetUserId: target?.userId,
+    targetUserEmail: target?.email,
+    details: details || null,
+    createdAt: Date.now(),
+  });
+}
+
+// ============================================================================
+// Admin Logs Query
+// ============================================================================
+
+export const getAdminLogs = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      return [];
+    }
+
+    const limit = args.limit ?? 100;
+    const logs = await ctx.db
+      .query("adminLogs")
+      .order("desc")
+      .take(limit);
+
+    return logs;
+  },
+});
+
+// ============================================================================
+// Admin: Toggle user active/disabled status
+// ============================================================================
+
+export const toggleUserStatus = mutation({
+  args: {
+    userId: v.id("users"),
+    status: v.union(v.literal("active"), v.literal("disabled")),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    if (admin._id === args.userId) {
+      throw new Error("Vous ne pouvez pas désactiver votre propre compte.");
+    }
+
+    const targetUser = await ctx.db.get(args.userId);
+    if (!targetUser) throw new Error("Utilisateur introuvable");
+
+    await ctx.db.patch(args.userId, { status: args.status });
+
+    await logAdminAction(
+      ctx, admin, "toggle_user_status",
+      { userId: args.userId, email: targetUser.email },
+      args.status === "disabled" ? "Compte désactivé" : "Compte réactivé",
+    );
+
+    return { success: true };
+  },
+});
+
+// ============================================================================
+// Admin: Batch delete users
+// ============================================================================
+
+export const batchDeleteUsers = mutation({
+  args: {
+    userIds: v.array(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const deleted: string[] = [];
+    const errors: string[] = [];
+
+    for (const userId of args.userIds) {
+      if (admin._id === userId) {
+        errors.push("Vous ne pouvez pas supprimer votre propre compte");
+        continue;
+      }
+
+      try {
+        const targetUser = await ctx.db.get(userId);
+        if (!targetUser) {
+          errors.push("Utilisateur introuvable");
+          continue;
+        }
+
+        // Delete projects
+        const projects = await ctx.db
+          .query("projects")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .collect();
+        for (const p of projects) await ctx.db.delete(p._id);
+
+        // Delete subscriptions
+        const subs = await ctx.db
+          .query("subscriptions")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .collect();
+        for (const s of subs) await ctx.db.delete(s._id);
+
+        // Delete notifications
+        const notifs = await ctx.db
+          .query("notifications")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .collect();
+        for (const n of notifs) await ctx.db.delete(n._id);
+
+        // Delete reports
+        const reports = await ctx.db
+          .query("reports")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .collect();
+        for (const r of reports) await ctx.db.delete(r._id);
+
+        // Delete auth accounts
+        const authAccounts = await ctx.db
+          .query("authAccounts")
+          .filter((q) => q.eq(q.field("userId"), userId))
+          .collect();
+        for (const a of authAccounts) {
+          // Also delete verification codes
+          const verifs = await ctx.db
+            .query("authVerificationCodes")
+            .withIndex("accountId", (q) => q.eq("accountId", a._id))
+            .collect();
+          for (const v of verifs) await ctx.db.delete(v._id);
+
+          await ctx.db.delete(a._id);
+        }
+
+        // Delete sessions
+        const sessions = await ctx.db
+          .query("authSessions")
+          .filter((q) => q.eq(q.field("userId"), userId))
+          .collect();
+        for (const ses of sessions) await ctx.db.delete(ses._id);
+
+        // Delete user
+        await ctx.db.delete(userId);
+        deleted.push(targetUser.email || targetUser.name || userId);
+      } catch (err: any) {
+        errors.push(err.message);
+      }
+    }
+
+    // Log the batch action
+    await logAdminAction(
+      ctx, admin, "batch_delete_users",
+      undefined,
+      `${deleted.length} utilisateur(s) supprimé(s)` + (errors.length ? `, ${errors.length} erreur(s)` : ""),
+    );
+
+    return { success: true, deleted, errors };
   },
 });
 

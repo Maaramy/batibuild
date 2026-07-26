@@ -225,6 +225,7 @@ const schema = defineSchema(
       subscriptionEndDate: v.optional(v.number()),
       phone: v.optional(v.string()),
       company: v.optional(v.string()),
+      status: v.optional(v.union(v.literal("active"), v.literal("disabled"))),
       favoriteProjects: v.optional(v.array(v.id("projects"))),
       createdAt: v.optional(v.number()),
     })
@@ -446,6 +447,31 @@ const schema = defineSchema(
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
+
+    // Admin Action Logs
+    adminLogs: defineTable({
+      adminId: v.id("users"),
+      adminName: v.optional(v.string()),
+      action: v.union(
+        v.literal("delete_user"),
+        v.literal("batch_delete_users"),
+        v.literal("toggle_user_status"),
+        v.literal("update_user_role"),
+        v.literal("update_user_plan"),
+        v.literal("approve_subscription"),
+        v.literal("reject_subscription"),
+        v.literal("create_material"),
+        v.literal("update_material"),
+        v.literal("delete_material"),
+      ),
+      targetUserId: v.optional(v.id("users")),
+      targetUserEmail: v.optional(v.string()),
+      details: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_admin", ["adminId"])
+      .index("by_action", ["action"])
+      .index("by_created", ["createdAt"]),
 
     // Price History for tracking material price changes
     priceHistory: defineTable({
