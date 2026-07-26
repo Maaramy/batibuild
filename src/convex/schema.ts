@@ -677,11 +677,19 @@ const schema = defineSchema(
       logo: v.optional(v.string()),
       specialties: v.array(v.string()),
       regions: v.array(v.string()),
+      plan: v.union(
+        v.literal("trial"),
+        v.literal("monthly"),
+        v.literal("none")
+      ),
       subscriptionStatus: v.union(
         v.literal("active"),
+        v.literal("trial"),
         v.literal("inactive"),
         v.literal("expired")
       ),
+      trialStartDate: v.optional(v.number()),
+      subscriptionStartDate: v.optional(v.number()),
       subscriptionEndDate: v.optional(v.number()),
       isVisible: v.boolean(),
       createdAt: v.number(),
