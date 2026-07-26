@@ -289,11 +289,18 @@ export default function PricingPage() {
           </div>
 
           {isPro && (
-            <div className="mt-4 px-4 py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
-              <p className="text-xs text-emerald-700 flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5" />
-                Vous êtes déjà abonné Pro. Il vous reste <strong>{remainingDownloads ?? 10} téléchargement(s)</strong> ce mois-ci.
-              </p>
+            <div className="mt-4 px-4 py-3 sm:py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-1.5">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Check className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
+                  <span className="text-xs sm:text-xs text-emerald-700 leading-relaxed">
+                    Vous êtes déjà abonné Pro.
+                  </span>
+                </div>
+                <span className="text-xs sm:text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-full sm:rounded-md whitespace-nowrap">
+                  {remainingDownloads ?? 10} téléchargement{remainingDownloads && remainingDownloads > 1 ? "s" : ""} restant{remainingDownloads && remainingDownloads > 1 ? "s" : ""}
+                </span>
+              </div>
             </div>
           )}
         </motion.div>
