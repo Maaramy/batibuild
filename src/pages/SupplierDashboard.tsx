@@ -77,6 +77,7 @@ export default function SupplierDashboard() {
   const navigate = useNavigate();
   const profile = useQuery(api.supplierProfiles.getMyProfile);
   const hasProfile = useQuery(api.supplierProfiles.hasSupplierProfile);
+  const paymentConfig = useQuery(api.payments.getPaymentConfig);
   const createProfile = useMutation(api.supplierProfiles.createProfile);
   const updateProfile = useMutation(api.supplierProfiles.updateProfile);
   const startTrial = useMutation(api.supplierProfiles.startTrial);
@@ -218,7 +219,7 @@ export default function SupplierDashboard() {
   const effStatus = (profile as any)?.effectiveStatus || profile?.subscriptionStatus || "inactive";
   const remainingDays = (profile as any)?.remainingDays ?? 0;
   const plan = (profile as any)?.plan || "none";
-  const MONTHLY_PRICE = (profile as any)?.MONTHLY_PRICE || 120;
+  const MONTHLY_PRICE = paymentConfig?.supplierPrice || (profile as any)?.MONTHLY_PRICE || 120;
   const TRIAL_DAYS = (profile as any)?.TRIAL_DAYS || 7;
 
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -428,8 +429,8 @@ export default function SupplierDashboard() {
                     <div className="p-3 rounded-lg bg-amber-50/30 border border-amber-200/30">
                       <p className="text-[9px] text-amber-700 flex items-center gap-1">
                         <Smartphone className="h-3 w-3 shrink-0" />
-                        <strong>D17 :</strong> Envoyez 120 TND via l'application D17 au +216 XX XXX XXX (GALISKON PROJECT).
-                        <strong>Virement :</strong> RIB TN59 0700 1123 4567 8901 2347 — Banque de Tunisie.
+                        <strong>D17 :</strong> Envoyez {paymentConfig?.proPrice || 120} TND via l'application D17 au {paymentConfig?.d17Phone || "+216 XX XXX XXX"} ({paymentConfig?.d17MerchantName || "GALISKON PROJECT"}).
+                        <strong>Virement :</strong> RIB {paymentConfig?.bankRib || "TN59 0700 1123 4567 8901 2347"} — {paymentConfig?.bankName || "Banque de Tunisie"}.
                       </p>
                     </div>
                   </CardContent>
@@ -611,7 +612,7 @@ export default function SupplierDashboard() {
                 <Smartphone className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-muted-foreground">
                   <strong>Paiement accepté :</strong> Virement bancaire ou <strong>D17 (Poste Tunisienne)</strong> —
-                  Envoyez 120 TND par D17 au +216 XX XXX XXX ou par virement RIB TN59 0700 1123 4567 8901 2347.
+                  Envoyez {paymentConfig?.proPrice || 120} TND par D17 au {paymentConfig?.d17Phone || "+216 XX XXX XXX"} ou par virement RIB {paymentConfig?.bankRib || "TN59 0700 1123 4567 8901 2347"}.
                 </p>
               </div>
               <Card className="border-border/40">

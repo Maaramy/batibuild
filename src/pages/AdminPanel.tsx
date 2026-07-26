@@ -10,7 +10,7 @@ import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft,
   BarChart3,
@@ -301,6 +301,10 @@ export default function AdminPanel() {
               <TabsTrigger value="journal" className="text-xs gap-1.5">
                 <NotebookPen className="h-4 w-4" />
                 <span className="hidden xs:inline">Journal</span>
+              </TabsTrigger>
+              <TabsTrigger value="paiement" className="text-xs gap-1.5">
+                <Banknote className="h-4 w-4" />
+                <span className="hidden xs:inline">Paiement</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1253,8 +1257,213 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Payment Configuration */}
+          <TabsContent value="paiement">
+            <PaymentConfigSection />
+          </TabsContent>
         </Tabs>
       </div>
     </main>
   );
 }
+
+// ============================================================================
+// Payment Configuration Section
+// ============================================================================
+
+function PaymentConfigSection() {
+  const config = useQuery(api.payments.getPaymentConfigAdmin);
+  const updateConfig = useMutation(api.payments.updatePaymentConfig);
+  const seedConfig = useMutation(api.payments.seedDefaultPaymentConfig);
+  
+  const [saving, setSaving] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [form, setForm] = useState<Record<string, string | number>>({});
+  
+  // Initialize form when config loads
+  const initialized = useRef(false);
+  useEffect(() => {
+    if (config && !initialized.current) {
+      const initial: Record<string, string | number> = {};
+      Object.entries(config).forEach(([key, val]) => {
+        if (typeof val === "string" || typeof val === "number") {
+          initial[key] = val;
+        }
+      });
+      setForm(initial);
+      initialized.current = true;
+    }
+  }, [config]);
+
+  const handleChange = (key: string, value: string) => {
+    setForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateConfig({
+        bankName: form.bankName as string,
+        bankTitulaire: form.bankTitulaire as string,
+        bankRib: form.bankRib as string,
+        bankIban: form.bankIban as string,
+        bankSwift: form.bankSwift as string,
+        d17MerchantName: form.d17MerchantName as string,
+        d17Phone: form.d17Phone as string,
+        d17Email: form.d17Email as string,
+        d17Notice: form.d17Notice as string,
+        proPrice: Number(form.proPrice) || 79,
+        supplierPrice: Number(form.supplierPrice) || 120,
+        currency: form.currency as string || "TND",
+      });
+      toast.success("Configuration de paiement mise à jour !");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSeed = async () => {
+    setSeeding(true);
+    try {
+      const result = await seedConfig();
+      toast.success(result.message);
+      initialized.current = true;
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  // Get the API object
+  const api2 = api;
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Virement bancaire */}
+      <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+        <CardHeader className="p-5">
+          <div className="flex items-center gap-2">
+            <Banknote className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle className="text-sm">Virement bancaire</CardTitle>
+              <CardDescription className="text-xs">Coordonnées affichées aux utilisateurs</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-5 pt-0 space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Banque</label>
+            <Input value={form.bankName || ""} onChange={(e) => handleChange("bankName", e.target.value)} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Titulaire</label>
+            <Input value={form.bankTitulaire || ""} onChange={(e) => handleChange("bankTitulaire", e.target.value)} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">RIB</label>
+            <Input value={form.bankRib || ""} onChange={(e) => handleChange("bankRib", e.target.value)} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">IBAN</label>
+            <Input value={form.bankIban || ""} onChange={(e) => handleChange("bankIban", e.target.value)} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Swift/BIC</label>
+            <Input value={form.bankSwift || ""} onChange={(e) => handleChange("bankSwift", e.target.value)} className="h-9 text-sm" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* D17 Poste Tunisienne */}
+      <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+        <CardHeader className="p-5">
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle className="text-sm">D17 (Poste Tunisienne)</CardTitle>
+              <CardDescription className="text-xs">Coordonnées D17 affichées aux utilisateurs</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-5 pt-0 space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Bénéficiaire</label>
+            <Input value={form.d17MerchantName || ""} onChange={(e) => handleChange("d17MerchantName", e.target.value)} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Téléphone D17</label>
+            <Input value={form.d17Phone || ""} onChange={(e) => handleChange("d17Phone", e.target.value)} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Email</label>
+            <Input value={form.d17Email || ""} onChange={(e) => handleChange("d17Email", e.target.value)} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Notice d'information</label>
+            <textarea
+              value={form.d17Notice || ""}
+              onChange={(e) => handleChange("d17Notice", e.target.value)}
+              className="h-16 w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-xs resize-none"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Prix */}
+      <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+        <CardHeader className="p-5">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle className="text-sm">Prix des abonnements</CardTitle>
+              <CardDescription className="text-xs">Montants affichés dans les pages de paiement</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-5 pt-0 space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Abonnement Pro (TND/mois)</label>
+            <Input type="number" value={form.proPrice || 79} onChange={(e) => handleChange("proPrice", e.target.value)} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Abonnement Fournisseur (TND/mois)</label>
+            <Input type="number" value={form.supplierPrice || 120} onChange={(e) => handleChange("supplierPrice", e.target.value)} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Devise</label>
+            <Input value={form.currency || "TND"} onChange={(e) => handleChange("currency", e.target.value)} className="h-9 text-sm" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Actions */}
+      <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+        <CardHeader className="p-5">
+          <CardTitle className="text-sm">Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="p-5 pt-0 space-y-3">
+          <div className="flex items-center gap-2">
+            <Button size="sm" className="h-9 text-xs gap-1.5" onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Enregistrer la configuration
+            </Button>
+            <Button size="sm" variant="outline" className="h-9 text-xs gap-1.5" onClick={handleSeed} disabled={seeding}>
+              {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Valeurs par défaut
+            </Button>
+          </div>
+          {config && (
+            <p className="text-[9px] text-muted-foreground">
+              Dernière mise à jour : {new Date(config.updatedAt).toLocaleString("fr-FR")}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+

@@ -10,21 +10,20 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
 
-const BANK_INFO = {
-  bank: "Banque de Tunisie (BT)",
-  rib: "07 001 1234567890123 47",
-  iban: "TN59 0700 1123 4567 8901 2347",
-  swift: "BTBK TN TT",
-  titulaire: "BudgetBati SARL",
-  montant: "79 TND",
-};
-
-const D17_INFO = {
-  merchantName: "GALISKON PROJECT",
-  phone: "+216 XX XXX XXX",
-  email: "paiement@budgetbati.tn",
-  montant: "79 TND",
-  notice: "Envoyez le paiement via l'application D17 de La Poste Tunisienne"
+// Default payment config (fallback if not set in DB)
+const DEFAULT_PAYMENT = {
+  bankName: "Banque de Tunisie (BT)",
+  bankTitulaire: "GALISKON PROJECT",
+  bankRib: "07 001 1234567890123 47",
+  bankIban: "TN59 0700 1123 4567 8901 2347",
+  bankSwift: "BTBK TN TT",
+  d17MerchantName: "GALISKON PROJECT",
+  d17Phone: "+216 XX XXX XXX",
+  d17Email: "paiement@budgetbati.tn",
+  d17Notice: "Envoyez le paiement via l'application D17 de La Poste Tunisienne",
+  proPrice: 79,
+  supplierPrice: 120,
+  currency: "TND",
 };
 
 const PLANS = [
@@ -72,6 +71,41 @@ export default function PricingPage() {
   const cancelSubscription = useMutation(api.subscriptions.cancelSubscription);
   const [copying, setCopying] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
+  const paymentConfig = useQuery(api.payments.getPaymentConfig);
+  
+  // Build dynamic BANK_INFO and D17_INFO from config
+  const BANK_INFO: Record<string, string> = paymentConfig ? {
+    bank: paymentConfig.bankName,
+    titulaire: paymentConfig.bankTitulaire,
+    rib: paymentConfig.bankRib,
+    iban: paymentConfig.bankIban,
+    swift: paymentConfig.bankSwift,
+    montant: `${paymentConfig.proPrice} ${paymentConfig.currency}`,
+  } : {
+    bank: DEFAULT_PAYMENT.bankName,
+    titulaire: DEFAULT_PAYMENT.bankTitulaire,
+    rib: DEFAULT_PAYMENT.bankRib,
+    iban: DEFAULT_PAYMENT.bankIban,
+    swift: DEFAULT_PAYMENT.bankSwift,
+    montant: `${DEFAULT_PAYMENT.proPrice} ${DEFAULT_PAYMENT.currency}`,
+  };
+  
+  const D17_INFO: Record<string, string> = paymentConfig ? {
+    merchantName: paymentConfig.d17MerchantName,
+    phone: paymentConfig.d17Phone,
+    email: paymentConfig.d17Email,
+    montant: `${paymentConfig.proPrice} ${paymentConfig.currency}`,
+    notice: paymentConfig.d17Notice,
+  } : {
+    merchantName: DEFAULT_PAYMENT.d17MerchantName,
+    phone: DEFAULT_PAYMENT.d17Phone,
+    email: DEFAULT_PAYMENT.d17Email,
+    montant: `${DEFAULT_PAYMENT.proPrice} ${DEFAULT_PAYMENT.currency}`,
+    notice: DEFAULT_PAYMENT.d17Notice,
+  };
+  
+  const proPrice = paymentConfig?.proPrice || DEFAULT_PAYMENT.proPrice;
+  const currency = paymentConfig?.currency || DEFAULT_PAYMENT.currency;
 
   const currentPlan = user?.subscriptionPlan || "free";
   const isPro = currentPlan === "pro";
@@ -98,8 +132,8 @@ export default function PricingPage() {
     await createSubscription({
       plan: planId as any,
       paymentMethod: paymentMethod,
-      amount: 79,
-      currency: "TND",
+      amount: paymentConfig?.proPrice ?? DEFAULT_PAYMENT.proPrice,
+      currency: paymentConfig?.currency ?? DEFAULT_PAYMENT.currency,
     });
 
     toast.success(
@@ -252,7 +286,7 @@ export default function PricingPage() {
             <div>
               <h2 className="text-lg font-semibold">Moyen de paiement</h2>
               <p className="text-xs text-muted-foreground">
-                Choisissez votre méthode de paiement pour l'abonnement <strong>Pro à 79 TND/mois</strong>.
+                Choisissez votre méthode de paiement pour l'abonnement <strong>Pro à {proPrice} {currency}/mois</strong>.
               </p>
             </div>
           </div>
@@ -377,7 +411,7 @@ export default function PricingPage() {
                   <Smartphone className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-[10px] text-amber-700">
                     <strong>Comment payer avec D17 ?</strong> Ouvrez l'application D17 sur votre téléphone,
-                    sélectionnez "Paiement marchand", entrez le téléphone ci-dessus et le montant de 79 TND.
+                    sélectionnez "Paiement marchand", entrez le téléphone ci-dessus et le montant de {proPrice} {currency}.
                     Envoyez-nous la confirmation par email.
                   </p>
                 </div>

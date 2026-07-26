@@ -698,6 +698,27 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_specialties", ["specialties"])
       .index("by_subscription", ["subscriptionStatus"]),
+
+    // Payment Configuration (bank transfer & D17 details)
+    paymentConfig: defineTable({
+      // Bank transfer
+      bankName: v.string(),
+      bankTitulaire: v.string(),
+      bankRib: v.string(),
+      bankIban: v.string(),
+      bankSwift: v.string(),
+      // D17
+      d17MerchantName: v.string(),
+      d17Phone: v.string(),
+      d17Email: v.string(),
+      d17Notice: v.string(),
+      // Common
+      proPrice: v.number(),
+      supplierPrice: v.number(),
+      currency: v.string(),
+      updatedAt: v.number(),
+      updatedBy: v.id("users"),
+    }).index("by_updated", ["updatedAt"]),
   },
   {
     schemaValidation: false,
