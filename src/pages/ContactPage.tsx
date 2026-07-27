@@ -47,7 +47,7 @@ export default function ContactPage() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
           {/* Rania Marzougui */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -95,6 +95,31 @@ export default function ContactPage() {
             >
               <Mail className="h-4 w-4 shrink-0" />
               <span className="truncate">rami.maatougui@budgetbati.com</span>
+            </a>
+          </motion.div>
+
+          {/* Marzougui Riadh */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="group rounded-xl border border-border/50 bg-card p-6 hover:border-primary/20 hover:shadow-lg transition-all duration-300"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/10 to-orange-500/5 text-amber-600">
+                <span className="text-base font-bold">MR</span>
+              </div>
+              <div>
+                <h3 className="font-semibold">Marzougui Riadh</h3>
+                <p className="text-xs text-muted-foreground">Architecte (Expert Conseiller)</p>
+              </div>
+            </div>
+            <a
+              href="mailto:Riadh.marzougui@budgetbati.com"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group-hover:translate-x-0.5 transition-transform"
+            >
+              <Mail className="h-4 w-4 shrink-0" />
+              <span className="truncate">Riadh.marzougui@budgetbati.com</span>
             </a>
           </motion.div>
         </div>
