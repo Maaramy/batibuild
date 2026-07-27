@@ -238,6 +238,7 @@ export default function Dashboard() {
   const planLimits = useQuery(api.projects.getPlanLimits) || { free: 3, pro: 10, expert: 100 };
   const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowed);
   const remainingDownloads = downloadInfo?.remaining ?? 0;
+  const downloadLimit = downloadInfo?.limit ?? 0;
   const isProAllowed = downloadInfo?.reason === "ok" || downloadInfo?.reason === "limite_atteinte";
 
   // ── Project limit counter & 80% warning ──
@@ -348,22 +349,22 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               {/* Download counter */}
-              {isProAllowed && (
+              {isProAllowed && downloadLimit > 0 && (
                 <a href="/dashboard/pricing"
                   className="hidden sm:inline-flex items-center gap-1.5 h-7 sm:h-8 lg:h-9 px-2 sm:px-2.5 rounded-lg border border-border/40 text-foreground/70 hover:text-foreground hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer"
                   title="Téléchargements restants">
                   <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  <span className={`text-[10px] sm:text-[11px] font-semibold tabular-nums ${remainingDownloads === 0 ? 'text-amber-600' : ''}`}>
-                    {remainingDownloads}
+                  <span className={`text-[10px] sm:text-[11px] font-semibold tabular-nums ${remainingDownloads === 0 ? 'text-amber-600' : downloadLimit > 99 ? '' : ''}`}>
+                    {remainingDownloads}{downloadLimit > 0 ? <span className="text-muted-foreground/50 font-normal">/{downloadLimit}</span> : ''}
                   </span>
                 </a>
               )}
 
               {/* Mobile download counter - compact */}
-              {isProAllowed && (
+              {isProAllowed && downloadLimit > 0 && (
                 <a href="/dashboard/pricing"
                   className="sm:hidden inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border/40 text-foreground/70 hover:text-foreground hover:border-primary/30 transition-all cursor-pointer relative"
-                  title={`${remainingDownloads} téléchargement(s) restant(s)`}>
+                  title={`${remainingDownloads}/${downloadLimit} téléchargement(s) restant(s)`}>
                   <Download className="h-3.5 w-3.5" />
                   <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[7px] font-bold leading-none bg-primary text-primary-foreground">
                     {remainingDownloads > 9 ? '9+' : remainingDownloads}
@@ -434,23 +435,37 @@ export default function Dashboard() {
               gradient="from-amber-500/20 to-orange-500/20" iconColor="text-amber-600 dark:text-amber-400" />
           </div>
 
-          {/* ── Project Counter Card (Pro users) ── */}
-          {projectLimit !== Infinity && stats.totalProjects > 0 && (
+          {/* ── Plan Counter Card (Free/Pro/Expert) ── */}
+          {(projectLimit !== Infinity || userPlan === "expert") && stats.totalProjects > 0 && (
             <Card className={`border ${isNearLimit ? 'border-amber-200/60 dark:border-amber-800/40' : 'border-border/40'} bg-background/50 backdrop-blur-sm overflow-hidden`}>
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className={`flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg ${
-                      isNearLimit
+                      userPlan === "expert"
+                        ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400'
+                        : isNearLimit
                         ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400'
                         : 'bg-gradient-to-br from-primary/20 to-primary/10 text-primary'
                     }`}>
                       <HardHat className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs sm:text-sm font-medium">
-                        {userPlan === "free" ? "Forfait Gratuit" : userPlan === "expert" ? "Forfait Expert" : "Forfait Pro"}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs sm:text-sm font-medium">
+                          {userPlan === "free" ? "Forfait Gratuit" : userPlan === "expert" ? "Forfait Expert" : "Forfait Pro"}
+                        </p>
+                        {userPlan === "expert" && (
+                          <Badge className="bg-amber-500/10 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">
+                            320 TND/mois
+                          </Badge>
+                        )}
+                        {userPlan === "pro" && (
+                          <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[8px] px-1.5 py-0">
+                            79 TND/mois
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                         <span className={`font-semibold tabular-nums ${isNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}>
                           {usedProjects}
@@ -473,7 +488,9 @@ export default function Dashboard() {
                 <div className="mt-2.5 sm:mt-3 relative h-2 sm:h-2.5 rounded-full bg-muted/50 overflow-hidden">
                   <div
                     className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
-                      isNearLimit
+                      userPlan === "expert"
+                        ? 'bg-gradient-to-r from-amber-400 to-orange-500'
+                        : isNearLimit
                         ? 'bg-gradient-to-r from-amber-400 to-orange-500'
                         : 'bg-gradient-to-r from-primary/60 to-primary'
                     }`}
@@ -486,6 +503,23 @@ export default function Dashboard() {
                   >
                     Passer à l'offre Pro <ArrowUpRight className="h-3 w-3" />
                   </a>
+                )}
+                {/* Downloads info for Pro/Expert */}
+                {isProAllowed && downloadLimit > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-border/20 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground">
+                      <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      <span>
+                        <span className={`font-semibold tabular-nums ${remainingDownloads === 0 ? 'text-amber-600' : ''}`}>{remainingDownloads}</span>
+                        <span className="text-muted-foreground/50"> / </span>
+                        <span className="tabular-nums">{downloadLimit}</span>
+                        {" "}téléchargements restants
+                      </span>
+                    </div>
+                    {remainingDownloads === 0 && (
+                      <span className="text-[9px] text-amber-600 font-medium">Épuisé</span>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
