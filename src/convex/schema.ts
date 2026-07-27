@@ -733,6 +733,23 @@ const schema = defineSchema(
       updatedAt: v.number(),
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),
+
+    // SEO Configuration (editable by admin)
+    seoConfig: defineTable({
+      siteName: v.string(),
+      siteDescription: v.string(),
+      keywords: v.string(),
+      ogTitle: v.string(),
+      ogDescription: v.string(),
+      ogImage: v.optional(v.string()),
+      twitterCard: v.optional(v.string()),
+      canonicalUrl: v.optional(v.string()),
+      googleAnalyticsId: v.optional(v.string()),
+      robotsTxt: v.optional(v.string()),
+      additionalMetaTags: v.optional(v.string()),
+      updatedAt: v.number(),
+      updatedBy: v.id("users"),
+    }).index("by_updated", ["updatedAt"]),
   },
   {
     schemaValidation: false,

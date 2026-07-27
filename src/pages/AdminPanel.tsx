@@ -10,6 +10,7 @@ import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
+import SeoSettings from "./SeoSettings";
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft,
@@ -336,7 +337,16 @@ export default function AdminPanel() {
                 <HardHat className="h-4 w-4" />
                 <span className="hidden xs:inline">Limites</span>
               </TabsTrigger>
+              <TabsTrigger value="seo" className="text-xs gap-1.5">
+                <Globe className="h-4 w-4" />
+                <span className="hidden xs:inline">SEO</span>
+              </TabsTrigger>
             </TabsList>
+
+              {/* SEO Configuration */}
+              <TabsContent value="seo">
+                <SeoSettings />
+              </TabsContent>
           </div>
 
           {/* Admin Dashboard */}
