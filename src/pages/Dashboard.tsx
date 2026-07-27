@@ -235,14 +235,14 @@ export default function Dashboard() {
     totalProjects: 0, completedProjects: 0, analyzingProjects: 0, draftProjects: 0,
     totalEstimatedCost: 0, averageCostPerProject: 0, recentProjects: [],
   };
-  const planLimits = useQuery(api.projects.getPlanLimits) || { free: 3, pro: 10 };
+  const planLimits = useQuery(api.projects.getPlanLimits) || { free: 3, pro: 10, expert: 100 };
   const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowed);
   const remainingDownloads = downloadInfo?.remaining ?? 0;
   const isProAllowed = downloadInfo?.reason === "ok" || downloadInfo?.reason === "limite_atteinte";
 
   // ── Project limit counter & 80% warning ──
   const userPlan = (user as any)?.subscriptionPlan ?? "free";
-  const projectLimit = userPlan === "free" ? planLimits.free : userPlan === "pro" ? planLimits.pro : Infinity;
+  const projectLimit = userPlan === "free" ? planLimits.free : userPlan === "pro" ? planLimits.pro : planLimits.expert ?? 100;
   const usedProjects = stats.totalProjects;
   const usagePercent = projectLimit !== Infinity ? Math.round((usedProjects / projectLimit) * 100) : 0;
   const isNearLimit = usagePercent >= 80 && projectLimit !== Infinity;
@@ -449,7 +449,7 @@ export default function Dashboard() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs sm:text-sm font-medium">
-                        {userPlan === "free" ? "Forfait Gratuit" : "Forfait Pro"}
+                        {userPlan === "free" ? "Forfait Gratuit" : userPlan === "expert" ? "Forfait Expert" : "Forfait Pro"}
                       </p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                         <span className={`font-semibold tabular-nums ${isNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}>

@@ -152,6 +152,7 @@ export const compareProjects = query({
 const DEFAULT_PLAN_LIMITS = {
   free: 3,
   pro: 10,
+  expert: 100,
 };
 
 /** Get the current project plan limits (from paymentConfig or defaults) */
@@ -165,6 +166,7 @@ export const getPlanLimits = query({
     return {
       free: config?.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
       pro: config?.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
+      expert: DEFAULT_PLAN_LIMITS.expert,
       updatedAt: config?.updatedAt ?? null,
     };
   },
@@ -175,6 +177,7 @@ export const updatePlanLimits = mutation({
   args: {
     freeProjectLimit: v.optional(v.number()),
     proProjectLimit: v.optional(v.number()),
+    expertProjectLimit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -192,6 +195,7 @@ export const updatePlanLimits = mutation({
 
     if (args.freeProjectLimit !== undefined) updates.freeProjectLimit = args.freeProjectLimit;
     if (args.proProjectLimit !== undefined) updates.proProjectLimit = args.proProjectLimit;
+    if (args.expertProjectLimit !== undefined) updates.expertProjectLimit = args.expertProjectLimit;
 
     if (existing) {
       await ctx.db.patch(existing._id, updates);
@@ -212,6 +216,7 @@ export const updatePlanLimits = mutation({
         currency: "TND",
         freeProjectLimit: args.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
         proProjectLimit: args.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
+        expertProjectLimit: args.expertProjectLimit ?? DEFAULT_PLAN_LIMITS.expert,
         updatedAt: now,
         updatedBy: user._id,
       });
@@ -258,6 +263,7 @@ export const createProject = mutation({
     const planLimits: Record<string, number> = {
       free: config?.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
       pro: config?.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
+      expert: DEFAULT_PLAN_LIMITS.expert,
     };
     
     const limit = planLimits[userPlan] ?? Infinity;

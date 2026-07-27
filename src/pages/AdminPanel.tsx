@@ -103,15 +103,15 @@ export default function AdminPanel() {
   const adminLogs = useQuery(api.users.getAdminLogs, { limit: 100 }) || [];
   
   // Plan limits
-  const planLimitsConfig = useQuery(api.projects.getPlanLimits) || { free: 3, pro: 10 };
+  const planLimitsConfig = useQuery(api.projects.getPlanLimits) || { free: 3, pro: 10, expert: 100 };
   const updatePlanLimits = useMutation(api.projects.updatePlanLimits);
-  const [limitForm, setLimitForm] = useState({ free: 3, pro: 10 });
+  const [limitForm, setLimitForm] = useState({ free: 3, pro: 10, expert: 100 });
   const [savingLimits, setSavingLimits] = useState(false);
 
   // Sync local form when config loads
   useEffect(() => {
-    setLimitForm({ free: planLimitsConfig.free, pro: planLimitsConfig.pro });
-  }, [planLimitsConfig.free, planLimitsConfig.pro]);
+    setLimitForm({ free: planLimitsConfig.free, pro: planLimitsConfig.pro, expert: planLimitsConfig.expert });
+  }, [planLimitsConfig.free, planLimitsConfig.pro, planLimitsConfig.expert]);
 
   const createMaterial = useMutation(api.materials.createMaterialPrice);
   const updateMaterial = useMutation(api.materials.updateMaterialPrice);
@@ -910,6 +910,7 @@ export default function AdminPanel() {
                                 >
                                   <option value="free">Gratuit</option>
                                   <option value="pro">Pro (79 TND)</option>
+                                  <option value="expert">Expert (320 TND)</option>
                                 </select>
                               </td>
                               <td className="py-3 px-2 sm:px-3 text-right hidden sm:table-cell">
@@ -1370,7 +1371,7 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
                 <div className="space-y-4 sm:space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="rounded-xl border border-border/40 p-4 sm:p-5 bg-background/30">
                       <div className="flex items-center gap-2 mb-3">
                         <Badge variant="secondary" className="text-[10px]">Gratuit</Badge>
@@ -1414,6 +1415,28 @@ export default function AdminPanel() {
                         Actuellement : <strong>{planLimitsConfig.pro}</strong> projet(s) max
                       </p>
                     </div>
+
+                    <div className="rounded-xl border border-amber-500/20 p-4 sm:p-5 bg-amber-500/[0.02]">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Badge className="bg-amber-500/10 text-amber-600 border-amber-400/30 text-[10px]">Expert</Badge>
+                        <span className="text-[10px] text-muted-foreground">Forfait professionnel</span>
+                      </div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Nombre max de projets</label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={9999}
+                          value={limitForm.expert}
+                          onChange={(e) => setLimitForm({ ...limitForm, expert: parseInt(e.target.value) || 0 })}
+                          className="h-9 w-24 text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">projets</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        Actuellement : <strong>{planLimitsConfig.expert}</strong> projet(s) max
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
@@ -1433,6 +1456,7 @@ export default function AdminPanel() {
                           await updatePlanLimits({
                             freeProjectLimit: limitForm.free,
                             proProjectLimit: limitForm.pro,
+                            expertProjectLimit: limitForm.expert,
                           });
                           toast.success("Limites mises à jour avec succès");
                         } catch (err: any) {

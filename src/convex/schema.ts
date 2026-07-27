@@ -20,11 +20,13 @@ export type Role = Infer<typeof roleValidator>;
 export const SUBSCRIPTION_PLANS = {
   FREE: "free",
   PRO: "pro",
+  EXPERT: "expert",
 } as const;
 
 export const subscriptionPlanValidator = v.union(
   v.literal(SUBSCRIPTION_PLANS.FREE),
   v.literal(SUBSCRIPTION_PLANS.PRO),
+  v.literal(SUBSCRIPTION_PLANS.EXPERT),
 );
 export type SubscriptionPlan = Infer<typeof subscriptionPlanValidator>;
 
@@ -717,10 +719,12 @@ const schema = defineSchema(
       // Common
       proPrice: v.number(),
       supplierPrice: v.number(),
+      expertPrice: v.optional(v.number()),
       currency: v.string(),
       // Project plan limits
       freeProjectLimit: v.optional(v.number()),
       proProjectLimit: v.optional(v.number()),
+      expertProjectLimit: v.optional(v.number()),
       updatedAt: v.number(),
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),

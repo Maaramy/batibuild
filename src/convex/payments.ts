@@ -19,6 +19,7 @@ const DEFAULT_CONFIG = {
     "Envoyez le paiement via l'application D17 de La Poste Tunisienne",
   proPrice: 79,
   supplierPrice: 120,
+  expertPrice: 320,
   currency: "TND",
 };
 
@@ -80,6 +81,7 @@ export const updatePaymentConfig = mutation({
     d17Notice: v.optional(v.string()),
     proPrice: v.optional(v.number()),
     supplierPrice: v.optional(v.number()),
+    expertPrice: v.optional(v.number()),
     currency: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -111,6 +113,7 @@ export const updatePaymentConfig = mutation({
     if (args.d17Notice !== undefined) updates.d17Notice = args.d17Notice;
     if (args.proPrice !== undefined) updates.proPrice = args.proPrice;
     if (args.supplierPrice !== undefined) updates.supplierPrice = args.supplierPrice;
+    if (args.expertPrice !== undefined) updates.expertPrice = args.expertPrice;
     if (args.currency !== undefined) updates.currency = args.currency;
 
     if (existing) {
@@ -129,6 +132,7 @@ export const updatePaymentConfig = mutation({
         d17Notice: args.d17Notice ?? DEFAULT_CONFIG.d17Notice,
         proPrice: args.proPrice ?? DEFAULT_CONFIG.proPrice,
         supplierPrice: args.supplierPrice ?? DEFAULT_CONFIG.supplierPrice,
+        expertPrice: args.expertPrice ?? DEFAULT_CONFIG.expertPrice,
         currency: args.currency ?? DEFAULT_CONFIG.currency,
         updatedAt: now,
         updatedBy: user._id,

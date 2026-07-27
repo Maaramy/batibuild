@@ -78,8 +78,8 @@ export const checkDownloadAllowed = query({
     const user = await getCurrentUser(ctx);
     if (!user) return { allowed: false, reason: "non_connecté" };
 
-    // Pro users get 10 downloads per month
-    if (user.subscriptionPlan === "pro") {
+    // Pro/Expert users get downloads per month
+    if (user.subscriptionPlan === "pro" || user.subscriptionPlan === "expert") {
       const sub = await ctx.db
         .query("subscriptions")
         .withIndex("by_user", (q) => q.eq("userId", user._id))
@@ -90,7 +90,7 @@ export const checkDownloadAllowed = query({
         return { allowed: false, reason: "abonnement_inactif" };
       }
 
-      const limit = sub.downloadLimit ?? 10;
+      const limit = sub.downloadLimit ?? (user.subscriptionPlan === "expert" ? 100 : 10);
       const used = sub.monthlyDownloadCount ?? 0;
       const remaining = limit - used;
 
@@ -113,8 +113,8 @@ export const consumeDownload = mutation({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
-    if (!user || user.subscriptionPlan !== "pro") {
-      throw new Error("Seuls les abonnés Pro peuvent télécharger des devis");
+    if (!user || (user.subscriptionPlan !== "pro" && user.subscriptionPlan !== "expert")) {
+      throw new Error("Seuls les abonnés Pro et Expert peuvent télécharger des devis");
     }
 
     const sub = await ctx.db
@@ -127,15 +127,17 @@ export const consumeDownload = mutation({
       throw new Error("Abonnement inactif");
     }
 
+    const limit = sub.downloadLimit ?? (user.subscriptionPlan === "expert" ? 100 : 10);
     const used = (sub.monthlyDownloadCount ?? 0) + 1;
     await ctx.db.patch(sub._id, {
       monthlyDownloadCount: used,
       updatedAt: Date.now(),
     });
 
-    return { used, remaining: (sub.downloadLimit ?? 10) - used };
+    return { used, remaining: limit - used };
   },
 });
+
 
 // ============================================================================
 // Mutations
@@ -159,6 +161,7 @@ export const createSubscription = mutation({
     const planConfig: Record<string, { duration: number; limit: number }> = {
       free: { duration: 365 * 24 * 60 * 60 * 1000, limit: 0 },
       pro: { duration: 30 * 24 * 60 * 60 * 1000, limit: 10 },
+      expert: { duration: 30 * 24 * 60 * 60 * 1000, limit: 100 },
     };
 
     const config = planConfig[args.plan] || planConfig.free;

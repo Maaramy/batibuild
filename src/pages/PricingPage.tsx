@@ -49,7 +49,7 @@ const PLANS = [
     period: "TND/mois",
     description: "Pour les professionnels de la construction",
     features: [
-      "Projets illimités",
+      "10 projets par mois",
       "Analyse IA avancée",
       "Export PDF du devis détaillé",
       "10 téléchargements de devis / mois",
@@ -58,8 +58,28 @@ const PLANS = [
       "Historique complet",
       "Support prioritaire",
     ],
-    popular: true,
     gradient: "from-blue-500/10 to-violet-500/10 dark:from-blue-500/20 dark:to-violet-500/20",
+  },
+  {
+    id: "expert",
+    name: "Expert",
+    price: "320",
+    period: "TND/mois",
+    description: "Pour les entreprises et les grands projets",
+    features: [
+      "100 projets par mois",
+      "Analyse IA avancée",
+      "Export PDF du devis détaillé",
+      "100 téléchargements de devis / mois",
+      "Rapports détaillés",
+      "Comparaison de projets",
+      "Historique complet",
+      "Support prioritaire",
+      "Accès API (bientôt)",
+      "Fournisseurs vérifiés prioritaires",
+    ],
+    popular: true,
+    gradient: "from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20",
   },
 ];
 
