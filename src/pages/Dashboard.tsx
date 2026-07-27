@@ -44,6 +44,7 @@ import {
   Shield,
   Store,
   User,
+  AlertTriangle,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
@@ -220,9 +221,17 @@ export default function Dashboard() {
     totalProjects: 0, completedProjects: 0, analyzingProjects: 0, draftProjects: 0,
     totalEstimatedCost: 0, averageCostPerProject: 0, recentProjects: [],
   };
+  const planLimits = useQuery(api.projects.getPlanLimits) || { free: 3, pro: 10 };
   const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowed);
   const remainingDownloads = downloadInfo?.remaining ?? 0;
   const isProAllowed = downloadInfo?.reason === "ok" || downloadInfo?.reason === "limite_atteinte";
+
+  // ── Project limit counter & 80% warning ──
+  const userPlan = (user as any)?.subscriptionPlan ?? "free";
+  const projectLimit = userPlan === "free" ? planLimits.free : userPlan === "pro" ? planLimits.pro : Infinity;
+  const usedProjects = stats.totalProjects;
+  const usagePercent = projectLimit !== Infinity ? Math.round((usedProjects / projectLimit) * 100) : 0;
+  const isNearLimit = usagePercent >= 80 && projectLimit !== Infinity;
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
@@ -410,6 +419,94 @@ export default function Dashboard() {
             <StatsCard icon={BarChart3} label="Moyenne" value={formatter.format(stats.averageCostPerProject)}
               gradient="from-amber-500/20 to-orange-500/20" iconColor="text-amber-600 dark:text-amber-400" />
           </div>
+
+          {/* ── Project Counter Card (Pro users) ── */}
+          {projectLimit !== Infinity && stats.totalProjects > 0 && (
+            <Card className={`border ${isNearLimit ? 'border-amber-200/60 dark:border-amber-800/40' : 'border-border/40'} bg-background/50 backdrop-blur-sm overflow-hidden`}>
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg ${
+                      isNearLimit
+                        ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400'
+                        : 'bg-gradient-to-br from-primary/20 to-primary/10 text-primary'
+                    }`}>
+                      <HardHat className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-medium">
+                        {userPlan === "free" ? "Forfait Gratuit" : "Forfait Pro"}
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                        <span className={`font-semibold tabular-nums ${isNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}>
+                          {usedProjects}
+                        </span>
+                        <span className="text-muted-foreground/50"> / </span>
+                        <span className="tabular-nums">{projectLimit}</span>
+                        {" "}projets utilisés
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className={`text-xs sm:text-sm font-bold tabular-nums ${
+                      isNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-primary'
+                    }`}>
+                      {usagePercent}%
+                    </div>
+                  </div>
+                </div>
+                {/* Usage bar */}
+                <div className="mt-2.5 sm:mt-3 relative h-2 sm:h-2.5 rounded-full bg-muted/50 overflow-hidden">
+                  <div
+                    className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
+                      isNearLimit
+                        ? 'bg-gradient-to-r from-amber-400 to-orange-500'
+                        : 'bg-gradient-to-r from-primary/60 to-primary'
+                    }`}
+                    style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                  />
+                </div>
+                {userPlan === "free" && usagePercent >= 70 && (
+                  <a href="/dashboard/pricing"
+                    className="mt-2 inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                  >
+                    Passer à l'offre Pro <ArrowUpRight className="h-3 w-3" />
+                  </a>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── 80% Warning Banner ── */}
+          {isNearLimit && (
+            <Card className="border border-amber-200/70 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-950/20 backdrop-blur-sm">
+              <CardContent className="p-3 sm:p-4 flex items-start gap-2.5 sm:gap-3">
+                <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 mt-0.5">
+                  <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-semibold text-amber-800 dark:text-amber-300">
+                    Limite de projets presque atteinte
+                  </p>
+                  <p className="text-[10px] sm:text-xs text-amber-700/80 dark:text-amber-400/80 mt-0.5">
+                    Vous avez utilisé <strong>{usagePercent}%</strong> de votre limite de <strong>{projectLimit} projets</strong>.
+                    {userPlan === "free"
+                      ? " Passez à l'offre Pro pour créer jusqu'à 10 projets."
+                      : " Contactez l'administrateur pour augmenter votre limite si nécessaire."
+                    }
+                  </p>
+                  {userPlan === "free" && (
+                    <div className="mt-1.5 flex gap-1.5">
+                      <Button size="sm" variant="outline" className="h-7 text-[10px] sm:text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                        onClick={() => navigate("/dashboard/pricing")}>
+                        Voir les offres
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* ── Progression Indicator ── */}
           {stats.totalProjects > 0 && (

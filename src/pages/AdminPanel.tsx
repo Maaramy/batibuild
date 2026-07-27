@@ -101,6 +101,17 @@ export default function AdminPanel() {
   const [batchDeleting, setBatchDeleting] = useState(false);
 
   const adminLogs = useQuery(api.users.getAdminLogs, { limit: 100 }) || [];
+  
+  // Plan limits
+  const planLimitsConfig = useQuery(api.projects.getPlanLimits) || { free: 3, pro: 10 };
+  const updatePlanLimits = useMutation(api.projects.updatePlanLimits);
+  const [limitForm, setLimitForm] = useState({ free: 3, pro: 10 });
+  const [savingLimits, setSavingLimits] = useState(false);
+
+  // Sync local form when config loads
+  useEffect(() => {
+    setLimitForm({ free: planLimitsConfig.free, pro: planLimitsConfig.pro });
+  }, [planLimitsConfig.free, planLimitsConfig.pro]);
 
   const createMaterial = useMutation(api.materials.createMaterialPrice);
   const updateMaterial = useMutation(api.materials.updateMaterialPrice);
@@ -305,6 +316,10 @@ export default function AdminPanel() {
               <TabsTrigger value="paiement" className="text-xs gap-1.5">
                 <Banknote className="h-4 w-4" />
                 <span className="hidden xs:inline">Paiement</span>
+              </TabsTrigger>
+              <TabsTrigger value="limites" className="text-xs gap-1.5">
+                <HardHat className="h-4 w-4" />
+                <span className="hidden xs:inline">Limites</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1337,6 +1352,139 @@ export default function AdminPanel() {
           {/* Payment Configuration */}
           <TabsContent value="paiement">
             <PaymentConfigSection />
+          </TabsContent>
+
+          {/* Plan Limits */}
+          <TabsContent value="limites">
+            <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+              <CardHeader className="p-4 sm:p-6">
+                <div className="flex items-center gap-2">
+                  <HardHat className="h-5 w-5 text-primary" />
+                  <div>
+                    <CardTitle className="text-sm sm:text-base">Limites de projets par forfait</CardTitle>
+                    <CardDescription className="text-xs">
+                      Configurez le nombre maximum de projets autorisés par forfait.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+                <div className="space-y-4 sm:space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-border/40 p-4 sm:p-5 bg-background/30">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Badge variant="secondary" className="text-[10px]">Gratuit</Badge>
+                        <span className="text-[10px] text-muted-foreground">Forfait de base</span>
+                      </div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Nombre max de projets</label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={limitForm.free}
+                          onChange={(e) => setLimitForm({ ...limitForm, free: parseInt(e.target.value) || 0 })}
+                          className="h-9 w-24 text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">projets</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        Actuellement : <strong>{planLimitsConfig.free}</strong> projet(s) max
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-primary/20 p-4 sm:p-5 bg-primary/[0.02]">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[10px]">Pro</Badge>
+                        <span className="text-[10px] text-muted-foreground">Forfait payant</span>
+                      </div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Nombre max de projets</label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={1000}
+                          value={limitForm.pro}
+                          onChange={(e) => setLimitForm({ ...limitForm, pro: parseInt(e.target.value) || 0 })}
+                          className="h-9 w-24 text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">projets</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        Actuellement : <strong>{planLimitsConfig.pro}</strong> projet(s) max
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Settings className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-xs text-muted-foreground">
+                        Les limites s'appliquent aux nouveaux projets créés. Les administrateurs ne sont pas limités.
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="ml-3 h-9 shrink-0 gap-1.5"
+                      disabled={savingLimits}
+                      onClick={async () => {
+                        setSavingLimits(true);
+                        try {
+                          await updatePlanLimits({
+                            freeProjectLimit: limitForm.free,
+                            proProjectLimit: limitForm.pro,
+                          });
+                          toast.success("Limites mises à jour avec succès");
+                        } catch (err: any) {
+                          toast.error(err.message || "Erreur lors de la mise à jour");
+                        }
+                        setSavingLimits(false);
+                      }}
+                    >
+                      {savingLimits ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      Enregistrer
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {[
+                      {
+                        label: "Forfait Gratuit",
+                        limit: planLimitsConfig.free,
+                        users: allUsers.filter((u: any) => !u.subscriptionPlan || u.subscriptionPlan === "free").length,
+                        color: "text-muted-foreground",
+                      },
+                      {
+                        label: "Forfait Pro",
+                        limit: planLimitsConfig.pro,
+                        users: allUsers.filter((u: any) => u.subscriptionPlan === "pro").length,
+                        color: "text-blue-600",
+                      },
+                      {
+                        label: "Administrateurs",
+                        limit: "∞",
+                        users: allUsers.filter((u: any) => u.role === "admin").length,
+                        color: "text-amber-600",
+                      },
+                    ].map((item) => (
+                      <div key={item.label} className="p-3 sm:p-4 rounded-xl bg-muted/20 border border-border/20 text-center">
+                        <p className="text-[9px] sm:text-xs text-muted-foreground mb-1">{item.label}</p>
+                        <p className={cn("text-lg sm:text-xl font-bold", item.color)}>
+                          {item.limit === "∞" ? "∞" : item.limit}
+                        </p>
+                        <p className="text-[9px] text-muted-foreground">
+                          {item.users} utilisateur(s)
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

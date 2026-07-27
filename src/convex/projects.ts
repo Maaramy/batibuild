@@ -146,6 +146,82 @@ export const compareProjects = query({
 });
 
 // ============================================================================
+// Plan Limits (configurable via Admin)
+// ============================================================================
+
+const DEFAULT_PLAN_LIMITS = {
+  free: 3,
+  pro: 10,
+};
+
+/** Get the current project plan limits (from paymentConfig or defaults) */
+export const getPlanLimits = query({
+  handler: async (ctx) => {
+    const config = await ctx.db
+      .query("paymentConfig")
+      .order("desc")
+      .first();
+
+    return {
+      free: config?.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
+      pro: config?.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
+      updatedAt: config?.updatedAt ?? null,
+    };
+  },
+});
+
+/** Update plan limits (admin only) */
+export const updatePlanLimits = mutation({
+  args: {
+    freeProjectLimit: v.optional(v.number()),
+    proProjectLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || user.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    const existing = await ctx.db
+      .query("paymentConfig")
+      .order("desc")
+      .first();
+
+    const now = Date.now();
+    const updates: Record<string, any> = { updatedAt: now, updatedBy: user._id };
+
+    if (args.freeProjectLimit !== undefined) updates.freeProjectLimit = args.freeProjectLimit;
+    if (args.proProjectLimit !== undefined) updates.proProjectLimit = args.proProjectLimit;
+
+    if (existing) {
+      await ctx.db.patch(existing._id, updates);
+    } else {
+      // Create paymentConfig with defaults + new limits
+      await ctx.db.insert("paymentConfig", {
+        bankName: "",
+        bankTitulaire: "",
+        bankRib: "",
+        bankIban: "",
+        bankSwift: "",
+        d17MerchantName: "",
+        d17Phone: "",
+        d17Email: "",
+        d17Notice: "",
+        proPrice: 79,
+        supplierPrice: 120,
+        currency: "TND",
+        freeProjectLimit: args.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
+        proProjectLimit: args.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
+        updatedAt: now,
+        updatedBy: user._id,
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+// ============================================================================
 // Mutations
 // ============================================================================
 
@@ -170,12 +246,20 @@ export const createProject = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
 
-    // ── Project limits by plan ──
+    // ── Project limits by plan (from config or defaults) ──
     const userPlan = user.subscriptionPlan ?? "free";
+    
+    // Read limits from paymentConfig, fall back to defaults
+    const config = await ctx.db
+      .query("paymentConfig")
+      .order("desc")
+      .first();
+    
     const planLimits: Record<string, number> = {
-      free: 3,
-      pro: 10,
+      free: config?.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
+      pro: config?.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
     };
+    
     const limit = planLimits[userPlan] ?? Infinity;
     if (limit !== Infinity) {
       const existingProjects = await ctx.db
@@ -184,10 +268,11 @@ export const createProject = mutation({
         .collect();
       if (existingProjects.length >= limit) {
         const planLabel = userPlan === "free" ? "Gratuit" : "Pro";
+        const proLimit = planLimits.pro;
         throw new Error(
           `LIMITE_ATTEINTE:Vous avez atteint la limite de ${limit} projets offerte avec le forfait ${planLabel}. ` +
           (userPlan === "free"
-            ? "Passez à l'offre Pro pour bénéficier de 10 projets."
+            ? `Passez à l'offre Pro pour bénéficier de ${proLimit} projets.`
             : "Contactez le support pour augmenter votre limite de projets.")
         );
       }

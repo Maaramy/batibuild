@@ -718,6 +718,9 @@ const schema = defineSchema(
       proPrice: v.number(),
       supplierPrice: v.number(),
       currency: v.string(),
+      // Project plan limits
+      freeProjectLimit: v.optional(v.number()),
+      proProjectLimit: v.optional(v.number()),
       updatedAt: v.number(),
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),
