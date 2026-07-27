@@ -530,6 +530,11 @@ export const deleteProject = mutation({
     if (project.userId !== user._id && user.role !== "admin") {
       throw new Error("Unauthorized");
     }
+    
+    // Prevent deletion of completed projects (admin can still delete)
+    if (project.status === "completed" && user.role !== "admin") {
+      throw new Error("SUPPRESSION_REFUSEE:Les projets terminés ne peuvent pas être supprimés. Contactez un administrateur si nécessaire.");
+    }
 
     await ctx.db.delete(args.projectId);
   },

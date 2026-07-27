@@ -4,14 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
+import { useAuth } from "@/hooks/use-auth";
 import { useNavigate } from "react-router";
 import { useState, useMemo } from "react";
 import {
   ArrowLeft, TrendingUp, TrendingDown, Search, HardHat,
   Package, Clock, BarChart3, RefreshCw, DollarSign,
-  Shield, Calendar,
+  Shield, Calendar, Loader2, CheckCircle2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 const categoryLabels: Record<string, string> = {
@@ -69,12 +71,29 @@ const fmt = (n: number) => new Intl.NumberFormat("fr-TN", {
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 export default function MaterialsPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
+  const [refreshing, setRefreshing] = useState(false);
 
   const materialPrices = useQuery(api.materials.getMaterialPrices, {}) || [];
   const categories = useQuery(api.materials.getMaterialCategories) || [];
+  const refreshPrices = useMutation(api.materials.refreshMaterialPrices);
+  
+  const isAdmin = user?.role === "admin";
+
+  const handleRefreshPrices = async () => {
+    if (!isAdmin) return;
+    setRefreshing(true);
+    try {
+      const result = await refreshPrices();
+      toast.success(`${result.updated} / ${result.total} prix mis à jour avec les fluctuations du marché`);
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la mise à jour");
+    }
+    setRefreshing(false);
+  };
 
   const stats = useMemo(() => {
     const now = Date.now();
@@ -125,6 +144,24 @@ export default function MaterialsPage() {
                 <p className="text-[9px] text-muted-foreground leading-tight">Marché tunisien — Mise à jour mensuelle</p>
               </div>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs border-emerald-200/60 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300"
+                disabled={refreshing}
+                onClick={handleRefreshPrices}
+              >
+                {refreshing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5" />
+                )}
+                Mise à jour
+              </Button>
+            )}
           </div>
         </div>
       </header>

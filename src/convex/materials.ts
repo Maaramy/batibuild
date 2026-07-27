@@ -365,6 +365,51 @@ export const updateAllMaterialPrices = internalMutation({
   },
 });
 
+/** Manually trigger a price refresh (admin only) - applies market fluctuations */
+export const refreshMaterialPrices = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || user.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const materials = await ctx.db.query("materialPrices").collect();
+    if (materials.length === 0) {
+      throw new Error("Aucun matériau à mettre à jour. Veuillez d'abord initialiser les prix.");
+    }
+
+    let updated = 0;
+    // Tunisian inflation simulation
+    const baseInflation = 0.001 + Math.random() * 0.004;
+
+    for (const m of materials) {
+      const volatility = m.category === "acier" || m.category === "ciment" ? 0.02 : 0.012;
+      const change = baseInflation + (Math.random() - 0.5) * volatility;
+      const newPrice = Math.round(m.unitPrice * (1 + change) * 1000) / 1000;
+
+      if (newPrice !== m.unitPrice && newPrice > 0) {
+        await ctx.db.insert("priceHistory", {
+          materialPriceId: m._id,
+          previousPrice: m.unitPrice,
+          newPrice: newPrice,
+          changedBy: user._id,
+          changedAt: Date.now(),
+        });
+
+        await ctx.db.patch(m._id, {
+          unitPrice: newPrice,
+          lastUpdated: Date.now(),
+          updatedBy: user._id,
+        });
+        updated++;
+      }
+    }
+
+    return { updated, total: materials.length };
+  },
+});
+
 /** Get price history for a material */
 export const getPriceHistory = query({
   args: { materialPriceId: v.id("materialPrices") },

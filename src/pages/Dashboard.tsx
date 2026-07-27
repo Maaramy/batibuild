@@ -46,6 +46,7 @@ import {
   User,
   AlertTriangle,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
@@ -118,11 +119,24 @@ function ProjectCard({ project }: { project: any }) {
                 Ouvrir
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={async (e) => { e.stopPropagation(); if (confirm("Supprimer ?")) await deleteProject({ projectId: project._id }); }}
-                className="cursor-pointer gap-2 text-destructive focus:text-destructive text-xs sm:text-sm"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (project.status === 'completed') {
+                    alert("Les projets terminés ne peuvent pas être supprimés.");
+                    return;
+                  }
+                  if (confirm("Supprimer ?")) await deleteProject({ projectId: project._id });
+                }}
+                className={cn(
+                  "cursor-pointer gap-2 text-xs sm:text-sm",
+                  project.status === 'completed'
+                    ? "text-muted-foreground/40 cursor-not-allowed"
+                    : "text-destructive focus:text-destructive"
+                )}
+                disabled={project.status === 'completed'}
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Supprimer
+                {project.status === 'completed' ? "Non supprimable" : "Supprimer"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
