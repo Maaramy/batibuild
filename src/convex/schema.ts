@@ -721,10 +721,15 @@ const schema = defineSchema(
       supplierPrice: v.number(),
       expertPrice: v.optional(v.number()),
       currency: v.string(),
+      // Prices (Free is always 0)
       // Project plan limits
       freeProjectLimit: v.optional(v.number()),
       proProjectLimit: v.optional(v.number()),
       expertProjectLimit: v.optional(v.number()),
+      // Download limits per plan
+      freeDownloadLimit: v.optional(v.number()),
+      proDownloadLimit: v.optional(v.number()),
+      expertDownloadLimit: v.optional(v.number()),
       updatedAt: v.number(),
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),

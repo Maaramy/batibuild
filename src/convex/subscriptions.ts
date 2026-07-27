@@ -71,6 +71,18 @@ export const getAllSubscriptionsWithUsers = query({
 // Download Limit Helpers
 // ============================================================================
 
+/** Read download limits from paymentConfig, fallback to defaults */
+async function getDownloadLimits(ctx: any): Promise<{ pro: number; expert: number }> {
+  const config = await ctx.db
+    .query("paymentConfig")
+    .order("desc")
+    .first();
+  return {
+    pro: config?.proDownloadLimit ?? 10,
+    expert: config?.expertDownloadLimit ?? 100,
+  };
+}
+
 /** Check if the current user can download a PDF */
 export const checkDownloadAllowed = query({
   args: {},
@@ -90,7 +102,9 @@ export const checkDownloadAllowed = query({
         return { allowed: false, reason: "abonnement_inactif" };
       }
 
-      const limit = sub.downloadLimit ?? (user.subscriptionPlan === "expert" ? 100 : 10);
+      const limits = await getDownloadLimits(ctx);
+      const defaultLimit = user.subscriptionPlan === "expert" ? limits.expert : limits.pro;
+      const limit = sub.downloadLimit ?? defaultLimit;
       const used = sub.monthlyDownloadCount ?? 0;
       const remaining = limit - used;
 
@@ -127,7 +141,9 @@ export const consumeDownload = mutation({
       throw new Error("Abonnement inactif");
     }
 
-    const limit = sub.downloadLimit ?? (user.subscriptionPlan === "expert" ? 100 : 10);
+    const limits = await getDownloadLimits(ctx);
+    const defaultLimit = user.subscriptionPlan === "expert" ? limits.expert : limits.pro;
+    const limit = sub.downloadLimit ?? defaultLimit;
     const used = (sub.monthlyDownloadCount ?? 0) + 1;
     await ctx.db.patch(sub._id, {
       monthlyDownloadCount: used,
@@ -158,10 +174,11 @@ export const createSubscription = mutation({
 
     const now = Date.now();
 
+    const limits = await getDownloadLimits(ctx);
     const planConfig: Record<string, { duration: number; limit: number }> = {
       free: { duration: 365 * 24 * 60 * 60 * 1000, limit: 0 },
-      pro: { duration: 30 * 24 * 60 * 60 * 1000, limit: 10 },
-      expert: { duration: 30 * 24 * 60 * 60 * 1000, limit: 100 },
+      pro: { duration: 30 * 24 * 60 * 60 * 1000, limit: limits.pro },
+      expert: { duration: 30 * 24 * 60 * 60 * 1000, limit: limits.expert },
     };
 
     const config = planConfig[args.plan] || planConfig.free;
@@ -339,9 +356,10 @@ export const adminApproveSubscription = mutation({
       updatedAt: now,
     });
 
-    // Update user's plan
+    // Update user's plan (use the plan from the subscription, not hardcoded)
+    const planLabel = sub.plan === "expert" ? "Expert" : "Pro";
     await ctx.db.patch(sub.userId, {
-      subscriptionPlan: "pro",
+      subscriptionPlan: sub.plan,
       subscriptionEndDate: now + planDuration,
     });
 
@@ -351,7 +369,7 @@ export const adminApproveSubscription = mutation({
         userId: sub.userId,
         type: "subscription",
         title: "Abonnement activé",
-        message: `Félicitations ! Votre abonnement Pro a été activé. Vous pouvez désormais télécharger vos devis en PDF.`,
+        message: `Félicitations ! Votre abonnement ${planLabel} a été activé. Vous pouvez désormais télécharger vos devis en PDF.`,
         read: false,
         link: "/pricing",
         createdAt: Date.now(),

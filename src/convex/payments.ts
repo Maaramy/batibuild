@@ -21,6 +21,12 @@ const DEFAULT_CONFIG = {
   supplierPrice: 120,
   expertPrice: 320,
   currency: "TND",
+  freeProjectLimit: 3,
+  proProjectLimit: 10,
+  expertProjectLimit: 100,
+  freeDownloadLimit: 0,
+  proDownloadLimit: 10,
+  expertDownloadLimit: 100,
 };
 
 // ============================================================================
@@ -134,6 +140,117 @@ export const updatePaymentConfig = mutation({
         supplierPrice: args.supplierPrice ?? DEFAULT_CONFIG.supplierPrice,
         expertPrice: args.expertPrice ?? DEFAULT_CONFIG.expertPrice,
         currency: args.currency ?? DEFAULT_CONFIG.currency,
+        updatedAt: now,
+        updatedBy: user._id,
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+// ============================================================================
+// Plan Pricing & Limits Configuration
+// ============================================================================
+
+const DEFAULT_PLAN_PRICING = {
+  proPrice: 79,
+  expertPrice: 320,
+  freeProjectLimit: 3,
+  proProjectLimit: 10,
+  expertProjectLimit: 100,
+  freeDownloadLimit: 0,
+  proDownloadLimit: 10,
+  expertDownloadLimit: 100,
+};
+
+/** Get all plan pricing & limits configuration (admin only) */
+export const getPlanPricing = query({
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || user.role !== "admin") return null;
+
+    const config = await ctx.db
+      .query("paymentConfig")
+      .order("desc")
+      .first();
+
+    if (!config) return DEFAULT_PLAN_PRICING;
+
+    return {
+      proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
+      expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
+      freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
+      proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
+      expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
+      freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
+      proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
+      expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
+    };
+  },
+});
+
+/** Update plan pricing & limits configuration (admin only) */
+export const updatePlanPricing = mutation({
+  args: {
+    proPrice: v.optional(v.number()),
+    expertPrice: v.optional(v.number()),
+    freeProjectLimit: v.optional(v.number()),
+    proProjectLimit: v.optional(v.number()),
+    expertProjectLimit: v.optional(v.number()),
+    freeDownloadLimit: v.optional(v.number()),
+    proDownloadLimit: v.optional(v.number()),
+    expertDownloadLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || user.role !== "admin") {
+      throw new Error("Accès non autorisé");
+    }
+
+    const existing = await ctx.db
+      .query("paymentConfig")
+      .order("desc")
+      .first();
+
+    const now = Date.now();
+    const updates: Record<string, any> = {
+      updatedAt: now,
+      updatedBy: user._id,
+    };
+
+    if (args.proPrice !== undefined) updates.proPrice = args.proPrice;
+    if (args.expertPrice !== undefined) updates.expertPrice = args.expertPrice;
+    if (args.freeProjectLimit !== undefined) updates.freeProjectLimit = args.freeProjectLimit;
+    if (args.proProjectLimit !== undefined) updates.proProjectLimit = args.proProjectLimit;
+    if (args.expertProjectLimit !== undefined) updates.expertProjectLimit = args.expertProjectLimit;
+    if (args.freeDownloadLimit !== undefined) updates.freeDownloadLimit = args.freeDownloadLimit;
+    if (args.proDownloadLimit !== undefined) updates.proDownloadLimit = args.proDownloadLimit;
+    if (args.expertDownloadLimit !== undefined) updates.expertDownloadLimit = args.expertDownloadLimit;
+
+    if (existing) {
+      await ctx.db.patch(existing._id, updates);
+    } else {
+      await ctx.db.insert("paymentConfig", {
+        bankName: "",
+        bankTitulaire: "",
+        bankRib: "",
+        bankIban: "",
+        bankSwift: "",
+        d17MerchantName: "",
+        d17Phone: "",
+        d17Email: "",
+        d17Notice: "",
+        supplierPrice: 120,
+        currency: "TND",
+        proPrice: args.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
+        expertPrice: args.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
+        freeProjectLimit: args.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
+        proProjectLimit: args.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
+        expertProjectLimit: args.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
+        freeDownloadLimit: args.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
+        proDownloadLimit: args.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
+        expertDownloadLimit: args.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
         updatedAt: now,
         updatedBy: user._id,
       });

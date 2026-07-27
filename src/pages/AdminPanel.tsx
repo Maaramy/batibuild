@@ -53,6 +53,7 @@ import {
   CheckCheck,
   ToggleLeft,
   ToggleRight,
+  Download,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -103,15 +104,29 @@ export default function AdminPanel() {
   const adminLogs = useQuery(api.users.getAdminLogs, { limit: 100 }) || [];
   
   // Plan limits
-  const planLimitsConfig = useQuery(api.projects.getPlanLimits) || { free: 3, pro: 10, expert: 100 };
-  const updatePlanLimits = useMutation(api.projects.updatePlanLimits);
-  const [limitForm, setLimitForm] = useState({ free: 3, pro: 10, expert: 100 });
+  const planForm = useQuery(api.payments.getPlanPricing);
+  const updatePlanPricing = useMutation(api.payments.updatePlanPricing);
+  const [limitForm, setLimitForm] = useState({
+    proPrice: 79, expertPrice: 320,
+    freeProjects: 3, proProjects: 10, expertProjects: 100,
+    proDownloads: 10, expertDownloads: 100,
+  });
   const [savingLimits, setSavingLimits] = useState(false);
 
   // Sync local form when config loads
   useEffect(() => {
-    setLimitForm({ free: planLimitsConfig.free, pro: planLimitsConfig.pro, expert: planLimitsConfig.expert });
-  }, [planLimitsConfig.free, planLimitsConfig.pro, planLimitsConfig.expert]);
+    if (planForm) {
+      setLimitForm({
+        proPrice: planForm.proPrice ?? 79,
+        expertPrice: planForm.expertPrice ?? 320,
+        freeProjects: planForm.freeProjectLimit ?? 3,
+        proProjects: planForm.proProjectLimit ?? 10,
+        expertProjects: planForm.expertProjectLimit ?? 100,
+        proDownloads: planForm.proDownloadLimit ?? 10,
+        expertDownloads: planForm.expertDownloadLimit ?? 100,
+      });
+    }
+  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit]);
 
   const createMaterial = useMutation(api.materials.createMaterialPrice);
   const updateMaterial = useMutation(api.materials.updateMaterialPrice);
@@ -1362,88 +1377,177 @@ export default function AdminPanel() {
                 <div className="flex items-center gap-2">
                   <HardHat className="h-5 w-5 text-primary" />
                   <div>
-                    <CardTitle className="text-sm sm:text-base">Limites de projets par forfait</CardTitle>
+                    <CardTitle className="text-sm sm:text-base">Configuration des forfaits</CardTitle>
                     <CardDescription className="text-xs">
-                      Configurez le nombre maximum de projets autorisés par forfait.
+                      Gérez les prix, limites de projets et téléchargements par forfait.
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-                <div className="space-y-4 sm:space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="rounded-xl border border-border/40 p-4 sm:p-5 bg-background/30">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge variant="secondary" className="text-[10px]">Gratuit</Badge>
-                        <span className="text-[10px] text-muted-foreground">Forfait de base</span>
+                <div className="space-y-6">
+                  {/* ─── Prix par forfait ─── */}
+                  <div>
+                    <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <DollarSign className="h-3.5 w-3.5" />
+                      Prix (TND/mois)
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="rounded-xl border border-border/40 p-4 sm:p-5 bg-background/30">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Badge variant="secondary" className="text-[10px]">Gratuit</Badge>
+                        </div>
+                        <p className="text-lg font-bold text-muted-foreground">0 TND</p>
+                        <p className="text-[9px] text-muted-foreground">Gratuit</p>
                       </div>
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Nombre max de projets</label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={limitForm.free}
-                          onChange={(e) => setLimitForm({ ...limitForm, free: parseInt(e.target.value) || 0 })}
-                          className="h-9 w-24 text-sm"
-                        />
-                        <span className="text-xs text-muted-foreground">projets</span>
+                      <div className="rounded-xl border border-primary/20 p-4 sm:p-5 bg-primary/[0.02]">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[10px]">Pro</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={999}
+                            value={limitForm.proPrice}
+                            onChange={(e) => setLimitForm({ ...limitForm, proPrice: parseInt(e.target.value) || 0 })}
+                            className="h-9 w-20 text-sm"
+                          />
+                          <span className="text-xs text-muted-foreground">TND/mois</span>
+                        </div>
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-2">
-                        Actuellement : <strong>{planLimitsConfig.free}</strong> projet(s) max
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-primary/20 p-4 sm:p-5 bg-primary/[0.02]">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[10px]">Pro</Badge>
-                        <span className="text-[10px] text-muted-foreground">Forfait payant</span>
+                      <div className="rounded-xl border border-amber-500/20 p-4 sm:p-5 bg-amber-500/[0.02]">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Badge className="bg-amber-500/10 text-amber-600 border-amber-400/30 text-[10px]">Expert</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={9999}
+                            value={limitForm.expertPrice}
+                            onChange={(e) => setLimitForm({ ...limitForm, expertPrice: parseInt(e.target.value) || 0 })}
+                            className="h-9 w-20 text-sm"
+                          />
+                          <span className="text-xs text-muted-foreground">TND/mois</span>
+                        </div>
                       </div>
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Nombre max de projets</label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={1000}
-                          value={limitForm.pro}
-                          onChange={(e) => setLimitForm({ ...limitForm, pro: parseInt(e.target.value) || 0 })}
-                          className="h-9 w-24 text-sm"
-                        />
-                        <span className="text-xs text-muted-foreground">projets</span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-2">
-                        Actuellement : <strong>{planLimitsConfig.pro}</strong> projet(s) max
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-amber-500/20 p-4 sm:p-5 bg-amber-500/[0.02]">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge className="bg-amber-500/10 text-amber-600 border-amber-400/30 text-[10px]">Expert</Badge>
-                        <span className="text-[10px] text-muted-foreground">Forfait professionnel</span>
-                      </div>
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Nombre max de projets</label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={9999}
-                          value={limitForm.expert}
-                          onChange={(e) => setLimitForm({ ...limitForm, expert: parseInt(e.target.value) || 0 })}
-                          className="h-9 w-24 text-sm"
-                        />
-                        <span className="text-xs text-muted-foreground">projets</span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-2">
-                        Actuellement : <strong>{planLimitsConfig.expert}</strong> projet(s) max
-                      </p>
                     </div>
                   </div>
 
+                  {/* ─── Limites de projets ─── */}
+                  <div>
+                    <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <Building2 className="h-3.5 w-3.5" />
+                      Projets max par forfait
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="rounded-xl border border-border/40 p-4 sm:p-5 bg-background/30">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Badge variant="secondary" className="text-[10px]">Gratuit</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={limitForm.freeProjects}
+                            onChange={(e) => setLimitForm({ ...limitForm, freeProjects: parseInt(e.target.value) || 0 })}
+                            className="h-9 w-20 text-sm"
+                          />
+                          <span className="text-xs text-muted-foreground">projets</span>
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-primary/20 p-4 sm:p-5 bg-primary/[0.02]">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[10px]">Pro</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={1000}
+                            value={limitForm.proProjects}
+                            onChange={(e) => setLimitForm({ ...limitForm, proProjects: parseInt(e.target.value) || 0 })}
+                            className="h-9 w-20 text-sm"
+                          />
+                          <span className="text-xs text-muted-foreground">projets</span>
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-amber-500/20 p-4 sm:p-5 bg-amber-500/[0.02]">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Badge className="bg-amber-500/10 text-amber-600 border-amber-400/30 text-[10px]">Expert</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={9999}
+                            value={limitForm.expertProjects}
+                            onChange={(e) => setLimitForm({ ...limitForm, expertProjects: parseInt(e.target.value) || 0 })}
+                            className="h-9 w-20 text-sm"
+                          />
+                          <span className="text-xs text-muted-foreground">projets</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ─── Téléchargements de devis ─── */}
+                  <div>
+                    <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <Download className="h-3.5 w-3.5" />
+                      Téléchargements de devis / mois
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="rounded-xl border border-border/40 p-4 sm:p-5 bg-background/30">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Badge variant="secondary" className="text-[10px]">Gratuit</Badge>
+                        </div>
+                        <p className="text-lg font-bold text-muted-foreground">0</p>
+                        <p className="text-[9px] text-muted-foreground">Aucun téléchargement</p>
+                      </div>
+                      <div className="rounded-xl border border-primary/20 p-4 sm:p-5 bg-primary/[0.02]">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[10px]">Pro</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={9999}
+                            value={limitForm.proDownloads}
+                            onChange={(e) => setLimitForm({ ...limitForm, proDownloads: parseInt(e.target.value) || 0 })}
+                            className="h-9 w-20 text-sm"
+                          />
+                          <span className="text-xs text-muted-foreground">téléchargements</span>
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-amber-500/20 p-4 sm:p-5 bg-amber-500/[0.02]">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Badge className="bg-amber-500/10 text-amber-600 border-amber-400/30 text-[10px]">Expert</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={99999}
+                            value={limitForm.expertDownloads}
+                            onChange={(e) => setLimitForm({ ...limitForm, expertDownloads: parseInt(e.target.value) || 0 })}
+                            className="h-9 w-20 text-sm"
+                          />
+                          <span className="text-xs text-muted-foreground">téléchargements</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ─── Save button ─── */}
                   <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
                     <div className="flex items-center gap-2 min-w-0">
                       <Settings className="h-4 w-4 text-muted-foreground shrink-0" />
                       <span className="text-xs text-muted-foreground">
-                        Les limites s'appliquent aux nouveaux projets créés. Les administrateurs ne sont pas limités.
+                        Ces paramètres s'appliquent aux nouveaux abonnements. Les abonnés existants conservent leurs limites actuelles.
                       </span>
                     </div>
                     <Button
@@ -1453,12 +1557,17 @@ export default function AdminPanel() {
                       onClick={async () => {
                         setSavingLimits(true);
                         try {
-                          await updatePlanLimits({
-                            freeProjectLimit: limitForm.free,
-                            proProjectLimit: limitForm.pro,
-                            expertProjectLimit: limitForm.expert,
+                          await updatePlanPricing({
+                            proPrice: limitForm.proPrice,
+                            expertPrice: limitForm.expertPrice,
+                            freeProjectLimit: limitForm.freeProjects,
+                            proProjectLimit: limitForm.proProjects,
+                            expertProjectLimit: limitForm.expertProjects,
+                            freeDownloadLimit: 0,
+                            proDownloadLimit: limitForm.proDownloads,
+                            expertDownloadLimit: limitForm.expertDownloads,
                           });
-                          toast.success("Limites mises à jour avec succès");
+                          toast.success("Configuration des forfaits mise à jour !");
                         } catch (err: any) {
                           toast.error(err.message || "Erreur lors de la mise à jour");
                         }
@@ -1474,31 +1583,38 @@ export default function AdminPanel() {
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {/* ─── Stats ─── */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
                       {
-                        label: "Forfait Gratuit",
-                        limit: planLimitsConfig.free,
+                        label: "Gratuit",
+                        limit: planForm?.freeProjectLimit ?? "...",
                         users: allUsers.filter((u: any) => !u.subscriptionPlan || u.subscriptionPlan === "free").length,
                         color: "text-muted-foreground",
                       },
                       {
-                        label: "Forfait Pro",
-                        limit: planLimitsConfig.pro,
+                        label: "Pro",
+                        limit: planForm?.proProjectLimit ?? "...",
                         users: allUsers.filter((u: any) => u.subscriptionPlan === "pro").length,
                         color: "text-blue-600",
+                      },
+                      {
+                        label: "Expert",
+                        limit: planForm?.expertProjectLimit ?? "...",
+                        users: allUsers.filter((u: any) => u.subscriptionPlan === "expert").length,
+                        color: "text-amber-600",
                       },
                       {
                         label: "Administrateurs",
                         limit: "∞",
                         users: allUsers.filter((u: any) => u.role === "admin").length,
-                        color: "text-amber-600",
+                        color: "text-emerald-600",
                       },
                     ].map((item) => (
                       <div key={item.label} className="p-3 sm:p-4 rounded-xl bg-muted/20 border border-border/20 text-center">
                         <p className="text-[9px] sm:text-xs text-muted-foreground mb-1">{item.label}</p>
                         <p className={cn("text-lg sm:text-xl font-bold", item.color)}>
-                          {item.limit === "∞" ? "∞" : item.limit}
+                          {item.limit}
                         </p>
                         <p className="text-[9px] text-muted-foreground">
                           {item.users} utilisateur(s)
