@@ -382,6 +382,404 @@ function HeroSection() {
   );
 }
 
+function HowItWorksSection() {
+  const [activeStep, setActiveStep] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sectionRef = useRef(null);
+
+  const steps = [
+    {
+      step: "01",
+      icon: Upload,
+      title: "Importez votre projet",
+      shortTitle: "Import",
+      desc: "Importez une photo, un plan PDF, une image satellite ou saisissez les dimensions manuellement.",
+      gradient: "from-blue-500 to-cyan-500",
+      bgGradient: "from-blue-50/50 to-cyan-50/50 dark:from-blue-950/20 dark:to-cyan-950/20",
+      border: "border-blue-200/50 dark:border-blue-800/30",
+      textColor: "text-blue-600 dark:text-blue-400",
+    },
+    {
+      step: "02",
+      icon: Cpu,
+      title: "L'IA analyse",
+      shortTitle: "Analyse",
+      desc: "L'intelligence artificielle identifie le type de projet, calcule les surfaces et détecte les matériaux.",
+      gradient: "from-violet-500 to-purple-500",
+      bgGradient: "from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20",
+      border: "border-violet-200/50 dark:border-violet-800/30",
+      textColor: "text-violet-600 dark:text-violet-400",
+    },
+    {
+      step: "03",
+      icon: FileText,
+      title: "Recevez votre estimation",
+      shortTitle: "Rapport",
+      desc: "Obtenez un devis complet avec coût total, répartition détaillée, et recommandations personnalisées.",
+      gradient: "from-emerald-500 to-teal-500",
+      bgGradient: "from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20",
+      border: "border-emerald-200/50 dark:border-emerald-800/30",
+      textColor: "text-emerald-600 dark:text-emerald-400",
+    },
+  ] as const;
+
+  // Auto-play
+  useEffect(() => {
+    if (isPaused) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+    intervalRef.current = setInterval(() => {
+      setActiveStep((prev) => (prev + 1) % steps.length);
+    }, 4000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isPaused, steps.length]);
+
+  const current = steps[activeStep];
+  const StepIcon = current.icon;
+  const navigate = useNavigate();
+
+  return (
+    <section
+      id="how-it-works"
+      ref={sectionRef}
+      className="relative py-24 lg:py-32 overflow-hidden"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      {/* Background decorations */}
+      <div className="absolute top-1/3 -left-40 w-80 h-80 bg-primary/3 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/3 -right-40 w-80 h-80 bg-blue-400/3 rounded-full blur-3xl" />
+
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="mx-auto max-w-2xl text-center mb-16"
+        >
+          <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
+            Comment ça marche
+          </Badge>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+            De l'import au rapport en{" "}
+            <span className="gradient-text">3 étapes</span>
+          </h2>
+          <p className="mt-4 text-muted-foreground">
+            Un processus simple et rapide pour estimer vos projets de construction en Tunisie.
+          </p>
+        </motion.div>
+
+        {/* Main demo area */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 items-center">
+          {/* Left side: Step list */}
+          <div className="lg:col-span-2 space-y-4">
+            {steps.map((s, i) => {
+              const SIcon = s.icon;
+              const isActive = i === activeStep;
+              return (
+                <motion.button
+                  key={s.step}
+                  onClick={() => { setActiveStep(i); setIsPaused(true); setTimeout(() => setIsPaused(false), 5000); }}
+                  whileHover={{ x: 4 }}
+                  className={`relative w-full text-left rounded-xl border p-4 sm:p-5 transition-all duration-300 ${
+                    isActive
+                      ? `border-primary/30 bg-primary/5 shadow-md shadow-primary/5`
+                      : "border-border/30 bg-background/40 hover:bg-muted/30 hover:border-border/50"
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${
+                        isActive
+                          ? `bg-gradient-to-br ${s.gradient} text-white shadow-lg`
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      <SIcon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`text-xs font-mono font-semibold ${isActive ? s.textColor : "text-muted-foreground"}`}>
+                          {s.step}
+                        </span>
+                        <h3 className={`text-sm font-semibold ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                          {s.title}
+                        </h3>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {s.desc}
+                      </p>
+                    </div>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
+
+          {/* Right side: Mock screen */}
+          <div className="lg:col-span-3">
+            <motion.div
+              key={activeStep}
+              initial={{ opacity: 0, x: 40, scale: 0.97 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, damping: 25 }}
+              className={`relative overflow-hidden rounded-2xl border-2 ${current.border} ${current.bgGradient} shadow-xl`}
+            >
+              {/* Mock browser chrome */}
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border/20 bg-background/80">
+                <div className="flex gap-1.5">
+                  <div className="h-3 w-3 rounded-full bg-red-400" />
+                  <div className="h-3 w-3 rounded-full bg-amber-400" />
+                  <div className="h-3 w-3 rounded-full bg-emerald-400" />
+                </div>
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-[10px] text-muted-foreground">
+                    <HardHat className="h-3 w-3" />
+                    <span>app.budgetbati.tn / nouveau-projet</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mock screen content */}
+              <div className="p-4 sm:p-6">
+                {activeStep === 0 && <MockImportScreen />}
+                {activeStep === 1 && <MockAnalysisScreen />}
+                {activeStep === 2 && <MockReportScreen />}
+              </div>
+
+              {/* Step indicator overlay */}
+              <div className="flex items-center justify-center gap-2 pb-4">
+                {steps.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setActiveStep(i); setIsPaused(true); setTimeout(() => setIsPaused(false), 5000); }}
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      i === activeStep
+                        ? `w-8 bg-gradient-to-r ${current.gradient}`
+                        : "w-2 bg-border hover:bg-muted-foreground/30"
+                    }`}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="mt-12 text-center"
+        >
+          <Button
+            size="lg"
+            className="h-12 px-8 text-base gap-2"
+            onClick={() => navigate("/auth")}
+          >
+            Essayer gratuitement
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Mock Screens ── */
+
+function MockImportScreen() {
+  return (
+    <div className="space-y-4">
+      {/* Project type selector */}
+      <div className="flex gap-2 flex-wrap">
+        {["Maison", "Villa", "Appartement", "Piscine"].map((t) => (
+          <div
+            key={t}
+            className={`rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-all ${
+              t === "Maison"
+                ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700/50 dark:bg-blue-950/30 dark:text-blue-300"
+                : "border-border/40 text-muted-foreground hover:border-border/70"
+            }`}
+          >
+            {t}
+          </div>
+        ))}
+      </div>
+
+      {/* Main input area */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Upload zone */}
+        <div className="rounded-xl border-2 border-dashed border-blue-200/60 dark:border-blue-800/40 bg-blue-50/40 dark:bg-blue-950/20 p-4 text-center">
+          <Upload className="h-6 w-6 mx-auto mb-2 text-blue-500" />
+          <div className="text-xs font-medium text-foreground mb-1">Importez vos documents</div>
+          <div className="text-[10px] text-muted-foreground">Photo, plan PDF, image satellite</div>
+          <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-3 py-1 text-[10px] text-blue-600">
+            <Check className="h-3 w-3" />
+            Plan_maison.pdf
+          </div>
+        </div>
+
+        {/* Manual input */}
+        <div className="space-y-2">
+          <div className="rounded-lg border border-border/30 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[11px] font-medium">Région</span>
+            </div>
+            <div className="rounded-md border border-border/30 bg-background px-3 py-2 text-xs text-foreground">
+              Tunis
+            </div>
+          </div>
+          <div className="rounded-lg border border-border/30 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Ruler className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[11px] font-medium">Surface (m²)</span>
+            </div>
+            <div className="rounded-md border border-border/30 bg-background px-3 py-2 text-xs text-foreground">
+              150
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Submit button */}
+      <div className="flex justify-end">
+        <div className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-xs font-medium text-white shadow-sm">
+          <Cpu className="h-3.5 w-3.5" />
+          Analyser mon projet
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MockAnalysisScreen() {
+  return (
+    <div className="space-y-4">
+      {/* Analysis progress */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
+          <Loader2 className="h-4 w-4 animate-spin text-violet-600" />
+        </div>
+        <div className="flex-1">
+          <div className="text-xs font-semibold">Analyse en cours...</div>
+          <div className="text-[10px] text-muted-foreground">Reconnaissance du projet par l'IA</div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <motion.div
+          initial={{ width: "0%" }}
+          animate={{ width: "100%" }}
+          transition={{ duration: 3, ease: "easeInOut" }}
+          className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500"
+        />
+      </div>
+
+      {/* Detection results appearing */}
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { label: "Type de projet", value: "Maison R+1", icon: Building2, done: true },
+          { label: "Surface détectée", value: "150 m²", icon: Ruler, done: true },
+          { label: "Matériaux", value: "24 identifiés", icon: Layers, done: true },
+          { label: "Qualité", value: "Standard", icon: Sparkles, done: true },
+        ].map((item) => (
+          <motion.div
+            key={item.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-lg border border-violet-200/40 dark:border-violet-800/30 bg-background/60 p-2.5"
+          >
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-0.5">
+              <item.icon className="h-3 w-3 text-violet-500" />
+              {item.label}
+            </div>
+            <div className="text-xs font-semibold">{item.value}</div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* IA badge */}
+      <div className="flex items-center gap-2 rounded-lg bg-violet-500/5 border border-violet-200/40 dark:border-violet-800/30 px-3 py-2">
+        <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+        <span className="text-[10px] text-muted-foreground">
+          IA : <span className="font-medium text-foreground">Projet détecté avec 92% de confiance</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MockReportScreen() {
+  return (
+    <div className="space-y-4">
+      {/* Total card */}
+      <div className="rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-200/50 dark:border-emerald-800/30 p-4 text-center">
+        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Coût total estimé</div>
+        <div className="text-2xl sm:text-3xl font-bold gradient-text mt-0.5">253 590 TND</div>
+        <div className="text-[10px] text-muted-foreground">Marché tunisien 2026 • Prix TTC</div>
+      </div>
+
+      {/* Breakdown */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "Gros œuvre", pct: 38, color: "bg-blue-500" },
+          { label: "Second œuvre", pct: 29, color: "bg-violet-500" },
+          { label: "Équipements", pct: 15, color: "bg-emerald-500" },
+        ].map((cat) => (
+          <div key={cat.label} className="rounded-lg border border-border/20 bg-background/40 p-2 text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <div className={`h-2 w-2 rounded-full ${cat.color}`} />
+              <span className="text-[10px] text-muted-foreground">{cat.pct}%</span>
+            </div>
+            <div className="text-[9px] font-medium truncate">{cat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Scenarios */}
+      <div className="flex gap-2">
+        {[
+          { label: "Économique", value: "163 590 TND", active: false },
+          { label: "Standard", value: "253 590 TND", active: true },
+          { label: "Premium", value: "398 475 TND", active: false },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className={`flex-1 rounded-lg border p-2 text-center transition-all ${
+              s.active ? "border-primary bg-primary/5" : "border-border/20 bg-background/40 opacity-70"
+            }`}
+          >
+            <div className="text-[9px] text-muted-foreground">{s.label}</div>
+            <div className={`text-[10px] font-semibold ${s.active ? "text-primary" : ""}`}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <div className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border/30 bg-background/40 px-3 py-2 text-[10px] text-muted-foreground">
+          <Download className="h-3.5 w-3.5" />
+          Télécharger PDF
+        </div>
+        <div className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-3 py-2 text-[10px] font-medium text-white shadow-sm">
+          <FileText className="h-3.5 w-3.5" />
+          Voir le rapport
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FeaturesSection() {
   const ref = useRef(null);
 
@@ -421,42 +819,6 @@ function FeaturesSection() {
               </Card>
             </motion.div>
           ))}
-        </div>
-
-        {/* How it works */}
-        <div className="mt-24">
-          <div className="mx-auto max-w-2xl text-center mb-12">
-            <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-              Comment ça marche
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              De l'import au rapport en 3 étapes
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { step: "01", icon: Upload, title: "Importez vos documents", desc: "Photo du terrain, plan architectural, image satellite ou croquis. Ou saisissez manuellement les dimensions." },
-              { step: "02", icon: Cpu, title: "L'IA analyse", desc: "Reconnaissance automatique du type de projet, détection des dimensions, identification des matériaux." },
-              { step: "03", icon: FileText, title: "Recevez votre estimation", desc: "Rapport complet avec coût total, répartition détaillée, planning et recommandations." },
-            ].map((item, index) => (
-              <motion.div
-                key={item.step}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: index * 0.15, duration: 0.5 }}
-                className="text-center"
-              >
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <item.icon className="h-6 w-6" />
-                </div>
-                <span className="text-xs font-mono text-primary mb-2 block">{item.step}</span>
-                <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
-                <p className="text-sm text-muted-foreground max-w-xs mx-auto">{item.desc}</p>
-              </motion.div>
-            ))}
-          </div>
         </div>
       </div>
     </section>
@@ -653,6 +1015,7 @@ export default function Landing() {
       <Navbar />
       <HeroSection />
       <BenefitsSection />
+      <HowItWorksSection />
       <FeaturesSection />
       <TestimonialsSection />
       <CTASection />
