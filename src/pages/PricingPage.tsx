@@ -23,6 +23,7 @@ const DEFAULT_PAYMENT = {
   d17Notice: "Envoyez le paiement via l'application D17 de La Poste Tunisienne",
   proPrice: 79,
   supplierPrice: 120,
+  expertPrice: 320,
   currency: "TND",
 };
 
@@ -45,7 +46,7 @@ const PLANS = [
   {
     id: "pro",
     name: "Pro",
-    price: "79",
+    priceKey: "pro",
     period: "TND/mois",
     description: "Pour les professionnels de la construction",
     features: [
@@ -63,7 +64,7 @@ const PLANS = [
   {
     id: "expert",
     name: "Expert",
-    price: "320",
+    priceKey: "expert",
     period: "TND/mois",
     description: "Pour les entreprises et les grands projets",
     features: [
@@ -98,39 +99,48 @@ export default function PricingPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<string>("pro");
   
-  // Build dynamic BANK_INFO and D17_INFO from config
+  // Get the correct price based on selected plan
+  const getSelectedPrice = () => {
+    if (selectedPlan === "expert") return paymentConfig?.expertPrice ?? DEFAULT_PAYMENT.expertPrice ?? 320;
+    return paymentConfig?.proPrice ?? DEFAULT_PAYMENT.proPrice;
+  };
+  
+  // Build dynamic BANK_INFO and D17_INFO from config with correct price
+  const currentPrice = getSelectedPrice();
   const BANK_INFO: Record<string, string> = paymentConfig ? {
     bank: paymentConfig.bankName,
     titulaire: paymentConfig.bankTitulaire,
     rib: paymentConfig.bankRib,
     iban: paymentConfig.bankIban,
     swift: paymentConfig.bankSwift,
-    montant: `${paymentConfig.proPrice} ${paymentConfig.currency}`,
+    montant: `${currentPrice} ${paymentConfig.currency}`,
   } : {
     bank: DEFAULT_PAYMENT.bankName,
     titulaire: DEFAULT_PAYMENT.bankTitulaire,
     rib: DEFAULT_PAYMENT.bankRib,
     iban: DEFAULT_PAYMENT.bankIban,
     swift: DEFAULT_PAYMENT.bankSwift,
-    montant: `${DEFAULT_PAYMENT.proPrice} ${DEFAULT_PAYMENT.currency}`,
+    montant: `${currentPrice} ${DEFAULT_PAYMENT.currency}`,
   };
   
   const D17_INFO: Record<string, string> = paymentConfig ? {
     merchantName: paymentConfig.d17MerchantName,
     phone: paymentConfig.d17Phone,
     email: paymentConfig.d17Email,
-    montant: `${paymentConfig.proPrice} ${paymentConfig.currency}`,
+    montant: `${currentPrice} ${paymentConfig.currency}`,
     notice: paymentConfig.d17Notice,
   } : {
     merchantName: DEFAULT_PAYMENT.d17MerchantName,
     phone: DEFAULT_PAYMENT.d17Phone,
     email: DEFAULT_PAYMENT.d17Email,
-    montant: `${DEFAULT_PAYMENT.proPrice} ${DEFAULT_PAYMENT.currency}`,
+    montant: `${currentPrice} ${DEFAULT_PAYMENT.currency}`,
     notice: DEFAULT_PAYMENT.d17Notice,
   };
   
   const proPrice = paymentConfig?.proPrice || DEFAULT_PAYMENT.proPrice;
+  const expertPrice = paymentConfig?.expertPrice || DEFAULT_PAYMENT.expertPrice || 320;
   const currency = paymentConfig?.currency || DEFAULT_PAYMENT.currency;
 
   const currentPlan = user?.subscriptionPlan || "free";
@@ -154,11 +164,19 @@ export default function PricingPage() {
       return;
     }
 
+    // Set selected plan for correct payment info display
+    setSelectedPlan(planId);
+
+    // Calculate the correct amount based on selected plan
+    const planAmount = planId === "expert"
+      ? (paymentConfig?.expertPrice ?? DEFAULT_PAYMENT.expertPrice ?? 320)
+      : (paymentConfig?.proPrice ?? DEFAULT_PAYMENT.proPrice);
+
     // For paid plans, create subscription with virement bancaire
     await createSubscription({
       plan: planId as any,
       paymentMethod: paymentMethod,
-      amount: paymentConfig?.proPrice ?? DEFAULT_PAYMENT.proPrice,
+      amount: planAmount,
       currency: paymentConfig?.currency ?? DEFAULT_PAYMENT.currency,
     });
 
@@ -314,7 +332,7 @@ export default function PricingPage() {
                 </div>
 
                 <div className="mb-5">
-                  <span className="text-4xl font-bold">{plan.price}</span>
+                  <span className="text-4xl font-bold">{plan.priceKey === "expert" ? expertPrice : plan.priceKey === "pro" ? proPrice : plan.price}</span>
                   <span className="ml-1 text-sm text-muted-foreground">/{plan.period}</span>
                 </div>
 
@@ -370,7 +388,7 @@ export default function PricingPage() {
             <div>
               <h2 className="text-lg font-semibold">Moyen de paiement</h2>
               <p className="text-xs text-muted-foreground">
-                Choisissez votre méthode de paiement pour l'abonnement <strong>Pro à {proPrice} {currency}/mois</strong>.
+                Choisissez votre méthode de paiement pour l'abonnement <strong>{selectedPlan === "expert" ? "Expert" : "Pro"} à {currentPrice} {currency}/mois</strong>.
               </p>
             </div>
           </div>
