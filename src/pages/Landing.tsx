@@ -169,6 +169,84 @@ const PROJECT_CATEGORIES_DISPLAY = [
 ];
 
 // ============================================================================
+// Video Tutorial Modal
+// ============================================================================
+
+const TUTORIAL_VIDEO_URL = "https://www.youtube.com/embed/dQw4w9WgXcQ"; // Remplacez par l'URL de votre vidéo
+
+function VideoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const navigate = useNavigate();
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) onClose();
+          }}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="relative w-full max-w-3xl rounded-2xl border border-border/30 bg-background shadow-2xl overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
+              <div className="flex items-center gap-2">
+                <Play className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold">Tutoriel BudgetBati</span>
+              </div>
+              <button
+                onClick={onClose}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {/* Video embed */}
+            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+              <iframe
+                src={TUTORIAL_VIDEO_URL}
+                title="Tutoriel BudgetBati - Estimation par IA"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="absolute inset-0 w-full h-full"
+                style={{ border: "none" }}
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border/20 bg-muted/20">
+              <div className="text-[11px] text-muted-foreground">
+                Découvrez comment estimer vos projets de construction en quelques clics
+              </div>
+              <Button
+                size="sm"
+                className="text-xs h-8"
+                onClick={() => {
+                  onClose();
+                  navigate("/auth");
+                }}
+              >
+                Essayer maintenant
+                <ArrowRight className="h-3 w-3 ml-1" />
+              </Button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ============================================================================
 // Components
 // ============================================================================
 
@@ -273,7 +351,7 @@ function Navbar() {
   );
 }
 
-function HeroSection() {
+function HeroSection({ onShowTutorial }: { onShowTutorial: () => void }) {
   const navigate = useNavigate();
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({
@@ -344,7 +422,16 @@ function HeroSection() {
             <Button
               variant="outline"
               size="lg"
-              className="h-12 px-8 text-base w-full sm:w-auto"
+              className="h-12 px-8 text-base w-full sm:w-auto gap-2"
+              onClick={onShowTutorial}
+            >
+              <Play className="h-4 w-4" />
+              Voir le tutoriel
+            </Button>
+            <Button
+              variant="ghost"
+              size="lg"
+              className="h-12 px-6 text-base w-full sm:w-auto text-muted-foreground hover:text-foreground"
               onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
             >
               En savoir plus
@@ -644,14 +731,17 @@ function Footer() {
 // ============================================================================
 
 export default function Landing() {
+  const [showTutorial, setShowTutorial] = useState(false);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
+      <VideoModal open={showTutorial} onClose={() => setShowTutorial(false)} />
       <Navbar />
-      <HeroSection />
+      <HeroSection onShowTutorial={() => setShowTutorial(true)} />
       <BenefitsSection />
       <FeaturesSection />
       <TestimonialsSection />
