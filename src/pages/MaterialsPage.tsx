@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { usePageSEO } from "@/hooks/use-page-seo";
 
 const categoryLabels: Record<string, string> = {
   ciment: "Ciment",
@@ -71,6 +72,7 @@ const fmt = (n: number) => new Intl.NumberFormat("fr-TN", {
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 export default function MaterialsPage() {
+  usePageSEO({ title: "Prix des matériaux 2026 - BudgetBati", description: "Consultez les prix actualisés des matériaux de construction en Tunisie pour 2026." });
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");

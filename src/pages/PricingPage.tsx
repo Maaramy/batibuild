@@ -9,6 +9,7 @@ import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Buildin
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
+import { usePageSEO } from "@/hooks/use-page-seo";
 
 // Default payment config (fallback if not set in DB)
 const DEFAULT_PAYMENT = {
@@ -85,6 +86,7 @@ const PLANS = [
 ];
 
 export default function PricingPage() {
+  usePageSEO({ title: "Abonnements - BudgetBati", description: "Choisissez l'abonnement BudgetBati adapté à vos besoins : Gratuit, Pro ou Expert." });
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const currentSubscription = useQuery(api.subscriptions.getMySubscription);

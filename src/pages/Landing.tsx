@@ -58,6 +58,7 @@ import {
 } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+import { usePageSEO } from "@/hooks/use-page-seo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -1006,6 +1007,10 @@ function Footer() {
 // ============================================================================
 
 export default function Landing() {
+  usePageSEO({
+    title: "BudgetBati - Estimation Construction par IA en Tunisie",
+    description: "Estimez vos projets de construction en Tunisie avec l'IA. Obtenez un devis complet avec prix actualisés du marché tunisien 2026.",
+  });
   return (
     <motion.div
       initial={{ opacity: 0 }}

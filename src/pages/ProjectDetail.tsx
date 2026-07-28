@@ -21,6 +21,7 @@ import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 applyAutotablePlugin(jsPDF);
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { usePageSEO } from "@/hooks/use-page-seo";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
@@ -140,6 +141,10 @@ export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const project = useQuery(api.projects.getProject, { projectId: id as any });
+  usePageSEO({
+    title: project ? `Devis ${project.name} - BudgetBati` : "Détail du projet - BudgetBati",
+    description: project ? `Devis estimatif pour ${project.name}. Coût total, matériaux et analyse IA.` : "Consultez le détail de votre projet de construction.",
+  });
   const { user: currentUser } = useAuth();
   const allProjects = useQuery(api.projects.getUserProjects, {});
   

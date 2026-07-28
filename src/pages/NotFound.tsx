@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
+import { usePageSEO } from "@/hooks/use-page-seo";
 
 export default function NotFound() {
+  usePageSEO({ title: "404 - Page non trouvée - BudgetBati", description: "La page que vous cherchez n'existe pas." });
   return (
     <motion.div
       initial={{ opacity: 0 }}

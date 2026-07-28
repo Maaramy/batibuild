@@ -2,8 +2,10 @@ import { motion } from "framer-motion";
 import { Mail, MapPin, Building2, HardHat, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
+import { usePageSEO } from "@/hooks/use-page-seo";
 
 export default function ContactPage() {
+  usePageSEO({ title: "Contact - BudgetBati", description: "Contactez l'équipe BudgetBati pour vos projets de construction en Tunisie." });
   const navigate = useNavigate();
 
   return (

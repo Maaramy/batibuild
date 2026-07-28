@@ -32,6 +32,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
+import { usePageSEO } from "@/hooks/use-page-seo";
 
 interface AuthProps {
   redirectAfterAuth?: string;
@@ -624,6 +625,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
 // ===================== EXPORT =====================
 export default function AuthPage(props: AuthProps) {
+  usePageSEO({ title: "Connexion - BudgetBati", description: "Connectez-vous ou créez un compte BudgetBati pour estimer vos projets de construction." });
   return (
     <Suspense>
       <Auth {...props} />

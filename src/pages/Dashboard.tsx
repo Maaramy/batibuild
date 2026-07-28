@@ -50,6 +50,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
+import { usePageSEO } from "@/hooks/use-page-seo";
 
 // ============================================================================
 // Project Card (compact for mobile)
@@ -220,6 +221,7 @@ function StatsCard({ icon: Icon, label, value, gradient, iconColor }: any) {
 // ============================================================================
 
 export default function Dashboard() {
+  usePageSEO({ title: "Tableau de bord - BudgetBati", description: "Gérez vos projets de construction et suivez vos estimations sur BudgetBati." });
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
