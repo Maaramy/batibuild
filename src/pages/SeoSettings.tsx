@@ -29,6 +29,7 @@ type SeoForm = {
   googleAnalyticsId: string;
   robotsTxt: string;
   additionalMetaTags: string;
+  googleSiteVerification: string;
 };
 
 export default function SeoSettings() {
@@ -47,6 +48,7 @@ export default function SeoSettings() {
     googleAnalyticsId: "",
     robotsTxt: "",
     additionalMetaTags: "",
+    googleSiteVerification: "",
   });
 
   useEffect(() => {
@@ -63,6 +65,7 @@ export default function SeoSettings() {
         googleAnalyticsId: seoConfig.googleAnalyticsId || "",
         robotsTxt: seoConfig.robotsTxt || "",
         additionalMetaTags: seoConfig.additionalMetaTags || "",
+        googleSiteVerification: seoConfig.googleSiteVerification || "",
       });
     }
   }, [seoConfig]);
@@ -247,6 +250,16 @@ export default function SeoSettings() {
               opts={{
                 placeholder: "User-agent: *\nAllow: /",
                 hint: "Directives personnalisées",
+              }}
+            />
+          </div>
+          <div className="mt-4">
+            <Field
+              label="Google Search Console (code de vérification)"
+              key="googleSiteVerification"
+              opts={{
+                placeholder: "votre_code_de_verification_google",
+                hint: "Collez le code fourni par Google Search Console (ex: abc123def456)",
               }}
             />
           </div>

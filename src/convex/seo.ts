@@ -46,6 +46,7 @@ export const getSeoConfigOrDefault = query({
       googleAnalyticsId: "",
       robotsTxt: "",
       additionalMetaTags: "",
+      googleSiteVerification: "",
     };
   },
 });
@@ -68,6 +69,7 @@ export const saveSeoConfig = mutation({
     googleAnalyticsId: v.optional(v.string()),
     robotsTxt: v.optional(v.string()),
     additionalMetaTags: v.optional(v.string()),
+    googleSiteVerification: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -85,11 +87,11 @@ export const saveSeoConfig = mutation({
         twitterCard: args.twitterCard ?? "summary_large_image",
         canonicalUrl: args.canonicalUrl ?? "",
         googleAnalyticsId: args.googleAnalyticsId ?? "",
-        robotsTxt: args.robotsTxt ?? "",
-        additionalMetaTags: args.additionalMetaTags ?? "",
-        updatedAt: now,
-        updatedBy: user._id,
-      });
+        robotsTxt: args.robotsTxt ?? "",      additionalMetaTags: args.additionalMetaTags ?? "",
+      googleSiteVerification: args.googleSiteVerification ?? "",
+      updatedAt: now,
+      updatedBy: user._id,
+    });
       return { id: existing[0]._id, action: "updated" };
     }
 
@@ -101,6 +103,7 @@ export const saveSeoConfig = mutation({
       googleAnalyticsId: args.googleAnalyticsId ?? "",
       robotsTxt: args.robotsTxt ?? "",
       additionalMetaTags: args.additionalMetaTags ?? "",
+      googleSiteVerification: args.googleSiteVerification ?? "",
       updatedAt: now,
       updatedBy: user._id,
     });

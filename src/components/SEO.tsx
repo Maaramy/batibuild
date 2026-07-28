@@ -59,6 +59,11 @@ export function SEO() {
     if (config.ogDescription || config.siteDescription) setMeta("twitter:description", config.ogDescription || config.siteDescription);
     if (config.ogImage) setMeta("twitter:image", config.ogImage);
 
+    // Google Search Console verification
+    if (config.googleSiteVerification) {
+      setMeta("google-site-verification", config.googleSiteVerification);
+    }
+
     // Google Analytics
     if (config.googleAnalyticsId) {
       if (!document.querySelector(`script[data-ga="${config.googleAnalyticsId}"]`)) {

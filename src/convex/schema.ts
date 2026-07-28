@@ -747,6 +747,7 @@ const schema = defineSchema(
       googleAnalyticsId: v.optional(v.string()),
       robotsTxt: v.optional(v.string()),
       additionalMetaTags: v.optional(v.string()),
+      googleSiteVerification: v.optional(v.string()),
       updatedAt: v.number(),
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),
