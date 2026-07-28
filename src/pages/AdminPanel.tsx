@@ -1698,6 +1698,7 @@ function PaymentConfigSection() {
         d17Email: form.d17Email as string,
         d17Notice: form.d17Notice as string,
         proPrice: Number(form.proPrice) || 79,
+        expertPrice: Number(form.expertPrice) || 320,
         supplierPrice: Number(form.supplierPrice) || 120,
         currency: form.currency as string || "TND",
       });
@@ -1812,6 +1813,10 @@ function PaymentConfigSection() {
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Abonnement Pro (TND/mois)</label>
             <Input type="number" value={form.proPrice || 79} onChange={(e) => handleChange("proPrice", e.target.value)} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Abonnement Expert (TND/mois)</label>
+            <Input type="number" value={form.expertPrice || 320} onChange={(e) => handleChange("expertPrice", e.target.value)} className="h-9 text-sm" />
           </div>
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Abonnement Fournisseur (TND/mois)</label>
