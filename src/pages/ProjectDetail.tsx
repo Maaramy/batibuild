@@ -788,7 +788,7 @@ export default function ProjectDetail() {
       addPageIfNeeded(50);
 
       const stampW = 80;
-      const stampH = 35;
+      const stampH = 42;
       const stampX = pw - mr - stampW;
       let stampY = Math.max(y, ph - 55);
 
@@ -811,28 +811,35 @@ export default function ProjectDetail() {
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(C.primary[0], C.primary[1], C.primary[2]);
-      doc.text("GALISKON PROJECT", stampX + stampW / 2, stampY + 9, { align: "center" });
+      doc.text("GALISKON", stampX + stampW / 2, stampY + 9, { align: "center" });
 
       // Decorative bottom bar
       doc.rect(stampX + 2, stampY + 11, stampW - 4, 0.8, "F");
 
-      // Email 1
+      // Tagline: created by BudgetBati experts
       doc.setFontSize(6.5);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(C.text[0], C.text[1], C.text[2]);
-      doc.text("Rania.marzougui@budgetbati.com", stampX + stampW / 2, stampY + 18, { align: "center" });
+      doc.text("Devis créé par les experts de BudgetBati", stampX + stampW / 2, stampY + 18, { align: "center" });
 
-      // Email 2
-      doc.text("rami.maatougui@budgetbati.com", stampX + stampW / 2, stampY + 24, { align: "center" });
+      // Decorative middle bar
+      doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+      doc.setLineWidth(0.2);
+      doc.line(stampX + 10, stampY + 22, stampX + stampW - 10, stampY + 22);
+
+      // Separator bar
+      doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+      doc.setLineWidth(0.2);
+      doc.line(stampX + 10, stampY + 26, stampX + stampW - 10, stampY + 26);
 
       // Signature line
       doc.setDrawColor(C.text[0], C.text[1], C.text[2]);
       doc.setLineWidth(0.3);
-      doc.line(stampX + 8, stampY + 30, stampX + stampW - 8, stampY + 30);
+      doc.line(stampX + 10, stampY + 33, stampX + stampW - 10, stampY + 33);
       doc.setFontSize(5.5);
       doc.setFont("helvetica", "italic");
       doc.setTextColor(C.textLight[0], C.textLight[1], C.textLight[2]);
-      doc.text("Signature", stampX + stampW / 2, stampY + 34, { align: "center" });
+      doc.text("Signature", stampX + stampW / 2, stampY + 37, { align: "center" });
 
       // Update y to continue after stamp
       y = stampY + stampH + 6;
