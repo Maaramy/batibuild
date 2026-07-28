@@ -14,7 +14,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useParams, useNavigate } from "react-router";
-import { useState, useMemo, Fragment, useRef } from "react";
+import { useState, useMemo, Fragment, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
@@ -22,6 +22,7 @@ applyAutotablePlugin(jsPDF);
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
@@ -189,7 +190,12 @@ export default function ProjectDetail() {
     api.supplierProfiles.getSupplierById,
     selectedProfileId ? { supplierId: selectedProfileId } : 'skip'
   );
-  const reportRef = useRef<HTMLDivElement>(null);
+  const reportRef = useScreenshotProtection<HTMLDivElement>();
+
+  // Inject screenshot protection CSS once
+  useEffect(() => {
+    injectScreenshotProtectionStyles();
+  }, []);
 
   // ── Progress steps with icons ──────────────────────────────────
   const PROGRESS_ICONS = ["FileText", "Layers", "File", "Download"];
@@ -1309,7 +1315,7 @@ export default function ProjectDetail() {
 
         {/* ── REPORT ──────────────────────────────────────────── */}
         {done && ce && ai && (
-          <motion.div ref={reportRef} initial="initial" animate="animate" className="space-y-4">
+          <motion.div ref={reportRef} initial="initial" animate="animate" className="space-y-4 bb-protected-content bb-protected-watermark relative">
             {/* ═══ Hero Total ═══ */}
             <motion.div variants={fadeUp} custom={0}
               className="rounded-2xl bg-gradient-to-br from-primary/[0.05] via-background to-background border border-primary/10 shadow-sm overflow-hidden">
