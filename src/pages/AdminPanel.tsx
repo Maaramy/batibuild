@@ -846,6 +846,7 @@ export default function AdminPanel() {
                           const userInitial = (u.name || u.email || "?").charAt(0).toUpperCase();
                           const isAdmin = u.role === "admin";
                           const isPro = u.subscriptionPlan === "pro";
+                          const isExpert = u.subscriptionPlan === "expert";
                           const isDisabled = u.status === "disabled";
                           const isSelected = selectedUserIds.has(u._id);
 
@@ -964,6 +965,11 @@ export default function AdminPanel() {
                                   {isPro && (
                                     <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[8px] h-4.5">
                                       Pro
+                                    </Badge>
+                                  )}
+                                  {isExpert && (
+                                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[8px] h-4.5">
+                                      Expert
                                     </Badge>
                                   )}
                                   <button
