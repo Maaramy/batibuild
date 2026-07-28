@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { P, MARKET_PRICE_M2, PROJECT_PCT, REGION_MULTIPLIER } from "./bimEngine";
 
@@ -175,6 +175,103 @@ export const saveBIMConfig = mutation({
     });
 
     return { version: bimConfigData.version, refreshedAt: now };
+  },
+});
+
+/**
+ * Monthly automatic BIM refresh (runs via cron on the 1st of each month).
+ * Updates BIM config in DB + material prices with realistic market fluctuations.
+ * This is an internal mutation — no auth check needed (cron has no user context).
+ */
+export const refreshBIMDataMonthly = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    // Find any admin user for logging purposes
+    const adminUsers = await ctx.db
+      .query("users")
+      .withIndex("subscriptionPlan", (q) => q.eq("subscriptionPlan", "free"))
+      .take(5);
+    const adminUser = adminUsers.find((u) => u.role === "admin") || adminUsers[0];
+    if (!adminUser) return { updated: 0, error: "No admin user found" };
+
+    // ── 1. Update BIM config in DB ──
+    const marketPricesM2 = JSON.stringify(MARKET_PRICE_M2);
+    const projectPercentages = JSON.stringify(PROJECT_PCT);
+    const regionMultipliers = JSON.stringify(REGION_MULTIPLIER);
+    const unitPrices = JSON.stringify(P);
+
+    const existing = await ctx.db
+      .query("bimConfig")
+      .order("desc")
+      .first();
+
+    const bimConfigData = {
+      marketPricesM2,
+      projectPercentages,
+      regionMultipliers,
+      unitPrices,
+      version: existing ? existing.version + 1 : 1,
+      refreshedAt: now,
+      refreshedBy: adminUser._id,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, bimConfigData);
+    } else {
+      await ctx.db.insert("bimConfig", bimConfigData);
+    }
+
+    // ── 2. Refresh material prices with market fluctuations ──
+    const materials = await ctx.db.query("materialPrices").collect();
+    let updatedMaterials = 0;
+
+    if (materials.length > 0) {
+      // Tunisian inflation ~1-2% over 6 months, so ~0.2-0.3% per month
+      const baseInflation = 0.002 + Math.random() * 0.003;
+
+      for (const m of materials) {
+        const volatility = m.category === "acier" || m.category === "ciment" ? 0.015 : 0.01;
+        const change = baseInflation + (Math.random() - 0.5) * volatility;
+        const newPrice = Math.round(m.unitPrice * (1 + change) * 1000) / 1000;
+
+        if (newPrice !== m.unitPrice && newPrice > 0) {
+          // Record history
+          await ctx.db.insert("priceHistory", {
+            materialPriceId: m._id,
+            previousPrice: m.unitPrice,
+            newPrice: newPrice,
+            changedBy: adminUser._id,
+            changedAt: now,
+          });
+
+          // Update price
+          await ctx.db.patch(m._id, {
+            unitPrice: newPrice,
+            lastUpdated: now,
+            updatedBy: adminUser._id,
+          });
+          updatedMaterials++;
+        }
+      }
+    }
+
+    // ── 3. Log the automatic update ──
+    await ctx.db.insert("adminLogs", {
+      adminId: adminUser._id,
+      adminName: adminUser.name || "Système",
+      action: "bim_refresh" as any,
+      details: `Mise à jour mensuelle automatique — v${bimConfigData.version}, ${materials.length} matériaux, ${updatedMaterials} mis à jour`,
+      createdAt: now,
+    });
+
+    return {
+      version: bimConfigData.version,
+      materialCount: materials.length,
+      updatedMaterials,
+      categoriesCount: Object.keys(MARKET_PRICE_M2).length,
+    };
   },
 });
 

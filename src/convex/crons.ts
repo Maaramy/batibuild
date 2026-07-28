@@ -11,4 +11,12 @@ crons.cron(
   internal.materials.updateAllMaterialPrices,
 );
 
+// Monthly BIM data refresh (market prices, region multipliers, unit prices)
+// Runs on the 1st of each month at 01:00 AM (1 hour after price update)
+crons.cron(
+  "monthly-bim-refresh",
+  "0 1 1 * *",
+  internal.bimConfig.refreshBIMDataMonthly,
+);
+
 export default crons;
