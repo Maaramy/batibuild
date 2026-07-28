@@ -148,8 +148,9 @@ export default function PricingPage() {
   const currentPlan = user?.subscriptionPlan || "free";
   const isPro = currentPlan === "pro";
   const isPending = currentSubscription?.status === "pending";
+  const downloadLimit = currentSubscription?.downloadLimit ?? (currentSubscription?.plan === 'expert' ? 100 : 10);
   const remainingDownloads = currentSubscription?.monthlyDownloadCount != null
-    ? (currentSubscription.downloadLimit ?? 10) - currentSubscription.monthlyDownloadCount
+    ? downloadLimit - currentSubscription.monthlyDownloadCount
     : null;
 
   const handleSelectPlan = async (planId: string) => {

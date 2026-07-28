@@ -214,7 +214,7 @@ export default function ProjectDetail() {
     if (checkDownloadAllowed?.allowed) {
       setShowPicker(true);
     } else if (checkDownloadAllowed?.reason === "limite_atteinte") {
-      toast.error("Vous avez atteint votre limite de 10 téléchargements pour ce mois");
+      toast.error(`Vous avez atteint votre limite de ${checkDownloadAllowed?.limit ?? 10} téléchargements pour ce mois`);
     } else {
       setShowUpgradeDialog(true);
     }
@@ -1083,7 +1083,7 @@ export default function ProjectDetail() {
                         Passez à l'offre <strong>Pro à 79 TND/mois</strong> pour télécharger vos devis en PDF.
                       </p>
                       <div className="text-xs text-muted-foreground/60 space-y-1 mb-4">
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />10 téléchargements de devis / mois</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />{checkDownloadAllowed?.limit ?? 10} téléchargements de devis / mois</p>
                         <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Projets illimités</p>
                         <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Paiement par virement bancaire</p>
                       </div>

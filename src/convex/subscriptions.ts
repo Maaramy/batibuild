@@ -103,8 +103,7 @@ export const checkDownloadAllowed = query({
       }
 
       const limits = await getDownloadLimits(ctx);
-      const defaultLimit = user.subscriptionPlan === "expert" ? limits.expert : limits.pro;
-      const limit = sub.downloadLimit ?? defaultLimit;
+      const limit = user.subscriptionPlan === "expert" ? limits.expert : limits.pro;
       const used = sub.monthlyDownloadCount ?? 0;
       const remaining = limit - used;
 
