@@ -784,57 +784,60 @@ export default function ProjectDetail() {
         y += 3;
       }
 
-      // ═══ ROUND STAMP & SIGNATURE ═════════════════════════════════
+      // ═══ STAMP & SIGNATURE ═══════════════════════════════════════
       addPageIfNeeded(55);
 
-      const stampRad = 32; // radius in mm
-      const stampCX = pw - mr - stampRad;
-      let stampCY = Math.max(y + stampRad, ph - 55 + stampRad);
+      const stampW = 90;
+      const stampH = 46;
+      const stampX = pw - mr - stampW;
+      let stampY = Math.max(y, ph - 60);
 
-      // Double circle border (official stamp look)
+      // Outer stamp border (double rectangle for official look)
       doc.setDrawColor(C.primary[0], C.primary[1], C.primary[2]);
       doc.setLineWidth(0.8);
-      doc.circle(stampCX, stampCY, stampRad + 1, "S");
+      doc.rect(stampX - 1, stampY - 1, stampW + 2, stampH + 2, "S");
       doc.setLineWidth(0.4);
-      doc.circle(stampCX, stampCY, stampRad, "S");
+      doc.rect(stampX, stampY, stampW, stampH, "S");
 
-      // Light inner fill
+      // Inner fill (very light)
       doc.setFillColor(239, 246, 255);
-      doc.circle(stampCX, stampCY, stampRad - 0.5, "F");
+      doc.rect(stampX + 0.5, stampY + 0.5, stampW - 1, stampH - 1, "F");
 
-      // Decorative accent bar (top)
+      // Decorative top bar
       doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
-      doc.rect(stampCX - 6, stampCY - 17, 12, 0.6, "F");
+      doc.rect(stampX + 2, stampY + 3, stampW - 4, 0.8, "F");
 
       // Company name
-      doc.setFontSize(9);
+      doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(C.primary[0], C.primary[1], C.primary[2]);
-      doc.text("GALISKON", stampCX, stampCY - 12, { align: "center" });
+      doc.text("GALISKON", stampX + stampW / 2, stampY + 10, { align: "center" });
 
-      // Tagline (two lines for better fit inside circle)
-      doc.setFontSize(6);
+      // Decorative bar
+      doc.rect(stampX + 2, stampY + 12.5, stampW - 4, 0.8, "F");
+
+      // Tagline
+      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(C.text[0], C.text[1], C.text[2]);
-      doc.text("Devis créé par", stampCX, stampCY - 4, { align: "center" });
-      doc.text("les experts de BudgetBati", stampCX, stampCY + 2, { align: "center" });
+      doc.text("Devis créé par les experts de BudgetBati", stampX + stampW / 2, stampY + 20, { align: "center" });
 
-      // Separator line
+      // Separator bar
       doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
       doc.setLineWidth(0.2);
-      doc.line(stampCX - 12, stampCY + 8, stampCX + 12, stampCY + 8);
+      doc.line(stampX + 12, stampY + 24, stampX + stampW - 12, stampY + 24);
 
       // Signature line
       doc.setDrawColor(C.text[0], C.text[1], C.text[2]);
       doc.setLineWidth(0.3);
-      doc.line(stampCX - 14, stampCY + 16, stampCX + 14, stampCY + 16);
-      doc.setFontSize(5.5);
+      doc.line(stampX + 12, stampY + 34, stampX + stampW - 12, stampY + 34);
+      doc.setFontSize(7);
       doc.setFont("helvetica", "italic");
       doc.setTextColor(C.textLight[0], C.textLight[1], C.textLight[2]);
-      doc.text("Signature", stampCX, stampCY + 21, { align: "center" });
+      doc.text("Signature", stampX + stampW / 2, stampY + 40, { align: "center" });
 
       // Update y to continue after stamp
-      y = stampCY + stampRad + 8;
+      y = stampY + stampH + 6;
 
       // ═══ DISCLAIMER ════════════════════════════════════════════════
       addPageIfNeeded(15);
