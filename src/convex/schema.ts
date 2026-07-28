@@ -650,6 +650,8 @@ const schema = defineSchema(
         v.literal("create_material"),
         v.literal("update_material"),
         v.literal("delete_material"),
+        v.literal("bim_refresh"),
+        v.literal("bim_save"),
       ),
       targetUserId: v.optional(v.id("users")),
       targetUserEmail: v.optional(v.string()),
@@ -733,6 +735,19 @@ const schema = defineSchema(
       updatedAt: v.number(),
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),
+
+    // BIM Configuration (editable by admin — Tunisian market price overrides)
+    bimConfig: defineTable({
+      // JSON-serialized BIM engine pricing data
+      marketPricesM2: v.string(),
+      projectPercentages: v.string(),
+      regionMultipliers: v.string(),
+      unitPrices: v.string(),
+      // Metadata
+      version: v.number(),
+      refreshedAt: v.number(),
+      refreshedBy: v.id("users"),
+    }).index("by_refreshed", ["refreshedAt"]),
 
     // SEO Configuration (editable by admin)
     seoConfig: defineTable({

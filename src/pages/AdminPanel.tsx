@@ -11,6 +11,7 @@ import { useQuery, useMutation } from "convex/react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import SeoSettings from "./SeoSettings";
+import BIMSettings from "./BIMSettings";
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft,
@@ -341,11 +342,20 @@ export default function AdminPanel() {
                 <Globe className="h-4 w-4" />
                 <span className="hidden xs:inline">SEO</span>
               </TabsTrigger>
+              <TabsTrigger value="bim" className="text-xs gap-1.5">
+                <Cpu className="h-4 w-4" />
+                <span className="hidden xs:inline">BIM</span>
+              </TabsTrigger>
             </TabsList>
 
               {/* SEO Configuration */}
               <TabsContent value="seo">
                 <SeoSettings />
+              </TabsContent>
+
+              {/* BIM Configuration */}
+              <TabsContent value="bim">
+                <BIMSettings />
               </TabsContent>
           </div>
 

@@ -58,7 +58,7 @@ type Percentages = [number, number, number, number, number, number];
 // Ajustés pour refléter les prix réels constatés en Tunisie
 // ============================================================================
 
-const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium: number }> = {
+export const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium: number }> = {
   // Maisons & Villa (Marché tunisien 2026 - fournitures + main d'œuvre)
   maison:             { eco: 750,  std: 1100, premium: 1800 },
   maison_r_plus_1:    { eco: 800,  std: 1150, premium: 1900 },
@@ -122,7 +122,7 @@ const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium: numbe
   installations_electricite: { eco: 180,  std: 320,  premium: 550 },
 };
 
-const PROJECT_PCT: Record<string, Percentages> = {
+export const PROJECT_PCT: Record<string, Percentages> = {
   maison: [38, 29, 15, 10, 3, 5],
   maison_r_plus_1: [40, 28, 14, 10, 3, 5],
   villa: [33, 34, 20, 5, 3, 5],
@@ -189,7 +189,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   installations_electricite: "Installations électricité",
 };
 
-const REGION_MULTIPLIER: Record<string, number> = {
+export const REGION_MULTIPLIER: Record<string, number> = {
   tunis: 1.15, ariana: 1.10, ben_arous: 1.10, manouba: 1.05,
   nabeul: 1.05, bizerte: 1.05, sousse: 1.10, monastir: 1.05, mahdia: 1.00,
   sfax: 1.05, gabes: 1.00, medenine: 0.95, tataouine: 0.95,
