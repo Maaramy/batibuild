@@ -377,8 +377,6 @@ export default function AdminPanel() {
                     <span className="flex items-center gap-0.5"><Crown className="h-3 w-3 text-amber-500" />{allUsers.filter((u: any) => u.role === "admin").length} admin</span>
                     <span>•</span>
                     <span className="flex items-center gap-0.5">{allUsers.filter((u: any) => u.subscriptionPlan === "pro").length} Pro</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-0.5"><Crown className="h-3 w-3 text-amber-500" />{allUsers.filter((u: any) => u.subscriptionPlan === "expert").length} Expert</span>
                   </div>
                 </CardContent>
               </Card>
@@ -404,7 +402,7 @@ export default function AdminPanel() {
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">Abonnements actifs</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Abonnés Pro</p>
                       <p className="text-xl sm:text-2xl font-bold mt-1">{allSubsWithUsers.filter((s: any) => s.status === "active").length}</p>
                     </div>
                     <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
@@ -412,10 +410,6 @@ export default function AdminPanel() {
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-0.5">{allSubsWithUsers.filter((s: any) => s.status === "active" && s.plan === "pro").length} Pro</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-0.5">{allSubsWithUsers.filter((s: any) => s.status === "active" && s.plan === "expert").length} Expert</span>
-                    <span>•</span>
                     <span className="flex items-center gap-0.5"><Clock className="h-3 w-3" />{pendingSubs.length} en attente</span>
                     <span>•</span>
                     <span>{allSubsWithUsers.filter((s: any) => s.status === "canceled").length} annulés</span>
@@ -428,11 +422,7 @@ export default function AdminPanel() {
                     <div>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Revenus estimés</p>
                       <p className="text-xl sm:text-2xl font-bold mt-1">
-                        {(() => {
-                          const proRev = allSubsWithUsers.filter((s: any) => s.status === "active" && s.plan === "pro").length * (planForm?.proPrice ?? 79);
-                          const expertRev = allSubsWithUsers.filter((s: any) => s.status === "active" && s.plan === "expert").length * (planForm?.expertPrice ?? 320);
-                          return new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(proRev + expertRev);
-                        })()}
+                        {new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(allSubsWithUsers.filter((s: any) => s.status === "active").length * 79)}
                       </p>
                     </div>
                     <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
@@ -440,11 +430,7 @@ export default function AdminPanel() {
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
-                    <span>{(() => {
-                      const proRev = allSubsWithUsers.filter((s: any) => s.status === "active" && s.plan === "pro").length * (planForm?.proPrice ?? 79);
-                      const expertRev = allSubsWithUsers.filter((s: any) => s.status === "active" && s.plan === "expert").length * (planForm?.expertPrice ?? 320);
-                      return new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(proRev + expertRev);
-                    })()}/mois</span>
+                    <span>{allSubsWithUsers.filter((s: any) => s.status === "active").length * 79} TND/mois</span>
                     <span>•</span>
                     <span>{materialPrices.length} matériaux</span>
                   </div>
@@ -479,7 +465,7 @@ export default function AdminPanel() {
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Taux d'activation</p>
                       <p className="text-xl sm:text-2xl font-bold mt-1">
                         {(() => {
-                          const total = allSubsWithUsers.filter((s: any) => s.plan === "pro" || s.plan === "expert").length;
+                          const total = allSubsWithUsers.filter((s: any) => s.plan === "pro").length;
                           const active = allSubsWithUsers.filter((s: any) => s.status === "active").length;
                           if (total === 0) return "0%";
                           return Math.round((active / total) * 100) + "%";
