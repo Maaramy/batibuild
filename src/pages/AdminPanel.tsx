@@ -941,6 +941,8 @@ export default function AdminPanel() {
                                     "h-7 rounded-lg border px-2 text-[9px] font-medium cursor-pointer focus:outline-none focus:ring-1",
                                     isPro
                                       ? "bg-blue-50 border-blue-200 text-blue-700"
+                                      : isExpert
+                                      ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                                       : "bg-muted/30 border-border/40 text-muted-foreground"
                                   )}
                                 >
