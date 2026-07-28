@@ -29,6 +29,18 @@ export default function BIMSettings() {
   const [refreshing, setRefreshing] = useState(false);
   const [result, setResult] = useState<any>(null);
 
+  // Calculate next automatic update (1st of next month at 01:00)
+  const getNextUpdate = () => {
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1, 1, 0, 0);
+    if (now.getDate() === 1 && now.getHours() < 1) {
+      next.setMonth(next.getMonth() - 1); // Still today's run
+    }
+    return next;
+  };
+  const nextUpdate = getNextUpdate();
+  const daysUntilNext = Math.ceil((nextUpdate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
   const handleRefresh = async () => {
     setRefreshing(true);
     setResult(null);
@@ -88,6 +100,33 @@ export default function BIMSettings() {
               Derni\u00e8re mise à jour : {new Date(bimConfig.refreshedAt).toLocaleString("fr-FR")}
             </div>
           )}
+
+          {/* Next automatic update indicator */}
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 p-3 rounded-xl bg-muted/30 border border-border/20">
+            <div className="flex items-center gap-2 text-xs">
+              <Clock className="h-4 w-4 text-primary" />
+              <span className="font-medium">Prochaine mise à jour automatique</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <Badge variant="secondary" className="font-mono text-[10px] px-2">
+                {nextUpdate.toLocaleDateString("fr-FR", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </Badge>
+              <span className="font-semibold text-primary">
+                {daysUntilNext === 0
+                  ? "Aujourd'hui"
+                  : daysUntilNext === 1
+                  ? "Demain"
+                  : `Dans ${daysUntilNext} jours`}
+              </span>
+            </div>
+            <div className="text-[9px] text-muted-foreground">
+              (1er du mois à 01:00) — Cron: monthly-bim-refresh
+            </div>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
