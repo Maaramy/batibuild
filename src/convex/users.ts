@@ -115,6 +115,15 @@ export const adminUpdateUserPlan = mutation({
         updatedAt: now,
       });
     } else {
+      // Read dynamic download limits from payment config
+      const paymentConfig = await ctx.db
+        .query("paymentConfig")
+        .order("desc")
+        .first();
+      const expertLimit = paymentConfig?.expertDownloadLimit ?? 100;
+      const proLimit = paymentConfig?.proDownloadLimit ?? 10;
+      const limit = args.plan === "expert" ? expertLimit : args.plan === "pro" ? proLimit : 0;
+
       await ctx.db.insert("subscriptions", {
         userId: args.userId,
         plan: args.plan,
@@ -122,10 +131,10 @@ export const adminUpdateUserPlan = mutation({
         startDate: now,
         endDate: now + planDuration,
         paymentMethod: "admin",
-        amount: args.plan === "pro" ? 79 : 0,
+        amount: args.plan === "pro" ? 79 : args.plan === "expert" ? 320 : 0,
         currency: "TND",
         monthlyDownloadCount: 0,
-        downloadLimit: args.plan === "pro" ? 10 : 0,
+        downloadLimit: limit,
         createdAt: now,
         updatedAt: now,
       });
