@@ -656,6 +656,7 @@ export default function AdminPanel() {
                           <tr className="border-b border-border/30 bg-muted/20">
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">Client</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Offre</th>
+                            <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
                             <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Statut</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Fichier</th>
                             <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Reçu</th>
@@ -714,9 +715,11 @@ export default function AdminPanel() {
                                     )}>
                                       {sub.plan === "pro" ? "Pro" : sub.plan === "expert" ? "Expert" : sub.plan}
                                     </Badge>
-                                    {sub.amount && (
-                                      <p className="text-[10px] text-muted-foreground mt-0.5">{sub.amount} TND</p>
-                                    )}
+                                  </td>
+                                  <td className="py-3 px-3 text-right hidden sm:table-cell">
+                                    <span className="font-mono text-xs font-medium">
+                                      {sub.amount ? `${sub.amount.toLocaleString("fr-FR")} TND` : "—"}
+                                    </span>
                                   </td>
                                   <td className="py-3 px-3 text-center">
                                     {isVerified ? (
