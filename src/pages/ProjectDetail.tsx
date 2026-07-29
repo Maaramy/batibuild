@@ -1385,7 +1385,7 @@ export default function ProjectDetail() {
             <motion.div variants={fadeUp} custom={1}
               className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
               {[
-                { icon: Building2, label: "Surface", value: project.surface ? `${project.surface} m²` : "Non définie", color: "from-blue-500/10 to-blue-500/5 text-blue-600" },
+                { icon: Building2, label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", color: "from-blue-500/10 to-blue-500/5 text-blue-600" },
                 { icon: Globe, label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", color: "from-rose-500/10 to-rose-500/5 text-rose-600" },
                 { icon: Users, label: "Main-d'œuvre", value: ai.laborEstimate ? `${ai.laborEstimate.totalWorkers ?? "?"} ouvriers` : "Non estimée", color: "from-emerald-500/10 to-emerald-500/5 text-emerald-600" },
                 { icon: Clock, label: "Durée estimée", value: ai.estimatedDuration ?? "Non estimée", color: "from-amber-500/10 to-amber-500/5 text-amber-600" },
@@ -1893,7 +1893,7 @@ export default function ProjectDetail() {
                 {[
                   { label: "Catégorie", value: ai.category, icon: Building2 },
                   { label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", icon: MapPin },
-                  { label: "Surface", value: project.surface ? `${project.surface} m²` : "Non définie", icon: Ruler },
+                  { label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", icon: Ruler },
                   { label: "Étages", value: String(project.floors ?? 1), icon: Building2 },
                   { label: "Créé le", value: new Date(project.createdAt).toLocaleDateString("fr-FR"), icon: Calendar },
                   { label: "Statut", value: "Terminé", icon: CheckCircle2 },
