@@ -602,12 +602,49 @@ export default function AdminPanel() {
             {/* ── Reçus de Paiement ── */}
             <TabsContent value="recus">
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <div>
-                    <h2 className="text-lg font-semibold">Reçus de paiement</h2>
-                    <p className="text-xs text-muted-foreground">Historique des reçus de paiement envoyés par les abonnés</p>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <div>
+                      <h2 className="text-lg font-semibold">Reçus de paiement</h2>
+                      <p className="text-xs text-muted-foreground">Historique des reçus de paiement envoyés par les abonnés</p>
+                    </div>
                   </div>
+                  {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs shrink-0"
+                      onClick={() => {
+                        const headers = ["Client","Email","Offre","Montant","Statut","Fichier","Date upload"];
+                        const rows = allSubsWithUsers
+                          .filter((s: any) => s.paymentProofUrl)
+                          .map((sub: any) => [
+                            sub.user?.name || "Anonyme",
+                            sub.user?.email || "",
+                            sub.plan || "",
+                            sub.amount ? `${sub.amount} TND` : "",
+                            sub.paymentProofVerified ? "Vérifié" : "En attente",
+                            sub.paymentProofFileName || "",
+                            sub.paymentProofUploadedAt
+                              ? new Date(sub.paymentProofUploadedAt).toLocaleDateString("fr-FR")
+                              : "",
+                          ]);
+                        const csv = [headers.join(","), ...rows.map((r: string[]) => r.map(c => `"${c}"`).join(","))].join("\n");
+                        const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "recus_paiement_" + new Date().toISOString().split("T")[0] + ".csv";
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success("Fichier CSV exporté");
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Export CSV</span>
+                    </Button>
+                  )}
                 </div>
 
                 {/* Filtres */}
