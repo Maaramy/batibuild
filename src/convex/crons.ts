@@ -1,5 +1,6 @@
 import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
+import { mutation } from "./_generated/server";
 
 const crons = cronJobs();
 
@@ -17,6 +18,14 @@ crons.cron(
   "monthly-bim-refresh",
   "0 1 1 * *",
   internal.bimConfig.refreshBIMDataMonthly,
+);
+
+// Daily supplier subscription check (trial ending, subscription expiring, etc.)
+// Runs every day at 08:00 AM
+crons.cron(
+  "daily-supplier-check",
+  "0 8 * * *",
+  (internal as any).supplierProfiles.checkSupplierNotifications,
 );
 
 export default crons;

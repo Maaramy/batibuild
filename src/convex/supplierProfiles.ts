@@ -391,3 +391,136 @@ export const deleteProfile = mutation({
     await ctx.db.delete(profile._id);
   },
 });
+
+/** Admin: Delete any supplier profile */
+export const adminDeleteProfile = mutation({
+  args: { profileId: v.id("supplierProfiles") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil fournisseur introuvable");
+
+    await ctx.db.delete(args.profileId);
+
+    // Notify the supplier
+    try {
+      await ctx.db.insert("notifications", {
+        userId: profile.userId,
+        type: "system",
+        title: "Profil fournisseur supprimé",
+        message: "Votre profil fournisseur a été supprimé par l'administrateur. Contactez le support pour plus d'informations.",
+        read: false,
+        link: "/supplier",
+        createdAt: Date.now(),
+      });
+    } catch (e) { /* optional */ }
+  },
+});
+
+/** Admin: Toggle supplier profile visibility */
+export const adminToggleVisibility = mutation({
+  args: { profileId: v.id("supplierProfiles") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil fournisseur introuvable");
+
+    await ctx.db.patch(args.profileId, {
+      isVisible: !profile.isVisible,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/** Internal: Check supplier subscription statuses and send notifications (called by cron) */
+export const checkSupplierNotifications = mutation({
+  handler: async (ctx) => {
+    const now = Date.now();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    const allSuppliers = await ctx.db.query("supplierProfiles").collect();
+
+    for (const profile of allSuppliers) {
+      // Check trial ending in 2 days
+      if (
+        profile.subscriptionStatus === "trial" &&
+        profile.trialStartDate
+      ) {
+        const trialEnd = profile.trialStartDate + TRIAL_DAYS * DAY_MS;
+        const daysUntilEnd = Math.round((trialEnd - now) / DAY_MS);
+
+        if (daysUntilEnd === 2) {
+          try {
+            await ctx.db.insert("notifications", {
+              userId: profile.userId,
+              type: "subscription",
+              title: "Essai gratuit bientôt terminé",
+              message: "Votre essai gratuit de 7 jours se termine dans 2 jours. Souscrivez à l'abonnement à 120 TND/mois pour continuer à apparaître dans les recommandations.",
+              read: false,
+              link: "/supplier",
+              createdAt: now,
+            });
+          } catch (e) { /* optional */ }
+        }
+
+        // Trial expired
+        if (trialEnd < now && profile.isVisible) {
+          await ctx.db.patch(profile._id, { isVisible: false, updatedAt: now });
+          try {
+            await ctx.db.insert("notifications", {
+              userId: profile.userId,
+              type: "subscription",
+              title: "Essai gratuit terminé",
+              message: "Votre essai gratuit de 7 jours est terminé. Votre profil a été masqué. Abonnez-vous à 120 TND/mois pour réactiver votre visibilité.",
+              read: false,
+              link: "/supplier",
+              createdAt: now,
+            });
+          } catch (e) { /* optional */ }
+        }
+      }
+
+      // Check active subscription ending in 3 days
+      if (
+        profile.subscriptionStatus === "active" &&
+        profile.subscriptionEndDate
+      ) {
+        const daysUntilEnd = Math.round((profile.subscriptionEndDate - now) / DAY_MS);
+
+        if (daysUntilEnd === 3) {
+          try {
+            await ctx.db.insert("notifications", {
+              userId: profile.userId,
+              type: "subscription",
+              title: "Abonnement bientôt expiré",
+              message: "Votre abonnement fournisseur expire dans 3 jours. Renouvelez-le pour continuer à être recommandé aux porteurs de projets.",
+              read: false,
+              link: "/supplier",
+              createdAt: now,
+            });
+          } catch (e) { /* optional */ }
+        }
+
+        // Subscription expired
+        if (profile.subscriptionEndDate < now && profile.isVisible) {
+          await ctx.db.patch(profile._id, { isVisible: false, updatedAt: now });
+          try {
+            await ctx.db.insert("notifications", {
+              userId: profile.userId,
+              type: "subscription",
+              title: "Abonnement expiré",
+              message: "Votre abonnement fournisseur a expiré. Votre profil a été masqué. Réabonnez-vous à 120 TND/mois pour réactiver votre visibilité.",
+              read: false,
+              link: "/supplier",
+              createdAt: now,
+            });
+          } catch (e) { /* optional */ }
+        }
+      }
+    }
+  },
+});

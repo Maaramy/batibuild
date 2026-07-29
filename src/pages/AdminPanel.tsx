@@ -56,6 +56,8 @@ import {
   ToggleLeft,
   ToggleRight,
   Download,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -100,6 +102,8 @@ export default function AdminPanel() {
   const toggleUserStatus = useMutation(api.users.toggleUserStatus);
   const markReceiptVerified = useMutation(api.subscriptions.markReceiptVerified);
   const batchDeleteUsers = useMutation(api.users.batchDeleteUsers);
+  const adminDeleteSupplierProfile = useMutation(api.supplierProfiles.adminDeleteProfile);
+  const adminToggleSupplierVisibility = useMutation(api.supplierProfiles.adminToggleVisibility);
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -372,12 +376,48 @@ export default function AdminPanel() {
               {/* ── Fournisseurs ── */}
               <TabsContent value="fournisseurs">
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-primary" />
-                    <div>
-                      <h2 className="text-lg font-semibold">Gestion des fournisseurs</h2>
-                      <p className="text-xs text-muted-foreground">Liste de tous les profils fournisseurs inscrits</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-primary" />
+                      <div>
+                        <h2 className="text-lg font-semibold">Gestion des fournisseurs</h2>
+                        <p className="text-xs text-muted-foreground">Liste de tous les profils fournisseurs inscrits</p>
+                      </div>
                     </div>
+                    {allSuppliers.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs shrink-0"
+                        onClick={() => {
+                          const headers = ["Société","Contact","Email","Téléphone","Adresse","Spécialités","Régions","Statut","Visibilité","Date inscription"];
+                          const rows = allSuppliers.map((p: any) => [
+                            p.companyName || "",
+                            p.user?.name || "",
+                            p.email || "",
+                            p.phone || "",
+                            p.address || "",
+                            (p.specialties || []).join(", "),
+                            (p.regions || []).join(", "),
+                            p.subscriptionStatus || "",
+                            p.isVisible ? "Visible" : "Masqué",
+                            p.createdAt ? new Date(p.createdAt).toLocaleDateString("fr-FR") : "",
+                          ]);
+                          const csv = [headers.join(","), ...rows.map((r: string[]) => r.map(c => `"${c}"`).join(","))].join("\n");
+                          const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "fournisseurs_" + new Date().toISOString().split("T")[0] + ".csv";
+                          a.click();
+                          URL.revokeObjectURL(url);
+                          toast.success("Fichier CSV exporté");
+                        }}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Export CSV</span>
+                      </Button>
+                    )}
                   </div>
 
                   {allSuppliers.length === 0 ? (
@@ -398,7 +438,7 @@ export default function AdminPanel() {
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Spécialités</th>
                             <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Statut</th>
                             <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Visibilité</th>
-                            <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs">Inscrit le</th>
+                            <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -417,6 +457,25 @@ export default function AdminPanel() {
                             };
                             const subStatus = profile.subscriptionStatus || "inactive";
 
+                            const handleDelete = async () => {
+                              if (!window.confirm("Supprimer le profil fournisseur " + (profile.companyName || "Sans nom") + " ?\\n\\nCette action est irréversible.")) return;
+                              try {
+                                await adminDeleteSupplierProfile({ profileId: profile._id });
+                                toast.success("Fournisseur supprimé");
+                              } catch (err: any) {
+                                toast.error(err.message || "Erreur");
+                              }
+                            };
+
+                            const handleToggle = async () => {
+                              try {
+                                await adminToggleSupplierVisibility({ profileId: profile._id });
+                                toast.success("Visibilité modifiée");
+                              } catch (err: any) {
+                                toast.error(err.message || "Erreur");
+                              }
+                            };
+
                             return (
                               <tr key={profile._id} className="border-b border-border/20 hover:bg-muted/10 transition-colors">
                                 <td className="py-3 px-3">
@@ -428,10 +487,10 @@ export default function AdminPanel() {
                                       </AvatarFallback>
                                     </Avatar>
                                     <div className="min-w-0">
-                                      <p className="font-medium text-xs truncate max-w-[150px]">
+                                      <p className="font-medium text-xs truncate max-w-[130px]">
                                         {profile.companyName || "Sans nom"}
                                       </p>
-                                      <p className="text-[9px] text-muted-foreground truncate max-w-[150px]">
+                                      <p className="text-[9px] text-muted-foreground truncate max-w-[130px]">
                                         {profile.user?.name || ""}
                                       </p>
                                     </div>
@@ -442,7 +501,7 @@ export default function AdminPanel() {
                                     {profile.email && (
                                       <p className="text-xs flex items-center gap-1">
                                         <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
-                                        <span className="truncate max-w-[160px]">{profile.email}</span>
+                                        <span className="truncate max-w-[140px]">{profile.email}</span>
                                       </p>
                                     )}
                                     {profile.phone && (
@@ -473,26 +532,41 @@ export default function AdminPanel() {
                                   </Badge>
                                 </td>
                                 <td className="py-3 px-3 text-center hidden sm:table-cell">
-                                  {profile.isVisible ? (
-                                    <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200/30 text-[9px]">
-                                      Visible
-                                    </Badge>
-                                  ) : (
-                                    <Badge className="bg-muted/30 text-muted-foreground border-muted-foreground/20 text-[9px]">
-                                      Masqué
-                                    </Badge>
-                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={handleToggle}
+                                    className="inline-flex items-center gap-1 text-xs transition-colors cursor-pointer"
+                                  >
+                                    {profile.isVisible ? (
+                                      <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200/30 text-[9px] cursor-pointer hover:bg-emerald-500/20">
+                                        Visible
+                                      </Badge>
+                                    ) : (
+                                      <Badge className="bg-muted/30 text-muted-foreground border-muted-foreground/20 text-[9px] cursor-pointer hover:bg-muted/50">
+                                        Masqué
+                                      </Badge>
+                                    )}
+                                  </button>
                                 </td>
                                 <td className="py-3 px-3 text-right">
-                                  <span className="text-xs text-muted-foreground">
-                                    {profile.createdAt
-                                      ? new Date(profile.createdAt).toLocaleDateString("fr-FR", {
-                                          day: "numeric",
-                                          month: "short",
-                                          year: "numeric",
-                                        })
-                                      : "—"}
-                                  </span>
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={handleToggle}
+                                      className="p-1.5 rounded-md hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors"
+                                      title={profile.isVisible ? "Masquer" : "Afficher"}
+                                    >
+                                      {profile.isVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleDelete}
+                                      className="p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
+                                      title="Supprimer"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -1413,7 +1487,9 @@ export default function AdminPanel() {
                                   <button
                                     onClick={() => {
                                       const name = u.name || u.email || "cet utilisateur";
-                                      if (window.confirm(`⚠️ Supprimer définitivement ${name} ?\n\nToutes ses données (projets, abonnements, notifications) seront supprimées. Cette action est irréversible.`)) {
+                                      if (window.confirm(`⚠️ Supprimer définitivement ${name} ?
+
+Toutes ses données (projets, abonnements, notifications) seront supprimées. Cette action est irréversible.`)) {
                                         setDeletingUserId(u._id);
                                       }
                                     }}
