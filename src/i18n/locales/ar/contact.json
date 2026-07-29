@@ -1,0 +1,43 @@
+{
+  "pageTitle": "اتصل بنا - ميزانية البناء",
+  "title": "اتصل بنا",
+  "subtitle": "لديك سؤال؟ تحتاج مساعدة؟ فريقنا هنا لمساعدتك.",
+  "form": {
+    "name": "الاسم الكامل",
+    "email": "البريد الإلكتروني",
+    "subject": "الموضوع",
+    "message": "الرسالة",
+    "send": "إرسال",
+    "sending": "جارٍ الإرسال...",
+    "sent": "تم إرسال الرسالة بنجاح",
+    "error": "خطأ في إرسال الرسالة"
+  },
+  "info": {
+    "title": "معلومات الاتصال",
+    "phone": "الهاتف",
+    "email": "البريد الإلكتروني"
+  },
+  "team": {
+    "title": "فريقنا",
+    "rami": {
+      "name": "معتوقي رامي",
+      "role": "المدير التقني والرئيس التنفيذي - المؤسس",
+      "email": "rami.maatougui@budgetbati.com"
+    },
+    "rania": {
+      "name": "رانيا مرزوقي",
+      "role": "مسؤولة",
+      "email": "rania.marzougui@budgetbati.com"
+    },
+    "riadh": {
+      "name": "مرزوقي رياض",
+      "role": "مهندس معماري (خبير استشاري)",
+      "email": "riadh.marzougui@budgetbati.com"
+    },
+    "seifeddine": {
+      "name": "معتوقي سيف الدين",
+      "role": "مستشار ومدير جهوي (صفاقس)",
+      "email": "maatougui.seifeddine@budgetbati.com"
+    }
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "pageTitle": "Project detail - BudgetBati",
+  "back": "Back",
+  "status": {
+    "draft": "Draft",
+    "analyzing": "Analyzing...",
+    "completed": "Completed",
+    "archived": "Archived"
+  },
+  "info": {
+    "category": "Category",
+    "region": "Region",
+    "surface": "Covered surface",
+    "floors": "Floors",
+    "createdAt": "Created on",
+    "status": "Status",
+    "description": "Description"
+  },
+  "costSummary": {
+    "title": "Total estimated cost TTC",
+    "comparison": "Above national average estimate",
+    "less": "Cheaper than average",
+    "more": "More expensive than average",
+    "nationwide": "National average",
+    "region": "Region"
+  },
+  "regionalComparison": {
+    "title": "Comparison by region"
+  },
+  "scenarios": {
+    "title": "Budget scenarios",
+    "subtitle": "Click to apply",
+    "economic": "Economic",
+    "standard": "Standard",
+    "premium": "Premium",
+    "selected": "Selected",
+    "apply": "Apply"
+  },
+  "detailedQuantities": {
+    "title": "Detailed quantities",
+    "posts": "items",
+    "material": "Material / Service",
+    "quantity": "Qty",
+    "unit": "Unit",
+    "unitPrice": "Unit price",
+    "total": "Total",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all"
+  },
+  "categories": {
+    "gros_oeuvre": "Structural work",
+    "second_oeuvre": "Finishing work",
+    "equipements": "Equipment",
+    "main_oeuvre": "Labor",
+    "transport": "Transport",
+    "etudes_permis": "Studies, permits & contingencies"
+  },
+  "breakdown": {
+    "title": "Breakdown",
+    "byCategory": "By cost category",
+    "workItems": "Work items",
+    "contingency": "Contingencies"
+  },
+  "confidence": {
+    "title": "Confidence",
+    "subtitle": "Estimation reliability",
+    "reliable": "Reliable",
+    "estimated": "Estimated",
+    "low": "Low",
+    "posts": "detailed items",
+    "surface": "Surface",
+    "items": "detailed items"
+  },
+  "optimization": {
+    "title": "Optimization",
+    "tips": {
+      "tip1": "Choose local materials (Bizerte cement, Kairouan tiles, Thala marble) to reduce transport costs.",
+      "tip2": "A square plan is 15% cheaper than a complex plan. Optimize the surface/volume ratio.",
+      "tip3": "Use 10cm alveolar bricks for partitions: 20% cheaper and better insulation.",
+      "tip4": "Tunis region: prices 10-15% higher. Buy in other regions to save.",
+      "tip5": "Group purchases (cement + sand + gravel) to get 5-8% discounts."
+    }
+  },
+  "technical": {
+    "title": "Technical recommendations",
+    "rec1": "Tunisian standard NT 47.01: house live load 150 kg/m², office 250 kg/m².",
+    "rec2": "Plan for a crawl space of at least 30 cm for ventilation and insulation."
+  },
+  "suppliers": {
+    "title": "AI-recommended service providers",
+    "noSuppliers": "No suppliers recommended for this project.",
+    "contact": "Contact",
+    "verified": "Verified",
+    "projects": "projects"
+  },
+  "actions": {
+    "downloadDevis": "Download quote",
+    "exportExcel": "Export Excel",
+    "delete": "Delete",
+    "deleteConfirm": "Confirm deletion?",
+    "deleteCompletedError": "Completed projects cannot be deleted.",
+    "edit": "Edit",
+    "share": "Share"
+  },
+  "export": {
+    "selectFormat": "Choose format",
+    "formatA4": "A4",
+    "formatA3": "A3",
+    "formatLetter": "Letter",
+    "formatLandscape": "Landscape",
+    "generating": "Generating...",
+    "success": "Quote downloaded successfully",
+    "error": "Download failed",
+    "progress": "Generating PDF..."
+  },
+  "devis": {
+    "title": "ESTIMATE QUOTE",
+    "number": "Quote N°",
+    "date": "Issue date",
+    "project": "Project",
+    "validity": "Validity: 30 days",
+    "conditions": "Payment terms: Bank transfer",
+    "page": "Page",
+    "of": "of",
+    "totalHT": "Total HT",
+    "tva": "VAT (19%)",
+    "totalTTC": "Total TTC",
+    "generatedBy": "Quote created by BudgetBati experts",
+    "company": "GALISKON PROJECT",
+    "stampText": "Stamp & Signature"
+  }
+}

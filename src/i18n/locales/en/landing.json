@@ -1,0 +1,119 @@
+{
+  "hero": {
+    "badge": "AI-Powered Estimation for the Tunisian Market",
+    "title1": "Estimate your",
+    "titleBold": "construction",
+    "title2": "projects in Tunisia with AI",
+    "description": "Upload a photo, a plan, or dimensions. Artificial intelligence analyzes, calculates and generates a complete quote based on up-to-date Tunisian market prices.",
+    "ctaStart": "Start a free quote",
+    "ctaLearn": "Learn more",
+    "categoriesLabel": "Over 40 supported project types",
+    "categoriesMore": "+ 28 others"
+  },
+  "howItWorks": {
+    "badge": "How it works",
+    "title": "From import to report in",
+    "titleBold": "3 steps",
+    "subtitle": "A simple and fast process to estimate your construction projects in Tunisia.",
+    "step1Title": "Import your project",
+    "step1Desc": "Upload a photo, PDF plan, satellite image or enter dimensions manually.",
+    "step2Title": "AI analyzes",
+    "step2Desc": "Artificial intelligence identifies the project type, calculates areas and detects materials.",
+    "step3Title": "Get your estimate",
+    "step3Desc": "Get a complete quote with total cost, detailed breakdown and personalized recommendations.",
+    "cta": "Try it for free"
+  },
+  "mockImport": {
+    "uploadTitle": "Import your documents",
+    "uploadDesc": "Photo, PDF plan, satellite image",
+    "region": "Region",
+    "surface": "Surface area (m²)",
+    "analyze": "Analyze my project",
+    "fileAttached": "Plan_house.pdf"
+  },
+  "mockAnalysis": {
+    "analyzing": "Analysis in progress...",
+    "analyzingDesc": "AI project recognition",
+    "projectType": "Project type",
+    "detectedSurface": "Detected surface",
+    "materials": "Materials",
+    "quality": "Quality",
+    "confidence": "AI: Project detected with {{confidence}}% confidence"
+  },
+  "mockReport": {
+    "totalLabel": "Estimated total cost",
+    "marketLabel": "Tunisian market 2026 • All taxes included",
+    "columns": {
+      "structural": "Structural work",
+      "finishes": "Finishing work",
+      "equipment": "Equipment"
+    },
+    "scenarios": {
+      "economic": "Economic",
+      "standard": "Standard",
+      "premium": "Premium"
+    },
+    "downloadPdf": "Download PDF",
+    "viewReport": "View report"
+  },
+  "features": {
+    "badge": "Features",
+    "title": "Everything you need to estimate your projects",
+    "subtitle": "A complete solution that uses artificial intelligence to simplify construction cost estimation.",
+    "items": {
+      "import": {
+        "title": "Multi-Format Import",
+        "desc": "Import photos, PDF plans, satellite images or hand-drawn sketches in one click."
+      },
+      "ai": {
+        "title": "Automatic AI Analysis",
+        "desc": "AI recognizes the project type, detects dimensions and identifies required materials."
+      },
+      "estimation": {
+        "title": "Precise Estimation",
+        "desc": "Automatic cost calculation based on updated Tunisian market prices."
+      },
+      "reports": {
+        "title": "Professional Reports",
+        "desc": "Generate detailed reports in PDF, Excel or CSV with complete cost breakdown."
+      },
+      "projectTypes": {
+        "title": "40+ Project Types",
+        "desc": "Houses, villas, pools, buildings, renovations and many more."
+      },
+      "materials": {
+        "title": "Materials Management",
+        "desc": "Materials price database updated with change history."
+      }
+    }
+  },
+  "benefits": {
+    "time": { "number": "50%", "label": "Time saving", "desc": "Cut estimation time in half with AI" },
+    "projects": { "number": "40+", "label": "Project types", "desc": "Construction categories supported" },
+    "accuracy": { "number": "95%", "label": "Accuracy", "desc": "Average AI estimation confidence rate" },
+    "materials": { "number": "500+", "label": "Materials", "desc": "Updated prices in the database" }
+  },
+  "testimonials": {
+    "badge": "Testimonials",
+    "title": "What our users say",
+    "subtitle": "Join hundreds of professionals who trust us."
+  },
+  "cta": {
+    "badge": "Ready to start?",
+    "title": "Estimate your first project for free",
+    "subtitle": "Join Tunisian professionals using AI to optimize their construction estimates.",
+    "buttonStart": "Start now",
+    "buttonAccount": "Create an account"
+  },
+  "footer": {
+    "description": "AI solution for construction cost estimation in Tunisia.",
+    "product": "Product",
+    "support": "Support",
+    "contactUs": "Contact us",
+    "faq": "FAQ",
+    "legal": "Legal",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "copyright": "© {{year}} GALISKON PROJECT. All rights reserved."
+  }
+}

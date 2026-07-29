@@ -1,0 +1,23 @@
+{
+  "pageTitle": "Profile - BudgetBati",
+  "title": "My profile",
+  "subtitle": "Manage your personal information",
+  "info": "Personal information",
+  "name": "Name",
+  "email": "Email",
+  "phone": "Phone",
+  "role": "Role",
+  "memberSince": "Member since",
+  "plan": "Subscription",
+  "planEnd": "Expires on",
+  "save": "Save",
+  "saved": "Profile updated",
+  "saving": "Saving...",
+  "photo": "Profile picture",
+  "photoChange": "Change photo",
+  "photoRemove": "Delete",
+  "projects": "My projects",
+  "totalProjects": "Total projects",
+  "completedProjects": "Completed projects",
+  "recentActivity": "Recent activity"
+}

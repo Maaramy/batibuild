@@ -1,0 +1,132 @@
+{
+  "pageTitle": "Détail du projet - BudgetBati",
+  "back": "Retour",
+  "status": {
+    "draft": "Brouillon",
+    "analyzing": "Analyse...",
+    "completed": "Terminé",
+    "archived": "Archivé"
+  },
+  "info": {
+    "category": "Catégorie",
+    "region": "Région",
+    "surface": "Surface couverte",
+    "floors": "Étages",
+    "createdAt": "Créé le",
+    "status": "Statut",
+    "description": "Description"
+  },
+  "costSummary": {
+    "title": "Coût total estimé TTC",
+    "comparison": "Sur estimation par rapport à la moyenne nationale",
+    "less": "Moins cher que la moyenne",
+    "more": "Plus cher que la moyenne",
+    "nationwide": "Moyenne nationale",
+    "region": "Région"
+  },
+  "regionalComparison": {
+    "title": "Comparatif par région"
+  },
+  "scenarios": {
+    "title": "Scénarios budgétaires",
+    "subtitle": "Cliquez pour appliquer",
+    "economic": "Économique",
+    "standard": "Standard",
+    "premium": "Premium",
+    "selected": "Sélectionné",
+    "apply": "Appliquer"
+  },
+  "detailedQuantities": {
+    "title": "Quantitatif détaillé",
+    "posts": "postes",
+    "material": "Matériau / Prestation",
+    "quantity": "Qté",
+    "unit": "Unité",
+    "unitPrice": "Prix unit.",
+    "total": "Total",
+    "expandAll": "Tout déplier",
+    "collapseAll": "Tout replier"
+  },
+  "categories": {
+    "gros_oeuvre": "Gros œuvre",
+    "second_oeuvre": "Second œuvre",
+    "equipements": "Équipements",
+    "main_oeuvre": "Main-d'œuvre",
+    "transport": "Transport",
+    "etudes_permis": "Études, permis & imprévus"
+  },
+  "breakdown": {
+    "title": "Répartition",
+    "byCategory": "Par catégorie de coût",
+    "workItems": "Postes de travaux",
+    "contingency": "Imprévus"
+  },
+  "confidence": {
+    "title": "Confiance",
+    "subtitle": "Fiabilité de l'estimation",
+    "reliable": "Fiable",
+    "estimated": "Estimé",
+    "low": "Faible",
+    "posts": "postes détaillés",
+    "surface": "Surface",
+    "items": "postes détaillés"
+  },
+  "optimization": {
+    "title": "Optimisation",
+    "tips": {
+      "tip1": "Privilégiez les matériaux locaux (ciment Bizerte, carrelage Kairouan, marbre Thala) pour réduire le transport.",
+      "tip2": "Un plan carré est 15% plus économique qu'un plan complexe. Optimisez le ratio surface/volume.",
+      "tip3": "Utilisez des briques alvéolaires 10cm pour les cloisons : 20% moins cher et meilleure isolation.",
+      "tip4": "Région Tunis : prix 10-15% plus élevés. Achetez en région pour économiser.",
+      "tip5": "Regroupez vos achats (ciment + sable + gravier) pour obtenir des remises de 5-8%."
+    }
+  },
+  "technical": {
+    "title": "Recommandations techniques",
+    "rec1": "Norme tunisienne NT 47.01 : charge d'exploitation maison 150 kg/m², bureau 250 kg/m².",
+    "rec2": "Prévoyez un vide sanitaire d'au moins 30 cm pour l'aération et l'isolation."
+  },
+  "suppliers": {
+    "title": "Prestataires recommandés par l'IA",
+    "noSuppliers": "Aucun prestataire recommandé pour ce projet.",
+    "contact": "Contacter",
+    "verified": "Vérifié",
+    "projects": "projets"
+  },
+  "actions": {
+    "downloadDevis": "Télécharger le devis",
+    "exportExcel": "Export Excel",
+    "delete": "Supprimer",
+    "deleteConfirm": "Confirmer la suppression ?",
+    "deleteCompletedError": "Les projets terminés ne peuvent pas être supprimés.",
+    "edit": "Modifier",
+    "share": "Partager"
+  },
+  "export": {
+    "selectFormat": "Choisir le format",
+    "formatA4": "A4",
+    "formatA3": "A3",
+    "formatLetter": "Lettre",
+    "formatLandscape": "Paysage",
+    "generating": "Génération en cours...",
+    "success": "Devis téléchargé avec succès",
+    "error": "Échec du téléchargement",
+    "progress": "Génération du PDF..."
+  },
+  "devis": {
+    "title": "DEVIS ESTIMATIF",
+    "number": "Devis N°",
+    "date": "Date d'émission",
+    "project": "Projet",
+    "validity": "Validité : 30 jours",
+    "conditions": "Conditions de paiement : Virement bancaire",
+    "page": "Page",
+    "of": "sur",
+    "totalHT": "Total HT",
+    "tva": "TVA (19%)",
+    "totalTTC": "Total TTC",
+    "generatedBy": "Devis créé par les experts de BudgetBati",
+    "company": "GALISKON PROJECT",
+    "stampText": "Cachet & Signature"
+  }
+}

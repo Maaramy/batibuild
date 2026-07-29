@@ -1,0 +1,43 @@
+{
+  "pageTitle": "Contact - BudgetBati",
+  "title": "Contact us",
+  "subtitle": "A question? Need help? Our team is here for you.",
+  "form": {
+    "name": "Full name",
+    "email": "Email",
+    "subject": "Subject",
+    "message": "Message",
+    "send": "Send",
+    "sending": "Sending...",
+    "sent": "Message sent successfully",
+    "error": "Error sending message"
+  },
+  "info": {
+    "title": "Our contacts",
+    "phone": "Phone",
+    "email": "Email"
+  },
+  "team": {
+    "title": "Our team",
+    "rami": {
+      "name": "Maatougui Rami",
+      "role": "Technical Director & CEO - Founder",
+      "email": "rami.maatougui@budgetbati.com"
+    },
+    "rania": {
+      "name": "Rania Marzougui",
+      "role": "Manager",
+      "email": "rania.marzougui@budgetbati.com"
+    },
+    "riadh": {
+      "name": "Marzougui Riadh",
+      "role": "Architect (expert advisor)",
+      "email": "riadh.marzougui@budgetbati.com"
+    },
+    "seifeddine": {
+      "name": "Maatougui Seifeddine",
+      "role": "Consultant & Regional Director (SAFI)",
+      "email": "maatougui.seifeddine@budgetbati.com"
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "pageTitle": "Tableau de bord - BudgetBati",
+  "pageDesc": "Gérez vos projets de construction et suivez vos estimations sur BudgetBati.",
+  "title": "Tableau de bord",
+  "newProject": "Nouveau projet",
+  "stats": {
+    "totalProjects": "Projets",
+    "completed": "Terminés",
+    "estimates": "Estimations",
+    "favorites": "Favoris"
+  },
+  "projectCard": {
+    "open": "Ouvrir",
+    "favorite": "Favori",
+    "unfavorite": "Retirer favori",
+    "delete": "Supprimer",
+    "deleteDisabled": "Non supprimable",
+    "confirmDelete": "Supprimer ce projet ?",
+    "estimation": "Estimation",
+    "pricePerM2": "Prix/m²",
+    "waitingAnalysis": "En attente d'analyse",
+    "analyzing": "Analyse...",
+    "deleteCompletedError": "Les projets terminés ne peuvent pas être supprimés.",
+    "surface": "Surface couverte"
+  },
+  "filters": {
+    "all": "Tous",
+    "completed": "Terminés",
+    "draft": "Brouillons",
+    "favorites": "Favoris",
+    "search": "Rechercher un projet..."
+  },
+  "empty": {
+    "title": "Aucun projet pour le moment",
+    "desc": "Créez votre premier projet pour obtenir une estimation automatique.",
+    "button": "Créer un projet"
+  },
+  "sidebar": {
+    "dashboard": "Tableau de bord",
+    "newProject": "Nouveau projet",
+    "projects": "Projets",
+    "pricing": "Abonnement",
+    "materials": "Matériaux",
+    "supplier": "Espace fournisseur",
+    "admin": "Administration",
+    "settings": "Paramètres",
+    "profile": "Profil",
+    "help": "Aide",
+    "logout": "Déconnexion"
+  },
+  "projectCounter": "Projet {{current}}/{{total}}",
+  "downloadCount": "téléchargement(s)",
+  "remaining": "Il vous reste {{count}} téléchargement(s) ce mois-ci.",
+  "subscribed": "Vous êtes abonné {{plan}}.",
+  "plan": {
+    "free": "Gratuit",
+    "pro": "Pro",
+    "expert": "Expert"
+  },
+  "materialsUpdate": "Mise à jour des prix",
+  "materialsLastUpdate": "Dernière mise à jour : {{date}}",
+  "materialsUpdateNow": "Mettre à jour maintenant"
+}

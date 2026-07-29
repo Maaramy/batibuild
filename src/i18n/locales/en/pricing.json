@@ -1,0 +1,99 @@
+{
+  "pageTitle": "Pricing - BudgetBati",
+  "title": "Our plans",
+  "subtitle": "Choose the plan that fits your needs",
+  "monthly": "per month",
+  "popular": "Popular",
+  "mostPopular": "Most popular",
+  "freePlan": {
+    "name": "Free",
+    "price": "0",
+    "desc": "To discover the tool",
+    "features": {
+      "projects": "3 projects",
+      "devis": "Preview only",
+      "exports": "No downloads",
+      "support": "Email support",
+      "materials": "Standard material prices"
+    }
+  },
+  "proPlan": {
+    "name": "Pro",
+    "price": "79",
+    "desc": "For professionals",
+    "features": {
+      "projects": "10 projects/month",
+      "devis": "10 PDF quotes/month",
+      "exports": "PDF, Excel, CSV export",
+      "support": "Priority support",
+      "materials": "Regional material prices",
+      "suppliers": "Supplier access"
+    }
+  },
+  "expertPlan": {
+    "name": "Expert",
+    "price": "320",
+    "desc": "For large agencies",
+    "features": {
+      "projects": "100 projects/month",
+      "devis": "100 PDF quotes/month",
+      "exports": "Unlimited export",
+      "support": "24/7 dedicated support",
+      "materials": "Real-time material prices",
+      "suppliers": "Premium supplier access",
+      "analytics": "Advanced analytics"
+    }
+  },
+  "supplierPlan": {
+    "name": "Supplier",
+    "price": "120",
+    "desc": "For material suppliers",
+    "features": {
+      "visibility": "Project visibility",
+      "recommendations": "AI recommended",
+      "contacts": "Client contacts",
+      "verified": "Verified badge",
+      "analytics": "Visibility statistics",
+      "support": "Priority support"
+    }
+  },
+  "cta": {
+    "start": "Get started",
+    "current": "Current plan",
+    "upgrade": "Upgrade to",
+    "contact": "Contact support"
+  },
+  "payment": {
+    "methods": "Payment methods",
+    "bankTransfer": "Bank transfer",
+    "d17": "D17 (Tunisian Post)",
+    "bankInfo": "Our bank details",
+    "bankName": "Bank",
+    "titulaire": "Account holder",
+    "rib": "RIB",
+    "iban": "IBAN",
+    "swift": "SWIFT",
+    "d17Info": "Our D17 details",
+    "merchantName": "Merchant name",
+    "merchantId": "Merchant ID",
+    "uploadReceipt": "Send payment receipt",
+    "uploadHint": "Screenshot of bank transfer or D17 payment",
+    "uploadButton": "Choose file",
+    "sendReceipt": "Send receipt",
+    "sending": "Sending...",
+    "receiptSent": "Receipt sent successfully. Awaiting verification.",
+    "choosePlan": "Choose this plan",
+    "confirmTitle": "Choose a scenario",
+    "confirmDesc": "Select the plan that suits you",
+    "confirm": "Confirm"
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "q1": "Can I change plans at any time?",
+    "a1": "Yes, you can upgrade to a higher plan at any time. Downloads reset each month.",
+    "q2": "How does the supplier trial work?",
+    "a2": "Suppliers get 7 days free trial to test the supplier space.",
+    "q3": "What payment methods do you accept?",
+    "a3": "We accept bank transfer and D17 payment via Tunisian Post."
+  }
+}

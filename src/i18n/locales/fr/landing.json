@@ -1,0 +1,119 @@
+{
+  "hero": {
+    "badge": "Estimation par IA pour le marché tunisien",
+    "title1": "Estimez vos projets de",
+    "titleBold": "construction",
+    "title2": "en Tunisie avec l'IA",
+    "description": "Importez une photo, un plan ou des dimensions. L'intelligence artificielle analyse, calcule et génère un devis complet basé sur les prix actualisés du marché tunisien.",
+    "ctaStart": "Commencer un devis gratuit",
+    "ctaLearn": "En savoir plus",
+    "categoriesLabel": "Plus de 40 types de projets pris en charge",
+    "categoriesMore": "+ 28 autres"
+  },
+  "howItWorks": {
+    "badge": "Comment ça marche",
+    "title": "De l'import au rapport en",
+    "titleBold": "3 étapes",
+    "subtitle": "Un processus simple et rapide pour estimer vos projets de construction en Tunisie.",
+    "step1Title": "Importez votre projet",
+    "step1Desc": "Importez une photo, un plan PDF, une image satellite ou saisissez les dimensions manuellement.",
+    "step2Title": "L'IA analyse",
+    "step2Desc": "L'intelligence artificielle identifie le type de projet, calcule les surfaces et détecte les matériaux.",
+    "step3Title": "Recevez votre estimation",
+    "step3Desc": "Obtenez un devis complet avec coût total, répartition détaillée, et recommandations personnalisées.",
+    "cta": "Essayer gratuitement"
+  },
+  "mockImport": {
+    "uploadTitle": "Importez vos documents",
+    "uploadDesc": "Photo, plan PDF, image satellite",
+    "region": "Région",
+    "surface": "Surface (m²)",
+    "analyze": "Analyser mon projet",
+    "fileAttached": "Plan_maison.pdf"
+  },
+  "mockAnalysis": {
+    "analyzing": "Analyse en cours...",
+    "analyzingDesc": "Reconnaissance du projet par l'IA",
+    "projectType": "Type de projet",
+    "detectedSurface": "Surface détectée",
+    "materials": "Matériaux",
+    "quality": "Qualité",
+    "confidence": "IA : Projet détecté avec {{confidence}}% de confiance"
+  },
+  "mockReport": {
+    "totalLabel": "Coût total estimé",
+    "marketLabel": "Marché tunisien 2026 • Prix TTC",
+    "columns": {
+      "structural": "Gros œuvre",
+      "finishes": "Second œuvre",
+      "equipment": "Équipements"
+    },
+    "scenarios": {
+      "economic": "Économique",
+      "standard": "Standard",
+      "premium": "Premium"
+    },
+    "downloadPdf": "Télécharger PDF",
+    "viewReport": "Voir le rapport"
+  },
+  "features": {
+    "badge": "Fonctionnalités",
+    "title": "Tout ce dont vous avez besoin pour estimer vos projets",
+    "subtitle": "Une solution complète qui utilise l'intelligence artificielle pour simplifier l'estimation des coûts de construction.",
+    "items": {
+      "import": {
+        "title": "Import Multi-Format",
+        "desc": "Importez des photos, plans PDF, images satellite ou croquis dessinés à la main en un clic."
+      },
+      "ai": {
+        "title": "Analyse IA Automatique",
+        "desc": "L'IA reconnaît le type de projet, détecte les dimensions et identifie les matériaux nécessaires."
+      },
+      "estimation": {
+        "title": "Estimation Précise",
+        "desc": "Calcul automatique des coûts basé sur les prix actualisés du marché tunisien."
+      },
+      "reports": {
+        "title": "Rapports Professionnels",
+        "desc": "Générez des rapports détaillés en PDF, Excel ou CSV avec répartition complète des coûts."
+      },
+      "projectTypes": {
+        "title": "40+ Types de Projets",
+        "desc": "Maisons, villas, piscines, immeubles, rénovations et bien plus encore."
+      },
+      "materials": {
+        "title": "Gestion des Matériaux",
+        "desc": "Base de données des prix des matériaux actualisée avec historique des changements."
+      }
+    }
+  },
+  "benefits": {
+    "time": { "number": "50%", "label": "Gain de temps", "desc": "Réduisez de moitié le temps d'estimation grâce à l'IA" },
+    "projects": { "number": "40+", "label": "Types de projets", "desc": "Catégories de construction prises en charge" },
+    "accuracy": { "number": "95%", "label": "Précision", "desc": "Taux de confiance moyen des estimations IA" },
+    "materials": { "number": "500+", "label": "Matériaux", "desc": "Prix actualisés dans la base de données" }
+  },
+  "testimonials": {
+    "badge": "Témoignages",
+    "title": "Ce que disent nos utilisateurs",
+    "subtitle": "Rejoignez les centaines de professionnels qui nous font confiance."
+  },
+  "cta": {
+    "badge": "Prêt à commencer ?",
+    "title": "Estimez votre premier projet gratuitement",
+    "subtitle": "Rejoignez les professionnels tunisiens qui utilisent l'IA pour optimiser leurs estimations de construction.",
+    "buttonStart": "Commencer maintenant",
+    "buttonAccount": "Créer un compte"
+  },
+  "footer": {
+    "description": "Solution IA pour l'estimation des coûts de construction en Tunisie.",
+    "product": "Produit",
+    "support": "Support",
+    "contactUs": "Nous contacter",
+    "faq": "FAQ",
+    "legal": "Légal",
+    "privacy": "Confidentialité",
+    "terms": "Conditions",
+    "copyright": "© {{year}} GALISKON PROJECT. Tous droits réservés."
+  }
+}

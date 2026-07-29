@@ -1,0 +1,63 @@
+{
+  "pageTitle": "لوحة التحكم - ميزانية البناء",
+  "pageDesc": "إدارة مشاريع البناء وتتبع تقديراتك على ميزانية البناء.",
+  "title": "لوحة التحكم",
+  "newProject": "مشروع جديد",
+  "stats": {
+    "totalProjects": "المشاريع",
+    "completed": "مكتمل",
+    "estimates": "التقديرات",
+    "favorites": "المفضلة"
+  },
+  "projectCard": {
+    "open": "فتح",
+    "favorite": "مفضلة",
+    "unfavorite": "إزالة من المفضلة",
+    "delete": "حذف",
+    "deleteDisabled": "لا يمكن الحذف",
+    "confirmDelete": "حذف هذا المشروع؟",
+    "estimation": "تقدير",
+    "pricePerM2": "السعر/م²",
+    "waitingAnalysis": "بانتظار التحليل",
+    "analyzing": "جارٍ التحليل...",
+    "deleteCompletedError": "لا يمكن حذف المشاريع المكتملة.",
+    "surface": "المساحة المغطاة"
+  },
+  "filters": {
+    "all": "الكل",
+    "completed": "مكتمل",
+    "draft": "مسودة",
+    "favorites": "المفضلة",
+    "search": "البحث عن مشروع..."
+  },
+  "empty": {
+    "title": "لا توجد مشاريع بعد",
+    "desc": "أنشئ مشروعك الأول للحصول على تقدير تلقائي.",
+    "button": "إنشاء مشروع"
+  },
+  "sidebar": {
+    "dashboard": "لوحة التحكم",
+    "newProject": "مشروع جديد",
+    "projects": "المشاريع",
+    "pricing": "الاشتراك",
+    "materials": "المواد",
+    "supplier": "مساحة الموردين",
+    "admin": "الإدارة",
+    "settings": "الإعدادات",
+    "profile": "الملف الشخصي",
+    "help": "مساعدة",
+    "logout": "تسجيل الخروج"
+  },
+  "projectCounter": "المشروع {{current}}/{{total}}",
+  "downloadCount": "تحميل",
+  "remaining": "لديك {{count}} تحميل متبقي هذا الشهر.",
+  "subscribed": "أنت مشترك في {{plan}}.",
+  "plan": {
+    "free": "مجاني",
+    "pro": "احترافي",
+    "expert": "خبير"
+  },
+  "materialsUpdate": "تحديث الأسعار",
+  "materialsLastUpdate": "آخر تحديث: {{date}}",
+  "materialsUpdateNow": "تحديث الآن"
+}

@@ -1,0 +1,39 @@
+{
+  "pageTitle": "Materials - BudgetBati",
+  "title": "Material Prices - Tunisia 2026",
+  "description": "Construction material prices database in Tunisia, updated monthly.",
+  "lastUpdate": "Last update",
+  "nextUpdate": "Next update",
+  "search": "Search a material...",
+  "filter": "Category",
+  "all": "All",
+  "categories": {
+    "cement": "Cement",
+    "sand": "Sand",
+    "gravel": "Gravel",
+    "bricks": "Bricks",
+    "concrete": "Concrete",
+    "steel": "Steel",
+    "wood": "Wood",
+    "tiles": "Tiles",
+    "paint": "Paint",
+    "plumbing": "Plumbing",
+    "electrical": "Electrical",
+    "roofing": "Roofing",
+    "insulation": "Insulation",
+    "doors": "Doors & Windows",
+    "finishes": "Finishes"
+  },
+  "table": {
+    "material": "Material",
+    "unit": "Unit",
+    "price": "Price (TND)",
+    "variation": "Variation",
+    "category": "Category"
+  },
+  "noResults": "No material found",
+  "update": "Update prices",
+  "updating": "Updating...",
+  "updated": "Prices updated successfully",
+  "history": "Price history"
+}

@@ -1,0 +1,63 @@
+{
+  "pageTitle": "Dashboard - BudgetBati",
+  "pageDesc": "Manage your construction projects and track your estimates on BudgetBati.",
+  "title": "Dashboard",
+  "newProject": "New project",
+  "stats": {
+    "totalProjects": "Projects",
+    "completed": "Completed",
+    "estimates": "Estimates",
+    "favorites": "Favorites"
+  },
+  "projectCard": {
+    "open": "Open",
+    "favorite": "Favorite",
+    "unfavorite": "Remove favorite",
+    "delete": "Delete",
+    "deleteDisabled": "Cannot delete",
+    "confirmDelete": "Delete this project?",
+    "estimation": "Estimate",
+    "pricePerM2": "Price/m²",
+    "waitingAnalysis": "Awaiting analysis",
+    "analyzing": "Analyzing...",
+    "deleteCompletedError": "Completed projects cannot be deleted.",
+    "surface": "Covered surface"
+  },
+  "filters": {
+    "all": "All",
+    "completed": "Completed",
+    "draft": "Drafts",
+    "favorites": "Favorites",
+    "search": "Search a project..."
+  },
+  "empty": {
+    "title": "No projects yet",
+    "desc": "Create your first project to get an automatic estimate.",
+    "button": "Create a project"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "newProject": "New project",
+    "projects": "Projects",
+    "pricing": "Subscription",
+    "materials": "Materials",
+    "supplier": "Supplier space",
+    "admin": "Administration",
+    "settings": "Settings",
+    "profile": "Profile",
+    "help": "Help",
+    "logout": "Log out"
+  },
+  "projectCounter": "Project {{current}}/{{total}}",
+  "downloadCount": "download(s)",
+  "remaining": "You have {{count}} download(s) remaining this month.",
+  "subscribed": "You are subscribed to {{plan}}.",
+  "plan": {
+    "free": "Free",
+    "pro": "Pro",
+    "expert": "Expert"
+  },
+  "materialsUpdate": "Price update",
+  "materialsLastUpdate": "Last update: {{date}}",
+  "materialsUpdateNow": "Update now"
+}

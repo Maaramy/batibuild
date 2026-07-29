@@ -1,0 +1,99 @@
+{
+  "pageTitle": "Tarifs - BudgetBati",
+  "title": "Nos offres",
+  "subtitle": "Choisissez le forfait qui correspond à vos besoins",
+  "monthly": "par mois",
+  "popular": "Populaire",
+  "mostPopular": "Le plus populaire",
+  "freePlan": {
+    "name": "Gratuit",
+    "price": "0",
+    "desc": "Pour découvrir l'outil",
+    "features": {
+      "projects": "3 projets",
+      "devis": "Aperçu uniquement",
+      "exports": "Pas de téléchargement",
+      "support": "Support par email",
+      "materials": "Prix matériaux standard"
+    }
+  },
+  "proPlan": {
+    "name": "Pro",
+    "price": "79",
+    "desc": "Pour les professionnels",
+    "features": {
+      "projects": "10 projets/mois",
+      "devis": "10 devis PDF/mois",
+      "exports": "Export PDF, Excel, CSV",
+      "support": "Support prioritaire",
+      "materials": "Prix matériaux régionaux",
+      "suppliers": "Accès fournisseurs"
+    }
+  },
+  "expertPlan": {
+    "name": "Expert",
+    "price": "320",
+    "desc": "Pour les grandes agences",
+    "features": {
+      "projects": "100 projets/mois",
+      "devis": "100 devis PDF/mois",
+      "exports": "Export illimité",
+      "support": "Support dédié 24/7",
+      "materials": "Prix matériaux temps réel",
+      "suppliers": "Accès fournisseurs premium",
+      "analytics": "Analytiques avancées"
+    }
+  },
+  "supplierPlan": {
+    "name": "Fournisseur",
+    "price": "120",
+    "desc": "Pour les fournisseurs de matériaux",
+    "features": {
+      "visibility": "Visibilité sur les projets",
+      "recommendations": "Recommandé par l'IA",
+      "contacts": "Contacts clients",
+      "verified": "Badge vérifié",
+      "analytics": "Statistiques visibilité",
+      "support": "Support prioritaire"
+    }
+  },
+  "cta": {
+    "start": "Commencer",
+    "current": "Offre actuelle",
+    "upgrade": "Passer à l'offre",
+    "contact": "Contacter le support"
+  },
+  "payment": {
+    "methods": "Moyens de paiement",
+    "bankTransfer": "Virement bancaire",
+    "d17": "D17 (Poste Tunisie)",
+    "bankInfo": "Nos coordonnées bancaires",
+    "bankName": "Banque",
+    "titulaire": "Titulaire",
+    "rib": "RIB",
+    "iban": "IBAN",
+    "swift": "SWIFT",
+    "d17Info": "Nos coordonnées D17",
+    "merchantName": "Nom du commerçant",
+    "merchantId": "ID Marchand",
+    "uploadReceipt": "Envoyer un reçu de paiement",
+    "uploadHint": "Capture d'écran du virement ou du paiement D17",
+    "uploadButton": "Choisir un fichier",
+    "sendReceipt": "Envoyer le reçu",
+    "sending": "Envoi en cours...",
+    "receiptSent": "Reçu envoyé avec succès. En attente de vérification.",
+    "choosePlan": "Choisir ce forfait",
+    "confirmTitle": "Choisissez un scénario",
+    "confirmDesc": "Sélectionnez l'offre qui vous convient",
+    "confirm": "Confirmer"
+  },
+  "faq": {
+    "title": "Questions fréquentes",
+    "q1": "Puis-je changer d'offre à tout moment ?",
+    "a1": "Oui, vous pouvez passer à une offre supérieure à tout moment. Les téléchargements sont remis à zéro chaque mois.",
+    "q2": "Comment fonctionne la période d'essai fournisseur ?",
+    "a2": "Les fournisseurs bénéficient de 7 jours d'essai gratuit pour tester l'espace fournisseur.",
+    "q3": "Quels moyens de paiement acceptez-vous ?",
+    "a3": "Nous acceptons le virement bancaire et le paiement D17 par la Poste Tunisienne."
+  }
+}
