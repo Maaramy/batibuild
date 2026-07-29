@@ -606,7 +606,26 @@ export default function AdminPanel() {
                   <div className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-primary" />
                     <div>
-                      <h2 className="text-lg font-semibold">Reçus de paiement</h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-semibold">Reçus de paiement</h2>
+                        {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length > 0 && (
+                          <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold tabular-nums">
+                            {allSubsWithUsers
+                              .filter((s: any) => s.paymentProofUrl)
+                              .filter((s: any) => {
+                                if (recusFilter === "pending") return !s.paymentProofVerified;
+                                if (recusFilter === "verified") return s.paymentProofVerified;
+                                return true;
+                              })
+                              .filter((s: any) => {
+                                if (recusAmountFilter === "small") return s.amount && s.amount < 50;
+                                if (recusAmountFilter === "medium") return s.amount && s.amount >= 50 && s.amount <= 100;
+                                if (recusAmountFilter === "large") return s.amount && s.amount > 100;
+                                return true;
+                              }).length}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">Historique des reçus de paiement envoyés par les abonnés</p>
                     </div>
                   </div>
