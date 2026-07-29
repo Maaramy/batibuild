@@ -859,11 +859,10 @@ export default function AdminPanel() {
                                   </div>
                                 </td>
                                 <td className="py-3 px-3 text-center">
-                                  <a
-                                    href={sub.paymentProofUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="group relative inline-flex items-center justify-center"
+                                  <button
+                                    type="button"
+                                    onClick={() => window.open(sub.paymentProofUrl, '_blank', 'noopener,noreferrer')}
+                                    className="group relative inline-flex items-center justify-center cursor-pointer"
                                     title="Voir le reçu"
                                   >
                                     <div className="h-12 w-12 rounded-lg border border-border/40 bg-muted/20 overflow-hidden hover:ring-2 hover:ring-primary/30 transition-all">
@@ -880,7 +879,7 @@ export default function AdminPanel() {
                                         PDF
                                       </div>
                                     </div>
-                                  </a>
+                                  </button>
                                 </td>
                                 <td className="py-3 px-3 hidden md:table-cell">
                                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
