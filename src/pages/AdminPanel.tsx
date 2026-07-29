@@ -205,16 +205,8 @@ export default function AdminPanel() {
   // Check if user is admin
   if (user && user.role !== "admin") {
     return (
-      <motion.main
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background"
-      >
-        <motion.div
-          initial={{ scale: 0.9, y: 20 }}
-          animate={{ scale: 1, y: 0 }}
-          transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        >
+      <main className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+        <div>
           <Card className="border border-border/40 shadow-xl shadow-primary/5 max-w-md overflow-hidden">
             <div className="h-1.5 w-full bg-gradient-to-r from-primary via-blue-500 to-primary/50" />
             <CardContent className="p-8 text-center space-y-4">
@@ -236,8 +228,8 @@ export default function AdminPanel() {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
-      </motion.main>
+        </div>
+      </main>
     );
   }
 
@@ -300,11 +292,7 @@ export default function AdminPanel() {
   const totalCost = allProjects.reduce((sum: number, p: any) => sum + (p.costEstimate?.totalCost || 0), 0);
 
   return (
-    <motion.main
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/3 via-background to-background"
-    >
+    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/3 via-background to-background">
       {/* Top accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-primary via-blue-500 to-primary/30" />
 
@@ -1087,7 +1075,6 @@ export default function AdminPanel() {
                 </DialogContent>
               </Dialog>
             </TabsContent>
-          </div>
 
           {/* Admin Dashboard */}
           <TabsContent value="dashboard">
@@ -1321,11 +1308,7 @@ export default function AdminPanel() {
               <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                 {/* New material form */}
                 {showNewMaterial && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    className="mb-4 p-4 rounded-xl bg-muted/30 border border-border/30 space-y-3"
-                  >
+                  <div className="mb-4 p-4 rounded-xl bg-muted/30 border border-border/30 space-y-3">
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                       <div>
                         <label className="text-xs text-muted-foreground mb-1 block">Nom</label>
@@ -1361,7 +1344,7 @@ export default function AdminPanel() {
                         </Button>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
             )}
               </div>
 
@@ -2183,6 +2166,7 @@ export default function AdminPanel() {
             <BIMSettings />
           </TabsContent>
         </Tabs>
+        </div>
 
         {/* Footer */}
         <div className="mt-8 pt-4 border-t border-border/10 text-center">
@@ -2190,7 +2174,6 @@ export default function AdminPanel() {
             BudgetBati &copy; {new Date().getFullYear()} &mdash; Panneau d'administration v2.0
           </p>
         </div>
-      </div>
-    </motion.main>
+    </main>
   );
 }
