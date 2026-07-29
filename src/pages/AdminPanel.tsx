@@ -79,7 +79,6 @@ export default function AdminPanel() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [recusFilter, setRecusFilter] = useState<string>("all");
-  const [recusAmountFilter, setRecusAmountFilter] = useState<string>("all_amounts");
   const [previewReceipt, setPreviewReceipt] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -626,12 +625,7 @@ export default function AdminPanel() {
                                 if (recusFilter === "verified") return s.paymentProofVerified;
                                 return true;
                               })
-                              .filter((s: any) => {
-                                if (recusAmountFilter === "small") return s.amount && s.amount < 50;
-                                if (recusAmountFilter === "medium") return s.amount && s.amount >= 50 && s.amount <= 100;
-                                if (recusAmountFilter === "large") return s.amount && s.amount > 100;
-                                return true;
-                              }).length}
+                              .length}
                           </span>
                         )}
                       </div>
@@ -705,47 +699,7 @@ export default function AdminPanel() {
                         </span>
                       )}
                     </button>
-                  ))}
-
-                  <div className="w-px h-5 bg-border/50" />
-
-                  {/* Filtres par montant */}
-                  {[
-                    { key: "all_amounts", label: "Tous" },
-                    { key: "small", label: "< 50 TND" },
-                    { key: "medium", label: "50-100 TND" },
-                    { key: "large", label: "> 100 TND" },
-                  ].map((f) => (
-                    <button
-                      key={f.key}
-                      type="button"
-                      onClick={() => setRecusAmountFilter(f.key)}
-                      className={cn(
-                        "px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all",
-                        recusAmountFilter === f.key
-                          ? "bg-primary/10 text-primary border border-primary/20"
-                          : "bg-muted/10 text-muted-foreground border border-transparent hover:bg-muted/30"
-                      )}
-                    >
-                      {f.label}
-                      {f.key === "small" && allSubsWithUsers.filter((s: any) => s.paymentProofUrl && s.amount && s.amount < 50).length > 0 && (
-                        <span className="ml-1 text-[8px] opacity-60">
-                          ({allSubsWithUsers.filter((s: any) => s.paymentProofUrl && s.amount && s.amount < 50).length})
-                        </span>
-                      )}
-                      {f.key === "medium" && allSubsWithUsers.filter((s: any) => s.paymentProofUrl && s.amount && s.amount >= 50 && s.amount <= 100).length > 0 && (
-                        <span className="ml-1 text-[8px] opacity-60">
-                          ({allSubsWithUsers.filter((s: any) => s.paymentProofUrl && s.amount && s.amount >= 50 && s.amount <= 100).length})
-                        </span>
-                      )}
-                      {f.key === "large" && allSubsWithUsers.filter((s: any) => s.paymentProofUrl && s.amount && s.amount > 100).length > 0 && (
-                        <span className="ml-1 text-[8px] opacity-60">
-                          ({allSubsWithUsers.filter((s: any) => s.paymentProofUrl && s.amount && s.amount > 100).length})
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                  ))}                  </div>
 
                 {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length === 0 ? (
                   <div className="text-center py-12">
@@ -779,12 +733,7 @@ export default function AdminPanel() {
                             if (recusFilter === "verified") return sub.paymentProofVerified;
                             return true;
                           })
-                          .filter((sub: any) => {
-                            if (recusAmountFilter === "small") return sub.amount && sub.amount < 50;
-                            if (recusAmountFilter === "medium") return sub.amount && sub.amount >= 50 && sub.amount <= 100;
-                            if (recusAmountFilter === "large") return sub.amount && sub.amount > 100;
-                            return true;
-                          })
+
                           .map((sub: any) => {
                             const user = sub.user;
                             const uploadDate = sub.paymentProofUploadedAt
