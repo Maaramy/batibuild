@@ -543,13 +543,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     {error && <ErrorBanner message={error} />}
                     <PrimaryButton loading={isLoading} loadingText="Connexion...">Se connecter</PrimaryButton>
                   </form>
-                  <Divider label="Autres options" />
-                  <div className="space-y-2.5">
-                    <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--foreground)" }}
-                      onClick={switchToOtp} disabled={isLoading}><Mail className="mr-2 h-4 w-4" /> Connexion rapide par email</Button>
-                    <Button type="button" variant="ghost" className="w-full h-10" style={{ color: "var(--foreground)", opacity: 0.6 }} onClick={handleGuestLogin} disabled={isLoading}>
-                      <UserX className="mr-2 h-4 w-4" /> Continuer en invité</Button>
-                  </div>
+
                 </motion.div>
               ) : (
                 // -- REGISTER --
@@ -560,10 +554,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   </div>
                   <form onSubmit={handlePasswordRegister} className="space-y-4">
                     <FormField label="Nom complet" id="reg-name" name="name" placeholder="Votre nom" icon={User} disabled={isLoading} required autoComplete="name" />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormField label="Téléphone" id="reg-phone" name="phone" type="tel" placeholder="+216 XX XXX XXX" icon={Phone} disabled={isLoading} autoComplete="tel" />
-                      <FormField label="Entreprise" id="reg-company" name="company" placeholder="Votre société" icon={Building2} disabled={isLoading} />
-                    </div>
+                    <FormField label="Téléphone" id="reg-phone" name="phone" type="tel" placeholder="+216 XX XXX XXX" icon={Phone} disabled={isLoading} autoComplete="tel" />
                     <FormField label="Email" id="reg-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required autoComplete="email" />
                     <FormField label="Mot de passe" id="reg-password" name="password" type={regShowPw ? "text" : "password"} placeholder="Min. 8 caractères" icon={Lock} disabled={isLoading} required minLength={8} autoComplete="new-password">
                       <button type="button" onClick={() => setRegShowPw(!regShowPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--foreground)", opacity: 0.5 }} tabIndex={-1}>
@@ -583,13 +574,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     </motion.div>
                     <PrimaryButton loading={isLoading} loadingText="Inscription...">Créer mon compte</PrimaryButton>
                   </form>
-                  <Divider label="Ou" />
-                  <div className="space-y-2.5">
-                    <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--foreground)" }}
-                      onClick={switchToOtp} disabled={isLoading}><Mail className="mr-2 h-4 w-4" /> Inscription rapide par email</Button>
-                    <Button type="button" variant="ghost" className="w-full h-10" style={{ color: "var(--foreground)", opacity: 0.6 }} onClick={handleGuestLogin} disabled={isLoading}>
-                      <UserX className="mr-2 h-4 w-4" /> Continuer en invité</Button>
-                  </div>
+
                 </motion.div>
               )
             ) : (
@@ -606,14 +591,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   <FormField label="Email" id="otp-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required />
                   {error && <ErrorBanner message={error} />}
                   <PrimaryButton loading={isLoading} loadingText="Envoi...">Envoyer le code</PrimaryButton>
-                </form>
-                <Divider label="Ou" />
-                <div className="space-y-2.5">
-                  <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--foreground)" }}
-                    onClick={switchToPassword} disabled={isLoading}><Lock className="mr-2 h-4 w-4" /> Utiliser mot de passe</Button>
-                  <Button type="button" variant="ghost" className="w-full h-10" style={{ color: "var(--foreground)", opacity: 0.6 }} onClick={handleGuestLogin} disabled={isLoading}>
-                    <UserX className="mr-2 h-4 w-4" /> Continuer en invité</Button>
-                </div>
+                </form>                  <div className="space-y-2.5">
+                    <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--foreground)" }}
+                      onClick={switchToPassword} disabled={isLoading}><Lock className="mr-2 h-4 w-4" /> Utiliser mot de passe</Button>
+                  </div>
               </motion.div>
             )}
           </AnimatePresence>
