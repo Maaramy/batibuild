@@ -235,6 +235,7 @@ export default function PricingPage() {
         subscriptionId: currentSubscription._id as any,
         storageId: storageId as any,
         url: fileUrl,
+        fileName: file.name,
       });
 
       setUploadProgress(100);

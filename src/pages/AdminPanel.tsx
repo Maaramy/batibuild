@@ -322,6 +322,10 @@ export default function AdminPanel() {
                   </span>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="recus" className="text-xs gap-1.5">
+                <FileText className="h-4 w-4" />
+                <span className="hidden xs:inline">Reçus</span>
+              </TabsTrigger>
               <TabsTrigger value="subscriptions" className="text-xs gap-1.5">
                 <CreditCard className="h-4 w-4" />
                 <span className="hidden xs:inline">Abonnements</span>
@@ -356,6 +360,154 @@ export default function AdminPanel() {
               {/* BIM Configuration */}
               <TabsContent value="bim">
                 <BIMSettings />
+              </TabsContent>
+
+              {/* ── Reçus de Paiement ── */}
+              <TabsContent value="recus">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <div>
+                      <h2 className="text-lg font-semibold">Reçus de paiement</h2>
+                      <p className="text-xs text-muted-foreground">Historique des reçus de paiement envoyés par les abonnés</p>
+                    </div>
+                  </div>
+
+                  {allSubsWithUsers.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/30 mx-auto mb-4">
+                        <FileText className="h-8 w-8 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-sm font-semibold">Aucun reçu</p>
+                      <p className="text-xs text-muted-foreground mt-1">Les reçus de paiement apparaîtront ici après soumission.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-border/50">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border/30 bg-muted/20">
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">Client</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Offre</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Fichier</th>
+                            <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Reçu</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Date d'upload</th>
+                            <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allSubsWithUsers
+                            .filter((sub: any) => sub.paymentProofUrl)
+                            .map((sub: any) => {
+                              const user = sub.user;
+                              const uploadDate = sub.paymentProofUploadedAt
+                                ? new Date(sub.paymentProofUploadedAt).toLocaleDateString("fr-FR", {
+                                    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+                                  })
+                                : sub.updatedAt
+                                  ? new Date(sub.updatedAt).toLocaleDateString("fr-FR", {
+                                      day: "numeric", month: "short", year: "numeric"
+                                    })
+                                  : "—";
+                              const fileName = sub.paymentProofFileName || "reçu_paiement";
+
+                              return (
+                                <tr key={sub._id} className="border-b border-border/20 hover:bg-muted/10 transition-colors">
+                                  <td className="py-3 px-3">
+                                    <div className="flex items-center gap-2">
+                                      <Avatar className="h-8 w-8 shrink-0 border border-border/40">
+                                        <AvatarImage src={user?.image || ""} alt="Photo" className="object-cover" />
+                                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                                          {user?.name ? user.name.charAt(0).toUpperCase() : "?"}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="min-w-0">
+                                        <p className="font-medium text-xs truncate max-w-[120px] sm:max-w-[180px]">
+                                          {user?.name || "Anonyme"}
+                                        </p>
+                                        <p className="text-[9px] text-muted-foreground truncate">
+                                          {user?.email || ""}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 hidden sm:table-cell">
+                                    <Badge className={cn(
+                                      "text-[9px]",
+                                      sub.plan === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" :
+                                      sub.plan === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" :
+                                      "bg-muted/30 text-muted-foreground"
+                                    )}>
+                                      {sub.plan === "pro" ? "Pro" : sub.plan === "expert" ? "Expert" : sub.plan}
+                                    </Badge>
+                                    {sub.amount && (
+                                      <p className="text-[10px] text-muted-foreground mt-0.5">{sub.amount} TND</p>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-3 hidden md:table-cell">
+                                    <div className="flex items-center gap-1.5">
+                                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                      <span className="text-xs truncate max-w-[150px]">{fileName}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <a
+                                      href={sub.paymentProofUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="group relative inline-flex items-center justify-center"
+                                      title="Voir le reçu"
+                                    >
+                                      <div className="h-12 w-12 rounded-lg border border-border/40 bg-muted/20 overflow-hidden hover:ring-2 hover:ring-primary/30 transition-all">
+                                        <img
+                                          src={sub.paymentProofUrl}
+                                          alt="Reçu"
+                                          className="h-full w-full object-cover"
+                                          onError={(e) => {
+                                            (e.target as HTMLImageElement).style.display = "none";
+                                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                                          }}
+                                        />
+                                        <div className="hidden absolute inset-0 flex items-center justify-center bg-muted/50 text-[8px] text-muted-foreground">
+                                          PDF
+                                        </div>
+                                      </div>
+                                    </a>
+                                  </td>
+                                  <td className="py-3 px-3 hidden md:table-cell">
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                      <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                      <span>{uploadDate}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <a
+                                        href={sub.paymentProofUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                                          <Download className="h-3.5 w-3.5" />
+                                          <span className="hidden sm:inline">Télécharger</span>
+                                        </Button>
+                                      </a>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Résumé */}
+                  {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length > 0 && (
+                    <p className="text-[10px] text-muted-foreground text-right">
+                      {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length} reçu(s) de paiement au total
+                    </p>
+                  )}
+                </div>
               </TabsContent>
           </div>
 

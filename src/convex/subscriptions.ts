@@ -227,6 +227,7 @@ export const uploadPaymentProof = mutation({
     subscriptionId: v.id("subscriptions"),
     storageId: v.id("_storage"),
     url: v.string(),
+    fileName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -239,6 +240,8 @@ export const uploadPaymentProof = mutation({
     await ctx.db.patch(args.subscriptionId, {
       paymentProofStorageId: args.storageId,
       paymentProofUrl: args.url,
+      paymentProofFileName: args.fileName || "reçu_paiement",
+      paymentProofUploadedAt: Date.now(),
       updatedAt: Date.now(),
     });
 

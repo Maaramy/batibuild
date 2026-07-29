@@ -629,6 +629,8 @@ const schema = defineSchema(
       downloadLimit: v.optional(v.number()),
       paymentProofStorageId: v.optional(v.id("_storage")),
       paymentProofUrl: v.optional(v.string()),
+      paymentProofFileName: v.optional(v.string()),
+      paymentProofUploadedAt: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
