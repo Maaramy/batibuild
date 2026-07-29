@@ -88,7 +88,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="font-semibold">Maatougui Rami</h3>
-                <p className="text-xs text-muted-foreground">Directeur Technique</p>
+                <p className="text-xs text-muted-foreground">CEO - Fondateur</p>
               </div>
             </div>
             <a
@@ -98,6 +98,28 @@ export default function ContactPage() {
               <Mail className="h-4 w-4 shrink-0" />
               <span className="truncate">rami.maatougui@budgetbati.com</span>
             </a>
+          </motion.div>
+
+          {/* Maatougui Seifeddine */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35, duration: 0.5 }}
+            className="group rounded-xl border border-border/50 bg-card p-6 hover:border-primary/20 hover:shadow-lg transition-all duration-300"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/10 to-teal-500/5 text-emerald-600">
+                <span className="text-base font-bold">MS</span>
+              </div>
+              <div>
+                <h3 className="font-semibold">Maatougui Seifeddine</h3>
+                <p className="text-xs text-muted-foreground">Consultant &amp; Directeur régional (SAFI)</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4 shrink-0" />
+              <span className="truncate">Safi, Tunisie</span>
+            </div>
           </motion.div>
 
           {/* Marzougui Riadh */}
