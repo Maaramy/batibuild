@@ -120,6 +120,13 @@ export default function ContactPage() {
               <MapPin className="h-4 w-4 shrink-0" />
               <span className="truncate">Safi, Tunisie</span>
             </div>
+            <a
+              href="mailto:Maatougui.Seifeddine@budgetbati.com"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mt-2 group-hover:translate-x-0.5 transition-transform"
+            >
+              <Mail className="h-4 w-4 shrink-0" />
+              <span className="truncate">Maatougui.Seifeddine@budgetbati.com</span>
+            </a>
           </motion.div>
 
           {/* Marzougui Riadh */}
