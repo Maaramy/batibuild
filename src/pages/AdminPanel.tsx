@@ -641,7 +641,7 @@ export default function AdminPanel() {
                     ))}
                   </div>
 
-                  {allSubsWithUsers.length === 0 ? (
+                  {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length === 0 ? (
                     <div className="text-center py-12">
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/30 mx-auto mb-4">
                         <FileText className="h-8 w-8 text-muted-foreground/50" />
@@ -769,6 +769,7 @@ export default function AdminPanel() {
                                     <div className="flex items-center justify-end gap-1">
                                       <a
                                         href={sub.paymentProofUrl}
+                                        download={sub.paymentProofFileName || "recu_paiement"}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                       >
