@@ -421,3 +421,27 @@ export const adminRejectSubscription = mutation({
     return { success: true };
   },
 });
+
+/** Mark a payment receipt as verified/unverified (admin only) */
+export const markReceiptVerified = mutation({
+  args: {
+    subscriptionId: v.id("subscriptions"),
+    verified: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new Error("Abonnement introuvable");
+
+    await ctx.db.patch(args.subscriptionId, {
+      paymentProofVerified: args.verified,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, verified: args.verified };
+  },
+});

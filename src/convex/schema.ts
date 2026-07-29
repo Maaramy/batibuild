@@ -631,6 +631,7 @@ const schema = defineSchema(
       paymentProofUrl: v.optional(v.string()),
       paymentProofFileName: v.optional(v.string()),
       paymentProofUploadedAt: v.optional(v.number()),
+      paymentProofVerified: v.optional(v.boolean()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })

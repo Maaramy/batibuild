@@ -67,6 +67,7 @@ export default function AdminPanel() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [recusFilter, setRecusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const allProjects = useQuery(api.projects.getAllProjects) || [];
@@ -97,6 +98,7 @@ export default function AdminPanel() {
   const updateUserPlan = useMutation(api.users.adminUpdateUserPlan);
   const deleteUser = useMutation(api.users.deleteUser);
   const toggleUserStatus = useMutation(api.users.toggleUserStatus);
+  const markReceiptVerified = useMutation(api.subscriptions.markReceiptVerified);
   const batchDeleteUsers = useMutation(api.users.batchDeleteUsers);
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -373,6 +375,39 @@ export default function AdminPanel() {
                     </div>
                   </div>
 
+                  {/* Filtres */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {[
+                      { key: "all", label: "Tous" },
+                      { key: "pending", label: "En attente" },
+                      { key: "verified", label: "Vérifiés" },
+                    ].map((f) => (
+                      <button
+                        key={f.key}
+                        type="button"
+                        onClick={() => setRecusFilter(f.key)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                          recusFilter === f.key
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                        )}
+                      >
+                        {f.label}
+                        {f.key === "pending" && allSubsWithUsers.filter((s: any) => s.paymentProofUrl && !s.paymentProofVerified).length > 0 && (
+                          <span className="ml-1.5 text-[9px] opacity-70">
+                            ({allSubsWithUsers.filter((s: any) => s.paymentProofUrl && !s.paymentProofVerified).length})
+                          </span>
+                        )}
+                        {f.key === "verified" && allSubsWithUsers.filter((s: any) => s.paymentProofUrl && s.paymentProofVerified).length > 0 && (
+                          <span className="ml-1.5 text-[9px] opacity-70">
+                            ({allSubsWithUsers.filter((s: any) => s.paymentProofUrl && s.paymentProofVerified).length})
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
                   {allSubsWithUsers.length === 0 ? (
                     <div className="text-center py-12">
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/30 mx-auto mb-4">
@@ -388,6 +423,7 @@ export default function AdminPanel() {
                           <tr className="border-b border-border/30 bg-muted/20">
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">Client</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Offre</th>
+                            <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Statut</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Fichier</th>
                             <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Reçu</th>
                             <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Date d'upload</th>
@@ -397,6 +433,11 @@ export default function AdminPanel() {
                         <tbody>
                           {allSubsWithUsers
                             .filter((sub: any) => sub.paymentProofUrl)
+                            .filter((sub: any) => {
+                              if (recusFilter === "pending") return !sub.paymentProofVerified;
+                              if (recusFilter === "verified") return sub.paymentProofVerified;
+                              return true;
+                            })
                             .map((sub: any) => {
                               const user = sub.user;
                               const uploadDate = sub.paymentProofUploadedAt
@@ -409,6 +450,7 @@ export default function AdminPanel() {
                                     })
                                   : "—";
                               const fileName = sub.paymentProofFileName || "reçu_paiement";
+                              const isVerified = sub.paymentProofVerified;
 
                               return (
                                 <tr key={sub._id} className="border-b border-border/20 hover:bg-muted/10 transition-colors">
@@ -441,6 +483,17 @@ export default function AdminPanel() {
                                     </Badge>
                                     {sub.amount && (
                                       <p className="text-[10px] text-muted-foreground mt-0.5">{sub.amount} TND</p>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    {isVerified ? (
+                                      <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200/30 text-[9px]">
+                                        <Check className="h-3 w-3 mr-0.5" /> Vérifié
+                                      </Badge>
+                                    ) : (
+                                      <Badge className="bg-amber-500/10 text-amber-600 border-amber-200/30 text-[9px]">
+                                        <Clock className="h-3 w-3 mr-0.5" /> En attente
+                                      </Badge>
                                     )}
                                   </td>
                                   <td className="py-3 px-3 hidden md:table-cell">
@@ -491,6 +544,41 @@ export default function AdminPanel() {
                                           <span className="hidden sm:inline">Télécharger</span>
                                         </Button>
                                       </a>
+                                      {isVerified ? (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                          onClick={async () => {
+                                            try {
+                                              await markReceiptVerified({ subscriptionId: sub._id, verified: false });
+                                              toast.success("Reçu marqué comme non vérifié");
+                                            } catch (err: any) {
+                                              toast.error(err.message || "Erreur");
+                                            }
+                                          }}
+                                        >
+                                          <X className="h-3 w-3 mr-1" />
+                                          <span className="hidden sm:inline">Annuler</span>
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-8 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                                          onClick={async () => {
+                                            try {
+                                              await markReceiptVerified({ subscriptionId: sub._id, verified: true });
+                                              toast.success("Reçu marqué comme vérifié");
+                                            } catch (err: any) {
+                                              toast.error(err.message || "Erreur");
+                                            }
+                                          }}
+                                        >
+                                          <Check className="h-3 w-3 mr-1" />
+                                          <span className="hidden sm:inline">Vérifier</span>
+                                        </Button>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
@@ -503,9 +591,21 @@ export default function AdminPanel() {
 
                   {/* Résumé */}
                   {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length > 0 && (
-                    <p className="text-[10px] text-muted-foreground text-right">
-                      {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length} reçu(s) de paiement au total
-                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          {allSubsWithUsers.filter((s: any) => s.paymentProofUrl && s.paymentProofVerified).length} vérifié(s)
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="h-2 w-2 rounded-full bg-amber-500" />
+                          {allSubsWithUsers.filter((s: any) => s.paymentProofUrl && !s.paymentProofVerified).length} en attente
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length} reçu(s) au total
+                      </p>
+                    </div>
                   )}
                 </div>
               </TabsContent>
