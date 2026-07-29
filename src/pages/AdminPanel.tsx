@@ -205,29 +205,39 @@ export default function AdminPanel() {
   // Check if user is admin
   if (user && user.role !== "admin") {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="border border-border/50 max-w-md">
-          <CardContent className="p-8 text-center space-y-4">
-            <Shield className="h-12 w-12 mx-auto text-destructive" />
-            <h2 className="text-lg font-bold">Accès refusé</h2>
-            <p className="text-sm text-muted-foreground">
-              Vous n'avez pas les droits d'administration.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2 justify-center">
-              <Button variant="outline" onClick={() => navigate("/dashboard")}>
-                Retour au tableau de bord
-              </Button>
-              <Button onClick={() => navigate("/admin")}>
-                <Shield className="h-4 w-4 mr-2" />
-                Administration
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Connectez-vous avec un compte administrateur sur la page d'administration.
-            </p>
-          </CardContent>
-        </Card>
-      </main>
+      <motion.main
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background"
+      >
+        <motion.div
+          initial={{ scale: 0.9, y: 20 }}
+          animate={{ scale: 1, y: 0 }}
+          transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        >
+          <Card className="border border-border/40 shadow-xl shadow-primary/5 max-w-md overflow-hidden">
+            <div className="h-1.5 w-full bg-gradient-to-r from-primary via-blue-500 to-primary/50" />
+            <CardContent className="p-8 text-center space-y-4">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 dark:bg-red-950/20">
+                <Shield className="h-8 w-8 text-red-500" />
+              </div>
+              <h2 className="text-xl font-bold">Accès refusé</h2>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                Vous n'avez pas les droits d'administration nécessaires pour accéder à cette page.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
+                <Button variant="outline" onClick={() => navigate("/dashboard")}>
+                  Retour au tableau de bord
+                </Button>
+                <Button onClick={() => navigate("/admin")}>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Administration
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.main>
     );
   }
 
@@ -290,90 +300,112 @@ export default function AdminPanel() {
   const totalCost = allProjects.reduce((sum: number, p: any) => sum + (p.costEstimate?.totalCost || 0), 0);
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border/30 bg-background/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-between h-14 sm:h-16">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Button variant="ghost" size="sm" className="gap-1 sm:gap-2 h-8 sm:h-9 shrink-0" onClick={() => navigate("/dashboard")}>
+    <motion.main
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/3 via-background to-background"
+    >
+      {/* Top accent bar */}
+      <div className="h-1 w-full bg-gradient-to-r from-primary via-blue-500 to-primary/30" />
+
+      {/* Header */}
+      <header className="border-b border-border/20 bg-background/60 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="ghost" size="sm" className="gap-1.5 h-9 shrink-0 hover:bg-muted/40" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Retour</span>
+              <span className="hidden sm:inline text-xs">Retour</span>
             </Button>
-            <div className="h-4 w-px bg-border shrink-0" />
-            <div className="flex items-center gap-2 min-w-0">
-              <Shield className="h-4 w-4 text-primary shrink-0" />
-              <h1 className="text-sm font-semibold truncate">Administration</h1>
+            <div className="h-5 w-px bg-border/40 shrink-0" />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-blue-500/20 border border-primary/10">
+                <Shield className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-sm font-semibold truncate">Administration</h1>
+                <p className="text-[10px] text-muted-foreground/60 hidden sm:block">Panneau de gestion BudgetBati</p>
+              </div>
             </div>
           </div>
-          <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0">
-            Admin
-          </Badge>
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:flex items-center gap-1.5 text-[10px] text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-full border border-border/20">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {allUsers.length} utilisateurs
+            </span>
+            <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] px-2.5 py-0.5">
+              <Shield className="h-3 w-3 mr-1" />
+              Admin
+            </Badge>
+          </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-6">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-5 sm:py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0 mb-4 sm:mb-6">
-            <TabsList className="bg-background border border-border/50 p-1 w-fit min-w-max">
-              <TabsTrigger value="dashboard" className="text-xs gap-1.5">
-                <BarChart3 className="h-4 w-4" />
-                <span className="hidden xs:inline">Dashboard</span>
+          {/* Tab Navigation */}
+          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 mb-5 sm:mb-6 scrollbar-hide">
+            <TabsList className="inline-flex h-auto w-max gap-1 bg-muted/20 border border-border/30 p-1.5 rounded-xl backdrop-blur-sm">
+              <TabsTrigger value="dashboard" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <BarChart3 className="h-3.5 w-3.5" />
+                <span>Dashboard</span>
               </TabsTrigger>
-              <TabsTrigger value="materials" className="text-xs gap-1.5">
-                <Package className="h-4 w-4" />
-                <span className="hidden xs:inline">Matériaux</span>
+              <TabsTrigger value="users" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Users className="h-3.5 w-3.5" />
+                <span>Utilisateurs</span>
               </TabsTrigger>
-              <TabsTrigger value="projects" className="text-xs gap-1.5">
-                <Building2 className="h-4 w-4" />
-                <span className="hidden xs:inline">Projets</span>
+              <TabsTrigger value="projects" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Building2 className="h-3.5 w-3.5" />
+                <span>Projets</span>
               </TabsTrigger>
-              <TabsTrigger value="users" className="text-xs gap-1.5">
-                <Users className="h-4 w-4" />
-                <span className="hidden xs:inline">Utilisateurs</span>
+              <TabsTrigger value="materials" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Package className="h-3.5 w-3.5" />
+                <span>Matériaux</span>
               </TabsTrigger>
-              <TabsTrigger value="virements" className="text-xs gap-1.5 relative">
-                <Banknote className="h-4 w-4" />
-                <span className="hidden xs:inline">Virements</span>
+              <TabsTrigger value="virements" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Banknote className="h-3.5 w-3.5" />
+                <span>Virements</span>
                 {pendingSubs.length > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white">
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm">
                     {pendingSubs.length}
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="recus" className="text-xs gap-1.5">
-                <FileText className="h-4 w-4" />
-                <span className="hidden xs:inline">Reçus</span>
+              <TabsTrigger value="recus" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <FileText className="h-3.5 w-3.5" />
+                <span>Reçus</span>
               </TabsTrigger>
-              <TabsTrigger value="subscriptions" className="text-xs gap-1.5">
-                <CreditCard className="h-4 w-4" />
-                <span className="hidden xs:inline">Abonnements</span>
+              <TabsTrigger value="subscriptions" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <CreditCard className="h-3.5 w-3.5" />
+                <span>Abonnements</span>
               </TabsTrigger>
-              <TabsTrigger value="journal" className="text-xs gap-1.5">
-                <NotebookPen className="h-4 w-4" />
-                <span className="hidden xs:inline">Journal</span>
+              <TabsTrigger value="journal" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <NotebookPen className="h-3.5 w-3.5" />
+                <span>Journal</span>
               </TabsTrigger>
-              <TabsTrigger value="paiement" className="text-xs gap-1.5">
-                <Banknote className="h-4 w-4" />
-                <span className="hidden xs:inline">Paiement</span>
+              <TabsTrigger value="paiement" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Settings className="h-3.5 w-3.5" />
+                <span>Paiement</span>
               </TabsTrigger>
-              <TabsTrigger value="limites" className="text-xs gap-1.5">
-                <HardHat className="h-4 w-4" />
-                <span className="hidden xs:inline">Limites</span>
+              <TabsTrigger value="limites" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <HardHat className="h-3.5 w-3.5" />
+                <span>Limites</span>
               </TabsTrigger>
-              <TabsTrigger value="seo" className="text-xs gap-1.5">
-                <Globe className="h-4 w-4" />
-                <span className="hidden xs:inline">SEO</span>
+              <TabsTrigger value="fournisseurs" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Building2 className="h-3.5 w-3.5" />
+                <span>Fournisseurs</span>
               </TabsTrigger>
-              <TabsTrigger value="fournisseurs" className="text-xs gap-1.5">
-                <Building2 className="h-4 w-4" />
-                <span className="hidden xs:inline">Fournisseurs</span>
+              <TabsTrigger value="seo" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Globe className="h-3.5 w-3.5" />
+                <span>SEO</span>
               </TabsTrigger>
-              <TabsTrigger value="bim" className="text-xs gap-1.5">
-                <Cpu className="h-4 w-4" />
-                <span className="hidden xs:inline">BIM</span>
+              <TabsTrigger value="bim" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Cpu className="h-3.5 w-3.5" />
+                <span>BIM</span>
               </TabsTrigger>
             </TabsList>
+          </div>
 
-            {/* SEO Configuration */}
+          {/* SEO Configuration */}
             <TabsContent value="seo">
               <SeoSettings />
             </TabsContent>
@@ -1330,7 +1362,7 @@ export default function AdminPanel() {
                       </div>
                     </div>
                   </motion.div>
-                )}
+            )}
               </div>
 
               {/* Materials table */}
@@ -2153,12 +2185,12 @@ export default function AdminPanel() {
         </Tabs>
 
         {/* Footer */}
-        <div className="mt-8 pt-4 border-t border-border/20 text-center">
-          <p className="text-[10px] text-muted-foreground">
-            BudgetBati &copy; {new Date().getFullYear()} &mdash; Panneau d'administration
+        <div className="mt-8 pt-4 border-t border-border/10 text-center">
+          <p className="text-[10px] text-muted-foreground/50">
+            BudgetBati &copy; {new Date().getFullYear()} &mdash; Panneau d'administration v2.0
           </p>
         </div>
       </div>
-    </main>
+    </motion.main>
   );
 }
