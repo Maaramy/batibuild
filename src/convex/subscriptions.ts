@@ -437,10 +437,29 @@ export const markReceiptVerified = mutation({
     const sub = await ctx.db.get(args.subscriptionId);
     if (!sub) throw new Error("Abonnement introuvable");
 
+    const planLabel = sub.plan === "expert" ? "Expert" : sub.plan === "pro" ? "Pro" : sub.plan;
+
     await ctx.db.patch(args.subscriptionId, {
       paymentProofVerified: args.verified,
       updatedAt: Date.now(),
     });
+
+    // Notify the user
+    try {
+      await ctx.db.insert("notifications", {
+        userId: sub.userId,
+        type: "subscription",
+        title: args.verified ? "Reçu de paiement vérifié" : "Vérification de reçu annulée",
+        message: args.verified
+          ? `Votre reçu de paiement pour l'abonnement ${planLabel} a été vérifié avec succès.`
+          : `La vérification de votre reçu de paiement pour l'abonnement ${planLabel} a été annulée. Contactez le support si nécessaire.`,
+        read: false,
+        link: "/pricing",
+        createdAt: Date.now(),
+      });
+    } catch (e) {
+      // Notification is optional
+    }
 
     return { success: true, verified: args.verified };
   },

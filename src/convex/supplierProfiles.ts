@@ -149,6 +149,41 @@ export const hasSupplierProfile = query({
   },
 });
 
+/** Get all supplier profiles with user info (admin only) */
+export const getAllSupplierProfiles = query({
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      return [];
+    }
+
+    const profiles = await ctx.db.query("supplierProfiles").order("desc").collect();
+
+    const result = await Promise.all(
+      profiles.map(async (profile) => {
+        const user = await ctx.db.get(profile.userId);
+        return {
+          ...profile,
+          specialtiesLabels: profile.specialties.map(
+            (s) => SUPPLIER_SPECIALTIES_LABELS[s] || s
+          ),
+          user: user
+            ? {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                image: user.image,
+              }
+            : null,
+        };
+      }),
+    );
+
+    return result;
+  },
+});
+
 /** Get a supplier profile by ID (public) */
 export const getSupplierById = query({
   args: { supplierId: v.id("supplierProfiles") },

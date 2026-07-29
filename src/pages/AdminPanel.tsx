@@ -109,6 +109,7 @@ export default function AdminPanel() {
   
   // Plan limits
   const planForm = useQuery(api.payments.getPlanPricing);
+  const allSuppliers = useQuery(api.supplierProfiles.getAllSupplierProfiles) || [];
   const updatePlanPricing = useMutation(api.payments.updatePlanPricing);
   const [limitForm, setLimitForm] = useState({
     proPrice: 79, expertPrice: 320,
@@ -348,6 +349,10 @@ export default function AdminPanel() {
                 <Globe className="h-4 w-4" />
                 <span className="hidden xs:inline">SEO</span>
               </TabsTrigger>
+              <TabsTrigger value="fournisseurs" className="text-xs gap-1.5">
+                <Building2 className="h-4 w-4" />
+                <span className="hidden xs:inline">Fournisseurs</span>
+              </TabsTrigger>
               <TabsTrigger value="bim" className="text-xs gap-1.5">
                 <Cpu className="h-4 w-4" />
                 <span className="hidden xs:inline">BIM</span>
@@ -362,6 +367,160 @@ export default function AdminPanel() {
               {/* BIM Configuration */}
               <TabsContent value="bim">
                 <BIMSettings />
+              </TabsContent>
+
+              {/* ── Fournisseurs ── */}
+              <TabsContent value="fournisseurs">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    <div>
+                      <h2 className="text-lg font-semibold">Gestion des fournisseurs</h2>
+                      <p className="text-xs text-muted-foreground">Liste de tous les profils fournisseurs inscrits</p>
+                    </div>
+                  </div>
+
+                  {allSuppliers.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/30 mx-auto mb-4">
+                        <Building2 className="h-8 w-8 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-sm font-semibold">Aucun fournisseur</p>
+                      <p className="text-xs text-muted-foreground mt-1">Les profils fournisseurs apparaîtront ici après inscription.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-border/50">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border/30 bg-muted/20">
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">Fournisseur</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Contact</th>
+                            <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Spécialités</th>
+                            <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Statut</th>
+                            <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Visibilité</th>
+                            <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs">Inscrit le</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allSuppliers.map((profile: any) => {
+                            const statusColors: Record<string, string> = {
+                              active: "bg-emerald-500/10 text-emerald-600 border-emerald-200/30",
+                              trial: "bg-blue-500/10 text-blue-600 border-blue-200/30",
+                              expired: "bg-red-500/10 text-red-600 border-red-200/30",
+                              inactive: "bg-muted/30 text-muted-foreground border-muted-foreground/20",
+                            };
+                            const statusLabels: Record<string, string> = {
+                              active: "Actif",
+                              trial: "Essai",
+                              expired: "Expiré",
+                              inactive: "Inactif",
+                            };
+                            const subStatus = profile.subscriptionStatus || "inactive";
+
+                            return (
+                              <tr key={profile._id} className="border-b border-border/20 hover:bg-muted/10 transition-colors">
+                                <td className="py-3 px-3">
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-8 w-8 shrink-0 border border-border/40">
+                                      <AvatarImage src={profile.user?.image || ""} alt="Photo" className="object-cover" />
+                                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                                        {profile.companyName ? profile.companyName.charAt(0).toUpperCase() : "?"}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-xs truncate max-w-[150px]">
+                                        {profile.companyName || "Sans nom"}
+                                      </p>
+                                      <p className="text-[9px] text-muted-foreground truncate max-w-[150px]">
+                                        {profile.user?.name || ""}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 hidden sm:table-cell">
+                                  <div className="space-y-0.5">
+                                    {profile.email && (
+                                      <p className="text-xs flex items-center gap-1">
+                                        <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                                        <span className="truncate max-w-[160px]">{profile.email}</span>
+                                      </p>
+                                    )}
+                                    {profile.phone && (
+                                      <p className="text-xs flex items-center gap-1">
+                                        <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
+                                        <span>{profile.phone}</span>
+                                      </p>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 hidden md:table-cell">
+                                  <div className="flex flex-wrap gap-1">
+                                    {(profile.specialties?.slice(0, 3) || []).map((s: string) => (
+                                      <Badge key={s} className="text-[8px] bg-primary/5 text-primary border-primary/10">
+                                        {s}
+                                      </Badge>
+                                    ))}
+                                    {(profile.specialties?.length || 0) > 3 && (
+                                      <Badge className="text-[8px] bg-muted/30 text-muted-foreground">
+                                        +{profile.specialties.length - 3}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  <Badge className={cn("text-[9px]", statusColors[subStatus] || statusColors.inactive)}>
+                                    {statusLabels[subStatus] || subStatus}
+                                  </Badge>
+                                </td>
+                                <td className="py-3 px-3 text-center hidden sm:table-cell">
+                                  {profile.isVisible ? (
+                                    <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200/30 text-[9px]">
+                                      Visible
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-muted/30 text-muted-foreground border-muted-foreground/20 text-[9px]">
+                                      Masqué
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="py-3 px-3 text-right">
+                                  <span className="text-xs text-muted-foreground">
+                                    {profile.createdAt
+                                      ? new Date(profile.createdAt).toLocaleDateString("fr-FR", {
+                                          day: "numeric",
+                                          month: "short",
+                                          year: "numeric",
+                                        })
+                                      : "—"}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Statistiques */}
+                  {allSuppliers.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          {allSuppliers.filter((s: any) => s.subscriptionStatus === "active").length} actif(s)
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="h-2 w-2 rounded-full bg-blue-500" />
+                          {allSuppliers.filter((s: any) => s.subscriptionStatus === "trial").length} essai(s)
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {allSuppliers.length} fournisseur(s) au total
+                      </p>
+                    </div>
+                  )}
+                </div>
               </TabsContent>
 
               {/* ── Reçus de Paiement ── */}
