@@ -376,7 +376,7 @@ export default function ProjectDetail() {
       const infoRow = [
         `Catégorie: ${ai.category || "N/A"}`,
         `Région: ${regionName}`,
-        `Surface: ${project.surface ? `${project.surface} m²` : "N/A"}`,
+        `Surface couverte: ${project.surface ? `${project.surface} m²` : "N/A"}`,
         `Durée: ${ai.estimatedDuration || "N/A"}`,
       ];
       let xInfo = ml + 3;
@@ -980,7 +980,7 @@ export default function ProjectDetail() {
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate max-w-[160px] sm:max-w-xs">{project.name}</p>
               <p className="text-[10px] text-muted-foreground truncate">
-                {project.surface ? `${project.surface}m²` : "Surface —"}
+                {project.surface ? `${project.surface}m²` : "Surface couverte —"}
                 {project.region ? ` • ${REGION_LABELS[project.region] ?? project.region}` : ""}
                 {projectCounter && (
                   <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/5 text-primary border border-primary/10 text-[8px] font-medium">
@@ -1674,7 +1674,7 @@ export default function ProjectDetail() {
                 </div>
                 <Progress value={confInfo.pct} className={cn("h-1.5", "[&>div]:transition-all", confInfo.info.bar.replace("bg-", "[&>div]:bg-"))} />
                 <div className="space-y-1 text-[10px] text-muted-foreground mt-3">
-                  {project.surface && <div className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />Surface : {project.surface}m²</div>}
+                  {project.surface && <div className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />Surface couverte : {project.surface}m²</div>}
                   {project.region && <div className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />Région : {REGION_LABELS[project.region]}</div>}
                   <div className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />{totalItems} postes détaillés</div>
                 </div>
