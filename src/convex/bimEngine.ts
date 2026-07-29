@@ -189,14 +189,52 @@ const CATEGORY_LABEL: Record<string, string> = {
   installations_electricite: "Installations électricité",
 };
 
-export const REGION_MULTIPLIER: Record<string, number> = {
-  tunis: 1.15, ariana: 1.10, ben_arous: 1.10, manouba: 1.05,
-  nabeul: 1.05, bizerte: 1.05, sousse: 1.10, monastir: 1.05, mahdia: 1.00,
-  sfax: 1.05, gabes: 1.00, medenine: 0.95, tataouine: 0.95,
-  gafsa: 0.95, tozeur: 0.95, kebili: 0.95, kairouan: 0.95,
-  kasserine: 0.90, sidi_bouzid: 0.90, beja: 0.95, jendouba: 0.90,
-  le_kef: 0.90, siliana: 0.90, zaghouan: 0.95,
+// ============================================================================
+// REGION-SPECIFIC CONSTRUCTION COSTS (TND/m² - clé en main)
+// Source: Marché tunisien 2026 - fourchettes réelles constatées
+// Mid-point de chaque fourchette utilisée pour le calcul
+// ============================================================================
+
+export const REGION_COST_M2: Record<string, { eco: number; std: number; premium: number; ecoRange: string; stdRange: string; premiumRange: string }> = {
+  tunis:     { eco: 1500, std: 2150, premium: 3150, ecoRange: "1300-1700", stdRange: "1900-2400", premiumRange: "2500-3800" },
+  ariana:    { eco: 1475, std: 2100, premium: 3075, ecoRange: "1300-1650", stdRange: "1850-2350", premiumRange: "2450-3700" },
+  ben_arous: { eco: 1450, std: 2050, premium: 3000, ecoRange: "1250-1650", stdRange: "1800-2300", premiumRange: "2400-3600" },
+  manouba:   { eco: 1400, std: 2000, premium: 2925, ecoRange: "1200-1600", stdRange: "1750-2250", premiumRange: "2350-3500" },
+  nabeul:    { eco: 1450, std: 2050, premium: 3000, ecoRange: "1250-1650", stdRange: "1800-2300", premiumRange: "2400-3600" },
+  sousse:    { eco: 1500, std: 2100, premium: 3150, ecoRange: "1300-1700", stdRange: "1850-2350", premiumRange: "2500-3800" },
+  monastir:  { eco: 1450, std: 2050, premium: 3000, ecoRange: "1250-1650", stdRange: "1800-2300", premiumRange: "2400-3600" },
+  mahdia:    { eco: 1375, std: 1950, premium: 2850, ecoRange: "1200-1550", stdRange: "1700-2200", premiumRange: "2300-3400" },
+  sfax:      { eco: 1375, std: 1950, premium: 2850, ecoRange: "1200-1550", stdRange: "1700-2200", premiumRange: "2300-3400" },
+  bizerte:   { eco: 1400, std: 2000, premium: 2925, ecoRange: "1200-1600", stdRange: "1750-2250", premiumRange: "2350-3500" },
+  zaghouan:  { eco: 1325, std: 1900, premium: 2775, ecoRange: "1150-1500", stdRange: "1650-2150", premiumRange: "2250-3300" },
+  beja:      { eco: 1275, std: 1850, premium: 2700, ecoRange: "1100-1450", stdRange: "1600-2100", premiumRange: "2200-3200" },
+  jendouba:  { eco: 1275, std: 1850, premium: 2700, ecoRange: "1100-1450", stdRange: "1600-2100", premiumRange: "2200-3200" },
+  le_kef:    { eco: 1275, std: 1800, premium: 2650, ecoRange: "1100-1450", stdRange: "1550-2050", premiumRange: "2150-3150" },
+  siliana:   { eco: 1275, std: 1800, premium: 2650, ecoRange: "1100-1450", stdRange: "1550-2050", premiumRange: "2150-3150" },
+  kairouan:  { eco: 1200, std: 1750, premium: 2550, ecoRange: "1000-1400", stdRange: "1500-2000", premiumRange: "2100-3000" },
+  kasserine: { eco: 1200, std: 1750, premium: 2550, ecoRange: "1000-1400", stdRange: "1500-2000", premiumRange: "2100-3000" },
+  sidi_bouzid: { eco: 1200, std: 1750, premium: 2550, ecoRange: "1000-1400", stdRange: "1500-2000", premiumRange: "2100-3000" },
+  gafsa:     { eco: 1250, std: 1800, premium: 2650, ecoRange: "1050-1450", stdRange: "1550-2050", premiumRange: "2150-3150" },
+  tozeur:    { eco: 1300, std: 1850, premium: 2700, ecoRange: "1100-1500", stdRange: "1600-2100", premiumRange: "2200-3200" },
+  kebili:    { eco: 1300, std: 1850, premium: 2700, ecoRange: "1100-1500", stdRange: "1600-2100", premiumRange: "2200-3200" },
+  gabes:     { eco: 1350, std: 1900, premium: 2775, ecoRange: "1150-1550", stdRange: "1650-2150", premiumRange: "2250-3300" },
+  medenine:  { eco: 1400, std: 1950, premium: 2850, ecoRange: "1200-1600", stdRange: "1700-2200", premiumRange: "2300-3400" },
+  tataouine: { eco: 1425, std: 2000, premium: 2925, ecoRange: "1200-1650", stdRange: "1700-2300", premiumRange: "2350-3500" },
 };
+
+// National average (utilisé quand aucune région spécifique n'est sélectionnée)
+export const NATIONAL_AVG = { eco: 1350, std: 1950, premium: 2900 };
+
+// Cache les fourchettes de prix par région pour l'affichage UI
+export const REGION_RANGES: Record<string, { eco: string; std: string; premium: string }> = {};
+const _regKeys = Object.keys(REGION_COST_M2);
+for (const _rk of _regKeys) {
+  REGION_RANGES[_rk] = {
+    eco: REGION_COST_M2[_rk].ecoRange,
+    std: REGION_COST_M2[_rk].stdRange,
+    premium: REGION_COST_M2[_rk].premiumRange,
+  };
+}
 
 // ============================================================================
 // MATERIAL CALCULATORS (Generate items with realistic quantities)
@@ -720,19 +758,36 @@ export function runBIMEstimation(
 ) {
   const pct = PROJECT_PCT[category] || [35, 30, 15, 10, 3, 7];
   const marketPrices = MARKET_PRICE_M2[category] || { eco: 1000, std: 1500, premium: 2500 };
-  const rMult = region ? (REGION_MULTIPLIER[region] || 1.0) : 1.0;
 
-  // Determine finish level multiplier
+  // Nouveau système : prix régionaux directs (TND/m²) basés sur le marché tunisien 2026
   const fLevel = finishLevel || "standard";
-  let fMult = 1.0;
-  let basePriceM2 = marketPrices.std;
-  if (fLevel === "economique") { fMult = 0.8; basePriceM2 = marketPrices.eco; }
-  else if (fLevel === "premium") { fMult = 1.3; basePriceM2 = marketPrices.premium; }
-  else if (fLevel === "luxe") { fMult = 1.7; basePriceM2 = marketPrices.premium * 1.3; }
-  else { fMult = 1.0; basePriceM2 = marketPrices.std; }
+  const regionCosts = region ? (REGION_COST_M2[region] || null) : null;
+
+  // Prix de base par m² = prix régional OU moyenne nationale
+  let baseRegionM2: number;
+  let baseRegionLabel: string;
+  if (regionCosts) {
+    if (fLevel === "economique") baseRegionM2 = regionCosts.eco;
+    else if (fLevel === "premium") baseRegionM2 = regionCosts.premium;
+    else baseRegionM2 = regionCosts.std;
+    baseRegionLabel = regionCosts.ecoRange + " / " + regionCosts.stdRange + " / " + regionCosts.premiumRange;
+  } else {
+    if (fLevel === "economique") baseRegionM2 = NATIONAL_AVG.eco;
+    else if (fLevel === "premium") baseRegionM2 = NATIONAL_AVG.premium;
+    else baseRegionM2 = NATIONAL_AVG.std;
+    baseRegionLabel = "";
+  }
+
+  // Ratio du type de projet par rapport à une maison de référence
+  const maisonStd = MARKET_PRICE_M2["maison"]?.std || 1100;
+  const projectStd = marketPrices.std || 1500;
+  const projectRatio = projectStd / maisonStd;
+
+  // Prix final par m² = prix régional × ratio du type de projet
+  const finalPriceM2 = Math.round(baseRegionM2 * projectRatio);
 
   const tb = surface * (floors || 1);
-  const finalTotal = Math.round(basePriceM2 * tb * fMult * rMult);
+  const finalTotal = Math.round(finalPriceM2 * tb);
   const costM2 = tb > 0 ? Math.round(finalTotal / tb) : 0;
 
   const keys = ["gros_oeuvre","second_oeuvre","equipements","main_oeuvre","transport","etudes_imprevus"];
@@ -780,13 +835,17 @@ export function runBIMEstimation(
   const totalWithBuffer = finalTotal + buffer;
   const finalCostM2 = tb > 0 ? Math.round(totalWithBuffer / tb) : 0;
 
-  // Budget scenarios using REAL market price ranges (already include region)
-  const totalEco = Math.round(marketPrices.eco * tb * rMult);
-  const totalPremium = Math.round(marketPrices.premium * tb * rMult);
+  // Budget scenarios using region-specific prices
+  const regionForScenarios = regionCosts || null;
+  const scenarioEcoPrice = regionForScenarios ? regionForScenarios.eco * projectRatio : NATIONAL_AVG.eco * projectRatio;
+  const scenarioStdPrice = regionForScenarios ? regionForScenarios.std * projectRatio : NATIONAL_AVG.std * projectRatio;
+  const scenarioPremiumPrice = regionForScenarios ? regionForScenarios.premium * projectRatio : NATIONAL_AVG.premium * projectRatio;
+  const totalEco = Math.round(scenarioEcoPrice * tb);
+  const totalPremium = Math.round(scenarioPremiumPrice * tb);
   const scenarios = {
-    economique: { label:"Économique", totalCost: totalEco + Math.round(totalEco * contingencyPct / 100), costPerM2: Math.round(totalEco / tb), multiplier: 0.8 },
+    economique: { label:"Économique", totalCost: totalEco + Math.round(totalEco * contingencyPct / 100), costPerM2: Math.round(scenarioEcoPrice), multiplier: scenarioEcoPrice / scenarioStdPrice },
     standard: { label:"Standard", totalCost: totalWithBuffer, costPerM2: finalCostM2, multiplier: 1.0 },
-    premium: { label:"Premium", totalCost: totalPremium + Math.round(totalPremium * contingencyPct / 100), costPerM2: Math.round(totalPremium / tb), multiplier: 1.3 },
+    premium: { label:"Premium", totalCost: totalPremium + Math.round(totalPremium * contingencyPct / 100), costPerM2: Math.round(scenarioPremiumPrice), multiplier: scenarioPremiumPrice / scenarioStdPrice },
   };
 
   // Confidence index
@@ -809,7 +868,7 @@ export function runBIMEstimation(
   // Optimization tips with region context
   const tips = generateTips(category, surface, region, finishLevel, costM2);
 
-  // Region impact info for UI
+  // Region impact info for UI — comparatif entre régions
   const regionLabel = region ? ({
     tunis: "Tunis", ariana: "Ariana", ben_arous: "Ben Arous", manouba: "Manouba",
     nabeul: "Nabeul", zaghouan: "Zaghouan", bizerte: "Bizerte", beja: "Béja",
@@ -820,14 +879,25 @@ export function runBIMEstimation(
     kebili: "Kébili",
   } as Record<string, string>)[region] : undefined;
 
+  // Calcule les totaux pour chaque région (affichage comparatif)
+  const regionTotals: Record<string, number> = {};
+  if (region) {
+    const fLevelKey = fLevel === "economique" ? "eco" : fLevel === "premium" ? "premium" : "std";
+    for (const [regKey, regCost] of Object.entries(REGION_COST_M2)) {
+      const regPrice = (fLevelKey === "eco" ? regCost.eco : fLevelKey === "premium" ? regCost.premium : regCost.std) * projectRatio;
+      regionTotals[regKey] = Math.round(regPrice * tb) + Math.round(Math.round(regPrice * tb) * contingencyPct / 100);
+    }
+  }
+
   const regionImpact = region ? {
     region,
     regionLabel: regionLabel || region,
-    multiplier: rMult,
-    impactPct: Math.round((rMult - 1) * 100),
+    basePriceM2: finalPriceM2,
+    priceRange: baseRegionLabel,
     totalWithRegion: totalWithBuffer,
-    totalWithoutRegion: Math.round(totalWithBuffer / rMult),
-    difference: totalWithBuffer - Math.round(totalWithBuffer / rMult),
+    totalNationalAvg: Math.round(NATIONAL_AVG[fLevel === "economique" ? "eco" : fLevel === "premium" ? "premium" : "std"] * projectRatio * tb) + buffer,
+    difference: totalWithBuffer - (Math.round(NATIONAL_AVG[fLevel === "economique" ? "eco" : fLevel === "premium" ? "premium" : "std"] * projectRatio * tb) + buffer),
+    regionTotals,
   } : undefined;
 
   return {
@@ -873,7 +943,15 @@ function generateTips(cat: string, s: number, reg?: string, fLvl?: string, costM
     t.push("Conservez les structures existantes (murs porteurs, charpente) quand c'est possible.");
     t.push("Peinture lessivable dans les pièces humides : durée de vie doublée.");
   }
-  if (reg && ["tunis","ariana","ben_arous"].includes(reg)) t.push("Région Tunis : prix 10-15% plus élevés. Achetez en région pour économiser.");
+  if (reg) {
+    const regCost = REGION_COST_M2[reg];
+    if (regCost) {
+      const ecoMid = regCost.eco;
+      if (ecoMid >= 1400) t.push(`Région ${reg} : prix élevés (${regCost.stdRange} TND/m²). Achetez les matériaux dans les régions intérieures pour économiser.`);
+      else if (ecoMid >= 1300) t.push(`Région ${reg} : prix modérés (${regCost.stdRange} TND/m²). Comparez les fournisseurs locaux.`);
+      else t.push(`Région ${reg} : prix avantageux (${regCost.stdRange} TND/m²). Idéal pour optimiser votre budget construction.`);
+    }
+  }
   if (costM2 && costM2 > 1800) t.push("Budget premium : envisagez un suivi par un maître d'œuvre pour optimiser les finitions.");
   t.push("Regroupez vos achats (ciment + sable + gravier) pour obtenir des remises de 5-8%.");
   return t.slice(0, 8);

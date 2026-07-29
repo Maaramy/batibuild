@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { P, MARKET_PRICE_M2, PROJECT_PCT, REGION_MULTIPLIER } from "./bimEngine";
+import { P, MARKET_PRICE_M2, PROJECT_PCT, REGION_COST_M2 } from "./bimEngine";
 
 // ============================================================================
 // Queries
@@ -50,7 +50,7 @@ export const refreshBIMData = mutation({
     // Serialize all BIM constants to JSON for storage
     const marketPricesM2 = JSON.stringify(MARKET_PRICE_M2);
     const projectPercentages = JSON.stringify(PROJECT_PCT);
-    const regionMultipliers = JSON.stringify(REGION_MULTIPLIER);
+    const regionMultipliers = JSON.stringify(REGION_COST_M2);
     const unitPrices = JSON.stringify(P);
 
     // Find existing config and update, or create new one
@@ -156,7 +156,7 @@ export const saveBIMConfig = mutation({
       refreshedBy: user._id,
       marketPricesM2: args.marketPricesM2 ?? (existing?.marketPricesM2 ?? JSON.stringify(MARKET_PRICE_M2)),
       projectPercentages: args.projectPercentages ?? (existing?.projectPercentages ?? JSON.stringify(PROJECT_PCT)),
-      regionMultipliers: args.regionMultipliers ?? (existing?.regionMultipliers ?? JSON.stringify(REGION_MULTIPLIER)),
+      regionMultipliers: args.regionMultipliers ?? (existing?.regionMultipliers ?? JSON.stringify(REGION_COST_M2)),
       unitPrices: args.unitPrices ?? (existing?.unitPrices ?? JSON.stringify(P)),
     };
 
@@ -199,7 +199,7 @@ export const refreshBIMDataMonthly = internalMutation({
     // ── 1. Update BIM config in DB ──
     const marketPricesM2 = JSON.stringify(MARKET_PRICE_M2);
     const projectPercentages = JSON.stringify(PROJECT_PCT);
-    const regionMultipliers = JSON.stringify(REGION_MULTIPLIER);
+    const regionMultipliers = JSON.stringify(REGION_COST_M2);
     const unitPrices = JSON.stringify(P);
 
     const existing = await ctx.db
