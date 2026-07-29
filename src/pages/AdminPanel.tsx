@@ -14,6 +14,14 @@ import SeoSettings from "./SeoSettings";
 import BIMSettings from "./BIMSettings";
 import { useState, useEffect, useRef } from "react";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
   ArrowLeft,
   ArrowRight,
   BarChart3,
@@ -72,6 +80,7 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [recusFilter, setRecusFilter] = useState<string>("all");
   const [recusAmountFilter, setRecusAmountFilter] = useState<string>("all_amounts");
+  const [previewReceipt, setPreviewReceipt] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const allProjects = useQuery(api.projects.getAllProjects) || [];
@@ -861,7 +870,7 @@ export default function AdminPanel() {
                                 <td className="py-3 px-3 text-center">
                                   <button
                                     type="button"
-                                    onClick={() => window.open(sub.paymentProofUrl, '_blank', 'noopener,noreferrer')}
+                                    onClick={() => setPreviewReceipt(sub)}
                                     className="group relative inline-flex items-center justify-center cursor-pointer"
                                     title="Voir le reçu"
                                   >
@@ -975,6 +984,127 @@ export default function AdminPanel() {
                   </div>
                 )}
               </div>
+
+              {/* ── Modale d'aperçu du reçu ── */}
+              <Dialog open={!!previewReceipt} onOpenChange={(open) => { if (!open) setPreviewReceipt(null); }}>
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      Reçu de paiement
+                    </DialogTitle>
+                    <DialogDescription>
+                      Détails du reçu soumis par l'abonné
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  {previewReceipt && (
+                    <div className="space-y-4">
+                      {/* Infos du reçu */}
+                      <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/20 border border-border/30">
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">Client</p>
+                          <p className="text-xs font-medium truncate">{previewReceipt.user?.name || "Anonyme"}</p>
+                          <p className="text-[9px] text-muted-foreground truncate">{previewReceipt.user?.email || ""}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">Offre</p>
+                          <Badge className={cn(
+                            "text-[9px] mt-0.5",
+                            previewReceipt.plan === "pro" ? "bg-blue-500/10 text-blue-600" :
+                            previewReceipt.plan === "expert" ? "bg-emerald-500/10 text-emerald-600" :
+                            "bg-muted/30 text-muted-foreground"
+                          )}>
+                            {previewReceipt.plan === "pro" ? "Pro" : previewReceipt.plan === "expert" ? "Expert" : previewReceipt.plan}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">Prix reçu</p>
+                          <p className="text-sm font-mono font-bold text-primary">
+                            {previewReceipt.amount ? `${previewReceipt.amount.toLocaleString("fr-FR")} TND` : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">Statut</p>
+                          {previewReceipt.paymentProofVerified ? (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 text-[9px] mt-0.5">
+                              <Check className="h-3 w-3 mr-0.5" /> Vérifié
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500/10 text-amber-600 text-[9px] mt-0.5">
+                              <Clock className="h-3 w-3 mr-0.5" /> En attente
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-[9px] text-muted-foreground">Date d'upload</p>
+                          <p className="text-xs">
+                            {previewReceipt.paymentProofUploadedAt
+                              ? new Date(previewReceipt.paymentProofUploadedAt).toLocaleDateString("fr-FR", {
+                                  day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
+                                })
+                              : "—"}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-[9px] text-muted-foreground">Fichier</p>
+                          <p className="text-xs font-mono truncate">{previewReceipt.paymentProofFileName || "reçu_paiement"}</p>
+                        </div>
+                      </div>
+
+                      {/* Aperçu du reçu */}
+                      <div className="rounded-lg border border-border/40 bg-muted/10 overflow-hidden">
+                        {previewReceipt.paymentProofUrl ? (
+                          <>
+                            <img
+                              src={previewReceipt.paymentProofUrl}
+                              alt="Reçu"
+                              className="w-full h-auto max-h-[50vh] object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                                const fallback = (e.target as HTMLImageElement).nextElementSibling;
+                                if (fallback) fallback.classList.remove("hidden");
+                              }}
+                            />
+                            <div className="hidden flex items-center justify-center p-8 text-muted-foreground">
+                              <FileText className="h-12 w-12 mr-3" />
+                              <div>
+                                <p className="text-sm font-medium">Document PDF</p>
+                                <p className="text-xs">Cliquez sur le bouton Télécharger pour ouvrir le fichier</p>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center justify-center p-8 text-muted-foreground">
+                            <FileText className="h-12 w-12 mr-3" />
+                            <p className="text-sm">Aucun fichier disponible</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center justify-end gap-2">
+                        <a
+                          href={previewReceipt.paymentProofUrl}
+                          download={previewReceipt.paymentProofFileName || "recu_paiement"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button size="sm" className="gap-1.5">
+                            <Download className="h-4 w-4" />
+                            Télécharger
+                          </Button>
+                        </a>
+                        <DialogClose asChild>
+                          <Button variant="ghost" size="sm">
+                            Fermer
+                          </Button>
+                        </DialogClose>
+                      </div>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
             </TabsContent>
           </div>
 
