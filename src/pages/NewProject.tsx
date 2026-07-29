@@ -396,7 +396,7 @@ export default function NewProject() {
 
                   <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                     <Label htmlFor="surface" className="text-xs sm:text-sm font-semibold">
-                      Surface (m²) <span className="text-primary">*</span>
+                      Surface couverte (m²) <span className="text-primary">*</span>
                     </Label>
                     <div className="mt-1.5 relative">
                       <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
