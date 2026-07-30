@@ -309,6 +309,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [newPw, setNewPw] = useState("");
   const [confirmNewPw, setConfirmNewPw] = useState("");
   const [resetOtp, setResetOtp] = useState("");
+  const updateProfile = useMutation(api.users.updateProfile);
   const resetPasswordMutation = useMutation(api.users.resetPassword);
 
   useEffect(() => {
@@ -359,7 +360,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     const cpw = fd.get("confirmPassword") as string;
     if (pw !== cpw) { setError("Les mots de passe ne correspondent pas."); setIsLoading(false); return; }
     if (pw.length < 8) { setError("8 caractères minimum."); setIsLoading(false); return; }
-    try { fd.set("flow", "signUp"); await signIn("password", fd); navigate(redirect); }
+    try {
+      fd.set("flow", "signUp");
+      await signIn("password", fd);
+      // Save additional profile fields (phone, name) after successful registration
+      const phone = fd.get("phone") as string;
+      const name = fd.get("name") as string;
+      if (phone || name) {
+        await updateProfile({ name: name || undefined, phone: phone || undefined });
+      }
+      navigate(redirect);
+    }
     catch { setError("Erreur lors de l'inscription."); }
     setIsLoading(false);
   };
