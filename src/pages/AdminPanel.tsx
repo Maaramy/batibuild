@@ -107,6 +107,7 @@ export default function AdminPanel() {
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const [batchDeletingProjects, setBatchDeletingProjects] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const pendingSubs = useQuery(api.subscriptions.getPendingSubscriptions) || [];
   const allSubsWithUsers = useQuery(api.subscriptions.getAllSubscriptionsWithUsers) || [];
@@ -807,6 +808,126 @@ export default function AdminPanel() {
                     </div>
                   </div>
                 )}
+              </DialogContent>
+            </Dialog>
+
+            {/* ── Modale Profil Utilisateur ── */}
+            <Dialog open={!!selectedUser} onOpenChange={(open) => { if (!open) setSelectedUser(null); }}>
+              <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-primary" />
+                    Profil utilisateur
+                  </DialogTitle>
+                  <DialogDescription>
+                    Informations complètes de l'utilisateur
+                  </DialogDescription>
+                </DialogHeader>
+
+                {selectedUser && (
+                  <div className="space-y-4">
+                    {/* Avatar + Nom */}
+                    <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-br from-primary/5 to-transparent border border-border/30">
+                      <Avatar className="h-16 w-16 shrink-0 border-2 border-primary/20">
+                        <AvatarImage src={selectedUser.image || ""} alt="Photo" />
+                        <AvatarFallback className="bg-primary/10 text-primary text-lg font-bold">
+                          {(selectedUser.name || selectedUser.email || "?").charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-sm">{selectedUser.name || "Non renseigné"}</h3>
+                        <p className="text-xs text-muted-foreground">{selectedUser.email || ""}</p>
+                        <Badge className={cn(
+                          "mt-1.5 text-[9px]",
+                          selectedUser.role === "admin" ? "bg-purple-500/10 text-purple-600" :
+                          selectedUser.status === "disabled" ? "bg-red-500/10 text-red-600" :
+                          "bg-emerald-500/10 text-emerald-600"
+                        )}>
+                          {selectedUser.role === "admin" ? "Admin" : selectedUser.status === "disabled" ? "Désactivé" : "Actif"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Coordonnées */}
+                    <div className="grid grid-cols-1 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
+                      <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                        <Mail className="h-3.5 w-3.5" /> Coordonnées
+                      </h4>
+                      <div className="flex items-center gap-2 text-xs">
+                        <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span>{selectedUser.email || "—"}</span>
+                      </div>
+                      {selectedUser.phone && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span dir="ltr">{selectedUser.phone}</span>
+                        </div>
+                      )}
+                      {selectedUser.company && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span>{selectedUser.company}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Abonnement */}
+                    <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
+                      <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 col-span-2">
+                        <Crown className="h-3.5 w-3.5" /> Abonnement
+                      </h4>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Plan</p>
+                        <Badge className={cn(
+                          "text-[9px] mt-0.5",
+                          selectedUser.subscriptionPlan === "pro" ? "bg-blue-500/10 text-blue-600" :
+                          selectedUser.subscriptionPlan === "expert" ? "bg-emerald-500/10 text-emerald-600" :
+                          selectedUser.subscriptionPlan === "supplier" ? "bg-amber-400/10 text-amber-600" :
+                          "bg-muted/30 text-muted-foreground"
+                        )}>
+                          {selectedUser.subscriptionPlan === "pro" ? "Pro" :
+                           selectedUser.subscriptionPlan === "expert" ? "Expert" :
+                           selectedUser.subscriptionPlan === "supplier" ? "Fournisseur" : "Gratuit"}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Expiration</p>
+                        <p className="text-xs font-medium mt-0.5">
+                          {selectedUser.subscriptionEndDate
+                            ? new Date(selectedUser.subscriptionEndDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })
+                            : "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Dates */}
+                    <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
+                      <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 col-span-2">
+                        <Calendar className="h-3.5 w-3.5" /> Dates
+                      </h4>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Inscription</p>
+                        <p className="text-xs font-medium mt-0.5">
+                          {selectedUser.createdAt
+                            ? new Date(selectedUser.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+                            : "—"}
+                        </p>
+                      </div>
+                      {selectedUser.subscriptionEndDate && (
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">Fin abonnement</p>
+                          <p className="text-xs font-medium mt-0.5">
+                            {new Date(selectedUser.subscriptionEndDate).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <DialogClose asChild>
+                  <Button variant="outline" className="w-full mt-2">Fermer</Button>
+                </DialogClose>
               </DialogContent>
             </Dialog>
 
@@ -1903,7 +2024,7 @@ export default function AdminPanel() {
                         </td>
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8 shrink-0 border border-border/40">
+                            <Avatar className="h-8 w-8 shrink-0 border border-border/40 cursor-pointer" onClick={() => setSelectedUser(u)}>
                               {u.image ? (
                                 <AvatarImage src={u.image} alt="Photo" className="object-cover" />
                               ) : (
@@ -1912,7 +2033,7 @@ export default function AdminPanel() {
                                 </AvatarFallback>
                               )}
                             </Avatar>
-                            <div className="min-w-0">
+                            <div className="min-w-0 cursor-pointer" onClick={() => setSelectedUser(u)}>
                               <p className="font-medium text-xs truncate max-w-[120px] sm:max-w-[180px]">
                                 {u.name || u.email || "Anonyme"}
                               </p>
@@ -2036,6 +2157,7 @@ export default function AdminPanel() {
                     <thead>
                       <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
                         <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Client</th>
+                        <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Téléphone</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Offre</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Méthode</th>
@@ -2059,6 +2181,9 @@ export default function AdminPanel() {
                                 <p className="text-[9px] text-muted-foreground truncate max-w-[120px]">{sub.user?.email || ""}</p>
                               </div>
                             </div>
+                          </td>
+                          <td className="py-2.5 px-2 sm:px-3 text-left hidden sm:table-cell">
+                            <span className="text-[10px] text-muted-foreground">{sub.user?.phone || "—"}</span>
                           </td>
                           <td className="py-2.5 px-2 sm:px-3 text-center">
                             <Badge variant="outline" className="text-[9px] capitalize">
@@ -2168,6 +2293,7 @@ export default function AdminPanel() {
                     <thead>
                       <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
                         <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Client</th>
+                        <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Téléphone</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Offre</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Statut</th>
                         <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
@@ -2199,6 +2325,9 @@ export default function AdminPanel() {
                                 <p className="text-[9px] text-muted-foreground truncate max-w-[120px]">{sub.user?.email || ""}</p>
                               </div>
                             </div>
+                          </td>
+                          <td className="py-2.5 px-2 sm:px-3 text-left hidden sm:table-cell">
+                            <span className="text-[10px] text-muted-foreground">{sub.user?.phone || "—"}</span>
                           </td>
                           <td className="py-2.5 px-2 sm:px-3 text-center">
                             <Badge className={cn(
