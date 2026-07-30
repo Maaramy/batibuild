@@ -125,12 +125,19 @@ export default function AdminPanel() {
   const planForm = useQuery(api.payments.getPlanPricing);
   const allSuppliers = useQuery(api.supplierProfiles.getAllSupplierProfiles) || [];
   const updatePlanPricing = useMutation(api.payments.updatePlanPricing);
+  const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
+  const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
   const [limitForm, setLimitForm] = useState({
     proPrice: 79, expertPrice: 320,
     freeProjects: 3, proProjects: 10, expertProjects: 100,
     proDownloads: 10, expertDownloads: 100,
   });
   const [savingLimits, setSavingLimits] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [paymentForm, setPaymentForm] = useState<Record<string, any>>({
+    bankName: "", bankTitulaire: "", bankRib: "", bankIban: "", bankSwift: "",
+    d17MerchantName: "", d17Phone: "", d17Email: "", d17Notice: "",
+  });
 
   // Sync local form when config loads
   useEffect(() => {
@@ -146,6 +153,23 @@ export default function AdminPanel() {
       });
     }
   }, [planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit]);
+
+  // Sync payment form when config loads
+  useEffect(() => {
+    if (paymentConfigData && paymentConfigData._id) {
+      setPaymentForm({
+        bankName: paymentConfigData.bankName || "",
+        bankTitulaire: paymentConfigData.bankTitulaire || "",
+        bankRib: paymentConfigData.bankRib || "",
+        bankIban: paymentConfigData.bankIban || "",
+        bankSwift: paymentConfigData.bankSwift || "",
+        d17MerchantName: paymentConfigData.d17MerchantName || "",
+        d17Phone: paymentConfigData.d17Phone || "",
+        d17Email: paymentConfigData.d17Email || "",
+        d17Notice: paymentConfigData.d17Notice || "",
+      });
+    }
+  }, [paymentConfigData?._id]);
 
   const createMaterial = useMutation(api.materials.createMaterialPrice);
   const updateMaterial = useMutation(api.materials.updateMaterialPrice);
@@ -393,17 +417,7 @@ export default function AdminPanel() {
             </TabsList>
           </div>
 
-          {/* SEO Configuration */}
-            <TabsContent value="seo">
-              <SeoSettings />
-            </TabsContent>
-
-            {/* BIM Configuration */}
-            <TabsContent value="bim">
-              <BIMSettings />
-            </TabsContent>
-
-            {/* ── Fournisseurs ── */}
+          {/* ── Fournisseurs ── */}
             <TabsContent value="fournisseurs">
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-2">
@@ -1959,12 +1973,12 @@ export default function AdminPanel() {
 
           {/* Payment Configuration */}
           <TabsContent value="paiement">
-            <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+            <Card className="border border-border/30 bg-background/60 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="text-base">Configuration des paiements</CardTitle>
-                <CardDescription>Coordonnées bancaires et D17</CardDescription>
+                <CardDescription>Coordonnées bancaires et D17 - Modifiables</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -1974,23 +1988,48 @@ export default function AdminPanel() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs text-muted-foreground">Banque</label>
-                        <p className="text-sm font-medium">{(planForm as any)?.bankName || "Non configuré"}</p>
+                        <Input
+                          value={paymentForm.bankName}
+                          onChange={(e) => setPaymentForm({...paymentForm, bankName: e.target.value})}
+                          placeholder="Ex: BIAT, Amen Bank..."
+                          className="h-9 text-sm mt-1"
+                        />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground">Titulaire</label>
-                        <p className="text-sm font-medium">{(planForm as any)?.bankTitulaire || "Non configuré"}</p>
+                        <Input
+                          value={paymentForm.bankTitulaire}
+                          onChange={(e) => setPaymentForm({...paymentForm, bankTitulaire: e.target.value})}
+                          placeholder="Nom du titulaire"
+                          className="h-9 text-sm mt-1"
+                        />
                       </div>
                       <div className="col-span-2">
                         <label className="text-xs text-muted-foreground">RIB</label>
-                        <p className="text-sm font-mono font-medium">{(planForm as any)?.bankRib || "Non configuré"}</p>
+                        <Input
+                          value={paymentForm.bankRib}
+                          onChange={(e) => setPaymentForm({...paymentForm, bankRib: e.target.value})}
+                          placeholder="RIB bancaire"
+                          className="h-9 text-sm font-mono mt-1"
+                        />
                       </div>
                       <div className="col-span-2">
                         <label className="text-xs text-muted-foreground">IBAN</label>
-                        <p className="text-sm font-mono font-medium">{(planForm as any)?.bankIban || "Non configuré"}</p>
+                        <Input
+                          value={paymentForm.bankIban}
+                          onChange={(e) => setPaymentForm({...paymentForm, bankIban: e.target.value})}
+                          placeholder="IBAN international"
+                          className="h-9 text-sm font-mono mt-1"
+                        />
                       </div>
                       <div className="col-span-2">
                         <label className="text-xs text-muted-foreground">SWIFT/BIC</label>
-                        <p className="text-sm font-mono font-medium">{(planForm as any)?.bankSwift || "Non configuré"}</p>
+                        <Input
+                          value={paymentForm.bankSwift}
+                          onChange={(e) => setPaymentForm({...paymentForm, bankSwift: e.target.value})}
+                          placeholder="Code SWIFT"
+                          className="h-9 text-sm font-mono mt-1"
+                        />
                       </div>
                     </div>
                   </div>
@@ -2002,22 +2041,67 @@ export default function AdminPanel() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2">
                         <label className="text-xs text-muted-foreground">Marchand</label>
-                        <p className="text-sm font-medium">{(planForm as any)?.d17MerchantName || "Non configuré"}</p>
+                        <Input
+                          value={paymentForm.d17MerchantName}
+                          onChange={(e) => setPaymentForm({...paymentForm, d17MerchantName: e.target.value})}
+                          placeholder="Nom du marchand"
+                          className="h-9 text-sm mt-1"
+                        />
                       </div>
                       <div className="col-span-2">
                         <label className="text-xs text-muted-foreground">Téléphone</label>
-                        <p className="text-sm font-medium">{(planForm as any)?.d17Phone || "Non configuré"}</p>
+                        <Input
+                          value={paymentForm.d17Phone}
+                          onChange={(e) => setPaymentForm({...paymentForm, d17Phone: e.target.value})}
+                          placeholder="Numéro D17"
+                          className="h-9 text-sm mt-1"
+                        />
                       </div>
                       <div className="col-span-2">
                         <label className="text-xs text-muted-foreground">Email</label>
-                        <p className="text-sm font-medium">{(planForm as any)?.d17Email || "Non configuré"}</p>
+                        <Input
+                          value={paymentForm.d17Email}
+                          onChange={(e) => setPaymentForm({...paymentForm, d17Email: e.target.value})}
+                          placeholder="Email D17"
+                          className="h-9 text-sm mt-1"
+                        />
                       </div>
                       <div className="col-span-2">
                         <label className="text-xs text-muted-foreground">Notice</label>
-                        <p className="text-sm text-muted-foreground">{(planForm as any)?.d17Notice || "Non configuré"}</p>
+                        <Input
+                          value={paymentForm.d17Notice}
+                          onChange={(e) => setPaymentForm({...paymentForm, d17Notice: e.target.value})}
+                          placeholder="Instructions de paiement"
+                          className="h-9 text-sm mt-1"
+                        />
                       </div>
                     </div>
                   </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/10">
+                  {savingPayment ? (
+                    <Button disabled className="gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Enregistrement...
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={async () => {
+                        setSavingPayment(true);
+                        try {
+                          await updatePaymentConfig(paymentForm as any);
+                          toast.success("Configuration mise à jour");
+                        } catch (err: any) {
+                          toast.error(err.message || "Erreur");
+                        }
+                        setSavingPayment(false);
+                      }}
+                      className="gap-2"
+                    >
+                      <Save className="h-4 w-4" />
+                      Enregistrer
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
