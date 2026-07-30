@@ -77,7 +77,7 @@ export default function SupplierDashboard() {
   const navigate = useNavigate();
   const profile = useQuery(api.supplierProfiles.getMyProfile);
   const hasProfile = useQuery(api.supplierProfiles.hasSupplierProfile);
-  const paymentConfig = useQuery(api.payments.getPaymentConfig);
+  const paymentConfig = useQuery(api.payments.getPaymentConfigAdmin);
   const createProfile = useMutation(api.supplierProfiles.createProfile);
   const updateProfile = useMutation(api.supplierProfiles.updateProfile);
   const startTrial = useMutation(api.supplierProfiles.startTrial);

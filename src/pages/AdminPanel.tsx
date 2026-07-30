@@ -128,7 +128,7 @@ export default function AdminPanel() {
   const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
   const [limitForm, setLimitForm] = useState({
-    proPrice: 79, expertPrice: 320,
+    proPrice: 79, expertPrice: 320, supplierPrice: 120,
     freeProjects: 3, proProjects: 10, expertProjects: 100,
     freeDownloadLimit: 0, proDownloads: 10, expertDownloads: 100,
   });
@@ -151,9 +151,10 @@ export default function AdminPanel() {
         freeDownloadLimit: planForm.freeDownloadLimit ?? 0,
         proDownloads: planForm.proDownloadLimit ?? 10,
         expertDownloads: planForm.expertDownloadLimit ?? 100,
+        supplierPrice: planForm.supplierPrice ?? 120,
       });
     }
-  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.freeDownloadLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit]);
+  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.freeDownloadLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit, planForm?.supplierPrice]);
 
   // Sync payment form when config loads
   useEffect(() => {
@@ -421,21 +422,31 @@ export default function AdminPanel() {
           {/* ── Fournisseurs ── */}
             <TabsContent value="fournisseurs">
               <div className="space-y-4">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-primary" />
                     <div>
                       <h2 className="text-lg font-semibold">Gestion des fournisseurs</h2>
-                      <p className="text-xs text-muted-foreground">Liste de tous les profils fournisseurs inscrits</p>
+                      <p className="text-xs text-muted-foreground">{allSuppliers.length} fournisseur(s)</p>
                     </div>
                   </div>
-                  {allSuppliers.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1.5 text-xs shrink-0"
-                      onClick={() => {
-                        const headers = ["Société","Contact","Email","Téléphone","Adresse","Spécialités","Régions","Statut","Visibilité","Date inscription"];
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Rechercher..."
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        className="h-9 w-36 sm:w-44 pl-9 text-sm"
+                      />
+                    </div>
+                    {allSuppliers.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs shrink-0"
+                        onClick={() => {
+                          const headers = ["Société","Contact","Email","Téléphone","Adresse","Spécialités","Régions","Statut","Visibilité","Date inscription"];
                         const rows = allSuppliers.map((p: any) => [
                           p.companyName || "",
                           p.user?.name || "",
@@ -463,6 +474,7 @@ export default function AdminPanel() {
                       <span className="hidden sm:inline">Export CSV</span>
                     </Button>
                   )}
+                  </div>
                 </div>
 
                 {allSuppliers.length === 0 ? (
@@ -487,7 +499,15 @@ export default function AdminPanel() {
                         </tr>
                       </thead>
                       <tbody>
-                        {allSuppliers.map((profile: any) => {
+                        {allSuppliers
+                          .filter((profile: any) =>
+                            userSearch
+                              ? (profile.companyName || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+                                (profile.user?.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+                                (profile.email || "").toLowerCase().includes(userSearch.toLowerCase())
+                              : true
+                          )
+                          .map((profile: any) => {
                           const statusColors: Record<string, string> = {
                             active: "bg-emerald-500/10 text-emerald-600 border-emerald-200/30",
                             trial: "bg-blue-500/10 text-blue-600 border-blue-200/30",
@@ -618,6 +638,19 @@ export default function AdminPanel() {
                         })}
                       </tbody>
                     </table>
+                  </div>
+                )}
+
+                {/* Empty search result */}
+                {allSuppliers.length > 0 && allSuppliers.filter((profile: any) =>
+                  userSearch
+                    ? (profile.companyName || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+                      (profile.user?.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+                      (profile.email || "").toLowerCase().includes(userSearch.toLowerCase())
+                    : true
+                ).length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-xs text-muted-foreground">Aucun fournisseur trouvé pour "{userSearch}"</p>
                   </div>
                 )}
 
@@ -1364,21 +1397,21 @@ export default function AdminPanel() {
               </div>
 
               {/* Materials table */}
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl border border-border/20">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border/30">
-                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Nom</th>
-                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Catégorie</th>
-                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Unité</th>
-                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Prix (TND)</th>
-                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Actions</th>
+                    <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
+                      <th className="text-left py-2.5 px-3 font-medium text-muted-foreground text-xs">Nom</th>
+                      <th className="text-left py-2.5 px-3 font-medium text-muted-foreground text-xs">Catégorie</th>
+                      <th className="text-right py-2.5 px-3 font-medium text-muted-foreground text-xs">Unité</th>
+                      <th className="text-right py-2.5 px-3 font-medium text-muted-foreground text-xs">Prix (TND)</th>
+                      <th className="text-right py-2.5 px-3 font-medium text-muted-foreground text-xs">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredMaterials.map((material: any) => (
-                      <tr key={material._id} className="border-b border-border/20 hover:bg-muted/30 transition-colors">
-                        <td className="py-2.5 px-2">
+                      <tr key={material._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150 group">
+                        <td className="py-2.5 px-3">
                           {editingMaterial === material._id ? (
                             <Input
                               value={editValues[material._id]?.name || material.name}
@@ -1389,7 +1422,7 @@ export default function AdminPanel() {
                             <span className="font-medium">{material.name}</span>
                           )}
                         </td>
-                        <td className="py-2.5 px-2">
+                        <td className="py-2.5 px-3">
                           <Badge variant="secondary" className="text-xs font-normal">
                             {categoryLabels[material.category] || material.category}
                           </Badge>
@@ -1458,48 +1491,108 @@ export default function AdminPanel() {
 
           {/* Projects Management */}
           <TabsContent value="projects">
-            <Card className="border border-border/30 bg-background/60 backdrop-blur-sm hover:shadow-md transition-all duration-200">
-              <CardHeader>
-                <CardTitle className="text-base">Gestion des projets</CardTitle>
-                <CardDescription>Tous les projets des utilisateurs</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border/30">
-                        <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Projet</th>
-                        <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Type</th>
-                        <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Statut</th>
-                        <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Estimation</th>
-                        <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allProjects.map((project: any) => (
-                        <tr key={project._id} className="border-b border-border/20 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/dashboard/project/${project._id}`)}>
-                          <td className="py-2.5 px-2 font-medium">{project.name}</td>
-                          <td className="py-2.5 px-2 text-muted-foreground">{project.category}</td>
-                          <td className="py-2.5 px-2 text-center">
-                            <Badge variant={project.status === "completed" ? "default" : "secondary"} className="text-xs font-normal">
-                              {project.status}
-                            </Badge>
-                          </td>
-                          <td className="py-2.5 px-2 text-right font-medium">
-                            {project.costEstimate
-                              ? new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(project.costEstimate.totalCost)
-                              : "-"}
-                          </td>
-                          <td className="py-2.5 px-2 text-right text-muted-foreground">
-                            {new Date(project.createdAt).toLocaleDateString("fr-FR")}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold">Gestion des projets</h2>
+                  <p className="text-xs text-muted-foreground">{allProjects.length} projet(s)</p>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Rechercher un projet..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-9 w-40 sm:w-56 pl-9 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
+                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Projet</th>
+                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs hidden sm:table-cell">Utilisateur</th>
+                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Type</th>
+                      <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Statut</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Estimation</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Date</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allProjects
+                      .filter((p: any) =>
+                        searchQuery
+                          ? (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (p.category || "").toLowerCase().includes(searchQuery.toLowerCase())
+                          : true
+                      )
+                      .map((project: any) => (
+                      <tr key={project._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150 group">
+                        <td className="py-2.5 px-3">
+                          <p className="font-medium text-xs">{project.name || "Sans nom"}</p>
+                          <p className="text-[9px] text-muted-foreground">{project.region || "—"} · {project.surface ? `${project.surface}m²` : "—"}</p>
+                        </td>
+                        <td className="py-2.5 px-2 hidden sm:table-cell">
+                          <div className="flex items-center gap-1.5">
+                            <Avatar className="h-6 w-6 shrink-0 border border-border/30">
+                              <AvatarImage src={project.user?.image || ""} />
+                              <AvatarFallback className="bg-primary/10 text-primary text-[8px] font-bold">
+                                {project.user?.name?.charAt(0)?.toUpperCase() || "?"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs truncate max-w-[100px]">{project.user?.name || "—"}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <Badge variant="outline" className="text-[9px] font-normal">{project.category || "—"}</Badge>
+                        </td>
+                        <td className="py-2.5 px-2 text-center">
+                          <Badge variant={project.status === "completed" ? "default" : "secondary"} className={cn("text-[9px] font-normal", project.status === "completed" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : "")}>
+                            {project.status === "completed" ? "Terminé" : project.status === "pending" ? "En cours" : project.status}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-xs font-medium">
+                          {project.costEstimate
+                            ? new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(project.costEstimate.totalCost)
+                            : "—"}
+                        </td>
+                        <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
+                          {new Date(project.createdAt).toLocaleDateString("fr-FR")}
+                        </td>
+                        <td className="py-2.5 px-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/dashboard/project/${project._id}`)}
+                            className="p-1.5 rounded-md hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
+                            title="Voir le projet"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {allProjects.filter((p: any) => searchQuery ? (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) || (p.category || "").toLowerCase().includes(searchQuery.toLowerCase()) : true).length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="text-center py-8 text-xs text-muted-foreground">Aucun projet trouvé</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {allProjects.length > 0 && (
+                <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                  <span className="font-medium text-foreground">Total estimations: <span className="font-mono">{new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(totalCost)}</span></span>
+                  <span>•</span>
+                  <span>{allProjects.filter((p: any) => p.status === "completed").length} terminé(s)</span>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* Users Management */}
@@ -1573,7 +1666,7 @@ export default function AdminPanel() {
                       )
                       .map((u: any) => (
                       <tr key={u._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
-                        <td className="py-2.5 px-2">
+                        <td className="py-2.5 px-3">
                           <input
                             type="checkbox"
                             checked={selectedUserIds.has(u._id)}
@@ -1586,7 +1679,7 @@ export default function AdminPanel() {
                             className="rounded"
                           />
                         </td>
-                        <td className="py-2.5 px-2">
+                        <td className="py-2.5 px-3">
                           <div className="flex items-center gap-2">
                             <Avatar className="h-8 w-8 shrink-0 border border-border/40">
                               {u.image ? (
@@ -1613,24 +1706,29 @@ export default function AdminPanel() {
                           </Badge>
                         </td>
                         <td className="py-2.5 px-2 text-center">
-                          <div className="flex items-center gap-1.5 justify-center">
-                            {(u.subscriptionPlan === "pro" || u.subscriptionPlan === "expert") && (
-                              <span className={cn(
-                                "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium",
-                                u.subscriptionPlan === "pro"
-                                  ? "bg-blue-500/10 text-blue-600 border border-blue-200/30"
-                                  : "bg-emerald-500/10 text-emerald-600 border border-emerald-200/30"
-                              )}>
-                                {u.subscriptionPlan === "pro" ? "Pro" : "Expert"}
-                              </span>
+                          <select
+                            value={u.subscriptionPlan || "free"}
+                            onChange={async (e) => {
+                              try {
+                                await updateUserPlan({ userId: u._id, plan: e.target.value as any });
+                                toast.success("Plan mis à jour");
+                              } catch (err: any) {
+                                toast.error(err.message || "Erreur");
+                              }
+                            }}
+                            className={cn(
+                              "text-[9px] h-6 rounded-md border border-border/30 bg-background px-1.5 font-medium",
+                              u.subscriptionPlan === "pro" ? "text-blue-600 bg-blue-500/5" :
+                              u.subscriptionPlan === "expert" ? "text-emerald-600 bg-emerald-500/5" :
+                              u.subscriptionPlan === "supplier" ? "text-purple-600 bg-purple-500/5" :
+                              "text-muted-foreground"
                             )}
-                            {(!u.subscriptionPlan || u.subscriptionPlan === "free") && (
-                              <span className="text-[9px] text-muted-foreground">Free</span>
-                            )}
-                            {u.subscriptionPlan === "supplier" && (
-                              <span className="text-[9px] text-muted-foreground">Fournisseur</span>
-                            )}
-                          </div>
+                          >
+                            <option value="free">Free</option>
+                            <option value="pro">Pro</option>
+                            <option value="expert">Expert</option>
+                            <option value="supplier">Fournisseur</option>
+                          </select>
                         </td>
                         <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
                           {u.createdAt ? new Date(u.createdAt).toLocaleDateString("fr-FR") : "—"}
@@ -1810,11 +1908,24 @@ export default function AdminPanel() {
           {/* Subscriptions */}
           <TabsContent value="subscriptions">
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary" />
-                <div>
-                  <h2 className="text-lg font-semibold">Gestion des abonnements</h2>
-                  <p className="text-xs text-muted-foreground">Tous les abonnements des utilisateurs</p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  <div>
+                    <h2 className="text-lg font-semibold">Gestion des abonnements</h2>
+                    <p className="text-xs text-muted-foreground">{allSubsWithUsers.length} abonnement(s)</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Rechercher..."
+                      value={subSearch}
+                      onChange={(e) => setSubSearch(e.target.value)}
+                      className="h-9 w-40 sm:w-48 pl-9 text-sm"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1835,11 +1946,20 @@ export default function AdminPanel() {
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Offre</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Statut</th>
                         <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
+                        <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Date</th>
                         <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {allSubsWithUsers.map((sub: any) => (
+                      {allSubsWithUsers
+                        .filter((sub: any) =>
+                          subSearch
+                            ? (sub.user?.name || "").toLowerCase().includes(subSearch.toLowerCase()) ||
+                              (sub.user?.email || "").toLowerCase().includes(subSearch.toLowerCase()) ||
+                              (sub.plan || "").toLowerCase().includes(subSearch.toLowerCase())
+                            : true
+                        )
+                        .map((sub: any) => (
                         <tr key={sub._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
                           <td className="py-2.5 px-2 sm:px-3">
                             <div className="flex items-center gap-2">
@@ -1858,9 +1978,11 @@ export default function AdminPanel() {
                           <td className="py-2.5 px-2 sm:px-3 text-center">
                             <Badge className={cn(
                               "text-[9px]",
-                              sub.plan === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : "bg-muted/30 text-muted-foreground"
+                              sub.plan === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" :
+                              sub.plan === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" :
+                              "bg-muted/30 text-muted-foreground"
                             )}>
-                              {sub.plan}
+                              {sub.plan === "pro" ? "Pro" : sub.plan === "expert" ? "Expert" : sub.plan}
                             </Badge>
                           </td>
                           <td className="py-2.5 px-2 sm:px-3 text-center">
@@ -1869,7 +1991,10 @@ export default function AdminPanel() {
                             </Badge>
                           </td>
                           <td className="py-2.5 px-2 sm:px-3 text-right hidden sm:table-cell">
-                            <span className="font-mono text-xs font-medium">{sub.amount} TND</span>
+                            <span className="font-mono text-xs font-medium">{sub.amount ? `${sub.amount.toLocaleString("fr-FR")} TND` : "—"}</span>
+                          </td>
+                          <td className="py-2.5 px-2 sm:px-3 text-right hidden sm:table-cell text-[10px] text-muted-foreground">
+                            {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "—"}
                           </td>
                           <td className="py-2.5 px-2 sm:px-3 text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -1889,10 +2014,31 @@ export default function AdminPanel() {
                                   </Button>
                                 </>
                               )}
+                              <button
+                                type="button"
+                                className="p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
+                                title="Supprimer"
+                                onClick={async () => {
+                                  if (!window.confirm("Supprimer cet abonnement ?")) return;
+                                  try {
+                                    await rejectSub({ subscriptionId: sub._id });
+                                    toast.success("Abonnement supprimé");
+                                  } catch (err: any) {
+                                    toast.error(err.message || "Erreur");
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
                             </div>
                           </td>
                         </tr>
                       ))}
+                      {allSubsWithUsers.filter((sub: any) => subSearch ? (sub.user?.name || "").toLowerCase().includes(subSearch.toLowerCase()) || (sub.user?.email || "").toLowerCase().includes(subSearch.toLowerCase()) || (sub.plan || "").toLowerCase().includes(subSearch.toLowerCase()) : true).length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="text-center py-8 text-xs text-muted-foreground">Aucun abonnement trouvé</td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -2206,6 +2352,32 @@ export default function AdminPanel() {
                       />
                     </div>
                   </div>
+                  <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-200/20 space-y-3">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-purple-500" />
+                      Fournisseur
+                    </h3>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Prix (TND/mois)</label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={limitForm.supplierPrice}
+                          onChange={(e) => setLimitForm({ ...limitForm, supplierPrice: parseFloat(e.target.value) })}
+                          className="h-8 w-24 text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">TND</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Projets max</label>
+                      <p className="text-xs text-muted-foreground">N/A</p>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Téléchargements devis</label>
+                      <p className="text-xs text-muted-foreground">N/A</p>
+                    </div>
+                  </div>
                 </div>
 
                 {savingLimits ? (
@@ -2235,6 +2407,12 @@ export default function AdminPanel() {
                           price: limitForm.expertPrice,
                           projectLimit: limitForm.expertProjects,
                           downloadLimit: limitForm.expertDownloads,
+                        } as any);
+                        await updatePlanPricing({
+                          plan: "supplier",
+                          price: limitForm.supplierPrice,
+                          projectLimit: 100,
+                          downloadLimit: 100,
                         } as any);
                         toast.success("Limites mises à jour");
                       } catch (err: any) {
