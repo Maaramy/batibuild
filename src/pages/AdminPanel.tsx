@@ -40,7 +40,9 @@ import {
   Settings,
   Trash2,
   TrendingUp,
+  User,
   Users,
+  Briefcase,
   X,
   Package,
   Shield,
@@ -50,6 +52,7 @@ import {
   ThumbsDown,
   Clock,
   Mail,
+  MapPin,
   Phone,
   Crown,
   CreditCard,
@@ -58,6 +61,7 @@ import {
   RefreshCw,
   Smartphone,
   Globe,
+  Map as MapIcon,
   FileText,
   Calendar,
   NotebookPen,
@@ -99,6 +103,10 @@ export default function AdminPanel() {
   const [editValues, setEditValues] = useState<Record<string, any>>({});
   const [userSearch, setUserSearch] = useState("");
   const [subSearch, setSubSearch] = useState("");
+  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const [batchDeletingProjects, setBatchDeletingProjects] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
 
   const pendingSubs = useQuery(api.subscriptions.getPendingSubscriptions) || [];
   const allSubsWithUsers = useQuery(api.subscriptions.getAllSubscriptionsWithUsers) || [];
@@ -112,6 +120,8 @@ export default function AdminPanel() {
   const toggleUserStatus = useMutation(api.users.toggleUserStatus);
   const markReceiptVerified = useMutation(api.subscriptions.markReceiptVerified);
   const batchDeleteUsers = useMutation(api.users.batchDeleteUsers);
+  const batchDeleteProjects = useMutation(api.projects.adminBatchDeleteProjects);
+  const deleteProjectMutation = useMutation(api.projects.deleteProject);
   const adminDeleteSupplierProfile = useMutation(api.supplierProfiles.adminDeleteProfile);
   const adminToggleSupplierVisibility = useMutation(api.supplierProfiles.adminToggleVisibility);
 
@@ -552,7 +562,10 @@ export default function AdminPanel() {
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="min-w-0">
-                                    <p className="font-medium text-xs truncate max-w-[130px]">
+                                    <p
+                                      className="font-medium text-xs truncate max-w-[130px] cursor-pointer hover:text-primary transition-colors"
+                                      onClick={() => setSelectedSupplier(profile)}
+                                    >
                                       {profile.companyName || "Sans nom"}
                                     </p>
                                     <p className="text-[9px] text-muted-foreground truncate max-w-[130px]">
@@ -674,6 +687,128 @@ export default function AdminPanel() {
                 )}
               </div>
             </TabsContent>
+
+            {/* ── Modale Détails Fournisseur ── */}
+            <Dialog open={!!selectedSupplier} onOpenChange={(open) => { if (!open) setSelectedSupplier(null); }}>
+              <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    Détails du fournisseur
+                  </DialogTitle>
+                  <DialogDescription>
+                    Informations complètes du profil fournisseur
+                  </DialogDescription>
+                </DialogHeader>
+
+                {selectedSupplier && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-primary/5 to-transparent border border-border/30">
+                      <Avatar className="h-14 w-14 shrink-0 border-2 border-primary/20">
+                        <AvatarImage src={selectedSupplier.user?.image || ""} alt="Photo" />
+                        <AvatarFallback className="bg-primary/10 text-primary text-lg font-bold">
+                          {selectedSupplier.companyName ? selectedSupplier.companyName.charAt(0).toUpperCase() : "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="font-semibold text-sm">{selectedSupplier.companyName || "Sans nom"}</h3>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <User className="h-3 w-3" /> {selectedSupplier.user?.name || ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
+                      <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5" /> Coordonnées
+                      </h4>
+                      {selectedSupplier.email && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span>{selectedSupplier.email}</span>
+                        </div>
+                      )}
+                      {selectedSupplier.phone && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span>{selectedSupplier.phone}</span>
+                        </div>
+                      )}
+                      {selectedSupplier.address && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span>{selectedSupplier.address}</span>
+                        </div>
+                      )}
+                      {selectedSupplier.website && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span>{selectedSupplier.website}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedSupplier.specialties?.length > 0 && (
+                      <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
+                        <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                          <Briefcase className="h-3.5 w-3.5" /> Spécialités ({selectedSupplier.specialties.length})
+                        </h4>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedSupplier.specialties.map((s: string) => (
+                            <Badge key={s} className="text-[9px] bg-primary/5 text-primary border-primary/10">{s}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedSupplier.regions?.length > 0 && (
+                      <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
+                        <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                          <MapIcon className="h-3.5 w-3.5" /> Régions d'intervention
+                        </h4>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedSupplier.regions.map((r: string) => (
+                            <Badge key={r} variant="outline" className="text-[9px]">{r}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Abonnement</p>
+                        <Badge className={cn("text-[9px] mt-0.5", selectedSupplier.subscriptionStatus === "active" ? "bg-emerald-500/10 text-emerald-600" : selectedSupplier.subscriptionStatus === "trial" ? "bg-blue-500/10 text-blue-600" : "bg-muted/30 text-muted-foreground")}>
+                          {({active:"Actif",trial:"Essai",expired:"Expiré",inactive:"Inactif"} as Record<string,string>)[selectedSupplier.subscriptionStatus || "inactive"] || selectedSupplier.subscriptionStatus}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Visibilité</p>
+                        <Badge className={cn("text-[9px] mt-0.5", selectedSupplier.isVisible ? "bg-emerald-500/10 text-emerald-600" : "bg-muted/30 text-muted-foreground")}>
+                          {selectedSupplier.isVisible ? "Visible" : "Masqué"}
+                        </Badge>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-[9px] text-muted-foreground">Inscription</p>
+                        <p className="text-xs">{selectedSupplier.createdAt ? new Date(selectedSupplier.createdAt).toLocaleDateString("fr-FR", {day:"numeric", month:"long", year:"numeric"}) : "—"}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      {selectedSupplier.email && (
+                        <a href={`mailto:${selectedSupplier.email}`}>
+                          <Button variant="outline" size="sm" className="gap-1.5">
+                            <Mail className="h-3.5 w-3.5" /> Contacter
+                          </Button>
+                        </a>
+                      )}
+                      <DialogClose asChild>
+                        <Button variant="ghost" size="sm">Fermer</Button>
+                      </DialogClose>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
 
             {/* ── Reçus de Paiement ── */}
             <TabsContent value="recus">
@@ -841,6 +976,7 @@ export default function AdminPanel() {
                                     "text-[9px]",
                                     sub.plan === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" :
                                     sub.plan === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" :
+                                    sub.plan === "supplier" ? "bg-amber-400/10 text-amber-600 border-amber-200/30" :
                                     "bg-muted/30 text-muted-foreground"
                                   )}>
                                     {sub.plan === "pro" ? "Pro" : sub.plan === "expert" ? "Expert" : sub.plan}
@@ -1030,6 +1166,7 @@ export default function AdminPanel() {
                             "text-[9px] mt-0.5",
                             previewReceipt.plan === "pro" ? "bg-blue-500/10 text-blue-600" :
                             previewReceipt.plan === "expert" ? "bg-emerald-500/10 text-emerald-600" :
+                            previewReceipt.plan === "supplier" ? "bg-amber-400/10 text-amber-600" :
                             "bg-muted/30 text-muted-foreground"
                           )}>
                             {previewReceipt.plan === "pro" ? "Pro" : previewReceipt.plan === "expert" ? "Expert" : previewReceipt.plan}
@@ -1498,6 +1635,34 @@ export default function AdminPanel() {
                   <p className="text-xs text-muted-foreground">{allProjects.length} projet(s)</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {selectedProjectIds.size > 0 && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 text-xs shrink-0"
+                      onClick={async () => {
+                        if (!window.confirm("Supprimer " + selectedProjectIds.size + " projet(s) ? Cette action est irréversible.")) return;
+                        setBatchDeletingProjects(true);
+                        try {
+                          await batchDeleteProjects({ projectIds: Array.from(selectedProjectIds) as any });
+                          toast.success(selectedProjectIds.size + " projet(s) supprimé(s)");
+                          setSelectedProjectIds(new Set());
+                        } catch (err: any) {
+                          toast.error(err.message || "Erreur");
+                        } finally {
+                          setBatchDeletingProjects(false);
+                        }
+                      }}
+                      disabled={batchDeletingProjects}
+                    >
+                      {batchDeletingProjects ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-1" />
+                      )}
+                      Supprimer ({selectedProjectIds.size})
+                    </Button>
+                  )}
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -1514,13 +1679,38 @@ export default function AdminPanel() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
+                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs w-8">
+                        <input
+                          type="checkbox"
+                          checked={allProjects.length > 0 && selectedProjectIds.size === allProjects.filter((p: any) =>
+                            searchQuery
+                              ? (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                (p.category || "").toLowerCase().includes(searchQuery.toLowerCase())
+                              : true
+                          ).length}
+                          onChange={() => {
+                            const filtered = allProjects.filter((p: any) =>
+                              searchQuery
+                                ? (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                  (p.category || "").toLowerCase().includes(searchQuery.toLowerCase())
+                                : true
+                            );
+                            if (selectedProjectIds.size === filtered.length) {
+                              setSelectedProjectIds(new Set());
+                            } else {
+                              setSelectedProjectIds(new Set(filtered.map((p: any) => p._id)));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                      </th>
                       <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Projet</th>
                       <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs hidden sm:table-cell">Utilisateur</th>
                       <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Type</th>
                       <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Statut</th>
                       <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Estimation</th>
                       <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Date</th>
-                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Action</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1533,6 +1723,19 @@ export default function AdminPanel() {
                       )
                       .map((project: any) => (
                       <tr key={project._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150 group">
+                        <td className="py-2.5 px-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedProjectIds.has(project._id)}
+                            onChange={() => {
+                              const next = new Set(selectedProjectIds);
+                              if (next.has(project._id)) next.delete(project._id);
+                              else next.add(project._id);
+                              setSelectedProjectIds(next);
+                            }}
+                            className="rounded"
+                          />
+                        </td>
                         <td className="py-2.5 px-3">
                           <p className="font-medium text-xs">{project.name || "Sans nom"}</p>
                           <p className="text-[9px] text-muted-foreground">{project.region || "—"} · {project.surface ? `${project.surface}m²` : "—"}</p>
@@ -1565,20 +1768,38 @@ export default function AdminPanel() {
                           {new Date(project.createdAt).toLocaleDateString("fr-FR")}
                         </td>
                         <td className="py-2.5 px-2 text-right">
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/dashboard/project/${project._id}`)}
-                            className="p-1.5 rounded-md hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
-                            title="Voir le projet"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/dashboard/project/${project._id}`)}
+                              className="p-1.5 rounded-md hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
+                              title="Voir le projet"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!window.confirm("Supprimer le projet \"" + (project.name || "Sans nom") + "\" ?")) return;
+                                try {
+                                  await deleteProjectMutation({ projectId: project._id });
+                                  toast.success("Projet supprimé");
+                                } catch (err: any) {
+                                  toast.error(err.message || "Erreur");
+                                }
+                              }}
+                              className="p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                     {allProjects.filter((p: any) => searchQuery ? (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) || (p.category || "").toLowerCase().includes(searchQuery.toLowerCase()) : true).length === 0 && (
                       <tr>
-                        <td colSpan={7} className="text-center py-8 text-xs text-muted-foreground">Aucun projet trouvé</td>
+                        <td colSpan={8} className="text-center py-8 text-xs text-muted-foreground">Aucun projet trouvé</td>
                       </tr>
                     )}
                   </tbody>
@@ -1650,9 +1871,10 @@ export default function AdminPanel() {
                         />
                       </th>
                       <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Utilisateur</th>
+                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Téléphone</th>
                       <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Rôle</th>
                       <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Abonnement</th>
-                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Date</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Inscription</th>
                       <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Actions</th>
                     </tr>
                   </thead>
@@ -1699,6 +1921,9 @@ export default function AdminPanel() {
                               </p>
                             </div>
                           </div>
+                          </td>
+                        <td className="py-2.5 px-2 text-left">
+                          <span className="text-xs">{u.phone || "—"}</span>
                         </td>
                         <td className="py-2.5 px-2 text-center">
                           <Badge className={cn("text-[9px]", u.role === "admin" ? "bg-purple-500/10 text-purple-600 border-purple-200/30" : "bg-muted/30 text-muted-foreground")}>
@@ -1720,7 +1945,7 @@ export default function AdminPanel() {
                               "text-[9px] h-6 rounded-md border border-border/30 bg-background px-1.5 font-medium",
                               u.subscriptionPlan === "pro" ? "text-blue-600 bg-blue-500/5" :
                               u.subscriptionPlan === "expert" ? "text-emerald-600 bg-emerald-500/5" :
-                              u.subscriptionPlan === "supplier" ? "text-purple-600 bg-purple-500/5" :
+                              u.subscriptionPlan === "supplier" ? "text-amber-600 bg-amber-400/10" :
                               "text-muted-foreground"
                             )}
                           >

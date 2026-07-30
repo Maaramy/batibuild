@@ -546,6 +546,26 @@ export const deleteProject = mutation({
   },
 });
 
+/** Batch delete projects (admin only) */
+export const adminBatchDeleteProjects = mutation({
+  args: { projectIds: v.array(v.id("projects")) },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || user.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    for (const projectId of args.projectIds) {
+      const project = await ctx.db.get(projectId);
+      if (project) {
+        await ctx.db.delete(projectId);
+      }
+    }
+
+    return { deleted: args.projectIds.length };
+  },
+});
+
 /** Add files to a project */
 export const addProjectFiles = mutation({
   args: {
