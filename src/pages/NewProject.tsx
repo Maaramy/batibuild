@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
@@ -14,8 +15,11 @@ import {
   ArrowLeft, Upload, FileImage, FileText, Map, Pen, Ruler,
   Loader2, Check, X, Building2, ChevronRight, HardHat, Image,
   FileUp, MapPin, AlertCircle, Asterisk, Crown, AlertTriangle,
+  CircleDot, CircleDashed, CircleCheck, Circle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+// ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
 const TUNISIA_REGIONS = [
   { value: "tunis", label: "Tunis" }, { value: "ariana", label: "Ariana" },
@@ -71,9 +75,124 @@ const IMPORT_METHODS = [
   { id: "sketch", icon: Pen, label: "Croquis", desc: "Dessin à main levée" },
 ];
 
+// ─── VERTICAL STEPS CONFIG ──────────────────────────────────────────────────
+
+const STEPS = [
+  { key: "method",    label: "Méthode d'import",  desc: "Choisissez comment importer" },
+  { key: "upload",    label: "Fichiers",           desc: "Ajoutez vos documents" },
+  { key: "form",      label: "Détails du projet",  desc: "Complétez les informations" },
+  { key: "analyzing", label: "Analyse IA",         desc: "Calcul de l'estimation" },
+] as const;
+
+type StepKey = (typeof STEPS)[number]["key"];
+
+// ─── STEPPER COMPONENT ──────────────────────────────────────────────────────
+
+function VerticalStepper({
+  steps,
+  currentStep,
+  completedSteps,
+  onStepClick,
+}: {
+  steps: readonly typeof STEPS[number][];
+  currentStep: StepKey;
+  completedSteps: Set<StepKey>;
+  onStepClick: (key: StepKey) => void;
+}) {
+  const order = steps.map((s) => s.key);
+  const curIdx = order.indexOf(currentStep);
+
+  // Which steps actually appear in the flow (skip upload if manual)
+  const visibleSteps = steps.filter((s) => {
+    // upload step can be conditionally hidden — but we keep it visible in stepper
+    return true;
+  });
+
+  return (
+    <nav className="flex flex-col gap-0" aria-label="Progression du projet">
+      {visibleSteps.map((step, i) => {
+        const idx = order.indexOf(step.key);
+        const done = completedSteps.has(step.key);
+        const active = step.key === currentStep;
+        const future = !done && !active;
+        const isLast = i === visibleSteps.length - 1;
+
+        return (
+          <div key={step.key} className="flex gap-3">
+            {/* Left: Step Indicator */}
+            <div className="flex flex-col items-center">
+              <button
+                onClick={() => done && onStepClick(step.key)}
+                disabled={!done && !active}
+                className={cn(
+                  "relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300",
+                  done && "border-emerald-500 bg-emerald-500 cursor-pointer hover:shadow-md hover:shadow-emerald-500/20",
+                  active && "border-primary bg-primary/10 text-primary shadow-sm shadow-primary/20",
+                  future && "border-muted-foreground/25 bg-muted/10 text-muted-foreground/40",
+                )}
+              >
+                {done ? (
+                  <Check className="h-3.5 w-3.5 text-white" />
+                ) : active ? (
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                    className="h-2.5 w-2.5 rounded-full bg-primary"
+                  />
+                ) : (
+                  <span className="text-[10px] font-semibold">{i + 1}</span>
+                )}
+              </button>
+              {!isLast && (
+                <div
+                  className={cn(
+                    "w-0.5 h-10 sm:h-12 transition-colors duration-500",
+                    done ? "bg-emerald-400" : "bg-border/40"
+                  )}
+                />
+              )}
+            </div>
+
+            {/* Right: Step Info */}
+            <div
+              className={cn(
+                "flex flex-col justify-start pb-6 sm:pb-7 transition-all duration-300 min-w-0",
+                active && "translate-x-0",
+                future && "opacity-40",
+                done && "opacity-70 hover:opacity-100 cursor-pointer"
+              )}
+              onClick={() => done && onStepClick(step.key)}
+            >
+              <span
+                className={cn(
+                  "text-xs sm:text-sm font-semibold leading-tight transition-colors",
+                  done && "text-emerald-600",
+                  active && "text-foreground",
+                  future && "text-muted-foreground/60"
+                )}
+              >
+                {step.label}
+              </span>
+              <span className="text-[10px] sm:text-xs text-muted-foreground/60 mt-0.5 leading-tight">
+                {active
+                  ? step.desc
+                  : done
+                    ? "Terminé"
+                    : "À venir"}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ─── PAGE COMPONENT ─────────────────────────────────────────────────────────
+
 export default function NewProject() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<"method" | "upload" | "form" | "analyzing" | "complete">("method");
+  const [step, setStep] = useState<StepKey>("method");
   const [importMethod, setImportMethod] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -91,6 +210,13 @@ export default function NewProject() {
 
   const createProject = useMutation(api.projects.createProject);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
+
+  // Completed steps tracking
+  const [completedSteps, setCompletedSteps] = useState<Set<StepKey>>(new Set());
+
+  // Determine which steps are in the flow
+  const hasUploadStep = importMethod !== "" && importMethod !== "manual";
+  const visibleSteps = STEPS.filter((s) => s.key !== "upload" || hasUploadStep);
 
   const validateForm = () => {
     const errs: Record<string, string> = {};
@@ -118,10 +244,37 @@ export default function NewProject() {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const markStepCompleted = (key: StepKey) => {
+    setCompletedSteps((prev) => new Set(prev).add(key));
+  };
+
+  const goToStep = (key: StepKey) => {
+    setStep(key);
+  };
+
+  const handleMethodSelect = (methodId: string) => {
+    setImportMethod(methodId);
+    markStepCompleted("method");
+    if (methodId === "manual") {
+      goToStep("form");
+    } else {
+      goToStep("upload");
+    }
+  };
+
+  const handleUploadNext = () => {
+    if (files.length > 0) {
+      markStepCompleted("upload");
+      goToStep("form");
+    }
+  };
+
   const handleStartAnalysis = async () => {
     if (!validateForm()) return;
+
     setAnalyzing(true);
-    setStep("analyzing");
+    markStepCompleted("form");
+    goToStep("analyzing");
 
     const interval = setInterval(() => {
       setAnalysisProgress((prev) => {
@@ -145,8 +298,8 @@ export default function NewProject() {
       clearInterval(interval);
       setAnalysisProgress(100);
       setTimeout(() => {
-        setStep("complete");
-        setTimeout(() => navigate(`/dashboard/project/${projectId}`), 1500);
+        markStepCompleted("analyzing");
+        setTimeout(() => navigate(`/dashboard/project/${projectId}`), 800);
       }, 500);
     } catch (error: any) {
       clearInterval(interval);
@@ -162,10 +315,408 @@ export default function NewProject() {
     }
   };
 
-  const handleMethodSelect = (methodId: string) => {
-    setImportMethod(methodId);
-    setStep(methodId === "manual" ? "form" : "upload");
+  // ─── RENDER CONTENT FOR CURRENT STEP ──────────────────────────────
+
+  const renderStepContent = () => {
+    return (
+      <AnimatePresence mode="wait">
+        {step === "method" && (
+          <motion.div
+            key="method"
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
+            <div className="mb-6">
+              <h2 className="text-lg sm:text-xl font-bold">Méthode d'import</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                Comment souhaitez-vous importer votre projet&nbsp;?
+              </p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+              {IMPORT_METHODS.map((method) => (
+                <button
+                  key={method.id}
+                  onClick={() => handleMethodSelect(method.id)}
+                  className={cn(
+                    "group relative flex flex-col items-center gap-2 p-4 sm:p-5 rounded-xl border-2 transition-all duration-200 active:scale-[0.97]",
+                    importMethod === method.id
+                      ? "border-primary bg-primary/5 shadow-sm shadow-primary/10"
+                      : "border-border/40 bg-card/30 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm"
+                  )}
+                >
+                  {/* Selected check badge */}
+                  {importMethod === method.id && (
+                    <div className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="h-3 w-3 text-white" />
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl transition-colors",
+                      importMethod === method.id
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-primary/5 text-primary group-hover:bg-primary/10"
+                    )}
+                  >
+                    <method.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <span className="text-xs sm:text-sm font-semibold">{method.label}</span>
+                  <span className="text-[10px] text-muted-foreground text-center leading-tight">
+                    {method.desc}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {step === "upload" && (
+          <motion.div
+            key="upload"
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
+            <div className="mb-6">
+              <h2 className="text-lg sm:text-xl font-bold">Fichiers du projet</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                Importez vos documents (photos, plans, PDF, DWG)
+              </p>
+            </div>
+
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleFileDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={cn(
+                "relative rounded-2xl border-2 border-dashed p-8 sm:p-10 text-center cursor-pointer transition-all",
+                dragOver
+                  ? "border-primary bg-primary/5 scale-[1.01]"
+                  : "border-border/40 hover:border-primary/30 hover:bg-muted/20"
+              )}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.dwg"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/5 text-primary">
+                <FileUp className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-medium">
+                {dragOver ? "Déposez ici" : "Glissez-déposez vos fichiers"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">ou cliquez pour parcourir</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Photos, PDF, PNG, JPG, DWG (max 5)
+              </p>
+            </div>
+
+            {files.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-1.5 mt-4"
+              >
+                {files.map((file, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/30"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/5 text-primary">
+                        {file.type.startsWith("image/") ? (
+                          <Image className="h-3.5 w-3.5" />
+                        ) : (
+                          <FileText className="h-3.5 w-3.5" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium truncate max-w-[180px]">
+                          {file.name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {(file.size / 1024 / 1024).toFixed(1)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => removeFile(i)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+
+            <div className="flex justify-between gap-3 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 text-xs"
+                onClick={() => goToStep("method")}
+              >
+                <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Retour
+              </Button>
+              <Button
+                size="sm"
+                className="h-9 text-xs"
+                onClick={handleUploadNext}
+                disabled={files.length === 0}
+              >
+                Continuer <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {step === "form" && (
+          <motion.div
+            key="form"
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
+            <div className="mb-6">
+              <h2 className="text-lg sm:text-xl font-bold">Détails du projet</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                Complétez les informations pour l'estimation
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Nom */}
+              <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+                <Label htmlFor="projectName" className="text-xs sm:text-sm font-semibold">
+                  Nom du projet <span className="text-primary">*</span>
+                </Label>
+                <Input
+                  id="projectName"
+                  value={projectName}
+                  onChange={(e) => { setProjectName(e.target.value); setErrors((e) => ({...e, name: ''})); }}
+                  placeholder="ex: Villa à Carthage"
+                  className="mt-1.5 h-9 sm:h-10 text-xs sm:text-sm"
+                />
+                {errors.name && (
+                  <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />{errors.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Catégorie */}
+              <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+                <Label className="text-xs sm:text-sm font-semibold">
+                  Type de projet <span className="text-primary">*</span>
+                </Label>
+                <div className="mt-1.5 grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-40 overflow-y-auto">
+                  {PROJECT_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.value}
+                      type="button"
+                      onClick={() => { setSelectedCategory(cat.value); setErrors((e) => ({...e, category: ''})); }}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2 py-2 rounded-lg text-[10px] sm:text-xs border transition-all",
+                        selectedCategory === cat.value
+                          ? "border-primary bg-primary/5 text-primary font-medium"
+                          : "border-border/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                      )}
+                    >
+                      <span className="text-xs">{cat.icon}</span>
+                      <span className="truncate">{cat.label}</span>
+                    </button>
+                  ))}
+                </div>
+                {errors.category && (
+                  <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />{errors.category}
+                  </p>
+                )}
+              </div>
+
+              {/* Région + Surface */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+                  <Label htmlFor="region" className="text-xs sm:text-sm font-semibold">
+                    Région <span className="text-primary">*</span>
+                  </Label>
+                  <div className="mt-1.5 relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <select
+                      id="region"
+                      value={region}
+                      onChange={(e) => { setRegion(e.target.value); setErrors((e) => ({...e, region: ''})); }}
+                      className="h-9 sm:h-10 w-full rounded-lg border border-border/40 bg-background pl-9 pr-3 text-xs sm:text-sm appearance-none focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                    >
+                      <option value="">Sélectionnez...</option>
+                      {TUNISIA_REGIONS.map((r) => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
+                    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none rotate-90" />
+                  </div>
+                  {errors.region && (
+                    <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />{errors.region}
+                    </p>
+                  )}
+                </div>
+
+                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+                  <Label htmlFor="surface" className="text-xs sm:text-sm font-semibold">
+                    Surface couverte (m²) <span className="text-primary">*</span>
+                  </Label>
+                  <div className="mt-1.5 relative">
+                    <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="surface"
+                      type="number"
+                      value={surface}
+                      onChange={(e) => { setSurface(e.target.value); setErrors((e) => ({...e, surface: ''})); }}
+                      placeholder="ex: 150"
+                      min="1"
+                      className="pl-9 h-9 sm:h-10 text-xs sm:text-sm"
+                    />
+                  </div>
+                  {errors.surface && (
+                    <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />{errors.surface}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Étages + Description */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+                  <Label htmlFor="floors" className="text-xs sm:text-sm font-semibold">
+                    Nombre d'étages
+                  </Label>
+                  <div className="mt-1.5 relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="floors"
+                      type="number"
+                      value={floors}
+                      onChange={(e) => setFloors(e.target.value)}
+                      min="0"
+                      max="20"
+                      className="pl-9 h-9 sm:h-10 text-xs sm:text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30 sm:col-span-2">
+                  <Label htmlFor="description" className="text-xs sm:text-sm font-semibold">
+                    Description
+                  </Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Décrivez votre projet..."
+                    className="mt-1.5 min-h-[60px] text-xs sm:text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between gap-3 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 text-xs"
+                onClick={() => goToStep(hasUploadStep ? "upload" : "method")}
+              >
+                <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Retour
+              </Button>
+              <Button
+                size="sm"
+                className="h-9 text-xs gap-1.5"
+                onClick={handleStartAnalysis}
+                disabled={analyzing}
+              >
+                {analyzing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                {analyzing ? "Analyse..." : "Lancer l'estimation"}
+                {!analyzing && <ChevronRight className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {step === "analyzing" && (
+          <motion.div
+            key="analyzing"
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col items-center justify-center py-8 sm:py-12"
+          >
+            <div className="relative mb-6">
+              <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              </div>
+              {/* Animated rings */}
+              <motion.div
+                className="absolute inset-0 rounded-full border-2 border-primary/20"
+                animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0, 0.4] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+              />
+            </div>
+
+            <h2 className="text-lg sm:text-xl font-bold mb-2">Analyse en cours</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground mb-6 max-w-sm text-center leading-relaxed">
+              Notre moteur BIM calcule l'estimation selon les prix du marché tunisien 2026
+            </p>
+
+            <div className="w-full max-w-xs mx-auto space-y-2">
+              <Progress value={analysisProgress} className="h-2.5" />
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-muted-foreground">
+                  {analysisProgress < 30 && "📐 Préparation des données..."}
+                  {analysisProgress >= 30 && analysisProgress < 60 && "🧱 Calcul des matériaux..."}
+                  {analysisProgress >= 60 && analysisProgress < 85 && "💰 Estimation des coûts..."}
+                  {analysisProgress >= 85 && "✅ Finalisation du rapport..."}
+                </span>
+                <span className="text-xs font-semibold text-primary">
+                  {Math.round(analysisProgress)}%
+                </span>
+              </div>
+            </div>
+
+            {analysisProgress === 100 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6"
+              >
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <CircleCheck className="h-5 w-5" />
+                  <span className="text-sm font-medium">Rapport prêt !</span>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
   };
+
+  // ─── RENDER ─────────────────────────────────────────────────────────
 
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
@@ -217,8 +768,9 @@ export default function NewProject() {
         )}
       </AnimatePresence>
 
+      {/* ── Header ── */}
       <header className="sticky top-0 z-20 border-b border-border/20 bg-background/80 backdrop-blur-md">
-        <div className="mx-auto max-w-5xl px-3 sm:px-6 flex items-center h-12 sm:h-14">
+        <div className="mx-auto max-w-6xl px-3 sm:px-6 flex items-center h-12 sm:h-14">
           <Button variant="ghost" size="sm" className="gap-1 h-8 shrink-0" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline text-xs">Retour</span>
@@ -232,240 +784,65 @@ export default function NewProject() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-3xl px-3 sm:px-6 py-4 sm:py-8 space-y-6">
-        {/* Steps */}
-        <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto pb-2">
-          {[
-            { label: "Méthode", key: "method" },
-            { label: "Fichiers", key: "upload" },
-            { label: "Détails", key: "form" },
-            { label: "Analyse", key: "analyzing" },
-          ].map((s, i) => {
-            const order = ["method","upload","form","analyzing","complete"];
-            const cur = order.indexOf(step);
-            const idx = order.indexOf(s.key);
-            const done = idx < cur;
-            const active = idx === cur;
-            return (
-              <div key={s.key} className="flex items-center gap-1 sm:gap-2 shrink-0">
-                <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-medium ${
-                  done ? "bg-primary text-primary-foreground" :
-                  active ? "bg-primary/10 text-primary border border-primary/30" :
-                  "bg-muted text-muted-foreground"
-                }`}>
-                  {done ? <Check className="h-3 w-3" /> : i + 1}
-                </div>
-                <span className={`text-[10px] sm:text-xs ${active ? "font-medium" : "text-muted-foreground"}`}>{s.label}</span>
-                {i < 3 && <div className={`w-4 sm:w-8 h-px ${done ? "bg-primary" : "bg-border"}`} />}
-              </div>
-            );
-          })}
-        </div>
+      {/* ── Main Content ── */}
+      <div className="mx-auto max-w-6xl px-3 sm:px-6 py-6 sm:py-10">
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8 lg:gap-12">
+          
+          {/* ── Vertical Steps Sidebar ── */}
+          <aside className="md:w-56 lg:w-64 shrink-0">
+            {/* Desktop: full vertical stepper */}
+            <div className="hidden md:block sticky top-20">
+              <VerticalStepper
+                steps={STEPS}
+                currentStep={step}
+                completedSteps={completedSteps}
+                onStepClick={goToStep}
+              />
+            </div>
 
-        <AnimatePresence mode="wait">
-          {/* Step: Method */}
-          {step === "method" && (
-            <motion.div key="method" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}>
-              <div className="text-center mb-6 sm:mb-8">
-                <h1 className="text-xl sm:text-2xl font-bold">Comment importer votre projet ?</h1>
-                <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground">Choisissez la méthode</p>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
-                {IMPORT_METHODS.map((method) => (
-                  <button key={method.id} onClick={() => handleMethodSelect(method.id)}
-                    className="group flex flex-col items-center gap-2 p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 active:scale-[0.98]">
-                    <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-primary/5 text-primary group-hover:bg-primary/10 transition-colors">
-                      <method.icon className="h-4 w-4 sm:h-5 sm:w-5" />
-                    </div>
-                    <span className="text-xs sm:text-sm font-semibold">{method.label}</span>
-                    <span className="text-[10px] text-muted-foreground text-center">{method.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Step: Upload */}
-          {step === "upload" && (
-            <motion.div key="upload" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}>
-              <div className="text-center mb-6">
-                <h1 className="text-xl sm:text-2xl font-bold">Importez vos fichiers</h1>
-                <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Glissez-déposez ou sélectionnez</p>
-              </div>
-              <div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={handleFileDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`relative rounded-2xl border-2 border-dashed p-8 sm:p-12 text-center cursor-pointer transition-all ${
-                  dragOver ? "border-primary bg-primary/5" : "border-border/40 hover:border-primary/30 hover:bg-muted/20"
-                }`}>
-                <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.dwg" className="hidden" onChange={handleFileSelect} />
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/5 text-primary">
-                  <FileUp className="h-6 w-6" />
-                </div>
-                <p className="text-sm font-medium">{dragOver ? "Déposez ici" : "Glissez-déposez vos fichiers"}</p>
-                <p className="text-xs text-muted-foreground mt-1">ou cliquez pour parcourir</p>
-                <p className="text-xs text-muted-foreground mt-2">Photos, PDF, PNG, JPG, DWG (max 5)</p>
-              </div>
-              {files.length > 0 && (
-                <div className="space-y-1.5 mt-4">
-                  {files.map((file, i) => (
-                    <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/30">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/5 text-primary">
-                          {file.type.startsWith("image/") ? <Image className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium truncate max-w-[180px]">{file.name}</p>
-                          <p className="text-[10px] text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeFile(i)}>
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex justify-between gap-3 mt-6">
-                <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => setStep("method")}>
-                  <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Retour
-                </Button>
-                <Button size="sm" className="h-9 text-xs" onClick={() => setStep("form")} disabled={files.length === 0}>
-                  Continuer <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Step: Form */}
-          {step === "form" && (
-            <motion.div key="form" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}>
-              <div className="text-center mb-4 sm:mb-6">
-                <h1 className="text-xl sm:text-2xl font-bold">Détails du projet</h1>
-
-              </div>
-
-              <div className="space-y-4">
-                {/* Nom */}
-                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
-                  <Label htmlFor="projectName" className="text-xs sm:text-sm font-semibold">
-                    Nom du projet <span className="text-primary">*</span>
-                  </Label>
-                  <Input id="projectName" value={projectName} onChange={(e) => { setProjectName(e.target.value); setErrors((e) => ({...e, name: ''})); }}
-                    placeholder="ex: Villa à Carthage" className="mt-1.5 h-9 sm:h-10 text-xs sm:text-sm" />
-                  {errors.name && <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.name}</p>}
-                </div>
-
-                {/* Catégorie */}
-                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
-                  <Label className="text-xs sm:text-sm font-semibold">
-                    Type de projet <span className="text-primary">*</span>
-                  </Label>
-                  <div className="mt-1.5 grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-40 overflow-y-auto">
-                    {PROJECT_CATEGORIES.map((cat) => (
-                      <button key={cat.value} type="button" onClick={() => { setSelectedCategory(cat.value); setErrors((e) => ({...e, category: ''})); }}
-                        className={`flex items-center gap-1.5 px-2 py-2 rounded-lg text-[10px] sm:text-xs border transition-all ${
-                          selectedCategory === cat.value
-                            ? "border-primary bg-primary/5 text-primary font-medium"
-                            : "border-border/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                        }`}>
-                        <span className="text-xs">{cat.icon}</span>
-                        <span className="truncate">{cat.label}</span>
+            {/* Mobile: compact horizontal indicator */}
+            <div className="md:hidden mb-4">
+              <div className="flex items-center justify-between gap-0 overflow-x-auto pb-2">
+                {STEPS.map((s, i) => {
+                  const done = completedSteps.has(s.key as StepKey);
+                  const active = s.key === step;
+                  return (
+                    <div key={s.key} className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => done && goToStep(s.key as StepKey)}
+                        className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-medium transition-all",
+                          done && "bg-emerald-500 text-white",
+                          active && "bg-primary text-primary-foreground shadow-sm",
+                          !done && !active && "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {done ? <Check className="h-3 w-3" /> : i + 1}
                       </button>
-                    ))}
-                  </div>
-                  {errors.category && <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.category}</p>}
-                </div>
-
-                {/* Région + Surface */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
-                    <Label htmlFor="region" className="text-xs sm:text-sm font-semibold">
-                      Région <span className="text-primary">*</span>
-                    </Label>
-                    <div className="mt-1.5 relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                      <select id="region" value={region} onChange={(e) => { setRegion(e.target.value); setErrors((e) => ({...e, region: ''})); }}
-                        className="h-9 sm:h-10 w-full rounded-lg border border-border/40 bg-background pl-9 pr-3 text-xs sm:text-sm appearance-none focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-                        <option value="">Sélectionnez...</option>
-                        {TUNISIA_REGIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                      </select>
-                      <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none rotate-90" />
+                      {i < STEPS.length - 1 && (
+                        <div className={cn(
+                          "w-6 h-px",
+                          done ? "bg-emerald-400" : "bg-border"
+                        )} />
+                      )}
                     </div>
-                    {errors.region && <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.region}</p>}
-                  </div>
-
-                  <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
-                    <Label htmlFor="surface" className="text-xs sm:text-sm font-semibold">
-                      Surface couverte (m²) <span className="text-primary">*</span>
-                    </Label>
-                    <div className="mt-1.5 relative">
-                      <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                      <Input id="surface" type="number" value={surface} onChange={(e) => { setSurface(e.target.value); setErrors((e) => ({...e, surface: ''})); }}
-                        placeholder="ex: 150" min="1" className="pl-9 h-9 sm:h-10 text-xs sm:text-sm" />
-                    </div>
-                    {errors.surface && <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.surface}</p>}
-                  </div>
-                </div>
-
-                {/* Étages + Description */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
-                    <Label htmlFor="floors" className="text-xs sm:text-sm font-semibold">Nombre d'étages</Label>
-                    <div className="mt-1.5 relative">
-                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                      <Input id="floors" type="number" value={floors} onChange={(e) => setFloors(e.target.value)}
-                        min="0" max="20" className="pl-9 h-9 sm:h-10 text-xs sm:text-sm" />
-                    </div>
-                  </div>
-                  <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30 sm:col-span-2">
-                    <Label htmlFor="description" className="text-xs sm:text-sm font-semibold">Description</Label>
-                    <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Décrivez votre projet..." className="mt-1.5 min-h-[60px] text-xs sm:text-sm" />
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-
-              <div className="flex justify-between gap-3 mt-6">
-                <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => setStep(importMethod === "manual" ? "method" : "upload")}>
-                  <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Retour
-                </Button>
-                <Button size="sm" className="h-9 text-xs gap-1.5" onClick={handleStartAnalysis} disabled={analyzing}>
-                  {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                  {analyzing ? "Analyse..." : "Lancer l'estimation"}
-                  {!analyzing && <ChevronRight className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Step: Analyzing */}
-          {step === "analyzing" && (
-            <motion.div key="analyzing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-10">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-              <h2 className="text-lg font-bold mb-2">Analyse en cours</h2>
-              <p className="text-xs sm:text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-                Calcul de l'estimation selon les prix du marché tunisien 2026...
+              {/* Mobile step label */}
+              <p className="text-center text-[10px] font-medium text-muted-foreground mt-1">
+                {STEPS.find((s) => s.key === step)?.label ?? ""}
               </p>
-              <div className="max-w-sm mx-auto">
-                <Progress value={analysisProgress} className="h-2" />
-                <p className="text-xs text-muted-foreground mt-2">{Math.round(analysisProgress)}%</p>
-              </div>
-            </motion.div>
-          )}
+            </div>
+          </aside>
 
-          {/* Step: Complete */}
-          {step === "complete" && (
-            <motion.div key="complete" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-10">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10">
-                <Check className="h-7 w-7 text-emerald-500" />
-              </div>
-              <h2 className="text-lg font-bold">Analyse terminée !</h2>
-              <p className="text-xs text-muted-foreground mt-1">Redirection vers le rapport...</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          {/* ── Step Content ── */}
+          <section className="flex-1 min-w-0">
+            <div className="rounded-2xl border border-border/40 bg-card/50 p-4 sm:p-6 lg:p-8 shadow-sm">
+              {renderStepContent()}
+            </div>
+          </section>
+        </div>
       </div>
     </main>
   );
