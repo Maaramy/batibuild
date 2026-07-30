@@ -7,7 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Building2, FileText, Download, Banknote, Copy, CheckCheck, Smartphone, Wallet, Upload, Image, X } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 
@@ -94,6 +94,7 @@ export default function PricingPage() {
   const cancelSubscription = useMutation(api.subscriptions.cancelSubscription);
   const [copying, setCopying] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
+  const paymentSectionRef = useRef<HTMLDivElement>(null);
   const paymentConfig = useQuery(api.payments.getPublicPricing);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const uploadPaymentProof = useMutation(api.subscriptions.uploadPaymentProof);
@@ -169,6 +170,11 @@ export default function PricingPage() {
 
     // Set selected plan for correct payment info display
     setSelectedPlan(planId);
+
+    // Scroll to payment method section smoothly
+    setTimeout(() => {
+      paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
 
     // Calculate the correct amount based on selected plan
     const planAmount = planId === "expert"
@@ -380,10 +386,11 @@ export default function PricingPage() {
 
         {/* ═══ Payment Method Section ═══ */}
         <motion.div
+          ref={paymentSectionRef}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="rounded-2xl border-2 border-primary/10 bg-gradient-to-br from-primary/[0.02] to-background p-6 sm:p-8"
+          className="rounded-2xl border-2 border-primary/10 bg-gradient-to-br from-primary/[0.02] to-background p-6 sm:p-8 scroll-mt-24"
         >
           <div className="flex items-center gap-3 mb-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
