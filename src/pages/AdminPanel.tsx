@@ -130,7 +130,7 @@ export default function AdminPanel() {
   const [limitForm, setLimitForm] = useState({
     proPrice: 79, expertPrice: 320,
     freeProjects: 3, proProjects: 10, expertProjects: 100,
-    proDownloads: 10, expertDownloads: 100,
+    freeDownloadLimit: 0, proDownloads: 10, expertDownloads: 100,
   });
   const [savingLimits, setSavingLimits] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
@@ -148,11 +148,12 @@ export default function AdminPanel() {
         freeProjects: planForm.freeProjectLimit ?? 3,
         proProjects: planForm.proProjectLimit ?? 10,
         expertProjects: planForm.expertProjectLimit ?? 100,
+        freeDownloadLimit: planForm.freeDownloadLimit ?? 0,
         proDownloads: planForm.proDownloadLimit ?? 10,
         expertDownloads: planForm.expertDownloadLimit ?? 100,
       });
     }
-  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit]);
+  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.freeDownloadLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit]);
 
   // Sync payment form when config loads
   useEffect(() => {
@@ -1558,7 +1559,6 @@ export default function AdminPanel() {
                       <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Utilisateur</th>
                       <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Rôle</th>
                       <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Abonnement</th>
-                      <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Statut</th>
                       <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Date</th>
                       <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Actions</th>
                     </tr>
@@ -1613,28 +1613,24 @@ export default function AdminPanel() {
                           </Badge>
                         </td>
                         <td className="py-2.5 px-2 text-center">
-                          <select
-                            value={u.subscriptionPlan || "free"}
-                            onChange={async (e) => {
-                              try {
-                                await updateUserPlan({ userId: u._id, plan: e.target.value as any });
-                                toast.success("Abonnement mis à jour");
-                              } catch (err: any) {
-                                toast.error(err.message || "Erreur");
-                              }
-                            }}
-                            className="text-[9px] h-6 rounded-md border border-border/30 bg-background px-1.5"
-                          >
-                            <option value="free">Free</option>
-                            <option value="pro">Pro</option>
-                            <option value="expert">Expert</option>
-                            <option value="supplier">Fournisseur</option>
-                          </select>
-                        </td>
-                        <td className="py-2.5 px-2 text-center">
-                          <Badge className={cn("text-[9px]", u.status === "active" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600")}>
-                            {u.status === "active" ? "Actif" : "Désactivé"}
-                          </Badge>
+                          <div className="flex items-center gap-1.5 justify-center">
+                            {(u.subscriptionPlan === "pro" || u.subscriptionPlan === "expert") && (
+                              <span className={cn(
+                                "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium",
+                                u.subscriptionPlan === "pro"
+                                  ? "bg-blue-500/10 text-blue-600 border border-blue-200/30"
+                                  : "bg-emerald-500/10 text-emerald-600 border border-emerald-200/30"
+                              )}>
+                                {u.subscriptionPlan === "pro" ? "Pro" : "Expert"}
+                              </span>
+                            )}
+                            {(!u.subscriptionPlan || u.subscriptionPlan === "free") && (
+                              <span className="text-[9px] text-muted-foreground">Free</span>
+                            )}
+                            {u.subscriptionPlan === "supplier" && (
+                              <span className="text-[9px] text-muted-foreground">Fournisseur</span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
                           {u.createdAt ? new Date(u.createdAt).toLocaleDateString("fr-FR") : "—"}
@@ -2121,11 +2117,21 @@ export default function AdminPanel() {
                     <p className="text-xs text-muted-foreground">Forfait de base</p>
                     <div>
                       <label className="text-xs text-muted-foreground">Projets max</label>
-                      <p className="text-lg font-bold">{limitForm.freeProjects}</p>
+                      <Input
+                        type="number"
+                        value={limitForm.freeProjects}
+                        onChange={(e) => setLimitForm({ ...limitForm, freeProjects: parseInt(e.target.value) })}
+                        className="h-8 w-24 text-sm"
+                      />
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground">Téléchargements devis</label>
-                      <p className="text-lg font-bold">{planForm?.freeDownloadLimit ?? 0}</p>
+                      <Input
+                        type="number"
+                        value={limitForm.freeDownloadLimit ?? 0}
+                        onChange={(e) => setLimitForm({ ...limitForm, freeDownloadLimit: parseInt(e.target.value) })}
+                        className="h-8 w-24 text-sm"
+                      />
                     </div>
                   </div>
                   <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-200/20 space-y-3">
@@ -2212,6 +2218,12 @@ export default function AdminPanel() {
                     onClick={async () => {
                       setSavingLimits(true);
                       try {
+                        await updatePlanPricing({
+                          plan: "free",
+                          price: 0,
+                          projectLimit: limitForm.freeProjects,
+                          downloadLimit: limitForm.freeDownloadLimit,
+                        } as any);
                         await updatePlanPricing({
                           plan: "pro",
                           price: limitForm.proPrice,
