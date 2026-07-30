@@ -13,7 +13,7 @@ import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft, Upload, FileImage, FileText, Map, Pen, Ruler,
-  Loader2, Check, X, Building2, ChevronRight, HardHat, Image,
+  Loader2, Check, X, Building2, ChevronRight, ChevronDown, HardHat, Image,
   FileUp, MapPin, AlertCircle, Asterisk, Crown, AlertTriangle,
   CircleDot, CircleDashed, CircleCheck, Circle,
 } from "lucide-react";
@@ -213,6 +213,9 @@ function ProjectSummary({
   importMethod,
   files,
   step,
+  mobile = false,
+  open: controlledOpen,
+  onToggle,
 }: {
   projectName: string;
   selectedCategory: string;
@@ -222,6 +225,9 @@ function ProjectSummary({
   importMethod: string;
   files: File[];
   step: StepKey;
+  mobile?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
 }) {
   const items: { label: string; value: string; icon: string }[] = [];
 
@@ -244,10 +250,187 @@ function ProjectSummary({
 
   if (items.length === 0) return null;
 
-  const totalFields = 7; // method + name + category + region + surface + floors + files
+  const totalFields = 7;
   const filledFields = items.length;
   const progress = Math.min(Math.round((filledFields / totalFields) * 100), 100);
 
+  // Circle constants for the ring
+  const R = 16;
+  const circumference = 2 * Math.PI * R;
+  const offset = circumference * (1 - progress / 100);
+
+  const content = (
+    <>
+      {/* Progress ring with thinking mode */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative h-11 w-11 shrink-0">
+          <svg className="h-11 w-11 -rotate-90" viewBox="0 0 40 40">
+            {/* Background track */}
+            <circle cx="20" cy="20" r={R} fill="none" stroke="hsl(var(--border))" strokeWidth="2.5" />
+            {/* Animated track glow (thinking pulsing ring) */}
+            <motion.circle
+              cx="20" cy="20" r={R + 1}
+              fill="none"
+              stroke="hsl(var(--primary) / 0.15)"
+              strokeWidth="4"
+              animate={{
+                scale: [1, 1.08, 1],
+                opacity: [0.3, 0.7, 0.3],
+              }}
+              transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+            />
+            {/* Progress arc */}
+            <motion.circle
+              cx="20" cy="20" r={R}
+              fill="none"
+              stroke="hsl(var(--primary))"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              initial={{ strokeDashoffset: circumference }}
+              animate={{
+                strokeDashoffset: offset,
+                ...(progress > 0 && progress < 100
+                  ? {
+                      filter: [
+                        "drop-shadow(0 0 2px hsl(var(--primary) / 0.3))",
+                        "drop-shadow(0 0 6px hsl(var(--primary) / 0.6))",
+                        "drop-shadow(0 0 2px hsl(var(--primary) / 0.3))",
+                      ],
+                    }
+                  : {}),
+              }}
+              transition={{
+                duration: 0.8,
+                ease: "easeOut",
+                ...(progress > 0 && progress < 100
+                  ? { filter: { repeat: Infinity, duration: 2, ease: "easeInOut" } }
+                  : {}),
+              }}
+            />
+            {/* Spinning dots for thinking mode */}
+            {progress > 0 && progress < 100 && (
+              <motion.g
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+              >
+                <circle cx="20" cy="3" r="1.2" fill="hsl(var(--primary) / 0.25)" />
+                <circle cx="20" cy="37" r="1.2" fill="hsl(var(--primary) / 0.1)" />
+              </motion.g>
+            )}
+          </svg>
+          {/* Percentage number with pulse */}
+          <motion.span
+            className="absolute inset-0 flex items-center justify-center text-[9px] font-bold"
+            style={{ color: "hsl(var(--primary))" }}
+            animate={
+              progress > 0 && progress < 100
+                ? { scale: [1, 1.1, 1] }
+                : {}
+            }
+            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+          >
+            {progress}%
+          </motion.span>
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-medium">
+            {progress < 30 && "💭 Commencez à remplir le formulaire"}
+            {progress >= 30 && progress < 60 && "🧠 Bonne progression !"}
+            {progress >= 60 && progress < 90 && "⚡ Presque complet !"}
+            {progress >= 90 && "✅ Prêt pour l'estimation"}
+          </p>
+          <p className="text-[9px] text-muted-foreground">
+            {step === "form" ? "Complétez les champs obligatoires" : "Informations saisies"}
+          </p>
+        </div>
+      </div>
+
+      {/* Items list */}
+      <div className="space-y-1.5">
+        {items.map((item, i) => (
+          <motion.div
+            key={item.label}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.04 }}
+            className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-muted/20 border border-border/20"
+          >
+            <span className="text-xs shrink-0">{item.icon}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] text-muted-foreground leading-tight">{item.label}</p>
+              <p className="text-[10px] font-medium truncate leading-tight">{item.value}</p>
+            </div>
+            <motion.div
+              className="h-1.5 w-1.5 rounded-full shrink-0"
+              style={{ backgroundColor: "hsl(var(--primary))" }}
+              animate={{
+                opacity: [0.4, 1, 0.4],
+                scale: [0.8, 1.2, 0.8],
+              }}
+              transition={{ repeat: Infinity, duration: 2, delay: i * 0.15, ease: "easeInOut" }}
+            />
+          </motion.div>
+        ))}
+      </div>
+    </>
+  );
+
+  // Mobile accordion wrapper
+  if (mobile) {
+    return (
+      <div className="rounded-xl border border-border/40 bg-card/50 shadow-sm overflow-hidden">
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center justify-between gap-2 px-4 py-3 hover:bg-muted/10 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FileText className="h-3 w-3" />
+            </div>
+            <span className="text-xs font-semibold">Récapitulatif</span>
+            <span className="text-[9px] text-muted-foreground">{filledFields}/{totalFields}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Mini ring */}
+            <svg className="h-5 w-5 -rotate-90" viewBox="0 0 20 20">
+              <circle cx="10" cy="10" r="8" fill="none" stroke="hsl(var(--border))" strokeWidth="2" />
+              <motion.circle
+                cx="10" cy="10" r="8" fill="none"
+                stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 8}
+                initial={{ strokeDashoffset: 2 * Math.PI * 8 }}
+                animate={{ strokeDashoffset: 2 * Math.PI * 8 * (1 - progress / 100) }}
+                transition={{ duration: 0.6 }}
+              />
+            </svg>
+            <motion.div
+              animate={{ rotate: controlledOpen ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </motion.div>
+          </div>
+        </button>
+        <AnimatePresence initial={false}>
+          {controlledOpen && (
+            <motion.div
+              key="mobile-summary"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-4">{content}</div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // Desktop static card
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -256,7 +439,6 @@ function ProjectSummary({
       className="sticky top-20"
     >
       <div className="rounded-xl border border-border/40 bg-card/50 p-4 shadow-sm">
-        {/* Header */}
         <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border/20">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <FileText className="h-3.5 w-3.5" />
@@ -266,59 +448,7 @@ function ProjectSummary({
             <p className="text-[9px] text-muted-foreground">{filledFields}/{totalFields} champs</p>
           </div>
         </div>
-
-        {/* Progress ring */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="relative h-10 w-10 shrink-0">
-            <svg className="h-10 w-10 -rotate-90" viewBox="0 0 40 40">
-              <circle cx="20" cy="20" r="16" fill="none" stroke="hsl(var(--border))" strokeWidth="3" />
-              <motion.circle
-                cx="20" cy="20" r="16" fill="none"
-                stroke="hsl(var(--primary))"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 16}`}
-                initial={{ strokeDashoffset: 2 * Math.PI * 16 }}
-                animate={{ strokeDashoffset: 2 * Math.PI * 16 * (1 - progress / 100) }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-              />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-primary">
-              {progress}%
-            </span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-medium">
-              {progress < 30 && "Commencez à remplir le formulaire"}
-              {progress >= 30 && progress < 60 && "Bonne progression !"}
-              {progress >= 60 && progress < 90 && "Presque complet !"}
-              {progress >= 90 && "Prêt pour l'estimation"}
-            </p>
-            <p className="text-[9px] text-muted-foreground">
-              {step === "form" ? "Complétez les champs obligatoires" : "Informations saisies"}
-            </p>
-          </div>
-        </div>
-
-        {/* Items list */}
-        <div className="space-y-1.5">
-          {items.map((item, i) => (
-            <motion.div
-              key={item.label}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04 }}
-              className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-muted/20 border border-border/20"
-            >
-              <span className="text-xs shrink-0">{item.icon}</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[9px] text-muted-foreground leading-tight">{item.label}</p>
-                <p className="text-[10px] font-medium truncate leading-tight">{item.value}</p>
-              </div>
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-            </motion.div>
-          ))}
-        </div>
+        {content}
       </div>
     </motion.div>
   );
@@ -349,6 +479,7 @@ export default function NewProject() {
 
   // Completed steps tracking
   const [completedSteps, setCompletedSteps] = useState<Set<StepKey>>(new Set());
+  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
 
   // Determine which steps are in the flow
   const hasUploadStep = importMethod !== "" && importMethod !== "manual";
@@ -937,7 +1068,7 @@ export default function NewProject() {
             </div>
 
             {/* Mobile: compact horizontal indicator */}
-            <div className="md:hidden mb-4">
+            <div className="md:hidden mb-3">
               <div className="flex items-center justify-between gap-0 overflow-x-auto pb-2">
                 {STEPS.map((s, i) => {
                   const done = completedSteps.has(s.key as StepKey);
@@ -965,10 +1096,26 @@ export default function NewProject() {
                   );
                 })}
               </div>
-              {/* Mobile step label */}
               <p className="text-center text-[10px] font-medium text-muted-foreground mt-1">
                 {STEPS.find((s) => s.key === step)?.label ?? ""}
               </p>
+            </div>
+
+            {/* Mobile: collapsible summary accordion */}
+            <div className="md:hidden mb-4">
+              <ProjectSummary
+                projectName={projectName}
+                selectedCategory={selectedCategory}
+                region={region}
+                surface={surface}
+                floors={floors}
+                importMethod={importMethod}
+                files={files}
+                step={step}
+                mobile={true}
+                open={mobileSummaryOpen}
+                onToggle={() => setMobileSummaryOpen((v) => !v)}
+              />
             </div>
           </aside>
 
