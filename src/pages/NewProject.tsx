@@ -202,6 +202,41 @@ const METHOD_LABEL: Record<string, string> = {
   sketch: "Croquis",
 };
 
+// ─── CATEGORY COLORS ─────────────────────────────────────────────────────
+
+const CATEGORY_COLORS: Record<string, { hue: number; sat: number; light: number }> = {
+  maison:                  { hue: 221, sat: 83, light: 53 },  // blue
+  villa:                   { hue: 239, sat: 84, light: 65 },  // indigo
+  immeuble_residentiel:    { hue: 215, sat: 25, light: 35 },  // slate
+  piscine:                 { hue: 189, sat: 94, light: 43 },  // cyan
+  jardin:                  { hue: 142, sat: 71, light: 45 },  // green
+  amenagement_paysager:    { hue: 160, sat: 84, light: 39 },  // emerald
+  garage:                  { hue: 38,  sat: 92, light: 50 },  // amber
+  cloture:                 { hue: 30,  sat: 8,  light: 35 },  // stone
+  terrasse:                { hue: 24,  sat: 95, light: 53 },  // orange
+  pergola:                 { hue: 25,  sat: 40, light: 40 },  // warm
+  toiture:                 { hue: 0,   sat: 84, light: 60 },  // red
+  renovation_interieure:   { hue: 337, sat: 65, light: 47 },  // rose
+  renovation_exterieure:   { hue: 330, sat: 67, light: 50 },  // pink
+  renovation_salle_de_bain:{ hue: 271, sat: 81, light: 56 },  // violet
+  renovation_cuisine:      { hue: 291, sat: 64, light: 42 },  // fuchsia
+  bureau:                  { hue: 220, sat: 9,  light: 46 },  // gray
+  local_commercial:        { hue: 48,  sat: 96, light: 53 },  // yellow
+  entrepot:                { hue: 30,  sat: 6,  light: 35 },  // warm gray
+  installation_solaire:    { hue: 43,  sat: 96, light: 54 },  // amber
+  mosquee:                 { hue: 173, sat: 80, light: 40 },  // teal
+  ecole:                   { hue: 199, sat: 89, light: 48 },  // sky
+  hotel:                   { hue: 271, sat: 81, light: 56 },  // violet
+  restaurant:              { hue: 350, sat: 89, light: 60 },  // rose
+  cafe:                    { hue: 32,  sat: 95, light: 54 },  // amber
+  ferme:                   { hue: 84,  sat: 60, light: 44 },  // lime
+  usine:                   { hue: 240, sat: 5,  light: 36 },  // zinc
+  parking:                 { hue: 0,   sat: 0,  light: 45 },  // neutral
+  demolition:              { hue: 0,   sat: 0,  light: 30 },  // neutral dark
+};
+
+const DEFAULT_CATEGORY_COLOR = { hue: 221, sat: 83, light: 53 };
+
 // ─── PROJECT SUMMARY COMPONENT ──────────────────────────────────────────────
 
 function ProjectSummary({
@@ -250,6 +285,11 @@ function ProjectSummary({
 
   if (items.length === 0) return null;
 
+  // ── Category color ──
+  const catColor = CATEGORY_COLORS[selectedCategory] || DEFAULT_CATEGORY_COLOR;
+  const catHsl = `${catColor.hue} ${catColor.sat}% ${catColor.light}%`;
+  const catHslBg = `${catColor.hue} ${catColor.sat}% ${catColor.light + 40}%`;
+
   const totalFields = 7;
   const filledFields = items.length;
   const progress = Math.min(Math.round((filledFields / totalFields) * 100), 100);
@@ -259,19 +299,22 @@ function ProjectSummary({
   const circumference = 2 * Math.PI * R;
   const offset = circumference * (1 - progress / 100);
 
+  // Helper: get style overrides for the "Type" item
+  const isTypeItem = (label: string) => label === "Type";
+
   const content = (
     <>
-      {/* Progress ring with thinking mode */}
+      {/* Progress ring with thinking mode — colored by category */}
       <div className="flex items-center gap-3 mb-4">
         <div className="relative h-11 w-11 shrink-0">
           <svg className="h-11 w-11 -rotate-90" viewBox="0 0 40 40">
             {/* Background track */}
             <circle cx="20" cy="20" r={R} fill="none" stroke="hsl(var(--border))" strokeWidth="2.5" />
-            {/* Animated track glow (thinking pulsing ring) */}
+            {/* Animated track glow (colored) */}
             <motion.circle
               cx="20" cy="20" r={R + 1}
               fill="none"
-              stroke="hsl(var(--primary) / 0.15)"
+              stroke={`hsl(${catHsl} / 0.15)`}
               strokeWidth="4"
               animate={{
                 scale: [1, 1.08, 1],
@@ -279,11 +322,11 @@ function ProjectSummary({
               }}
               transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
             />
-            {/* Progress arc */}
+            {/* Progress arc (colored) */}
             <motion.circle
               cx="20" cy="20" r={R}
               fill="none"
-              stroke="hsl(var(--primary))"
+              stroke={`hsl(${catHsl})`}
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeDasharray={circumference}
@@ -293,9 +336,9 @@ function ProjectSummary({
                 ...(progress > 0 && progress < 100
                   ? {
                       filter: [
-                        "drop-shadow(0 0 2px hsl(var(--primary) / 0.3))",
-                        "drop-shadow(0 0 6px hsl(var(--primary) / 0.6))",
-                        "drop-shadow(0 0 2px hsl(var(--primary) / 0.3))",
+                        `drop-shadow(0 0 2px hsl(${catHsl} / 0.3))`,
+                        `drop-shadow(0 0 6px hsl(${catHsl} / 0.6))`,
+                        `drop-shadow(0 0 2px hsl(${catHsl} / 0.3))`,
                       ],
                     }
                   : {}),
@@ -308,21 +351,21 @@ function ProjectSummary({
                   : {}),
               }}
             />
-            {/* Spinning dots for thinking mode */}
+            {/* Spinning dots */}
             {progress > 0 && progress < 100 && (
               <motion.g
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
               >
-                <circle cx="20" cy="3" r="1.2" fill="hsl(var(--primary) / 0.25)" />
-                <circle cx="20" cy="37" r="1.2" fill="hsl(var(--primary) / 0.1)" />
+                <circle cx="20" cy="3" r="1.2" fill={`hsl(${catHsl} / 0.25)`} />
+                <circle cx="20" cy="37" r="1.2" fill={`hsl(${catHsl} / 0.1)`} />
               </motion.g>
             )}
           </svg>
-          {/* Percentage number with pulse */}
+          {/* Percentage number (colored) */}
           <motion.span
             className="absolute inset-0 flex items-center justify-center text-[9px] font-bold"
-            style={{ color: "hsl(var(--primary))" }}
+            style={{ color: `hsl(${catHsl})` }}
             animate={
               progress > 0 && progress < 100
                 ? { scale: [1, 1.1, 1] }
@@ -346,32 +389,57 @@ function ProjectSummary({
         </div>
       </div>
 
-      {/* Items list */}
+      {/* Items list with category-colored accents */}
       <div className="space-y-1.5">
-        {items.map((item, i) => (
-          <motion.div
-            key={item.label}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
-            className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-muted/20 border border-border/20"
-          >
-            <span className="text-xs shrink-0">{item.icon}</span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[9px] text-muted-foreground leading-tight">{item.label}</p>
-              <p className="text-[10px] font-medium truncate leading-tight">{item.value}</p>
-            </div>
+        {items.map((item, i) => {
+          const isType = isTypeItem(item.label);
+          return (
             <motion.div
-              className="h-1.5 w-1.5 rounded-full shrink-0"
-              style={{ backgroundColor: "hsl(var(--primary))" }}
-              animate={{
-                opacity: [0.4, 1, 0.4],
-                scale: [0.8, 1.2, 0.8],
-              }}
-              transition={{ repeat: Infinity, duration: 2, delay: i * 0.15, ease: "easeInOut" }}
-            />
-          </motion.div>
-        ))}
+              key={item.label}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              className={cn(
+                "flex items-center gap-2 py-1.5 px-2 rounded-lg border transition-all",
+                isType
+                  ? "border-l-2"
+                  : "bg-muted/20 border-border/20"
+              )}
+              style={
+                isType
+                  ? {
+                      borderLeftColor: `hsl(${catHsl})`,
+                      backgroundColor: `hsl(${catHsl} / 0.08)`,
+                      borderColor: `hsl(${catHsl} / 0.15)`,
+                    }
+                  : undefined
+              }
+            >
+              <span className="text-xs shrink-0">{item.icon}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] text-muted-foreground leading-tight">{item.label}</p>
+                <p
+                  className={cn(
+                    "text-[10px] font-medium truncate leading-tight",
+                    isType && "font-semibold"
+                  )}
+                  style={isType ? { color: `hsl(${catHsl})` } : undefined}
+                >
+                  {item.value}
+                </p>
+              </div>
+              <motion.div
+                className="h-1.5 w-1.5 rounded-full shrink-0"
+                style={{ backgroundColor: isType ? `hsl(${catHsl})` : `hsl(${catHsl} / 0.4)` }}
+                animate={{
+                  opacity: [0.4, 1, 0.4],
+                  scale: [0.8, 1.2, 0.8],
+                }}
+                transition={{ repeat: Infinity, duration: 2, delay: i * 0.15, ease: "easeInOut" }}
+              />
+            </motion.div>
+          );
+        })}
       </div>
     </>
   );
