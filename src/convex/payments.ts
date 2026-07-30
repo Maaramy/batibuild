@@ -16,6 +16,15 @@ const DEFAULT_PLAN_PRICING = {
   freeDownloadLimit: 0,
   proDownloadLimit: 10,
   expertDownloadLimit: 100,
+  bankName: "",
+  bankTitulaire: "",
+  bankRib: "",
+  bankIban: "",
+  bankSwift: "",
+  d17MerchantName: "",
+  d17Phone: "",
+  d17Email: "",
+  d17Notice: "",
 };
 
 /** Get all plan pricing & limits configuration (admin only) */
@@ -96,6 +105,40 @@ export const updatePlanPricing = mutation({
     }
 
     return { success: true };
+  },
+});
+
+/** Get public pricing info (no auth required - for pricing page) */
+export const getPublicPricing = query({
+  handler: async (ctx) => {
+    const config = await ctx.db
+      .query("paymentConfig")
+      .order("desc")
+      .first();
+
+    if (!config) return DEFAULT_PLAN_PRICING;
+
+    return {
+      proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
+      expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
+      supplierPrice: config.supplierPrice ?? DEFAULT_PLAN_PRICING.supplierPrice,
+      freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
+      proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
+      expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
+      freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
+      proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
+      expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
+      currency: config.currency ?? "TND",
+      bankName: config.bankName,
+      bankTitulaire: config.bankTitulaire,
+      bankRib: config.bankRib,
+      bankIban: config.bankIban,
+      bankSwift: config.bankSwift,
+      d17MerchantName: config.d17MerchantName,
+      d17Phone: config.d17Phone,
+      d17Email: config.d17Email,
+      d17Notice: config.d17Notice,
+    };
   },
 });
 

@@ -94,7 +94,7 @@ export default function PricingPage() {
   const cancelSubscription = useMutation(api.subscriptions.cancelSubscription);
   const [copying, setCopying] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
-  const paymentConfig = useQuery(api.payments.getPaymentConfigAdmin);
+  const paymentConfig = useQuery(api.payments.getPublicPricing);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const uploadPaymentProof = useMutation(api.subscriptions.uploadPaymentProof);
   
