@@ -294,10 +294,10 @@ export default function AdminPanel() {
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/3 via-background to-background">
       {/* Top accent bar */}
-      <div className="h-1 w-full bg-gradient-to-r from-primary via-blue-500 to-primary/30" />
+      <div className="h-1 w-full bg-gradient-to-r from-primary via-blue-500 to-violet-500/30" />
 
       {/* Header */}
-      <header className="border-b border-border/20 bg-background/60 backdrop-blur-xl">
+      <header className="border-b border-border/20 bg-background/60 backdrop-blur-xl shadow-sm shadow-primary/5">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
           <div className="flex items-center gap-3 min-w-0">
             <Button variant="ghost" size="sm" className="gap-1.5 h-9 shrink-0 hover:bg-muted/40" onClick={() => navigate("/dashboard")}>
@@ -332,7 +332,7 @@ export default function AdminPanel() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           {/* Tab Navigation */}
           <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 mb-5 sm:mb-6 scrollbar-hide">
-            <TabsList className="inline-flex h-auto w-max gap-1 bg-muted/20 border border-border/30 p-1.5 rounded-xl backdrop-blur-sm">
+            <TabsList className="inline-flex h-auto w-max gap-1 bg-gradient-to-r from-muted/20 to-muted/10 border border-border/20 p-1 rounded-2xl backdrop-blur-sm shadow-sm">
               <TabsTrigger value="dashboard" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <BarChart3 className="h-3.5 w-3.5" />
                 <span>Dashboard</span>
@@ -459,10 +459,10 @@ export default function AdminPanel() {
                     <p className="text-xs text-muted-foreground mt-1">Les profils fournisseurs apparaîtront ici après inscription.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-border/50">
+                  <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-border/30 bg-muted/20">
+                        <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
                           <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">Fournisseur</th>
                           <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Contact</th>
                           <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Spécialités</th>
@@ -507,7 +507,7 @@ export default function AdminPanel() {
                           };
 
                           return (
-                            <tr key={profile._id} className="border-b border-border/20 hover:bg-muted/10 transition-colors">
+                            <tr key={profile._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
                               <td className="py-3 px-3">
                                 <div className="flex items-center gap-2">
                                   <Avatar className="h-8 w-8 shrink-0 border border-border/40">
@@ -730,10 +730,10 @@ export default function AdminPanel() {
                     <p className="text-xs text-muted-foreground mt-1">Les reçus de paiement apparaîtront ici après soumission.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-border/50">
+                  <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-border/30 bg-muted/20">
+                        <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
                           <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">Client</th>
                           <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Offre</th>
                           <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Abonnement</th>
@@ -769,7 +769,7 @@ export default function AdminPanel() {
                             const isVerified = sub.paymentProofVerified;
 
                             return (
-                              <tr key={sub._id} className="border-b border-border/20 hover:bg-muted/10 transition-colors">
+                              <tr key={sub._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
                                 <td className="py-3 px-3">
                                   <div className="flex items-center gap-2">
                                     <Avatar className="h-8 w-8 shrink-0 border border-border/40">
@@ -1079,14 +1079,14 @@ export default function AdminPanel() {
           {/* Admin Dashboard */}
           <TabsContent value="dashboard">
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-              <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+              <Card className="group relative border border-border/30 bg-background/60 backdrop-blur-sm hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 overflow-hidden">
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Utilisateurs</p>
                       <p className="text-xl sm:text-2xl font-bold mt-1">{allUsers.length}</p>
                     </div>
-                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/5 text-blue-600 ring-1 ring-blue-500/10 shrink-0">
                       <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                   </div>
@@ -1097,14 +1097,14 @@ export default function AdminPanel() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+              <Card className="group relative border border-border/30 bg-background/60 backdrop-blur-sm hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 overflow-hidden">
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Total projets</p>
                       <p className="text-xl sm:text-2xl font-bold mt-1">{allProjects.length}</p>
                     </div>
-                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary ring-1 ring-primary/10 shrink-0">
                       <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                   </div>
@@ -1115,14 +1115,14 @@ export default function AdminPanel() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+              <Card className="group relative border border-border/30 bg-background/60 backdrop-blur-sm hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 overflow-hidden">
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Abonnés Pro</p>
                       <p className="text-xl sm:text-2xl font-bold mt-1">{allSubsWithUsers.filter((s: any) => s.status === "active").length}</p>
                     </div>
-                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-500/5 text-amber-600 ring-1 ring-amber-500/10 shrink-0">
                       <Crown className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                   </div>
@@ -1133,7 +1133,7 @@ export default function AdminPanel() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+              <Card className="group relative border border-border/30 bg-background/60 backdrop-blur-sm hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 overflow-hidden">
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1142,7 +1142,7 @@ export default function AdminPanel() {
                         {new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(allSubsWithUsers.filter((s: any) => s.status === "active").length * 79)}
                       </p>
                     </div>
-                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 text-emerald-600 ring-1 ring-emerald-500/10 shrink-0">
                       <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                   </div>
@@ -1154,7 +1154,7 @@ export default function AdminPanel() {
                 </CardContent>
               </Card>
               {/* Payment method breakdown */}
-              <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+              <Card className="group relative border border-border/30 bg-background/60 backdrop-blur-sm hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 overflow-hidden">
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1163,7 +1163,7 @@ export default function AdminPanel() {
                         {allSubsWithUsers.filter((s: any) => s.paymentMethod === "bank_transfer" || s.paymentMethod === "d17").length}
                       </p>
                     </div>
-                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/20 to-violet-500/5 text-violet-600 ring-1 ring-violet-500/10 shrink-0">
                       <Smartphone className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                   </div>
@@ -1175,7 +1175,7 @@ export default function AdminPanel() {
                 </CardContent>
               </Card>
               {/* Activation rate */}
-              <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+              <Card className="group relative border border-border/30 bg-background/60 backdrop-blur-sm hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 overflow-hidden">
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1189,7 +1189,7 @@ export default function AdminPanel() {
                         })()}
                       </p>
                     </div>
-                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600">
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500/20 to-orange-500/5 text-orange-600 ring-1 ring-orange-500/10 shrink-0">
                       <Activity className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                   </div>
@@ -1282,7 +1282,7 @@ export default function AdminPanel() {
 
           {/* Materials Management */}
           <TabsContent value="materials">
-            <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+            <Card className="border border-border/30 bg-background/60 backdrop-blur-sm hover:shadow-md transition-all duration-200">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-6">
               <div className="min-w-0">
                 <CardTitle className="text-sm sm:text-base">Gestion des prix des matériaux</CardTitle>
@@ -1443,7 +1443,7 @@ export default function AdminPanel() {
 
           {/* Projects Management */}
           <TabsContent value="projects">
-            <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+            <Card className="border border-border/30 bg-background/60 backdrop-blur-sm hover:shadow-md transition-all duration-200">
               <CardHeader>
                 <CardTitle className="text-base">Gestion des projets</CardTitle>
                 <CardDescription>Tous les projets des utilisateurs</CardDescription>
@@ -1524,10 +1524,10 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-border/50">
+              <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border/30 bg-muted/20">
+                    <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
                       <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs w-8">
                         <input
                           type="checkbox"
@@ -1558,7 +1558,7 @@ export default function AdminPanel() {
                           : true
                       )
                       .map((u: any) => (
-                      <tr key={u._id} className="border-b border-border/20 hover:bg-muted/10 transition-colors">
+                      <tr key={u._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
                         <td className="py-2.5 px-2">
                           <input
                             type="checkbox"
@@ -1698,10 +1698,10 @@ export default function AdminPanel() {
                   <p className="text-xs text-muted-foreground mt-1">Les demandes de virement apparaîtront ici.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-border/50">
+                <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-border/30 bg-muted/20">
+                      <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
                         <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Client</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Offre</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
@@ -1712,7 +1712,7 @@ export default function AdminPanel() {
                     </thead>
                     <tbody>
                       {pendingSubs.map((sub: any) => (
-                        <tr key={sub._id} className="border-b border-border/20 hover:bg-muted/10 transition-colors">
+                        <tr key={sub._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
                           <td className="py-2.5 px-2 sm:px-3">
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8 shrink-0 border border-border/40">
@@ -1817,10 +1817,10 @@ export default function AdminPanel() {
                   <p className="text-xs text-muted-foreground mt-1">Les abonnements apparaîtront ici.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-border/50">
+                <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-border/30 bg-muted/20">
+                      <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
                         <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Client</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Offre</th>
                         <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Statut</th>
@@ -1830,7 +1830,7 @@ export default function AdminPanel() {
                     </thead>
                     <tbody>
                       {allSubsWithUsers.map((sub: any) => (
-                        <tr key={sub._id} className="border-b border-border/20 hover:bg-muted/10 transition-colors">
+                        <tr key={sub._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
                           <td className="py-2.5 px-2 sm:px-3">
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8 shrink-0 border border-border/40">
@@ -1910,10 +1910,10 @@ export default function AdminPanel() {
                   <p className="text-xs text-muted-foreground mt-1">Le journal est vide.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-border/50">
+                <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-border/30 bg-muted/20">
+                      <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
                         <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Date</th>
                         <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Admin</th>
                         <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Action</th>
@@ -1935,7 +1935,7 @@ export default function AdminPanel() {
                         const Icon = config.icon;
 
                         return (
-                          <tr key={log._id} className="border-b border-border/20 hover:bg-muted/10 transition-colors">
+                          <tr key={log._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
                             <td className="py-2.5 px-2 sm:px-3 text-[10px] text-muted-foreground">
                               {new Date(log.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                             </td>
@@ -2169,8 +2169,8 @@ export default function AdminPanel() {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 pt-4 border-t border-border/10 text-center">
-          <p className="text-[10px] text-muted-foreground/50">
+        <div className="mt-10 pt-6 border-t border-border/5 text-center">
+          <p className="text-[10px] text-muted-foreground/40">
             BudgetBati &copy; {new Date().getFullYear()} &mdash; Panneau d'administration v2.0
           </p>
         </div>
