@@ -270,24 +270,24 @@ function ProjectSummary({
   open?: boolean;
   onToggle?: () => void;
 }) {
-  const items: { label: string; value: string; icon: string }[] = [];
+  const items: { label: string; value: string; icon: LucideIcon }[] = [];
 
   if (importMethod)
-    items.push({ label: "Méthode", value: METHOD_LABEL[importMethod] || importMethod, icon: "📥" });
+    items.push({ label: "Méthode", value: METHOD_LABEL[importMethod] || importMethod, icon: Upload });
   if (projectName.trim())
-    items.push({ label: "Projet", value: projectName.trim(), icon: "🏗️" });
+    items.push({ label: "Projet", value: projectName.trim(), icon: HardHat });
   if (selectedCategory)
-    items.push({ label: "Type", value: CATEGORY_LABEL[selectedCategory] || selectedCategory, icon: "📐" });
+    items.push({ label: "Type", value: CATEGORY_LABEL[selectedCategory] || selectedCategory, icon: Building2 });
   if (region) {
     const regionName = TUNISIA_REGIONS.find((r) => r.value === region)?.label || region;
-    items.push({ label: "Région", value: regionName, icon: "📍" });
+    items.push({ label: "Région", value: regionName, icon: MapPin });
   }
   if (surface && parseFloat(surface) > 0)
-    items.push({ label: "Surface", value: `${surface} m²`, icon: "📏" });
+    items.push({ label: "Surface", value: `${surface} m²`, icon: Ruler });
   if (floors && floors !== "0" && floors !== "")
-    items.push({ label: "Étages", value: `${floors} étage${parseInt(floors) > 1 ? "s" : ""}`, icon: "🏢" });
+    items.push({ label: "Étages", value: `${floors} étage${parseInt(floors) > 1 ? "s" : ""}`, icon: Building2 });
   if (files.length > 0)
-    items.push({ label: "Fichiers", value: `${files.length} fichier${files.length > 1 ? "s" : ""}`, icon: "📄" });
+    items.push({ label: "Fichiers", value: `${files.length} fichier${files.length > 1 ? "s" : ""}`, icon: FileText });
 
   if (items.length === 0) return null;
 
@@ -421,7 +421,7 @@ function ProjectSummary({
                   : undefined
               }
             >
-              <span className="text-xs shrink-0">{item.icon}</span>
+              <item.icon className="h-3.5 w-3.5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] text-muted-foreground leading-tight">{item.label}</p>
                 <p
