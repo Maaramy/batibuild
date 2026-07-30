@@ -28,7 +28,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
@@ -311,6 +311,16 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [resetOtp, setResetOtp] = useState("");
   const updateProfile = useMutation(api.users.updateProfile);
   const resetPasswordMutation = useMutation(api.users.resetPassword);
+  const pendingProfileRef = useRef<{name: string; phone: string} | null>(null);
+
+  // Save profile after auth is confirmed (avoids race condition with signIn)
+  useEffect(() => {
+    if (isAuthenticated && pendingProfileRef.current) {
+      const data = pendingProfileRef.current;
+      pendingProfileRef.current = null;
+      updateProfile({ name: data.name || undefined, phone: data.phone || undefined });
+    }
+  }, [isAuthenticated, updateProfile]);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) navigate(redirect);
@@ -363,11 +373,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     try {
       fd.set("flow", "signUp");
       await signIn("password", fd);
-      // Save additional profile fields (phone, name) after successful registration
+      // Store profile data for useEffect to save once auth is confirmed
       const phone = fd.get("phone") as string;
       const name = fd.get("name") as string;
       if (phone || name) {
-        await updateProfile({ name: name || undefined, phone: phone || undefined });
+        pendingProfileRef.current = { name: name || "", phone: phone || "" };
       }
       navigate(redirect);
     }
