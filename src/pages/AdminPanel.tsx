@@ -1477,7 +1477,7 @@ export default function AdminPanel() {
                     <div>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Revenus estimés</p>
                       <p className="text-xl sm:text-2xl font-bold mt-1">
-                        {new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(allSubsWithUsers.filter((s: any) => s.status === "active").length * 79)}
+                        {new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(allSubsWithUsers.filter((s: any) => s.status === "active").length * (planForm?.proPrice ?? 79))}
                       </p>
                     </div>
                     <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 text-emerald-600 ring-1 ring-emerald-500/10 shrink-0">
@@ -1485,9 +1485,47 @@ export default function AdminPanel() {
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
-                    <span>{allSubsWithUsers.filter((s: any) => s.status === "active").length * 79} TND/mois</span>
+                    <span>{allSubsWithUsers.filter((s: any) => s.status === "active").length * (planForm?.proPrice ?? 79)} TND/mois</span>
                     <span>•</span>
                     <span>{materialPrices.length} matériaux</span>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Nouveaux ce mois */}
+              <Card className="group relative border border-border/30 bg-background/60 backdrop-blur-sm hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 overflow-hidden">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Nouveaux ce mois</p>
+                      <p className="text-xl sm:text-2xl font-bold mt-1">{(() => { const now = Date.now(); const monthAgo = now - 30 * 24 * 60 * 60 * 1000; return allUsers.filter((u: any) => u._creationTime > monthAgo).length; })()}</p>
+                    </div>
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500/20 to-rose-500/5 text-rose-600 ring-1 ring-rose-500/10 shrink-0">
+                      <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5">{(() => { const now = Date.now(); const weekAgo = now - 7 * 24 * 60 * 60 * 1000; return allUsers.filter((u: any) => u._creationTime > weekAgo).length; })()} cette semaine</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-0.5">{(() => { const now = Date.now(); const dayAgo = now - 24 * 60 * 60 * 1000; return allUsers.filter((u: any) => u._creationTime > dayAgo).length; })()} aujourd'hui</span>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Fournisseurs */}
+              <Card className="group relative border border-border/30 bg-background/60 backdrop-blur-sm hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 overflow-hidden">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Fournisseurs</p>
+                      <p className="text-xl sm:text-2xl font-bold mt-1">{allSuppliers.length}</p>
+                    </div>
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 text-cyan-600 ring-1 ring-cyan-500/10 shrink-0">
+                      <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5">{allSuppliers.filter((s: any) => s.subscriptionStatus === "active").length} actifs</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-0.5">{allSuppliers.filter((s: any) => s.isVisible).length} visibles</span>
                   </div>
                 </CardContent>
               </Card>
@@ -1509,6 +1547,25 @@ export default function AdminPanel() {
                     <span className="flex items-center gap-0.5"><Banknote className="h-3 w-3" /> Virement: {allSubsWithUsers.filter((s: any) => s.paymentMethod === "bank_transfer").length}</span>
                     <span>•</span>
                     <span className="flex items-center gap-0.5"><Smartphone className="h-3 w-3" /> D17: {allSubsWithUsers.filter((s: any) => s.paymentMethod === "d17").length}</span>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Projets ce mois */}
+              <Card className="group relative border border-border/30 bg-background/60 backdrop-blur-sm hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 overflow-hidden">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Projets ce mois</p>
+                      <p className="text-xl sm:text-2xl font-bold mt-1">{(() => { const now = Date.now(); const monthAgo = now - 30 * 24 * 60 * 60 * 1000; return allProjects.filter((p: any) => p._creationTime > monthAgo).length; })()}</p>
+                    </div>
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/5 text-sky-600 ring-1 ring-sky-500/10 shrink-0">
+                      <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
+                    <span>Total: {allProjects.length} projets</span>
+                    <span>•</span>
+                    <span>Coût total: {new Intl.NumberFormat("fr-FR").format(totalCost)} TND</span>
                   </div>
                 </CardContent>
               </Card>
@@ -1570,8 +1627,8 @@ export default function AdminPanel() {
 
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
                 <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-sm">Abonnements (30 jours)</CardTitle>
-                  <CardDescription className="text-[10px]">Récapitulatif des abonnements</CardDescription>
+                  <CardTitle className="text-sm">Abonnements & Revenus</CardTitle>
+                  <CardDescription className="text-[10px]">Pro: {planForm?.proPrice ?? 79} TND | Expert: {planForm?.expertPrice ?? 320} TND | Fournisseur: {planForm?.supplierPrice ?? 120} TND/mois</CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <div className="grid grid-cols-3 gap-2 mb-3">
