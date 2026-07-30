@@ -320,7 +320,7 @@ function ProjectSummary({
                 scale: [1, 1.08, 1],
                 opacity: [0.3, 0.7, 0.3],
               }}
-              transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+              transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
             />
             {/* Progress arc (colored) */}
             <motion.circle
@@ -337,17 +337,17 @@ function ProjectSummary({
                   ? {
                       filter: [
                         `drop-shadow(0 0 2px hsl(${catHsl} / 0.3))`,
-                        `drop-shadow(0 0 6px hsl(${catHsl} / 0.6))`,
+                        `drop-shadow(0 0 10px hsl(${catHsl} / 0.7))`,
                         `drop-shadow(0 0 2px hsl(${catHsl} / 0.3))`,
                       ],
                     }
                   : {}),
               }}
               transition={{
-                duration: 0.8,
-                ease: "easeOut",
+                duration: 1.8,
+                ease: [0.34, 1.56, 0.64, 1],
                 ...(progress > 0 && progress < 100
-                  ? { filter: { repeat: Infinity, duration: 2, ease: "easeInOut" } }
+                  ? { filter: { repeat: Infinity, duration: 3, ease: "easeInOut" } }
                   : {}),
               }}
             />
@@ -355,7 +355,7 @@ function ProjectSummary({
             {progress > 0 && progress < 100 && (
               <motion.g
                 animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+                transition={{ repeat: Infinity, duration: 6, ease: "linear" }}
               >
                 <circle cx="20" cy="3" r="1.2" fill={`hsl(${catHsl} / 0.25)`} />
                 <circle cx="20" cy="37" r="1.2" fill={`hsl(${catHsl} / 0.1)`} />
@@ -371,7 +371,7 @@ function ProjectSummary({
                 ? { scale: [1, 1.1, 1] }
                 : {}
             }
-            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+            transition={{ repeat: Infinity, duration: 4.5, ease: "easeInOut" }}
           >
             {progress}%
           </motion.span>
