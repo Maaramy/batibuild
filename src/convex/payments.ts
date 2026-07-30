@@ -9,6 +9,7 @@ const DEFAULT_PLAN_PRICING = {
   proPrice: 79,
   expertPrice: 320,
   supplierPrice: 120,
+  currency: "TND",
   freeProjectLimit: 3,
   proProjectLimit: 10,
   expertProjectLimit: 100,
