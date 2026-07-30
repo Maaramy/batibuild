@@ -845,7 +845,7 @@ export default function AdminPanel() {
                         const rows = allSubsWithUsers
                           .filter((s: any) => s.paymentProofUrl)
                           .map((sub: any) => [
-                            sub.user?.name || "Anonyme",
+                            sub.user?.name || sub.user?.email || "",
                             sub.user?.email || "",
                             sub.plan || "",
                             sub.amount ? `${sub.amount} TND` : "",
@@ -963,7 +963,7 @@ export default function AdminPanel() {
                                     </Avatar>
                                     <div className="min-w-0">
                                       <p className="font-medium text-xs truncate max-w-[120px] sm:max-w-[180px]">
-                                        {user?.name || "Anonyme"}
+                                        {user?.name || user?.email || "Anonyme"}
                                       </p>
                                       <p className="text-[9px] text-muted-foreground truncate">
                                         {user?.email || ""}
@@ -1157,7 +1157,7 @@ export default function AdminPanel() {
                       <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/20 border border-border/30">
                         <div>
                           <p className="text-[9px] text-muted-foreground">Client</p>
-                          <p className="text-xs font-medium truncate">{previewReceipt.user?.name || "Anonyme"}</p>
+                          <p className="text-xs font-medium truncate">{previewReceipt.user?.name || previewReceipt.user?.email || "Anonyme"}</p>
                           <p className="text-[9px] text-muted-foreground truncate">{previewReceipt.user?.email || ""}</p>
                         </div>
                         <div>
@@ -1436,7 +1436,7 @@ export default function AdminPanel() {
                   <div className="space-y-1.5">
                     {allSubsWithUsers.filter((s: any) => s.status === "active" || s.status === "pending").slice(0, 4).map((sub: any) => (
                       <div key={sub._id} className="flex items-center justify-between py-1 border-b border-border/5 last:border-0">
-                        <span className="text-xs truncate max-w-[130px]">{sub.user?.name || "Anonyme"}</span>
+                        <span className="text-xs truncate max-w-[130px]">{sub.user?.name || sub.user?.email || "Anonyme"}</span>
                         <Badge variant={sub.status === "active" ? "default" : "outline"} className={cn("text-[8px] h-4 px-1.5", sub.status === "pending" && "border-amber-300 text-amber-600")}>
                           {sub.status === "active" ? "Actif" : "En attente"}
                         </Badge>
@@ -1914,7 +1914,7 @@ export default function AdminPanel() {
                             </Avatar>
                             <div className="min-w-0">
                               <p className="font-medium text-xs truncate max-w-[120px] sm:max-w-[180px]">
-                                {u.name || "Anonyme"}
+                                {u.name || u.email || "Anonyme"}
                               </p>
                               <p className="text-[9px] text-muted-foreground truncate max-w-[120px] sm:max-w-[180px]">
                                 {u.email || ""}
@@ -2055,7 +2055,7 @@ export default function AdminPanel() {
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
-                                <p className="font-medium text-xs truncate max-w-[120px]">{sub.user?.name || "Anonyme"}</p>
+                                <p className="font-medium text-xs truncate max-w-[120px]">{sub.user?.name || sub.user?.email || "Anonyme"}</p>
                                 <p className="text-[9px] text-muted-foreground truncate max-w-[120px]">{sub.user?.email || ""}</p>
                               </div>
                             </div>
@@ -2195,7 +2195,7 @@ export default function AdminPanel() {
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
-                                <p className="font-medium text-xs truncate max-w-[120px]">{sub.user?.name || "Anonyme"}</p>
+                                <p className="font-medium text-xs truncate max-w-[120px]">{sub.user?.name || sub.user?.email || "Anonyme"}</p>
                                 <p className="text-[9px] text-muted-foreground truncate max-w-[120px]">{sub.user?.email || ""}</p>
                               </div>
                             </div>
