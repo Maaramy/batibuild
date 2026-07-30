@@ -108,6 +108,8 @@ export default function AdminPanel() {
   const [batchDeletingProjects, setBatchDeletingProjects] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedRecuIds, setSelectedRecuIds] = useState<Set<string>>(new Set());
+  const [batchDeletingRecus, setBatchDeletingRecus] = useState(false);
 
   const pendingSubs = useQuery(api.subscriptions.getPendingSubscriptions) || [];
   const allSubsWithUsers = useQuery(api.subscriptions.getAllSubscriptionsWithUsers) || [];
@@ -122,6 +124,7 @@ export default function AdminPanel() {
   const markReceiptVerified = useMutation(api.subscriptions.markReceiptVerified);
   const batchDeleteUsers = useMutation(api.users.batchDeleteUsers);
   const batchDeleteProjects = useMutation(api.projects.adminBatchDeleteProjects);
+  const batchDeleteSubscriptions = useMutation(api.subscriptions.adminBatchDeleteSubscriptions);
   const deleteProjectMutation = useMutation(api.projects.deleteProject);
   const adminDeleteSupplierProfile = useMutation(api.supplierProfiles.adminDeleteProfile);
   const adminToggleSupplierVisibility = useMutation(api.supplierProfiles.adminToggleVisibility);
@@ -957,7 +960,31 @@ export default function AdminPanel() {
                     </div>
                   </div>
                   {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length > 0 && (
-                    <Button
+                    <>
+                    {selectedRecuIds.size > 0 && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs shrink-0"
+                              disabled={batchDeletingRecus}
+                              onClick={async () => {
+                                if (!window.confirm(`Supprimer ${selectedRecuIds.size} reçu(s) ? Cette action est irréversible.`)) return;
+                                setBatchDeletingRecus(true);
+                                try {
+                                  await batchDeleteSubscriptions({ subscriptionIds: Array.from(selectedRecuIds) as any });
+                                  toast.success(`${selectedRecuIds.size} reçu(s) supprimé(s)`);
+                                  setSelectedRecuIds(new Set());
+                                } catch (err: any) {
+                                  toast.error(err.message || "Erreur");
+                                }
+                                setBatchDeletingRecus(false);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">{batchDeletingRecus ? "Suppression..." : `Supprimer (${selectedRecuIds.size})`}</span>
+                            </Button>
+                          )}
+                          <Button
                       variant="outline"
                       size="sm"
                       className="h-8 gap-1.5 text-xs shrink-0"
@@ -990,6 +1017,7 @@ export default function AdminPanel() {
                       <Download className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Export CSV</span>
                     </Button>
+                    </>
                   )}
                 </div>
 
@@ -1038,6 +1066,7 @@ export default function AdminPanel() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
+                          <th className="w-8 px-2 py-3"><input type="checkbox" className="rounded border-border/40" checked={selectedRecuIds.size === allSubsWithUsers.filter(s => s.paymentProofUrl).length && selectedRecuIds.size > 0} onChange={() => { const all = allSubsWithUsers.filter(s => s.paymentProofUrl).map(s => s._id); if (selectedRecuIds.size === all.length) { setSelectedRecuIds(new Set()); } else { setSelectedRecuIds(new Set(all)); } }} /></th>
                           <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">Client</th>
                           <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Offre</th>
                           <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Abonnement</th>
@@ -1074,6 +1103,9 @@ export default function AdminPanel() {
 
                             return (
                               <tr key={sub._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
+                                <td className="py-3 px-2 w-8">
+                                  <input type="checkbox" className="rounded border-border/40" checked={selectedRecuIds.has(sub._id)} onChange={() => { const next = new Set(selectedRecuIds); if (next.has(sub._id)) next.delete(sub._id); else next.add(sub._id); setSelectedRecuIds(next); }} />
+                                </td>
                                 <td className="py-3 px-3">
                                   <div className="flex items-center gap-2">
                                     <Avatar className="h-8 w-8 shrink-0 border border-border/40">
@@ -1084,7 +1116,7 @@ export default function AdminPanel() {
                                     </Avatar>
                                     <div className="min-w-0">
                                       <p className="font-medium text-xs truncate max-w-[120px] sm:max-w-[180px]">
-                                        {user?.name || user?.email || "Anonyme"}
+                                        {user?.name || user?.email || user?.phone || "Non renseigné"}
                                       </p>
                                       <p className="text-[9px] text-muted-foreground truncate">
                                         {user?.email || ""}
@@ -1278,7 +1310,7 @@ export default function AdminPanel() {
                       <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/20 border border-border/30">
                         <div>
                           <p className="text-[9px] text-muted-foreground">Client</p>
-                          <p className="text-xs font-medium truncate">{previewReceipt.user?.name || previewReceipt.user?.email || "Anonyme"}</p>
+                          <p className="text-xs font-medium truncate">{previewReceipt.user?.name || previewReceipt.user?.email || "Non renseigné"}</p>
                           <p className="text-[9px] text-muted-foreground truncate">{previewReceipt.user?.email || ""}</p>
                         </div>
                         <div>
@@ -1557,7 +1589,7 @@ export default function AdminPanel() {
                   <div className="space-y-1.5">
                     {allSubsWithUsers.filter((s: any) => s.status === "active" || s.status === "pending").slice(0, 4).map((sub: any) => (
                       <div key={sub._id} className="flex items-center justify-between py-1 border-b border-border/5 last:border-0">
-                        <span className="text-xs truncate max-w-[130px]">{sub.user?.name || sub.user?.email || "Anonyme"}</span>
+                        <span className="text-xs truncate max-w-[130px]">{sub.user?.name || sub.user?.email || "Non renseigné"}</span>
                         <Badge variant={sub.status === "active" ? "default" : "outline"} className={cn("text-[8px] h-4 px-1.5", sub.status === "pending" && "border-amber-300 text-amber-600")}>
                           {sub.status === "active" ? "Actif" : "En attente"}
                         </Badge>
@@ -2035,7 +2067,7 @@ export default function AdminPanel() {
                             </Avatar>
                             <div className="min-w-0 cursor-pointer" onClick={() => setSelectedUser(u)}>
                               <p className="font-medium text-xs truncate max-w-[120px] sm:max-w-[180px]">
-                                {u.name || u.email || "Anonyme"}
+                                {u.name || u.email || "Non renseigné"}
                               </p>
                               <p className="text-[9px] text-muted-foreground truncate max-w-[120px] sm:max-w-[180px]">
                                 {u.email || ""}
@@ -2177,7 +2209,7 @@ export default function AdminPanel() {
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
-                                <p className="font-medium text-xs truncate max-w-[120px]">{sub.user?.name || sub.user?.email || "Anonyme"}</p>
+                                <p className="font-medium text-xs truncate max-w-[120px] cursor-pointer hover:text-primary transition-colors" onClick={() => setSelectedUser(sub.user)}>{sub.user?.name || sub.user?.email || "Non renseigné"}</p>
                                 <p className="text-[9px] text-muted-foreground truncate max-w-[120px]">{sub.user?.email || ""}</p>
                               </div>
                             </div>
@@ -2321,7 +2353,7 @@ export default function AdminPanel() {
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
-                                <p className="font-medium text-xs truncate max-w-[120px]">{sub.user?.name || sub.user?.email || "Anonyme"}</p>
+                                <p className="font-medium text-xs truncate max-w-[120px]">{sub.user?.name || sub.user?.email || "Non renseigné"}</p>
                                 <p className="text-[9px] text-muted-foreground truncate max-w-[120px]">{sub.user?.email || ""}</p>
                               </div>
                             </div>

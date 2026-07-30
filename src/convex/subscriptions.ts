@@ -57,6 +57,14 @@ export const getAllSubscriptionsWithUsers = query({
                 _id: user._id,
                 name: user.name,
                 email: user.email,
+                phone: user.phone,
+                company: user.company,
+                image: user.image,
+                role: user.role,
+                status: user.status,
+                createdAt: user.createdAt,
+                subscriptionPlan: user.subscriptionPlan,
+                subscriptionEndDate: user.subscriptionEndDate,
               }
             : null,
         };
@@ -396,7 +404,11 @@ export const adminRejectSubscription = mutation({
 
     const sub = await ctx.db.get(args.subscriptionId);
     if (!sub) throw new Error("Abonnement introuvable");
-    if (sub.status !== "pending") throw new Error("Cet abonnement n'est pas en attente");
+
+    // Silently succeed if already processed (prevents race condition errors)
+    if (sub.status !== "pending") {
+      return { success: true, alreadyProcessed: true };
+    }
 
     await ctx.db.patch(args.subscriptionId, {
       status: "canceled",
@@ -419,6 +431,33 @@ export const adminRejectSubscription = mutation({
     }
 
     return { success: true };
+  },
+});
+
+/** Batch delete subscriptions (admin only) */
+export const adminBatchDeleteSubscriptions = mutation({
+  args: {
+    subscriptionIds: v.array(v.id("subscriptions")),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    let deleted = 0;
+    let errors: string[] = [];
+
+    for (const id of args.subscriptionIds) {
+      try {
+        await ctx.db.delete(id);
+        deleted++;
+      } catch (e: any) {
+        errors.push(e.message || `Erreur pour ${id}`);
+      }
+    }
+
+    return { deleted, errors };
   },
 });
 
