@@ -188,6 +188,142 @@ function VerticalStepper({
   );
 }
 
+// ─── CATEGORY LABEL LOOKUP ────────────────────────────────────────────────
+
+const CATEGORY_LABEL = Object.fromEntries(
+  PROJECT_CATEGORIES.map((c) => [c.value, c.label])
+);
+
+const METHOD_LABEL: Record<string, string> = {
+  manual: "Saisie manuelle",
+  photo: "Photo",
+  satellite: "Image satellite",
+  plan: "Plan (PDF/DWG)",
+  sketch: "Croquis",
+};
+
+// ─── PROJECT SUMMARY COMPONENT ──────────────────────────────────────────────
+
+function ProjectSummary({
+  projectName,
+  selectedCategory,
+  region,
+  surface,
+  floors,
+  importMethod,
+  files,
+  step,
+}: {
+  projectName: string;
+  selectedCategory: string;
+  region: string;
+  surface: string;
+  floors: string;
+  importMethod: string;
+  files: File[];
+  step: StepKey;
+}) {
+  const items: { label: string; value: string; icon: string }[] = [];
+
+  if (importMethod)
+    items.push({ label: "Méthode", value: METHOD_LABEL[importMethod] || importMethod, icon: "📥" });
+  if (projectName.trim())
+    items.push({ label: "Projet", value: projectName.trim(), icon: "🏗️" });
+  if (selectedCategory)
+    items.push({ label: "Type", value: CATEGORY_LABEL[selectedCategory] || selectedCategory, icon: "📐" });
+  if (region) {
+    const regionName = TUNISIA_REGIONS.find((r) => r.value === region)?.label || region;
+    items.push({ label: "Région", value: regionName, icon: "📍" });
+  }
+  if (surface && parseFloat(surface) > 0)
+    items.push({ label: "Surface", value: `${surface} m²`, icon: "📏" });
+  if (floors && floors !== "0" && floors !== "")
+    items.push({ label: "Étages", value: `${floors} étage${parseInt(floors) > 1 ? "s" : ""}`, icon: "🏢" });
+  if (files.length > 0)
+    items.push({ label: "Fichiers", value: `${files.length} fichier${files.length > 1 ? "s" : ""}`, icon: "📄" });
+
+  if (items.length === 0) return null;
+
+  const totalFields = 7; // method + name + category + region + surface + floors + files
+  const filledFields = items.length;
+  const progress = Math.min(Math.round((filledFields / totalFields) * 100), 100);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.3, delay: 0.1 }}
+      className="sticky top-20"
+    >
+      <div className="rounded-xl border border-border/40 bg-card/50 p-4 shadow-sm">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border/20">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <FileText className="h-3.5 w-3.5" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-xs font-semibold">Récapitulatif</h3>
+            <p className="text-[9px] text-muted-foreground">{filledFields}/{totalFields} champs</p>
+          </div>
+        </div>
+
+        {/* Progress ring */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="relative h-10 w-10 shrink-0">
+            <svg className="h-10 w-10 -rotate-90" viewBox="0 0 40 40">
+              <circle cx="20" cy="20" r="16" fill="none" stroke="hsl(var(--border))" strokeWidth="3" />
+              <motion.circle
+                cx="20" cy="20" r="16" fill="none"
+                stroke="hsl(var(--primary))"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 16}`}
+                initial={{ strokeDashoffset: 2 * Math.PI * 16 }}
+                animate={{ strokeDashoffset: 2 * Math.PI * 16 * (1 - progress / 100) }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+              />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-primary">
+              {progress}%
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium">
+              {progress < 30 && "Commencez à remplir le formulaire"}
+              {progress >= 30 && progress < 60 && "Bonne progression !"}
+              {progress >= 60 && progress < 90 && "Presque complet !"}
+              {progress >= 90 && "Prêt pour l'estimation"}
+            </p>
+            <p className="text-[9px] text-muted-foreground">
+              {step === "form" ? "Complétez les champs obligatoires" : "Informations saisies"}
+            </p>
+          </div>
+        </div>
+
+        {/* Items list */}
+        <div className="space-y-1.5">
+          {items.map((item, i) => (
+            <motion.div
+              key={item.label}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-muted/20 border border-border/20"
+            >
+              <span className="text-xs shrink-0">{item.icon}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] text-muted-foreground leading-tight">{item.label}</p>
+                <p className="text-[10px] font-medium truncate leading-tight">{item.value}</p>
+              </div>
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── PAGE COMPONENT ─────────────────────────────────────────────────────────
 
 export default function NewProject() {
@@ -842,6 +978,22 @@ export default function NewProject() {
               {renderStepContent()}
             </div>
           </section>
+
+          {/* ── Project Summary Sidebar ── */}
+          <aside className="hidden lg:block w-64 xl:w-72 shrink-0">
+            <div className="sticky top-20">
+              <ProjectSummary
+                projectName={projectName}
+                selectedCategory={selectedCategory}
+                region={region}
+                surface={surface}
+                floors={floors}
+                importMethod={importMethod}
+                files={files}
+                step={step}
+              />
+            </div>
+          </aside>
         </div>
       </div>
     </main>
