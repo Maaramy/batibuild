@@ -16,7 +16,11 @@ import {
   Loader2, Check, X, Building2, ChevronRight, ChevronDown, HardHat, Image,
   FileUp, MapPin, AlertCircle, Asterisk, Crown, AlertTriangle,
   CircleDot, CircleDashed, CircleCheck, Circle,
+  Home, Building, Waves, Sprout, Trees, Car, Shield, Sofa, Flower2,
+  ArrowUpFromLine, Hammer, Bath, ChefHat, Briefcase, Store, Package,
+  Zap, Moon, BookOpen, Hotel, Utensils, Coffee, Leaf, Factory, Square,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -36,35 +40,35 @@ const TUNISIA_REGIONS = [
   { value: "tozeur", label: "Tozeur" }, { value: "kebili", label: "Kébili" },
 ];
 
-const PROJECT_CATEGORIES = [
-  { value: "maison", label: "Maison", icon: "🏠" },
-  { value: "villa", label: "Villa", icon: "🏡" },
-  { value: "immeuble_residentiel", label: "Immeuble", icon: "🏙️" },
-  { value: "piscine", label: "Piscine", icon: "🏊" },
-  { value: "jardin", label: "Jardin", icon: "🌱" },
-  { value: "amenagement_paysager", label: "Paysager", icon: "🌳" },
-  { value: "garage", label: "Garage", icon: "🚗" },
-  { value: "cloture", label: "Clôture", icon: "🚧" },
-  { value: "terrasse", label: "Terrasse", icon: "🪑" },
-  { value: "pergola", label: "Pergola", icon: "🌿" },
-  { value: "toiture", label: "Toiture", icon: "🪜" },
-  { value: "renovation_interieure", label: "Rénovation intérieure", icon: "🔨" },
-  { value: "renovation_exterieure", label: "Rénovation extérieure", icon: "🧱" },
-  { value: "renovation_salle_de_bain", label: "Salle de bain", icon: "🛁" },
-  { value: "renovation_cuisine", label: "Cuisine", icon: "🍳" },
-  { value: "bureau", label: "Bureau", icon: "💼" },
-  { value: "local_commercial", label: "Commerce", icon: "🏪" },
-  { value: "entrepot", label: "Entrepôt", icon: "📦" },
-  { value: "installation_solaire", label: "Solaire", icon: "⚡" },
-  { value: "mosquee", label: "Mosquée", icon: "🕌" },
-  { value: "ecole", label: "École", icon: "📚" },
-  { value: "hotel", label: "Hôtel", icon: "🏨" },
-  { value: "restaurant", label: "Restaurant", icon: "🍽️" },
-  { value: "cafe", label: "Café", icon: "☕" },
-  { value: "ferme", label: "Ferme", icon: "🌾" },
-  { value: "usine", label: "Usine", icon: "⚙️" },
-  { value: "parking", label: "Parking", icon: "🅿️" },
-  { value: "demolition", label: "Démolition", icon: "💥" },
+const PROJECT_CATEGORIES: { value: string; label: string; icon: LucideIcon }[] = [
+  { value: "maison", label: "Maison", icon: Home },
+  { value: "villa", label: "Villa", icon: Building },
+  { value: "immeuble_residentiel", label: "Immeuble", icon: Building2 },
+  { value: "piscine", label: "Piscine", icon: Waves },
+  { value: "jardin", label: "Jardin", icon: Sprout },
+  { value: "amenagement_paysager", label: "Paysager", icon: Trees },
+  { value: "garage", label: "Garage", icon: Car },
+  { value: "cloture", label: "Clôture", icon: Shield },
+  { value: "terrasse", label: "Terrasse", icon: Sofa },
+  { value: "pergola", label: "Pergola", icon: Flower2 },
+  { value: "toiture", label: "Toiture", icon: ArrowUpFromLine },
+  { value: "renovation_interieure", label: "Rénovation intérieure", icon: Hammer },
+  { value: "renovation_exterieure", label: "Rénovation extérieure", icon: Square },
+  { value: "renovation_salle_de_bain", label: "Salle de bain", icon: Bath },
+  { value: "renovation_cuisine", label: "Cuisine", icon: ChefHat },
+  { value: "bureau", label: "Bureau", icon: Briefcase },
+  { value: "local_commercial", label: "Commerce", icon: Store },
+  { value: "entrepot", label: "Entrepôt", icon: Package },
+  { value: "installation_solaire", label: "Solaire", icon: Zap },
+  { value: "mosquee", label: "Mosquée", icon: Moon },
+  { value: "ecole", label: "École", icon: BookOpen },
+  { value: "hotel", label: "Hôtel", icon: Hotel },
+  { value: "restaurant", label: "Restaurant", icon: Utensils },
+  { value: "cafe", label: "Café", icon: Coffee },
+  { value: "ferme", label: "Ferme", icon: Leaf },
+  { value: "usine", label: "Usine", icon: Factory },
+  { value: "parking", label: "Parking", icon: Square },
+  { value: "demolition", label: "Démolition", icon: AlertTriangle },
 ];
 
 const IMPORT_METHODS = [
@@ -871,7 +875,7 @@ export default function NewProject() {
                           : "border-border/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"
                       )}
                     >
-                      <span className="text-xs">{cat.icon}</span>
+                      <cat.icon className="h-3.5 w-3.5 shrink-0" />
                       <span className="truncate">{cat.label}</span>
                     </button>
                   ))}
