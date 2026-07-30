@@ -9,13 +9,13 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft, Upload, FileImage, FileText, Map, Pen, Ruler,
   Loader2, Check, X, Building2, ChevronRight, ChevronDown, HardHat, Image,
   FileUp, MapPin, AlertCircle, Asterisk, Crown, AlertTriangle,
-  CircleDot, CircleDashed, CircleCheck, Circle,
+  CircleDot, CircleDashed, CircleCheck, Circle, Search,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -74,6 +74,40 @@ const IMPORT_METHODS = [
   { id: "plan", icon: FileText, label: "Plan", desc: "PDF, JPG, DWG" },
   { id: "sketch", icon: Pen, label: "Croquis", desc: "Dessin à main levée" },
 ];
+
+// ─── CATEGORY GROUPS FOR ENRICHED DROPDOWN ─────────────────────────────────
+
+const CATEGORY_GROUPS = [
+  {
+    label: "Résidentiel",
+    icon: "🏠",
+    items: ["maison", "villa", "immeuble_residentiel"],
+  },
+  {
+    label: "Rénovation",
+    icon: "🛠️",
+    items: ["renovation_interieure", "renovation_exterieure", "renovation_salle_de_bain", "renovation_cuisine"],
+  },
+  {
+    label: "Extérieur & Aménagement",
+    icon: "🌿",
+    items: ["piscine", "jardin", "amenagement_paysager", "garage", "terrasse", "pergola", "cloture"],
+  },
+  {
+    label: "Commerce & Services",
+    icon: "🏪",
+    items: ["bureau", "local_commercial", "restaurant", "cafe", "hotel"],
+  },
+  {
+    label: "Infrastructure & Divers",
+    icon: "🏛️",
+    items: ["entrepot", "mosquee", "ecole", "ferme", "usine", "parking", "toiture", "installation_solaire", "demolition"],
+  },
+];
+
+const CATEGORY_MAP = Object.fromEntries(
+  PROJECT_CATEGORIES.map((c) => [c.value, c])
+);
 
 // ─── VERTICAL STEPS CONFIG ──────────────────────────────────────────────────
 
@@ -185,6 +219,201 @@ function VerticalStepper({
         );
       })}
     </nav>
+  );
+}
+
+// ─── ENRICHED CATEGORY DROPDOWN ───────────────────────────────────────────
+
+function EnrichedCategorySelect({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = CATEGORY_MAP[value];
+
+  // Filter groups + items by search
+  const filteredGroups = CATEGORY_GROUPS.map((g) => {
+    const items = g.items.filter(
+      (k) =>
+        CATEGORY_MAP[k].label.toLowerCase().includes(search.toLowerCase()) ||
+        g.label.toLowerCase().includes(search.toLowerCase())
+    );
+    return { ...g, items };
+  }).filter((g) => g.items.length > 0);
+
+  const hasResults = filteredGroups.length > 0;
+
+  // Close on click outside
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (
+      panelRef.current &&
+      !panelRef.current.contains(e.target as Node) &&
+      triggerRef.current &&
+      !triggerRef.current.contains(e.target as Node)
+    ) {
+      setOpen(false);
+    }
+  }, []);
+
+  // Close on Escape
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      setSearch("");
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open, handleClickOutside]);
+
+  return (
+    <div className="relative">
+      {/* Trigger */}
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "mt-1.5 flex w-full items-center gap-2.5 px-3.5 py-2.5 rounded-lg border transition-all text-left",
+          open
+            ? "border-primary ring-1 ring-primary"
+            : error
+              ? "border-red-400 ring-1 ring-red-400/30"
+              : "border-border/40 hover:border-primary/40",
+          selected ? "bg-card" : "bg-background"
+        )}
+      >
+        {selected ? (
+          <>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/5 text-sm">
+              {selected.icon}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate">{selected.label}</p>
+              <p className="text-[9px] text-muted-foreground/50">
+                Cliquez pour changer
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/30 text-muted-foreground/40 text-xs">
+              ?
+            </span>
+            <span className="flex-1 text-xs text-muted-foreground/50">
+              Sélectionnez un type de projet
+            </span>
+          </>
+        )}
+        <motion.div
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+        </motion.div>
+      </button>
+
+      {error && (
+        <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />{error}
+        </p>
+      )}
+
+      {/* Dropdown panel */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            ref={panelRef}
+            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            onKeyDown={handleKeyDown}
+            className="absolute z-40 left-0 right-0 mt-1.5 rounded-xl border border-border/40 bg-popover shadow-xl overflow-hidden"
+          >
+            {/* Search */}
+            <div className="relative p-2 pb-0">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 pointer-events-none" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Rechercher..."
+                  className="w-full h-8 pl-8 pr-2.5 rounded-lg border border-border/30 bg-background text-xs placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+
+            {/* Groups */}
+            <div className="p-1.5 max-h-64 overflow-y-auto overscroll-contain">
+              {!hasResults && (
+                <div className="py-6 text-center">
+                  <p className="text-xs text-muted-foreground/40">Aucun résultat</p>
+                </div>
+              )}
+              {filteredGroups.map((group) => (
+                <div key={group.label} className="mb-1 last:mb-0">
+                  {/* Group header */}
+                  <div className="flex items-center gap-1.5 px-2 py-1.5">
+                    <span className="text-[10px]">{group.icon}</span>
+                    <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
+                      {group.label}
+                    </span>
+                  </div>
+                  {/* Group items */}
+                  {group.items.map((key) => {
+                    const cat = CATEGORY_MAP[key];
+                    if (!cat) return null;
+                    const isSelected = value === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          onChange(key);
+                          setOpen(false);
+                        }}
+                        className={cn(
+                          "flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all text-left",
+                          isSelected
+                            ? "bg-primary/8 text-primary font-medium"
+                            : "text-foreground/70 hover:bg-muted/30 hover:text-foreground"
+                        )}
+                      >
+                        <span className="text-sm shrink-0">{cat.icon}</span>
+                        <span className="flex-1 truncate">{cat.label}</span>
+                        {isSelected && (
+                          <Check className="h-3 w-3 text-primary shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -851,34 +1080,16 @@ export default function NewProject() {
                 )}
               </div>
 
-              {/* Catégorie */}
+              {/* Catégorie — Enriched Dropdown */}
               <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                 <Label className="text-xs sm:text-sm font-semibold">
                   Type de projet <span className="text-primary">*</span>
                 </Label>
-                <div className="mt-1.5 grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-40 overflow-y-auto">
-                  {PROJECT_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat.value}
-                      type="button"
-                      onClick={() => { setSelectedCategory(cat.value); setErrors((e) => ({...e, category: ''})); }}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2 py-2 rounded-lg text-[10px] sm:text-xs border transition-all",
-                        selectedCategory === cat.value
-                          ? "border-primary bg-primary/5 text-primary font-medium"
-                          : "border-border/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                      )}
-                    >
-                      <span className="text-xs">{cat.icon}</span>
-                      <span className="truncate">{cat.label}</span>
-                    </button>
-                  ))}
-                </div>
-                {errors.category && (
-                  <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />{errors.category}
-                  </p>
-                )}
+                <EnrichedCategorySelect
+                  value={selectedCategory}
+                  onChange={(v) => { setSelectedCategory(v); setErrors((e) => ({...e, category: ''})); }}
+                  error={errors.category}
+                />
               </div>
 
               {/* Région + Surface */}
