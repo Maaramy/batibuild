@@ -1,11 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Building2, FileText, Download, Banknote, Copy, CheckCheck, Smartphone, Wallet, Upload, Image, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, FileText, Banknote, Copy, CheckCheck, Smartphone, Wallet, Landmark, Upload, Image, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
@@ -84,6 +83,42 @@ const PLANS = [
     gradient: "from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20",
   },
 ];
+
+function PaymentField({
+  label,
+  value,
+  copyable,
+  onCopy,
+  isCopied,
+}: {
+  label: string;
+  value: string;
+  copyable?: boolean;
+  onCopy: (value: string, label: string) => void;
+  isCopied?: boolean;
+}) {
+  return (
+    <div className="relative rounded-lg border border-border/40 bg-muted/10 px-3.5 py-3">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <span className="min-w-0 break-all text-right text-xs font-semibold leading-snug">{value}</span>
+        {copyable && (
+          <button
+            onClick={() => onCopy(value, label)}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/40 transition-colors hover:bg-muted/60"
+            title={`Copier ${label}`}
+          >
+            {isCopied ? (
+              <CheckCheck className="h-3.5 w-3.5 text-emerald-500" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function PricingPage() {
   usePageSEO({ title: "Abonnements - BudgetBati", description: "Choisissez l'abonnement BudgetBati adapté à vos besoins : Gratuit, Pro ou Expert." });
@@ -404,69 +439,121 @@ export default function PricingPage() {
             </div>
           </div>
 
-          {/* Payment method tabs */}
-          <div className="flex gap-2 mb-5">
+          {/* Payment method selector */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
             <button
               onClick={() => setPaymentMethod("bank_transfer")}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-medium border transition-all ${
+              className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all duration-200 ${
                 paymentMethod === "bank_transfer"
-                  ? "border-primary/40 bg-primary/5 text-primary shadow-sm"
-                  : "border-border/30 bg-background text-muted-foreground hover:border-border/60"
+                  ? "border-primary/60 bg-primary/[0.06] shadow-sm shadow-primary/10"
+                  : "border-border/40 bg-background hover:border-border/70 hover:bg-muted/20"
               }`}
             >
-              <Banknote className="h-4 w-4" />
-              Virement bancaire
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  paymentMethod === "bank_transfer"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground group-hover:bg-muted/70"
+                }`}
+              >
+                <Banknote className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-semibold ${paymentMethod === "bank_transfer" ? "text-primary" : ""}`}>
+                  Virement bancaire
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate">RIB · IBAN · Swift/BIC</p>
+              </div>
+              <div
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                  paymentMethod === "bank_transfer"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border/60 text-transparent"
+                }`}
+              >
+                <Check className="h-3 w-3" strokeWidth={3} />
+              </div>
             </button>
+
             <button
               onClick={() => setPaymentMethod("d17")}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-medium border transition-all ${
+              className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all duration-200 ${
                 paymentMethod === "d17"
-                  ? "border-primary/40 bg-primary/5 text-primary shadow-sm"
-                  : "border-border/30 bg-background text-muted-foreground hover:border-border/60"
+                  ? "border-amber-500/60 bg-amber-500/[0.06] shadow-sm shadow-amber-500/10"
+                  : "border-border/40 bg-background hover:border-border/70 hover:bg-muted/20"
               }`}
             >
-              <Smartphone className="h-4 w-4" />
-              D17 (Poste Tunisienne)
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  paymentMethod === "d17"
+                    ? "bg-amber-500 text-white"
+                    : "bg-muted text-muted-foreground group-hover:bg-muted/70"
+                }`}
+              >
+                <Smartphone className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-semibold ${paymentMethod === "d17" ? "text-amber-600" : ""}`}>
+                  D17 (Poste Tunisienne)
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate">Paiement marchand · Mobile</p>
+              </div>
+              <div
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                  paymentMethod === "d17"
+                    ? "border-amber-500 bg-amber-500 text-white"
+                    : "border-border/60 text-transparent"
+                }`}
+              >
+                <Check className="h-3 w-3" strokeWidth={3} />
+              </div>
             </button>
           </div>
 
           {paymentMethod === "bank_transfer" ? (
             <>
-              <Card className="border-border/30 bg-muted/20">
-                <CardContent className="p-4 sm:p-6 space-y-3">
-                  {[
-                    { label: "Banque", value: BANK_INFO.bank },
-                    { label: "Titulaire", value: BANK_INFO.titulaire },
-                    { label: "RIB", value: BANK_INFO.rib, copyable: true },
-                    { label: "IBAN", value: BANK_INFO.iban, copyable: true },
-                    { label: "Swift/BIC", value: BANK_INFO.swift, copyable: true },
-                    { label: "Montant", value: BANK_INFO.montant, highlight: true },
-                    { label: "Motif", value: "Abonnement BudgetBati Pro - [Votre email]", copyable: true },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-border/5 last:border-0">
-                      <span className="text-xs text-muted-foreground">{item.label}</span>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-semibold text-right ${item.highlight ? "text-primary text-sm" : ""}`}>
-                          {item.value}
-                        </span>
-                        {item.copyable && (
-                          <button
-                            onClick={() => handleCopy(item.value, item.label)}
-                            className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
-                            title={`Copier ${item.label}`}
-                          >
-                            {copying === item.label ? (
-                              <CheckCheck className="h-3 w-3 text-emerald-500" />
-                            ) : (
-                              <Copy className="h-3 w-3 text-muted-foreground" />
-                            )}
-                          </button>
-                        )}
+              <div className="overflow-hidden rounded-2xl border border-border/40 bg-background shadow-sm">
+                <div className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/80 px-5 py-5">
+                  <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10" />
+                  <div className="pointer-events-none absolute -bottom-14 right-12 h-28 w-28 rounded-full bg-white/5" />
+                  <div className="relative flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <Banknote className="h-3.5 w-3.5 text-white/80" />
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">
+                          Virement bancaire
+                        </p>
                       </div>
+                      <p className="mt-1 truncate text-lg font-bold text-white leading-tight">{BANK_INFO.bank}</p>
+                      <p className="mt-0.5 text-xs text-white/75">
+                        Titulaire : <span className="font-semibold text-white">{BANK_INFO.titulaire}</span>
+                      </p>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
+                    <div className="hidden shrink-0 items-center justify-center rounded-2xl bg-white/15 p-3 backdrop-blur-sm sm:flex">
+                      <Landmark className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 p-4 sm:p-5">
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    <PaymentField label="RIB" value={BANK_INFO.rib} copyable onCopy={handleCopy} isCopied={copying === "RIB"} />
+                    <PaymentField label="IBAN" value={BANK_INFO.iban} copyable onCopy={handleCopy} isCopied={copying === "IBAN"} />
+                  </div>
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    <PaymentField label="Swift / BIC" value={BANK_INFO.swift} copyable onCopy={handleCopy} isCopied={copying === "Swift / BIC"} />
+                    <PaymentField label="Motif du virement" value="Abonnement BudgetBati Pro - [Votre email]" copyable onCopy={handleCopy} isCopied={copying === "Motif du virement"} />
+                  </div>
+
+                  <div className="mt-1 flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-primary/[0.07] px-4 py-3.5">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Montant à virer</p>
+                      <p className="text-[10px] text-muted-foreground/70">/ mois · paiement unique</p>
+                    </div>
+                    <span className="text-xl font-bold text-primary">{BANK_INFO.montant}</span>
+                  </div>
+                </div>
+              </div>
 
               <div className="mt-4 flex items-start gap-2 text-[10px] text-muted-foreground/60">
                 <Shield className="h-3 w-3 shrink-0 mt-0.5" />
@@ -478,39 +565,45 @@ export default function PricingPage() {
             </>
           ) : (
             <>
-              <Card className="border-border/30 bg-muted/20">
-                <CardContent className="p-4 sm:p-6 space-y-3">
-                  {[
-                    { label: "Bénéficiaire", value: D17_INFO.merchantName },
-                    { label: "Téléphone D17", value: D17_INFO.phone, copyable: true },
-                    { label: "Email", value: D17_INFO.email, copyable: true },
-                    { label: "Montant", value: D17_INFO.montant, highlight: true },
-                    { label: "Motif", value: "Abonnement BudgetBati Pro - [Votre email]", copyable: true },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-border/5 last:border-0">
-                      <span className="text-xs text-muted-foreground">{item.label}</span>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-semibold text-right ${item.highlight ? "text-primary text-sm" : ""}`}>
-                          {item.value}
-                        </span>
-                        {item.copyable && (
-                          <button
-                            onClick={() => handleCopy(item.value, item.label)}
-                            className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
-                            title={`Copier ${item.label}`}
-                          >
-                            {copying === item.label ? (
-                              <CheckCheck className="h-3 w-3 text-emerald-500" />
-                            ) : (
-                              <Copy className="h-3 w-3 text-muted-foreground" />
-                            )}
-                          </button>
-                        )}
+              <div className="overflow-hidden rounded-2xl border border-border/40 bg-background shadow-sm">
+                <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 via-amber-500 to-orange-600 px-5 py-5">
+                  <div className="pointer-events-none absolute -left-8 -top-10 h-32 w-32 rounded-full bg-white/10" />
+                  <div className="pointer-events-none absolute -bottom-14 right-12 h-28 w-28 rounded-full bg-white/5" />
+                  <div className="relative flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <Smartphone className="h-3.5 w-3.5 text-white/80" />
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">
+                          D17 · La Poste Tunisienne
+                        </p>
                       </div>
+                      <p className="mt-1 text-lg font-bold text-white leading-tight">Paiement marchand</p>
+                      <p className="mt-0.5 text-xs text-white/75">
+                        Bénéficiaire : <span className="font-semibold text-white">{D17_INFO.merchantName}</span>
+                      </p>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
+                    <div className="hidden shrink-0 items-center justify-center rounded-2xl bg-white/15 p-3 backdrop-blur-sm sm:flex">
+                      <Wallet className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 p-4 sm:p-5">
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    <PaymentField label="Téléphone D17" value={D17_INFO.phone} copyable onCopy={handleCopy} isCopied={copying === "Téléphone D17"} />
+                    <PaymentField label="Email" value={D17_INFO.email} copyable onCopy={handleCopy} isCopied={copying === "Email"} />
+                  </div>
+                  <PaymentField label="Motif du paiement" value="Abonnement BudgetBati Pro - [Votre email]" copyable onCopy={handleCopy} isCopied={copying === "Motif du paiement"} />
+
+                  <div className="mt-1 flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.08] px-4 py-3.5">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Montant à payer</p>
+                      <p className="text-[10px] text-muted-foreground/70">via l'application D17</p>
+                    </div>
+                    <span className="text-xl font-bold text-amber-600">{D17_INFO.montant}</span>
+                  </div>
+                </div>
+              </div>
 
               <div className="mt-4 space-y-2">
                 <div className="flex items-start gap-2 text-[10px] text-muted-foreground/60">
@@ -520,13 +613,19 @@ export default function PricingPage() {
                     Vous recevrez une confirmation par email.
                   </p>
                 </div>
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/50 flex items-start gap-2">
-                  <Smartphone className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-amber-700">
-                    <strong>Comment payer avec D17 ?</strong> Ouvrez l'application D17 sur votre téléphone,
-                    sélectionnez "Paiement marchand", entrez le téléphone ci-dessus et le montant de {proPrice} {currency}.
-                    Envoyez-nous la confirmation par email.
-                  </p>
+                <div className="flex items-start gap-3 rounded-xl border border-amber-200/50 bg-amber-50 p-4">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm">
+                    <Smartphone className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-amber-700">Comment payer avec D17 ?</p>
+                    <ol className="mt-1.5 space-y-1 text-[10px] leading-relaxed text-amber-700/90">
+                      <li>1. Ouvrez l'application D17 sur votre téléphone</li>
+                      <li>2. Sélectionnez « Paiement marchand »</li>
+                      <li>3. Entrez le téléphone ci-dessus et le montant de {currentPrice} {currency}</li>
+                      <li>4. Envoyez-nous la confirmation par email</li>
+                    </ol>
+                  </div>
                 </div>
               </div>
             </>
