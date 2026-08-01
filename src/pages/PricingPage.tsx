@@ -484,7 +484,6 @@ export default function PricingPage() {
                   <PaymentField label="RIB" value={BANK_INFO.rib} copyable onCopy={handleCopy} isCopied={copying === "RIB"} />
                   <PaymentField label="IBAN" value={BANK_INFO.iban} copyable onCopy={handleCopy} isCopied={copying === "IBAN"} />
                   <PaymentField label="Swift / BIC" value={BANK_INFO.swift} copyable onCopy={handleCopy} isCopied={copying === "Swift / BIC"} />
-                  <PaymentField label="Motif" value="Abonnement BudgetBati Pro - [Votre email]" copyable onCopy={handleCopy} isCopied={copying === "Motif"} />
                 </div>
               </div>
 
@@ -515,7 +514,6 @@ export default function PricingPage() {
                 <div className="divide-y divide-border/30">
                   <PaymentField label="Téléphone D17" value={D17_INFO.phone} copyable onCopy={handleCopy} isCopied={copying === "Téléphone D17"} />
                   <PaymentField label="Email" value={D17_INFO.email} copyable onCopy={handleCopy} isCopied={copying === "Email"} />
-                  <PaymentField label="Motif" value="Abonnement BudgetBati Pro - [Votre email]" copyable onCopy={handleCopy} isCopied={copying === "Motif"} />
                 </div>
               </div>
 
