@@ -529,6 +529,51 @@ const schema = defineSchema(
       optimizationTips: v.optional(v.array(v.string())),
       technicalRecommendations: v.optional(v.array(v.string())),
       
+      // Predictive intelligence (Pro/Expert) — AI price forecasts & buying advice
+      predictiveInsights: v.optional(
+        v.object({
+          summary: v.string(),
+          pricePredictions: v.array(
+            v.object({
+              material: v.string(),
+              category: v.string(),
+              predictedChangePct: v.number(),
+              trend: v.union(
+                v.literal("hausse"),
+                v.literal("baisse"),
+                v.literal("stable")
+              ),
+              horizon: v.string(),
+              reasoning: v.string(),
+            })
+          ),
+          bestBuyingPeriods: v.array(
+            v.object({
+              material: v.string(),
+              period: v.string(),
+              reason: v.string(),
+              savingPct: v.number(),
+            })
+          ),
+          budgetOptimizations: v.array(
+            v.object({
+              title: v.string(),
+              description: v.string(),
+              potentialSaving: v.number(),
+            })
+          ),
+          lossReductions: v.array(
+            v.object({
+              title: v.string(),
+              description: v.string(),
+              estimatedSavingPct: v.number(),
+            })
+          ),
+          overallSavingsPct: v.number(),
+          generatedAt: v.number(),
+        })
+      ),
+      
       // File references
       files: v.optional(
         v.array(
