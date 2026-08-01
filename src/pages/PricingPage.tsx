@@ -527,7 +527,7 @@ export default function PricingPage() {
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-xs font-semibold">D17 · La Poste Tunisienne</p>
-                      <p className="truncate text-[10px] text-muted-foreground">Bénéficiaire : {D17_INFO.merchantName}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">Paiement marchand</p>
                     </div>
                   </div>
                   <span className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-bold text-white">
@@ -535,6 +535,29 @@ export default function PricingPage() {
                   </span>
                 </div>
                 <div className="divide-y divide-border/30">
+                  {/* Bénéficiaire bien visible */}
+                  <div className="flex items-center justify-between gap-3 bg-amber-500/[0.07] px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/15">
+                        <UserRound className="h-3.5 w-3.5 text-amber-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Bénéficiaire</p>
+                        <p className="truncate text-sm font-bold">{D17_INFO.merchantName}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleCopy(D17_INFO.merchantName, "Bénéficiaire")}
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                      title="Copier le bénéficiaire"
+                    >
+                      {copying === "Bénéficiaire" ? (
+                        <CheckCheck className="h-3.5 w-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
                   <PaymentField label="Téléphone D17" value={D17_INFO.phone} copyable onCopy={handleCopy} isCopied={copying === "Téléphone D17"} />
                   <PaymentField label="Email" value={D17_INFO.email} copyable onCopy={handleCopy} isCopied={copying === "Email"} />
                 </div>
