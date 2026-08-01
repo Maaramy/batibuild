@@ -98,24 +98,22 @@ function PaymentField({
   isCopied?: boolean;
 }) {
   return (
-    <div className="relative rounded-lg border border-border/40 bg-muted/10 px-3.5 py-3">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <div className="mt-1 flex items-center justify-between gap-2">
-        <span className="min-w-0 break-all text-right text-xs font-semibold leading-snug">{value}</span>
-        {copyable && (
-          <button
-            onClick={() => onCopy(value, label)}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/40 transition-colors hover:bg-muted/60"
-            title={`Copier ${label}`}
-          >
-            {isCopied ? (
-              <CheckCheck className="h-3.5 w-3.5 text-emerald-500" />
-            ) : (
-              <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-            )}
-          </button>
-        )}
-      </div>
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+      <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">{label}</span>
+      <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{value}</span>
+      {copyable && (
+        <button
+          onClick={() => onCopy(value, label)}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          title={`Copier ${label}`}
+        >
+          {isCopied ? (
+            <CheckCheck className="h-3.5 w-3.5 text-emerald-500" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
+        </button>
+      )}
     </div>
   );
 }
@@ -425,208 +423,117 @@ export default function PricingPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="rounded-2xl border-2 border-primary/10 bg-gradient-to-br from-primary/[0.02] to-background p-6 sm:p-8 scroll-mt-24"
+          className="rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.02] to-background p-5 sm:p-6 scroll-mt-24"
         >
-          <div className="flex items-center gap-3 mb-5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-              <Wallet className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <Wallet className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Moyen de paiement</h2>
-              <p className="text-xs text-muted-foreground">
-                Choisissez votre méthode de paiement pour l'abonnement <strong>{selectedPlan === "expert" ? "Expert" : "Pro"} à {currentPrice} {currency}/mois</strong>.
+              <h2 className="text-base font-semibold leading-tight">Moyen de paiement</h2>
+              <p className="text-[11px] text-muted-foreground">
+                Forfait <strong>{selectedPlan === "expert" ? "Expert" : "Pro"} · {currentPrice} {currency}/mois</strong>
               </p>
             </div>
           </div>
 
-          {/* Payment method selector */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          {/* Payment method selector — compact segmented control */}
+          <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
             <button
               onClick={() => setPaymentMethod("bank_transfer")}
-              className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all duration-200 ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
                 paymentMethod === "bank_transfer"
-                  ? "border-primary/60 bg-primary/[0.06] shadow-sm shadow-primary/10"
-                  : "border-border/40 bg-background hover:border-border/70 hover:bg-muted/20"
+                  ? "border-border/40 bg-background text-primary shadow-sm"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  paymentMethod === "bank_transfer"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground group-hover:bg-muted/70"
-                }`}
-              >
-                <Banknote className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-semibold ${paymentMethod === "bank_transfer" ? "text-primary" : ""}`}>
-                  Virement bancaire
-                </p>
-                <p className="text-[10px] text-muted-foreground truncate">RIB · IBAN · Swift/BIC</p>
-              </div>
-              <div
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
-                  paymentMethod === "bank_transfer"
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border/60 text-transparent"
-                }`}
-              >
-                <Check className="h-3 w-3" strokeWidth={3} />
-              </div>
+              <Banknote className="h-3.5 w-3.5" />
+              Virement bancaire
             </button>
-
             <button
               onClick={() => setPaymentMethod("d17")}
-              className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all duration-200 ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
                 paymentMethod === "d17"
-                  ? "border-amber-500/60 bg-amber-500/[0.06] shadow-sm shadow-amber-500/10"
-                  : "border-border/40 bg-background hover:border-border/70 hover:bg-muted/20"
+                  ? "border-border/40 bg-background text-amber-600 shadow-sm"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  paymentMethod === "d17"
-                    ? "bg-amber-500 text-white"
-                    : "bg-muted text-muted-foreground group-hover:bg-muted/70"
-                }`}
-              >
-                <Smartphone className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-semibold ${paymentMethod === "d17" ? "text-amber-600" : ""}`}>
-                  D17 (Poste Tunisienne)
-                </p>
-                <p className="text-[10px] text-muted-foreground truncate">Paiement marchand · Mobile</p>
-              </div>
-              <div
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
-                  paymentMethod === "d17"
-                    ? "border-amber-500 bg-amber-500 text-white"
-                    : "border-border/60 text-transparent"
-                }`}
-              >
-                <Check className="h-3 w-3" strokeWidth={3} />
-              </div>
+              <Smartphone className="h-3.5 w-3.5" />
+              D17
             </button>
           </div>
 
           {paymentMethod === "bank_transfer" ? (
             <>
-              <div className="overflow-hidden rounded-2xl border border-border/40 bg-background shadow-sm">
-                <div className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/80 px-5 py-5">
-                  <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10" />
-                  <div className="pointer-events-none absolute -bottom-14 right-12 h-28 w-28 rounded-full bg-white/5" />
-                  <div className="relative flex items-center justify-between gap-4">
+              <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-muted/10 px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                      <Landmark className="h-4 w-4 text-primary" />
+                    </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <Banknote className="h-3.5 w-3.5 text-white/80" />
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">
-                          Virement bancaire
-                        </p>
-                      </div>
-                      <p className="mt-1 truncate text-lg font-bold text-white leading-tight">{BANK_INFO.bank}</p>
-                      <p className="mt-0.5 text-xs text-white/75">
-                        Titulaire : <span className="font-semibold text-white">{BANK_INFO.titulaire}</span>
-                      </p>
-                    </div>
-                    <div className="hidden shrink-0 items-center justify-center rounded-2xl bg-white/15 p-3 backdrop-blur-sm sm:flex">
-                      <Landmark className="h-6 w-6 text-white" />
+                      <p className="truncate text-xs font-semibold">{BANK_INFO.bank}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">Titulaire : {BANK_INFO.titulaire}</p>
                     </div>
                   </div>
+                  <span className="shrink-0 rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground">
+                    {BANK_INFO.montant}
+                  </span>
                 </div>
-
-                <div className="space-y-2.5 p-4 sm:p-5">
-                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                    <PaymentField label="RIB" value={BANK_INFO.rib} copyable onCopy={handleCopy} isCopied={copying === "RIB"} />
-                    <PaymentField label="IBAN" value={BANK_INFO.iban} copyable onCopy={handleCopy} isCopied={copying === "IBAN"} />
-                  </div>
-                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                    <PaymentField label="Swift / BIC" value={BANK_INFO.swift} copyable onCopy={handleCopy} isCopied={copying === "Swift / BIC"} />
-                    <PaymentField label="Motif du virement" value="Abonnement BudgetBati Pro - [Votre email]" copyable onCopy={handleCopy} isCopied={copying === "Motif du virement"} />
-                  </div>
-
-                  <div className="mt-1 flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-primary/[0.07] px-4 py-3.5">
-                    <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Montant à virer</p>
-                      <p className="text-[10px] text-muted-foreground/70">/ mois · paiement unique</p>
-                    </div>
-                    <span className="text-xl font-bold text-primary">{BANK_INFO.montant}</span>
-                  </div>
+                <div className="divide-y divide-border/30">
+                  <PaymentField label="RIB" value={BANK_INFO.rib} copyable onCopy={handleCopy} isCopied={copying === "RIB"} />
+                  <PaymentField label="IBAN" value={BANK_INFO.iban} copyable onCopy={handleCopy} isCopied={copying === "IBAN"} />
+                  <PaymentField label="Swift / BIC" value={BANK_INFO.swift} copyable onCopy={handleCopy} isCopied={copying === "Swift / BIC"} />
+                  <PaymentField label="Motif" value="Abonnement BudgetBati Pro - [Votre email]" copyable onCopy={handleCopy} isCopied={copying === "Motif"} />
                 </div>
               </div>
 
-              <div className="mt-4 flex items-start gap-2 text-[10px] text-muted-foreground/60">
+              <div className="mt-2.5 flex items-start gap-1.5 text-[10px] text-muted-foreground/70">
                 <Shield className="h-3 w-3 shrink-0 mt-0.5" />
                 <p>
-                  Une fois le virement effectué, votre abonnement sera activé manuellement sous 24h ouvrées.
-                  Vous recevrez une confirmation par email. Pour toute question : support@budgetbati.tn
+                  Activation manuelle sous 24h ouvrées après réception du virement. Confirmation par email. Question ? support@budgetbati.tn
                 </p>
               </div>
             </>
           ) : (
             <>
-              <div className="overflow-hidden rounded-2xl border border-border/40 bg-background shadow-sm">
-                <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 via-amber-500 to-orange-600 px-5 py-5">
-                  <div className="pointer-events-none absolute -left-8 -top-10 h-32 w-32 rounded-full bg-white/10" />
-                  <div className="pointer-events-none absolute -bottom-14 right-12 h-28 w-28 rounded-full bg-white/5" />
-                  <div className="relative flex items-center justify-between gap-4">
+              <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-amber-500/[0.07] px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15">
+                      <Smartphone className="h-4 w-4 text-amber-600" />
+                    </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <Smartphone className="h-3.5 w-3.5 text-white/80" />
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">
-                          D17 · La Poste Tunisienne
-                        </p>
-                      </div>
-                      <p className="mt-1 text-lg font-bold text-white leading-tight">Paiement marchand</p>
-                      <p className="mt-0.5 text-xs text-white/75">
-                        Bénéficiaire : <span className="font-semibold text-white">{D17_INFO.merchantName}</span>
-                      </p>
-                    </div>
-                    <div className="hidden shrink-0 items-center justify-center rounded-2xl bg-white/15 p-3 backdrop-blur-sm sm:flex">
-                      <Wallet className="h-6 w-6 text-white" />
+                      <p className="truncate text-xs font-semibold">D17 · La Poste Tunisienne</p>
+                      <p className="truncate text-[10px] text-muted-foreground">Bénéficiaire : {D17_INFO.merchantName}</p>
                     </div>
                   </div>
+                  <span className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-bold text-white">
+                    {D17_INFO.montant}
+                  </span>
                 </div>
-
-                <div className="space-y-2.5 p-4 sm:p-5">
-                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                    <PaymentField label="Téléphone D17" value={D17_INFO.phone} copyable onCopy={handleCopy} isCopied={copying === "Téléphone D17"} />
-                    <PaymentField label="Email" value={D17_INFO.email} copyable onCopy={handleCopy} isCopied={copying === "Email"} />
-                  </div>
-                  <PaymentField label="Motif du paiement" value="Abonnement BudgetBati Pro - [Votre email]" copyable onCopy={handleCopy} isCopied={copying === "Motif du paiement"} />
-
-                  <div className="mt-1 flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.08] px-4 py-3.5">
-                    <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Montant à payer</p>
-                      <p className="text-[10px] text-muted-foreground/70">via l'application D17</p>
-                    </div>
-                    <span className="text-xl font-bold text-amber-600">{D17_INFO.montant}</span>
-                  </div>
+                <div className="divide-y divide-border/30">
+                  <PaymentField label="Téléphone D17" value={D17_INFO.phone} copyable onCopy={handleCopy} isCopied={copying === "Téléphone D17"} />
+                  <PaymentField label="Email" value={D17_INFO.email} copyable onCopy={handleCopy} isCopied={copying === "Email"} />
+                  <PaymentField label="Motif" value="Abonnement BudgetBati Pro - [Votre email]" copyable onCopy={handleCopy} isCopied={copying === "Motif"} />
                 </div>
               </div>
 
-              <div className="mt-4 space-y-2">
-                <div className="flex items-start gap-2 text-[10px] text-muted-foreground/60">
-                  <Shield className="h-3 w-3 shrink-0 mt-0.5" />
-                  <p>
-                    {D17_INFO.notice}. Votre abonnement sera activé manuellement sous 24h ouvrées.
-                    Vous recevrez une confirmation par email.
-                  </p>
-                </div>
-                <div className="flex items-start gap-3 rounded-xl border border-amber-200/50 bg-amber-50 p-4">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm">
-                    <Smartphone className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold text-amber-700">Comment payer avec D17 ?</p>
-                    <ol className="mt-1.5 space-y-1 text-[10px] leading-relaxed text-amber-700/90">
-                      <li>1. Ouvrez l'application D17 sur votre téléphone</li>
-                      <li>2. Sélectionnez « Paiement marchand »</li>
-                      <li>3. Entrez le téléphone ci-dessus et le montant de {currentPrice} {currency}</li>
-                      <li>4. Envoyez-nous la confirmation par email</li>
-                    </ol>
-                  </div>
-                </div>
+              <div className="mt-2.5 flex items-start gap-1.5 text-[10px] text-muted-foreground/70">
+                <Shield className="h-3 w-3 shrink-0 mt-0.5" />
+                <p>
+                  {D17_INFO.notice}. Activation manuelle sous 24h ouvrées.
+                </p>
+              </div>
+
+              <div className="mt-2.5 rounded-lg border border-amber-200/50 bg-amber-50/60 px-3 py-2.5">
+                <p className="text-[10px] font-semibold text-amber-700">Comment payer avec D17 ?</p>
+                <ol className="mt-1 grid grid-cols-1 gap-x-4 gap-y-0.5 text-[10px] leading-relaxed text-amber-700/90 sm:grid-cols-2">
+                  <li>1. Ouvrez l'application D17</li>
+                  <li>2. Sélectionnez « Paiement marchand »</li>
+                  <li>3. Entrez le téléphone et le montant de {currentPrice} {currency}</li>
+                  <li>4. Envoyez la confirmation par email</li>
+                </ol>
               </div>
             </>
           )}
