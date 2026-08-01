@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, FileText, Banknote, Copy, CheckCheck, Smartphone, Wallet, Landmark, Upload, Image, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, FileText, Banknote, Copy, CheckCheck, Smartphone, Wallet, Landmark, UserRound, Upload, Image, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
@@ -473,7 +473,7 @@ export default function PricingPage() {
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-xs font-semibold">{BANK_INFO.bank}</p>
-                      <p className="truncate text-[10px] text-muted-foreground">Titulaire : {BANK_INFO.titulaire}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">Coordonnées bancaires</p>
                     </div>
                   </div>
                   <span className="shrink-0 rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground">
@@ -481,6 +481,29 @@ export default function PricingPage() {
                   </span>
                 </div>
                 <div className="divide-y divide-border/30">
+                  {/* Titulaire bien visible */}
+                  <div className="flex items-center justify-between gap-3 bg-primary/[0.04] px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                        <UserRound className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Titulaire du compte</p>
+                        <p className="truncate text-sm font-bold">{BANK_INFO.titulaire}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleCopy(BANK_INFO.titulaire, "Titulaire")}
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                      title="Copier le titulaire"
+                    >
+                      {copying === "Titulaire" ? (
+                        <CheckCheck className="h-3.5 w-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
                   <PaymentField label="RIB" value={BANK_INFO.rib} copyable onCopy={handleCopy} isCopied={copying === "RIB"} />
                   <PaymentField label="IBAN" value={BANK_INFO.iban} copyable onCopy={handleCopy} isCopied={copying === "IBAN"} />
                   <PaymentField label="Swift / BIC" value={BANK_INFO.swift} copyable onCopy={handleCopy} isCopied={copying === "Swift / BIC"} />
