@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -257,6 +257,14 @@ export default function SupplierDashboard() {
   const plan = (profile as any)?.plan || "none";
   const MONTHLY_PRICE = paymentConfig?.supplierPrice || (profile as any)?.price || 120;
 
+  // Dès que le paiement est validé (forfait actif), on ferme automatiquement le popup
+  // pour que les coordonnées disparaissent jusqu'à la fin du forfait
+  useEffect(() => {
+    if (effStatus === "active") {
+      setShowPaymentChoice(false);
+    }
+  }, [effStatus]);
+
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
     active: { label: "Abonné Pro", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: ShieldCheck },
     pending: { label: "En attente", color: "bg-amber-100 text-amber-700 border-amber-200", icon: Clock3 },
@@ -367,7 +375,7 @@ export default function SupplierDashboard() {
               )}
 
               {/* ═══ Payment Method Choice Popup ═══ */}
-              {(showPaymentChoice || effStatus === "pending") && (
+              {(showPaymentChoice || effStatus === "pending") && effStatus !== "active" && (
                 <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.02] to-background">
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-center justify-between">
