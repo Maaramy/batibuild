@@ -1896,7 +1896,7 @@ export default function ProjectDetail() {
                           <p className="text-[10px] text-muted-foreground/60">
                             Analyse générée le {new Date(insights.generatedAt).toLocaleDateString("fr-FR")} · Données indicatives basées sur les prix du marché tunisien
                           </p>
-                          <Button size="sm" variant="outline" className="h-8 text-[12px] gap-1.5" disabled={predictiveLoading}
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 px-2" disabled={predictiveLoading}
                             onClick={handleGeneratePredictive}>
                             {predictiveLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                             Régénérer l'analyse
