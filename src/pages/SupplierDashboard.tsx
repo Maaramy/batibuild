@@ -5,6 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
@@ -17,6 +24,7 @@ import {
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard,
   Store, ShieldCheck, Trash2, AlertTriangle,
   Banknote, Smartphone, Landmark, UserRound, Clock3, Upload, Image as ImageIcon, X,
+  Wallet,
 } from "lucide-react";
 
 // ============================================================================
@@ -70,6 +78,104 @@ const TUNISIA_REGIONS = [
 ];
 
 // ============================================================================
+// Payment Coordinates (bank + D17) — reused in the choice card & popup
+// ============================================================================
+
+function PaymentCoordinates({
+  paymentConfig,
+  monthlyPrice,
+}: {
+  paymentConfig: any;
+  monthlyPrice: number;
+}) {
+  return (
+    <div className="space-y-3">
+      {/* Bank transfer */}
+      <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-muted/10 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <Landmark className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold">{paymentConfig?.bankName || "Banque de Tunisie"}</p>
+              <p className="truncate text-[10px] text-muted-foreground">Coordonnées bancaires</p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground">
+            {monthlyPrice} TND
+          </span>
+        </div>
+        <div className="divide-y divide-border/30">
+          <div className="flex items-center justify-between gap-3 bg-primary/[0.04] px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                <UserRound className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Titulaire du compte</p>
+                <p className="truncate text-sm font-bold">{paymentConfig?.bankTitulaire || "GALISKON PROJECT"}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">RIB</span>
+            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.bankRib || "TN59 0700 1123 4567 8901 2347"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">IBAN</span>
+            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.bankIban || "TN59 0700 1123 4567 8901 2347"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">Swift / BIC</span>
+            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.bankSwift || "BTBK TN TT"}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* D17 */}
+      <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-amber-500/[0.07] px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15">
+              <Smartphone className="h-4 w-4 text-amber-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold">D17 · La Poste Tunisienne</p>
+              <p className="truncate text-[10px] text-muted-foreground">Paiement marchand</p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-bold text-white">
+            {monthlyPrice} TND
+          </span>
+        </div>
+        <div className="divide-y divide-border/30">
+          <div className="flex items-center justify-between gap-3 bg-amber-500/[0.07] px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/15">
+                <UserRound className="h-3.5 w-3.5 text-amber-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Bénéficiaire</p>
+                <p className="truncate text-sm font-bold">{paymentConfig?.d17MerchantName || "GALISKON PROJECT"}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">Téléphone D17</span>
+            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.d17Phone || "+216 XX XXX XXX"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">Email</span>
+            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.d17Email || "paiement@budgetbati.tn"}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // Page Component
 // ============================================================================
 
@@ -92,6 +198,7 @@ export default function SupplierDashboard() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [supplierPaymentMethod, setSupplierPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
   const [showPaymentChoice, setShowPaymentChoice] = useState(false);
+  const [showPaymentInfo, setShowPaymentInfo] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
@@ -333,6 +440,11 @@ export default function SupplierDashboard() {
 
                     {/* Action buttons */}
                     <div className="flex flex-col sm:items-end gap-2">
+                      <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
+                        onClick={() => setShowPaymentInfo(true)}>
+                        <Wallet className="h-3 w-3" />
+                        Moyen de paiement
+                      </Button>
                       {(effStatus === "inactive" || effStatus === "expired") && (
                         <Button size="sm" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
                           onClick={() => setShowPaymentChoice(true)}>
@@ -814,6 +926,26 @@ export default function SupplierDashboard() {
             </div>
           )}
         </motion.div>
+
+        {/* ═══ Popup : Moyen de paiement (coordonnées bancaires + D17) ═══ */}
+        <Dialog open={showPaymentInfo} onOpenChange={setShowPaymentInfo}>
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" />
+                Moyen de paiement
+              </DialogTitle>
+              <DialogDescription>
+                Coordonnées pour régler votre abonnement fournisseur ({MONTHLY_PRICE} TND/mois)
+              </DialogDescription>
+            </DialogHeader>
+            <PaymentCoordinates paymentConfig={paymentConfig} monthlyPrice={MONTHLY_PRICE} />
+            <div className="flex items-start gap-1.5 text-[10px] text-muted-foreground/70">
+              <ShieldCheck className="h-3 w-3 shrink-0 mt-0.5" />
+              <p>Activation manuelle sous 24h ouvrées après réception du paiement. Joignez votre reçu pour accélérer l'activation.</p>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </main>
   );
