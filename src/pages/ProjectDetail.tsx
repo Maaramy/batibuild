@@ -1784,9 +1784,9 @@ export default function ProjectDetail() {
                     {insights ? (
                       <>
                         {/* Summary */}
-                        <div className="flex items-start gap-2 p-3 rounded-lg bg-violet-500/[0.04] border border-violet-200/30">
-                          <Sparkles className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
-                          <p className="text-[13px] text-muted-foreground leading-relaxed">{insights.summary}</p>
+                        <div className="flex items-start gap-1.5 p-2 rounded-lg bg-violet-500/[0.04] border border-violet-200/30">
+                          <Sparkles className="h-3.5 w-3.5 text-violet-500 shrink-0 mt-0.5" />
+                          <p className="text-[11px] text-muted-foreground leading-snug">{insights.summary}</p>
                         </div>
 
                         {/* Price predictions */}
