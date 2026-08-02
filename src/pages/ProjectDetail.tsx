@@ -1939,6 +1939,7 @@ export default function ProjectDetail() {
                       <Brain className="h-4 w-4" />
                     </div>
                     <h3 className="text-[15px] font-semibold">Intelligence prédictive</h3>
+                    <Badge className="text-[9px] bg-slate-100 text-slate-500 border-slate-200/60">Start</Badge>
                     <Badge className="text-[9px] gap-0.5 bg-violet-100 text-violet-600 border-violet-200 ml-auto">
                       <Crown className="h-2.5 w-2.5" /> PRO / EXPERT
                     </Badge>
