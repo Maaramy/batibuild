@@ -186,6 +186,7 @@ export default function ProjectDetail() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
+  const [showAllProviders, setShowAllProviders] = useState(false);
   
   // Fetch supplier profile when one is selected
   const selectedProfileId = selectedSupplierId?.startsWith('registered_') 
@@ -1993,7 +1994,7 @@ export default function ProjectDetail() {
                             <p className={`text-[12px] font-semibold ${cfg.txt}`}>{cfg.label} ({items.length})</p>
                           </div>
                           <div className="space-y-1">
-                            {items.map((p: any, i: number) => (
+                            {items.slice(0, showAllProviders ? items.length : 3).map((p: any, i: number) => (
                               <div key={i} className="p-2.5 rounded-lg hover:bg-muted/20 transition-colors border border-border/10">
                                 <div className="flex items-start gap-2">
                                   <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${cfg.iconBg} ${cfg.iconTxt}`}>
@@ -2077,6 +2078,24 @@ export default function ProjectDetail() {
                         </div>
                       );
                     })}
+                    {project.providerRecommendations.providers.length > 3 && (
+                      <button
+                        onClick={() => setShowAllProviders((v) => !v)}
+                        className="w-full flex items-center justify-center gap-1.5 mt-2 py-2 rounded-lg border border-primary/15 bg-primary/[0.03] text-[12px] font-medium text-primary hover:bg-primary/[0.07] hover:border-primary/25 active:scale-[0.99] transition-all"
+                      >
+                        {showAllProviders ? (
+                          <>
+                            <ChevronUp className="h-3.5 w-3.5" />
+                            Voir moins
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-3.5 w-3.5" />
+                            Voir plus ({project.providerRecommendations.providers.length - 3})
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
