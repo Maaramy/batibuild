@@ -128,6 +128,8 @@ export default function AdminPanel() {
   const deleteProjectMutation = useMutation(api.projects.deleteProject);
   const adminDeleteSupplierProfile = useMutation(api.supplierProfiles.adminDeleteProfile);
   const adminToggleSupplierVisibility = useMutation(api.supplierProfiles.adminToggleVisibility);
+  const approveSupplierSub = useMutation(api.supplierProfiles.adminApproveSupplierSubscription);
+  const rejectSupplierSub = useMutation(api.supplierProfiles.adminRejectSupplierSubscription);
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -418,9 +420,14 @@ export default function AdminPanel() {
                 <HardHat className="h-3.5 w-3.5" />
                 <span>Limites</span>
               </TabsTrigger>
-              <TabsTrigger value="fournisseurs" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+              <TabsTrigger value="fournisseurs" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Building2 className="h-3.5 w-3.5" />
                 <span>Fournisseurs</span>
+                {allSuppliers.filter((s: any) => s.subscriptionStatus === "pending").length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white shadow-sm">
+                    {allSuppliers.filter((s: any) => s.subscriptionStatus === "pending").length}
+                  </span>
+                )}
               </TabsTrigger>
               <TabsTrigger value="seo" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Globe className="h-3.5 w-3.5" />
@@ -509,6 +516,7 @@ export default function AdminPanel() {
                           <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Spécialités</th>
                           <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Statut</th>
                           <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Visibilité</th>
+                          <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Reçu</th>
                           <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs">Actions</th>
                         </tr>
                       </thead>
@@ -524,11 +532,13 @@ export default function AdminPanel() {
                           .map((profile: any) => {
                           const statusColors: Record<string, string> = {
                             active: "bg-emerald-500/10 text-emerald-600 border-emerald-200/30",
+                            pending: "bg-amber-500/10 text-amber-600 border-amber-200/30",
                             expired: "bg-red-500/10 text-red-600 border-red-200/30",
                             inactive: "bg-muted/30 text-muted-foreground border-muted-foreground/20",
                           };
                           const statusLabels: Record<string, string> = {
                             active: "Actif",
+                            pending: "En attente",
                             expired: "Expiré",
                             inactive: "Inactif",
                           };
@@ -628,8 +638,60 @@ export default function AdminPanel() {
                                   )}
                                 </button>
                               </td>
+                              <td className="py-3 px-3 text-center hidden md:table-cell">
+                                {profile.paymentProofUrl ? (
+                                  <a
+                                    href={profile.paymentProofUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={profile.paymentProofFileName || "Voir le reçu"}
+                                    className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+                                  >
+                                    <Banknote className="h-3 w-3" />
+                                    Voir
+                                  </a>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground/50">—</span>
+                                )}
+                              </td>
                               <td className="py-3 px-3 text-right">
                                 <div className="flex items-center justify-end gap-1">
+                                  {subStatus === "pending" && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          if (!window.confirm("Approuver l'abonnement de " + (profile.companyName || "ce fournisseur") + " ?")) return;
+                                          try {
+                                            await approveSupplierSub({ profileId: profile._id });
+                                            toast.success("Abonnement fournisseur approuvé");
+                                          } catch (err: any) {
+                                            toast.error(err.message || "Erreur");
+                                          }
+                                        }}
+                                        className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors"
+                                        title="Approuver le paiement"
+                                      >
+                                        <ThumbsUp className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          if (!window.confirm("Refuser l'abonnement de " + (profile.companyName || "ce fournisseur") + " ?")) return;
+                                          try {
+                                            await rejectSupplierSub({ profileId: profile._id });
+                                            toast.success("Abonnement fournisseur refusé");
+                                          } catch (err: any) {
+                                            toast.error(err.message || "Erreur");
+                                          }
+                                        }}
+                                        className="p-1.5 rounded-md bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+                                        title="Refuser le paiement"
+                                      >
+                                        <ThumbsDown className="h-3.5 w-3.5" />
+                                      </button>
+                                    </>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={handleToggle}
@@ -677,6 +739,12 @@ export default function AdminPanel() {
                         <span className="h-2 w-2 rounded-full bg-emerald-500" />
                         {allSuppliers.filter((s: any) => s.subscriptionStatus === "active").length} actif(s)
                       </span>
+                      {allSuppliers.filter((s: any) => s.subscriptionStatus === "pending").length > 0 && (
+                        <span className="flex items-center gap-1">
+                          <span className="h-2 w-2 rounded-full bg-amber-500" />
+                          {allSuppliers.filter((s: any) => s.subscriptionStatus === "pending").length} en attente
+                        </span>
+                      )}
                     </div>
                     <p className="text-[10px] text-muted-foreground">
                       {allSuppliers.length} fournisseur(s) au total
@@ -775,8 +843,8 @@ export default function AdminPanel() {
                     <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
                       <div>
                         <p className="text-[9px] text-muted-foreground">Abonnement</p>
-                        <Badge className={cn("text-[9px] mt-0.5", selectedSupplier.subscriptionStatus === "active" ? "bg-emerald-500/10 text-emerald-600" : "bg-muted/30 text-muted-foreground")}>
-                          {({active:"Actif",trial:"Inactif",expired:"Expiré",inactive:"Inactif"} as Record<string,string>)[selectedSupplier.subscriptionStatus || "inactive"] || selectedSupplier.subscriptionStatus}
+                        <Badge className={cn("text-[9px] mt-0.5", selectedSupplier.subscriptionStatus === "active" ? "bg-emerald-500/10 text-emerald-600" : selectedSupplier.subscriptionStatus === "pending" ? "bg-amber-500/10 text-amber-600" : "bg-muted/30 text-muted-foreground")}>
+                          {({active:"Actif",pending:"En attente",trial:"Inactif",expired:"Expiré",inactive:"Inactif"} as Record<string,string>)[selectedSupplier.subscriptionStatus || "inactive"] || selectedSupplier.subscriptionStatus}
                         </Badge>
                       </div>
                       <div>
@@ -789,6 +857,45 @@ export default function AdminPanel() {
                         <p className="text-[9px] text-muted-foreground">Inscription</p>
                         <p className="text-xs">{selectedSupplier.createdAt ? new Date(selectedSupplier.createdAt).toLocaleDateString("fr-FR", {day:"numeric", month:"long", year:"numeric"}) : "—"}</p>
                       </div>
+                      {selectedSupplier.subscriptionStatus === "pending" && (
+                        <>
+                          <div className="col-span-2 mt-1">
+                            <p className="text-[9px] text-muted-foreground">Moyen de paiement</p>
+                            <p className="text-xs capitalize">{selectedSupplier.paymentMethod === "d17" ? "D17 (Poste Tunisienne)" : "Virement bancaire"}{selectedSupplier.paymentAmount ? ` · ${selectedSupplier.paymentAmount} TND` : ""}</p>
+                          </div>
+                          <div className="col-span-2">
+                            <p className="text-[9px] text-muted-foreground">Reçu de paiement</p>
+                            {selectedSupplier.paymentProofUrl ? (
+                              <a href={selectedSupplier.paymentProofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                                <Banknote className="h-3 w-3" />
+                                {selectedSupplier.paymentProofFileName || "Voir le reçu"}
+                              </a>
+                            ) : (
+                              <p className="text-xs text-muted-foreground/70">Non envoyé</p>
+                            )}
+                          </div>
+                          <div className="col-span-2 flex items-center gap-2 pt-1">
+                            <Button size="sm" className="h-8 text-xs gap-1" onClick={async () => {
+                              try {
+                                await approveSupplierSub({ profileId: selectedSupplier._id });
+                                toast.success("Abonnement fournisseur approuvé");
+                                setSelectedSupplier(null);
+                              } catch (err: any) { toast.error(err.message || "Erreur"); }
+                            }}>
+                              <ThumbsUp className="h-3 w-3" /> Approuver
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-red-500 hover:text-red-600" onClick={async () => {
+                              try {
+                                await rejectSupplierSub({ profileId: selectedSupplier._id });
+                                toast.success("Abonnement fournisseur refusé");
+                                setSelectedSupplier(null);
+                              } catch (err: any) { toast.error(err.message || "Erreur"); }
+                            }}>
+                              <ThumbsDown className="h-3 w-3" /> Refuser
+                            </Button>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-end gap-2 pt-2">

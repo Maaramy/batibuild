@@ -16,7 +16,7 @@ import {
   Building2, Phone, Mail, MapPin, Globe, CheckCircle2,
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard,
   Store, ShieldCheck, Trash2, AlertTriangle,
-  Banknote, Smartphone,
+  Banknote, Smartphone, Landmark, UserRound, Clock3, Upload, Image as ImageIcon, X,
 } from "lucide-react";
 
 // ============================================================================
@@ -77,10 +77,12 @@ export default function SupplierDashboard() {
   const navigate = useNavigate();
   const profile = useQuery(api.supplierProfiles.getMyProfile);
   const hasProfile = useQuery(api.supplierProfiles.hasSupplierProfile);
-  const paymentConfig = useQuery(api.payments.getPaymentConfigAdmin);
+  const paymentConfig = useQuery(api.payments.getPublicPricing);
   const createProfile = useMutation(api.supplierProfiles.createProfile);
   const updateProfile = useMutation(api.supplierProfiles.updateProfile);
-  const activateSub = useMutation(api.supplierProfiles.activateSubscription);
+  const requestSub = useMutation(api.supplierProfiles.requestSubscription);
+  const uploadSupplierPaymentProof = useMutation(api.supplierProfiles.uploadSupplierPaymentProof);
+  const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const toggleVis = useMutation(api.supplierProfiles.toggleVisibility);
   const deleteProfile = useMutation(api.supplierProfiles.deleteProfile);
 
@@ -90,6 +92,9 @@ export default function SupplierDashboard() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [supplierPaymentMethod, setSupplierPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
   const [showPaymentChoice, setShowPaymentChoice] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
 
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
@@ -167,17 +172,59 @@ export default function SupplierDashboard() {
     }
   };
 
-  const handleActivate = async () => {
+  const handleRequestSubscription = async () => {
     setActivating(true);
     try {
-      await activateSub();
+      await requestSub({ paymentMethod: supplierPaymentMethod });
       const method = supplierPaymentMethod === "d17" ? "D17" : "virement bancaire";
-      toast.success(`Abonnement mensuel activé ! (120 TND/mois - paiement par ${method})`);
+      toast.success(`Demande d'abonnement envoyée ! (${MONTHLY_PRICE} TND/mois - paiement par ${method})`);
       setShowPaymentChoice(false);
     } catch (err: any) {
-      toast.error(err.message || "Erreur d'activation");
+      toast.error(err.message || "Erreur lors de la demande");
     } finally {
       setActivating(false);
+    }
+  };
+
+  const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+      toast.error("Format accepté : image (JPG, PNG) ou PDF");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux (max 5 Mo)");
+      return;
+    }
+    setUploading(true);
+    setUploadProgress(10);
+    try {
+      const uploadUrl = await generateUploadUrl();
+      setUploadProgress(30);
+      const result = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      setUploadProgress(70);
+      if (!result.ok) throw new Error("Échec de l'upload");
+      const { storageId } = await result.json();
+      setUploadProgress(85);
+      const fileUrl = `${window.location.origin}/api/storage/${storageId}`;
+      await uploadSupplierPaymentProof({
+        storageId: storageId as any,
+        url: fileUrl,
+        fileName: file.name,
+      });
+      setUploadProgress(100);
+      setUploadedFile(file.name);
+      toast.success("Reçu de paiement envoyé avec succès !");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'upload du reçu");
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -205,10 +252,11 @@ export default function SupplierDashboard() {
   const effStatus = (profile as any)?.effectiveStatus || profile?.subscriptionStatus || "inactive";
   const remainingDays = (profile as any)?.remainingDays ?? 0;
   const plan = (profile as any)?.plan || "none";
-  const MONTHLY_PRICE = paymentConfig?.supplierPrice || (profile as any)?.MONTHLY_PRICE || 120;
+  const MONTHLY_PRICE = paymentConfig?.supplierPrice || (profile as any)?.price || 120;
 
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
     active: { label: "Abonné Pro", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: ShieldCheck },
+    pending: { label: "En attente", color: "bg-amber-100 text-amber-700 border-amber-200", icon: Clock3 },
     inactive: { label: "Inactif", color: "bg-slate-100 text-slate-600 border-slate-200", icon: Store },
     expired: { label: "Expiré", color: "bg-red-100 text-red-700 border-red-200", icon: AlertTriangle },
   };
@@ -265,7 +313,7 @@ export default function SupplierDashboard() {
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1.5">
                           {profile.specialties?.length || 0} spécialités · {(profile as any).regions?.length || 0} régions
-                          {plan === "monthly" && " · 120 TND/mois"}
+                          {plan === "monthly" && ` · ${MONTHLY_PRICE} TND/mois`}
                         </p>
                       </div>
                     </div>
@@ -276,7 +324,7 @@ export default function SupplierDashboard() {
                         <Button size="sm" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
                           onClick={() => setShowPaymentChoice(true)}>
                           <CreditCard className="h-3 w-3" />
-                          120 TND/mois
+                          {MONTHLY_PRICE} TND/mois
                         </Button>
                       )}
                     </div>
@@ -315,53 +363,202 @@ export default function SupplierDashboard() {
                 </div>
               )}
 
+              {/* ═══ Pending payment status + receipt upload ═══ */}
+              {effStatus === "pending" && (
+                <div className="space-y-3">
+                  <div className="px-4 py-3 rounded-xl bg-amber-50/50 border border-amber-200/30">
+                    <div className="flex items-start gap-2">
+                      <Clock3 className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-semibold text-amber-700">Paiement en attente de validation</p>
+                        <p className="text-[10px] text-amber-600/70 mt-0.5">
+                          Votre abonnement sera activé dès vérification du{" "}
+                          {(profile as any)?.paymentMethod === "d17" ? "paiement D17" : "virement bancaire"} ({MONTHLY_PRICE} TND/mois).
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-4 py-3 rounded-xl bg-white/50 border border-border/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Upload className="h-3.5 w-3.5 text-primary" />
+                      <p className="text-xs font-semibold">Joindre votre reçu de paiement</p>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground mb-3">
+                      Ajoutez une capture d'écran du {(profile as any)?.paymentMethod === "d17" ? "paiement D17" : "virement bancaire"} pour accélérer l'activation.
+                    </p>
+                    {(profile as any)?.paymentProofUrl || uploadedFile ? (
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                          <span className="text-xs text-emerald-700 truncate">{uploadedFile || (profile as any)?.paymentProofFileName || "Reçu envoyé"}</span>
+                        </div>
+                        {uploadedFile && (
+                          <button onClick={() => setUploadedFile(null)} className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-emerald-100 transition-colors shrink-0">
+                            <X className="h-3 w-3 text-emerald-500" />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        {uploading ? (
+                          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/20">
+                            <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                            <div className="flex-1">
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                              </div>
+                              <p className="text-[9px] text-muted-foreground mt-1">Téléchargement... {uploadProgress}%</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <label className="flex items-center gap-2 p-3 rounded-lg border-2 border-dashed border-border/40 hover:border-primary/40 cursor-pointer transition-all hover:bg-muted/20">
+                            <ImageIcon className="h-5 w-5 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium">Cliquez pour ajouter un reçu</p>
+                              <p className="text-[9px] text-muted-foreground">Image ou PDF · Max 5 Mo</p>
+                            </div>
+                            <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <input type="file" accept="image/*,.pdf" onChange={handleUploadReceipt} className="hidden" />
+                          </label>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* ═══ Payment Method Choice Popup ═══ */}
               {showPaymentChoice && (
                 <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.02] to-background">
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold">Choisissez votre moyen de paiement</p>
+                      <p className="text-sm font-semibold">Moyen de paiement</p>
                       <button onClick={() => setShowPaymentChoice(false)} className="text-xs text-muted-foreground hover:text-foreground">
                         Annuler
                       </button>
                     </div>
-                    <div className="flex gap-3">
+                    <p className="text-[11px] text-muted-foreground">
+                      Forfait <strong>Fournisseur</strong> · <strong className="text-primary">{MONTHLY_PRICE} TND/mois</strong>
+                    </p>
+
+                    {/* Payment method selector */}
+                    <div className="grid grid-cols-2 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
                       <button
-                        onClick={() => { setSupplierPaymentMethod("bank_transfer"); handleActivate(); }}
-                        disabled={activating}
-                        className={`flex-1 flex flex-col items-center gap-2 px-4 py-4 rounded-xl border text-xs font-medium transition-all ${
+                        onClick={() => setSupplierPaymentMethod("bank_transfer")}
+                        className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
                           supplierPaymentMethod === "bank_transfer"
-                            ? "border-primary/30 bg-primary/5 text-primary"
-                            : "border-border/30 bg-background text-muted-foreground hover:border-border/60"
+                            ? "border-border/40 bg-background text-primary shadow-sm"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        <Banknote className="h-6 w-6" />
+                        <Banknote className="h-3.5 w-3.5" />
                         Virement bancaire
-                        <span className="text-[9px] text-muted-foreground">120 TND/mois</span>
-                        {activating && supplierPaymentMethod === "bank_transfer" && <Loader2 className="h-3 w-3 animate-spin" />}
                       </button>
                       <button
-                        onClick={() => { setSupplierPaymentMethod("d17"); handleActivate(); }}
-                        disabled={activating}
-                        className={`flex-1 flex flex-col items-center gap-2 px-4 py-4 rounded-xl border text-xs font-medium transition-all ${
+                        onClick={() => setSupplierPaymentMethod("d17")}
+                        className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
                           supplierPaymentMethod === "d17"
-                            ? "border-primary/30 bg-primary/5 text-primary"
-                            : "border-border/30 bg-background text-muted-foreground hover:border-border/60"
+                            ? "border-border/40 bg-background text-amber-600 shadow-sm"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        <Smartphone className="h-6 w-6" />
-                        D17 Poste Tunisienne
-                        <span className="text-[9px] text-muted-foreground">120 TND/mois</span>
-                        {activating && supplierPaymentMethod === "d17" && <Loader2 className="h-3 w-3 animate-spin" />}
+                        <Smartphone className="h-3.5 w-3.5" />
+                        D17
                       </button>
                     </div>
-                    <div className="p-3 rounded-lg bg-amber-50/30 border border-amber-200/30">
-                      <p className="text-[9px] text-amber-700 flex items-center gap-1">
-                        <Smartphone className="h-3 w-3 shrink-0" />
-                        <strong>D17 :</strong> Envoyez {paymentConfig?.proPrice || 120} TND via l'application D17 au {paymentConfig?.d17Phone || "+216 XX XXX XXX"} ({paymentConfig?.d17MerchantName || "GALISKON PROJECT"}).
-                        <strong>Virement :</strong> RIB {paymentConfig?.bankRib || "TN59 0700 1123 4567 8901 2347"} — {paymentConfig?.bankName || "Banque de Tunisie"}.
-                      </p>
+
+                    {supplierPaymentMethod === "bank_transfer" ? (
+                      <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
+                        <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-muted/10 px-4 py-3">
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                              <Landmark className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold">{paymentConfig?.bankName || "Banque de Tunisie"}</p>
+                              <p className="truncate text-[10px] text-muted-foreground">Coordonnées bancaires</p>
+                            </div>
+                          </div>
+                          <span className="shrink-0 rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground">
+                            {MONTHLY_PRICE} TND
+                          </span>
+                        </div>
+                        <div className="divide-y divide-border/30">
+                          <div className="flex items-center justify-between gap-3 bg-primary/[0.04] px-4 py-3">
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                                <UserRound className="h-3.5 w-3.5 text-primary" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Titulaire du compte</p>
+                                <p className="truncate text-sm font-bold">{paymentConfig?.bankTitulaire || "GALISKON PROJECT"}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+                            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">RIB</span>
+                            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.bankRib || "TN59 0700 1123 4567 8901 2347"}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+                            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">IBAN</span>
+                            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.bankIban || "TN59 0700 1123 4567 8901 2347"}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+                            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">Swift / BIC</span>
+                            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.bankSwift || "BTBK TN TT"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
+                        <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-amber-500/[0.07] px-4 py-3">
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15">
+                              <Smartphone className="h-4 w-4 text-amber-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold">D17 · La Poste Tunisienne</p>
+                              <p className="truncate text-[10px] text-muted-foreground">Paiement marchand</p>
+                            </div>
+                          </div>
+                          <span className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-bold text-white">
+                            {MONTHLY_PRICE} TND
+                          </span>
+                        </div>
+                        <div className="divide-y divide-border/30">
+                          <div className="flex items-center justify-between gap-3 bg-amber-500/[0.07] px-4 py-3">
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/15">
+                                <UserRound className="h-3.5 w-3.5 text-amber-600" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Bénéficiaire</p>
+                                <p className="truncate text-sm font-bold">{paymentConfig?.d17MerchantName || "GALISKON PROJECT"}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+                            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">Téléphone D17</span>
+                            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.d17Phone || "+216 XX XXX XXX"}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+                            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">Email</span>
+                            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.d17Email || "paiement@budgetbati.tn"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-1.5 text-[10px] text-muted-foreground/70">
+                      <ShieldCheck className="h-3 w-3 shrink-0 mt-0.5" />
+                      <p>Activation manuelle sous 24h ouvrées après réception du paiement. Joignez votre reçu pour accélérer l'activation.</p>
                     </div>
+
+                    <Button className="w-full h-10 text-sm gap-2" onClick={handleRequestSubscription} disabled={activating}>
+                      {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                      {activating ? "Envoi de la demande..." : `Payer ${MONTHLY_PRICE} TND/mois`}
+                    </Button>
                   </CardContent>
                 </Card>
               )}
@@ -525,7 +722,7 @@ export default function SupplierDashboard() {
                 <Smartphone className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-muted-foreground">
                   <strong>Paiement accepté :</strong> Virement bancaire ou <strong>D17 (Poste Tunisienne)</strong> —
-                  Envoyez {paymentConfig?.proPrice || 120} TND par D17 au {paymentConfig?.d17Phone || "+216 XX XXX XXX"} ou par virement RIB {paymentConfig?.bankRib || "TN59 0700 1123 4567 8901 2347"}.
+                  Envoyez {MONTHLY_PRICE} TND par D17 au {paymentConfig?.d17Phone || "+216 XX XXX XXX"} ou par virement RIB {paymentConfig?.bankRib || "TN59 0700 1123 4567 8901 2347"}.
                 </p>
               </div>
               <Card className="border-border/40">

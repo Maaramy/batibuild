@@ -7,8 +7,16 @@ import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
 // Constants
 // ============================================================================
 
-const MONTHLY_PRICE = 120; // TND/month
 const MONTHLY_DAYS = 30;
+
+/** Read the supplier plan price from paymentConfig (fallback 120 TND) */
+async function getSupplierPrice(ctx: any): Promise<number> {
+  const config = await ctx.db
+    .query("paymentConfig")
+    .order("desc")
+    .first();
+  return config?.supplierPrice ?? 120;
+}
 
 // ============================================================================
 // Queries
@@ -60,7 +68,7 @@ export const getMyProfile = query({
       effectiveStatus,
       remainingDays,
       plan: profile.plan || "none",
-      MONTHLY_PRICE,
+      price: await getSupplierPrice(ctx),
     };
   },
 });
@@ -264,9 +272,12 @@ export const updateProfile = mutation({
   },
 });
 
-/** Activate monthly subscription (120 TND/month - virement) */
-export const activateSubscription = mutation({
-  handler: async (ctx) => {
+/** Request the monthly supplier plan (payment pending — same procedure as Pro/Expert) */
+export const requestSubscription = mutation({
+  args: {
+    paymentMethod: v.union(v.literal("bank_transfer"), v.literal("d17")),
+  },
+  handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
 
@@ -276,20 +287,159 @@ export const activateSubscription = mutation({
       .first();
 
     if (!profile) throw new Error("Aucun profil fournisseur");
+    if (profile.subscriptionStatus === "pending")
+      throw new Error("Une demande d'abonnement est déjà en attente de validation");
+
+    const price = await getSupplierPrice(ctx);
+    const now = Date.now();
+
+    await ctx.db.patch(profile._id, {
+      plan: "monthly",
+      subscriptionStatus: "pending",
+      paymentMethod: args.paymentMethod,
+      paymentAmount: price,
+      paymentCurrency: "TND",
+      paymentProofVerified: false,
+      isVisible: false,
+      updatedAt: now,
+    });
+
+    return { price };
+  },
+});
+
+/** Upload the payment receipt (D17 screenshot or bank transfer proof) */
+export const uploadSupplierPaymentProof = mutation({
+  args: {
+    storageId: v.id("_storage"),
+    url: v.string(),
+    fileName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Non connecté");
+
+    const profile = await ctx.db
+      .query("supplierProfiles")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!profile) throw new Error("Aucun profil fournisseur");
+    if (profile.subscriptionStatus !== "pending")
+      throw new Error("Aucune demande de paiement en attente");
+
+    await ctx.db.patch(profile._id, {
+      paymentProofStorageId: args.storageId,
+      paymentProofUrl: args.url,
+      paymentProofFileName: args.fileName || "reçu_paiement",
+      paymentProofUploadedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/** Admin: Approve a pending supplier subscription (payment verified) */
+export const adminApproveSupplierSubscription = mutation({
+  args: { profileId: v.id("supplierProfiles") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin")
+      throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil fournisseur introuvable");
+    if (profile.subscriptionStatus !== "pending")
+      throw new Error("Ce profil n'a pas de demande en attente");
 
     const now = Date.now();
     const endDate = now + MONTHLY_DAYS * 24 * 60 * 60 * 1000;
 
-    await ctx.db.patch(profile._id, {
+    await ctx.db.patch(args.profileId, {
       plan: "monthly",
       subscriptionStatus: "active",
       subscriptionStartDate: now,
       subscriptionEndDate: endDate,
+      paymentProofVerified: true,
       isVisible: true,
       updatedAt: now,
     });
 
-    return { monthlyPrice: MONTHLY_PRICE };
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "approve_supplier_subscription",
+        targetUserId: profile.userId,
+        targetUserEmail: profile.email,
+        details: `Abonnement fournisseur approuvé — ${profile.companyName}`,
+        createdAt: now,
+      });
+    } catch (e) { /* optional */ }
+
+    try {
+      await ctx.db.insert("notifications", {
+        userId: profile.userId,
+        type: "subscription",
+        title: "Abonnement fournisseur activé",
+        message: "Félicitations ! Votre paiement a été vérifié et votre profil fournisseur est désormais visible par les porteurs de projets.",
+        read: false,
+        link: "/supplier",
+        createdAt: now,
+      });
+    } catch (e) { /* optional */ }
+
+    return { success: true };
+  },
+});
+
+/** Admin: Reject a pending supplier subscription */
+export const adminRejectSupplierSubscription = mutation({
+  args: { profileId: v.id("supplierProfiles") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin")
+      throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil fournisseur introuvable");
+    if (profile.subscriptionStatus !== "pending") {
+      return { success: true, alreadyProcessed: true };
+    }
+
+    await ctx.db.patch(args.profileId, {
+      subscriptionStatus: "inactive",
+      paymentProofVerified: false,
+      isVisible: false,
+      updatedAt: Date.now(),
+    });
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "reject_supplier_subscription",
+        targetUserId: profile.userId,
+        targetUserEmail: profile.email,
+        details: `Abonnement fournisseur refusé — ${profile.companyName}`,
+        createdAt: Date.now(),
+      });
+    } catch (e) { /* optional */ }
+
+    try {
+      await ctx.db.insert("notifications", {
+        userId: profile.userId,
+        type: "subscription",
+        title: "Abonnement fournisseur refusé",
+        message: "Votre paiement n'a pas pu être vérifié. Contactez le support pour plus d'informations.",
+        read: false,
+        link: "/supplier",
+        createdAt: Date.now(),
+      });
+    } catch (e) { /* optional */ }
+
+    return { success: true };
   },
 });
 
