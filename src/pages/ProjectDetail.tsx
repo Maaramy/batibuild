@@ -1966,12 +1966,12 @@ export default function ProjectDetail() {
                     <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
                       <Users className="h-3.5 w-3.5" />
                     </div>
-                    <h3 className="text-[15px] font-semibold">Prestataires recommandés par l’IA</h3>
-                    <Badge variant="secondary" className="text-[10px]">{project.providerRecommendations.stats.total} prestataires</Badge>
+                    <h3 className="text-[16px] font-semibold">Prestataires recommandés par l’IA</h3>
+                    <Badge variant="secondary" className="text-[11px]">{project.providerRecommendations.stats.total} prestataires</Badge>
                   </div>
                   <div className="px-4 py-4 space-y-3">
                     <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/10">
-                      <p className="text-[11px] sm:text-[13px] text-primary/80 flex items-start gap-1.5">
+                      <p className="text-[12px] sm:text-[14px] text-primary/80 flex items-start gap-1.5">
                         <MapPin className="h-3 w-3 shrink-0 mt-0.5" />
                         <span>{project.providerRecommendations.regionInfo.advice}</span>
                       </p>
@@ -1988,9 +1988,9 @@ export default function ProjectDetail() {
                         <div key={priority}>
                           <div className="flex items-center gap-1.5 mb-1.5">
                             <div className={`flex h-4 w-4 items-center justify-center rounded-full ${cfg.bg}`}>
-                              <span className={`text-[8px] font-bold ${cfg.txt}`}>{priority === "essentiel" ? "!" : priority === "recommande" ? "i" : "?"}</span>
+                              <span className={`text-[9px] font-bold ${cfg.txt}`}>{priority === "essentiel" ? "!" : priority === "recommande" ? "i" : "?"}</span>
                             </div>
-                            <p className={`text-[11px] font-semibold ${cfg.txt}`}>{cfg.label} ({items.length})</p>
+                            <p className={`text-[12px] font-semibold ${cfg.txt}`}>{cfg.label} ({items.length})</p>
                           </div>
                           <div className="space-y-1">
                             {items.map((p: any, i: number) => (
@@ -2001,10 +2001,10 @@ export default function ProjectDetail() {
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1 flex-wrap">
-                                      <span className="text-[12px] font-medium">{p.label}</span>
-                                      <span className={`text-[8px] px-1 py-0.5 rounded-full ${cfg.bg} ${cfg.txt}`}>{p.priority}</span>
+                                      <span className="text-[13px] font-medium">{p.label}</span>
+                                      <span className={`text-[9px] px-1 py-0.5 rounded-full ${cfg.bg} ${cfg.txt}`}>{p.priority}</span>
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">{p.reason}</p>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">{p.reason}</p>
                                     {p.suppliers && p.suppliers.length > 0 ? (
                                       <div className="mt-2 space-y-2">
                                         {p.suppliers.map((s: any, si: number) => (
@@ -2016,10 +2016,10 @@ export default function ProjectDetail() {
                                             tabIndex={s.id && s.id.startsWith('registered_') ? 0 : undefined}
                                             onKeyDown={s.id && s.id.startsWith('registered_') ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSupplierId(s.id); setShowSupplierDialog(true); } } : undefined}
                                           >
-                                            <p className="text-[11px] font-semibold text-foreground leading-tight flex items-center gap-1.5 flex-wrap">
+                                            <p className="text-[12px] font-semibold text-foreground leading-tight flex items-center gap-1.5 flex-wrap">
                                                 {s.name}
                                                 {s.id && s.id.startsWith('registered_') && (
-                                                  <span className="inline-flex items-center gap-0.5 text-[8px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full shadow-xs">
+                                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full shadow-xs">
                                                     <svg className="h-2 w-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                                                       <polyline points="20 6 9 17 4 12" />
                                                     </svg>
@@ -2028,22 +2028,22 @@ export default function ProjectDetail() {
                                                 )}
                                               </p>
                                             <div className="mt-1 space-y-0.5">
-                                              <p className="text-[9px] text-muted-foreground/70 flex items-center gap-1">
+                                              <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
                                                 <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                                                 {s.phone}
                                               </p>
                                               {s.email && (
-                                                <p className="text-[9px] text-muted-foreground/70 flex items-center gap-1">
+                                                <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
                                                   <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                                                   {s.email}
                                                 </p>
                                               )}
-                                              <p className="text-[9px] text-muted-foreground/70 flex items-center gap-1">
+                                              <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
                                                 <MapPin className="h-2.5 w-2.5 shrink-0" />
                                                 <span className="truncate">{s.address}</span>
                                               </p>
                                               {s.website && (
-                                                <p className="text-[9px] text-blue-600/80 flex items-center gap-1">
+                                                <p className="text-[10px] text-blue-600/80 flex items-center gap-1">
                                                   <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                                   {s.website}
                                                 </p>
@@ -2052,7 +2052,7 @@ export default function ProjectDetail() {
                                             {/* Contact button */}
                                             <a
                                               href={`tel:${s.phone.replace(/[^\d+]/g, '')}`}
-                                              className="mt-1.5 inline-flex w-full items-center justify-center gap-1 rounded-md border border-primary/20 bg-primary/[0.04] px-2 py-1 text-[9px] font-medium text-primary hover:bg-primary/10 hover:border-primary/30 active:scale-[0.98] transition-all"
+                                              className="mt-1.5 inline-flex w-full items-center justify-center gap-1 rounded-md border border-primary/20 bg-primary/[0.04] px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/10 hover:border-primary/30 active:scale-[0.98] transition-all"
                                               onClick={(e) => e.stopPropagation()}
                                             >
                                               <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2064,7 +2064,7 @@ export default function ProjectDetail() {
                                         ))}
                                       </div>
                                     ) : (
-                                      <p className="text-[9px] text-muted-foreground/50 mt-0.5 flex items-center gap-1">
+                                      <p className="text-[10px] text-muted-foreground/50 mt-0.5 flex items-center gap-1">
                                         <MapPin className="h-2.5 w-2.5" />
                                         {p.regionProximity}
                                       </p>
