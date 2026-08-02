@@ -1773,9 +1773,14 @@ export default function ProjectDetail() {
                       <p className="text-xs text-muted-foreground mt-0.5">Prévision des prix · périodes d'achat · optimisation du budget</p>
                     </div>
                     {insights && insights.overallSavingsPct > 0 && (
-                      <div className="text-right shrink-0">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Économie potentielle</p>
-                        <p className="text-base font-bold text-emerald-600 tabular-nums">≈ {insights.overallSavingsPct}%</p>
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/[0.08] border border-emerald-200/40 shrink-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white">
+                          <PiggyBank className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-semibold text-emerald-600 uppercase tracking-wider leading-none">Économie potentielle</p>
+                          <p className="text-sm font-bold text-emerald-600 tabular-nums mt-1">≈ {insights.overallSavingsPct}%</p>
+                        </div>
                       </div>
                     )}
                   </div>
