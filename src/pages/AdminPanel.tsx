@@ -114,6 +114,8 @@ export default function AdminPanel() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [selectedRecuIds, setSelectedRecuIds] = useState<Set<string>>(new Set());
   const [batchDeletingRecus, setBatchDeletingRecus] = useState(false);
+  const [purgeResult, setPurgeResult] = useState<any>(null);
+  const [purgeRunning, setPurgeRunning] = useState(false);
 
   const pendingSubs = useQuery(api.subscriptions.getPendingSubscriptions) || [];
   const allSubsWithUsers = useQuery(api.subscriptions.getAllSubscriptionsWithUsers) || [];
@@ -127,6 +129,7 @@ export default function AdminPanel() {
   const toggleUserStatus = useMutation(api.users.toggleUserStatus);
   const markReceiptVerified = useMutation(api.subscriptions.markReceiptVerified);
   const deleteSubscriptionReceipt = useMutation(api.subscriptions.adminDeleteSubscriptionReceipt);
+  const runStoragePurge = useMutation(api.storageCleanup.runStoragePurge);
   const batchDeleteUsers = useMutation(api.users.batchDeleteUsers);
   const batchDeleteProjects = useMutation(api.projects.adminBatchDeleteProjects);
   const batchDeleteSubscriptions = useMutation(api.subscriptions.adminBatchDeleteSubscriptions);
@@ -1102,6 +1105,29 @@ export default function AdminPanel() {
                             </Button>
                           )}
                           <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 text-xs shrink-0"
+                            disabled={purgeRunning}
+                            title="Nettoyer les références mortes du stockage (reçus, fichiers, rapports)"
+                            onClick={async () => {
+                              if (!window.confirm("Lancer le purge du stockage maintenant ?\n\nVérifie tous les fichiers référencés et nettoie les références mortes (reçus, fichiers de projets, rapports dont le fichier n'existe plus).")) return;
+                              setPurgeRunning(true);
+                              setPurgeResult(null);
+                              try {
+                                const result = await runStoragePurge();
+                                setPurgeResult(result);
+                                toast.success(`Purge terminée — ${result.deadReferencesCleaned} référence(s) morte(s) nettoyée(s)`);
+                              } catch (err: any) {
+                                toast.error(err.message || "Erreur lors du purge");
+                              }
+                              setPurgeRunning(false);
+                            }}
+                          >
+                            {purgeRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                            <span className="hidden sm:inline">{purgeRunning ? "Purge en cours..." : "Lancer le purge maintenant"}</span>
+                          </Button>
+                          <Button
                       variant="outline"
                       size="sm"
                       className="h-8 gap-1.5 text-xs shrink-0"
@@ -1169,6 +1195,25 @@ export default function AdminPanel() {
                       )}
                     </button>
                   ))}                  </div>
+
+                {purgeResult && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border border-emerald-200/40 bg-emerald-50/40">
+                    <div className="flex items-center gap-2">
+                      <CheckCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <p className="text-xs font-semibold text-emerald-700">Purge du stockage terminée</p>
+                        <p className="text-[10px] text-emerald-600/70">
+                          {new Date(purgeResult.purgedAt).toLocaleString("fr-FR")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                      <span><strong className="text-emerald-600">{purgeResult.deadReferencesCleaned}</strong> référence(s) morte(s) nettoyée(s)</span>
+                      <span>•</span>
+                      <span>{purgeResult.checkedSubscriptions} abonnements · {purgeResult.checkedSuppliers} fournisseurs · {purgeResult.checkedProjects} projets · {purgeResult.checkedReports} rapports</span>
+                    </div>
+                  </div>
+                )}
 
                 {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length === 0 ? (
                   <div className="text-center py-12">
