@@ -126,6 +126,7 @@ export default function AdminPanel() {
   const deleteUser = useMutation(api.users.deleteUser);
   const toggleUserStatus = useMutation(api.users.toggleUserStatus);
   const markReceiptVerified = useMutation(api.subscriptions.markReceiptVerified);
+  const deleteSubscriptionReceipt = useMutation(api.subscriptions.adminDeleteSubscriptionReceipt);
   const batchDeleteUsers = useMutation(api.users.batchDeleteUsers);
   const batchDeleteProjects = useMutation(api.projects.adminBatchDeleteProjects);
   const batchDeleteSubscriptions = useMutation(api.subscriptions.adminBatchDeleteSubscriptions);
@@ -135,6 +136,7 @@ export default function AdminPanel() {
   const approveSupplierSub = useMutation(api.supplierProfiles.adminApproveSupplierSubscription);
   const rejectSupplierSub = useMutation(api.supplierProfiles.adminRejectSupplierSubscription);
   const verifySupplierReceipt = useMutation(api.supplierProfiles.adminVerifySupplierReceipt);
+  const deleteSupplierReceipt = useMutation(api.supplierProfiles.adminDeleteSupplierReceipt);
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -1365,6 +1367,24 @@ export default function AdminPanel() {
                                         <span className="hidden sm:inline">Vérifier</span>
                                       </Button>
                                     )}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      title="Supprimer définitivement du stockage"
+                                      onClick={async () => {
+                                        if (!window.confirm("Supprimer définitivement ce reçu du stockage ? Cette action est irréversible.")) return;
+                                        try {
+                                          await deleteSubscriptionReceipt({ subscriptionId: sub._id });
+                                          toast.success("Reçu supprimé définitivement du stockage");
+                                        } catch (err: any) {
+                                          toast.error(err.message || "Erreur");
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                      <span className="hidden sm:inline">Supprimer</span>
+                                    </Button>
                                   </div>
                                 </td>
                               </tr>
@@ -1797,6 +1817,24 @@ export default function AdminPanel() {
                                         <span className="hidden sm:inline">Vérifier</span>
                                       </Button>
                                     )}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      title="Supprimer définitivement du stockage"
+                                      onClick={async () => {
+                                        if (!window.confirm("Supprimer définitivement ce reçu du stockage ? Cette action est irréversible.")) return;
+                                        try {
+                                          await deleteSupplierReceipt({ profileId: p._id });
+                                          toast.success("Reçu fournisseur supprimé définitivement du stockage");
+                                        } catch (err: any) {
+                                          toast.error(err.message || "Erreur");
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                      <span className="hidden sm:inline">Supprimer</span>
+                                    </Button>
                                   </div>
                                 </td>
                               </tr>

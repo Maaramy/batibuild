@@ -495,6 +495,13 @@ export const adminDeleteProfile = mutation({
     const profile = await ctx.db.get(args.profileId);
     if (!profile) throw new Error("Profil fournisseur introuvable");
 
+    // Also remove the payment receipt file from storage (permanent)
+    if (profile.paymentProofStorageId) {
+      try {
+        await ctx.storage.delete(profile.paymentProofStorageId);
+      } catch (e) { /* optional */ }
+    }
+
     await ctx.db.delete(args.profileId);
 
     // Notify the supplier
@@ -606,6 +613,49 @@ export const adminVerifySupplierReceipt = mutation({
         targetUserId: profile.userId,
         targetUserEmail: profile.email,
         details: `Reçu fournisseur ${args.verified ? "vérifié" : "non vérifié"} — ${profile.companyName}`,
+        createdAt: Date.now(),
+      });
+    } catch (e) { /* optional */ }
+
+    return { success: true };
+  },
+});
+
+/** Admin: permanently delete a supplier payment receipt from storage (keeps the profile) */
+export const adminDeleteSupplierReceipt = mutation({
+  args: { profileId: v.id("supplierProfiles") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin")
+      throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil fournisseur introuvable");
+
+    // Remove the file from storage (permanent)
+    if (profile.paymentProofStorageId) {
+      try {
+        await ctx.storage.delete(profile.paymentProofStorageId);
+      } catch (e) { /* optional */ }
+    }
+
+    await ctx.db.patch(args.profileId, {
+      paymentProofStorageId: undefined,
+      paymentProofUrl: undefined,
+      paymentProofFileName: undefined,
+      paymentProofUploadedAt: undefined,
+      paymentProofVerified: false,
+      updatedAt: Date.now(),
+    });
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "delete_supplier_receipt",
+        targetUserId: profile.userId,
+        targetUserEmail: profile.email,
+        details: `Reçu de paiement fournisseur supprimé définitivement — ${profile.companyName}`,
         createdAt: Date.now(),
       });
     } catch (e) { /* optional */ }

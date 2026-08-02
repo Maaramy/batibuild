@@ -434,7 +434,7 @@ export const adminRejectSubscription = mutation({
   },
 });
 
-/** Batch delete subscriptions (admin only) */
+/** Batch delete subscriptions (admin only) — also removes receipt files from storage */
 export const adminBatchDeleteSubscriptions = mutation({
   args: {
     subscriptionIds: v.array(v.id("subscriptions")),
@@ -450,6 +450,14 @@ export const adminBatchDeleteSubscriptions = mutation({
 
     for (const id of args.subscriptionIds) {
       try {
+        const sub = await ctx.db.get(id);
+        if (sub?.paymentProofStorageId) {
+          try {
+            await ctx.storage.delete(sub.paymentProofStorageId);
+          } catch (e: any) {
+            errors.push(`Fichier de reçu non supprimé pour ${id}: ${e.message || "erreur"}`);
+          }
+        }
         await ctx.db.delete(id);
         deleted++;
       } catch (e: any) {
@@ -458,6 +466,52 @@ export const adminBatchDeleteSubscriptions = mutation({
     }
 
     return { deleted, errors };
+  },
+});
+
+/** Admin: permanently delete a subscription's payment receipt from storage (keeps the subscription) */
+export const adminDeleteSubscriptionReceipt = mutation({
+  args: { subscriptionId: v.id("subscriptions") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new Error("Abonnement introuvable");
+
+    // Remove the file from storage (permanent)
+    if (sub.paymentProofStorageId) {
+      try {
+        await ctx.storage.delete(sub.paymentProofStorageId);
+      } catch (e: any) {
+        // ignore — continue clearing fields
+      }
+    }
+
+    await ctx.db.patch(args.subscriptionId, {
+      paymentProofStorageId: undefined,
+      paymentProofUrl: undefined,
+      paymentProofFileName: undefined,
+      paymentProofUploadedAt: undefined,
+      paymentProofVerified: false,
+      updatedAt: Date.now(),
+    });
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "delete_subscription_receipt",
+        targetUserId: sub.userId,
+        targetUserEmail: sub.userId ? undefined : undefined,
+        details: `Reçu de paiement supprimé définitivement (abonnement ${sub.plan})`,
+        createdAt: Date.now(),
+      });
+    } catch (e) { /* optional */ }
+
+    return { success: true };
   },
 });
 
