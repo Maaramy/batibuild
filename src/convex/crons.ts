@@ -28,4 +28,12 @@ crons.cron(
   (internal as any).supplierProfiles.checkSupplierNotifications,
 );
 
+// Weekly orphaned-file purge (receipts, avatars, project files, reports)
+// Runs every Sunday at 03:00 AM to clean up files no longer referenced in the DB
+crons.cron(
+  "weekly-orphan-purge",
+  "0 3 * * 0",
+  internal.storageCleanup.purgeOrphanedFiles,
+);
+
 export default crons;
