@@ -1307,205 +1307,8 @@ export default function ProjectDetail() {
         </motion.div>
       )}
 
-      <div className="max-w-5xl mx-auto px-4 py-4 sm:py-6 space-y-4 flex flex-col">
-        {/* Intelligence prédictive (Pro/Expert) — affiché en bas des résultats */}
-        {done && ce && ai && isPremium && (
-          <div className="order-last mt-4">
-            {isPremium ? (
-              <div className="relative rounded-xl border border-violet-200/50 bg-gradient-to-br from-violet-500/[0.06] via-background to-background shadow-sm overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 bg-violet-500/[0.06] border-b border-violet-200/40">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-600 text-white shrink-0">
-                    <Brain className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <h3 className="text-sm font-semibold">Intelligence prédictive</h3>
-                      <Badge className="text-[8px] gap-0.5 bg-violet-600 text-white border-violet-600">
-                        <Crown className="h-2.5 w-2.5" /> PRO / EXPERT
-                      </Badge>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">Prévision des prix · périodes d'achat · optimisation du budget</p>
-                  </div>
-                  {insights && insights.overallSavingsPct > 0 && (
-                    <div className="text-right shrink-0">
-                      <p className="text-[8px] text-muted-foreground uppercase tracking-wider">Économie potentielle</p>
-                      <p className="text-sm font-bold text-emerald-600 tabular-nums">≈ {insights.overallSavingsPct}%</p>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4 space-y-4">
-                  {insights ? (
-                    <>
-                        <div className="flex items-start gap-2 p-3 rounded-lg bg-violet-500/[0.04] border border-violet-200/30">
-                        <Sparkles className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
-                        <p className="text-xs text-muted-foreground leading-relaxed">{insights.summary}</p>
-                      </div>
-
-                      {insights.pricePredictions?.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <TrendingUp className="h-3.5 w-3.5 text-violet-500" />
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Prévision des prix des matériaux</p>
-                          </div>
-                          <div className="space-y-1.5">
-                            {insights.pricePredictions.map((p, i) => (
-                              <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-background border border-border/10">
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-medium truncate">{p.material}</p>
-                                  <p className="text-[9px] text-muted-foreground truncate">{p.reasoning}</p>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className={cn(
-                                    "flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md",
-                                    p.trend === "hausse" ? "bg-red-50 text-red-600"
-                                      : p.trend === "baisse" ? "bg-emerald-50 text-emerald-600"
-                                        : "bg-slate-100 text-slate-500",
-                                  )}>
-                                    {p.trend === "hausse" ? <ArrowUpRight className="h-3 w-3" /> : p.trend === "baisse" ? <ArrowDownRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
-                                    {p.predictedChangePct > 0 ? "+" : ""}{p.predictedChangePct}%
-                                  </span>
-                                  <span className="text-[9px] text-muted-foreground whitespace-nowrap">{p.horizon}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {insights.bestBuyingPeriods?.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <CalendarRange className="h-3.5 w-3.5 text-violet-500" />
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Meilleures périodes d'achat</p>
-                          </div>
-                          <div className="space-y-1.5">
-                            {insights.bestBuyingPeriods.map((p, i) => (
-                              <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-background border border-border/10">
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-medium truncate">{p.material}</p>
-                                  <p className="text-[9px] text-muted-foreground truncate">{p.reason}</p>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className="text-[9px] text-violet-600 font-medium bg-violet-50 border border-violet-200/50 px-1.5 py-0.5 rounded-md whitespace-nowrap">{p.period}</span>
-                                  <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md whitespace-nowrap">-{p.savingPct}%</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                                            <div className="grid sm:grid-cols-2 gap-3">
-                        {insights.budgetOptimizations?.length > 0 && (
-                          <div className="p-3 rounded-lg bg-background border border-border/10">
-                            <div className="flex items-center gap-1.5 mb-2">
-                              <Wallet className="h-3.5 w-3.5 text-violet-500" />
-                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Optimisation du budget</p>
-                            </div>
-                            <div className="space-y-2">
-                              {insights.budgetOptimizations.map((o, i) => (
-                                <div key={i} className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <p className="text-[11px] font-medium">{o.title}</p>
-                                    <p className="text-[9px] text-muted-foreground leading-relaxed">{o.description}</p>
-                                  </div>
-                                  {o.potentialSaving > 0 && (
-                                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md shrink-0 whitespace-nowrap">-{fmt(o.potentialSaving)}</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {insights.lossReductions?.length > 0 && (
-                          <div className="p-3 rounded-lg bg-background border border-border/10">
-                            <div className="flex items-center gap-1.5 mb-2">
-                              <Lightbulb className="h-3.5 w-3.5 text-violet-500" />
-                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Réduction des pertes</p>
-                            </div>
-                            <div className="space-y-2">
-                              {insights.lossReductions.map((r, i) => (
-                                <div key={i} className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <p className="text-[11px] font-medium">{r.title}</p>
-                                    <p className="text-[9px] text-muted-foreground leading-relaxed">{r.description}</p>
-                                  </div>
-                                  {r.estimatedSavingPct > 0 && (
-                                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md shrink-0 whitespace-nowrap">-{r.estimatedSavingPct}%</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-border/10">
-                        <p className="text-[9px] text-muted-foreground/60">
-                          Analyse générée le {new Date(insights.generatedAt).toLocaleDateString("fr-FR")} · Données indicatives basées sur les prix du marché tunisien
-                        </p>
-                        <Button size="sm" variant="outline" className="h-8 text-[11px] gap-1.5" disabled={predictiveLoading}
-                          onClick={handleGeneratePredictive}>
-                          {predictiveLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                          Régénérer l'analyse
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                                        <div className="text-center py-4">
-                      <div className="flex justify-center mb-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100">
-                          <Brain className="h-6 w-6 text-violet-600" />
-                        </div>
-                      </div>
-                      <p className="text-sm font-semibold">Anticipez l'évolution de votre budget</p>
-                      <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                        L'IA prévoit l'évolution des prix des matériaux, identifie les meilleures périodes d'achat, optimise votre budget et réduit les pertes sur chantier.
-                      </p>
-                      {predictiveError && (
-                        <p className="text-[11px] text-red-500 mt-2">{predictiveError}</p>
-                      )}
-                      <Button size="sm" className="mt-4 gap-1.5" disabled={predictiveLoading}
-                        onClick={handleGeneratePredictive}>
-                        {predictiveLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                        {predictiveLoading ? "Analyse en cours..." : "Générer l'analyse prédictive"}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-                              <div className="relative rounded-xl border border-dashed border-violet-300/40 bg-gradient-to-br from-violet-500/[0.03] to-background p-4 overflow-hidden">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-600 text-white shrink-0">
-                      <Brain className="h-4 w-4" />
-                    </div>
-                    <h3 className="text-sm font-semibold">Intelligence prédictive</h3>
-                    <Badge className="text-[8px] gap-0.5 bg-violet-600 text-white border-violet-600 ml-auto">
-                      <Crown className="h-2.5 w-2.5" /> PRO / EXPERT
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2 max-w-md">
-                    Le module Intelligence prédictive est réservé aux forfaits <strong>Pro</strong> et <strong>Expert</strong>.
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {["Prévision des prix", "Meilleures périodes d'achat", "Optimisation du budget", "Réduction des pertes"].map((f) => (
-                      <span key={f} className="text-[10px] px-2 py-1 rounded-full bg-violet-500/[0.06] text-violet-600 border border-violet-200/40 flex items-center gap-1">
-                        <Check className="h-2.5 w-2.5" /> {f}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-3 mt-4">
-                    <Button size="sm" className="h-8 text-[11px] gap-1.5" onClick={() => navigate("/dashboard/pricing")}>
-                      <LockKeyhole className="h-3 w-3" /> Passer à Pro
-                    </Button>
-                    <span className="text-[10px] text-muted-foreground/60">Débloquez l'analyse prédictive IA</span>
-                  </div>
-                </div>
-            )}
-          </div>
-        )}
-        {/* ── Pending Banner ─────────────────────────────────────────── */}
+      <div className="max-w-5xl mx-auto px-4 py-4 sm:py-6 space-y-4">
+{/* ── Pending Banner ─────────────────────────────────────────── */}
         {!done && !busy && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
             className="rounded-xl border-2 border-dashed border-amber-300/50 bg-gradient-to-br from-amber-50/80 to-background p-4">
@@ -1951,6 +1754,201 @@ export default function ProjectDetail() {
               )}
             </div>
 
+            {/* ═══ Intelligence prédictive (Pro/Expert) ═══ */}
+            <motion.div variants={fadeUp} custom={7}>
+                          {isPremium ? (
+                            <div className="relative rounded-xl border border-violet-200/50 bg-gradient-to-br from-violet-500/[0.06] via-background to-background shadow-sm overflow-hidden">
+                              <div className="flex items-center gap-2 px-4 py-3 bg-violet-500/[0.06] border-b border-violet-200/40">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-600 text-white shrink-0">
+                                  <Brain className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <h3 className="text-sm font-semibold">Intelligence prédictive</h3>
+                                    <Badge className="text-[8px] gap-0.5 bg-violet-600 text-white border-violet-600">
+                                      <Crown className="h-2.5 w-2.5" /> PRO / EXPERT
+                                    </Badge>
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground">Prévision des prix · périodes d'achat · optimisation du budget</p>
+                                </div>
+                                {insights && insights.overallSavingsPct > 0 && (
+                                  <div className="text-right shrink-0">
+                                    <p className="text-[8px] text-muted-foreground uppercase tracking-wider">Économie potentielle</p>
+                                    <p className="text-sm font-bold text-emerald-600 tabular-nums">≈ {insights.overallSavingsPct}%</p>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-4 space-y-4">
+                                {insights ? (
+                                  <>
+                                      <div className="flex items-start gap-2 p-3 rounded-lg bg-violet-500/[0.04] border border-violet-200/30">
+                                      <Sparkles className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
+                                      <p className="text-xs text-muted-foreground leading-relaxed">{insights.summary}</p>
+                                    </div>
+
+                                    {insights.pricePredictions?.length > 0 && (
+                                      <div>
+                                        <div className="flex items-center gap-1.5 mb-2">
+                                          <TrendingUp className="h-3.5 w-3.5 text-violet-500" />
+                                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Prévision des prix des matériaux</p>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          {insights.pricePredictions.map((p, i) => (
+                                            <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-background border border-border/10">
+                                              <div className="min-w-0 flex-1">
+                                                <p className="text-xs font-medium truncate">{p.material}</p>
+                                                <p className="text-[9px] text-muted-foreground truncate">{p.reasoning}</p>
+                                              </div>
+                                              <div className="flex items-center gap-1.5 shrink-0">
+                                                <span className={cn(
+                                                  "flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md",
+                                                  p.trend === "hausse" ? "bg-red-50 text-red-600"
+                                                    : p.trend === "baisse" ? "bg-emerald-50 text-emerald-600"
+                                                      : "bg-slate-100 text-slate-500",
+                                                )}>
+                                                  {p.trend === "hausse" ? <ArrowUpRight className="h-3 w-3" /> : p.trend === "baisse" ? <ArrowDownRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                                                  {p.predictedChangePct > 0 ? "+" : ""}{p.predictedChangePct}%
+                                                </span>
+                                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">{p.horizon}</span>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {insights.bestBuyingPeriods?.length > 0 && (
+                                      <div>
+                                        <div className="flex items-center gap-1.5 mb-2">
+                                          <CalendarRange className="h-3.5 w-3.5 text-violet-500" />
+                                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Meilleures périodes d'achat</p>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          {insights.bestBuyingPeriods.map((p, i) => (
+                                            <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-background border border-border/10">
+                                              <div className="min-w-0 flex-1">
+                                                <p className="text-xs font-medium truncate">{p.material}</p>
+                                                <p className="text-[9px] text-muted-foreground truncate">{p.reason}</p>
+                                              </div>
+                                              <div className="flex items-center gap-1.5 shrink-0">
+                                                <span className="text-[9px] text-violet-600 font-medium bg-violet-50 border border-violet-200/50 px-1.5 py-0.5 rounded-md whitespace-nowrap">{p.period}</span>
+                                                <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md whitespace-nowrap">-{p.savingPct}%</span>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                                          <div className="grid sm:grid-cols-2 gap-3">
+                                      {insights.budgetOptimizations?.length > 0 && (
+                                        <div className="p-3 rounded-lg bg-background border border-border/10">
+                                          <div className="flex items-center gap-1.5 mb-2">
+                                            <Wallet className="h-3.5 w-3.5 text-violet-500" />
+                                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Optimisation du budget</p>
+                                          </div>
+                                          <div className="space-y-2">
+                                            {insights.budgetOptimizations.map((o, i) => (
+                                              <div key={i} className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                  <p className="text-[11px] font-medium">{o.title}</p>
+                                                  <p className="text-[9px] text-muted-foreground leading-relaxed">{o.description}</p>
+                                                </div>
+                                                {o.potentialSaving > 0 && (
+                                                  <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md shrink-0 whitespace-nowrap">-{fmt(o.potentialSaving)}</span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {insights.lossReductions?.length > 0 && (
+                                        <div className="p-3 rounded-lg bg-background border border-border/10">
+                                          <div className="flex items-center gap-1.5 mb-2">
+                                            <Lightbulb className="h-3.5 w-3.5 text-violet-500" />
+                                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Réduction des pertes</p>
+                                          </div>
+                                          <div className="space-y-2">
+                                            {insights.lossReductions.map((r, i) => (
+                                              <div key={i} className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                  <p className="text-[11px] font-medium">{r.title}</p>
+                                                  <p className="text-[9px] text-muted-foreground leading-relaxed">{r.description}</p>
+                                                </div>
+                                                {r.estimatedSavingPct > 0 && (
+                                                  <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md shrink-0 whitespace-nowrap">-{r.estimatedSavingPct}%</span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-border/10">
+                                      <p className="text-[9px] text-muted-foreground/60">
+                                        Analyse générée le {new Date(insights.generatedAt).toLocaleDateString("fr-FR")} · Données indicatives basées sur les prix du marché tunisien
+                                      </p>
+                                      <Button size="sm" variant="outline" className="h-8 text-[11px] gap-1.5" disabled={predictiveLoading}
+                                        onClick={handleGeneratePredictive}>
+                                        {predictiveLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                        Régénérer l'analyse
+                                      </Button>
+                                    </div>
+                                  </>
+                                ) : (
+                                                      <div className="text-center py-4">
+                                    <div className="flex justify-center mb-3">
+                                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100">
+                                        <Brain className="h-6 w-6 text-violet-600" />
+                                      </div>
+                                    </div>
+                                    <p className="text-sm font-semibold">Anticipez l'évolution de votre budget</p>
+                                    <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                                      L'IA prévoit l'évolution des prix des matériaux, identifie les meilleures périodes d'achat, optimise votre budget et réduit les pertes sur chantier.
+                                    </p>
+                                    {predictiveError && (
+                                      <p className="text-[11px] text-red-500 mt-2">{predictiveError}</p>
+                                    )}
+                                    <Button size="sm" className="mt-4 gap-1.5" disabled={predictiveLoading}
+                                      onClick={handleGeneratePredictive}>
+                                      {predictiveLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                                      {predictiveLoading ? "Analyse en cours..." : "Générer l'analyse prédictive"}
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                                            <div className="relative rounded-xl border border-dashed border-violet-300/40 bg-gradient-to-br from-violet-500/[0.03] to-background p-4 overflow-hidden">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-600 text-white shrink-0">
+                                    <Brain className="h-4 w-4" />
+                                  </div>
+                                  <h3 className="text-sm font-semibold">Intelligence prédictive</h3>
+                                  <Badge className="text-[8px] gap-0.5 bg-violet-600 text-white border-violet-600 ml-auto">
+                                    <Crown className="h-2.5 w-2.5" /> PRO / EXPERT
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-2 max-w-md">
+                                  Le module Intelligence prédictive est réservé aux forfaits <strong>Pro</strong> et <strong>Expert</strong>.
+                                </p>
+                                <div className="flex flex-wrap gap-1.5 mt-3">
+                                  {["Prévision des prix", "Meilleures périodes d'achat", "Optimisation du budget", "Réduction des pertes"].map((f) => (
+                                    <span key={f} className="text-[10px] px-2 py-1 rounded-full bg-violet-500/[0.06] text-violet-600 border border-violet-200/40 flex items-center gap-1">
+                                      <Check className="h-2.5 w-2.5" /> {f}
+                                    </span>
+                                  ))}
+                                </div>
+                                <div className="flex items-center gap-3 mt-4">
+                                  <Button size="sm" className="h-8 text-[11px] gap-1.5" onClick={() => navigate("/dashboard/pricing")}>
+                                    <LockKeyhole className="h-3 w-3" /> Passer à Pro
+                                  </Button>
+                                  <span className="text-[10px] text-muted-foreground/60">Débloquez l'analyse prédictive IA</span>
+                                </div>
+                              </div>
+                          )}
+            </motion.div>
             {/* ═══ Fournisseurs & Prestataires ═══ */}
             {project.providerRecommendations && (
               <div className="col-span-full mb-2">
