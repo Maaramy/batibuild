@@ -697,6 +697,8 @@ const schema = defineSchema(
         v.literal("reject_subscription"),
         v.literal("approve_supplier_subscription"),
         v.literal("reject_supplier_subscription"),
+        v.literal("verify_supplier_receipt"),
+        v.literal("unverify_supplier_receipt"),
         v.literal("create_material"),
         v.literal("update_material"),
         v.literal("delete_material"),

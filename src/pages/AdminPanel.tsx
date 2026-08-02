@@ -71,6 +71,8 @@ import {
   Download,
   Eye,
   EyeOff,
+  Receipt,
+  Landmark,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -83,7 +85,9 @@ export default function AdminPanel() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [recusFilter, setRecusFilter] = useState<string>("all");
+  const [supplierRecusFilter, setSupplierRecusFilter] = useState<string>("all");
   const [previewReceipt, setPreviewReceipt] = useState<any>(null);
+  const [previewSupplierReceipt, setPreviewSupplierReceipt] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const allProjects = useQuery(api.projects.getAllProjects) || [];
@@ -130,6 +134,7 @@ export default function AdminPanel() {
   const adminToggleSupplierVisibility = useMutation(api.supplierProfiles.adminToggleVisibility);
   const approveSupplierSub = useMutation(api.supplierProfiles.adminApproveSupplierSubscription);
   const rejectSupplierSub = useMutation(api.supplierProfiles.adminRejectSupplierSubscription);
+  const verifySupplierReceipt = useMutation(api.supplierProfiles.adminVerifySupplierReceipt);
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -403,6 +408,15 @@ export default function AdminPanel() {
               <TabsTrigger value="recus" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <FileText className="h-3.5 w-3.5" />
                 <span>Reçus</span>
+              </TabsTrigger>
+              <TabsTrigger value="recusFournisseurs" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Receipt className="h-3.5 w-3.5" />
+                <span>Reçus Fournisseurs</span>
+                {allSuppliers.filter((s: any) => s.paymentProofUrl && !s.paymentProofVerified).length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white shadow-sm">
+                    {allSuppliers.filter((s: any) => s.paymentProofUrl && !s.paymentProofVerified).length}
+                  </span>
+                )}
               </TabsTrigger>
               <TabsTrigger value="subscriptions" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <CreditCard className="h-3.5 w-3.5" />
@@ -1495,6 +1509,434 @@ export default function AdminPanel() {
                         <a
                           href={previewReceipt.paymentProofUrl}
                           download={previewReceipt.paymentProofFileName || "recu_paiement"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button size="sm" className="gap-1.5">
+                            <Download className="h-4 w-4" />
+                            Télécharger
+                          </Button>
+                        </a>
+                        <DialogClose asChild>
+                          <Button variant="ghost" size="sm">
+                            Fermer
+                          </Button>
+                        </DialogClose>
+                      </div>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </TabsContent>
+
+            {/* ── Reçus de Paiement Fournisseurs ── */}
+            <TabsContent value="recusFournisseurs">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Receipt className="h-5 w-5 text-primary" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-semibold">Reçus Fournisseurs</h2>
+                        {allSuppliers.filter((p: any) => p.paymentProofUrl).length > 0 && (
+                          <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold tabular-nums">
+                            {allSuppliers
+                              .filter((p: any) => p.paymentProofUrl)
+                              .filter((p: any) => {
+                                if (supplierRecusFilter === "pending") return !p.paymentProofVerified;
+                                if (supplierRecusFilter === "verified") return p.paymentProofVerified;
+                                return true;
+                              })
+                              .length}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Historique des reçus de paiement envoyés par les fournisseurs</p>
+                    </div>
+                  </div>
+                  {allSuppliers.filter((p: any) => p.paymentProofUrl).length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs shrink-0"
+                      onClick={() => {
+                        const headers = ["Société","Contact","Moyen de paiement","Montant","Statut","Fichier","Date upload"];
+                        const rows = allSuppliers
+                          .filter((p: any) => p.paymentProofUrl)
+                          .map((p: any) => [
+                            p.companyName || "",
+                            p.user?.name || p.email || "",
+                            p.paymentMethod === "d17" ? "D17" : "Virement",
+                            p.paymentAmount ? `${p.paymentAmount} TND` : "",
+                            p.paymentProofVerified ? "Vérifié" : "En attente",
+                            p.paymentProofFileName || "",
+                            p.paymentProofUploadedAt
+                              ? new Date(p.paymentProofUploadedAt).toLocaleDateString("fr-FR")
+                              : "",
+                          ]);
+                        const csv = [headers.join(","), ...rows.map((r: string[]) => r.map(c => `"${c}"`).join(","))].join("\n");
+                        const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "recus_fournisseurs_" + new Date().toISOString().split("T")[0] + ".csv";
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success("Fichier CSV exporté");
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Export CSV</span>
+                    </Button>
+                  )}
+                </div>
+
+                {/* Filtres */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { key: "all", label: "Tous" },
+                    { key: "pending", label: "En attente" },
+                    { key: "verified", label: "Vérifiés" },
+                  ].map((f) => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => setSupplierRecusFilter(f.key)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                        supplierRecusFilter === f.key
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      {f.label}
+                      {f.key === "pending" && allSuppliers.filter((p: any) => p.paymentProofUrl && !p.paymentProofVerified).length > 0 && (
+                        <span className="ml-1.5 text-[9px] opacity-70">
+                          ({allSuppliers.filter((p: any) => p.paymentProofUrl && !p.paymentProofVerified).length})
+                        </span>
+                      )}
+                      {f.key === "verified" && allSuppliers.filter((p: any) => p.paymentProofUrl && p.paymentProofVerified).length > 0 && (
+                        <span className="ml-1.5 text-[9px] opacity-70">
+                          ({allSuppliers.filter((p: any) => p.paymentProofUrl && p.paymentProofVerified).length})
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {allSuppliers.filter((p: any) => p.paymentProofUrl).length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/30 mx-auto mb-4">
+                      <Receipt className="h-8 w-8 text-muted-foreground/50" />
+                    </div>
+                    <p className="text-sm font-semibold">Aucun reçu fournisseur</p>
+                    <p className="text-xs text-muted-foreground mt-1">Les reçus de paiement des fournisseurs apparaîtront ici après soumission.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">Fournisseur</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Moyen de paiement</th>
+                          <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
+                          <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Statut</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Fichier</th>
+                          <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Reçu</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Date d'upload</th>
+                          <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allSuppliers
+                          .filter((p: any) => p.paymentProofUrl)
+                          .filter((p: any) => {
+                            if (supplierRecusFilter === "pending") return !p.paymentProofVerified;
+                            if (supplierRecusFilter === "verified") return p.paymentProofVerified;
+                            return true;
+                          })
+                          .map((p: any) => {
+                            const uploadDate = p.paymentProofUploadedAt
+                              ? new Date(p.paymentProofUploadedAt).toLocaleDateString("fr-FR", {
+                                  day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+                                })
+                              : "—";
+                            const fileName = p.paymentProofFileName || "reçu_paiement";
+                            const isVerified = p.paymentProofVerified;
+
+                            return (
+                              <tr key={p._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
+                                <td className="py-3 px-3">
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-8 w-8 shrink-0 border border-border/40">
+                                      <AvatarImage src={p.logo || p.user?.image || ""} alt="Logo" className="object-cover" />
+                                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                                        {p.companyName ? p.companyName.charAt(0).toUpperCase() : "?"}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-xs truncate max-w-[140px] sm:max-w-[200px]">
+                                        {p.companyName || "Fournisseur"}
+                                      </p>
+                                      <p className="text-[9px] text-muted-foreground truncate">
+                                        {p.email || p.user?.email || ""}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 hidden sm:table-cell">
+                                  <Badge className={cn(
+                                    "text-[9px]",
+                                    p.paymentMethod === "d17"
+                                      ? "bg-amber-400/10 text-amber-600 border-amber-200/30"
+                                      : "bg-blue-500/10 text-blue-600 border-blue-200/30"
+                                  )}>
+                                    {p.paymentMethod === "d17" ? (
+                                      <><Smartphone className="h-3 w-3 mr-0.5" /> D17</>
+                                    ) : (
+                                      <><Landmark className="h-3 w-3 mr-0.5" /> Virement</>
+                                    )}
+                                  </Badge>
+                                </td>
+                                <td className="py-3 px-3 text-right hidden sm:table-cell">
+                                  <span className="font-mono text-xs font-medium">
+                                    {p.paymentAmount ? `${p.paymentAmount.toLocaleString("fr-FR")} TND` : "—"}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  {isVerified ? (
+                                    <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200/30 text-[9px]">
+                                      <Check className="h-3 w-3 mr-0.5" /> Vérifié
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-amber-500/10 text-amber-600 border-amber-200/30 text-[9px]">
+                                      <Clock className="h-3 w-3 mr-0.5" /> En attente
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="py-3 px-3 hidden md:table-cell">
+                                  <div className="flex items-center gap-1.5">
+                                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                    <span className="text-xs truncate max-w-[150px]">{fileName}</span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewSupplierReceipt(p)}
+                                    className="group relative inline-flex items-center justify-center cursor-pointer"
+                                    title="Voir le reçu"
+                                  >
+                                    <div className="h-12 w-12 rounded-lg border border-border/40 bg-muted/20 overflow-hidden hover:ring-2 hover:ring-primary/30 transition-all">
+                                      <img
+                                        src={p.paymentProofUrl}
+                                        alt="Reçu"
+                                        className="h-full w-full object-cover"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).style.display = "none";
+                                          (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                                        }}
+                                      />
+                                      <div className="hidden absolute inset-0 flex items-center justify-center bg-muted/50 text-[8px] text-muted-foreground">
+                                        PDF
+                                      </div>
+                                    </div>
+                                  </button>
+                                </td>
+                                <td className="py-3 px-3 hidden md:table-cell">
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                    <span>{uploadDate}</span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <a
+                                      href={p.paymentProofUrl}
+                                      download={p.paymentProofFileName || "recu_paiement"}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                                        <Download className="h-3.5 w-3.5" />
+                                        <span className="hidden sm:inline">Télécharger</span>
+                                      </Button>
+                                    </a>
+                                    {isVerified ? (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                        onClick={async () => {
+                                          try {
+                                            await verifySupplierReceipt({ profileId: p._id, verified: false });
+                                            toast.success("Reçu marqué comme non vérifié");
+                                          } catch (err: any) {
+                                            toast.error(err.message || "Erreur");
+                                          }
+                                        }}
+                                      >
+                                        <X className="h-3 w-3 mr-1" />
+                                        <span className="hidden sm:inline">Annuler</span>
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                                        onClick={async () => {
+                                          try {
+                                            await verifySupplierReceipt({ profileId: p._id, verified: true });
+                                            toast.success("Reçu marqué comme vérifié");
+                                          } catch (err: any) {
+                                            toast.error(err.message || "Erreur");
+                                          }
+                                        }}
+                                      >
+                                        <Check className="h-3 w-3 mr-1" />
+                                        <span className="hidden sm:inline">Vérifier</span>
+                                      </Button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Résumé */}
+                {allSuppliers.filter((p: any) => p.paymentProofUrl).length > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        {allSuppliers.filter((p: any) => p.paymentProofUrl && p.paymentProofVerified).length} vérifié(s)
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-amber-500" />
+                        {allSuppliers.filter((p: any) => p.paymentProofUrl && !p.paymentProofVerified).length} en attente
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px]">
+                      <span className="font-medium text-foreground">
+                        Total : <span className="font-mono font-semibold">
+                          {allSuppliers
+                            .filter((p: any) => p.paymentProofUrl)
+                            .reduce((sum: number, p: any) => sum + (p.paymentAmount || 0), 0)
+                            .toLocaleString("fr-FR")} TND
+                        </span>
+                      </span>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-muted-foreground">
+                        {allSuppliers.filter((p: any) => p.paymentProofUrl).length} reçu(s) au total
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Modale d'aperçu du reçu fournisseur ── */}
+              <Dialog open={!!previewSupplierReceipt} onOpenChange={(open) => { if (!open) setPreviewSupplierReceipt(null); }}>
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Receipt className="h-5 w-5 text-primary" />
+                      Reçu de paiement fournisseur
+                    </DialogTitle>
+                    <DialogDescription>
+                      Détails du reçu soumis par le fournisseur
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  {previewSupplierReceipt && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/20 border border-border/30">
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">Fournisseur</p>
+                          <p className="text-xs font-medium truncate">{previewSupplierReceipt.companyName || "Fournisseur"}</p>
+                          <p className="text-[9px] text-muted-foreground truncate">{previewSupplierReceipt.email || previewSupplierReceipt.user?.email || ""}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">Moyen de paiement</p>
+                          <Badge className={cn(
+                            "text-[9px] mt-0.5",
+                            previewSupplierReceipt.paymentMethod === "d17"
+                              ? "bg-amber-400/10 text-amber-600"
+                              : "bg-blue-500/10 text-blue-600"
+                          )}>
+                            {previewSupplierReceipt.paymentMethod === "d17" ? "D17" : "Virement bancaire"}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">Montant</p>
+                          <p className="text-sm font-mono font-bold text-primary">
+                            {previewSupplierReceipt.paymentAmount ? `${previewSupplierReceipt.paymentAmount.toLocaleString("fr-FR")} TND` : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-muted-foreground">Statut</p>
+                          {previewSupplierReceipt.paymentProofVerified ? (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 text-[9px] mt-0.5">
+                              <Check className="h-3 w-3 mr-0.5" /> Vérifié
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500/10 text-amber-600 text-[9px] mt-0.5">
+                              <Clock className="h-3 w-3 mr-0.5" /> En attente
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-[9px] text-muted-foreground">Date d'upload</p>
+                          <p className="text-xs">
+                            {previewSupplierReceipt.paymentProofUploadedAt
+                              ? new Date(previewSupplierReceipt.paymentProofUploadedAt).toLocaleDateString("fr-FR", {
+                                  day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
+                                })
+                              : "—"}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-[9px] text-muted-foreground">Fichier</p>
+                          <p className="text-xs font-mono truncate">{previewSupplierReceipt.paymentProofFileName || "reçu_paiement"}</p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-border/40 bg-muted/10 overflow-hidden">
+                        {previewSupplierReceipt.paymentProofUrl ? (
+                          <>
+                            <img
+                              src={previewSupplierReceipt.paymentProofUrl}
+                              alt="Reçu"
+                              className="w-full h-auto max-h-[50vh] object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                                const fallback = (e.target as HTMLImageElement).nextElementSibling;
+                                if (fallback) fallback.classList.remove("hidden");
+                              }}
+                            />
+                            <div className="hidden flex items-center justify-center p-8 text-muted-foreground">
+                              <FileText className="h-12 w-12 mr-3" />
+                              <div>
+                                <p className="text-sm font-medium">Document PDF</p>
+                                <p className="text-xs">Cliquez sur le bouton Télécharger pour ouvrir le fichier</p>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center justify-center p-8 text-muted-foreground">
+                            <FileText className="h-12 w-12 mr-3" />
+                            <p className="text-sm">Aucun fichier disponible</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2">
+                        <a
+                          href={previewSupplierReceipt.paymentProofUrl}
+                          download={previewSupplierReceipt.paymentProofFileName || "recu_paiement"}
                           target="_blank"
                           rel="noopener noreferrer"
                         >

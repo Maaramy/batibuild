@@ -574,3 +574,38 @@ export const checkSupplierNotifications = mutation({
     }
   },
 });
+
+/** Admin: mark a supplier payment receipt as verified / unverified */
+export const adminVerifySupplierReceipt = mutation({
+  args: {
+    profileId: v.id("supplierProfiles"),
+    verified: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin")
+      throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil fournisseur introuvable");
+
+    await ctx.db.patch(args.profileId, {
+      paymentProofVerified: args.verified,
+      updatedAt: Date.now(),
+    });
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: args.verified ? "verify_supplier_receipt" : "unverify_supplier_receipt",
+        targetUserId: profile.userId,
+        targetUserEmail: profile.email,
+        details: `Reçu fournisseur ${args.verified ? "vérifié" : "non vérifié"} — ${profile.companyName}`,
+        createdAt: Date.now(),
+      });
+    } catch (e) { /* optional */ }
+
+    return { success: true };
+  },
+});
