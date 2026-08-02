@@ -461,7 +461,7 @@ export default function Dashboard() {
                         onClick={() => navigate(`/dashboard/pricing?plan=${userPlan === "free" ? "pro" : "expert"}`)}
                         className={`h-7 gap-1 px-2.5 text-[10px] sm:text-xs ${
                           userPlan === "pro"
-                            ? "bg-gradient-to-br from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-sm"
+                            ? "bg-yellow-400 hover:bg-yellow-500 text-black border-0 shadow-sm"
                             : ""
                         }`}
                       >
