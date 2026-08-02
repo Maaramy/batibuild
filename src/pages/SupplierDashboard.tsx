@@ -244,14 +244,8 @@ export default function SupplierDashboard() {
     }
   };
 
-  if (profile === undefined || hasProfile === undefined) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <Spinner className="h-6 w-6" />
-      </main>
-    );
-  }
-
+  // Calculs d'état AVANT le early return : tous les hooks doivent être appelés
+  // de façon inconditionnelle (règle des hooks React)
   const effStatus = (profile as any)?.effectiveStatus || profile?.subscriptionStatus || "inactive";
   const remainingDays = (profile as any)?.remainingDays ?? 0;
   const plan = (profile as any)?.plan || "none";
@@ -264,6 +258,14 @@ export default function SupplierDashboard() {
       setShowPaymentChoice(false);
     }
   }, [effStatus]);
+
+  if (profile === undefined || hasProfile === undefined) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center">
+        <Spinner className="h-6 w-6" />
+      </main>
+    );
+  }
 
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
     active: { label: "Abonné Pro", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: ShieldCheck },
