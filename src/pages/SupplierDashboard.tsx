@@ -209,6 +209,8 @@ export default function SupplierDashboard() {
   const [address, setAddress] = useState("");
   const [website, setWebsite] = useState("");
   const [description, setDescription] = useState("");
+  const [logo, setLogo] = useState<string | undefined>(undefined);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -222,6 +224,7 @@ export default function SupplierDashboard() {
       setAddress(profile.address || "");
       setWebsite(profile.website || "");
       setDescription(profile.description || "");
+      setLogo((profile as any).logo || undefined);
       setSelectedSpecialties(profile.specialties || []);
       setSelectedRegions((profile as any).regions || []);
     }
@@ -259,6 +262,7 @@ export default function SupplierDashboard() {
           companyName, phone, email, address,
           website: website || undefined,
           description: description || undefined,
+          logo: logo || undefined,
           specialties: selectedSpecialties, regions: selectedRegions,
         });
         toast.success("Profil mis à jour !");
@@ -268,6 +272,7 @@ export default function SupplierDashboard() {
           companyName, phone, email, address,
           website: website || undefined,
           description: description || undefined,
+          logo: logo || undefined,
           specialties: selectedSpecialties, regions: selectedRegions,
         });
         toast.success("Profil fournisseur créé !");
@@ -295,6 +300,38 @@ export default function SupplierDashboard() {
 
   // Mode "relecture" : les coordonnées de paiement restent affichées tant que la demande est en attente
   const paymentMethodForReview = (profile as any)?.paymentMethod || supplierPaymentMethod;
+
+  const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Format accepté : image (JPG, PNG, WebP)");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux (max 5 Mo)");
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const uploadUrl = await generateUploadUrl();
+      const result = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!result.ok) throw new Error("Échec de l'upload");
+      const { storageId } = await result.json();
+      const fileUrl = `${window.location.origin}/api/storage/${storageId}`;
+      setLogo(fileUrl);
+      toast.success("Logo ajouté ! Enregistrez pour confirmer.");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'upload du logo");
+    } finally {
+      setUploadingLogo(false);
+      e.target.value = "";
+    }
+  };
 
   const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -409,9 +446,15 @@ export default function SupplierDashboard() {
                 <CardContent className="p-5">
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
-                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${stCfg.color.replace('text-', 'text-').replace('border-', 'bg-').split(' ')[0] || 'bg-slate-100'} ${stCfg.color.split(' ')[1] || 'text-slate-600'}`}>
-                        <StatusIcon className="h-6 w-6" />
-                      </div>
+                      {logo ? (
+                        <div className="h-14 w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden shadow-sm">
+                          <img src={logo} alt={profile.companyName} className="h-full w-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${stCfg.color.replace('text-', 'text-').replace('border-', 'bg-').split(' ')[0] || 'bg-slate-100'} ${stCfg.color.split(' ')[1] || 'text-slate-600'}`}>
+                          <StatusIcon className="h-6 w-6" />
+                        </div>
+                      )}
                       <div>
                         <p className="font-semibold text-sm">{profile.companyName}</p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -705,6 +748,33 @@ export default function SupplierDashboard() {
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1"><Building2 className="h-3 w-3" /> Nom de la société</Label>
                     <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} disabled={!isEditing} className="h-9 text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Logo de l'entreprise</Label>
+                    <div className="flex items-center gap-3">
+                      <div className="h-14 w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden flex items-center justify-center">
+                        {logo ? (
+                          <img src={logo} alt="Logo" className="h-full w-full object-cover" />
+                        ) : (
+                          <Building2 className="h-6 w-6 text-muted-foreground/50" />
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className={`relative inline-flex cursor-pointer items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-medium transition-colors ${isEditing ? "border-border/40 bg-background hover:bg-muted/50 text-foreground" : "opacity-50 pointer-events-none"}`}>
+                          {uploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                          {uploadingLogo ? "Upload..." : logo ? "Changer le logo" : "Ajouter un logo"}
+                          <input type="file" accept="image/*" onChange={handleUploadLogo} disabled={!isEditing} className="hidden" />
+                        </label>
+                        {logo && isEditing && (
+                          <button type="button" onClick={() => setLogo(undefined)} className="text-[10px] text-destructive hover:underline text-left">
+                            Supprimer le logo
+                          </button>
+                        )}
+                        {!logo && (
+                          <p className="text-[9px] text-muted-foreground">JPG, PNG ou WebP — max 5 Mo</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">

@@ -198,6 +198,7 @@ export const createProfile = mutation({
     address: v.string(),
     website: v.optional(v.string()),
     description: v.optional(v.string()),
+    logo: v.optional(v.string()),
     specialties: v.array(v.string()),
     regions: v.array(v.string()),
   },
@@ -222,6 +223,7 @@ export const createProfile = mutation({
       address: args.address,
       website: args.website,
       description: args.description,
+      logo: args.logo,
       specialties: args.specialties,
       regions: args.regions,
       plan: "none",
@@ -244,6 +246,7 @@ export const updateProfile = mutation({
     address: v.optional(v.string()),
     website: v.optional(v.string()),
     description: v.optional(v.string()),
+    logo: v.optional(v.string()),
     specialties: v.optional(v.array(v.string())),
     regions: v.optional(v.array(v.string())),
   },
@@ -265,6 +268,7 @@ export const updateProfile = mutation({
     if (args.address !== undefined) updates.address = args.address;
     if (args.website !== undefined) updates.website = args.website;
     if (args.description !== undefined) updates.description = args.description;
+    if (args.logo !== undefined) updates.logo = args.logo;
     if (args.specialties !== undefined) updates.specialties = args.specialties;
     if (args.regions !== undefined) updates.regions = args.regions;
 
