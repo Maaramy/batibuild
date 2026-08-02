@@ -265,7 +265,7 @@ const Overlay: React.FC<{
 export const VlyToolbar: React.FC = () => {
   const [selectMode, setSelectMode] = useState(false);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
-  const [showDevOverlay, setShowDevOverlay] = React.useState(true);
+  const [showDevOverlay, setShowDevOverlay] = React.useState(false);
 
   const isDevDeployment =
     typeof window !== "undefined" &&
