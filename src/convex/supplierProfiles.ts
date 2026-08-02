@@ -340,33 +340,6 @@ export const uploadSupplierPaymentProof = mutation({
   },
 });
 
-/** Admin: Attach a payment proof file to a supplier profile (same as subscriptions) */
-export const adminUploadSupplierPaymentProof = mutation({
-  args: {
-    profileId: v.id("supplierProfiles"),
-    storageId: v.id("_storage"),
-    url: v.string(),
-    fileName: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin")
-      throw new Error("Unauthorized: Admin access required");
-
-    const profile = await ctx.db.get(args.profileId);
-    if (!profile) throw new Error("Profil fournisseur introuvable");
-
-    await ctx.db.patch(args.profileId, {
-      paymentProofStorageId: args.storageId,
-      paymentProofUrl: args.url,
-      paymentProofFileName: args.fileName || "reçu_paiement",
-      paymentProofUploadedAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-
-    return { success: true };
-  },
-});
 
 /** Admin: Approve a pending supplier subscription (payment verified) */
 export const adminApproveSupplierSubscription = mutation({

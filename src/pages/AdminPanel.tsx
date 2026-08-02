@@ -71,7 +71,6 @@ import {
   Download,
   Eye,
   EyeOff,
-  Upload,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -131,9 +130,6 @@ export default function AdminPanel() {
   const adminToggleSupplierVisibility = useMutation(api.supplierProfiles.adminToggleVisibility);
   const approveSupplierSub = useMutation(api.supplierProfiles.adminApproveSupplierSubscription);
   const rejectSupplierSub = useMutation(api.supplierProfiles.adminRejectSupplierSubscription);
-  const adminUploadSupplierProof = useMutation(api.supplierProfiles.adminUploadSupplierPaymentProof);
-  const generateUploadUrl = useMutation(api.users.generateUploadUrl);
-  const [supplierUploadingProfileId, setSupplierUploadingProfileId] = useState<string | null>(null);
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -548,42 +544,6 @@ export default function AdminPanel() {
                           };
                           const subStatus = profile.subscriptionStatus || "inactive";
 
-                          const handleSupplierProofUpload = async (e: React.ChangeEvent<HTMLInputElement>, targetProfile: any) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-                              toast.error("Format accepté : image (JPG, PNG) ou PDF");
-                              return;
-                            }
-                            if (file.size > 5 * 1024 * 1024) {
-                              toast.error("Fichier trop volumineux (max 5 Mo)");
-                              return;
-                            }
-                            setSupplierUploadingProfileId(targetProfile._id);
-                            try {
-                              const uploadUrl = await generateUploadUrl();
-                              const result = await fetch(uploadUrl, {
-                                method: "POST",
-                                headers: { "Content-Type": file.type },
-                                body: file,
-                              });
-                              if (!result.ok) throw new Error("Échec de l'upload");
-                              const { storageId } = await result.json();
-                              const fileUrl = `${window.location.origin}/api/storage/${storageId}`;
-                              await adminUploadSupplierProof({
-                                profileId: targetProfile._id,
-                                storageId: storageId as any,
-                                url: fileUrl,
-                                fileName: file.name,
-                              });
-                              toast.success("Reçu de paiement fournisseur attaché");
-                            } catch (err: any) {
-                              toast.error(err.message || "Erreur lors de l'upload");
-                            } finally {
-                              setSupplierUploadingProfileId(null);
-                            }
-                          };
-
                           const handleDelete = async () => {
                             if (!window.confirm("Supprimer le profil fournisseur " + (profile.companyName || "Sans nom") + " ?\n\nCette action est irréversible.")) return;
                             try {
@@ -732,23 +692,6 @@ export default function AdminPanel() {
                                       </button>
                                     </>
                                   )}
-                                  <label
-                                    className="p-1.5 rounded-md hover:bg-muted/30 text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                                    title="Joindre un reçu de paiement"
-                                  >
-                                    {supplierUploadingProfileId === profile._id ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : (
-                                      <Upload className="h-3.5 w-3.5" />
-                                    )}
-                                    <input
-                                      type="file"
-                                      accept="image/*,.pdf"
-                                      className="hidden"
-                                      disabled={supplierUploadingProfileId !== null}
-                                      onChange={(e) => handleSupplierProofUpload(e, profile)}
-                                    />
-                                  </label>
                                   <button
                                     type="button"
                                     onClick={handleToggle}
