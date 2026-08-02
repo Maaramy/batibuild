@@ -451,8 +451,15 @@ export default function SupplierDashboard() {
                           <img src={logo} alt={profile.companyName} className="h-full w-full object-cover" />
                         </div>
                       ) : (
-                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${stCfg.color.replace('text-', 'text-').replace('border-', 'bg-').split(' ')[0] || 'bg-slate-100'} ${stCfg.color.split(' ')[1] || 'text-slate-600'}`}>
-                          <StatusIcon className="h-6 w-6" />
+                        <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/10 shadow-sm`}>
+                          <span className="text-lg font-black text-primary/80 tracking-wide">
+                            {(profile.companyName || "?")
+                              .split(/\s+/)
+                              .filter(Boolean)
+                              .map((w: string) => w.charAt(0).toUpperCase())
+                              .slice(0, 2)
+                              .join("")}
+                          </span>
                         </div>
                       )}
                       <div>
@@ -931,6 +938,40 @@ export default function SupplierDashboard() {
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1"><Building2 className="h-3 w-3" /> Nom de la société *</Label>
                     <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-9 text-sm" placeholder="Votre société" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Logo de l'entreprise (optionnel)</Label>
+                    <div className="flex items-center gap-3">
+                      <div className="h-14 w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden flex items-center justify-center">
+                        {logo ? (
+                          <img src={logo} alt="Logo" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-lg font-black text-muted-foreground/40">
+                            {(companyName || "?")
+                              .split(/\s+/)
+                              .filter(Boolean)
+                              .map((w: string) => w.charAt(0).toUpperCase())
+                              .slice(0, 2)
+                              .join("")}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="relative inline-flex cursor-pointer items-center gap-1.5 h-8 px-3 rounded-lg border border-border/40 bg-background hover:bg-muted/50 text-xs font-medium transition-colors">
+                          {uploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                          {uploadingLogo ? "Upload..." : logo ? "Changer le logo" : "Ajouter un logo"}
+                          <input type="file" accept="image/*" onChange={handleUploadLogo} className="hidden" />
+                        </label>
+                        {logo && (
+                          <button type="button" onClick={() => setLogo(undefined)} className="text-[10px] text-destructive hover:underline text-left">
+                            Supprimer le logo
+                          </button>
+                        )}
+                        {!logo && (
+                          <p className="text-[9px] text-muted-foreground">JPG, PNG ou WebP — max 5 Mo</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
