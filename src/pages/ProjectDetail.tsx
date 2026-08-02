@@ -1760,13 +1760,13 @@ export default function ProjectDetail() {
                 <div className="relative rounded-xl border border-amber-200/60 bg-gradient-to-br from-amber-500/[0.08] via-background to-background shadow-sm overflow-hidden">
                   {/* Header */}
                   <div className="flex items-center gap-3 px-5 py-4 bg-amber-500/[0.08] border-b border-amber-200/60">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-yellow-400 text-white shrink-0">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[#FFD700] to-[#D4AF37] text-yellow-950 shrink-0">
                       <Brain className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-semibold">Intelligence prédictive</h3>
-                        <Badge className="text-[10px] gap-1 bg-gradient-to-r from-amber-500 to-yellow-400 text-white border-transparent">
+                        <Badge className="text-[10px] gap-1 bg-gradient-to-r from-[#FFD700] to-[#D4AF37] text-yellow-950 border-transparent">
                           <Crown className="h-3 w-3" /> PRO / EXPERT
                         </Badge>
                       </div>
@@ -1930,11 +1930,11 @@ export default function ProjectDetail() {
                 /* Locked teaser for Free users */
                 <div className="relative rounded-xl border border-dashed border-amber-300/60 bg-gradient-to-br from-amber-500/[0.05] to-background p-5 overflow-hidden">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-yellow-400 text-white shrink-0">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[#FFD700] to-[#D4AF37] text-yellow-950 shrink-0">
                       <Brain className="h-4 w-4" />
                     </div>
                     <h3 className="text-base font-semibold">Intelligence prédictive</h3>
-                    <Badge className="text-[10px] gap-1 bg-gradient-to-r from-amber-500 to-yellow-400 text-white border-transparent ml-auto">
+                    <Badge className="text-[10px] gap-1 bg-gradient-to-r from-[#FFD700] to-[#D4AF37] text-yellow-950 border-transparent ml-auto">
                       <Crown className="h-3 w-3" /> PRO / EXPERT
                     </Badge>
                   </div>
