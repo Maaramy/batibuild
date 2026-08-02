@@ -1760,13 +1760,13 @@ export default function ProjectDetail() {
                 <div className="relative rounded-xl border border-violet-200/50 bg-gradient-to-br from-violet-500/[0.06] via-background to-background shadow-sm overflow-hidden">
                   {/* Header */}
                   <div className="flex items-center gap-2 px-4 py-3 bg-violet-500/[0.06] border-b border-violet-200/40">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-600 text-white shrink-0">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100 text-violet-600 shrink-0">
                       <Brain className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <h3 className="text-[15px] font-semibold">Intelligence prédictive</h3>
-                        <Badge className="text-[9px] gap-0.5 bg-violet-600 text-white border-violet-600">
+                        <Badge className="text-[9px] gap-0.5 bg-violet-100 text-violet-600 border-violet-200">
                           <Crown className="h-2.5 w-2.5" /> PRO / EXPERT
                         </Badge>
                       </div>
@@ -1930,11 +1930,11 @@ export default function ProjectDetail() {
                 /* Locked teaser for Free users */
                 <div className="relative rounded-xl border border-dashed border-violet-300/40 bg-gradient-to-br from-violet-500/[0.03] to-background p-4 overflow-hidden">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-600 text-white shrink-0">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100 text-violet-600 shrink-0">
                       <Brain className="h-4 w-4" />
                     </div>
                     <h3 className="text-[15px] font-semibold">Intelligence prédictive</h3>
-                    <Badge className="text-[9px] gap-0.5 bg-violet-600 text-white border-violet-600 ml-auto">
+                    <Badge className="text-[9px] gap-0.5 bg-violet-100 text-violet-600 border-violet-200 ml-auto">
                       <Crown className="h-2.5 w-2.5" /> PRO / EXPERT
                     </Badge>
                   </div>
