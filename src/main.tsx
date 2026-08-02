@@ -30,9 +30,13 @@ const ContactPage = lazy(() => import("./pages/ContactPage.tsx"));
 const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"),);
 
-// Simple loading fallback for route transitions (renders nothing to avoid a splash flash)
+// Simple loading fallback for route transitions
 function RouteLoading() {
-  return null;
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-pulse text-muted-foreground">Loading...</div>
+    </div>
+  );
 }
 
 /** Silent error boundary — if VlyToolbar crashes it renders nothing instead of
