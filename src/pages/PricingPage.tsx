@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, FileText, Banknote, Copy, CheckCheck, Smartphone, Wallet, Landmark, UserRound, Upload, Image, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useRef } from "react";
@@ -135,7 +135,11 @@ export default function PricingPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [selectedPlan, setSelectedPlan] = useState<string>("pro");
+  const [searchParams] = useSearchParams();
+  const [selectedPlan, setSelectedPlan] = useState<string>(() => {
+    const p = searchParams.get("plan");
+    return p === "expert" || p === "pro" ? p : "pro";
+  });
   
   // Get the correct price based on selected plan
   const getSelectedPrice = () => {

@@ -455,6 +455,20 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {userPlan !== "expert" && (
+                      <Button
+                        size="sm"
+                        onClick={() => navigate(`/dashboard/pricing?plan=${userPlan === "free" ? "pro" : "expert"}`)}
+                        className={`h-7 gap-1 px-2.5 text-[10px] sm:text-xs ${
+                          userPlan === "pro"
+                            ? "bg-gradient-to-br from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-sm"
+                            : ""
+                        }`}
+                      >
+                        {userPlan === "free" ? "Passez à Pro" : "Passez à Expert"}
+                        <ArrowUpRight className="h-3 w-3" />
+                      </Button>
+                    )}
                     <div className={`text-xs sm:text-sm font-bold tabular-nums ${
                       isNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-primary'
                     }`}>
