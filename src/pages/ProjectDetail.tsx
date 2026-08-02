@@ -1998,8 +1998,17 @@ export default function ProjectDetail() {
                             <p className={`text-[12px] font-semibold ${cfg.txt}`}>{cfg.label} ({items.length})</p>
                           </div>
                           <div className="space-y-1">
+                            <AnimatePresence initial={false}>
                             {items.slice(0, visibleCount).map((p: any, i: number) => (
-                              <div key={i} className="p-2.5 rounded-lg hover:bg-muted/20 transition-colors border border-border/10">
+                              <motion.div
+                                key={i}
+                                initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                                animate={{ opacity: 1, height: "auto", marginTop: i === 0 ? 0 : 4 }}
+                                exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                transition={{ duration: 0.25, ease: "easeInOut" }}
+                                style={{ overflow: "hidden" }}
+                              >
+                              <div className="p-2.5 rounded-lg hover:bg-muted/20 transition-colors border border-border/10">
                                 <div className="flex items-start gap-2">
                                   <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${cfg.iconBg} ${cfg.iconTxt}`}>
                                     <Users className="h-3 w-3" />
@@ -2077,7 +2086,9 @@ export default function ProjectDetail() {
                                   </div>
                                 </div>
                               </div>
+                              </motion.div>
                             ))}
+                            </AnimatePresence>
                           </div>
                         </div>
                       );
@@ -2091,17 +2102,24 @@ export default function ProjectDetail() {
                         onClick={() => setShowAllProviders((v) => !v)}
                         className="w-full flex items-center justify-center gap-1.5 mt-2 py-2 rounded-lg border border-primary/15 bg-primary/[0.03] text-[12px] font-medium text-primary hover:bg-primary/[0.07] hover:border-primary/25 active:scale-[0.99] transition-all"
                       >
-                        {showAllProviders ? (
-                          <>
-                            <ChevronUp className="h-3.5 w-3.5" />
-                            Voir moins
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="h-3.5 w-3.5" />
-                            Voir plus ({total - 3})
-                          </>
-                        )}
+                        <motion.span
+                          animate={{ rotate: showAllProviders ? 180 : 0 }}
+                          transition={{ duration: 0.2, ease: "easeInOut" }}
+                          className="shrink-0 inline-flex"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </motion.span>
+                        <AnimatePresence mode="wait" initial={false}>
+                          <motion.span
+                            key={showAllProviders ? "moins" : "plus"}
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.15 }}
+                          >
+                            {showAllProviders ? "Voir moins" : `Voir plus (${total - 3})`}
+                          </motion.span>
+                        </AnimatePresence>
                       </button>
                     );
                   })()}
