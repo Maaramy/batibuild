@@ -524,13 +524,11 @@ export default function AdminPanel() {
                           .map((profile: any) => {
                           const statusColors: Record<string, string> = {
                             active: "bg-emerald-500/10 text-emerald-600 border-emerald-200/30",
-                            trial: "bg-blue-500/10 text-blue-600 border-blue-200/30",
                             expired: "bg-red-500/10 text-red-600 border-red-200/30",
                             inactive: "bg-muted/30 text-muted-foreground border-muted-foreground/20",
                           };
                           const statusLabels: Record<string, string> = {
                             active: "Actif",
-                            trial: "Essai",
                             expired: "Expiré",
                             inactive: "Inactif",
                           };
@@ -679,10 +677,6 @@ export default function AdminPanel() {
                         <span className="h-2 w-2 rounded-full bg-emerald-500" />
                         {allSuppliers.filter((s: any) => s.subscriptionStatus === "active").length} actif(s)
                       </span>
-                      <span className="flex items-center gap-1">
-                        <span className="h-2 w-2 rounded-full bg-blue-500" />
-                        {allSuppliers.filter((s: any) => s.subscriptionStatus === "trial").length} essai(s)
-                      </span>
                     </div>
                     <p className="text-[10px] text-muted-foreground">
                       {allSuppliers.length} fournisseur(s) au total
@@ -781,8 +775,8 @@ export default function AdminPanel() {
                     <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
                       <div>
                         <p className="text-[9px] text-muted-foreground">Abonnement</p>
-                        <Badge className={cn("text-[9px] mt-0.5", selectedSupplier.subscriptionStatus === "active" ? "bg-emerald-500/10 text-emerald-600" : selectedSupplier.subscriptionStatus === "trial" ? "bg-blue-500/10 text-blue-600" : "bg-muted/30 text-muted-foreground")}>
-                          {({active:"Actif",trial:"Essai",expired:"Expiré",inactive:"Inactif"} as Record<string,string>)[selectedSupplier.subscriptionStatus || "inactive"] || selectedSupplier.subscriptionStatus}
+                        <Badge className={cn("text-[9px] mt-0.5", selectedSupplier.subscriptionStatus === "active" ? "bg-emerald-500/10 text-emerald-600" : "bg-muted/30 text-muted-foreground")}>
+                          {({active:"Actif",trial:"Inactif",expired:"Expiré",inactive:"Inactif"} as Record<string,string>)[selectedSupplier.subscriptionStatus || "inactive"] || selectedSupplier.subscriptionStatus}
                         </Badge>
                       </div>
                       <div>

@@ -16,7 +16,7 @@ import {
   Building2, Phone, Mail, MapPin, Globe, CheckCircle2,
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard,
   Store, ShieldCheck, Trash2, AlertTriangle,
-  Sparkles, Timer, Gift, Banknote, Smartphone,
+  Banknote, Smartphone,
 } from "lucide-react";
 
 // ============================================================================
@@ -80,13 +80,11 @@ export default function SupplierDashboard() {
   const paymentConfig = useQuery(api.payments.getPaymentConfigAdmin);
   const createProfile = useMutation(api.supplierProfiles.createProfile);
   const updateProfile = useMutation(api.supplierProfiles.updateProfile);
-  const startTrial = useMutation(api.supplierProfiles.startTrial);
   const activateSub = useMutation(api.supplierProfiles.activateSubscription);
   const toggleVis = useMutation(api.supplierProfiles.toggleVisibility);
   const deleteProfile = useMutation(api.supplierProfiles.deleteProfile);
 
   const [saving, setSaving] = useState(false);
-  const [trialStarting, setTrialStarting] = useState(false);
   const [activating, setActivating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -169,18 +167,6 @@ export default function SupplierDashboard() {
     }
   };
 
-  const handleStartTrial = async () => {
-    setTrialStarting(true);
-    try {
-      await startTrial();
-      toast.success("Essai gratuit activé ! 7 jours offerts.");
-    } catch (err: any) {
-      toast.error(err.message || "Erreur d'activation");
-    } finally {
-      setTrialStarting(false);
-    }
-  };
-
   const handleActivate = async () => {
     setActivating(true);
     try {
@@ -220,11 +206,9 @@ export default function SupplierDashboard() {
   const remainingDays = (profile as any)?.remainingDays ?? 0;
   const plan = (profile as any)?.plan || "none";
   const MONTHLY_PRICE = paymentConfig?.supplierPrice || (profile as any)?.MONTHLY_PRICE || 120;
-  const TRIAL_DAYS = (profile as any)?.TRIAL_DAYS || 7;
 
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
     active: { label: "Abonné Pro", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: ShieldCheck },
-    trial: { label: "Essai gratuit", color: "bg-blue-100 text-blue-700 border-blue-200", icon: Gift },
     inactive: { label: "Inactif", color: "bg-slate-100 text-slate-600 border-slate-200", icon: Store },
     expired: { label: "Expiré", color: "bg-red-100 text-red-700 border-red-200", icon: AlertTriangle },
   };
@@ -267,12 +251,6 @@ export default function SupplierDashboard() {
                             <StatusIcon className="h-2.5 w-2.5 inline mr-1" />
                             {stCfg.label}
                           </Badge>
-                          {effStatus === "trial" && (
-                            <Badge variant="secondary" className="text-[9px] gap-1">
-                              <Timer className="h-2.5 w-2.5" />
-                              {remainingDays} jour{remainingDays > 1 ? 's' : ''} restant{remainingDays > 1 ? 's' : ''}
-                            </Badge>
-                          )}
                           {effStatus === "active" && (
                             <Badge variant="secondary" className="text-[9px] gap-1 bg-emerald-50 text-emerald-600">
                               <CheckCircle2 className="h-2.5 w-2.5" />
@@ -295,70 +273,21 @@ export default function SupplierDashboard() {
                     {/* Action buttons */}
                     <div className="flex flex-col sm:items-end gap-2">
                       {(effStatus === "inactive" || effStatus === "expired") && (
-                        <>
-                          <Button size="sm" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
-                            onClick={handleStartTrial} disabled={trialStarting}>
-                            {trialStarting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                            Essai gratuit {TRIAL_DAYS} jours
-                          </Button>
-                          <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
-                            onClick={() => setShowPaymentChoice(true)}>
-                            <CreditCard className="h-3 w-3" />
-                            120 TND/mois
-                          </Button>
-                        </>
-                      )}
-                      {effStatus === "trial" && (
                         <Button size="sm" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
                           onClick={() => setShowPaymentChoice(true)}>
                           <CreditCard className="h-3 w-3" />
-                          Passer à 120 TND/mois
+                          120 TND/mois
                         </Button>
                       )}
                     </div>
                   </div>
 
-                  {/* Trial banner */}
-                  {effStatus === "trial" && (
-                    <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-50/30 border border-blue-100 flex items-center gap-2">
-                      <Gift className="h-4 w-4 text-blue-500 shrink-0" />
-                      <p className="text-[10px] text-blue-700">
-                        Période d'essai gratuite — {remainingDays} jour{remainingDays > 1 ? 's' : ''} restant{remainingDays > 1 ? 's' : ''}.
-                        Passez à l'abonnement mensuel pour continuer après l'essai.
-                      </p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 
               {/* ═══ Plan Selection Cards ═══ */}
               {(effStatus === "inactive" || effStatus === "expired") && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Trial card */}
-                  <Card className="border-blue-200/50 bg-gradient-to-br from-blue-50/20 to-background hover:shadow-sm transition-all cursor-pointer"
-                    onClick={handleStartTrial}>
-                    <CardContent className="p-4 sm:p-5">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                          <Gift className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold">Essai gratuit</p>
-                          <p className="text-lg font-black text-blue-600 mt-1">0 TND</p>
-                          <p className="text-[10px] text-muted-foreground mt-1">{TRIAL_DAYS} jours · Sans engagement</p>
-                          <ul className="mt-2 space-y-1">
-                            {["Profil visible dans les recherches", "Recommandé aux porteurs de projet", "Sélection de spécialités", "Toutes régions"].map((f) => (
-                              <li key={f} className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                                <Check className="h-2.5 w-2.5 text-blue-500 shrink-0" />{f}
-                              </li>
-                            ))}
-                          </ul>
-                          {trialStarting && <Loader2 className="h-4 w-4 animate-spin mx-auto mt-2" />}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
+                <div className="grid grid-cols-1 gap-3">
                   {/* Monthly card */}
                   <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.03] to-background ring-1 ring-primary/10 hover:shadow-sm transition-all cursor-pointer"
                     onClick={() => setShowPaymentChoice(true)}>
@@ -372,7 +301,7 @@ export default function SupplierDashboard() {
                           <p className="text-lg font-black text-primary mt-1">{MONTHLY_PRICE} TND<small className="text-[9px] font-normal text-muted-foreground">/mois</small></p>
                           <p className="text-[10px] text-muted-foreground mt-1">Virement bancaire ou D17</p>
                           <ul className="mt-2 space-y-1">
-                            {["Tout l'essai gratuit +", "Avant-première : 1ère position", "Badge certifié", "Statistiques de visibilité", "Support prioritaire"].map((f) => (
+                            {["Tout le profil +", "Avant-première : 1ère position", "Badge certifié", "Statistiques de visibilité", "Support prioritaire"].map((f) => (
                               <li key={f} className="flex items-center gap-1 text-[9px] text-muted-foreground">
                                 <Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />{f}
                               </li>
@@ -569,23 +498,7 @@ export default function SupplierDashboard() {
             /* ═══ No profile — Create form ═══ */
             <div className="space-y-6">
               {/* Plans overview */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Card className="border-blue-200/50 bg-gradient-to-br from-blue-50/20 to-background">
-                  <CardContent className="p-5 text-center">
-                    <div className="flex justify-center mb-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                        <Gift className="h-6 w-6" />
-                      </div>
-                    </div>
-                    <p className="text-sm font-semibold">Essai gratuit</p>
-                    <p className="text-xs text-muted-foreground mt-1">{TRIAL_DAYS} jours offerts</p>
-                    <ul className="mt-3 space-y-1 text-left max-w-[200px] mx-auto">
-                      <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-blue-500 shrink-0" />Profil visible</li>
-                      <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-blue-500 shrink-0" />Recommandations IA</li>
-                      <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-blue-500 shrink-0" />Sans carte bancaire</li>
-                    </ul>
-                  </CardContent>
-                </Card>
+              <div className="grid grid-cols-1 gap-3">
                 <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.03] to-background ring-1 ring-primary/10">
                   <CardContent className="p-5 text-center">
                     <div className="flex justify-center mb-3">
@@ -596,7 +509,7 @@ export default function SupplierDashboard() {
                     <p className="text-sm font-semibold">Abonnement Pro</p>
                     <p className="text-sm font-bold text-primary mt-1">{MONTHLY_PRICE} TND<small className="text-[9px] font-normal text-muted-foreground">/mois</small></p>
                     <ul className="mt-3 space-y-1 text-left max-w-[200px] mx-auto">
-                      <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />Tout l'essai +</li>
+                      <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />Tout le profil +</li>
                       <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />Avant-première</li>
                       <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />Badge certifié</li>
                       <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />Support prioritaire</li>
@@ -681,7 +594,7 @@ export default function SupplierDashboard() {
                     Créer mon profil fournisseur
                   </Button>
                   <p className="text-[9px] text-muted-foreground text-center">
-                    Après la création, choisissez l'essai gratuit ou l'abonnement mensuel
+                    Après la création, souscrivez à l'abonnement mensuel pour être recommandé
                   </p>
                 </CardContent>
               </Card>

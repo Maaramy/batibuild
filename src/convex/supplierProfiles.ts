@@ -7,7 +7,6 @@ import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
 // Constants
 // ============================================================================
 
-const TRIAL_DAYS = 7;
 const MONTHLY_PRICE = 120; // TND/month
 const MONTHLY_DAYS = 30;
 
@@ -28,16 +27,12 @@ export const getMyProfile = query({
 
     if (!profile) return null;
 
-    // Check if trial has expired
+    // Trial period removed — legacy trial profiles are treated as inactive
     const now = Date.now();
-    let effectiveStatus = profile.subscriptionStatus;
-    if (
-      effectiveStatus === "trial" &&
-      profile.trialStartDate &&
-      profile.trialStartDate + TRIAL_DAYS * 24 * 60 * 60 * 1000 < now
-    ) {
-      effectiveStatus = "expired";
-    }
+    let effectiveStatus =
+      profile.subscriptionStatus === "trial"
+        ? "inactive"
+        : profile.subscriptionStatus;
     if (
       effectiveStatus === "active" &&
       profile.subscriptionEndDate &&
@@ -48,15 +43,7 @@ export const getMyProfile = query({
 
     // Calculate remaining days
     let remainingDays = 0;
-    if (effectiveStatus === "trial" && profile.trialStartDate) {
-      remainingDays = Math.max(
-        0,
-        Math.ceil(
-          (profile.trialStartDate + TRIAL_DAYS * 24 * 60 * 60 * 1000 - now) /
-            (24 * 60 * 60 * 1000)
-        )
-      );
-    } else if (effectiveStatus === "active" && profile.subscriptionEndDate) {
+    if (effectiveStatus === "active" && profile.subscriptionEndDate) {
       remainingDays = Math.max(
         0,
         Math.ceil(
@@ -73,13 +60,12 @@ export const getMyProfile = query({
       effectiveStatus,
       remainingDays,
       plan: profile.plan || "none",
-      TRIAL_DAYS,
       MONTHLY_PRICE,
     };
   },
 });
 
-/** Get all active/trial supplier profiles (for recommendations) */
+/** Get all active supplier profiles (for recommendations) */
 export const getActiveSuppliers = query({
   handler: async (ctx) => {
     const now = Date.now();
@@ -90,25 +76,9 @@ export const getActiveSuppliers = query({
       )
       .collect();
 
-    // Also get trial suppliers (not expired)
-    const trialSuppliers = await ctx.db
-      .query("supplierProfiles")
-      .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "trial"))
-      .collect();
-
-    const allSuppliers = [...suppliers, ...trialSuppliers];
-
-    return allSuppliers
+    return suppliers
       .filter((s) => s.isVisible)
       .filter((s) => {
-        // Filter out expired trials
-        if (
-          s.subscriptionStatus === "trial" &&
-          s.trialStartDate &&
-          s.trialStartDate + TRIAL_DAYS * 24 * 60 * 60 * 1000 < now
-        ) {
-          return false;
-        }
         // Filter out expired monthly
         if (
           s.subscriptionStatus === "active" &&
@@ -164,6 +134,8 @@ export const getAllSupplierProfiles = query({
         const user = await ctx.db.get(profile.userId);
         return {
           ...profile,
+          subscriptionStatus:
+            profile.subscriptionStatus === "trial" ? "inactive" : profile.subscriptionStatus,
           specialtiesLabels: profile.specialties.map(
             (s) => SUPPLIER_SPECIALTIES_LABELS[s] || s
           ),
@@ -292,40 +264,6 @@ export const updateProfile = mutation({
   },
 });
 
-/** Start 7-day free trial */
-export const startTrial = mutation({
-  handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Non connecté");
-
-    const profile = await ctx.db
-      .query("supplierProfiles")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .first();
-
-    if (!profile) throw new Error("Aucun profil fournisseur");
-
-    if (profile.subscriptionStatus === "trial") {
-      throw new Error("Vous avez déjà utilisé votre essai gratuit");
-    }
-    if (profile.subscriptionStatus === "active") {
-      throw new Error("Vous êtes déjà abonné");
-    }
-
-    const now = Date.now();
-    await ctx.db.patch(profile._id, {
-      plan: "trial",
-      subscriptionStatus: "trial",
-      trialStartDate: now,
-      subscriptionEndDate: now + TRIAL_DAYS * 24 * 60 * 60 * 1000,
-      isVisible: true,
-      updatedAt: now,
-    });
-
-    return { trialDays: TRIAL_DAYS };
-  },
-});
-
 /** Activate monthly subscription (120 TND/month - virement) */
 export const activateSubscription = mutation({
   handler: async (ctx) => {
@@ -445,45 +383,6 @@ export const checkSupplierNotifications = mutation({
     const allSuppliers = await ctx.db.query("supplierProfiles").collect();
 
     for (const profile of allSuppliers) {
-      // Check trial ending in 2 days
-      if (
-        profile.subscriptionStatus === "trial" &&
-        profile.trialStartDate
-      ) {
-        const trialEnd = profile.trialStartDate + TRIAL_DAYS * DAY_MS;
-        const daysUntilEnd = Math.round((trialEnd - now) / DAY_MS);
-
-        if (daysUntilEnd === 2) {
-          try {
-            await ctx.db.insert("notifications", {
-              userId: profile.userId,
-              type: "subscription",
-              title: "Essai gratuit bientôt terminé",
-              message: "Votre essai gratuit de 7 jours se termine dans 2 jours. Souscrivez à l'abonnement à 120 TND/mois pour continuer à apparaître dans les recommandations.",
-              read: false,
-              link: "/supplier",
-              createdAt: now,
-            });
-          } catch (e) { /* optional */ }
-        }
-
-        // Trial expired
-        if (trialEnd < now && profile.isVisible) {
-          await ctx.db.patch(profile._id, { isVisible: false, updatedAt: now });
-          try {
-            await ctx.db.insert("notifications", {
-              userId: profile.userId,
-              type: "subscription",
-              title: "Essai gratuit terminé",
-              message: "Votre essai gratuit de 7 jours est terminé. Votre profil a été masqué. Abonnez-vous à 120 TND/mois pour réactiver votre visibilité.",
-              read: false,
-              link: "/supplier",
-              createdAt: now,
-            });
-          } catch (e) { /* optional */ }
-        }
-      }
-
       // Check active subscription ending in 3 days
       if (
         profile.subscriptionStatus === "active" &&
