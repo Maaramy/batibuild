@@ -1850,8 +1850,10 @@ export default function ProjectDetail() {
                         <div className="grid sm:grid-cols-2 gap-3">
                           {insights.budgetOptimizations?.length > 0 && (
                             <div className="p-3 rounded-lg bg-background border border-border/10">
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <Wallet className="h-3.5 w-3.5 text-violet-500" />
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-violet-100 text-violet-600 shrink-0">
+                                  <Wallet className="h-3.5 w-3.5" />
+                                </div>
                                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Optimisation du budget</p>
                               </div>
                               <div className="space-y-2">
@@ -1871,8 +1873,10 @@ export default function ProjectDetail() {
                           )}
                           {insights.lossReductions?.length > 0 && (
                             <div className="p-3 rounded-lg bg-background border border-border/10">
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <Lightbulb className="h-3.5 w-3.5 text-violet-500" />
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-violet-100 text-violet-600 shrink-0">
+                                  <Lightbulb className="h-3.5 w-3.5" />
+                                </div>
                                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Réduction des pertes</p>
                               </div>
                               <div className="space-y-2">
