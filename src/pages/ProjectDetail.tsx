@@ -1104,7 +1104,7 @@ export default function ProjectDetail() {
                 <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
                   <DialogContent className="sm:max-w-sm rounded-2xl">
                     <DialogHeader>
-                      <DialogTitle className="text-base">Offre Gratuite</DialogTitle>
+                      <DialogTitle className="text-base">Offre Start</DialogTitle>
                       <DialogDescription className="text-xs">
                         Le téléchargement de devis en PDF est réservé aux abonnés Pro
                       </DialogDescription>

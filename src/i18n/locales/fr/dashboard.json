@@ -53,7 +53,7 @@
   "remaining": "Il vous reste {{count}} téléchargement(s) ce mois-ci.",
   "subscribed": "Vous êtes abonné {{plan}}.",
   "plan": {
-    "free": "Gratuit",
+    "free": "Start",
     "pro": "Pro",
     "expert": "Expert"
   },

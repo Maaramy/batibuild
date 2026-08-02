@@ -30,7 +30,7 @@ const DEFAULT_PAYMENT = {
 const PLANS = [
   {
     id: "free",
-    name: "Gratuit",
+    name: "Start",
     price: "0",
     period: "TND/mois",
     description: "Pour découvrir l'outil",
@@ -119,7 +119,7 @@ function PaymentField({
 }
 
 export default function PricingPage() {
-  usePageSEO({ title: "Abonnements - BudgetBati", description: "Choisissez l'abonnement BudgetBati adapté à vos besoins : Gratuit, Pro ou Expert." });
+  usePageSEO({ title: "Abonnements - BudgetBati", description: "Choisissez l'abonnement BudgetBati adapté à vos besoins : Start, Pro ou Expert." });
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const currentSubscription = useQuery(api.subscriptions.getMySubscription);
@@ -319,7 +319,7 @@ export default function PricingPage() {
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-10">
         <div className="text-center mb-8">
           <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Offre actuelle : {currentPlan === "free" ? "Gratuit" : "Pro"}
+            Offre actuelle : {currentPlan === "free" ? "Start" : "Pro"}
             {isPending && " (En attente de validation)"}
           </Badge>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre offre</h1>

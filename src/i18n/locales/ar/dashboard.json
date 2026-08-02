@@ -53,7 +53,7 @@
   "remaining": "لديك {{count}} تحميل متبقي هذا الشهر.",
   "subscribed": "أنت مشترك في {{plan}}.",
   "plan": {
-    "free": "مجاني",
+    "free": "Start",
     "pro": "احترافي",
     "expert": "خبير"
   },

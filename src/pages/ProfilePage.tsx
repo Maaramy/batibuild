@@ -244,7 +244,7 @@ export default function ProfilePage() {
                   <span className="text-xs">Abonnement</span>
                 </div>
                 <Badge variant={isPro ? "default" : "secondary"} className="text-[9px]">
-                  {isPro ? "Pro" : "Gratuit"}
+                  {isPro ? "Pro" : "Start"}
                 </Badge>
               </div>
               <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/20 border border-border/20">

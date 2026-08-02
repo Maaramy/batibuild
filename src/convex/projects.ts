@@ -273,7 +273,7 @@ export const createProject = mutation({
         .withIndex("by_user", (q) => q.eq("userId", user._id))
         .collect();
       if (existingProjects.length >= limit) {
-        const planLabel = userPlan === "free" ? "Gratuit" : "Pro";
+        const planLabel = userPlan === "free" ? "Start" : "Pro";
         const proLimit = planLimits.pro;
         throw new Error(
           `LIMITE_ATTEINTE:Vous avez atteint la limite de ${limit} projets offerte avec le forfait ${planLabel}. ` +
@@ -672,7 +672,7 @@ export const updatePredictiveInsights = mutation({
     // Only Pro / Expert (or admin) can store predictive insights
     const plan = user.subscriptionPlan ?? "free";
     if (plan !== "pro" && plan !== "expert" && user.role !== "admin") {
-      throw new Error("Offre gratuite : l'intelligence prédictive est réservée aux forfaits Pro et Expert");
+      throw new Error("Offre Start : l'intelligence prédictive est réservée aux forfaits Pro et Expert");
     }
 
     const project = await ctx.db.get(args.projectId);

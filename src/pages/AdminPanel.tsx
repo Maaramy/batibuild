@@ -890,7 +890,7 @@ export default function AdminPanel() {
                         )}>
                           {selectedUser.subscriptionPlan === "pro" ? "Pro" :
                            selectedUser.subscriptionPlan === "expert" ? "Expert" :
-                           selectedUser.subscriptionPlan === "supplier" ? "Fournisseur" : "Gratuit"}
+                           selectedUser.subscriptionPlan === "supplier" ? "Fournisseur" : "Start"}
                         </Badge>
                       </div>
                       <div>

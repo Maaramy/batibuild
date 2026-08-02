@@ -431,7 +431,7 @@ export default function Dashboard() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-xs sm:text-sm font-medium">
-                          {userPlan === "free" ? "Forfait Gratuit" : userPlan === "expert" ? "Forfait Expert" : "Forfait Pro"}
+                          {userPlan === "free" ? "Forfait Start" : userPlan === "expert" ? "Forfait Expert" : "Forfait Pro"}
                         </p>
                         {userPlan === "expert" && (
                           <Badge className="bg-amber-500/10 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">

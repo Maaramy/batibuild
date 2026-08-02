@@ -53,7 +53,7 @@
   "remaining": "You have {{count}} download(s) remaining this month.",
   "subscribed": "You are subscribed to {{plan}}.",
   "plan": {
-    "free": "Free",
+    "free": "Start",
     "pro": "Pro",
     "expert": "Expert"
   },
