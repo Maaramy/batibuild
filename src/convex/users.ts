@@ -151,6 +151,7 @@ export const updateProfile = mutation({
     name: v.optional(v.string()),
     company: v.optional(v.string()),
     phone: v.optional(v.string()),
+    emailNotifications: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -160,6 +161,7 @@ export const updateProfile = mutation({
     if (args.name !== undefined) patch.name = args.name;
     if (args.company !== undefined) patch.company = args.company;
     if (args.phone !== undefined) patch.phone = args.phone;
+    if (args.emailNotifications !== undefined) patch.emailNotifications = args.emailNotifications;
 
     await ctx.db.patch(user._id, patch);
     return { success: true };

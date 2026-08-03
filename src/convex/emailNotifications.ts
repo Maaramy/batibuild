@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { DEFAULT_TEMPLATES, EMAIL_EVENT_LABELS } from "./emailTemplates";
+import { decryptPassword } from "./emailConfig";
 
 // ============================================================================
 // Automatic Email Notifications Engine
@@ -332,7 +333,7 @@ export const processEmailEvent = internalMutation({
       smtpSecurity: config.smtpSecurity ?? undefined,
       smtpUser: config.smtpUser || undefined,
       smtpPassword: config.smtpPasswordEnc
-        ? (await import("./emailConfig")).decryptPassword(config.smtpPasswordEnc)
+        ? decryptPassword(config.smtpPasswordEnc)
         : undefined,
     });
 

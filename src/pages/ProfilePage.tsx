@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
@@ -38,6 +39,7 @@ export default function ProfilePage() {
   const [name, setName] = useState(user?.name || "");
   const [company, setCompany] = useState(user?.company || "");
   const [phone, setPhone] = useState(user?.phone || "");
+  const [emailNotifs, setEmailNotifs] = useState(user?.emailNotifications ?? true);
   const [saving, setSaving] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedMessages, setSeedMessages] = useState<string[]>([]);
@@ -84,7 +86,7 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateProfile({ name, company, phone });
+      await updateProfile({ name, company, phone, emailNotifications: emailNotifs });
       toast.success("Profil mis à jour");
     } catch (err) {
       toast.error("Erreur lors de la mise à jour");
@@ -255,6 +257,16 @@ export default function ProfilePage() {
                 <Badge variant={isAdmin ? "default" : "secondary"} className="text-[9px]">
                   {isAdmin ? "Administrateur" : "Utilisateur"}
                 </Badge>
+              </div>
+              <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/20 border border-border/20">
+                <div className="flex items-center gap-2">
+                  <Mail className={cn("h-4 w-4", emailNotifs ? "text-primary" : "text-muted-foreground/40")} />
+                  <div>
+                    <p className="text-xs">Notifications e-mail</p>
+                    <p className="text-[9px] text-muted-foreground/60">Activation, paiements, expiration…</p>
+                  </div>
+                </div>
+                <Switch checked={emailNotifs} onCheckedChange={setEmailNotifs} />
               </div>
 
             </CardContent>
