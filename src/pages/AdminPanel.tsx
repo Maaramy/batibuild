@@ -95,7 +95,6 @@ export default function AdminPanel() {
 
   const allProjects = useQuery(api.projects.getAllProjects) || [];
   const materialPrices = useQuery(api.materials.getMaterialPrices, {}) || [];
-  const materialCategories = useQuery(api.materials.getMaterialCategories) || [];
 
   // New material form
   const [showNewMaterial, setShowNewMaterial] = useState(false);
@@ -2298,23 +2297,7 @@ export default function AdminPanel() {
               </Card>
             </div>
 
-            <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-              <CardHeader className="p-4 sm:p-6">
-                <CardTitle className="text-sm sm:text-base">Aperçu des catégories de matériaux</CardTitle>
-                <CardDescription className="text-xs">Nombre d'articles par catégorie</CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-6 pt-0">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
-                  {materialCategories.map((cat: any) => (
-                    <div key={cat.category} className="p-2 sm:p-3 rounded-xl bg-muted/30 border border-border/30 text-center">
-                      <p className="text-base sm:text-lg font-bold">{cat.count}</p>
-                      <p className="text-[9px] sm:text-xs text-muted-foreground">{categoryLabels[cat.category] || cat.category}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+            </TabsContent>
 
           {/* Materials Management */}
           <TabsContent value="materials">
