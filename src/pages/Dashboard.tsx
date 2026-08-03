@@ -350,6 +350,14 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              <Button
+                size="sm"
+                onClick={() => navigate("/dashboard/new")}
+                className="gap-1 h-7 sm:h-8 lg:h-9 px-2 sm:px-3 text-xs sm:text-sm shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Nouveau projet</span>
+              </Button>
               <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 relative">
                 <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-primary" />
