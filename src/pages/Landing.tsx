@@ -989,8 +989,8 @@ function Footer() {
           <div>
             <h4 className="text-sm font-semibold mb-3">Légal</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Confidentialité</a></li>
-              <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Conditions</a></li>
+              <li><a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Confidentialité</a></li>
+              <li><a href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Conditions</a></li>
             </ul>
           </div>
         </div>

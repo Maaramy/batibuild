@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useAuth } from "@/hooks/use-auth";
 import logo from "@/assets/logo.svg";
@@ -296,6 +297,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Separate visibility per field
   const [loginShowPw, setLoginShowPw] = useState(false);
@@ -331,6 +333,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   // -- OTP: send email --
   const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); setIsLoading(true); resetError();
+    if (tab === "register" && !acceptedTerms) {
+      setError("Vous devez accepter les conditions d'utilisation et la politique de confidentialité.");
+      setIsLoading(false);
+      return;
+    }
     try {
       const fd = new FormData(e.currentTarget);
       await signIn("email-otp", fd);
@@ -365,6 +372,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   // -- Password register --
   const handlePasswordRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); setIsLoading(true); resetError();
+    if (!acceptedTerms) {
+      setError("Vous devez accepter les conditions d'utilisation et la politique de confidentialité.");
+      setIsLoading(false);
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const pw = fd.get("password") as string;
     const cpw = fd.get("confirmPassword") as string;
@@ -589,9 +601,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     </FormField>
                     {error && <ErrorBanner message={error} />}
                     <motion.div variants={fadeUp}>
-                      <p className="text-xs" style={{ color: "var(--foreground)", opacity: 0.5 }}>
-                        En créant un compte, vous acceptez nos <a href="#" className="hover:underline font-medium" style={{ color: "var(--foreground)" }}>conditions</a> et notre <a href="#" className="hover:underline font-medium" style={{ color: "var(--foreground)" }}>politique de confidentialité</a>.
-                      </p>
+                      <label htmlFor="accept-terms" className="flex items-start gap-2.5 cursor-pointer select-none rounded-xl p-3 transition-all hover:opacity-95"
+                        style={{ border: "1px solid color-mix(in srgb, var(--auth-primary) 14%, transparent)", background: "color-mix(in srgb, var(--auth-primary) 4%, transparent)" }}>
+                        <Checkbox id="accept-terms" checked={acceptedTerms} onCheckedChange={(v) => setAcceptedTerms(!!v)} disabled={isLoading} className="mt-0.5 shrink-0" />
+                        <span className="text-xs leading-relaxed" style={{ color: "var(--foreground)", opacity: 0.72 }}>
+                          En créant un compte, j'accepte les <Link to="/terms" className="font-medium hover:underline" style={{ color: "var(--auth-primary)" }}>conditions d'utilisation</Link> et la <Link to="/privacy" className="font-medium hover:underline" style={{ color: "var(--auth-primary)" }}>politique de confidentialité</Link>.
+                        </span>
+                      </label>
                     </motion.div>
                     <PrimaryButton loading={isLoading} loadingText="Inscription...">Créer mon compte</PrimaryButton>
                   </form>
@@ -611,6 +627,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <form onSubmit={handleEmailSubmit} className="space-y-4">
                   <FormField label="Email" id="otp-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required />
                   {error && <ErrorBanner message={error} />}
+                  {tab === "register" && (
+                    <motion.div variants={fadeUp}>
+                      <label htmlFor="otp-accept-terms" className="flex items-start gap-2.5 cursor-pointer select-none rounded-xl p-3 transition-all hover:opacity-95"
+                        style={{ border: "1px solid color-mix(in srgb, var(--auth-primary) 14%, transparent)", background: "color-mix(in srgb, var(--auth-primary) 4%, transparent)" }}>
+                        <Checkbox id="otp-accept-terms" checked={acceptedTerms} onCheckedChange={(v) => setAcceptedTerms(!!v)} disabled={isLoading} className="mt-0.5 shrink-0" />
+                        <span className="text-xs leading-relaxed" style={{ color: "var(--foreground)", opacity: 0.72 }}>
+                          En créant un compte, j'accepte les <Link to="/terms" className="font-medium hover:underline" style={{ color: "var(--auth-primary)" }}>conditions d'utilisation</Link> et la <Link to="/privacy" className="font-medium hover:underline" style={{ color: "var(--auth-primary)" }}>politique de confidentialité</Link>.
+                        </span>
+                      </label>
+                    </motion.div>
+                  )}
                   <PrimaryButton loading={isLoading} loadingText="Envoi...">Envoyer le code</PrimaryButton>
                 </form>                  <div className="space-y-2.5">
                     <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--foreground)" }}
