@@ -405,7 +405,7 @@ export const adminApproveSubscription = mutation({
     });
 
     // Update user's plan (use the plan from the subscription, not hardcoded)
-    const planLabel = sub.plan === "expert" ? "Expert" : "Pro";
+    const planDisplayName = sub.plan === "expert" ? "Expert" : "Pro";
     await ctx.db.patch(sub.userId, {
       subscriptionPlan: sub.plan,
       subscriptionEndDate: now + planDuration,
@@ -417,7 +417,7 @@ export const adminApproveSubscription = mutation({
         userId: sub.userId,
         type: "subscription",
         title: "Abonnement activé",
-        message: `Félicitations ! Votre abonnement ${planLabel} a été activé. Vous pouvez désormais télécharger vos devis en PDF.`,
+        message: `Félicitations ! Votre abonnement ${planDisplayName} a été activé. Vous pouvez désormais télécharger vos devis en PDF.`,
         read: false,
         link: "/pricing",
         createdAt: Date.now(),
@@ -617,7 +617,7 @@ export const markReceiptVerified = mutation({
     const sub = await ctx.db.get(args.subscriptionId);
     if (!sub) throw new Error("Abonnement introuvable");
 
-    const planLabel = sub.plan === "expert" ? "Expert" : sub.plan === "pro" ? "Pro" : sub.plan;
+    const planDisplayName = sub.plan === "expert" ? "Expert" : sub.plan === "pro" ? "Pro" : sub.plan;
 
     await ctx.db.patch(args.subscriptionId, {
       paymentProofVerified: args.verified,
@@ -631,8 +631,8 @@ export const markReceiptVerified = mutation({
         type: "subscription",
         title: args.verified ? "Reçu de paiement vérifié" : "Vérification de reçu annulée",
         message: args.verified
-          ? `Votre reçu de paiement pour l'abonnement ${planLabel} a été vérifié avec succès.`
-          : `La vérification de votre reçu de paiement pour l'abonnement ${planLabel} a été annulée. Contactez le support si nécessaire.`,
+          ? `Votre reçu de paiement pour l'abonnement ${planDisplayName} a été vérifié avec succès.`
+          : `La vérification de votre reçu de paiement pour l'abonnement ${planDisplayName} a été annulée. Contactez le support si nécessaire.`,
         read: false,
         link: "/pricing",
         createdAt: Date.now(),

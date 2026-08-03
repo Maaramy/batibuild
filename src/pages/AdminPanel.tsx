@@ -12,6 +12,9 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import SeoSettings from "./SeoSettings";
 import BIMSettings from "./BIMSettings";
+import EmailSettings from "./EmailSettings";
+import EmailTemplates from "./EmailTemplates";
+import EmailHistory from "./EmailHistory";
 import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
@@ -455,6 +458,18 @@ export default function AdminPanel() {
               <TabsTrigger value="bim" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Cpu className="h-3.5 w-3.5" />
                 <span>BIM</span>
+              </TabsTrigger>
+              <TabsTrigger value="emails" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Mail className="h-3.5 w-3.5" />
+                <span>E-mails</span>
+              </TabsTrigger>
+              <TabsTrigger value="modeles" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <FileText className="h-3.5 w-3.5" />
+                <span>Modèles</span>
+              </TabsTrigger>
+              <TabsTrigger value="historique" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Activity className="h-3.5 w-3.5" />
+                <span>Historique E-mails</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -3507,6 +3522,21 @@ export default function AdminPanel() {
           {/* BIM Configuration */}
           <TabsContent value="bim">
             <BIMSettings />
+          </TabsContent>
+
+          {/* Email Configuration (SMTP + branding) */}
+          <TabsContent value="emails">
+            <EmailSettings />
+          </TabsContent>
+
+          {/* Email Templates editor */}
+          <TabsContent value="modeles">
+            <EmailTemplates />
+          </TabsContent>
+
+          {/* Email History + stats */}
+          <TabsContent value="historique">
+            <EmailHistory />
           </TabsContent>
         </Tabs>
         </div>

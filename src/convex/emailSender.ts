@@ -1,9 +1,8 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { api } from "./_generated/api";
+import { action, internalAction } from "./_generated/server";
+import { internal, api } from "./_generated/api";
 import nodemailer from "nodemailer";
 import { vly } from "../lib/vly-integrations";
 
@@ -28,7 +27,7 @@ function decryptSmtpPassword(enc: string): string {
 }
 
 /** Perform the actual network send (SMTP or VLY), then record the result */
-export const sendEmailAction = action({
+export const sendEmailAction = internalAction({
   args: {
     historyId: v.id("emailHistory"),
     to: v.string(),

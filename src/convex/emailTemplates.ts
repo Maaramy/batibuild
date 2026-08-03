@@ -52,6 +52,7 @@ export interface DefaultTemplate {
   label: string;
   subject: string;
   bodyHtml: string;
+  active?: boolean;
 }
 
 export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
