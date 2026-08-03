@@ -36,4 +36,13 @@ crons.cron(
   internal.storageCleanup.purgeOrphanedFiles,
 );
 
+// Daily subscription expiry check — marks expired subscriptions (members +
+// suppliers) and sends automatic email notifications
+// Runs every day at 06:00 AM
+crons.cron(
+  "daily-email-expiry-check",
+  "0 6 * * *",
+  internal.emailNotifications.checkExpiredSubscriptions,
+);
+
 export default crons;

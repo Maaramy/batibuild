@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { getCurrentUser } from "./users";
 import { subscriptionPlanValidator, SUBSCRIPTION_PLANS } from "./schema";
+import { scheduleEmailEvent, formatDateFr, planLabel, splitName } from "./emailNotifications";
 
 // ============================================================================
 // Queries
@@ -223,6 +225,26 @@ export const createSubscription = mutation({
         subscriptionPlan: args.plan,
         subscriptionEndDate: now + config.duration,
       });
+
+      // Notify by email: activation (first subscription) or renewal (re-subscription)
+      if (user.email && user.emailNotifications !== false) {
+        const isRenewal = existing.length > 0;
+        await scheduleEmailEvent(ctx, {
+          to: user.email,
+          recipientName: user.name || undefined,
+          templateKey: isRenewal ? "subscription_renewed" : "subscription_activated",
+          vars: {
+            ...splitName(user.name),
+            typeAbonnement: planLabel(args.plan),
+            dateActivation: formatDateFr(now),
+            dateExpiration: formatDateFr(now + config.duration),
+            montant: args.amount ? `${args.amount} ${args.currency || "TND"}` : undefined,
+            numeroFacture: `INV-${subscriptionId}`,
+          },
+          dedupeKey: `${isRenewal ? "subscription_renewed" : "subscription_activated"}:${user.email}:${subscriptionId}`,
+          sendToAdmins: true,
+        });
+      }
     }
 
     return subscriptionId;
@@ -275,6 +297,23 @@ export const cancelSubscription = mutation({
         status: "canceled",
         updatedAt: Date.now(),
       });
+
+      // Send automatic email notification (subscription canceled)
+      if (user.email && user.emailNotifications !== false) {
+        await scheduleEmailEvent(ctx, {
+          to: user.email,
+          recipientName: user.name || undefined,
+          templateKey: "subscription_canceled",
+          vars: {
+            ...splitName(user.name),
+            typeAbonnement: planLabel(activeSub.plan),
+            dateActivation: formatDateFr(activeSub.startDate),
+            dateExpiration: formatDateFr(activeSub.endDate),
+          },
+          dedupeKey: `subscription_canceled:${user.email}:${activeSub._id}`,
+          sendToAdmins: true,
+        });
+      }
     }
 
     await ctx.db.patch(user._id, {
@@ -387,6 +426,35 @@ export const adminApproveSubscription = mutation({
       // Notification is optional, don't block approval
     }
 
+    // Send automatic email notification (activation or renewal)
+    const targetUser = await ctx.db.get(sub.userId);
+    if (targetUser?.email && targetUser.emailNotifications !== false) {
+      // Renewal if the user had another subscription before this one
+      const otherSubs = await ctx.db
+        .query("subscriptions")
+        .withIndex("by_user", (q) => q.eq("userId", sub.userId))
+        .collect();
+      const hasPrevious = otherSubs.some(
+        (s) => s._id !== sub._id && (s.status === "active" || s.status === "expired"),
+      );
+      const isRenewal = hasPrevious;
+      await scheduleEmailEvent(ctx, {
+        to: targetUser.email,
+        recipientName: targetUser.name || undefined,
+        templateKey: isRenewal ? "subscription_renewed" : "subscription_activated",
+        vars: {
+          ...splitName(targetUser.name),
+          typeAbonnement: planLabel(sub.plan),
+          dateActivation: formatDateFr(now),
+          dateExpiration: formatDateFr(now + planDuration),
+          montant: sub.amount ? `${sub.amount} ${sub.currency || "TND"}` : undefined,
+          numeroFacture: `INV-${sub._id}`,
+        },
+        dedupeKey: `${isRenewal ? "subscription_renewed" : "subscription_activated"}:${targetUser.email}:${sub._id}`,
+        sendToAdmins: true,
+      });
+    }
+
     return { success: true };
   },
 });
@@ -428,6 +496,25 @@ export const adminRejectSubscription = mutation({
       });
     } catch (e) {
       // Notification is optional
+    }
+
+    // Send automatic email notification (payment rejected)
+    const targetUser = await ctx.db.get(sub.userId);
+    if (targetUser?.email && targetUser.emailNotifications !== false) {
+      await scheduleEmailEvent(ctx, {
+        to: targetUser.email,
+        recipientName: targetUser.name || undefined,
+        templateKey: "payment_rejected",
+        vars: {
+          ...splitName(targetUser.name),
+          typeAbonnement: planLabel(sub.plan),
+          montant: sub.amount ? `${sub.amount} ${sub.currency || "TND"}` : undefined,
+          numeroFacture: `INV-${sub._id}`,
+          dateExpiration: formatDateFr(sub.endDate),
+        },
+        dedupeKey: `payment_rejected:${targetUser.email}:${sub._id}`,
+        sendToAdmins: true,
+      });
     }
 
     return { success: true };
@@ -552,6 +639,28 @@ export const markReceiptVerified = mutation({
       });
     } catch (e) {
       // Notification is optional
+    }
+
+    // Send automatic email notification (payment confirmed)
+    if (args.verified) {
+      const targetUser = await ctx.db.get(sub.userId);
+      if (targetUser?.email && targetUser.emailNotifications !== false) {
+        await scheduleEmailEvent(ctx, {
+          to: targetUser.email,
+          recipientName: targetUser.name || undefined,
+          templateKey: "payment_confirmed",
+          vars: {
+            ...splitName(targetUser.name),
+            typeAbonnement: planLabel(sub.plan),
+            montant: sub.amount ? `${sub.amount} ${sub.currency || "TND"}` : undefined,
+            numeroFacture: `INV-${sub._id}`,
+            dateActivation: formatDateFr(sub.startDate),
+            dateExpiration: formatDateFr(sub.endDate),
+          },
+          dedupeKey: `payment_confirmed:${targetUser.email}:${sub._id}`,
+          sendToAdmins: true,
+        });
+      }
     }
 
     return { success: true, verified: args.verified };

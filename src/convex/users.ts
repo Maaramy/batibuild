@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { roleValidator, subscriptionPlanValidator } from "./schema";
 import bcrypt from "bcryptjs";
 import { P, runBIMEstimation } from "./bimEngine";
+import { scheduleEmailEvent, formatDateFr, planLabel, splitName } from "./emailNotifications";
 
 /**
  * Get the current signed in user. Returns null if the user is not signed in.
@@ -634,6 +635,28 @@ export const toggleUserStatus = mutation({
       { userId: args.userId, email: targetUser.email },
       args.status === "disabled" ? "Compte désactivé" : "Compte réactivé",
     );
+
+    // Send automatic email notification (subscription suspended)
+    if (args.status === "disabled" && targetUser.email && targetUser.emailNotifications !== false) {
+      const activeSub = await ctx.db
+        .query("subscriptions")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .order("desc")
+        .first();
+      await scheduleEmailEvent(ctx, {
+        to: targetUser.email,
+        recipientName: targetUser.name || undefined,
+        templateKey: "subscription_suspended",
+        vars: {
+          ...splitName(targetUser.name),
+          typeAbonnement: planLabel(targetUser.subscriptionPlan),
+          dateActivation: formatDateFr(activeSub?.startDate),
+          dateExpiration: formatDateFr(activeSub?.endDate),
+        },
+        dedupeKey: `subscription_suspended:${targetUser.email}:${args.userId}`,
+        sendToAdmins: true,
+      });
+    }
 
     return { success: true };
   },

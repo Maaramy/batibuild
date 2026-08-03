@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
+import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 
 // ============================================================================
 // Constants
@@ -395,6 +396,27 @@ export const adminApproveSupplierSubscription = mutation({
       });
     } catch (e) { /* optional */ }
 
+    // Send automatic email notification (supplier subscription activated)
+    const supplierUser = await ctx.db.get(profile.userId);
+    const to = profile.email || supplierUser?.email;
+    if (to && supplierUser?.emailNotifications !== false) {
+      await scheduleEmailEvent(ctx, {
+        to,
+        recipientName: profile.companyName,
+        templateKey: "subscription_activated",
+        vars: {
+          nomEntreprise: profile.companyName,
+          typeAbonnement: "Fournisseur",
+          dateActivation: formatDateFr(now),
+          dateExpiration: formatDateFr(endDate),
+          montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : undefined,
+          numeroFacture: `INV-SUP-${profile._id}`,
+        },
+        dedupeKey: `supplier_activated:${to}:${profile._id}`,
+        sendToAdmins: true,
+      });
+    }
+
     return { success: true };
   },
 });
@@ -443,6 +465,25 @@ export const adminRejectSupplierSubscription = mutation({
         createdAt: Date.now(),
       });
     } catch (e) { /* optional */ }
+
+    // Send automatic email notification (payment rejected)
+    const supplierUser = await ctx.db.get(profile.userId);
+    const to = profile.email || supplierUser?.email;
+    if (to && supplierUser?.emailNotifications !== false) {
+      await scheduleEmailEvent(ctx, {
+        to,
+        recipientName: profile.companyName,
+        templateKey: "payment_rejected",
+        vars: {
+          nomEntreprise: profile.companyName,
+          typeAbonnement: "Fournisseur",
+          montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : undefined,
+          numeroFacture: `INV-SUP-${profile._id}`,
+        },
+        dedupeKey: `supplier_rejected:${to}:${profile._id}`,
+        sendToAdmins: true,
+      });
+    }
 
     return { success: true };
   },
@@ -616,6 +657,29 @@ export const adminVerifySupplierReceipt = mutation({
         createdAt: Date.now(),
       });
     } catch (e) { /* optional */ }
+
+    // Send automatic email notification (payment confirmed)
+    if (args.verified) {
+      const supplierUser = await ctx.db.get(profile.userId);
+      const to = profile.email || supplierUser?.email;
+      if (to && supplierUser?.emailNotifications !== false) {
+        await scheduleEmailEvent(ctx, {
+          to,
+          recipientName: profile.companyName,
+          templateKey: "payment_confirmed",
+          vars: {
+            nomEntreprise: profile.companyName,
+            typeAbonnement: "Fournisseur",
+            montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : undefined,
+            numeroFacture: `INV-SUP-${profile._id}`,
+            dateActivation: formatDateFr(profile.subscriptionStartDate),
+            dateExpiration: formatDateFr(profile.subscriptionEndDate),
+          },
+          dedupeKey: `supplier_paid:${to}:${profile._id}`,
+          sendToAdmins: true,
+        });
+      }
+    }
 
     return { success: true };
   },

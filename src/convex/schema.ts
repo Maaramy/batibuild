@@ -366,6 +366,7 @@ const schema = defineSchema(
       company: v.optional(v.string()),
       status: v.optional(v.union(v.literal("active"), v.literal("disabled"))),
       favoriteProjects: v.optional(v.array(v.id("projects"))),
+      emailNotifications: v.optional(v.boolean()),
       createdAt: v.optional(v.number()),
     })
       .index("email", ["email"])
@@ -707,6 +708,9 @@ const schema = defineSchema(
         v.literal("delete_material"),
         v.literal("bim_refresh"),
         v.literal("bim_save"),
+        v.literal("email_config_save"),
+        v.literal("email_template_save"),
+        v.literal("email_resend"),
       ),
       targetUserId: v.optional(v.id("users")),
       targetUserEmail: v.optional(v.string()),
@@ -813,6 +817,71 @@ const schema = defineSchema(
       refreshedAt: v.number(),
       refreshedBy: v.id("users"),
     }).index("by_refreshed", ["refreshedAt"]),
+
+    // Email Configuration (SMTP + branding, admin managed)
+    emailConfig: defineTable({
+      senderName: v.string(),
+      senderEmail: v.string(),
+      replyTo: v.optional(v.string()),
+      smtpHost: v.optional(v.string()),
+      smtpPort: v.optional(v.number()),
+      smtpSecurity: v.optional(
+        v.union(v.literal("ssl"), v.literal("tls"), v.literal("none"))
+      ),
+      smtpUser: v.optional(v.string()),
+      smtpPasswordEnc: v.optional(v.string()),
+      signature: v.optional(v.string()),
+      logoUrl: v.optional(v.string()),
+      primaryColor: v.optional(v.string()),
+      accentColor: v.optional(v.string()),
+      autoEnabled: v.optional(v.boolean()),
+      notifyAdminCc: v.optional(v.boolean()),
+      loginLink: v.optional(v.string()),
+      updatedAt: v.number(),
+      updatedBy: v.id("users"),
+    }).index("by_updated", ["updatedAt"]),
+
+    // Email templates (7 notification events, HTML with dynamic variables)
+    emailTemplates: defineTable({
+      key: v.union(
+        v.literal("subscription_activated"),
+        v.literal("subscription_renewed"),
+        v.literal("subscription_expired"),
+        v.literal("payment_confirmed"),
+        v.literal("payment_rejected"),
+        v.literal("subscription_suspended"),
+        v.literal("subscription_canceled")
+      ),
+      label: v.string(),
+      subject: v.string(),
+      bodyHtml: v.string(),
+      active: v.optional(v.boolean()),
+      updatedAt: v.number(),
+      updatedBy: v.id("users"),
+    }).index("by_key", ["key"]),
+
+    // Email sending history
+    emailHistory: defineTable({
+      to: v.string(),
+      recipientName: v.optional(v.string()),
+      templateKey: v.string(),
+      subject: v.string(),
+      status: v.union(
+        v.literal("sent"),
+        v.literal("failed"),
+        v.literal("pending")
+      ),
+      error: v.optional(v.string()),
+      createdAt: v.number(),
+      sentAt: v.optional(v.number()),
+      attemptCount: v.optional(v.number()),
+      dedupeKey: v.optional(v.string()),
+      payloadJson: v.optional(v.string()),
+      sentToAdmins: v.optional(v.boolean()),
+    })
+      .index("by_created", ["createdAt"])
+      .index("by_status", ["status"])
+      .index("by_dedupe", ["dedupeKey"]),
 
     // SEO Configuration (editable by admin)
     seoConfig: defineTable({
