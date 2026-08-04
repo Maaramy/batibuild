@@ -16,13 +16,26 @@ export const getBIMConfig = query({
       .order("desc")
       .first();
     if (!config) return null;
+
+    // Defensive parsing: a legacy or partial config row must never crash the
+    // admin BIM tab. Invalid/missing fields fall back to safe defaults.
+    const safeParse = (raw: any, fallback: any) => {
+      if (typeof raw !== "string" || raw.trim() === "") return fallback;
+      try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : fallback;
+      } catch {
+        return fallback;
+      }
+    };
+
     return {
       ...config,
       // Parse JSON strings back to objects for the client
-      parsedMarketPrices: JSON.parse(config.marketPricesM2),
-      parsedPercentages: JSON.parse(config.projectPercentages),
-      parsedMultipliers: JSON.parse(config.regionMultipliers),
-      parsedUnitPrices: JSON.parse(config.unitPrices),
+      parsedMarketPrices: safeParse(config.marketPricesM2, {}),
+      parsedPercentages: safeParse(config.projectPercentages, {}),
+      parsedMultipliers: safeParse(config.regionMultipliers, {}),
+      parsedUnitPrices: safeParse(config.unitPrices, {}),
     };
   },
 });

@@ -47,7 +47,9 @@ export default function BIMSettings() {
     try {
       const res = await refreshBIM();
       setResult(res);
-      toast.success(`✅ BIM mis à jour v${res.version} — ${res.updatedMaterials} mat\u00e9riaux actualis\u00e9s`);
+      toast.success(
+        `✅ BIM mis à jour v${res.version} — ${res.updatedMaterials} matériaux actualisés`
+      );
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de la mise à jour BIM");
     }
@@ -67,7 +69,7 @@ export default function BIMSettings() {
             <div>
               <CardTitle className="text-sm sm:text-base">Moteur d'estimation BIM</CardTitle>
               <CardDescription className="text-xs">
-                Met à jour les prix de r\u00e9f\u00e9rence du march\u00e9 tunisien de la construction 2026
+                Met à jour les prix de référence du marché tunisien de la construction 2026
               </CardDescription>
             </div>
           </div>
@@ -75,29 +77,29 @@ export default function BIMSettings() {
         <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 rounded-xl bg-muted/30 border border-border/20">
-              <p className="text-lg sm:text-2xl font-bold">{Object.keys(bimConfig?.parsedMarketPrices || {}).length || "\u2014"}</p>
+              <p className="text-lg sm:text-2xl font-bold">{Object.keys(bimConfig?.parsedMarketPrices || {}).length || "—"}</p>
               <p className="text-[9px] sm:text-xs text-muted-foreground">Types de projets</p>
             </div>
             <div className="p-3 rounded-xl bg-muted/30 border border-border/20">
-              <p className="text-lg sm:text-2xl font-bold">{materialPrices.length || "\u2014"}</p>
-              <p className="text-[9px] sm:text-xs text-muted-foreground">Mat\u00e9riaux suivis</p>
+              <p className="text-lg sm:text-2xl font-bold">{materialPrices.length || "—"}</p>
+              <p className="text-[9px] sm:text-xs text-muted-foreground">Matériaux suivis</p>
             </div>
             <div className="p-3 rounded-xl bg-muted/30 border border-border/20">
-              <p className="text-lg sm:text-2xl font-bold">{bimConfig?.version || "\u2014"}</p>
+              <p className="text-lg sm:text-2xl font-bold">{bimConfig?.version || "—"}</p>
               <p className="text-[9px] sm:text-xs text-muted-foreground">Version BIM</p>
             </div>
             <div className="p-3 rounded-xl bg-muted/30 border border-border/20">
               <p className="text-lg sm:text-2xl font-bold">
-                {Object.keys(bimConfig?.parsedMultipliers || {}).length || "\u2014"}
+                {Object.keys(bimConfig?.parsedMultipliers || {}).length || "—"}
               </p>
-              <p className="text-[9px] sm:text-xs text-muted-foreground">R\u00e9gions</p>
+              <p className="text-[9px] sm:text-xs text-muted-foreground">Régions</p>
             </div>
           </div>
 
           {bimConfig?.refreshedAt && (
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
               <Calendar className="h-3.5 w-3.5" />
-              Derni\u00e8re mise à jour : {new Date(bimConfig.refreshedAt).toLocaleString("fr-FR")}
+              Dernière mise à jour : {new Date(bimConfig.refreshedAt).toLocaleString("fr-FR")}
             </div>
           )}
 
@@ -143,12 +145,12 @@ export default function BIMSettings() {
               ) : (
                 <>
                   <RefreshCw className="h-4 w-4" />
-                  Update BIM \u2014 Mettre à jour les prix
+                  Mettre à jour les prix
                 </>
               )}
             </Button>
             <p className="text-[9px] sm:text-[10px] text-muted-foreground self-center">
-              Met à jour la base de donn\u00e9es avec les derniers prix du march\u00e9 tunisien et applique les fluctuations mensuelles r\u00e9alistes.
+              Met à jour la base de données avec les derniers prix du marché tunisien et applique les fluctuations mensuelles réalistes.
             </p>
           </div>
 
@@ -161,11 +163,11 @@ export default function BIMSettings() {
             >
               <p className="font-semibold flex items-center gap-1.5">
                 <CheckCheck className="h-4 w-4" />
-                Mise à jour BIM v{result.version} termin\u00e9e
+                Mise à jour BIM v{result.version} terminée
               </p>
-              <p>\u2022 {result.categoriesCount} types de projets synchronis\u00e9s</p>
-              <p>\u2022 {result.materialCount} mat\u00e9riaux trait\u00e9s</p>
-              <p>\u2022 {result.updatedMaterials} mat\u00e9riaux mis à jour avec les fluctuations du march\u00e9</p>
+              <p>• {result.categoriesCount} types de projets synchronisés</p>
+              <p>• {result.materialCount} matériaux traités</p>
+              <p>• {result.updatedMaterials} matériaux mis à jour avec les fluctuations du marché</p>
             </motion.div>
           )}
         </CardContent>
@@ -185,14 +187,14 @@ export default function BIMSettings() {
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
                   <DollarSign className="h-3 w-3" />
-                  Prix au m\u00b2 par type (TND)
+                  Prix au m² par type (TND)
                 </h4>
                 <div className="space-y-1 max-h-40 overflow-y-auto text-[10px]">
                   {Object.entries(bimConfig.parsedMarketPrices || {}).slice(0, 15)
                     .map(([key, val]: [string, any]) => (
                     <div key={key} className="flex items-center justify-between py-0.5 border-b border-border/10">
                       <span className="capitalize truncate mr-2">{key.replace(/_/g, " ")}</span>
-                      <span className="font-medium shrink-0">{val.std} TND/m\u00b2</span>
+                      <span className="font-medium shrink-0">{val.std} TND/m²</span>
                     </div>
                   ))}
                   {Object.keys(bimConfig.parsedMarketPrices || {}).length > 15 && (
@@ -205,7 +207,7 @@ export default function BIMSettings() {
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
                   <Globe className="h-3 w-3" />
-                  Coefficients r\u00e9gionaux
+                  Coefficients régionaux
                 </h4>
                 <div className="space-y-1 max-h-40 overflow-y-auto text-[10px]">
                   {Object.entries(bimConfig.parsedMultipliers || {}).map(([key, val]: [string, any]) => (
@@ -237,7 +239,7 @@ export default function BIMSettings() {
               <Cpu className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
               <p className="text-xs text-muted-foreground">Aucune mise à jour pour le moment</p>
               <p className="text-[9px] text-muted-foreground/50 mt-0.5">
-                Cliquez sur "Update BIM" pour initialiser la base de donn\u00e9es
+                Cliquez sur « Mettre à jour les prix » pour initialiser la base de données
               </p>
             </div>
           ) : (
@@ -261,7 +263,7 @@ export default function BIMSettings() {
                       {log.details || (log.action === "bim_refresh" ? "Mise à jour BIM" : "Sauvegarde BIM")}
                     </p>
                     <p className="text-[9px] text-muted-foreground mt-0.5">
-                      {log.createdAt ? new Date(log.createdAt).toLocaleString("fr-FR") : "\u2014"}
+                      {log.createdAt ? new Date(log.createdAt).toLocaleString("fr-FR") : "—"}
                     </p>
                   </div>
                 </div>
