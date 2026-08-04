@@ -62,10 +62,10 @@ export default function AdminLoginPage() {
     }
   }, [adminExists]);
 
-  // Check if already authenticated as admin
+  // Check if already authenticated as admin/moderator
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
-      if (user.role === "admin") {
+      if (user.role === "admin" || user.role === "moderator") {
         navigate("/dashboard/admin");
       } else if (setupMode === "login") {
         setError("Votre compte n'a pas les droits d'administration.");

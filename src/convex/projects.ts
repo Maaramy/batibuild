@@ -54,7 +54,7 @@ export const getAllProjects = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
-    if (!user || user.role !== "admin") {
+    if (!user || (user.role !== "admin" && user.role !== "moderator")) {
       return [];
     }
     return await ctx.db.query("projects").order("desc").collect();

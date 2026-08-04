@@ -31,7 +31,7 @@ export const getAllSubscriptions = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
-    if (!user || user.role !== "admin") {
+    if (!user || (user.role !== "admin" && user.role !== "moderator")) {
       return [];
     }
     return await ctx.db.query("subscriptions").order("desc").collect();
@@ -43,7 +43,7 @@ export const getAllSubscriptionsWithUsers = query({
   args: {},
   handler: async (ctx) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       return [];
     }
 
@@ -330,7 +330,7 @@ export const adminUpdateSubscription = mutation({
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       throw new Error("Unauthorized: Admin access required");
     }
 
@@ -345,7 +345,7 @@ export const getPendingSubscriptions = query({
   args: {},
   handler: async (ctx) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       return [];
     }
 
@@ -385,7 +385,7 @@ export const adminApproveSubscription = mutation({
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       throw new Error("Unauthorized: Admin access required");
     }
 
@@ -466,7 +466,7 @@ export const adminRejectSubscription = mutation({
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       throw new Error("Unauthorized: Admin access required");
     }
 
@@ -528,7 +528,7 @@ export const adminBatchDeleteSubscriptions = mutation({
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       throw new Error("Unauthorized: Admin access required");
     }
 
@@ -561,7 +561,7 @@ export const adminDeleteSubscriptionReceipt = mutation({
   args: { subscriptionId: v.id("subscriptions") },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       throw new Error("Unauthorized: Admin access required");
     }
 
@@ -610,7 +610,7 @@ export const markReceiptVerified = mutation({
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       throw new Error("Unauthorized: Admin access required");
     }
 

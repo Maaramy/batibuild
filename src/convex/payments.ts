@@ -31,7 +31,7 @@ const DEFAULT_PLAN_PRICING = {
 export const getPlanPricing = query({
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
-    if (!user || user.role !== "admin") return null;
+    if (!user || (user.role !== "admin" && user.role !== "moderator")) return null;
 
     const config = await ctx.db
       .query("paymentConfig")

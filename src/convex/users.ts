@@ -42,7 +42,7 @@ export const getAllUsers = query({
   args: {},
   handler: async (ctx) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       return [];
     }
 
@@ -418,7 +418,7 @@ export const deleteUser = mutation({
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       throw new Error("Unauthorized: Admin access required");
     }
 
@@ -619,7 +619,7 @@ export const toggleUserStatus = mutation({
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       throw new Error("Unauthorized: Admin access required");
     }
 
@@ -674,7 +674,7 @@ export const batchDeleteUsers = mutation({
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       throw new Error("Unauthorized: Admin access required");
     }
 

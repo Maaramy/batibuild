@@ -285,3 +285,88 @@ describe("getCurrentUser (via updateProfile)", () => {
     expect(userB!.name).toBe("User B"); // unchanged
   });
 });
+
+// ============================================================================
+// Moderator role — admin panel access
+// ============================================================================
+
+describe("Moderator role", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  it("permet au modérateur de lister tous les utilisateurs", async () => {
+    const adminId = await createTestUser(t, { role: "admin", email: "admin@test.com" });
+    const moderatorId = await createTestUser(t, { role: "moderator", email: "mod@test.com" });
+    await createTestUser(t, { role: "user", email: "user@test.com" });
+
+    const moderatorT = asUser(t, moderatorId);
+    const users = await moderatorT.query(api.users.getAllUsers);
+
+    expect(users.length).toBe(3);
+  });
+
+  it("refuse getAllUsers à un utilisateur simple", async () => {
+    await createTestUser(t, { role: "admin", email: "admin@test.com" });
+    const userId = await createTestUser(t, { role: "user", email: "user@test.com" });
+
+    const userT = asUser(t, userId);
+    const users = await userT.query(api.users.getAllUsers);
+    expect(users).toEqual([]);
+  });
+
+  it("permet au modérateur de désactiver un utilisateur", async () => {
+    const moderatorId = await createTestUser(t, { role: "moderator", email: "mod@test.com" });
+    const targetId = await createTestUser(t, { role: "user", email: "user@test.com" });
+
+    const moderatorT = asUser(t, moderatorId);
+    await moderatorT.mutation(api.users.toggleUserStatus, {
+      userId: targetId as any,
+      status: "disabled",
+    });
+
+    const target = await t.run(async (ctx) => ctx.db.get(targetId));
+    expect(target!.status).toBe("disabled");
+  });
+
+  it("refuse le changement de rôle à un modérateur (admin uniquement)", async () => {
+    const moderatorId = await createTestUser(t, { role: "moderator", email: "mod@test.com" });
+    const targetId = await createTestUser(t, { role: "user", email: "user@test.com" });
+
+    const moderatorT = asUser(t, moderatorId);
+    await expect(
+      moderatorT.mutation(api.users.adminUpdateUserRole, {
+        userId: targetId as any,
+        role: "admin",
+      }),
+    ).rejects.toThrow("Unauthorized: Admin access required");
+  });
+
+  it("refuse la mise à jour du plan à un modérateur (admin uniquement)", async () => {
+    const moderatorId = await createTestUser(t, { role: "moderator", email: "mod@test.com" });
+    const targetId = await createTestUser(t, { role: "user", email: "user@test.com" });
+
+    const moderatorT = asUser(t, moderatorId);
+    await expect(
+      moderatorT.mutation(api.users.adminUpdateUserPlan, {
+        userId: targetId as any,
+        plan: "expert",
+      }),
+    ).rejects.toThrow("Unauthorized: Admin access required");
+  });
+
+  it("permet au modérateur de supprimer un utilisateur", async () => {
+    const moderatorId = await createTestUser(t, { role: "moderator", email: "mod@test.com" });
+    const targetId = await createTestUser(t, { role: "user", email: "user@test.com" });
+
+    const moderatorT = asUser(t, moderatorId);
+    await moderatorT.mutation(api.users.deleteUser, {
+      userId: targetId as any,
+    });
+
+    const target = await t.run(async (ctx) => ctx.db.get(targetId));
+    expect(target).toBeNull();
+  });
+});

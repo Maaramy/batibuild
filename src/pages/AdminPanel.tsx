@@ -256,8 +256,15 @@ export default function AdminPanel() {
     }
   };
 
-  // Check if user is admin
-  if (user && user.role !== "admin") {
+  // Roles with access to the admin panel
+  const isAdmin = user?.role === "admin";
+  const isModerator = user?.role === "moderator";
+  // Tabs the moderator role can access
+  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "subscriptions", "fournisseurs"];
+  const canSee = (tab: string) => isAdmin || MODERATOR_TABS.includes(tab);
+
+  // Check if user is admin/moderator
+  if (user && !isAdmin && !isModerator) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
         <div>
@@ -374,9 +381,9 @@ export default function AdminPanel() {
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
               {allUsers.length} utilisateurs
             </span>
-            <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] px-2.5 py-0.5">
+            <Badge className={cn("text-[10px] px-2.5 py-0.5", isModerator ? "bg-amber-500/10 text-amber-600 border-amber-500/25" : "bg-primary/10 text-primary border-primary/20")}>
               <Shield className="h-3 w-3 mr-1" />
-              Admin
+              {isModerator ? "Modérateur" : "Admin"}
             </Badge>
           </div>
         </div>
@@ -395,14 +402,19 @@ export default function AdminPanel() {
                 <Users className="h-3.5 w-3.5" />
                 <span>Utilisateurs</span>
               </TabsTrigger>
+              {canSee("projects") && (
               <TabsTrigger value="projects" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Building2 className="h-3.5 w-3.5" />
                 <span>Projets</span>
               </TabsTrigger>
+              )}
+              {canSee("materials") && (
               <TabsTrigger value="materials" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Package className="h-3.5 w-3.5" />
                 <span>Matériaux</span>
               </TabsTrigger>
+              )}
+              {canSee("virements") && (
               <TabsTrigger value="virements" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Banknote className="h-3.5 w-3.5" />
                 <span>Virements</span>
@@ -412,6 +424,7 @@ export default function AdminPanel() {
                   </span>
                 )}
               </TabsTrigger>
+              )}
               <TabsTrigger value="recus" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <FileText className="h-3.5 w-3.5" />
                 <span>Reçus</span>
@@ -429,18 +442,24 @@ export default function AdminPanel() {
                 <CreditCard className="h-3.5 w-3.5" />
                 <span>Abonnements</span>
               </TabsTrigger>
+              {canSee("journal") && (
               <TabsTrigger value="journal" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <NotebookPen className="h-3.5 w-3.5" />
                 <span>Journal</span>
               </TabsTrigger>
+              )}
+              {canSee("paiement") && (
               <TabsTrigger value="paiement" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Settings className="h-3.5 w-3.5" />
                 <span>Paiement</span>
               </TabsTrigger>
+              )}
+              {canSee("limites") && (
               <TabsTrigger value="limites" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <HardHat className="h-3.5 w-3.5" />
                 <span>Limites</span>
               </TabsTrigger>
+              )}
               <TabsTrigger value="fournisseurs" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Building2 className="h-3.5 w-3.5" />
                 <span>Fournisseurs</span>
@@ -450,26 +469,36 @@ export default function AdminPanel() {
                   </span>
                 )}
               </TabsTrigger>
+              {canSee("seo") && (
               <TabsTrigger value="seo" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Globe className="h-3.5 w-3.5" />
                 <span>SEO</span>
               </TabsTrigger>
+              )}
+              {canSee("bim") && (
               <TabsTrigger value="bim" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Cpu className="h-3.5 w-3.5" />
                 <span>BIM</span>
               </TabsTrigger>
+              )}
+              {canSee("emails") && (
               <TabsTrigger value="emails" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Mail className="h-3.5 w-3.5" />
                 <span>E-mails</span>
               </TabsTrigger>
+              )}
+              {canSee("modeles") && (
               <TabsTrigger value="modeles" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <FileText className="h-3.5 w-3.5" />
                 <span>Modèles</span>
               </TabsTrigger>
+              )}
+              {canSee("historique") && (
               <TabsTrigger value="historique" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Activity className="h-3.5 w-3.5" />
                 <span>Historique E-mails</span>
               </TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -977,10 +1006,11 @@ export default function AdminPanel() {
                         <Badge className={cn(
                           "mt-1.5 text-[9px]",
                           selectedUser.role === "admin" ? "bg-purple-500/10 text-purple-600" :
+                          selectedUser.role === "moderator" ? "bg-amber-500/10 text-amber-600" :
                           selectedUser.status === "disabled" ? "bg-red-500/10 text-red-600" :
                           "bg-emerald-500/10 text-emerald-600"
                         )}>
-                          {selectedUser.role === "admin" ? "Admin" : selectedUser.status === "disabled" ? "Désactivé" : "Actif"}
+                          {selectedUser.role === "admin" ? "Admin" : selectedUser.role === "moderator" ? "Modérateur" : selectedUser.status === "disabled" ? "Désactivé" : "Actif"}
                         </Badge>
                       </div>
                     </div>
@@ -2760,40 +2790,51 @@ export default function AdminPanel() {
                           <span className="text-xs">{u.phone || "—"}</span>
                         </td>
                         <td className="py-2.5 px-2 text-center">
-                          <Badge className={cn("text-[9px]", u.role === "admin" ? "bg-purple-500/10 text-purple-600 border-purple-200/30" : "bg-muted/30 text-muted-foreground")}>
-                            {u.role === "admin" ? "Admin" : "Utilisateur"}
+                          <Badge className={cn("text-[9px]", u.role === "admin" ? "bg-purple-500/10 text-purple-600 border-purple-200/30" : u.role === "moderator" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" : "bg-muted/30 text-muted-foreground")}>
+                            {u.role === "admin" ? "Admin" : u.role === "moderator" ? "Modérateur" : "Utilisateur"}
                           </Badge>
                         </td>
                         <td className="py-2.5 px-2 text-center">
-                          <select
-                            value={u.subscriptionPlan || "free"}
-                            onChange={async (e) => {
-                              try {
-                                await updateUserPlan({ userId: u._id, plan: e.target.value as any });
-                                toast.success("Plan mis à jour");
-                              } catch (err: any) {
-                                toast.error(err.message || "Erreur");
-                              }
-                            }}
-                            className={cn(
-                              "text-[9px] h-6 rounded-md border border-border/30 bg-background px-1.5 font-medium",
-                              u.subscriptionPlan === "pro" ? "text-blue-600 bg-blue-500/5" :
-                              u.subscriptionPlan === "expert" ? "text-emerald-600 bg-emerald-500/5" :
-                              u.subscriptionPlan === "supplier" ? "text-amber-600 bg-amber-400/10" :
-                              "text-muted-foreground"
-                            )}
-                          >
-                            <option value="free">Free</option>
-                            <option value="pro">Pro</option>
-                            <option value="expert">Expert</option>
-                            <option value="supplier">Fournisseur</option>
-                          </select>
+                          {isModerator ? (
+                            <Badge className={cn("text-[9px]", u.subscriptionPlan === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : u.subscriptionPlan === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : u.subscriptionPlan === "supplier" ? "bg-amber-400/10 text-amber-600 border-amber-200/30" : "bg-muted/30 text-muted-foreground")}>
+                              {u.subscriptionPlan === "pro" ? "Pro" : u.subscriptionPlan === "expert" ? "Expert" : u.subscriptionPlan === "supplier" ? "Fournisseur" : "Start"}
+                            </Badge>
+                          ) : (
+                            <select
+                              value={u.subscriptionPlan || "free"}
+                              onChange={async (e) => {
+                                try {
+                                  await updateUserPlan({ userId: u._id, plan: e.target.value as any });
+                                  toast.success("Plan mis à jour");
+                                } catch (err: any) {
+                                  toast.error(err.message || "Erreur");
+                                }
+                              }}
+                              className={cn(
+                                "text-[9px] h-6 rounded-md border border-border/30 bg-background px-1.5 font-medium",
+                                u.subscriptionPlan === "pro" ? "text-blue-600 bg-blue-500/5" :
+                                u.subscriptionPlan === "expert" ? "text-emerald-600 bg-emerald-500/5" :
+                                u.subscriptionPlan === "supplier" ? "text-amber-600 bg-amber-400/10" :
+                                "text-muted-foreground"
+                              )}
+                            >
+                              <option value="free">Free</option>
+                              <option value="pro">Pro</option>
+                              <option value="expert">Expert</option>
+                              <option value="supplier">Fournisseur</option>
+                            </select>
+                          )}
                         </td>
                         <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
                           {u.createdAt ? new Date(u.createdAt).toLocaleDateString("fr-FR") : "—"}
                         </td>
                         <td className="py-2.5 px-2 text-right">
                           <div className="flex items-center justify-end gap-1">
+                            {isModerator ? (
+                              <Badge className="text-[9px] bg-muted/30 text-muted-foreground">
+                                {u.role === "admin" ? "Admin" : u.role === "moderator" ? "Modérateur" : "Utilisateur"}
+                              </Badge>
+                            ) : (
                             <select
                               value={u.role || "user"}
                               onChange={async (e) => {
@@ -2807,8 +2848,10 @@ export default function AdminPanel() {
                               className="text-[9px] h-6 rounded-md border border-border/30 bg-background px-1.5"
                             >
                               <option value="user">Utilisateur</option>
+                              <option value="moderator">Modérateur</option>
                               <option value="admin">Admin</option>
                             </select>
+                            )}
                             <button
                               type="button"
                               onClick={async () => {

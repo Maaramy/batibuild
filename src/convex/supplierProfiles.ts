@@ -132,7 +132,7 @@ export const hasSupplierProfile = query({
 export const getAllSupplierProfiles = query({
   handler: async (ctx) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       return [];
     }
 
@@ -351,7 +351,7 @@ export const adminApproveSupplierSubscription = mutation({
   args: { profileId: v.id("supplierProfiles") },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin")
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator"))
       throw new Error("Unauthorized: Admin access required");
 
     const profile = await ctx.db.get(args.profileId);
@@ -426,7 +426,7 @@ export const adminRejectSupplierSubscription = mutation({
   args: { profileId: v.id("supplierProfiles") },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin")
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator"))
       throw new Error("Unauthorized: Admin access required");
 
     const profile = await ctx.db.get(args.profileId);
@@ -531,7 +531,7 @@ export const adminDeleteProfile = mutation({
   args: { profileId: v.id("supplierProfiles") },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") throw new Error("Unauthorized: Admin access required");
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) throw new Error("Unauthorized: Admin access required");
 
     const profile = await ctx.db.get(args.profileId);
     if (!profile) throw new Error("Profil fournisseur introuvable");
@@ -565,7 +565,7 @@ export const adminToggleVisibility = mutation({
   args: { profileId: v.id("supplierProfiles") },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") throw new Error("Unauthorized: Admin access required");
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) throw new Error("Unauthorized: Admin access required");
 
     const profile = await ctx.db.get(args.profileId);
     if (!profile) throw new Error("Profil fournisseur introuvable");
@@ -635,7 +635,7 @@ export const adminVerifySupplierReceipt = mutation({
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin")
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator"))
       throw new Error("Unauthorized: Admin access required");
 
     const profile = await ctx.db.get(args.profileId);
@@ -690,7 +690,7 @@ export const adminDeleteSupplierReceipt = mutation({
   args: { profileId: v.id("supplierProfiles") },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin")
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator"))
       throw new Error("Unauthorized: Admin access required");
 
     const profile = await ctx.db.get(args.profileId);

@@ -135,7 +135,7 @@ export const runStoragePurge = mutation({
   args: {},
   handler: async (ctx) => {
     const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
       throw new Error("Unauthorized: Admin access required");
     }
     const result = await runPurge(ctx);
