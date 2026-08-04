@@ -15,6 +15,7 @@ import {
   Search,
   Save,
   Loader2,
+  Newspaper,
 } from "lucide-react";
 
 type SeoForm = {
@@ -30,6 +31,9 @@ type SeoForm = {
   robotsTxt: string;
   additionalMetaTags: string;
   googleSiteVerification: string;
+  blogTitle: string;
+  blogDescription: string;
+  blogOgImage: string;
 };
 
 export default function SeoSettings() {
@@ -49,6 +53,9 @@ export default function SeoSettings() {
     robotsTxt: "",
     additionalMetaTags: "",
     googleSiteVerification: "",
+    blogTitle: "",
+    blogDescription: "",
+    blogOgImage: "",
   });
 
   useEffect(() => {
@@ -66,6 +73,9 @@ export default function SeoSettings() {
         robotsTxt: seoConfig.robotsTxt || "",
         additionalMetaTags: seoConfig.additionalMetaTags || "",
         googleSiteVerification: seoConfig.googleSiteVerification || "",
+        blogTitle: seoConfig.blogTitle || "",
+        blogDescription: seoConfig.blogDescription || "",
+        blogOgImage: seoConfig.blogOgImage || "",
       });
     }
   }, [seoConfig]);
@@ -222,6 +232,45 @@ export default function SeoSettings() {
               opts={{
                 placeholder: "summary_large_image",
                 hint: "summary, summary_large_image, app, player",
+              }}
+            />
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Blog SEO */}
+        <div>
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <Newspaper className="h-4 w-4 text-muted-foreground" />
+            SEO Blog
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field
+              label="Titre du blog (title)"
+              key="blogTitle"
+              opts={{
+                placeholder: "Blog BudgetBati — Construction & Rénovation",
+                hint: "Apparaît sur la page /blog et dans les résultats de recherche",
+              }}
+            />
+            <Field
+              label="Image OG du blog (URL)"
+              key="blogOgImage"
+              opts={{
+                placeholder: "https://budgetbati.com/blog-og.jpg",
+                hint: "1200x630px recommandé — partage du blog sur les réseaux",
+              }}
+            />
+          </div>
+          <div className="mt-4">
+            <Field
+              label="Description du blog (meta description)"
+              key="blogDescription"
+              opts={{
+                rows: 2,
+                placeholder: "Conseils, guides et actualités sur la construction en Tunisie...",
+                hint: "Sous-titre et meta description de la page /blog",
               }}
             />
           </div>

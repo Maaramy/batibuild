@@ -47,6 +47,9 @@ export const getSeoConfigOrDefault = query({
       robotsTxt: "",
       additionalMetaTags: "",
       googleSiteVerification: "",
+      blogTitle: "Blog BudgetBati — Construction & Rénovation en Tunisie",
+      blogDescription: "Conseils, guides et actualités sur la construction et la rénovation en Tunisie : prix des matériaux, étapes de chantier, financement et astuces d'experts.",
+      blogOgImage: "",
     };
   },
 });
@@ -70,6 +73,9 @@ export const saveSeoConfig = mutation({
     robotsTxt: v.optional(v.string()),
     additionalMetaTags: v.optional(v.string()),
     googleSiteVerification: v.optional(v.string()),
+    blogTitle: v.optional(v.string()),
+    blogDescription: v.optional(v.string()),
+    blogOgImage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -80,22 +86,7 @@ export const saveSeoConfig = mutation({
     const now = Date.now();
     const existing = await ctx.db.query("seoConfig").order("desc").take(1);
 
-    if (existing[0]) {
-      await ctx.db.patch(existing[0]._id, {
-        ...args,
-        ogImage: args.ogImage ?? "",
-        twitterCard: args.twitterCard ?? "summary_large_image",
-        canonicalUrl: args.canonicalUrl ?? "",
-        googleAnalyticsId: args.googleAnalyticsId ?? "",
-        robotsTxt: args.robotsTxt ?? "",      additionalMetaTags: args.additionalMetaTags ?? "",
-      googleSiteVerification: args.googleSiteVerification ?? "",
-      updatedAt: now,
-      updatedBy: user._id,
-    });
-      return { id: existing[0]._id, action: "updated" };
-    }
-
-    const id = await ctx.db.insert("seoConfig", {
+    const data = {
       ...args,
       ogImage: args.ogImage ?? "",
       twitterCard: args.twitterCard ?? "summary_large_image",
@@ -104,9 +95,19 @@ export const saveSeoConfig = mutation({
       robotsTxt: args.robotsTxt ?? "",
       additionalMetaTags: args.additionalMetaTags ?? "",
       googleSiteVerification: args.googleSiteVerification ?? "",
+      blogTitle: args.blogTitle ?? "",
+      blogDescription: args.blogDescription ?? "",
+      blogOgImage: args.blogOgImage ?? "",
       updatedAt: now,
       updatedBy: user._id,
-    });
+    };
+
+    if (existing[0]) {
+      await ctx.db.patch(existing[0]._id, data);
+      return { id: existing[0]._id, action: "updated" };
+    }
+
+    const id = await ctx.db.insert("seoConfig", data);
     return { id, action: "created" };
   },
 });

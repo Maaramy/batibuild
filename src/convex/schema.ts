@@ -812,6 +812,11 @@ const schema = defineSchema(
         v.literal("email_config_save"),
         v.literal("email_template_save"),
         v.literal("email_resend"),
+        v.literal("create_blog_post"),
+        v.literal("update_blog_post"),
+        v.literal("delete_blog_post"),
+        v.literal("publish_blog_post"),
+        v.literal("unpublish_blog_post"),
       ),
       targetUserId: v.optional(v.id("users")),
       targetUserEmail: v.optional(v.string()),
@@ -998,9 +1003,43 @@ const schema = defineSchema(
       robotsTxt: v.optional(v.string()),
       additionalMetaTags: v.optional(v.string()),
       googleSiteVerification: v.optional(v.string()),
+      // ── Blog SEO (defaults used by the /blog pages) ──
+      blogTitle: v.optional(v.string()),
+      blogDescription: v.optional(v.string()),
+      blogOgImage: v.optional(v.string()),
       updatedAt: v.number(),
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),
+
+    // Blog Posts (admin created & configured)
+    blogPosts: defineTable({
+      title: v.string(),
+      slug: v.string(),
+      excerpt: v.string(),
+      contentHtml: v.string(),
+      coverImage: v.optional(v.string()),
+      coverStorageId: v.optional(v.id("_storage")),
+      category: v.string(),
+      tags: v.optional(v.array(v.string())),
+      authorId: v.id("users"),
+      authorName: v.string(),
+      authorImage: v.optional(v.string()),
+      status: v.union(v.literal("draft"), v.literal("published")),
+      featured: v.optional(v.boolean()),
+      views: v.optional(v.number()),
+      // Per-post SEO (overrides blog defaults)
+      seoTitle: v.optional(v.string()),
+      seoDescription: v.optional(v.string()),
+      seoKeywords: v.optional(v.string()),
+      seoOgImage: v.optional(v.string()),
+      publishedAt: v.optional(v.number()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_slug", ["slug"])
+      .index("by_status_published", ["status", "publishedAt"])
+      .index("by_category", ["category"])
+      .index("by_created", ["createdAt"]),
   },
   {
     schemaValidation: false,

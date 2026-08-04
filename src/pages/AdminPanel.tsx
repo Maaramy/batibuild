@@ -11,6 +11,7 @@ import { useQuery, useMutation } from "convex/react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import SeoSettings from "./SeoSettings";
+import BlogAdmin from "./BlogAdmin";
 import BIMSettings from "./BIMSettings";
 import EmailSettings from "./EmailSettings";
 import EmailTemplates from "./EmailTemplates";
@@ -76,6 +77,7 @@ import {
   EyeOff,
   Receipt,
   Landmark,
+  Newspaper,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -473,6 +475,12 @@ export default function AdminPanel() {
               <TabsTrigger value="seo" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Globe className="h-3.5 w-3.5" />
                 <span>SEO</span>
+              </TabsTrigger>
+              )}
+              {canSee("blog") && (
+              <TabsTrigger value="blog" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Newspaper className="h-3.5 w-3.5" />
+                <span>Blog</span>
               </TabsTrigger>
               )}
               {canSee("bim") && (
@@ -3543,6 +3551,11 @@ export default function AdminPanel() {
           {/* SEO Configuration (in full-width outside the scroll container) */}
           <TabsContent value="seo">
             <SeoSettings />
+          </TabsContent>
+
+          {/* Blog management */}
+          <TabsContent value="blog">
+            <BlogAdmin />
           </TabsContent>
 
           {/* BIM Configuration */}

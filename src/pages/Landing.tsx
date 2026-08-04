@@ -223,6 +223,7 @@ function Navbar() {
         <nav className="hidden md:flex items-center gap-8">
           <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a>
           <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Avis</a>
+          <a href="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</a>
         </nav>
 
         <div className="flex items-center gap-3">
@@ -976,6 +977,7 @@ function Footer() {
             <h4 className="text-sm font-semibold mb-3">Produit</h4>
             <ul className="space-y-2">
               <li><a href="#features" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a></li>
+              <li><a href="/blog" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Blog</a></li>
               <li><a href="/contact" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Contact</a></li>
             </ul>
           </div>

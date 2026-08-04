@@ -22,6 +22,7 @@ http.route({
       { path: "dashboard", priority: "0.5", changefreq: "daily" },
       { path: "dashboard/pricing", priority: "0.7", changefreq: "monthly" },
       { path: "dashboard/materials", priority: "0.6", changefreq: "weekly" },
+      { path: "blog", priority: "0.8", changefreq: "daily" },
       { path: "contact", priority: "0.5", changefreq: "monthly" },
     ];
 
@@ -48,6 +49,23 @@ http.route({
       }
     } catch {
       // Projects query might fail if not authenticated, skip
+    }
+
+    // Add published blog posts
+    try {
+      const blogPosts = await ctx.runQuery(api.blog.getPublishedPosts, { limit: 100 });
+      if (blogPosts) {
+        for (const post of blogPosts as any[]) {
+          urls.push(`  <url>
+    <loc>${siteUrl}/blog/${post.slug}</loc>
+    <priority>0.7</priority>
+    <changefreq>monthly</changefreq>
+    <lastmod>${new Date(post.publishedAt || post.updatedAt || post.createdAt).toISOString().split("T")[0]}</lastmod>
+  </url>`);
+        }
+      }
+    } catch {
+      // Blog query may be empty on first deploy — skip
     }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>

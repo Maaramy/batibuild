@@ -28,6 +28,8 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
 const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage.tsx"));
 const ContactPage = lazy(() => import("./pages/ContactPage.tsx"));
 const LegalPage = lazy(() => import("./pages/LegalPage.tsx"));
+const BlogPage = lazy(() => import("./pages/BlogPage.tsx"));
+const BlogPostPage = lazy(() => import("./pages/BlogPostPage.tsx"));
 const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"),);
 
@@ -221,6 +223,8 @@ createRoot(document.getElementById("root")!).render(
                   }
                 />
                 <Route path="/contact" element={<ContactPage />} />
+                <Route path="/blog" element={<BlogPage />} />
+                <Route path="/blog/:slug" element={<BlogPostPage />} />
                 <Route path="/terms" element={<LegalPage kind="terms" />} />
                 <Route path="/privacy" element={<LegalPage kind="privacy" />} />
                 <Route path="/admin" element={<AdminLoginPage />} />

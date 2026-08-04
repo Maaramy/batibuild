@@ -403,6 +403,128 @@ html.rtl [role="group"] {
   direction: rtl;
 }
 
+/* ── Blog article content (rendered HTML) ── */
+.prose-blog {
+  color: var(--foreground);
+  font-size: 0.95rem;
+  line-height: 1.85;
+  word-wrap: break-word;
+}
+
+.prose-blog h2 {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 2.2rem 0 0.9rem;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+
+.prose-blog h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 1.8rem 0 0.7rem;
+  line-height: 1.4;
+  color: var(--foreground);
+}
+
+.prose-blog p {
+  margin: 0.9rem 0;
+}
+
+.prose-blog a {
+  color: var(--auth-primary, var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.prose-blog strong {
+  font-weight: 600;
+}
+
+.prose-blog ul,
+.prose-blog ol {
+  margin: 0.9rem 0;
+  padding-left: 1.5rem;
+}
+
+.prose-blog ul {
+  list-style: disc;
+}
+
+.prose-blog ol {
+  list-style: decimal;
+}
+
+.prose-blog li {
+  margin: 0.35rem 0;
+}
+
+.prose-blog blockquote {
+  margin: 1.4rem 0;
+  padding: 0.9rem 1.2rem;
+  border-left: 3px solid var(--auth-primary, var(--primary));
+  border-radius: 0 0.75rem 0.75rem 0;
+  background: color-mix(in srgb, var(--auth-primary, var(--primary)) 6%, transparent);
+  font-style: italic;
+}
+
+.prose-blog img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.9rem;
+  margin: 1.4rem auto;
+  border: 1px solid var(--border);
+}
+
+.prose-blog pre {
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--muted);
+  padding: 1rem;
+  font-size: 0.82rem;
+  margin: 1.2rem 0;
+}
+
+.prose-blog code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: var(--muted);
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.prose-blog pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.prose-blog table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.4rem 0;
+  font-size: 0.88rem;
+}
+
+.prose-blog th,
+.prose-blog td {
+  border: 1px solid var(--border);
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+}
+
+.prose-blog th {
+  background: var(--muted);
+  font-weight: 600;
+}
+
+.prose-blog hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}
+
 /* RTL tabs */
 html.rtl [role="tablist"] {
   direction: rtl;
