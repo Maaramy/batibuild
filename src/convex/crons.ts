@@ -45,4 +45,13 @@ crons.cron(
   internal.emailNotifications.checkExpiredSubscriptions,
 );
 
+// Weekly market intelligence sync — refreshes material offers with price drift,
+// stock changes and logs price history for the analytics/trends module
+// Runs every Monday at 04:00 AM
+crons.cron(
+  "weekly-market-sync",
+  "0 4 * * 1",
+  internal.marketData.runMarketSyncInternal,
+);
+
 export default crons;

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { getCurrentUser } from "./users";
 import { P, MARKET_PRICE_M2, PROJECT_PCT, REGION_COST_M2 } from "./bimEngine";
 
@@ -121,6 +122,19 @@ export const refreshBIMData = mutation({
       }
     }
 
+    // ── Market intelligence: seed sources/catalog on first run, then sync ──
+    let marketSync: any = null;
+    try {
+      const sources = await ctx.db.query("marketSources").take(1);
+      if (sources.length === 0) {
+        await ctx.runMutation(api.marketData.seedMarketData, {});
+      }
+      marketSync = await ctx.runMutation(internal.marketData.runMarketSyncInternal, {});
+    } catch (e) {
+      // Non-blocking: market layer failures must not break the BIM refresh
+      marketSync = { error: (e as Error).message };
+    }
+
     // Log the action
     await ctx.db.insert("adminLogs", {
       adminId: user._id,
@@ -136,6 +150,7 @@ export const refreshBIMData = mutation({
       materialCount: materials.length,
       updatedMaterials,
       categoriesCount: Object.keys(MARKET_PRICE_M2).length,
+      marketSync,
     };
   },
 });

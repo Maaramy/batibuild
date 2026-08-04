@@ -185,21 +185,40 @@ export const MATERIAL_CATEGORIES = [
   "beton",
   "acier",
   "bois",
+  "coffrage",
   "peinture",
   "carrelage",
+  "faience",
   "marbre",
+  "pierre_naturelle",
   "plomberie",
+  "sanitaire",
   "electricite",
+  "eclairage",
   "portes",
   "fenetres",
+  "menuiserie_aluminium",
+  "menuiserie_pvc",
+  "cuisines",
+  "dressings",
   "toiture",
   "etancheite",
   "isolation",
   "revetements",
+  "quincaillerie",
+  "outillage",
+  "climatisation",
+  "chauffage",
+  "amenagement_exterieur",
+  "piscines",
+  "jardins",
   "location_engins",
   "terrassement",
   "fondations",
   "finition",
+  "granulats",
+  "blocs",
+  "fer_a_beton",
   "divers",
 ] as const;
 
@@ -621,9 +640,89 @@ const schema = defineSchema(
       lastUpdated: v.number(),
       updatedBy: v.id("users"),
       notes: v.optional(v.string()),
+      // ── Market intelligence enrichment (optional) ──
+      subcategory: v.optional(v.string()),
+      brand: v.optional(v.string()),
+      description: v.optional(v.string()),
+      manufacturer: v.optional(v.string()),
+      minPrice: v.optional(v.number()),
+      avgPrice: v.optional(v.number()),
+      maxPrice: v.optional(v.number()),
+      availability: v.optional(
+        v.union(v.literal("disponible"), v.literal("sur_commande"), v.literal("rupture"))
+      ),
+      reliabilityIndex: v.optional(v.number()),
+      sourceRef: v.optional(v.string()),
     })
       .index("by_category", ["category"])
       .index("by_name", ["name"]),
+
+    // Market sources registry (manufacturers, distributors, platforms)
+    marketSources: defineTable({
+      name: v.string(),
+      type: v.union(
+        v.literal("fabricant"),
+        v.literal("distributeur"),
+        v.literal("plateforme")
+      ),
+      website: v.optional(v.string()),
+      reliabilityScore: v.number(),
+      active: v.boolean(),
+      categoryScope: v.optional(v.array(v.string())),
+      lastSyncAt: v.optional(v.number()),
+      createdAt: v.number(),
+    })
+      .index("by_type", ["type"])
+      .index("by_name", ["name"]),
+
+    // Per-supplier market offers (one row per product × source × region)
+    materialOffers: defineTable({
+      productId: v.id("materialPrices"),
+      category: v.string(),
+      subcategory: v.optional(v.string()),
+      name: v.string(),
+      brand: v.optional(v.string()),
+      manufacturer: v.optional(v.string()),
+      unit: v.string(),
+      minPrice: v.number(),
+      avgPrice: v.number(),
+      maxPrice: v.number(),
+      currency: v.string(),
+      governorate: v.optional(v.string()),
+      city: v.optional(v.string()),
+      supplier: v.string(),
+      sourceId: v.id("marketSources"),
+      sourceType: v.union(
+        v.literal("fabricant"),
+        v.literal("distributeur"),
+        v.literal("plateforme")
+      ),
+      availability: v.union(
+        v.literal("disponible"),
+        v.literal("sur_commande"),
+        v.literal("rupture")
+      ),
+      reliabilityIndex: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_product", ["productId"])
+      .index("by_category", ["category"])
+      .index("by_governorate", ["governorate"])
+      .index("by_supplier", ["supplier"]),
+
+    // Offer price history (evolution of a specific supplier offer)
+    offerPriceHistory: defineTable({
+      offerId: v.id("materialOffers"),
+      previousMin: v.number(),
+      previousAvg: v.number(),
+      previousMax: v.number(),
+      newMin: v.number(),
+      newAvg: v.number(),
+      newMax: v.number(),
+      changedAt: v.number(),
+    })
+      .index("by_offer", ["offerId"])
+      .index("by_time", ["changedAt"]),
 
     // Project Reports
     reports: defineTable({

@@ -17,6 +17,15 @@ import {
   Clock,
   Cpu,
   Save,
+  TrendingUp,
+  TrendingDown,
+  Store,
+  PackageSearch,
+  AlertTriangle,
+  MapPin,
+  Sparkles,
+  Building2,
+  Database,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -26,8 +35,19 @@ export default function BIMSettings() {
   const refreshBIM = useMutation(api.bimConfig.refreshBIMData);
   const materialPrices = useQuery(api.materials.getMaterialPrices, {}) || [];
 
+  // ── Market intelligence ──
+  const marketOverview = useQuery(api.marketData.getMarketOverview);
+  const bestOffers = useQuery(api.marketData.getBestOffers, { limit: 5 });
+  const stockAlerts = useQuery(api.marketData.getStockAlerts);
+  const priceTrends = useQuery(api.marketData.getPriceTrends, {});
+  const govPrices = useQuery(api.marketData.getGovernoratePrices, {});
+  const syncMarket = useMutation(api.marketData.syncMarketData);
+  const seedMarket = useMutation(api.marketData.seedMarketData);
+
   const [refreshing, setRefreshing] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [syncingMarket, setSyncingMarket] = useState(false);
+  const [marketResult, setMarketResult] = useState<any>(null);
 
   // Calculate next automatic update (1st of next month at 01:00)
   const getNextUpdate = () => {
@@ -54,6 +74,25 @@ export default function BIMSettings() {
       toast.error(err.message || "Erreur lors de la mise à jour BIM");
     }
     setRefreshing(false);
+  };
+
+  const handleSyncMarket = async () => {
+    setSyncingMarket(true);
+    setMarketResult(null);
+    try {
+      // Seed first if the registry is empty
+      if (!marketOverview || marketOverview.totalSources === 0) {
+        await seedMarket();
+      }
+      const res = await syncMarket();
+      setMarketResult(res);
+      toast.success(
+        `🔁 Marché synchronisé — ${res.updatedOffers} offres actualisées, ${res.stockAlerts} ruptures détectées`
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la synchronisation du marché");
+    }
+    setSyncingMarket(false);
   };
 
   return (
@@ -170,6 +209,219 @@ export default function BIMSettings() {
               <p>• {result.updatedMaterials} matériaux mis à jour avec les fluctuations du marché</p>
             </motion.div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ── Intelligence Marché ── */}
+      <Card className="border border-border/50 bg-gradient-to-br from-background/80 to-background/50 backdrop-blur-sm overflow-hidden">
+        <div className="absolute inset-0 bg-grid-primary/5 [mask-image:radial-gradient(ellipse_at_top,white,transparent)]" />
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-600/10 flex items-center justify-center ring-1 ring-violet-500/20">
+              <Sparkles className="h-5 w-5 text-violet-600" />
+            </div>
+            <div>
+              <CardTitle className="text-sm sm:text-base">Intelligence Marché</CardTitle>
+              <CardDescription className="text-xs">
+                Collecte multi-sources (fabricants, distributeurs, plateformes) — prix, ruptures, tendances et meilleures offres en Tunisie
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
+          {/* Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 rounded-xl bg-muted/30 border border-border/20">
+              <p className="text-lg sm:text-2xl font-bold">{marketOverview?.totalOffers ?? "—"}</p>
+              <p className="text-[9px] sm:text-xs text-muted-foreground">Offres collectées</p>
+            </div>
+            <div className="p-3 rounded-xl bg-muted/30 border border-border/20">
+              <p className="text-lg sm:text-2xl font-bold">{marketOverview?.totalSources ?? "—"}</p>
+              <p className="text-[9px] sm:text-xs text-muted-foreground">Sources actives</p>
+            </div>
+            <div className="p-3 rounded-xl bg-muted/30 border border-border/20">
+              <p className="text-lg sm:text-2xl font-bold">{marketOverview?.totalProducts ?? "—"}</p>
+              <p className="text-[9px] sm:text-xs text-muted-foreground">Produits suivis</p>
+            </div>
+            <div className={cn(
+              "p-3 rounded-xl border border-border/20",
+              (marketOverview?.avgChange ?? 0) >= 0 ? "bg-red-50/60" : "bg-emerald-50/60"
+            )}>
+              <p className={cn(
+                "text-lg sm:text-2xl font-bold flex items-center gap-1",
+                (marketOverview?.avgChange ?? 0) >= 0 ? "text-red-600" : "text-emerald-600"
+              )}>
+                {marketOverview ? `${marketOverview.avgChange > 0 ? "+" : ""}${marketOverview.avgChange}%` : "—"}
+                {(marketOverview?.avgChange ?? 0) >= 0
+                  ? <TrendingUp className="h-4 w-4" />
+                  : <TrendingDown className="h-4 w-4" />}
+              </p>
+              <p className="text-[9px] sm:text-xs text-muted-foreground">Variation moyenne</p>
+            </div>
+          </div>
+
+          {/* Sources breakdown + sync */}
+          <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/20">
+            <div className="flex flex-wrap items-center gap-2 text-[10px]">
+              <Building2 className="h-3.5 w-3.5 text-violet-500" />
+              <span className="font-medium">Sources :</span>
+              <Badge variant="secondary" className="text-[9px]">{marketOverview?.sourcesByType?.fabricant ?? 0} fabricants</Badge>
+              <Badge variant="secondary" className="text-[9px]">{marketOverview?.sourcesByType?.distributeur ?? 0} distributeurs</Badge>
+              <Badge variant="secondary" className="text-[9px]">{marketOverview?.sourcesByType?.plateforme ?? 0} plateformes</Badge>
+            </div>
+            <div className="flex-1" />
+            <div className="flex items-center gap-2">
+              {marketOverview?.lastSyncAt && (
+                <span className="text-[9px] text-muted-foreground hidden sm:inline">
+                  Dernier sync : {new Date(marketOverview.lastSyncAt).toLocaleDateString("fr-FR")}
+                </span>
+              )}
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 text-xs font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg shadow-violet-500/20"
+                onClick={handleSyncMarket}
+                disabled={syncingMarket}
+              >
+                {syncingMarket ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sync en cours...</>
+                ) : (
+                  <><RefreshCw className="h-3.5 w-3.5" /> Synchroniser le marché</>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Sync result */}
+          {marketResult && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 rounded-xl bg-violet-50 border border-violet-200 text-xs text-violet-700 space-y-0.5"
+            >
+              <p className="font-semibold flex items-center gap-1.5">
+                <CheckCheck className="h-4 w-4" /> Synchronisation marché terminée
+              </p>
+              <p>• {marketResult.updatedOffers} offres actualisées ({marketResult.historyRows} variations historisées)</p>
+              <p>• {marketResult.stockAlerts} alertes de rupture / sur-commande détectées</p>
+            </motion.div>
+          )}
+
+          {!marketOverview && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-[10px] text-amber-700">
+              <Database className="h-3.5 w-3.5 shrink-0" />
+              La base de données marché est vide. Cliquez sur « Synchroniser le marché » pour initialiser les sources et le catalogue (ou « Mettre à jour les prix » ci-dessus).
+            </div>
+          )}
+
+          {/* Best offers + stock alerts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* Best offers */}
+            <div className="rounded-xl bg-muted/30 border border-border/20 p-3">
+              <h4 className="text-xs font-semibold flex items-center gap-1.5 mb-2">
+                <PackageSearch className="h-3.5 w-3.5 text-emerald-600" />
+                Meilleures offres du moment
+              </h4>
+              {(!bestOffers || bestOffers.length === 0) ? (
+                <p className="text-[10px] text-muted-foreground">Aucune offre — lancez une synchronisation.</p>
+              ) : (
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                  {bestOffers.map((o: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between gap-2 py-1 border-b border-border/10 text-[10px]">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{o.name}</p>
+                        <p className="text-[9px] text-muted-foreground truncate">
+                          {o.supplier} · {o.governorate} · {o.unit}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-emerald-600">{o.price} TND</p>
+                        <p className="text-[8px] text-muted-foreground">fiab. {Math.round(o.reliabilityIndex * 100)}%</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Stock alerts */}
+            <div className="rounded-xl bg-muted/30 border border-border/20 p-3">
+              <h4 className="text-xs font-semibold flex items-center gap-1.5 mb-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                Alertes de stock
+              </h4>
+              {(!stockAlerts || stockAlerts.length === 0) ? (
+                <p className="text-[10px] text-muted-foreground">Aucune alerte — stocks normaux.</p>
+              ) : (
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                  {stockAlerts.slice(0, 6).map((a: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between gap-2 py-1 border-b border-border/10 text-[10px]">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{a.name}</p>
+                        <p className="text-[9px] text-muted-foreground truncate">{a.supplier} · {a.governorate}</p>
+                      </div>
+                      <Badge className={cn(
+                        "shrink-0 text-[8px]",
+                        a.availability === "rupture"
+                          ? "bg-red-500/10 text-red-600 border-red-200/30"
+                          : "bg-amber-500/10 text-amber-600 border-amber-200/30"
+                      )}>
+                        {a.availability === "rupture" ? "Rupture" : "Sur commande"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Trends + governorates */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* Trends */}
+            <div className="rounded-xl bg-muted/30 border border-border/20 p-3">
+              <h4 className="text-xs font-semibold flex items-center gap-1.5 mb-2">
+                <TrendingUp className="h-3.5 w-3.5 text-blue-600" />
+                Évolution des prix par catégorie
+              </h4>
+              {(!priceTrends || priceTrends.length === 0) ? (
+                <p className="text-[10px] text-muted-foreground">Pas encore d'historique de prix.</p>
+              ) : (
+                <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
+                  {priceTrends.slice(0, 8).map((t: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between py-1 border-b border-border/10 text-[10px]">
+                      <span className="capitalize truncate mr-2">{t.category.replace(/_/g, " ")}</span>
+                      <span className={cn("font-semibold shrink-0", t.netPct >= 0 ? "text-red-600" : "text-emerald-600")}>
+                        {t.netPct >= 0 ? "+" : ""}{t.netPct}% ({t.changes} var.)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Governorates */}
+            <div className="rounded-xl bg-muted/30 border border-border/20 p-3">
+              <h4 className="text-xs font-semibold flex items-center gap-1.5 mb-2">
+                <MapPin className="h-3.5 w-3.5 text-violet-600" />
+                Prix moyens par gouvernorat
+              </h4>
+              {(!govPrices || govPrices.rows.length === 0) ? (
+                <p className="text-[10px] text-muted-foreground">Aucune donnée géographique.</p>
+              ) : (
+                <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
+                  {govPrices.rows.slice(0, 6).map((r: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between py-1 border-b border-border/10 text-[10px]">
+                      <span className="truncate mr-2">{r.governorate}</span>
+                      <span className="font-semibold shrink-0">{r.avgPrice} TND</span>
+                    </div>
+                  ))}
+                  <p className="text-[9px] text-muted-foreground pt-1">
+                    {govPrices.cheapest && <>💚 Moins cher : {govPrices.cheapest.governorate} · </>}
+                    {govPrices.mostExpensive && <>🔴 Plus cher : {govPrices.mostExpensive.governorate}</>}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
