@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useNavigate } from "react-router";
-import { generatePdf, exportCsv, TYPE_META, InvestmentRecap } from "@/components/investment/shared";
+import { generatePdf, exportCsv, TYPE_META } from "@/components/investment/shared";
 import type { AnalysisRun, InvestmentType } from "@/components/investment/shared";
 import { ResultsView } from "@/components/investment/results-view";
 
@@ -124,7 +124,6 @@ export default function DemoInvestment() {
               (local commercial à Tunis). Lancez votre propre analyse pour des résultats personnalisés.
             </div>
 
-            <InvestmentRecap run={run} zones={zones} />
             <ResultsView run={run} zones={zones} />
           </>
         )}

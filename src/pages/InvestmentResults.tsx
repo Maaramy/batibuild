@@ -29,7 +29,7 @@ import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router";
 import { cn } from "@/lib/utils";
-import { generatePdf, exportCsv, TYPE_META, InvestmentRecap } from "@/components/investment/shared";
+import { generatePdf, exportCsv, TYPE_META } from "@/components/investment/shared";
 import type { AnalysisRun, ChatMsg, InvestmentType } from "@/components/investment/shared";
 import { ResultsView } from "@/components/investment/results-view";
 
@@ -277,14 +277,11 @@ export default function InvestmentResults() {
         )}
 
         {run && (
-          <>
-            <InvestmentRecap run={run} zones={zones} onEdit={() => backToForm(true)} />
-            <ResultsView
-              run={run}
-              zones={zones}
-              assistant={{ chatMsgs, chatInput, setChatInput, chatBusy, sendChat, chatEndRef }}
-            />
-          </>
+          <ResultsView
+            run={run}
+            zones={zones}
+            assistant={{ chatMsgs, chatInput, setChatInput, chatBusy, sendChat, chatEndRef }}
+          />
         )}
       </div>
 
