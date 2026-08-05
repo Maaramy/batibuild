@@ -21,12 +21,15 @@ import {
   Loader2,
   SearchX,
   Sparkles,
+  Star,
+  FileSpreadsheet,
 } from "lucide-react";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router";
-import { generatePdf, TYPE_META, InvestmentRecap } from "@/components/investment/shared";
+import { cn } from "@/lib/utils";
+import { generatePdf, exportCsv, TYPE_META, InvestmentRecap } from "@/components/investment/shared";
 import type { AnalysisRun, ChatMsg, InvestmentType } from "@/components/investment/shared";
 import { ResultsView } from "@/components/investment/results-view";
 
@@ -66,11 +69,28 @@ export default function InvestmentResults() {
 
   const zones = useQuery(api.investments.getInvestmentZones) || [];
   const askAssistant = useAction(api.investmentAi.askInvestorAssistant);
+  const toggleFavorite = useMutation(api.investments.toggleFavorite);
+  const [favBusy, setFavBusy] = useState(false);
+
+  const docData = doc as any;
+  const isFav = !!(docData && docData.isFavorite);
+
+  const handleToggleFavorite = async () => {
+    if (!analysisId) return;
+    setFavBusy(true);
+    try {
+      await toggleFavorite({ analysisId: analysisId as any });
+      toast.success(isFav ? "Retiré des favoris" : "Ajouté aux favoris");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    } finally {
+      setFavBusy(false);
+    }
+  };
 
   const notFound = !initialRun && (doc === null || !analysisId);
   const loading = !run && !notFound;
 
-  const docData = doc as any;
   const shareToken = docData?.shareToken as string | undefined;
   const shareExpiresAt = docData?.shareExpiresAt as number | undefined;
   const shareUrl = shareToken ? `${window.location.origin}/share/investment/${shareToken}` : null;
@@ -181,6 +201,23 @@ export default function InvestmentResults() {
             </Button>
             <Button
               size="sm"
+              className={cn(
+                "gap-1.5 h-8 text-xs",
+                isFav ? "border-amber-500/40 text-amber-600 dark:text-amber-400" : "",
+              )}
+              variant="outline"
+              disabled={!run || !analysisId || favBusy}
+              onClick={handleToggleFavorite}
+            >
+              {favBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Star className="h-3.5 w-3.5" fill={isFav ? "currentColor" : "none"} />
+              )}
+              {isFav ? "Favori" : "Favoris"}
+            </Button>
+            <Button
+              size="sm"
               className="gap-1.5 h-8 text-xs"
               variant="outline"
               disabled={!run || !analysisId}
@@ -188,6 +225,16 @@ export default function InvestmentResults() {
             >
               <Share2 className="h-3.5 w-3.5" />
               Partager
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5 h-8 text-xs"
+              variant="outline"
+              disabled={!run}
+              onClick={() => run && exportCsv(run)}
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              CSV
             </Button>
             <Button
               size="sm"

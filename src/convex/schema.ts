@@ -1075,6 +1075,7 @@ const schema = defineSchema(
       aiInsights: v.optional(aiInsightsValidator),
       shareToken: v.optional(v.string()),
       shareExpiresAt: v.optional(v.number()),
+      isFavorite: v.optional(v.boolean()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })

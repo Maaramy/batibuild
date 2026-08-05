@@ -30,6 +30,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  Star,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,24 @@ export default function InvestmentAnalysis() {
   const saved = useQuery(api.investments.listAnalyses) || [];
   const runAnalysisAction = useAction(api.investmentAi.runAnalysis);
   const deleteAnalysis = useMutation(api.investments.deleteAnalysis);
+  const toggleFavorite = useMutation(api.investments.toggleFavorite);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favBusyId, setFavBusyId] = useState<string | null>(null);
+
+  const handleToggleFavorite = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setFavBusyId(id);
+    try {
+      await toggleFavorite({ analysisId: id as any });
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    } finally {
+      setFavBusyId(null);
+    }
+  };
+
+  const displayedSaved = favoritesOnly ? saved.filter((s: any) => s.isFavorite) : saved;
+  const favCount = saved.filter((s: any) => s.isFavorite).length;
 
   const set = (k: keyof typeof form, v: any) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -521,27 +540,58 @@ export default function InvestmentAnalysis() {
                 <CardTitle className="text-sm flex items-center gap-2">
                   <FileText className="h-4 w-4 text-primary" />
                   Analyses enregistrées
-                  <Badge variant="secondary" className="text-[9px] ml-auto">{saved.length}</Badge>
+                  <Badge variant="secondary" className="text-[9px] ml-auto">{favoritesOnly ? favCount : saved.length}</Badge>
                 </CardTitle>
                 <CardDescription className="text-[11px]">
                   Ouvrez une analyse précédente pour revoir ses résultats
                 </CardDescription>
+                <div className="mt-2 flex items-center gap-1 rounded-lg border border-border/30 bg-muted/20 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setFavoritesOnly(false)}
+                    className={cn(
+                      "flex-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors",
+                      !favoritesOnly ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Toutes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFavoritesOnly(true)}
+                    className={cn(
+                      "flex-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors flex items-center justify-center gap-1",
+                      favoritesOnly ? "bg-background shadow-sm text-amber-600 dark:text-amber-400" : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Star className="h-3 w-3" fill={favoritesOnly ? "currentColor" : "none"} />
+                    Favoris
+                    {favCount > 0 && <span className="tabular-nums">({favCount})</span>}
+                  </button>
+                </div>
               </CardHeader>
               <CardContent className="p-3 sm:p-4 space-y-1.5 max-h-72 overflow-y-auto">
                 {saved.length === 0 ? (
                   <p className="text-[11px] text-muted-foreground/70 py-2">
                     Aucune analyse enregistrée. Lancez une analyse pour la sauvegarder automatiquement.
                   </p>
+                ) : displayedSaved.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground/70 py-2">
+                    Aucune analyse en favori. Cliquez sur l'étoile d'une analyse pour la retrouver ici.
+                  </p>
                 ) : (
-                  saved.map((doc: any) => (
+                  displayedSaved.map((doc: any) => (
                     <div
                       key={doc._id}
                       className="group flex items-center justify-between gap-2 rounded-lg border border-border/30 px-2.5 py-2 transition-all cursor-pointer hover:border-primary/25 hover:bg-muted/30"
                       onClick={() => handleOpen(doc)}
                     >
                       <div className="min-w-0">
-                        <p className="text-xs font-medium truncate">
-                          {doc.input?.name || TYPE_META[doc.input?.investmentType as InvestmentType]?.label || "Analyse"}
+                        <p className="text-xs font-medium truncate flex items-center gap-1">
+                          {doc.isFavorite && <Star className="h-3 w-3 shrink-0 text-amber-500" fill="currentColor" />}
+                          <span className="truncate">
+                            {doc.input?.name || TYPE_META[doc.input?.investmentType as InvestmentType]?.label || "Analyse"}
+                          </span>
                         </p>
                         <p className="text-[10px] text-muted-foreground truncate">
                           {doc.results?.zone?.name} · Score {doc.results?.score?.total ?? "—"}/100 ·{" "}
@@ -549,6 +599,22 @@ export default function InvestmentAnalysis() {
                         </p>
                       </div>
                       <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          onClick={(e) => handleToggleFavorite(doc._id, e)}
+                          className={cn(
+                            "p-1 rounded-md transition-colors",
+                            doc.isFavorite
+                              ? "text-amber-500 hover:text-amber-600"
+                              : "text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-amber-500",
+                          )}
+                          title={doc.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+                        >
+                          {favBusyId === doc._id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Star className="h-3.5 w-3.5" fill={doc.isFavorite ? "currentColor" : "none"} />
+                          )}
+                        </button>
                         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(doc._id); }}

@@ -10,10 +10,11 @@ import {
   Sparkles,
   Share2,
   ArrowRight,
+  FileSpreadsheet,
 } from "lucide-react";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useParams, useNavigate } from "react-router";
-import { generatePdf, TYPE_META, InvestmentRecap } from "@/components/investment/shared";
+import { generatePdf, exportCsv, TYPE_META, InvestmentRecap } from "@/components/investment/shared";
 import type { AnalysisRun, InvestmentType } from "@/components/investment/shared";
 import { ResultsView } from "@/components/investment/results-view";
 
@@ -119,14 +120,25 @@ export default function ShareInvestment() {
                     Analyse partagée en lecture seule · marché tunisien 2026
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  className="gap-1.5 h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
-                  onClick={() => generatePdf(run!)}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Rapport PDF
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="gap-1.5 h-8 text-xs"
+                    variant="outline"
+                    onClick={() => exportCsv(run!)}
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                    CSV
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-1.5 h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                    onClick={() => generatePdf(run!)}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Rapport PDF
+                  </Button>
+                </div>
               </div>
             <InvestmentRecap run={run} zones={zones} />
             <ResultsView run={run} zones={zones} />

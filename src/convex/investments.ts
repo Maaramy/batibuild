@@ -604,6 +604,19 @@ export const deleteAnalysis = mutation({
   },
 });
 
+export const toggleFavorite = mutation({
+  args: { analysisId: v.id("investmentAnalyses") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Non connecté");
+    const doc = await ctx.db.get(args.analysisId);
+    if (!doc || doc.userId !== user._id) throw new Error("Analyse introuvable");
+    const isFavorite = !doc.isFavorite;
+    await ctx.db.patch(args.analysisId, { isFavorite, updatedAt: Date.now() });
+    return { isFavorite };
+  },
+});
+
 // ============================================================================
 // Partage public (lecture seule)
 // ============================================================================

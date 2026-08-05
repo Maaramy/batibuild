@@ -598,3 +598,139 @@ export function generatePdf(run: AnalysisRun) {
 
   doc.save(`rapport_investissement_${safeName}.pdf`);
 }
+
+// ============================================================================
+// CSV Report generation
+// ============================================================================
+
+function csvCell(v: string | number): string {
+  const s = String(v);
+  return /[;"\n]/.test(s) ? `"${s.replace(/"/g, "\"\"")}"` : s;
+}
+
+function csvRows(head: string[], rows: (string | number)[][]): string {
+  const lines = [head.map(csvCell).join(";")];
+  for (const r of rows) lines.push(r.map(csvCell).join(";"));
+  return lines.join("\r\n");
+}
+
+function downloadCsv(filename: string, content: string) {
+  const blob = new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export function exportCsv(run: AnalysisRun) {
+  const { results, input, aiInsights } = run;
+  const ind = results.indicators;
+  const typeLabel = TYPE_META[input.investmentType]?.label ?? input.investmentType;
+  const safeName = (input.name || "analyse_investissement").replace(/[^a-zA-Z0-9-_]/g, "_");
+  const sections: string[] = [];
+
+  // ── Synthèse ──
+  sections.push(csvRows(
+    ["Paramètre", "Valeur"],
+    [
+      ["Type de bien", typeLabel],
+      ["Nom de l'analyse", input.name || "—"],
+      ["Zone / Gouvernorat", results.zone.name],
+      ["Surface", input.area ? `${input.area} m²` : "—"],
+      ["Prix d'achat", `${ind.purchasePrice} TND`],
+      ["Frais d'acquisition", `${ind.acquisitionFees} TND`],
+      ["Travaux de rénovation", `${ind.renovationCost} TND`],
+      ["Coût total de l'investissement", `${ind.totalCost} TND`],
+      ["Prix au m²", ind.pricePerM2 ? `${ind.pricePerM2} TND` : "—"],
+      ["Loyer mensuel", `${ind.monthlyRent} TND`],
+      ["Taux d'occupation", `${ind.occupancyRate}%`],
+      ["Score IA", `${results.score.total}/100 — ${results.score.grade}`],
+      ["Indice de confiance de l'estimation", `${results.aiConfidence}%`],
+    ],
+  ));
+
+  // ── Indicateurs financiers ──
+  sections.push(csvRows(
+    ["Indicateur", "Valeur"],
+    [
+      ["Revenus locatifs bruts annuels", `${ind.grossAnnualRent} TND`],
+      ["Charges d'exploitation annuelles", `${ind.operatingExpenses} TND`],
+      ["Revenu net annuel", `${ind.netAnnualIncome} TND`],
+      ["Cash-flow mensuel", `${ind.monthlyCashflow} TND`],
+      ["Cash-flow annuel", `${ind.annualCashflow} TND`],
+      ["Rentabilité brute", `${ind.grossYieldPct}%`],
+      ["Rentabilité nette", `${ind.netYieldPct}%`],
+      ["ROI annuel", `${ind.roiAnnualPct}%`],
+      ["ROI sur 5 ans", `${ind.roi5yPct}%`],
+      ["ROI sur 10 ans", `${ind.roi10yPct}%`],
+      ["Rapport prix / loyer annuel", `${ind.priceToRentRatio}x`],
+      ["Durée de récupération du capital", ind.paybackYears >= 99 ? "> 30 ans" : `${ind.paybackYears} ans`],
+      ["Date estimée d'amortissement", ind.paybackDateLabel],
+    ],
+  ));
+
+  // ── Prévisions ──
+  sections.push(csvRows(
+    ["Horizon", "Revenu net", "Valeur future", "Gain estimé", "ROI"],
+    results.forecastSummary.map((s) => [
+      s.label,
+      `${s.netIncome} TND`,
+      `${s.futureValue} TND`,
+      `${s.gain} TND`,
+      `${s.roiPct}%`,
+    ]),
+  ));
+
+  // ── Scénarios ──
+  sections.push(csvRows(
+    ["Scénario", "Valeur future", "Revenus totaux", "Rentabilité nette", "ROI", "Risque"],
+    results.scenarios.map((s) => [
+      s.label,
+      `${s.futureValue} TND`,
+      `${s.totalIncome} TND`,
+      `${s.netYieldPct}%`,
+      `${s.roiPct}%`,
+      s.riskLevel,
+    ]),
+  ));
+
+  // ── Comparaison ──
+  sections.push(csvRows(
+    ["Type", "Revenu annuel", "Rentabilité nette", "ROI 10 ans", "Appréciation", "Risque", "Score"],
+    results.comparison.map((c) => [
+      c.label,
+      `${c.annualIncome} TND`,
+      `${c.netYieldPct}%`,
+      `${c.roi10yPct}%`,
+      `${c.appreciationPct}%`,
+      c.riskLevel,
+      `${c.score}/100`,
+    ]),
+  ));
+
+  // ── Score IA ──
+  sections.push(csvRows(
+    ["Critère", "Score"],
+    results.score.criteria.map((c) => [c.label, `${c.score}/100 (poids ${c.weight}%)`]),
+  ));
+
+  // ── Recommandations & risques IA ──
+  sections.push(csvRows(
+    ["Recommandations de l'IA"],
+    (aiInsights?.recommendations ?? []).map((r) => [r]),
+  ));
+  sections.push(csvRows(
+    ["Risques principaux"],
+    (aiInsights?.risks ?? []).map((r) => [r]),
+  ));
+  sections.push(csvRows(
+    ["Notes de marché"],
+    (aiInsights?.marketNotes ?? []).map((r) => [r]),
+  ));
+
+  downloadCsv(`rapport_investissement_${safeName}.csv`, sections.join("\r\n\r\n"));
+}
