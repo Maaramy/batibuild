@@ -45,6 +45,7 @@ import {
   Store,
   User,
   AlertTriangle,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -285,6 +286,7 @@ export default function Dashboard() {
           { icon: BarChart3, label: "Comparer", onClick: () => setMobileSidebarOpen(false) },
           { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
           { icon: Store, label: "Espace fournisseur", onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
+          { icon: Landmark, label: "Analyse immobilière", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
           { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
           ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
         ].map((item) => (
@@ -676,6 +678,29 @@ export default function Dashboard() {
                     ))}
                   </div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Investment analysis CTA banner ── */}
+          <Card
+            className="group relative border border-indigo-500/20 bg-gradient-to-r from-indigo-600/10 via-blue-500/10 to-emerald-500/10 backdrop-blur-sm overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-indigo-500/10 active:scale-[0.99]"
+            onClick={() => navigate("/dashboard/investments")}
+          >
+            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
+            <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+              <div className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+                <Landmark className="h-4 w-4 sm:h-5 sm:w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-semibold">Analyse de rentabilité immobilière par IA</p>
+                <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
+                  ROI, cash-flow, prévisions, scénarios et score d'investissement — marché tunisien 2026
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 text-xs font-medium shrink-0">
+                <span className="hidden sm:inline">Analyser</span>
+                <ArrowUpRight className="h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </div>
             </CardContent>
           </Card>

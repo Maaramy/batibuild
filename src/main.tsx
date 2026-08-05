@@ -31,6 +31,7 @@ const LegalPage = lazy(() => import("./pages/LegalPage.tsx"));
 const BlogPage = lazy(() => import("./pages/BlogPage.tsx"));
 const BlogPostPage = lazy(() => import("./pages/BlogPostPage.tsx"));
 const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
+const InvestmentAnalysis = lazy(() => import("./pages/InvestmentAnalysis.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"),);
 
 // Simple loading fallback for route transitions
@@ -219,6 +220,14 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <SupplierDashboard />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/investments"
+                  element={
+                    <RequireAuth>
+                      <InvestmentAnalysis />
                     </RequireAuth>
                   }
                 />
