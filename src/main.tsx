@@ -33,6 +33,8 @@ const BlogPostPage = lazy(() => import("./pages/BlogPostPage.tsx"));
 const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
 const InvestmentAnalysis = lazy(() => import("./pages/InvestmentAnalysis.tsx"));
 const InvestmentResults = lazy(() => import("./pages/InvestmentResults.tsx"));
+const ShareInvestment = lazy(() => import("./pages/ShareInvestment.tsx"));
+const DemoInvestment = lazy(() => import("./pages/DemoInvestment.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"),);
 
 // Simple loading fallback for route transitions
@@ -241,6 +243,8 @@ createRoot(document.getElementById("root")!).render(
                   }
                 />
                 <Route path="/contact" element={<ContactPage />} />
+                <Route path="/investments/demo" element={<DemoInvestment />} />
+                <Route path="/share/investment/:token" element={<ShareInvestment />} />
                 <Route path="/blog" element={<BlogPage />} />
                 <Route path="/blog/:slug" element={<BlogPostPage />} />
                 <Route path="/terms" element={<LegalPage kind="terms" />} />

@@ -1073,11 +1073,14 @@ const schema = defineSchema(
       input: analysisInputValidator,
       results: analysisResultsValidator,
       aiInsights: v.optional(aiInsightsValidator),
+      shareToken: v.optional(v.string()),
+      shareExpiresAt: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
       .index("by_user", ["userId"])
-      .index("by_created", ["createdAt"]),
+      .index("by_created", ["createdAt"])
+      .index("by_share_token", ["shareToken"]),
   },
   {
     schemaValidation: false,

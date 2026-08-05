@@ -1066,6 +1066,14 @@ function InvestmentsSection() {
                   Analyser mon investissement
                   <ArrowRight className="h-3.5 w-3.5" />
                 </button>
+                <button
+                  onClick={() => navigate("/investments/demo")}
+                  className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-border/30 bg-background/60 px-4 py-2 text-[11px] font-medium text-muted-foreground hover:text-indigo-600 hover:border-indigo-500/40 transition-all"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Voir un exemple de résultats
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           </motion.div>
@@ -1095,6 +1103,15 @@ function InvestmentsSection() {
             onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
           >
             Découvrir les fonctionnalités
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-12 px-8 text-base gap-2"
+            onClick={() => navigate("/investments/demo")}
+          >
+            <Eye className="h-4 w-4" />
+            Voir un exemple de résultats
           </Button>
         </motion.div>
       </div>

@@ -603,3 +603,86 @@ export const deleteAnalysis = mutation({
     return { success: true };
   },
 });
+
+// ============================================================================
+// Partage public (lecture seule)
+// ============================================================================
+
+const genShareToken = () =>
+  Array.from({ length: 24 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)]).join("");
+
+export const shareAnalysis = mutation({
+  args: {
+    analysisId: v.id("investmentAnalyses"),
+    expiresInDays: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Non connecté");
+    const doc = await ctx.db.get(args.analysisId);
+    if (!doc || doc.userId !== user._id) throw new Error("Analyse introuvable");
+    const days = Math.max(1, Math.min(365, args.expiresInDays ?? 30));
+    const expiresAt = Date.now() + days * 86400000;
+    const token = genShareToken();
+    await ctx.db.patch(args.analysisId, { shareToken: token, shareExpiresAt: expiresAt });
+    return { token, expiresAt };
+  },
+});
+
+export const unshareAnalysis = mutation({
+  args: { analysisId: v.id("investmentAnalyses") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Non connecté");
+    const doc = await ctx.db.get(args.analysisId);
+    if (!doc || doc.userId !== user._id) throw new Error("Analyse introuvable");
+    await ctx.db.patch(args.analysisId, { shareToken: undefined, shareExpiresAt: undefined });
+    return { success: true };
+  },
+});
+
+export const getSharedAnalysis = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const doc = await ctx.db
+      .query("investmentAnalyses")
+      .withIndex("by_share_token", (q) => q.eq("shareToken", args.token))
+      .first();
+    if (!doc || !doc.shareToken || !doc.shareExpiresAt || doc.shareExpiresAt < Date.now()) return null;
+    return {
+      _id: doc._id,
+      input: doc.input,
+      results: doc.results,
+      aiInsights: doc.aiInsights ?? undefined,
+      shareExpiresAt: doc.shareExpiresAt,
+    };
+  },
+});
+
+// ============================================================================
+// Analyse de démonstration (page publique /investments/demo)
+// ============================================================================
+
+export const getDemoAnalysis = query({
+  args: {},
+  handler: () => {
+    const normalized = normalizeInput({
+      name: "Local commercial — Av. Habib Bourguiba",
+      investmentType: "local_commercial",
+      purchasePrice: 260000,
+      area: 40,
+      region: "tunis",
+      city: "Tunis",
+      monthlyRent: 2600,
+      occupancyRate: 95,
+      annualExpensesPct: 10,
+      renovationCost: 8000,
+      acquisitionFeesPct: 6,
+      rentGrowthPct: 3,
+      inflationPct: 6,
+      horizonYears: 10,
+    });
+    const results = runEngine(normalized);
+    return { input: normalized, results, aiInsights: fallbackInsights(normalized, results) };
+  },
+});
