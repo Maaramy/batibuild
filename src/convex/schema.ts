@@ -817,6 +817,9 @@ const schema = defineSchema(
         v.literal("delete_blog_post"),
         v.literal("publish_blog_post"),
         v.literal("unpublish_blog_post"),
+        v.literal("approve_comment"),
+        v.literal("reject_comment"),
+        v.literal("delete_comment"),
       ),
       targetUserId: v.optional(v.id("users")),
       targetUserEmail: v.optional(v.string()),
@@ -1039,6 +1042,24 @@ const schema = defineSchema(
       .index("by_slug", ["slug"])
       .index("by_status_published", ["status", "publishedAt"])
       .index("by_category", ["category"])
+      .index("by_created", ["createdAt"]),
+
+    // Blog Comments (moderated: pending → approved / rejected)
+    blogComments: defineTable({
+      postId: v.id("blogPosts"),
+      authorId: v.id("users"),
+      authorName: v.string(),
+      authorImage: v.optional(v.string()),
+      content: v.string(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("approved"),
+        v.literal("rejected"),
+      ),
+      createdAt: v.number(),
+    })
+      .index("by_post_status", ["postId", "status", "createdAt"])
+      .index("by_status", ["status", "createdAt"])
       .index("by_created", ["createdAt"]),
   },
   {

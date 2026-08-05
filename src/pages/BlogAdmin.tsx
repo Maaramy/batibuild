@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
+import { Link } from "react-router";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,11 @@ import {
   Link2,
   Upload,
   X,
+  MessageSquare,
+  ThumbsUp,
+  ThumbsDown,
+  ExternalLink,
+  MessagesSquare,
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -91,9 +97,16 @@ export default function BlogAdmin() {
   const deletePost = useMutation(api.blog.deletePost);
   const togglePublish = useMutation(api.blog.togglePublish);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+  const allComments = useQuery(api.blog.getAllComments);
+  const moderateComment = useMutation(api.blog.moderateComment);
+  const deleteComment = useMutation(api.blog.deleteComment);
 
+  const [section, setSection] = useState<"articles" | "commentaires">("articles");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "draft" | "published">("all");
+  const [commentFilter, setCommentFilter] = useState<
+    "all" | "pending" | "approved" | "rejected"
+  >("pending");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PostForm>(emptyForm);
@@ -242,6 +255,27 @@ export default function BlogAdmin() {
     }
   };
 
+  const handleModerate = async (id: string, action: "approve" | "reject") => {
+    try {
+      await moderateComment({ id: id as any, action });
+      toast.success(action === "approve" ? "Commentaire approuvé" : "Commentaire rejeté");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    }
+  };
+
+  const handleDeleteComment = async (id: string) => {
+    if (!window.confirm("Supprimer définitivement ce commentaire ?")) return;
+    try {
+      await deleteComment({ id: id as any });
+      toast.success("Commentaire supprimé");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    }
+  };
+
+  const pendingComments = (allComments ?? []).filter((c) => c.status === "pending");
+
   const filtered = (allPosts ?? []).filter((p) => {
     if (filter !== "all" && p.status !== filter) return false;
     if (search) {
@@ -273,11 +307,53 @@ export default function BlogAdmin() {
             </p>
           </div>
         </div>
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="h-4 w-4" /> Nouvel article
-        </Button>
+        {section === "articles" && (
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="h-4 w-4" /> Nouvel article
+          </Button>
+        )}
       </div>
 
+      {/* ── Sub-tabs: Articles / Commentaires ── */}
+      <div className="flex rounded-xl border border-border/40 bg-background/50 p-1">
+        <button
+          onClick={() => setSection("articles")}
+          className={`flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2 text-xs font-medium transition-colors ${
+            section === "articles"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Newspaper className="h-3.5 w-3.5" /> Articles
+          <span
+            className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
+              section === "articles"
+                ? "bg-white/20 text-white"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {(allPosts ?? []).length}
+          </span>
+        </button>
+        <button
+          onClick={() => setSection("commentaires")}
+          className={`flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2 text-xs font-medium transition-colors ${
+            section === "commentaires"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <MessagesSquare className="h-3.5 w-3.5" /> Commentaires
+          {pendingComments.length > 0 && (
+            <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
+              {pendingComments.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {section === "articles" ? (
+        <>
       {/* ── Stats ── */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-border/40 bg-background/50 p-4">
@@ -421,6 +497,150 @@ export default function BlogAdmin() {
           )}
         </CardContent>
       </Card>
+        </>
+      ) : (
+        <>
+          {/* ── Comments moderation ── */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-lg border border-border/40 bg-background/50 p-0.5">
+              {(["pending", "all", "approved", "rejected"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setCommentFilter(f)}
+                  className={`cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    commentFilter === f
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {f === "pending"
+                    ? "En attente"
+                    : f === "all"
+                      ? "Tous"
+                      : f === "approved"
+                        ? "Approuvés"
+                        : "Rejetés"}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              {pendingComments.length} commentaire(s) en attente de modération
+            </p>
+          </div>
+
+          <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+            <CardContent className="p-0">
+              {!allComments ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (allComments ?? []).filter(
+                  (c) => commentFilter === "all" || c.status === commentFilter,
+                ).length === 0 ? (
+                <div className="py-16 text-center">
+                  <MessageSquare className="mx-auto h-8 w-8 opacity-20" />
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {commentFilter === "pending"
+                      ? "Aucun commentaire en attente. 🎉"
+                      : "Aucun commentaire dans cette catégorie."}
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border/40">
+                  {(allComments ?? [])
+                    .filter((c) => commentFilter === "all" || c.status === commentFilter)
+                    .map((c) => (
+                      <div key={c._id} className="flex gap-4 p-4 hover:bg-muted/20 transition-colors">
+                        <div
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
+                            c.status === "pending"
+                              ? "bg-amber-500"
+                              : c.status === "approved"
+                                ? "bg-emerald-500"
+                                : "bg-muted-foreground"
+                          }`}
+                        >
+                          {(c.authorName || "?").charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-medium">{c.authorName}</p>
+                            <span className="text-[10px] text-muted-foreground">
+                              {formatDate(c.createdAt)}
+                            </span>
+                            <Badge
+                              className={`text-[9px] ${
+                                c.status === "pending"
+                                  ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                  : c.status === "approved"
+                                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                    : "bg-red-500/10 text-red-500 border-red-500/20"
+                              }`}
+                            >
+                              {c.status === "pending"
+                                ? "En attente"
+                                : c.status === "approved"
+                                  ? "Approuvé"
+                                  : "Rejeté"}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-sm leading-relaxed">{c.content}</p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                            <span>Sur :</span>
+                            {c.postSlug ? (
+                              <Link
+                                to={`/blog/${c.postSlug}`}
+                                target="_blank"
+                                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                              >
+                                {c.postTitle} <ExternalLink className="h-3 w-3" />
+                              </Link>
+                            ) : (
+                              <span className="opacity-60">{c.postTitle}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {c.status !== "approved" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-emerald-600 hover:bg-emerald-500/10"
+                              onClick={() => handleModerate(c._id, "approve")}
+                              title="Approuver"
+                            >
+                              <ThumbsUp className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {c.status !== "rejected" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-500 hover:bg-red-500/10"
+                              onClick={() => handleModerate(c._id, "reject")}
+                              title="Rejeter"
+                            >
+                              <ThumbsDown className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteComment(c._id)}
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* ── Editor dialog ── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

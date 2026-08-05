@@ -343,6 +343,15 @@ export const deletePost = mutation({
       }
     }
 
+    // Remove associated comments
+    const comments = await ctx.db
+      .query("blogComments")
+      .withIndex("by_post_status", (q) => q.eq("postId", args.id))
+      .collect();
+    for (const c of comments) {
+      await ctx.db.delete(c._id);
+    }
+
     await ctx.db.delete(args.id);
     await ctx.db.insert("adminLogs", {
       adminId: user._id,
@@ -391,5 +400,120 @@ export const incrementViews = mutation({
     const post = await ctx.db.get(args.id);
     if (!post) return;
     await ctx.db.patch(args.id, { views: (post.views ?? 0) + 1 });
+  },
+});
+
+// ============================================================================
+// Comments — public reading + authenticated posting + admin moderation
+// ============================================================================
+
+/**
+ * Comments visible on a post: approved ones for everyone, plus the signed-in
+ * author's own pending/rejected comments so they can see the moderation state.
+ */
+export const getCommentsByPostId = query({
+  args: { postId: v.id("blogPosts") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    const comments = await ctx.db
+      .query("blogComments")
+      .withIndex("by_post_status", (q) => q.eq("postId", args.postId))
+      .order("asc")
+      .collect();
+    return comments.filter(
+      (c) => c.status === "approved" || (user && c.authorId === user._id),
+    );
+  },
+});
+
+/** All comments across every post, joined with post info (admin only). */
+export const getAllComments = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const comments = await ctx.db.query("blogComments").order("desc").collect();
+    const posts = await ctx.db.query("blogPosts").collect();
+    const postMap = new Map(posts.map((p) => [p._id, p]));
+    return comments.map((c) => ({
+      ...c,
+      postTitle: postMap.get(c.postId)?.title ?? "Article supprimé",
+      postSlug: postMap.get(c.postId)?.slug ?? "",
+    }));
+  },
+});
+
+/** Post a comment (authenticated users). Created as "pending", awaiting moderation. */
+export const addComment = mutation({
+  args: { postId: v.id("blogPosts"), content: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Vous devez être connecté pour commenter");
+
+    const content = args.content.trim();
+    if (content.length < 3 || content.length > 2000) {
+      throw new Error("Le commentaire doit contenir entre 3 et 2000 caractères");
+    }
+
+    const post = await ctx.db.get(args.postId);
+    if (!post || post.status !== "published") {
+      throw new Error("Article introuvable");
+    }
+
+    const id = await ctx.db.insert("blogComments", {
+      postId: args.postId,
+      authorId: user._id,
+      authorName: user.name || user.email || "Anonyme",
+      authorImage: user.image,
+      content,
+      status: "pending",
+      createdAt: Date.now(),
+    });
+    return { id };
+  },
+});
+
+/** Approve or reject a comment (admin only). */
+export const moderateComment = mutation({
+  args: {
+    id: v.id("blogComments"),
+    action: v.union(v.literal("approve"), v.literal("reject")),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireAdmin(ctx);
+    const comment = await ctx.db.get(args.id);
+    if (!comment) throw new Error("Commentaire introuvable");
+
+    const status = args.action === "approve" ? "approved" : "rejected";
+    await ctx.db.patch(args.id, { status });
+    await ctx.db.insert("adminLogs", {
+      adminId: user._id,
+      adminName: user.name || "Admin",
+      action: args.action === "approve" ? "approve_comment" : "reject_comment",
+      details: `Commentaire ${args.action === "approve" ? "approuvé" : "rejeté"} de ${comment.authorName}`,
+      createdAt: Date.now(),
+    } as any);
+
+    return { id: comment._id, status };
+  },
+});
+
+/** Delete a comment (admin only). */
+export const deleteComment = mutation({
+  args: { id: v.id("blogComments") },
+  handler: async (ctx, args) => {
+    const user = await requireAdmin(ctx);
+    const comment = await ctx.db.get(args.id);
+    if (!comment) throw new Error("Commentaire introuvable");
+
+    await ctx.db.delete(args.id);
+    await ctx.db.insert("adminLogs", {
+      adminId: user._id,
+      adminName: user.name || "Admin",
+      action: "delete_comment",
+      details: `Commentaire supprimé de ${comment.authorName}`,
+      createdAt: Date.now(),
+    } as any);
+
+    return { success: true };
   },
 });
