@@ -48,11 +48,6 @@ export type NormalizedInput = {
   occupancyRate: number;
   annualExpensesPct: number;
   renovationCost: number;
-  agencyFees: number;
-  financingCost: number;
-  insurance: number;
-  taxes: number;
-  managementFeesPct: number;
   acquisitionFeesPct: number;
   annualAppreciationPct: number;
   rentGrowthPct: number;
@@ -77,11 +72,6 @@ export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput 
     occupancyRate: clamp(input.occupancyRate ?? 95, 50, 100),
     annualExpensesPct: clamp(input.annualExpensesPct ?? 18, 0, 60),
     renovationCost: Math.max(0, input.renovationCost ?? 0),
-    agencyFees: Math.max(0, input.agencyFees ?? 0),
-    financingCost: Math.max(0, input.financingCost ?? 0),
-    insurance: Math.max(0, input.insurance ?? 0),
-    taxes: Math.max(0, input.taxes ?? 0),
-    managementFeesPct: clamp(input.managementFeesPct ?? 0, 0, 30),
     acquisitionFeesPct: clamp(input.acquisitionFeesPct ?? 6, 0, 20),
     annualAppreciationPct:
       input.annualAppreciationPct !== undefined
@@ -124,12 +114,10 @@ export function projectYearSeries(
   const purchasePrice = money(input.purchasePrice);
   const totalCost = money(
     purchasePrice * (1 + input.acquisitionFeesPct / 100) +
-      money(input.agencyFees) +
       money(input.renovationCost),
   );
   const baseGross = money(input.monthlyRent * 12 * (opts.occupancyRate / 100));
   const baseExpenses = money(baseGross * (input.annualExpensesPct / 100));
-  const baseManagement = money(baseGross * (input.managementFeesPct / 100));
 
   const points: {
     year: number;
@@ -141,27 +129,12 @@ export function projectYearSeries(
 
   let rent = baseGross;
   let expenses = baseExpenses;
-  let management = baseManagement;
-  let insurance = money(input.insurance);
-  let taxes = money(input.taxes);
-  const financing = money(input.financingCost);
   let cumulativeIncome = 0;
 
   for (let y = 1; y <= years; y++) {
     rent *= 1 + opts.rentGrowthPct / 100;
     expenses *= 1 + opts.inflationPct / 100;
-    management *= 1 + opts.inflationPct / 100;
-    insurance *= 1 + opts.inflationPct / 100;
-    taxes *= 1 + opts.inflationPct / 100;
-    const net = Math.max(
-      0,
-      money(rent) -
-        money(expenses) -
-        money(management) -
-        money(insurance) -
-        money(taxes) -
-        money(financing),
-    );
+    const net = Math.max(0, money(rent) - money(expenses));
     cumulativeIncome += net;
     const propertyValue = money(purchasePrice * Math.pow(1 + opts.appreciationPct / 100, y));
     const cumulativeProfit = money(cumulativeIncome + (propertyValue - totalCost));
@@ -175,18 +148,12 @@ export function projectYearSeries(
 export function computeIndicators(input: NormalizedInput): InvestmentIndicators {
   const purchasePrice = money(input.purchasePrice);
   const acquisitionFees = money(purchasePrice * (input.acquisitionFeesPct / 100));
-  const agencyFees = money(input.agencyFees);
   const renovationCost = money(input.renovationCost);
-  const totalCost = purchasePrice + acquisitionFees + agencyFees + renovationCost;
+  const totalCost = purchasePrice + acquisitionFees + renovationCost;
 
   const grossAnnualRent = money(input.monthlyRent * 12 * (input.occupancyRate / 100));
   const operatingExpenses = money(grossAnnualRent * (input.annualExpensesPct / 100));
-  const managementFees = money(grossAnnualRent * (input.managementFeesPct / 100));
-  const insurance = money(input.insurance);
-  const taxes = money(input.taxes);
-  const financingCost = money(input.financingCost);
-  const netAnnualIncome =
-    grossAnnualRent - operatingExpenses - managementFees - insurance - taxes - financingCost;
+  const netAnnualIncome = grossAnnualRent - operatingExpenses;
 
   const monthlyCashflow = money(netAnnualIncome / 12);
   const grossYieldPct = round2((grossAnnualRent / totalCost) * 100);
@@ -219,16 +186,11 @@ export function computeIndicators(input: NormalizedInput): InvestmentIndicators 
     purchasePrice,
     totalCost,
     acquisitionFees,
-    agencyFees,
     renovationCost,
     monthlyRent: input.monthlyRent,
     occupancyRate: input.occupancyRate,
     grossAnnualRent,
     operatingExpenses,
-    managementFees,
-    insurance,
-    taxes,
-    financingCost,
     netAnnualIncome,
     monthlyCashflow,
     annualCashflow: netAnnualIncome,
@@ -326,10 +288,7 @@ export function buildScenarios(input: NormalizedInput): InvestmentScenario[] {
 
     const gross = money(input.monthlyRent * 12 * (occupancyRate / 100));
     const expenses = money(gross * (input.annualExpensesPct / 100));
-    const management = money(gross * (input.managementFeesPct / 100));
-    const netYieldPct = round2(
-      ((gross - expenses - management - input.insurance - input.taxes - input.financingCost) / base.totalCost) * 100,
-    );
+    const netYieldPct = round2(((gross - expenses) / base.totalCost) * 100);
 
     return {
       key,

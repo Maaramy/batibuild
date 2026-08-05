@@ -48,11 +48,6 @@ export type InvestmentInput = {
   occupancyRate?: number;
   annualExpensesPct?: number;
   renovationCost?: number;
-  agencyFees?: number;
-  financingCost?: number;
-  insurance?: number;
-  taxes?: number;
-  managementFeesPct?: number;
   acquisitionFeesPct?: number;
   annualAppreciationPct?: number;
   rentGrowthPct?: number;
@@ -61,9 +56,8 @@ export type InvestmentInput = {
 };
 
 export interface Indicators {
-  purchasePrice: number; totalCost: number; acquisitionFees: number; agencyFees?: number; renovationCost: number;
+  purchasePrice: number; totalCost: number; acquisitionFees: number; renovationCost: number;
   monthlyRent: number; occupancyRate: number; grossAnnualRent: number; operatingExpenses: number;
-  managementFees?: number; insurance?: number; taxes?: number; financingCost?: number;
   netAnnualIncome: number; monthlyCashflow: number; annualCashflow: number;
   grossYieldPct: number; netYieldPct: number; roiAnnualPct: number; roi5yPct: number; roi10yPct: number;
   paybackYears: number; paybackDate: number; paybackDateLabel: string;
@@ -122,11 +116,6 @@ export const DEFAULT_FORM = {
   occupancyRate: 95,
   annualExpensesPct: 18,
   renovationCost: 0,
-  agencyFees: 0,
-  financingCost: 0,
-  insurance: 0,
-  taxes: 0,
-  managementFeesPct: 0,
   acquisitionFeesPct: 6,
   annualAppreciationPct: undefined as number | undefined,
   rentGrowthPct: 5,
@@ -384,8 +373,7 @@ export function generatePdf(run: AnalysisRun) {
       ["Attractivité du quartier", results.zone.utilityLabel ? `${results.zone.utilityLabel} — ${results.zone.utilityIndex}/100` : "—"],
       ["Prix d'achat", fmtPdf(ind.purchasePrice)],
       ["Frais d'acquisition", fmtPdf(ind.acquisitionFees)],
-      ["Frais d'agence", fmtPdf(ind.agencyFees ?? 0)],
-      ["Coût d'aménagement", fmtPdf(ind.renovationCost)],
+      ["Travaux de rénovation", fmtPdf(ind.renovationCost)],
       ["Coût total de l'investissement", fmtPdf(ind.totalCost)],
       ["Prix au m²", ind.pricePerM2 ? fmtPdf(ind.pricePerM2) : "—"],
       ["Loyer mensuel (occupation " + ind.occupancyRate + " %)", fmtPdf(ind.monthlyRent)],
@@ -399,10 +387,6 @@ export function generatePdf(run: AnalysisRun) {
     [
       ["Revenus locatifs bruts annuels", fmtPdf(ind.grossAnnualRent)],
       ["Charges d'exploitation annuelles", fmtPdf(ind.operatingExpenses)],
-      ["Frais de gestion annuels", fmtPdf(ind.managementFees ?? 0)],
-      ["Assurance annuelle", fmtPdf(ind.insurance ?? 0)],
-      ["Taxes annuelles", fmtPdf(ind.taxes ?? 0)],
-      ["Frais de financement annuels", fmtPdf(ind.financingCost ?? 0)],
       ["Revenu net annuel", fmtPdf(ind.netAnnualIncome)],
       ["Cash-flow mensuel", fmtPdf(ind.monthlyCashflow)],
       ["Cash-flow annuel", fmtPdf(ind.annualCashflow)],
@@ -556,8 +540,7 @@ export function exportCsv(run: AnalysisRun) {
       ["Surface", input.area ? `${input.area} m²` : "—"],
       ["Prix d'achat", `${ind.purchasePrice} TND`],
       ["Frais d'acquisition", `${ind.acquisitionFees} TND`],
-      ["Frais d'agence", `${ind.agencyFees ?? 0} TND`],
-      ["Coût d'aménagement", `${ind.renovationCost} TND`],
+      ["Travaux de rénovation", `${ind.renovationCost} TND`],
       ["Coût total de l'investissement", `${ind.totalCost} TND`],
       ["Prix au m²", ind.pricePerM2 ? `${ind.pricePerM2} TND` : "—"],
       ["Loyer mensuel", `${ind.monthlyRent} TND`],
@@ -573,10 +556,6 @@ export function exportCsv(run: AnalysisRun) {
     [
       ["Revenus locatifs bruts annuels", `${ind.grossAnnualRent} TND`],
       ["Charges d'exploitation annuelles", `${ind.operatingExpenses} TND`],
-      ["Frais de gestion annuels", `${ind.managementFees ?? 0} TND`],
-      ["Assurance annuelle", `${ind.insurance ?? 0} TND`],
-      ["Taxes annuelles", `${ind.taxes ?? 0} TND`],
-      ["Frais de financement annuels", `${ind.financingCost ?? 0} TND`],
       ["Revenu net annuel", `${ind.netAnnualIncome} TND`],
       ["Cash-flow mensuel", `${ind.monthlyCashflow} TND`],
       ["Cash-flow annuel", `${ind.annualCashflow} TND`],

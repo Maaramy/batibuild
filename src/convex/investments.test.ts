@@ -126,39 +126,6 @@ describe("Moteur financier (fonctions pures)", () => {
     expect(results.aiConfidence).toBeGreaterThanOrEqual(60);
     expect(results.aiConfidence).toBeLessThanOrEqual(97);
   });
-
-  it("les coûts saisis (agence, financement, assurance, taxes, gestion) sont pris en compte", () => {
-    const base = normalizeInput({ ...BASE_INPUT, annualExpensesPct: 0, occupancyRate: 100 });
-    const withCosts = normalizeInput({
-      ...BASE_INPUT,
-      annualExpensesPct: 0,
-      occupancyRate: 100,
-      agencyFees: 10000,
-      financingCost: 12000,
-      insurance: 1000,
-      taxes: 1500,
-      managementFeesPct: 5,
-    });
-
-    const baseInd = computeIndicators(base);
-    const ind = computeIndicators(withCosts);
-
-    // Frais d'agence (one-shot) ajoutés au coût total
-    expect(ind.totalCost).toBe(baseInd.totalCost + 10000);
-    expect(ind.agencyFees).toBe(10000);
-
-    // Charges annuelles : gestion 5% des loyers bruts + assurance + taxes + financement
-    const gross = withCosts.monthlyRent * 12; // occupation 100%
-    expect(ind.managementFees).toBe(Math.round(gross * 0.05));
-    expect(ind.insurance).toBe(1000);
-    expect(ind.taxes).toBe(1500);
-    expect(ind.financingCost).toBe(12000);
-
-    // Le revenu net, le cash-flow et le rendement intègrent les nouvelles charges
-    expect(ind.netAnnualIncome).toBeLessThan(baseInd.netAnnualIncome);
-    expect(ind.monthlyCashflow).toBeLessThan(baseInd.monthlyCashflow);
-    expect(ind.netYieldPct).toBeLessThan(baseInd.netYieldPct);
-  });
 });
 
 describe("API investments", () => {
