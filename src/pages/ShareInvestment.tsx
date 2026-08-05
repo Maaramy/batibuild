@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useParams, useNavigate } from "react-router";
-import { generatePdf, TYPE_META } from "@/components/investment/shared";
+import { generatePdf, TYPE_META, InvestmentRecap } from "@/components/investment/shared";
 import type { AnalysisRun, InvestmentType } from "@/components/investment/shared";
 import { ResultsView } from "@/components/investment/results-view";
 
@@ -110,25 +110,25 @@ export default function ShareInvestment() {
         )}
 
         {run && (
-          <>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <h1 className="text-base sm:text-xl font-bold">
-                  {run.input?.name || TYPE_META[run.input.investmentType as InvestmentType]?.label}
-                </h1>
-                <p className="text-[11px] sm:text-xs text-muted-foreground">
-                  Analyse partagée en lecture seule · marché tunisien 2026
-                </p>
+          <>              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h1 className="text-base sm:text-xl font-bold">
+                    {run.input?.name || TYPE_META[run.input.investmentType as InvestmentType]?.label}
+                  </h1>
+                  <p className="text-[11px] sm:text-xs text-muted-foreground">
+                    Analyse partagée en lecture seule · marché tunisien 2026
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="gap-1.5 h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                  onClick={() => generatePdf(run!)}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Rapport PDF
+                </Button>
               </div>
-              <Button
-                size="sm"
-                className="gap-1.5 h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
-                onClick={() => generatePdf(run!)}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Rapport PDF
-              </Button>
-            </div>
+            <InvestmentRecap run={run} zones={zones} />
             <ResultsView run={run} zones={zones} />
           </>
         )}

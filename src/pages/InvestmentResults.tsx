@@ -13,7 +13,6 @@ import {
   Landmark,
   Download,
   Plus,
-  ArrowUpRight,
   Share2,
   Copy,
   Clock,
@@ -27,7 +26,7 @@ import { usePageSEO } from "@/hooks/use-page-seo";
 import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router";
-import { generatePdf, TYPE_META } from "@/components/investment/shared";
+import { generatePdf, TYPE_META, InvestmentRecap } from "@/components/investment/shared";
 import type { AnalysisRun, ChatMsg, InvestmentType } from "@/components/investment/shared";
 import { ResultsView } from "@/components/investment/results-view";
 
@@ -172,16 +171,6 @@ export default function InvestmentResults() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 h-8 text-xs"
-              onClick={() => backToForm(true)}
-              disabled={!run}
-            >
-              <ArrowUpRight className="h-3.5 w-3.5" />
-              Modifier
-            </Button>
-            <Button
               size="sm"
               className="gap-1.5 h-8 text-xs"
               variant="outline"
@@ -241,11 +230,14 @@ export default function InvestmentResults() {
         )}
 
         {run && (
-          <ResultsView
-            run={run}
-            zones={zones}
-            assistant={{ chatMsgs, chatInput, setChatInput, chatBusy, sendChat, chatEndRef }}
-          />
+          <>
+            <InvestmentRecap run={run} zones={zones} onEdit={() => backToForm(true)} />
+            <ResultsView
+              run={run}
+              zones={zones}
+              assistant={{ chatMsgs, chatInput, setChatInput, chatBusy, sendChat, chatEndRef }}
+            />
+          </>
         )}
       </div>
 

@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +19,12 @@ import {
   HardHat as ProjetIcon,
   Sparkles,
   CheckCircle2,
+  Building2,
+  Coins,
+  TrendingUp,
+  ClipboardList,
+  ChevronDown,
+  Pencil,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
@@ -249,6 +257,111 @@ export function SectionHeading({ icon: Icon, title, desc }: { icon: any; title: 
         {desc && <p className="text-[11px] text-muted-foreground">{desc}</p>}
       </div>
     </div>
+  );
+}
+
+export function InvestmentRecap({ run, zones, onEdit }: {
+  run: AnalysisRun;
+  zones: ZoneRow[];
+  onEdit?: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const input = run.input;
+  const zoneName = zones.find((z) => z.region === input.region)?.name ?? input.region;
+
+  const Row = ({ label, value }: { label: string; value: string }) => (
+    <div className="flex items-center justify-between gap-2">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-semibold tabular-nums text-right truncate">{value}</dd>
+    </div>
+  );
+
+  const steps = [
+    {
+      icon: Building2,
+      title: "Étape 1 · Le bien",
+      rows: [
+        ["Type de bien", TYPE_META[input.investmentType]?.label ?? input.investmentType],
+        ["Nom", input.name || "—"],
+        ["Prix d'achat", fmtTND(input.purchasePrice)],
+        ["Surface", input.area ? `${fmtNum(input.area)} m²` : "—"],
+        ["Zone", zoneName],
+      ] as [string, string][],
+    },
+    {
+      icon: Coins,
+      title: "Étape 2 · Revenus & charges",
+      rows: [
+        ["Loyer mensuel", fmtTND(input.monthlyRent)],
+        ["Taux d'occupation", input.occupancyRate != null ? fmtPct(input.occupancyRate) : "—"],
+        ["Charges annuelles", input.annualExpensesPct != null ? fmtPct(input.annualExpensesPct) : "—"],
+        ["Frais d'acquisition", input.acquisitionFeesPct != null ? fmtPct(input.acquisitionFeesPct) : "—"],
+        ["Travaux de rénovation", fmtTND(input.renovationCost ?? 0)],
+      ] as [string, string][],
+    },
+    {
+      icon: TrendingUp,
+      title: "Étape 3 · Hypothèses",
+      rows: [
+        ["Appréciation annuelle", input.annualAppreciationPct != null ? fmtPct(input.annualAppreciationPct) : "Moyenne de la zone"],
+        ["Croissance des loyers", input.rentGrowthPct != null ? fmtPct(input.rentGrowthPct) : "—"],
+        ["Inflation", input.inflationPct != null ? fmtPct(input.inflationPct) : "—"],
+        ["Horizon", input.horizonYears ? `${fmtNum(input.horizonYears)} ans` : "—"],
+      ] as [string, string][],
+    },
+  ];
+
+  return (
+    <Card className="border border-border/40 bg-background/50 backdrop-blur-sm overflow-hidden">
+      <div className="flex items-center justify-between gap-2 p-3 sm:p-4">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <ClipboardList className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold flex items-center gap-1.5 flex-wrap">
+              Récapitulatif de l'investissement
+              <span className="text-[9px] font-normal text-muted-foreground">3 étapes</span>
+            </h2>
+            <p className="text-[11px] text-muted-foreground truncate">
+              Les informations saisies avant l'analyse
+            </p>
+          </div>
+          <ChevronDown
+            className={cn("ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-180")}
+          />
+        </button>
+        {onEdit && (
+          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs shrink-0" onClick={onEdit}>
+            <Pencil className="h-3.5 w-3.5" />
+            Modifier
+          </Button>
+        )}
+      </div>
+      {open && (
+        <div className="border-t border-border/20 p-3 sm:p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+            {steps.map((s) => (
+              <div key={s.title} className="rounded-xl border border-border/30 bg-muted/10 p-3">
+                <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+                  <s.icon className="h-3 w-3 text-primary" />
+                  {s.title}
+                </p>
+                <dl className="space-y-1.5 text-[11px]">
+                  {s.rows.map(([label, value]) => (
+                    <Row key={label} label={label} value={value} />
+                  ))}
+                </dl>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 
