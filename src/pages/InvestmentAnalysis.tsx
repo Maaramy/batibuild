@@ -139,6 +139,7 @@ export default function InvestmentAnalysis() {
   const goNext = () => {
     if (step === 1) {
       if (form.purchasePrice <= 0) { toast.error("Renseignez un prix d'achat valide."); return; }
+      if (!form.region.trim()) { toast.error("Renseignez la région — champ obligatoire."); return; }
       if (!form.city.trim()) { toast.error("Renseignez la ville — champ obligatoire."); return; }
     }
     if (step === 2 && form.monthlyRent < 0) { toast.error("Renseignez un loyer mensuel valide."); return; }
@@ -147,6 +148,7 @@ export default function InvestmentAnalysis() {
 
   const handleAnalyze = async () => {
     if (form.purchasePrice <= 0) { toast.error("Renseignez un prix d'achat valide."); return; }
+    if (!form.region.trim()) { toast.error("Renseignez la région — champ obligatoire."); return; }
     if (!form.city.trim()) { toast.error("Renseignez la ville — champ obligatoire."); return; }
     if (form.monthlyRent < 0) { toast.error("Renseignez un loyer mensuel valide."); return; }
     setRunning(true);
@@ -411,8 +413,8 @@ export default function InvestmentAnalysis() {
                           <NumField label="Surface (m²)" value={form.area} suffix="m²" valid={fieldChecks.area} onChange={(v) => set("area", v)} />
                         </div>
 
-                        {/* ── Localisation : Région → Ville → Quartier ── */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {/* ── Localisation : ordre chronologique Région → Ville → Quartier ── */}
+                        <div className="space-y-2.5">
                           <LocationField
                             label="Région"
                             value={form.region}
@@ -425,6 +427,7 @@ export default function InvestmentAnalysis() {
                             placeholder="Choisir une région…"
                             required
                             valid={fieldChecks.region}
+                            hint="Sélectionnez la région — ses villes s'affichent ensuite"
                           />
                           <LocationField
                             label="Ville"
@@ -433,20 +436,22 @@ export default function InvestmentAnalysis() {
                             allowCustom
                             onTyping={onVilleChange}
                             onSelect={(o) => onVilleChange(o.label)}
-                            placeholder="Choisir une ville…"
+                            placeholder={form.region ? "Choisir une ville…" : "Choisissez d'abord une région…"}
                             required
                             valid={fieldChecks.city}
+                            hint="Saisissez ou choisissez la ville (autocomplétion)"
+                          />
+                          <LocationField
+                            label="Quartier (optionnel)"
+                            value={form.quartier}
+                            options={quartierOptions}
+                            allowCustom
+                            onTyping={(t) => set("quartier", t)}
+                            onSelect={(o) => set("quartier", o.label)}
+                            placeholder={form.city ? "Choisir un quartier…" : "Choisissez d'abord une ville…"}
+                            hint="Saisissez ou choisissez le quartier (autocomplétion)"
                           />
                         </div>
-                        <LocationField
-                          label="Quartier (optionnel)"
-                          value={form.quartier}
-                          options={quartierOptions}
-                          allowCustom
-                          onTyping={(t) => set("quartier", t)}
-                          onSelect={(o) => set("quartier", o.label)}
-                          placeholder="Choisir un quartier…"
-                        />
 
                         {selectedZone && (
                           <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
