@@ -234,9 +234,21 @@ export default function InvestmentAnalysis() {
   const selectedUtility: ZoneUtility | null = resolveZoneUtility(form.city, form.quartier);
 
   // ── Autocomplétion en cascade : Région → Ville → Quartier ──
-  const regionOptions = zones.map((z: any) => ({ label: z.name, value: z.region }));
+  // Chaque région affiche le nombre de villes disponibles, chaque ville le
+  // nombre de quartiers prédéfinis (badge discret dans la liste déroulante).
+  const regionOptions = zones.map((z: any) => {
+    const n = REGION_CASCADE[z.region]?.length ?? 0;
+    return { label: z.name, value: z.region, meta: `${n} ville${n > 1 ? "s" : ""}` };
+  });
   const cascadeCities = REGION_CASCADE[form.region] ?? [];
-  const villeOptions = cascadeCities.map((c) => ({ label: c.name, value: c.name }));
+  const villeOptions = cascadeCities.map((c) => {
+    const n = c.quartiers?.length ?? 0;
+    return {
+      label: c.name,
+      value: c.name,
+      ...(n > 0 ? { meta: `${n} quartier${n > 1 ? "s" : ""}` } : {}),
+    };
+  });
   const selectedCity = cascadeCities.find((c) => c.name === form.city);
   const quartierOptions = (selectedCity?.quartiers?.length
     ? selectedCity.quartiers
@@ -482,7 +494,13 @@ export default function InvestmentAnalysis() {
                             onTyping={(t) => set("quartier", t)}
                             onSelect={(o) => set("quartier", o.label)}
                             placeholder={form.city ? "Choisir un quartier…" : "Choisissez d'abord une ville…"}
-                            hint="Saisissez ou choisissez le quartier (autocomplétion)"
+                            hint={
+                              form.city
+                                ? selectedCity?.quartiers?.length
+                                  ? `${selectedCity.quartiers.length} quartier${selectedCity.quartiers.length > 1 ? "s" : ""} disponibles pour ${form.city} — saisie libre possible`
+                                  : "Aucune liste prédéfinie pour cette ville — saisie libre autorisée"
+                                : "Choisissez d'abord une ville…"
+                            }
                           />
                         </div>
 

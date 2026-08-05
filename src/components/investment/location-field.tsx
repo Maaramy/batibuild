@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 
-export type LocationOption = { label: string; value: string };
+export type LocationOption = { label: string; value: string; meta?: string };
 
 /**
  * Champ de localisation avec autocomplétion (Popover + Command).
@@ -161,9 +161,16 @@ export function LocationField({
                   >
                     <MapPin className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <span className="truncate">{o.label}</span>
-                    {displayValue === o.label && (
-                      <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                    )}
+                    <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                      {o.meta && (
+                        <span className="rounded-full border border-border/40 bg-muted/40 px-1.5 py-0.5 text-[9px] font-medium tabular-nums text-muted-foreground">
+                          {o.meta}
+                        </span>
+                      )}
+                      {displayValue === o.label && (
+                        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                      )}
+                    </span>
                   </CommandItem>
                 ))
               )}
