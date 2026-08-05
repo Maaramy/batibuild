@@ -27,7 +27,11 @@ import {
   ShieldAlert,
   Building2,
   ChevronRight,
+  ArrowLeft,
+  ArrowRight,
+  Check,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { toast } from "sonner";
@@ -39,12 +43,26 @@ import {
   TYPE_ORDER,
   NumField,
   ScoreGauge,
+  fmtNum,
 } from "@/components/investment/shared";
 import type { FormState, InvestmentInput, InvestmentType } from "@/components/investment/shared";
 
 // ============================================================================
-// Page d'analyse — saisie de l'investissement puis navigation vers les résultats
+// Page d'analyse — saisie de l'investissement en 3 étapes puis navigation
+// vers la page de résultats.
 // ============================================================================
+
+const STEPS = [
+  { n: 1, label: "Le bien", icon: Building2 },
+  { n: 2, label: "Revenus & charges", icon: Coins },
+  { n: 3, label: "Hypothèses", icon: TrendingUp },
+];
+
+const stepVariants = {
+  enter: (dir: number) => ({ opacity: 0, x: dir * 32 }),
+  center: { opacity: 1, x: 0 },
+  exit: (dir: number) => ({ opacity: 0, x: dir * -32 }),
+};
 
 export default function InvestmentAnalysis() {
   usePageSEO({
@@ -58,6 +76,8 @@ export default function InvestmentAnalysis() {
     const prefill = (location.state as any)?.prefill as FormState | undefined;
     return (prefill ? { ...DEFAULT_FORM, ...prefill } : DEFAULT_FORM) as FormState;
   });
+  const [step, setStep] = useState(1);
+  const [direction, setDirection] = useState(1);
   const [running, setRunning] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -86,6 +106,18 @@ export default function InvestmentAnalysis() {
     inflationPct: form.inflationPct,
     horizonYears: form.horizonYears,
   });
+
+  const goStep = (s: number) => {
+    if (s < 1 || s > STEPS.length) return;
+    setDirection(s > step ? 1 : -1);
+    setStep(s);
+  };
+
+  const goNext = () => {
+    if (step === 1 && form.purchasePrice <= 0) { toast.error("Renseignez un prix d'achat valide."); return; }
+    if (step === 2 && form.monthlyRent < 0) { toast.error("Renseignez un loyer mensuel valide."); return; }
+    goStep(step + 1);
+  };
 
   const handleAnalyze = async () => {
     if (form.purchasePrice <= 0) { toast.error("Renseignez un prix d'achat valide."); return; }
@@ -126,6 +158,7 @@ export default function InvestmentAnalysis() {
 
   const handleReset = () => {
     setForm(DEFAULT_FORM);
+    setStep(1);
     toast("Formulaire réinitialisé", { description: "Saisissez les caractéristiques d'un nouveau bien." });
   };
 
@@ -146,7 +179,7 @@ export default function InvestmentAnalysis() {
             <div>
               <h1 className="text-base sm:text-xl font-bold">Analyse de la rentabilité immobilière</h1>
               <p className="text-[11px] sm:text-xs text-muted-foreground">
-                Étape 1 — saisissez votre investissement · marché tunisien 2026
+                Étape {step}/3 — {STEPS[step - 1].label} · marché tunisien 2026
               </p>
             </div>
           </div>
@@ -164,132 +197,270 @@ export default function InvestmentAnalysis() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[380px,1fr] gap-4 sm:gap-6 items-start">
           <div className="space-y-4 lg:sticky lg:top-4">
-            <Card id="investment-form" className="scroll-mt-4 border border-border/40 bg-background/50 backdrop-blur-sm">
-              <CardHeader className="p-3 sm:p-4 pb-2">
+            <Card id="investment-form" className="scroll-mt-4 border border-border/40 bg-background/50 backdrop-blur-sm overflow-hidden">
+              <CardHeader className="p-3 sm:p-4 pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Coins className="h-4 w-4 text-primary" />
                   Informations de l'investissement
                 </CardTitle>
                 <CardDescription className="text-[11px]">
-                  Saisissez les caractéristiques du bien à analyser
+                  Remplissez les 3 étapes puis lancez l'analyse
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-3 sm:p-4 space-y-3.5">
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">Type de bien</label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {TYPE_ORDER.map((t) => {
-                      const meta = TYPE_META[t];
-                      const Icon = meta.icon;
-                      const selected = form.investmentType === t;
-                      return (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => set("investmentType", t)}
+
+              {/* ═══ Stepper ═══ */}
+              <div className="px-3 sm:px-4 pb-2">
+                <div className="flex items-center gap-1.5">
+                  {STEPS.map((s) => {
+                    const active = step === s.n;
+                    const done = step > s.n;
+                    const Icon = s.icon;
+                    return (
+                      <button
+                        key={s.n}
+                        type="button"
+                        onClick={() => done && goStep(s.n)}
+                        disabled={!done}
+                        title={done ? `Revenir à l'étape ${s.n}` : undefined}
+                        className={cn(
+                          "group flex flex-1 items-center gap-2 rounded-lg border px-2 py-1.5 transition-all",
+                          active
+                            ? "border-primary/30 bg-primary/10"
+                            : done
+                              ? "border-border/30 hover:border-emerald-500/30 hover:bg-emerald-500/5 cursor-pointer"
+                              : "border-border/20 opacity-60",
+                        )}
+                      >
+                        <span
                           className={cn(
-                            "flex flex-col items-center gap-1 rounded-lg border px-1 py-2 text-center transition-all active:scale-[0.97]",
-                            selected
-                              ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
-                              : "border-border/40 text-muted-foreground hover:border-primary/25 hover:text-foreground",
+                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors",
+                            active ? "bg-indigo-600 text-white" : done ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground",
                           )}
-                          title={meta.desc}
                         >
-                          <Icon className="h-4 w-4" />
-                          <span className="text-[9px] leading-tight font-medium line-clamp-2">{meta.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          {done ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
+                        </span>
+                        <span
+                          className={cn(
+                            "hidden sm:block text-[10px] font-medium truncate",
+                            active ? "text-primary" : "text-muted-foreground",
+                          )}
+                        >
+                          {s.label}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Nom de l'analyse (optionnel)</label>
-                  <Input
-                    value={form.name}
-                    onChange={(e) => set("name", e.target.value)}
-                    placeholder="Ex : Appartement La Marsa"
-                    className="h-9 text-sm"
+                <div className="mt-2 h-1 rounded-full bg-muted/50 overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-blue-500"
+                    animate={{ width: `${(step / STEPS.length) * 100}%` }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
                   />
                 </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
-                  <NumField label="Prix d'achat" value={form.purchasePrice} suffix="TND" onChange={(v) => set("purchasePrice", v ?? 0)} />
-                  <NumField label="Surface (m²)" value={form.area} suffix="m²" onChange={(v) => set("area", v)} />
-                </div>
+              <CardContent className="p-3 sm:p-4 pt-3">
+                <AnimatePresence mode="wait" custom={direction} initial={false}>
+                  <motion.div
+                    key={step}
+                    custom={direction}
+                    variants={stepVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ duration: 0.22, ease: "easeInOut" }}
+                    className="space-y-3.5"
+                  >
+                    {/* ── ÉTAPE 1 : LE BIEN ── */}
+                    {step === 1 && (
+                      <>
+                        <div>
+                          <label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">Type de bien</label>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {TYPE_ORDER.map((t) => {
+                              const meta = TYPE_META[t];
+                              const Icon = meta.icon;
+                              const selected = form.investmentType === t;
+                              return (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  onClick={() => set("investmentType", t)}
+                                  className={cn(
+                                    "flex flex-col items-center gap-1 rounded-lg border px-1 py-2 text-center transition-all active:scale-[0.97]",
+                                    selected
+                                      ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+                                      : "border-border/40 text-muted-foreground hover:border-primary/25 hover:text-foreground",
+                                  )}
+                                  title={meta.desc}
+                                >
+                                  <Icon className="h-4 w-4" />
+                                  <span className="text-[9px] leading-tight font-medium line-clamp-2">{meta.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Gouvernorat</label>
-                    <select
-                      value={form.region}
-                      onChange={(e) => set("region", e.target.value)}
-                      className="h-9 w-full rounded-lg border border-border/50 bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
+                        <div>
+                          <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Nom de l'analyse (optionnel)</label>
+                          <Input
+                            value={form.name}
+                            onChange={(e) => set("name", e.target.value)}
+                            placeholder="Ex : Appartement La Marsa"
+                            className="h-9 text-sm"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <NumField label="Prix d'achat" value={form.purchasePrice} suffix="TND" onChange={(v) => set("purchasePrice", v ?? 0)} />
+                          <NumField label="Surface (m²)" value={form.area} suffix="m²" onChange={(v) => set("area", v)} />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Gouvernorat</label>
+                          <select
+                            value={form.region}
+                            onChange={(e) => set("region", e.target.value)}
+                            className="h-9 w-full rounded-lg border border-border/50 bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          >
+                            {zones.map((z: any) => (
+                              <option key={z.region} value={z.region}>{z.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {selectedZone && (
+                          <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
+                            <p className="text-[10px] font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              Zone actuelle : {selectedZone.name}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                              {selectedZone.highlights?.join(" · ")}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* ── ÉTAPE 2 : REVENUS & CHARGES ── */}
+                    {step === 2 && (
+                      <>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <NumField label="Loyer mensuel" value={form.monthlyRent} suffix="TND" onChange={(v) => set("monthlyRent", v ?? 0)} />
+                          <NumField label="Taux d'occupation" value={form.occupancyRate} suffix="%" step={1} onChange={(v) => set("occupancyRate", v)} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <NumField label="Charges annuelles" value={form.annualExpensesPct} suffix="%" step={0.5} onChange={(v) => set("annualExpensesPct", v)} />
+                          <NumField label="Frais d'acquisition" value={form.acquisitionFeesPct} suffix="%" step={0.5} onChange={(v) => set("acquisitionFeesPct", v)} />
+                        </div>
+                        <div className="col-span-2">
+                          <NumField label="Travaux de rénovation" value={form.renovationCost} suffix="TND" onChange={(v) => set("renovationCost", v ?? 0)} />
+                        </div>
+                        <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
+                          <p className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                            <PiggyBank className="h-3 w-3" />
+                            Estimation rapide
+                          </p>
+                          <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                            Revenus locatifs bruts estimés :{" "}
+                            <span className="font-semibold text-foreground tabular-nums">
+                              {fmtNum(Math.round(form.monthlyRent * 12 * (form.occupancyRate ?? 100) / 100))} TND/an
+                            </span>
+                          </p>
+                        </div>
+                      </>
+                    )}
+
+                    {/* ── ÉTAPE 3 : HYPOTHÈSES ── */}
+                    {step === 3 && (
+                      <>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <NumField
+                            label="Appréciation annuelle"
+                            value={form.annualAppreciationPct}
+                            suffix="%"
+                            step={0.5}
+                            hint="Vide = moyenne de la zone"
+                            onChange={(v) => set("annualAppreciationPct", v)}
+                          />
+                          <NumField label="Croissance des loyers" value={form.rentGrowthPct} suffix="%" step={0.5} onChange={(v) => set("rentGrowthPct", v)} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <NumField label="Inflation" value={form.inflationPct} suffix="%" step={0.5} onChange={(v) => set("inflationPct", v)} />
+                          <NumField label="Horizon (années)" value={form.horizonYears} suffix="ans" step={1} onChange={(v) => set("horizonYears", v)} />
+                        </div>
+
+                        <div className="rounded-lg border border-primary/25 bg-primary/5 p-2.5">
+                          <p className="text-[10px] font-semibold text-primary mb-1.5 flex items-center gap-1">
+                            <Gauge className="h-3 w-3" />
+                            Récapitulatif
+                          </p>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                            <span className="text-muted-foreground">Bien</span>
+                            <span className="font-semibold text-right truncate">{TYPE_META[form.investmentType]?.label}</span>
+                            <span className="text-muted-foreground">Zone</span>
+                            <span className="font-semibold text-right truncate">{selectedZone?.name ?? "—"}</span>
+                            <span className="text-muted-foreground">Prix d'achat</span>
+                            <span className="font-semibold text-right tabular-nums">{fmtNum(form.purchasePrice)} TND</span>
+                            <span className="text-muted-foreground">Surface</span>
+                            <span className="font-semibold text-right tabular-nums">{form.area ? `${fmtNum(form.area)} m²` : "—"}</span>
+                            <span className="text-muted-foreground">Loyer / mois</span>
+                            <span className="font-semibold text-right tabular-nums">{fmtNum(form.monthlyRent)} TND</span>
+                            <span className="text-muted-foreground">Taux d'occupation</span>
+                            <span className="font-semibold text-right tabular-nums">{form.occupancyRate ?? "—"}%</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* ═══ Navigation ═══ */}
+                <div className="mt-4 flex items-center gap-2 border-t border-border/20 pt-3">
+                  {step > 1 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 h-9 text-xs"
+                      onClick={() => goStep(step - 1)}
                     >
-                      {zones.map((z: any) => (
-                        <option key={z.region} value={z.region}>{z.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <NumField label="Loyer mensuel" value={form.monthlyRent} suffix="TND" onChange={(v) => set("monthlyRent", v ?? 0)} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  <NumField label="Taux d'occupation" value={form.occupancyRate} suffix="%" step={1} onChange={(v) => set("occupancyRate", v)} />
-                  <NumField label="Charges annuelles" value={form.annualExpensesPct} suffix="%" step={0.5} onChange={(v) => set("annualExpensesPct", v)} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  <NumField label="Travaux de rénovation" value={form.renovationCost} suffix="TND" onChange={(v) => set("renovationCost", v ?? 0)} />
-                  <NumField label="Frais d'acquisition" value={form.acquisitionFeesPct} suffix="%" step={0.5} onChange={(v) => set("acquisitionFeesPct", v)} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  <NumField
-                    label="Appréciation annuelle"
-                    value={form.annualAppreciationPct}
-                    suffix="%"
-                    step={0.5}
-                    hint="Vide = moyenne de la zone"
-                    onChange={(v) => set("annualAppreciationPct", v)}
-                  />
-                  <NumField label="Croissance des loyers" value={form.rentGrowthPct} suffix="%" step={0.5} onChange={(v) => set("rentGrowthPct", v)} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  <NumField label="Inflation" value={form.inflationPct} suffix="%" step={0.5} onChange={(v) => set("inflationPct", v)} />
-                  <NumField label="Horizon (années)" value={form.horizonYears} suffix="ans" step={1} onChange={(v) => set("horizonYears", v)} />
-                </div>
-
-                <Button
-                  className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
-                  onClick={handleAnalyze}
-                  disabled={running}
-                >
-                  {running ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Analyse en cours…
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      Analyser avec l'IA
-                    </>
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      Retour
+                    </Button>
                   )}
-                </Button>
-
-                {selectedZone && (
-                  <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
-                    <p className="text-[10px] font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      Zone actuelle : {selectedZone.name}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
-                      {selectedZone.highlights?.join(" · ")}
-                    </p>
-                  </div>
-                )}
+                  {step < STEPS.length ? (
+                    <Button
+                      size="sm"
+                      className="ml-auto gap-1.5 h-9 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                      onClick={goNext}
+                    >
+                      Suivant
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="ml-auto gap-1.5 h-9 text-xs bg-indigo-600 hover:bg-indigo-700 text-white flex-1 sm:flex-none sm:min-w-[180px]"
+                      onClick={handleAnalyze}
+                      disabled={running}
+                    >
+                      {running ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Analyse en cours…
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Analyser avec l'IA
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
