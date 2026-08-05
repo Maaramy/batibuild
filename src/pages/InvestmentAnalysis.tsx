@@ -168,6 +168,33 @@ export default function InvestmentAnalysis() {
 
   const selectedZone = zones.find((z: any) => z.region === form.region);
 
+  // ── Validation visuelle par étape ────────────────────────────────────────
+  const positive = (x: number | undefined) => typeof x === "number" && x > 0;
+  const filled = (x: number | undefined, min = 0) => typeof x === "number" && x >= min;
+
+  const fieldChecks = {
+    purchasePrice: positive(form.purchasePrice),
+    area: filled(form.area, 1),
+    monthlyRent: positive(form.monthlyRent),
+    occupancyRate: filled(form.occupancyRate, 1),
+    annualExpensesPct: filled(form.annualExpensesPct, 0),
+    acquisitionFeesPct: filled(form.acquisitionFeesPct, 0),
+    renovationCost: filled(form.renovationCost, 0),
+    annualAppreciationPct: typeof form.annualAppreciationPct === "number" && form.annualAppreciationPct >= 0,
+    rentGrowthPct: filled(form.rentGrowthPct, 0),
+    inflationPct: filled(form.inflationPct, 0),
+    horizonYears: positive(form.horizonYears),
+  };
+
+  const REQUIRED_FIELDS: Record<number, string[]> = {
+    1: ["purchasePrice"],
+    2: ["monthlyRent"],
+    3: ["horizonYears"],
+  };
+  const reqFields = REQUIRED_FIELDS[step] ?? [];
+  const reqDone = reqFields.filter((k) => (fieldChecks as any)[k]).length;
+  const stepValid = reqDone === reqFields.length;
+
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-[1400px] px-3 sm:px-5 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
@@ -224,20 +251,28 @@ export default function InvestmentAnalysis() {
                         title={done ? `Revenir à l'étape ${s.n}` : undefined}
                         className={cn(
                           "group flex flex-1 items-center gap-2 rounded-lg border px-2 py-1.5 transition-all",
-                          active
-                            ? "border-primary/30 bg-primary/10"
-                            : done
-                              ? "border-border/30 hover:border-emerald-500/30 hover:bg-emerald-500/5 cursor-pointer"
-                              : "border-border/20 opacity-60",
+                          active && stepValid
+                            ? "border-emerald-500/40 bg-emerald-500/10"
+                            : active
+                              ? "border-primary/30 bg-primary/10"
+                              : done
+                                ? "border-border/30 hover:border-emerald-500/30 hover:bg-emerald-500/5 cursor-pointer"
+                                : "border-border/20 opacity-60",
                         )}
                       >
                         <span
                           className={cn(
                             "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors",
-                            active ? "bg-indigo-600 text-white" : done ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground",
+                            active && stepValid
+                              ? "bg-emerald-500 text-white"
+                              : active
+                                ? "bg-indigo-600 text-white"
+                                : done
+                                  ? "bg-emerald-500 text-white"
+                                  : "bg-muted text-muted-foreground",
                           )}
                         >
-                          {done ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
+                          {(done || (active && stepValid)) ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
                         </span>
                         <span
                           className={cn(
@@ -257,6 +292,19 @@ export default function InvestmentAnalysis() {
                     animate={{ width: `${(step / STEPS.length) * 100}%` }}
                     transition={{ duration: 0.3, ease: "easeOut" }}
                   />
+                </div>
+                <div className="mt-1.5 flex items-center justify-between gap-2 text-[9px]">
+                  <span className="text-muted-foreground/70">
+                    Champs requis : <span className="tabular-nums">{reqDone}/{reqFields.length}</span>
+                  </span>
+                  {stepValid ? (
+                    <span className="flex items-center gap-0.5 font-semibold text-emerald-600 dark:text-emerald-400">
+                      <Check className="h-3 w-3" />
+                      Étape complète
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground/50">Complétez les champs requis</span>
+                  )}
                 </div>
               </div>
 
@@ -314,8 +362,8 @@ export default function InvestmentAnalysis() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-2.5">
-                          <NumField label="Prix d'achat" value={form.purchasePrice} suffix="TND" onChange={(v) => set("purchasePrice", v ?? 0)} />
-                          <NumField label="Surface (m²)" value={form.area} suffix="m²" onChange={(v) => set("area", v)} />
+                          <NumField label="Prix d'achat" value={form.purchasePrice} suffix="TND" required valid={fieldChecks.purchasePrice} onChange={(v) => set("purchasePrice", v ?? 0)} />
+                          <NumField label="Surface (m²)" value={form.area} suffix="m²" valid={fieldChecks.area} onChange={(v) => set("area", v)} />
                         </div>
 
                         <div>
@@ -349,15 +397,15 @@ export default function InvestmentAnalysis() {
                     {step === 2 && (
                       <>
                         <div className="grid grid-cols-2 gap-2.5">
-                          <NumField label="Loyer mensuel" value={form.monthlyRent} suffix="TND" onChange={(v) => set("monthlyRent", v ?? 0)} />
-                          <NumField label="Taux d'occupation" value={form.occupancyRate} suffix="%" step={1} onChange={(v) => set("occupancyRate", v)} />
+                          <NumField label="Loyer mensuel" value={form.monthlyRent} suffix="TND" required valid={fieldChecks.monthlyRent} onChange={(v) => set("monthlyRent", v ?? 0)} />
+                          <NumField label="Taux d'occupation" value={form.occupancyRate} suffix="%" step={1} valid={fieldChecks.occupancyRate} onChange={(v) => set("occupancyRate", v)} />
                         </div>
                         <div className="grid grid-cols-2 gap-2.5">
-                          <NumField label="Charges annuelles" value={form.annualExpensesPct} suffix="%" step={0.5} onChange={(v) => set("annualExpensesPct", v)} />
-                          <NumField label="Frais d'acquisition" value={form.acquisitionFeesPct} suffix="%" step={0.5} onChange={(v) => set("acquisitionFeesPct", v)} />
+                          <NumField label="Charges annuelles" value={form.annualExpensesPct} suffix="%" step={0.5} valid={fieldChecks.annualExpensesPct} onChange={(v) => set("annualExpensesPct", v)} />
+                          <NumField label="Frais d'acquisition" value={form.acquisitionFeesPct} suffix="%" step={0.5} valid={fieldChecks.acquisitionFeesPct} onChange={(v) => set("acquisitionFeesPct", v)} />
                         </div>
                         <div className="col-span-2">
-                          <NumField label="Travaux de rénovation" value={form.renovationCost} suffix="TND" onChange={(v) => set("renovationCost", v ?? 0)} />
+                          <NumField label="Travaux de rénovation" value={form.renovationCost} suffix="TND" valid={fieldChecks.renovationCost} onChange={(v) => set("renovationCost", v ?? 0)} />
                         </div>
                         <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
                           <p className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
@@ -384,13 +432,14 @@ export default function InvestmentAnalysis() {
                             suffix="%"
                             step={0.5}
                             hint="Vide = moyenne de la zone"
+                            valid={fieldChecks.annualAppreciationPct}
                             onChange={(v) => set("annualAppreciationPct", v)}
                           />
-                          <NumField label="Croissance des loyers" value={form.rentGrowthPct} suffix="%" step={0.5} onChange={(v) => set("rentGrowthPct", v)} />
+                          <NumField label="Croissance des loyers" value={form.rentGrowthPct} suffix="%" step={0.5} valid={fieldChecks.rentGrowthPct} onChange={(v) => set("rentGrowthPct", v)} />
                         </div>
                         <div className="grid grid-cols-2 gap-2.5">
-                          <NumField label="Inflation" value={form.inflationPct} suffix="%" step={0.5} onChange={(v) => set("inflationPct", v)} />
-                          <NumField label="Horizon (années)" value={form.horizonYears} suffix="ans" step={1} onChange={(v) => set("horizonYears", v)} />
+                          <NumField label="Inflation" value={form.inflationPct} suffix="%" step={0.5} valid={fieldChecks.inflationPct} onChange={(v) => set("inflationPct", v)} />
+                          <NumField label="Horizon (années)" value={form.horizonYears} suffix="ans" step={1} required valid={fieldChecks.horizonYears} onChange={(v) => set("horizonYears", v)} />
                         </div>
 
                         <div className="rounded-lg border border-primary/25 bg-primary/5 p-2.5">
@@ -434,11 +483,14 @@ export default function InvestmentAnalysis() {
                   {step < STEPS.length ? (
                     <Button
                       size="sm"
-                      className="ml-auto gap-1.5 h-9 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                      className={cn(
+                        "ml-auto gap-1.5 h-9 text-xs text-white",
+                        stepValid ? "bg-emerald-600 hover:bg-emerald-700" : "bg-indigo-600 hover:bg-indigo-700",
+                      )}
                       onClick={goNext}
                     >
                       Suivant
-                      <ArrowRight className="h-3.5 w-3.5" />
+                      {stepValid ? <Check className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
                     </Button>
                   ) : (
                     <Button

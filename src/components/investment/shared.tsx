@@ -16,6 +16,7 @@ import {
   Palmtree as ResidenceIcon,
   HardHat as ProjetIcon,
   Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
@@ -203,13 +204,21 @@ export function Kpi({ icon: Icon, label, value, sub, tone = "text-foreground" }:
   );
 }
 
-export function NumField({ label, value, onChange, suffix, step = 1, hint }: {
+export function NumField({ label, value, onChange, suffix, step = 1, hint, valid, required }: {
   label: string; value: number | undefined; onChange: (v: number | undefined) => void;
-  suffix?: string; step?: number; hint?: string;
+  suffix?: string; step?: number; hint?: string; valid?: boolean; required?: boolean;
 }) {
   return (
     <div>
-      <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{label}</label>
+      <div className="mb-1 flex items-center justify-between gap-1">
+        <label className="text-[11px] font-medium text-muted-foreground">
+          {label}
+          {required && <span className="text-red-500"> *</span>}
+        </label>
+        {valid && (
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" aria-label="Champ rempli" />
+        )}
+      </div>
       <div className="relative">
         <Input
           type="number"
