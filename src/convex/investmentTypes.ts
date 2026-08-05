@@ -297,6 +297,192 @@ export const ZONE_UTILITIES: { label: string; utilityIndex: number }[] = [
   { label: "Kasserine", utilityIndex: 55 },
 ];
 
+// ── Cascade de localisation : région → ville → quartier ─────────────────────
+// Alimente l'autocomplétion du formulaire. Les quartiers sont optionnels :
+// seules les grandes villes en possèdent une liste détaillée.
+
+export type CascadeCity = {
+  name: string;
+  quartiers?: string[];
+};
+
+export const REGION_CASCADE: Record<string, CascadeCity[]> = {
+  tunis: [
+    { name: "Tunis", quartiers: ["La Médina", "Bab El Bhar", "Bab Souika", "Halfaouine", "Montfleury", "El Menzah", "Mutuelleville", "Lafayette", "Notre-Dame", "El Omrane", "Cité El Khadra", "Jardins de Carthage"] },
+    { name: "La Marsa", quartiers: ["Marsa Plage", "Marsa Erriadh", "Sidi Bou Saïd", "Gammarth", "Gammarth Supérieur", "Les Côtes de Carthage"] },
+    { name: "Carthage", quartiers: ["Byrsa", "Salammbô", "Carthage Présidence", "Amilcar", "Dermech"] },
+    { name: "Les Berges du Lac", quartiers: ["Lac 1", "Lac 2"] },
+    { name: "Le Bardo", quartiers: ["Cité Essalama"] },
+    { name: "La Goulette", quartiers: ["La Goulette Village", "La Goulette Port"] },
+    { name: "Le Kram", quartiers: ["Kram Ouest", "Kram Est"] },
+  ],
+  ariana: [
+    { name: "Ariana", quartiers: ["Ennasr", "Ennasr 2", "Charguia", "Charguia 2", "Cité Ghazala", "Borj Louzir", "La Soukra", "Cité Ennasr"] },
+    { name: "El Ghazela", quartiers: ["Technopôle El Ghazala"] },
+    { name: "Raoued", quartiers: ["Raoued Plage"] },
+    { name: "Kalâat el-Andalous", quartiers: [] },
+    { name: "Sidi Thabet", quartiers: [] },
+  ],
+  ben_arous: [
+    { name: "Ben Arous", quartiers: ["Cité El Wafa"] },
+    { name: "Radès", quartiers: ["Radès Plage", "Cité El Habib"] },
+    { name: "Ezzahra", quartiers: [] },
+    { name: "Hammam Lif", quartiers: ["Bou Kornine"] },
+    { name: "Hammam Chott", quartiers: [] },
+    { name: "Mégrine", quartiers: ["Mégrine Coteaux", "Mégrine Riadh"] },
+    { name: "Mornag", quartiers: [] },
+    { name: "Fouchana", quartiers: [] },
+  ],
+  manouba: [
+    { name: "Manouba", quartiers: [] },
+    { name: "Oued Ellil", quartiers: [] },
+    { name: "Tebourba", quartiers: [] },
+    { name: "Douar Hicher", quartiers: [] },
+    { name: "Mornaguia", quartiers: [] },
+    { name: "El Battan", quartiers: [] },
+  ],
+  nabeul: [
+    { name: "Nabeul", quartiers: ["Nabeul Ville", "Zone Touristique Nabeul"] },
+    { name: "Hammamet", quartiers: ["Yasmine Hammamet", "Hammamet Nord", "Hammamet Sud", "Zone Touristique"] },
+    { name: "Kélibia", quartiers: [] },
+    { name: "Dar Chaabane", quartiers: [] },
+    { name: "Béni Khiar", quartiers: [] },
+    { name: "Korba", quartiers: [] },
+    { name: "Menzel Temime", quartiers: [] },
+    { name: "Grombalia", quartiers: [] },
+    { name: "Soliman", quartiers: [] },
+  ],
+  bizerte: [
+    { name: "Bizerte", quartiers: ["Bizerte Nord", "Bizerte Sud", "Corniche", "Zarzouna"] },
+    { name: "Menzel Bourguiba", quartiers: [] },
+    { name: "Menzel Jemil", quartiers: [] },
+    { name: "Mateur", quartiers: [] },
+    { name: "Raf Raf", quartiers: [] },
+    { name: "Tinja", quartiers: [] },
+  ],
+  sousse: [
+    { name: "Sousse", quartiers: ["Sahloul", "Khezama", "Riadh", "Boujaafar", "Sousse Ville", "Port El Kantaoui"] },
+    { name: "Hammam Sousse", quartiers: [] },
+    { name: "Akouda", quartiers: [] },
+    { name: "Kalaa Kebira", quartiers: [] },
+    { name: "Kalaa Sghira", quartiers: [] },
+    { name: "Msaken", quartiers: [] },
+    { name: "Enfidha", quartiers: [] },
+  ],
+  monastir: [
+    { name: "Monastir", quartiers: ["Skanès", "Monastir Ville", "Zone Touristique"] },
+    { name: "Ksar Hellal", quartiers: [] },
+    { name: "Moknine", quartiers: [] },
+    { name: "Bekalta", quartiers: [] },
+    { name: "Jemmal", quartiers: [] },
+  ],
+  mahdia: [
+    { name: "Mahdia", quartiers: ["Mahdia Ville", "Hiboun", "Cap Africa"] },
+    { name: "Ksour Essef", quartiers: [] },
+    { name: "Chebba", quartiers: [] },
+    { name: "El Jem", quartiers: [] },
+    { name: "Ouled Chamekh", quartiers: [] },
+  ],
+  sfax: [
+    { name: "Sfax", quartiers: ["Sfax Ville", "Sfax El Jadida", "Route de la Plage", "Cité El Habib", "Cité Ennasr", "Sakiet Ezzit", "Chihia"] },
+    { name: "Sakiet Eddaier", quartiers: [] },
+    { name: "Kerkennah", quartiers: [] },
+    { name: "Agareb", quartiers: [] },
+    { name: "Jebeniana", quartiers: [] },
+    { name: "Mahres", quartiers: [] },
+  ],
+  gabes: [
+    { name: "Gabès", quartiers: ["Gabès Ville", "Chenini", "Ghannouch"] },
+    { name: "El Hamma", quartiers: [] },
+    { name: "Mareth", quartiers: [] },
+    { name: "Metouia", quartiers: [] },
+  ],
+  medenine: [
+    { name: "Médenine", quartiers: [] },
+    { name: "Djerba Houmt Souk", quartiers: ["Houmt Souk Ville"] },
+    { name: "Djerba Midoun", quartiers: ["Midoun Ville", "Zone Touristique Djerba"] },
+    { name: "Zarzis", quartiers: ["Zarzis Ville"] },
+    { name: "Ben Gardane", quartiers: [] },
+  ],
+  kairouan: [
+    { name: "Kairouan", quartiers: ["Kairouan Ville", "Cité El Menzeh"] },
+    { name: "Sbikha", quartiers: [] },
+    { name: "Haffouz", quartiers: [] },
+    { name: "Bou Hajla", quartiers: [] },
+  ],
+  kasserine: [
+    { name: "Kasserine", quartiers: ["Kasserine Ville"] },
+    { name: "Sbeitla", quartiers: [] },
+    { name: "Fériana", quartiers: [] },
+    { name: "Thala", quartiers: [] },
+    { name: "Sbiba", quartiers: [] },
+  ],
+  sidi_bouzid: [
+    { name: "Sidi Bouzid", quartiers: ["Sidi Bouzid Ville"] },
+    { name: "Jilma", quartiers: [] },
+    { name: "Meknassy", quartiers: [] },
+    { name: "Bir El Hafey", quartiers: [] },
+  ],
+  gafsa: [
+    { name: "Gafsa", quartiers: ["Gafsa Ville"] },
+    { name: "El Ksar", quartiers: [] },
+    { name: "Metlaoui", quartiers: [] },
+    { name: "Moularès", quartiers: [] },
+    { name: "Redeyef", quartiers: [] },
+  ],
+  tozeur: [
+    { name: "Tozeur", quartiers: ["Tozeur Ville", "Oasis de Tozeur"] },
+    { name: "Nefta", quartiers: [] },
+    { name: "Degache", quartiers: [] },
+  ],
+  kebili: [
+    { name: "Kébili", quartiers: ["Kébili Ville"] },
+    { name: "Douz", quartiers: ["Douz Ville"] },
+    { name: "El Faouar", quartiers: [] },
+  ],
+  tataouine: [
+    { name: "Tataouine", quartiers: ["Tataouine Ville"] },
+    { name: "Ghomrassen", quartiers: [] },
+    { name: "Remada", quartiers: [] },
+  ],
+  le_kef: [
+    { name: "Le Kef", quartiers: ["Le Kef Ville"] },
+    { name: "Dahmani", quartiers: [] },
+    { name: "Tajerouine", quartiers: [] },
+    { name: "Kalaat Khasba", quartiers: [] },
+  ],
+  jendouba: [
+    { name: "Jendouba", quartiers: ["Jendouba Ville"] },
+    { name: "Tabarka", quartiers: ["Tabarka Ville", "Zone Touristique Tabarka"] },
+    { name: "Aïn Draham", quartiers: [] },
+    { name: "Ghardimaou", quartiers: [] },
+    { name: "Bou Salem", quartiers: [] },
+  ],
+  beja: [
+    { name: "Béja", quartiers: ["Béja Ville"] },
+    { name: "Medjez el-Bab", quartiers: [] },
+    { name: "Nefza", quartiers: [] },
+    { name: "Téboursouk", quartiers: [] },
+  ],
+  siliana: [
+    { name: "Siliana", quartiers: ["Siliana Ville"] },
+    { name: "Bouarada", quartiers: [] },
+    { name: "Gaâfour", quartiers: [] },
+    { name: "Makthar", quartiers: [] },
+  ],
+  zaghouan: [
+    { name: "Zaghouan", quartiers: ["Zaghouan Ville"] },
+    { name: "El Fahs", quartiers: [] },
+    { name: "Zriba", quartiers: [] },
+    { name: "Bir Mcherga", quartiers: [] },
+  ],
+};
+
+/** Toutes les villes de toutes les régions (pour l'autocomplétion libre). */
+export const ALL_CITIES: string[] = Object.values(REGION_CASCADE)
+  .flatMap((cities) => cities.map((c) => c.name))
+  .filter((v, i, a) => a.indexOf(v) === i);
+
 const uClamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
 /** Normalise une saisie libre (minuscules, sans accents ni ponctuation). */

@@ -20,12 +20,12 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
-import { resolveZoneUtility, ZONE_UTILITIES } from "@/convex/investmentTypes";
+import { resolveZoneUtility, ZONE_UTILITIES, REGION_CASCADE, ALL_CITIES } from "@/convex/investmentTypes";
 
 applyAutotablePlugin(jsPDF);
 
-export { resolveZoneUtility, ZONE_UTILITIES };
-export type { ZoneUtility } from "@/convex/investmentTypes";
+export { resolveZoneUtility, ZONE_UTILITIES, REGION_CASCADE, ALL_CITIES };
+export type { ZoneUtility, CascadeCity } from "@/convex/investmentTypes";
 
 // ============================================================================
 // Types (mirror of src/convex/investmentTypes.ts)

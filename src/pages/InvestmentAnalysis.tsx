@@ -46,8 +46,10 @@ import {
   ScoreGauge,
   fmtNum,
   resolveZoneUtility,
+  REGION_CASCADE,
 } from "@/components/investment/shared";
 import type { FormState, InvestmentInput, InvestmentType, ZoneUtility } from "@/components/investment/shared";
+import { LocationField } from "@/components/investment/location-field";
 
 // ============================================================================
 // Page d'analyse — saisie de l'investissement en 3 étapes puis navigation
@@ -135,13 +137,17 @@ export default function InvestmentAnalysis() {
   };
 
   const goNext = () => {
-    if (step === 1 && form.purchasePrice <= 0) { toast.error("Renseignez un prix d'achat valide."); return; }
+    if (step === 1) {
+      if (form.purchasePrice <= 0) { toast.error("Renseignez un prix d'achat valide."); return; }
+      if (!form.city.trim()) { toast.error("Renseignez la ville — champ obligatoire."); return; }
+    }
     if (step === 2 && form.monthlyRent < 0) { toast.error("Renseignez un loyer mensuel valide."); return; }
     goStep(step + 1);
   };
 
   const handleAnalyze = async () => {
     if (form.purchasePrice <= 0) { toast.error("Renseignez un prix d'achat valide."); return; }
+    if (!form.city.trim()) { toast.error("Renseignez la ville — champ obligatoire."); return; }
     if (form.monthlyRent < 0) { toast.error("Renseignez un loyer mensuel valide."); return; }
     setRunning(true);
     try {
@@ -190,11 +196,29 @@ export default function InvestmentAnalysis() {
   const selectedZone = zones.find((z: any) => z.region === form.region);
   const selectedUtility: ZoneUtility | null = resolveZoneUtility(form.city, form.quartier);
 
+  // ── Autocomplétion en cascade : Région → Ville → Quartier ──
+  const regionOptions = zones.map((z: any) => ({ label: z.name, value: z.region }));
+  const cascadeCities = REGION_CASCADE[form.region] ?? [];
+  const villeOptions = cascadeCities.map((c) => ({ label: c.name, value: c.name }));
+  const selectedCity = cascadeCities.find((c) => c.name === form.city);
+  const quartierOptions = (selectedCity?.quartiers?.length
+    ? selectedCity.quartiers
+    : cascadeCities.flatMap((c) => c.quartiers ?? [])
+  )
+    .filter((q, i, a) => a.indexOf(q) === i)
+    .map((q) => ({ label: q, value: q }));
+  const onVilleChange = (label: string) => {
+    set("city", label);
+    set("quartier", "");
+  };
+
   // ── Validation visuelle par étape ────────────────────────────────────────
   const positive = (x: number | undefined) => typeof x === "number" && x > 0;
   const filled = (x: number | undefined, min = 0) => typeof x === "number" && x >= min;
 
   const fieldChecks = {
+    region: form.region.trim() !== "",
+    city: form.city.trim() !== "",
     purchasePrice: positive(form.purchasePrice),
     area: filled(form.area, 1),
     monthlyRent: positive(form.monthlyRent),
@@ -208,7 +232,7 @@ export default function InvestmentAnalysis() {
   };
 
   const REQUIRED_FIELDS: Record<number, string[]> = {
-    1: ["purchasePrice"],
+    1: ["region", "purchasePrice", "city"],
     2: ["monthlyRent"],
     3: ["horizonYears"],
   };
@@ -387,39 +411,42 @@ export default function InvestmentAnalysis() {
                           <NumField label="Surface (m²)" value={form.area} suffix="m²" valid={fieldChecks.area} onChange={(v) => set("area", v)} />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <div>
-                            <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Ville</label>
-                            <Input
-                              value={form.city}
-                              onChange={(e) => set("city", e.target.value)}
-                              placeholder="Ex : La Marsa"
-                              className="h-9 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Quartier</label>
-                            <Input
-                              value={form.quartier}
-                              onChange={(e) => set("quartier", e.target.value)}
-                              placeholder="Ex : Les Berges du Lac"
-                              className="h-9 text-sm"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Gouvernorat</label>
-                          <select
+                        {/* ── Localisation : Région → Ville → Quartier ── */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <LocationField
+                            label="Région"
                             value={form.region}
-                            onChange={(e) => set("region", e.target.value)}
-                            className="h-9 w-full rounded-lg border border-border/50 bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
-                          >
-                            {zones.map((z: any) => (
-                              <option key={z.region} value={z.region}>{z.name}</option>
-                            ))}
-                          </select>
+                            options={regionOptions}
+                            onSelect={(o) => {
+                              set("region", o.value);
+                              set("city", "");
+                              set("quartier", "");
+                            }}
+                            placeholder="Choisir une région…"
+                            required
+                            valid={fieldChecks.region}
+                          />
+                          <LocationField
+                            label="Ville"
+                            value={form.city}
+                            options={villeOptions}
+                            allowCustom
+                            onTyping={onVilleChange}
+                            onSelect={(o) => onVilleChange(o.label)}
+                            placeholder="Choisir une ville…"
+                            required
+                            valid={fieldChecks.city}
+                          />
                         </div>
+                        <LocationField
+                          label="Quartier (optionnel)"
+                          value={form.quartier}
+                          options={quartierOptions}
+                          allowCustom
+                          onTyping={(t) => set("quartier", t)}
+                          onSelect={(o) => set("quartier", o.label)}
+                          placeholder="Choisir un quartier…"
+                        />
 
                         {selectedZone && (
                           <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
