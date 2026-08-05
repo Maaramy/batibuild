@@ -1,6 +1,11 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
+import {
+  analysisInputValidator,
+  analysisResultsValidator,
+  aiInsightsValidator,
+} from "./investmentTypes";
 
 // ============================================================================
 // User Roles & Subscription Plans
@@ -1060,6 +1065,18 @@ const schema = defineSchema(
     })
       .index("by_post_status", ["postId", "status", "createdAt"])
       .index("by_status", ["status", "createdAt"])
+      .index("by_created", ["createdAt"]),
+
+    // Real-estate investment profitability analyses (AI engine)
+    investmentAnalyses: defineTable({
+      userId: v.id("users"),
+      input: analysisInputValidator,
+      results: analysisResultsValidator,
+      aiInsights: v.optional(aiInsightsValidator),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
       .index("by_created", ["createdAt"]),
   },
   {
