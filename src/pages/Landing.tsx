@@ -55,6 +55,12 @@ import {
   Hammer,
   Package,
   Warehouse,
+  Landmark,
+  Percent,
+  CalendarClock,
+  Gauge,
+  Bot,
+  Wallet,
 } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
@@ -169,6 +175,53 @@ const PROJECT_CATEGORIES_DISPLAY = [
   "Bureau", "Restaurant", "Rénovation", "Terrasse", "Ferme", "Mosquée",
 ];
 
+const INVESTMENT_POINTS = [
+  {
+    icon: Percent,
+    title: "Indicateurs financiers complets",
+    desc: "Rentabilité brute et nette, cash-flow mensuel et annuel, ROI à 1, 5 et 10 ans.",
+    gradient: "from-indigo-500/20 to-blue-500/20",
+    iconColor: "text-indigo-600 dark:text-indigo-400",
+  },
+  {
+    icon: CalendarClock,
+    title: "Récupération du capital",
+    desc: "Nombre d'années et date estimée d'amortissement complet de votre investissement.",
+    gradient: "from-blue-500/20 to-cyan-500/20",
+    iconColor: "text-blue-600 dark:text-blue-400",
+  },
+  {
+    icon: TrendingUp,
+    title: "Prévisions par IA",
+    desc: "Revenus, valeur du bien et gains cumulés à 1, 3, 5 et 10 ans, en tenant compte de l'inflation.",
+    gradient: "from-emerald-500/20 to-teal-500/20",
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+  },
+  {
+    icon: Layers,
+    title: "3 scénarios de simulation",
+    desc: "Optimiste, réaliste et prudent : anticipez chaque cas de figure avant d'investir.",
+    gradient: "from-violet-500/20 to-purple-500/20",
+    iconColor: "text-violet-600 dark:text-violet-400",
+  },
+  {
+    icon: Gauge,
+    title: "Score IA sur 100",
+    desc: "Note pondérée : rentabilité, emplacement, demande, risque, appréciation et liquidité.",
+    gradient: "from-amber-500/20 to-orange-500/20",
+    iconColor: "text-amber-600 dark:text-amber-400",
+  },
+  {
+    icon: Bot,
+    title: "Assistant IA investisseur",
+    desc: "Posez vos questions : rentabilité, meilleures zones d'investissement, risque, financement.",
+    gradient: "from-rose-500/20 to-pink-500/20",
+    iconColor: "text-rose-600 dark:text-rose-400",
+  },
+];
+
+const MOCK_FORECAST_BARS = [18, 26, 34, 42, 51, 60, 70, 81, 92, 100];
+
 // ============================================================================
 // Components
 // ============================================================================
@@ -214,7 +267,7 @@ function Navbar() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <HardHat className="h-4.5 w-4.5" />
+            <HardHat className="h-4 w-4" />
           </div>
           <span className="text-lg font-semibold tracking-tight">BudgetBati</span>
           <span className="hidden sm:inline-block ml-1 text-xs font-medium text-muted-foreground/60">Tunisia</span>
@@ -222,6 +275,7 @@ function Navbar() {
 
         <nav className="hidden md:flex items-center gap-8">
           <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a>
+          <a href="#investments" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Investissement</a>
           <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Avis</a>
           <a href="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</a>
         </nav>
@@ -263,6 +317,7 @@ function Navbar() {
         >
           <div className="px-4 py-4 space-y-3">
             <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Fonctionnalités</a>
+            <a href="#investments" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Investissement</a>
             <a href="#testimonials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Avis</a>
             <div className="flex gap-2 pt-2 border-t border-border/50">
               <Button variant="outline" size="sm" className="flex-1" onClick={() => { navigate("/auth"); setMobileOpen(false); }}>Connexion</Button>
@@ -827,6 +882,226 @@ function FeaturesSection() {
   );
 }
 
+/* ── Investment Analysis mock screen ── */
+
+function MockInvestmentScreen() {
+  return (
+    <div className="space-y-4">
+      {/* Score IA card */}
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-indigo-200/50 dark:border-indigo-800/30 bg-gradient-to-r from-indigo-500/10 to-blue-500/10 p-3.5">
+        <div className="flex items-center gap-3">
+          <div className="relative h-14 w-14 shrink-0">
+            <svg viewBox="0 0 56 56" className="h-full w-full -rotate-90">
+              <circle cx="28" cy="28" r="23" fill="none" strokeWidth="5" className="stroke-muted/40" />
+              <circle
+                cx="28" cy="28" r="23" fill="none" strokeWidth="5" strokeLinecap="round"
+                stroke="#6366f1" strokeDasharray={144.5} strokeDashoffset={144.5 * (1 - 0.94)}
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center text-sm font-extrabold">94</div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold">Score IA</div>
+            <div className="text-[10px] text-muted-foreground">Excellent investissement</div>
+            <div className="mt-1 flex items-center gap-1 text-[9px] text-emerald-600 dark:text-emerald-400">
+              <Check className="h-3 w-3" />
+              Confiance IA 92%
+            </div>
+          </div>
+        </div>
+        <div className="text-right hidden sm:block">
+          <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Appartement</div>
+          <div className="text-xs font-bold">La Marsa</div>
+          <div className="text-[9px] text-muted-foreground">Tunis</div>
+        </div>
+      </div>
+
+      {/* KPI chips */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "Rendement net", value: "6,2%", color: "text-emerald-600 dark:text-emerald-400", icon: Percent },
+          { label: "Cash-flow", value: "+980 TND", color: "text-blue-600 dark:text-blue-400", icon: Wallet },
+          { label: "ROI 10 ans", value: "82%", color: "text-indigo-600 dark:text-indigo-400", icon: TrendingUp },
+        ].map((kpi) => (
+          <div key={kpi.label} className="rounded-lg border border-border/20 bg-background/50 p-2.5 text-center">
+            <kpi.icon className={`h-3.5 w-3.5 mx-auto mb-1 ${kpi.color}`} />
+            <div className={`text-xs font-bold ${kpi.color}`}>{kpi.value}</div>
+            <div className="text-[8px] text-muted-foreground truncate">{kpi.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Forecast chart */}
+      <div className="rounded-lg border border-border/20 bg-background/50 p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-medium text-muted-foreground">Prévisions des bénéfices (10 ans)</span>
+          <span className="text-[9px] text-indigo-600 dark:text-indigo-400 font-semibold">+428 000 TND</span>
+        </div>
+        <div className="flex items-end gap-1.5 h-20">
+          {MOCK_FORECAST_BARS.map((h, i) => (
+            <motion.div
+              key={i}
+              initial={{ height: 0 }}
+              whileInView={{ height: `${h}%` }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.06, duration: 0.5, ease: "easeOut" }}
+              className={`flex-1 rounded-t ${i === 9 ? "bg-gradient-to-t from-indigo-600 to-blue-500" : "bg-indigo-500/25 dark:bg-indigo-400/25"}`}
+              style={{ height: `${h}%` }}
+            />
+          ))}
+        </div>
+        <div className="flex justify-between mt-1 text-[8px] text-muted-foreground/60">
+          <span>An 1</span>
+          <span>An 3</span>
+          <span>An 5</span>
+          <span>An 10</span>
+        </div>
+      </div>
+
+      {/* Assistant chip */}
+      <div className="flex items-center gap-2 rounded-lg border border-indigo-200/40 dark:border-indigo-800/30 bg-indigo-500/5 px-3 py-2">
+        <Bot className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+        <span className="text-[10px] text-muted-foreground">
+          Assistant IA : <span className="font-medium text-foreground">« Cet investissement est-il rentable ? »</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Investment Analysis section ── */
+
+function InvestmentsSection() {
+  const navigate = useNavigate();
+  return (
+    <section id="investments" className="relative py-24 lg:py-32 overflow-hidden">
+      {/* Background decorations */}
+      <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/3 via-transparent to-blue-500/3" />
+      <div className="absolute top-1/4 -right-40 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 -left-40 w-80 h-80 bg-blue-400/5 rounded-full blur-3xl" />
+
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="mx-auto max-w-2xl text-center mb-16"
+        >
+          <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/5 px-3 py-1 text-xs font-medium">
+            <Landmark className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            Investissement immobilier
+            <span className="ml-1 rounded-full bg-indigo-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-600 dark:text-indigo-400">Nouveau</span>
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+            Analysez la rentabilité de vos{" "}
+            <span className="gradient-text">investissements immobiliers</span>
+          </h2>
+          <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
+            Le moteur IA évalue automatiquement vos projets d'investissement en Tunisie : ROI, cash-flow,
+            récupération du capital, prévisions de bénéfices et score d'investissement.
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+          {/* Left: feature list */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {INVESTMENT_POINTS.map((point, index) => (
+              <motion.div
+                key={point.title}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ delay: index * 0.07, duration: 0.45 }}
+                className="group flex items-start gap-3 rounded-xl border border-border/40 bg-background/50 backdrop-blur-sm p-4 transition-all duration-300 hover:border-indigo-500/25 hover:shadow-lg hover:shadow-indigo-500/5"
+              >
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${point.gradient} border border-border/30 ${point.iconColor}`}>
+                  <point.icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold mb-1">{point.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{point.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Right: mock dashboard */}
+          <motion.div
+            initial={{ opacity: 0, x: 40, scale: 0.97 }}
+            whileInView={{ opacity: 1, x: 0, scale: 1 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ type: "spring", stiffness: 200, damping: 25 }}
+            className="relative"
+          >
+            <div className="absolute -inset-3 bg-gradient-to-br from-indigo-500/10 via-transparent to-blue-500/10 rounded-3xl blur-xl" />
+            <div className="relative overflow-hidden rounded-2xl border-2 border-indigo-200/50 dark:border-indigo-800/30 bg-gradient-to-br from-indigo-50/50 to-blue-50/50 dark:from-indigo-950/20 dark:to-blue-950/20 shadow-xl">
+              {/* Browser chrome */}
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border/20 bg-background/80">
+                <div className="flex gap-1.5">
+                  <div className="h-3 w-3 rounded-full bg-red-400" />
+                  <div className="h-3 w-3 rounded-full bg-amber-400" />
+                  <div className="h-3 w-3 rounded-full bg-emerald-400" />
+                </div>
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-[10px] text-muted-foreground">
+                    <Landmark className="h-3 w-3" />
+                    <span>app.budgetbati.tn / analyse-investissement</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-6">
+                <MockInvestmentScreen />
+              </div>
+
+              {/* CTA in mock */}
+              <div className="px-4 sm:px-6 pb-5">
+                <button
+                  onClick={() => navigate("/dashboard/investments")}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:brightness-110 transition-all"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Analyser mon investissement
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Bottom CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-3"
+        >
+          <Button
+            size="lg"
+            className="h-12 px-8 text-base gap-2 shadow-lg shadow-indigo-500/20 bg-indigo-600 hover:bg-indigo-700 text-white"
+            onClick={() => navigate("/dashboard/investments")}
+          >
+            <Landmark className="h-4 w-4" />
+            Analyser un investissement
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-12 px-8 text-base"
+            onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
+          >
+            Découvrir les fonctionnalités
+          </Button>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
 function BenefitsSection() {
   return (
     <section className="relative py-20 lg:py-28">
@@ -977,6 +1252,7 @@ function Footer() {
             <h4 className="text-sm font-semibold mb-3">Produit</h4>
             <ul className="space-y-2">
               <li><a href="#features" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a></li>
+              <li><a href="/dashboard/investments" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Analyse immobilière</a></li>
               <li><a href="/blog" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Blog</a></li>
               <li><a href="/contact" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Contact</a></li>
             </ul>
@@ -1024,6 +1300,7 @@ export default function Landing() {
       <BenefitsSection />
       <HowItWorksSection />
       <FeaturesSection />
+      <InvestmentsSection />
       <TestimonialsSection />
       <CTASection />
       <Footer />
