@@ -36,7 +36,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import {
   DEFAULT_FORM,
@@ -68,6 +68,27 @@ const stepVariants = {
   exit: (dir: number) => ({ opacity: 0, x: dir * -32 }),
 };
 
+// ── Persistance de la localisation (pré-remplissage de la prochaine analyse) ──
+
+const LOCATION_STORAGE_KEY = "budgetbati.investment.location";
+
+function loadSavedLocation(): Pick<FormState, "region" | "city" | "quartier"> | null {
+  try {
+    const raw = localStorage.getItem(LOCATION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { region?: string; city?: string; quartier?: string };
+    const region = typeof parsed.region === "string" && REGION_CASCADE[parsed.region] ? parsed.region : "";
+    if (!region) return null;
+    const cities = REGION_CASCADE[region];
+    const city =
+      typeof parsed.city === "string" && cities.some((c) => c.name === parsed.city) ? parsed.city : "";
+    const quartier = typeof parsed.quartier === "string" && city ? parsed.quartier : "";
+    return { region, city, quartier };
+  } catch {
+    return null;
+  }
+}
+
 export default function InvestmentAnalysis() {
   usePageSEO({
     title: "Analyse de rentabilité immobilière - BudgetBati",
@@ -78,8 +99,22 @@ export default function InvestmentAnalysis() {
 
   const [form, setForm] = useState<FormState>(() => {
     const prefill = (location.state as any)?.prefill as FormState | undefined;
-    return (prefill ? { ...DEFAULT_FORM, ...prefill } : DEFAULT_FORM) as FormState;
+    if (prefill) return { ...DEFAULT_FORM, ...prefill } as FormState;
+    const saved = loadSavedLocation();
+    return (saved ? { ...DEFAULT_FORM, ...saved } : DEFAULT_FORM) as FormState;
   });
+
+  // Mémorise la dernière localisation pour la pré-remplir à la prochaine analyse.
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        LOCATION_STORAGE_KEY,
+        JSON.stringify({ region: form.region, city: form.city, quartier: form.quartier }),
+      );
+    } catch {
+      // stockage indisponible : on ignore
+    }
+  }, [form.region, form.city, form.quartier]);
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
   const [running, setRunning] = useState(false);
@@ -220,7 +255,7 @@ export default function InvestmentAnalysis() {
 
   const fieldChecks = {
     region: form.region.trim() !== "",
-    city: form.city.trim() !== "",
+    city: form.city.trim() !== "" && villeOptions.some((o) => o.label === form.city),
     purchasePrice: positive(form.purchasePrice),
     area: filled(form.area, 1),
     monthlyRent: positive(form.monthlyRent),
@@ -433,13 +468,11 @@ export default function InvestmentAnalysis() {
                             label="Ville"
                             value={form.city}
                             options={villeOptions}
-                            allowCustom
-                            onTyping={onVilleChange}
                             onSelect={(o) => onVilleChange(o.label)}
                             placeholder={form.region ? "Choisir une ville…" : "Choisissez d'abord une région…"}
                             required
                             valid={fieldChecks.city}
-                            hint="Saisissez ou choisissez la ville (autocomplétion)"
+                            hint="Choisissez la ville dans la liste — champ obligatoire"
                           />
                           <LocationField
                             label="Quartier (optionnel)"
