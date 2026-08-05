@@ -121,6 +121,11 @@ export default function InvestmentAnalysis() {
     occupancyRate: form.occupancyRate,
     annualExpensesPct: form.annualExpensesPct,
     renovationCost: form.renovationCost,
+    agencyFees: form.agencyFees,
+    financingCost: form.financingCost,
+    insurance: form.insurance,
+    taxes: form.taxes,
+    managementFeesPct: form.managementFeesPct,
     acquisitionFeesPct: form.acquisitionFeesPct,
     annualAppreciationPct: form.annualAppreciationPct,
     rentGrowthPct: form.rentGrowthPct,
@@ -202,6 +207,11 @@ export default function InvestmentAnalysis() {
     annualExpensesPct: filled(form.annualExpensesPct, 0),
     acquisitionFeesPct: filled(form.acquisitionFeesPct, 0),
     renovationCost: filled(form.renovationCost, 0),
+    agencyFees: filled(form.agencyFees, 0),
+    financingCost: filled(form.financingCost, 0),
+    insurance: filled(form.insurance, 0),
+    taxes: filled(form.taxes, 0),
+    managementFeesPct: filled(form.managementFeesPct, 0),
     annualAppreciationPct: typeof form.annualAppreciationPct === "number" && form.annualAppreciationPct >= 0,
     inflationPct: filled(form.inflationPct, 0),
     horizonYears: positive(form.horizonYears),
@@ -447,20 +457,49 @@ export default function InvestmentAnalysis() {
                       </>
                     )}
 
-                    {/* ── ÉTAPE 2 : REVENUS & CHARGES ── */}
+                    {/* ── ÉTAPE 2 : REVENUS, COÛTS & CHARGES ── */}
                     {step === 2 && (
                       <>
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <NumField label="Loyer mensuel" value={form.monthlyRent} suffix="TND" required valid={fieldChecks.monthlyRent} onChange={(v) => set("monthlyRent", v ?? 0)} />
-                          <NumField label="Taux d'occupation" value={form.occupancyRate} suffix="%" step={1} valid={fieldChecks.occupancyRate} onChange={(v) => set("occupancyRate", v)} />
+                        {/* Revenus */}
+                        <div className="rounded-lg border border-border/20 bg-muted/10 px-2.5 py-2">
+                          <p className="mb-2 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+                            <Coins className="h-3 w-3" />
+                            Revenus
+                          </p>
+                          <div className="grid grid-cols-2 gap-2.5">
+                            <NumField label="Revenus locatifs mensuels" value={form.monthlyRent} suffix="TND" required valid={fieldChecks.monthlyRent} onChange={(v) => set("monthlyRent", v ?? 0)} />
+                            <NumField label="Taux d'occupation estimé" value={form.occupancyRate} suffix="%" step={1} valid={fieldChecks.occupancyRate} onChange={(v) => set("occupancyRate", v)} />
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <NumField label="Charges annuelles" value={form.annualExpensesPct} suffix="%" step={0.5} valid={fieldChecks.annualExpensesPct} onChange={(v) => set("annualExpensesPct", v)} />
-                          <NumField label="Frais d'acquisition" value={form.acquisitionFeesPct} suffix="%" step={0.5} valid={fieldChecks.acquisitionFeesPct} onChange={(v) => set("acquisitionFeesPct", v)} />
+
+                        {/* Coûts d'acquisition */}
+                        <div className="rounded-lg border border-border/20 bg-muted/10 px-2.5 py-2">
+                          <p className="mb-2 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+                            <Landmark className="h-3 w-3" />
+                            Coûts d'acquisition
+                          </p>
+                          <div className="grid grid-cols-2 gap-2.5">
+                            <NumField label="Frais d'acquisition" value={form.acquisitionFeesPct} suffix="%" step={0.5} hint="Enregistrement + notaire" valid={fieldChecks.acquisitionFeesPct} onChange={(v) => set("acquisitionFeesPct", v)} />
+                            <NumField label="Frais d'agence (si existe)" value={form.agencyFees} suffix="TND" valid={fieldChecks.agencyFees} onChange={(v) => set("agencyFees", v ?? 0)} />
+                            <NumField label="Coût d'aménagement" value={form.renovationCost} suffix="TND" hint="Travaux & aménagement" valid={fieldChecks.renovationCost} onChange={(v) => set("renovationCost", v ?? 0)} />
+                            <NumField label="Frais de financement" value={form.financingCost} suffix="TND/an" hint="Intérêts du crédit" valid={fieldChecks.financingCost} onChange={(v) => set("financingCost", v ?? 0)} />
+                          </div>
                         </div>
-                        <div className="col-span-2">
-                          <NumField label="Travaux de rénovation" value={form.renovationCost} suffix="TND" valid={fieldChecks.renovationCost} onChange={(v) => set("renovationCost", v ?? 0)} />
+
+                        {/* Charges annuelles */}
+                        <div className="rounded-lg border border-border/20 bg-muted/10 px-2.5 py-2">
+                          <p className="mb-2 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+                            <Wallet className="h-3 w-3" />
+                            Charges annuelles
+                          </p>
+                          <div className="grid grid-cols-2 gap-2.5">
+                            <NumField label="Charges annuelles" value={form.annualExpensesPct} suffix="%" step={0.5} hint="% des loyers" valid={fieldChecks.annualExpensesPct} onChange={(v) => set("annualExpensesPct", v)} />
+                            <NumField label="Frais de gestion (si existe)" value={form.managementFeesPct} suffix="%" step={0.5} hint="% des loyers" valid={fieldChecks.managementFeesPct} onChange={(v) => set("managementFeesPct", v)} />
+                            <NumField label="Assurance" value={form.insurance} suffix="TND/an" valid={fieldChecks.insurance} onChange={(v) => set("insurance", v ?? 0)} />
+                            <NumField label="Taxes" value={form.taxes} suffix="TND/an" valid={fieldChecks.taxes} onChange={(v) => set("taxes", v ?? 0)} />
+                          </div>
                         </div>
+
                         <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
                           <p className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
                             <PiggyBank className="h-3 w-3" />
@@ -470,6 +509,14 @@ export default function InvestmentAnalysis() {
                             Revenus locatifs bruts estimés :{" "}
                             <span className="font-semibold text-foreground tabular-nums">
                               {fmtNum(Math.round(form.monthlyRent * 12 * (form.occupancyRate ?? 100) / 100))} TND/an
+                            </span>
+                            {" "}· revenus nets estimés :{" "}
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                              {fmtNum(Math.max(0, Math.round(
+                                form.monthlyRent * 12 * (form.occupancyRate ?? 100) / 100 *
+                                (1 - ((form.annualExpensesPct ?? 0) + (form.managementFeesPct ?? 0)) / 100) -
+                                (form.insurance ?? 0) - (form.taxes ?? 0) - (form.financingCost ?? 0),
+                              )))} TND/an
                             </span>
                           </p>
                         </div>

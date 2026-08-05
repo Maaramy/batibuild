@@ -349,6 +349,11 @@ export const analysisInputValidator = v.object({
   occupancyRate: v.optional(v.number()),
   annualExpensesPct: v.optional(v.number()),
   renovationCost: v.optional(v.number()),
+  agencyFees: v.optional(v.number()),
+  financingCost: v.optional(v.number()),
+  insurance: v.optional(v.number()),
+  taxes: v.optional(v.number()),
+  managementFeesPct: v.optional(v.number()),
   acquisitionFeesPct: v.optional(v.number()),
   annualAppreciationPct: v.optional(v.number()),
   rentGrowthPct: v.optional(v.number()),
@@ -368,6 +373,11 @@ export type InvestmentAnalysisInput = {
   occupancyRate?: number;
   annualExpensesPct?: number;
   renovationCost?: number;
+  agencyFees?: number;
+  financingCost?: number;
+  insurance?: number;
+  taxes?: number;
+  managementFeesPct?: number;
   acquisitionFeesPct?: number;
   annualAppreciationPct?: number;
   rentGrowthPct?: number;
@@ -454,11 +464,16 @@ export const indicatorsValidator = v.object({
   purchasePrice: v.number(),
   totalCost: v.number(),
   acquisitionFees: v.number(),
+  agencyFees: v.optional(v.number()),
   renovationCost: v.number(),
   monthlyRent: v.number(),
   occupancyRate: v.number(),
   grossAnnualRent: v.number(),
   operatingExpenses: v.number(),
+  managementFees: v.optional(v.number()),
+  insurance: v.optional(v.number()),
+  taxes: v.optional(v.number()),
+  financingCost: v.optional(v.number()),
   netAnnualIncome: v.number(),
   monthlyCashflow: v.number(),
   annualCashflow: v.number(),
@@ -556,11 +571,16 @@ export type InvestmentIndicators = {
   purchasePrice: number;
   totalCost: number;
   acquisitionFees: number;
+  agencyFees?: number;
   renovationCost: number;
   monthlyRent: number;
   occupancyRate: number;
   grossAnnualRent: number;
   operatingExpenses: number;
+  managementFees?: number;
+  insurance?: number;
+  taxes?: number;
+  financingCost?: number;
   netAnnualIncome: number;
   monthlyCashflow: number;
   annualCashflow: number;
