@@ -64,8 +64,10 @@ export const runAnalysis = action({
         marketNotes: ["note de marché 1", "note de marché 2"],
       });
 
+    const location = [normalized.city, normalized.quartier].filter(Boolean).join(" / ");
     const userPrompt =
-      `Type de bien: ${meta.label}. Zone: ${results.zone.name} (indice de demande ${results.zone.demandIndex}/100, risque ${results.zone.riskScore}/100, rang ${results.zone.rank}).\n` +
+      `Type de bien: ${meta.label}. Zone: ${results.zone.name} (indice de demande ${results.zone.demandIndex}/100, risque ${results.zone.riskScore}/100, rang ${results.zone.rank}${results.zone.utilityLabel ? `, quartier reconnu « ${results.zone.utilityLabel} » attractivité ${results.zone.utilityIndex}/100` : ""}).\n` +
+      (location ? `Localisation saisie: ${location}.\n` : "") +
       `Prix d'achat: ${ind.purchasePrice} TND · Coût total: ${ind.totalCost} TND · Loyer mensuel: ${normalized.monthlyRent} TND (taux d'occupation ${normalized.occupancyRate}%).\n` +
       `Revenu net annuel: ${ind.netAnnualIncome} TND · Rendement brut ${ind.grossYieldPct}% · rendement net ${ind.netYieldPct}%.\n` +
       `Cash-flow mensuel: ${ind.monthlyCashflow} TND · ROI annuel ${ind.roiAnnualPct}% · ROI 5 ans ${ind.roi5yPct}% · ROI 10 ans ${ind.roi10yPct}%.\n` +

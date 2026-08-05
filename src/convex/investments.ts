@@ -9,6 +9,9 @@ import {
   DEFAULT_ZONE,
   SCENARIO_DEFAULTS,
   FORECAST_HORIZONS,
+  resolveZoneUtility,
+  type ZoneUtility,
+  type InvestmentZone,
   analysisInputValidator,
   type InvestmentAnalysisInput,
   type InvestmentAnalysisResults,
@@ -40,6 +43,7 @@ export type NormalizedInput = {
   area?: number;
   region: string;
   city?: string;
+  quartier?: string;
   monthlyRent: number;
   occupancyRate: number;
   annualExpensesPct: number;
@@ -52,7 +56,10 @@ export type NormalizedInput = {
 };
 
 export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput {
-  const zone = INVESTMENT_ZONE_MAP[input.region] ?? DEFAULT_ZONE;
+  const zone = applyZoneUtility(
+    INVESTMENT_ZONE_MAP[input.region] ?? DEFAULT_ZONE,
+    resolveZoneUtility(input.city?.trim(), input.quartier?.trim()),
+  );
   return {
     name: input.name?.trim() || "Analyse immobilière",
     investmentType: input.investmentType,
@@ -60,6 +67,7 @@ export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput 
     area: input.area && input.area > 0 ? input.area : undefined,
     region: input.region,
     city: input.city?.trim() || undefined,
+    quartier: input.quartier?.trim() || undefined,
     monthlyRent: Math.max(0, input.monthlyRent),
     occupancyRate: clamp(input.occupancyRate ?? 95, 50, 100),
     annualExpensesPct: clamp(input.annualExpensesPct ?? 18, 0, 60),
@@ -69,10 +77,31 @@ export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput 
       input.annualAppreciationPct !== undefined
         ? clamp(input.annualAppreciationPct, -5, 20)
         : zone.appreciationPct,
-    rentGrowthPct: clamp(input.rentGrowthPct ?? 3, -5, 15),
+    // Hypothèse fixe du moteur : croissance des loyers à 5 %/an (marché tunisien 2026)
+    rentGrowthPct: 5,
     inflationPct: clamp(input.inflationPct ?? 6, 0, 25),
     horizonYears: clamp(Math.round(input.horizonYears ?? 10), 5, 30),
   };
+}
+
+/** Applique les modulations d'utilité de la ville / du quartier au gouvernorat. */
+function applyZoneUtility(base: InvestmentZone, utility: ZoneUtility | null): InvestmentZone {
+  if (!utility) return base;
+  return {
+    ...base,
+    pricePerM2: Math.max(400, Math.round(base.pricePerM2 * utility.priceFactor)),
+    rentPerM2: Math.round(base.rentPerM2 * utility.rentFactor * 10) / 10,
+    demandIndex: clamp(base.demandIndex + utility.demandOffset, 30, 99),
+    appreciationPct: round1(clamp(base.appreciationPct + utility.appreciationOffset, 1, 12)),
+    riskScore: clamp(base.riskScore + utility.riskOffset, 5, 85),
+  };
+}
+
+/** Résout la zone effective (gouvernorat modulé par ville/quartier) + utilité. */
+export function resolveZoneInfo(input: NormalizedInput): { zone: InvestmentZone; utility: ZoneUtility | null } {
+  const base = INVESTMENT_ZONE_MAP[input.region] ?? DEFAULT_ZONE;
+  const utility = resolveZoneUtility(input.city, input.quartier);
+  return { zone: applyZoneUtility(base, utility), utility };
 }
 
 // ── Projections annuelles ───────────────────────────────────────────────────
@@ -279,7 +308,7 @@ export function buildScenarios(input: NormalizedInput): InvestmentScenario[] {
 
 export function computeScore(input: NormalizedInput, indicators: InvestmentIndicators): InvestmentScore {
   const meta = INVESTMENT_TYPE_META[input.investmentType];
-  const zone = INVESTMENT_ZONE_MAP[input.region] ?? DEFAULT_ZONE;
+  const zone = resolveZoneInfo(input).zone;
 
   const riskFactor = meta.riskLevel === "Faible" ? 0.9 : meta.riskLevel === "Moyen" ? 1.0 : 1.15;
 
@@ -348,7 +377,7 @@ export function computeScore(input: NormalizedInput, indicators: InvestmentIndic
 // ── Comparaison avec d'autres types d'investissement ────────────────────────
 
 export function buildComparison(input: NormalizedInput, indicators: InvestmentIndicators) {
-  const zone = INVESTMENT_ZONE_MAP[input.region] ?? DEFAULT_ZONE;
+  const zone = resolveZoneInfo(input).zone;
   const budget = indicators.totalCost;
   const compareTypes = ["appartement", "villa", "local_commercial", "bureau", "terrain"] as const;
 
@@ -365,7 +394,7 @@ export function buildComparison(input: NormalizedInput, indicators: InvestmentIn
         monthlyRent: money(annualIncome / 12 / (input.occupancyRate / 100)),
         annualAppreciationPct: appreciationPct,
       },
-      { rentGrowthPct: 3, appreciationPct, inflationPct: input.inflationPct, occupancyRate: input.occupancyRate },
+      { rentGrowthPct: 5, appreciationPct, inflationPct: input.inflationPct, occupancyRate: input.occupancyRate },
       input.horizonYears,
     );
     const last = pts[pts.length - 1];
@@ -396,16 +425,30 @@ export function buildComparison(input: NormalizedInput, indicators: InvestmentIn
 // ── Zone & confiance ────────────────────────────────────────────────────────
 
 export function buildZoneInfo(input: NormalizedInput) {
-  const zone = INVESTMENT_ZONE_MAP[input.region] ?? DEFAULT_ZONE;
-  const ranked = [...INVESTMENT_ZONES].sort(
-    (a, b) => b.demandIndex * 0.6 + (100 - b.riskScore) * 0.4 - (a.demandIndex * 0.6 + (100 - a.riskScore) * 0.4),
-  );
-  const rank = ranked.findIndex((z) => z.region === zone.region) + 1;
-  return { ...zone, rank, highlights: zone.highlights };
+  const { zone, utility } = resolveZoneInfo(input);
+  const zoneScore = (z: { demandIndex: number; riskScore: number }) =>
+    z.demandIndex * 0.6 + (100 - z.riskScore) * 0.4;
+  const baseScore = zoneScore(zone);
+  const rank =
+    1 + INVESTMENT_ZONES.filter((z) => zoneScore(z) > baseScore).length;
+  const highlights = utility
+    ? [...zone.highlights, `${utility.label} : quartier reconnu, attractivité ${utility.utilityIndex}/100`]
+    : zone.highlights;
+  return {
+    ...zone,
+    region: zone.region,
+    name: zone.name,
+    rank,
+    highlights,
+    city: input.city,
+    quartier: input.quartier,
+    utilityIndex: utility?.utilityIndex,
+    utilityLabel: utility?.label,
+  };
 }
 
 export function computeConfidence(input: NormalizedInput): number {
-  const zone = INVESTMENT_ZONE_MAP[input.region] ?? DEFAULT_ZONE;
+  const zone = resolveZoneInfo(input).zone;
   let c = 88;
   if (input.annualExpensesPct > 25) c -= 6;
   if (input.occupancyRate >= 95) c += 3;
@@ -481,12 +524,21 @@ export function fallbackInsights(input: NormalizedInput, results: InvestmentAnal
     "Inflation et coût de l'entretien (hypothèse d'indexation des charges retenue).",
   ];
 
-  const marketNotes: string[] = [
+  const marketNotes: string[] = [];
+  const location = [input.city, input.quartier].filter(Boolean).join(" / ");
+  if (location) {
+    marketNotes.push(
+      zone.utilityLabel
+        ? `Localisation saisie : ${location} — quartier reconnu « ${zone.utilityLabel} » (attractivité ${zone.utilityIndex}/100) : demande, prix, valorisation et risque ajustés.`
+        : `Localisation saisie : ${location} — quartier non référencé, profils du gouvernorat ${zone.name} appliqués par défaut.`,
+    );
+  }
+  marketNotes.push(
     `Prix moyen à ${zone.name} : ${zone.pricePerM2.toLocaleString("fr-FR")} TND/m² · loyer moyen ${zone.rentPerM2} TND/m²/mois.`,
     `Appréciation annuelle attendue : ${input.annualAppreciationPct}% (moyenne nationale ~4-5%).`,
-    `Inflation retenue : ${input.inflationPct}% · croissance des loyers : ${input.rentGrowthPct}%/an.`,
+    `Inflation retenue : ${input.inflationPct}% · croissance des loyers : ${input.rentGrowthPct}%/an (hypothèse fixe du moteur).`,
     `Score d'attractivité de la zone : ${zone.rank}/${INVESTMENT_ZONES.length} en Tunisie.`,
-  ];
+  );
 
   return {
     summary:
@@ -535,6 +587,7 @@ export const getComparison = query({
       purchasePrice: Math.max(1, args.budget),
       region: args.region,
       monthlyRent: 1,
+      rentGrowthPct: 5,
       horizonYears: args.horizonYears ?? 10,
     });
     const ind = computeIndicators(input);
@@ -691,7 +744,7 @@ export const getDemoAnalysis = query({
       annualExpensesPct: 10,
       renovationCost: 8000,
       acquisitionFeesPct: 6,
-      rentGrowthPct: 3,
+      rentGrowthPct: 5,
       inflationPct: 6,
       horizonYears: 10,
     });

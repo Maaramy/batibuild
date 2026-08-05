@@ -45,8 +45,9 @@ import {
   NumField,
   ScoreGauge,
   fmtNum,
+  resolveZoneUtility,
 } from "@/components/investment/shared";
-import type { FormState, InvestmentInput, InvestmentType } from "@/components/investment/shared";
+import type { FormState, InvestmentInput, InvestmentType, ZoneUtility } from "@/components/investment/shared";
 
 // ============================================================================
 // Page d'analyse — saisie de l'investissement en 3 étapes puis navigation
@@ -115,6 +116,7 @@ export default function InvestmentAnalysis() {
     area: form.area || undefined,
     region: form.region,
     city: form.city || undefined,
+    quartier: form.quartier || undefined,
     monthlyRent: form.monthlyRent,
     occupancyRate: form.occupancyRate,
     annualExpensesPct: form.annualExpensesPct,
@@ -186,6 +188,7 @@ export default function InvestmentAnalysis() {
   };
 
   const selectedZone = zones.find((z: any) => z.region === form.region);
+  const selectedUtility: ZoneUtility | null = resolveZoneUtility(form.city, form.quartier);
 
   // ── Validation visuelle par étape ────────────────────────────────────────
   const positive = (x: number | undefined) => typeof x === "number" && x > 0;
@@ -200,7 +203,6 @@ export default function InvestmentAnalysis() {
     acquisitionFeesPct: filled(form.acquisitionFeesPct, 0),
     renovationCost: filled(form.renovationCost, 0),
     annualAppreciationPct: typeof form.annualAppreciationPct === "number" && form.annualAppreciationPct >= 0,
-    rentGrowthPct: filled(form.rentGrowthPct, 0),
     inflationPct: filled(form.inflationPct, 0),
     horizonYears: positive(form.horizonYears),
   };
@@ -385,6 +387,27 @@ export default function InvestmentAnalysis() {
                           <NumField label="Surface (m²)" value={form.area} suffix="m²" valid={fieldChecks.area} onChange={(v) => set("area", v)} />
                         </div>
 
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div>
+                            <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Ville</label>
+                            <Input
+                              value={form.city}
+                              onChange={(e) => set("city", e.target.value)}
+                              placeholder="Ex : La Marsa"
+                              className="h-9 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Quartier</label>
+                            <Input
+                              value={form.quartier}
+                              onChange={(e) => set("quartier", e.target.value)}
+                              placeholder="Ex : Les Berges du Lac"
+                              className="h-9 text-sm"
+                            />
+                          </div>
+                        </div>
+
                         <div>
                           <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Gouvernorat</label>
                           <select
@@ -407,6 +430,18 @@ export default function InvestmentAnalysis() {
                             <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
                               {selectedZone.highlights?.join(" · ")}
                             </p>
+                            {selectedUtility && (
+                              <div className="mt-2 rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-2 py-1.5">
+                                <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                  <Sparkles className="h-3 w-3" />
+                                  Quartier reconnu : {selectedUtility.label}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground/70 mt-0.5 leading-relaxed">
+                                  Attractivité {selectedUtility.utilityIndex}/100 — la demande, les prix au m²,
+                                  la valorisation et le risque de la zone sont ajustés par l'IA.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </>
@@ -454,12 +489,20 @@ export default function InvestmentAnalysis() {
                             valid={fieldChecks.annualAppreciationPct}
                             onChange={(v) => set("annualAppreciationPct", v)}
                           />
-                          <NumField label="Croissance des loyers" value={form.rentGrowthPct} suffix="%" step={0.5} valid={fieldChecks.rentGrowthPct} onChange={(v) => set("rentGrowthPct", v)} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2.5">
                           <NumField label="Inflation" value={form.inflationPct} suffix="%" step={0.5} valid={fieldChecks.inflationPct} onChange={(v) => set("inflationPct", v)} />
-                          <NumField label="Horizon (années)" value={form.horizonYears} suffix="ans" step={1} required valid={fieldChecks.horizonYears} onChange={(v) => set("horizonYears", v)} />
                         </div>
+                        <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
+                          <p className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3" />
+                            Croissance des loyers
+                          </p>
+                          <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                            Hypothèse fixe du moteur :{" "}
+                            <span className="font-semibold text-foreground tabular-nums">5 %/an</span>{" "}
+                            (indexation des loyers — marché tunisien 2026).
+                          </p>
+                        </div>
+                        <NumField label="Durée prévue de l'investissement" value={form.horizonYears} suffix="ans" step={1} required valid={fieldChecks.horizonYears} onChange={(v) => set("horizonYears", v)} />
 
                         <div className="rounded-lg border border-primary/25 bg-primary/5 p-2.5">
                           <p className="text-[10px] font-semibold text-primary mb-1.5 flex items-center gap-1">
@@ -470,7 +513,9 @@ export default function InvestmentAnalysis() {
                             <span className="text-muted-foreground">Bien</span>
                             <span className="font-semibold text-right truncate">{TYPE_META[form.investmentType]?.label}</span>
                             <span className="text-muted-foreground">Zone</span>
-                            <span className="font-semibold text-right truncate">{selectedZone?.name ?? "—"}</span>
+                            <span className="font-semibold text-right truncate">{selectedUtility ? `${selectedUtility.label}, ${selectedZone?.name ?? ""}` : selectedZone?.name ?? "—"}</span>
+                            <span className="text-muted-foreground">Ville / Quartier</span>
+                            <span className="font-semibold text-right truncate">{[form.city, form.quartier].filter(Boolean).join(" / ") || "—"}</span>
                             <span className="text-muted-foreground">Prix d'achat</span>
                             <span className="font-semibold text-right tabular-nums">{fmtNum(form.purchasePrice)} TND</span>
                             <span className="text-muted-foreground">Surface</span>

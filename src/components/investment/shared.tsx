@@ -20,8 +20,12 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
+import { resolveZoneUtility, ZONE_UTILITIES } from "@/convex/investmentTypes";
 
 applyAutotablePlugin(jsPDF);
+
+export { resolveZoneUtility, ZONE_UTILITIES };
+export type { ZoneUtility } from "@/convex/investmentTypes";
 
 // ============================================================================
 // Types (mirror of src/convex/investmentTypes.ts)
@@ -39,6 +43,7 @@ export type InvestmentInput = {
   area?: number;
   region: string;
   city?: string;
+  quartier?: string;
   monthlyRent: number;
   occupancyRate?: number;
   annualExpensesPct?: number;
@@ -64,7 +69,7 @@ export interface Scenario { key: string; label: string; futureValue: number; tot
 export interface ScoreCriterion { key: string; label: string; score: number; max: number; weight: number; }
 export interface Score { total: number; grade: string; label: string; criteria: ScoreCriterion[]; }
 export interface ComparisonItem { type: string; label: string; totalCost: number; annualIncome: number; netYieldPct: number; roi10yPct: number; riskLevel: string; appreciationPct: number; score: number; }
-export interface ZoneInfo { region: string; name: string; pricePerM2: number; rentPerM2: number; demandIndex: number; appreciationPct: number; riskScore: number; rank: number; highlights: string[]; }
+export interface ZoneInfo { region: string; name: string; pricePerM2: number; rentPerM2: number; demandIndex: number; appreciationPct: number; riskScore: number; rank: number; highlights: string[]; city?: string; quartier?: string; utilityIndex?: number; utilityLabel?: string; }
 export interface AnalysisResults {
   indicators: Indicators; forecasts: ForecastPoint[]; forecastSummary: ForecastSummary[];
   scenarios: Scenario[]; score: Score; comparison: ComparisonItem[]; zone: ZoneInfo;
@@ -106,13 +111,14 @@ export const DEFAULT_FORM = {
   area: 100,
   region: "tunis",
   city: "",
+  quartier: "",
   monthlyRent: 1500,
   occupancyRate: 95,
   annualExpensesPct: 18,
   renovationCost: 0,
   acquisitionFeesPct: 6,
   annualAppreciationPct: undefined as number | undefined,
-  rentGrowthPct: 3,
+  rentGrowthPct: 5,
   inflationPct: 6,
   horizonYears: 10,
 };
@@ -363,6 +369,8 @@ export function generatePdf(run: AnalysisRun) {
     [
       ["Type de bien", typeLabel],
       ["Zone / Gouvernorat", results.zone.name],
+      ["Ville / Quartier", [input.city, input.quartier].filter(Boolean).join(" / ") || "—"],
+      ["Attractivité du quartier", results.zone.utilityLabel ? `${results.zone.utilityLabel} — ${results.zone.utilityIndex}/100` : "—"],
       ["Prix d'achat", fmtPdf(ind.purchasePrice)],
       ["Frais d'acquisition", fmtPdf(ind.acquisitionFees)],
       ["Travaux de rénovation", fmtPdf(ind.renovationCost)],
@@ -527,6 +535,8 @@ export function exportCsv(run: AnalysisRun) {
       ["Type de bien", typeLabel],
       ["Nom de l'analyse", input.name || "—"],
       ["Zone / Gouvernorat", results.zone.name],
+      ["Ville / Quartier", [input.city, input.quartier].filter(Boolean).join(" / ") || "—"],
+      ["Attractivité du quartier", results.zone.utilityLabel ? `${results.zone.utilityLabel} — ${results.zone.utilityIndex}/100` : "—"],
       ["Surface", input.area ? `${input.area} m²` : "—"],
       ["Prix d'achat", `${ind.purchasePrice} TND`],
       ["Frais d'acquisition", `${ind.acquisitionFees} TND`],

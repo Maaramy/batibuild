@@ -219,6 +219,20 @@ export function ResultsView({ run, zones, assistant }: {
             <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
               <CardContent className="p-4">
                 <SectionHeading icon={MapPin} title={`Zone : ${results.zone.name}`} desc={`Rang ${results.zone.rank}/24 en attractivité en Tunisie`} />
+                {(results.zone.city || results.zone.quartier) && (
+                  <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                    <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px]">
+                      <MapPin className="h-3 w-3" />
+                      {[results.zone.city, results.zone.quartier].filter(Boolean).join(" · ")}
+                    </Badge>
+                    {results.zone.utilityLabel && results.zone.utilityIndex !== undefined && (
+                      <Badge variant="outline" className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px]">
+                        <Sparkles className="h-3 w-3" />
+                        {results.zone.utilityLabel} · Attractivité {results.zone.utilityIndex}/100
+                      </Badge>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <Kpi icon={Banknote} label="Prix moyen" value={`${fmtNum(results.zone.pricePerM2)} TND/m²`} />
                   <Kpi icon={TrendingUp} label="Loyer moyen" value={`${results.zone.rentPerM2} TND/m²/mois`} />

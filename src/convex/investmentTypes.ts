@@ -224,6 +224,117 @@ export const DEFAULT_ZONE: InvestmentZone = {
   highlights: ["Cœur économique du pays", "Demande locative la plus forte"],
 };
 
+// ── Ville & quartier — utilité de la zone ───────────────────────────────────
+// Indice d'attractivité (0-100) des villes / quartiers tunisiens connus.
+// L'indice module la demande, les prix, la valorisation et le risque du
+// gouvernorat de rattachement (voir resolveZoneUtility ci-dessous).
+
+export type ZoneUtility = {
+  label: string;
+  utilityIndex: number; // 0-100 attractivité
+  demandOffset: number; // pts sur l'indice de demande
+  appreciationOffset: number; // pts sur l'appréciation annuelle
+  riskOffset: number; // pts sur l'indice de risque
+  priceFactor: number; // multiplicateur prix au m²
+  rentFactor: number; // multiplicateur loyer au m²
+};
+
+export const ZONE_UTILITIES: { label: string; utilityIndex: number }[] = [
+  // Zones premium du Grand Tunis
+  { label: "Les Berges du Lac", utilityIndex: 96 },
+  { label: "Lac 2", utilityIndex: 95 },
+  { label: "Lac 1", utilityIndex: 94 },
+  { label: "La Marsa", utilityIndex: 93 },
+  { label: "Gammarth", utilityIndex: 92 },
+  { label: "Carthage", utilityIndex: 91 },
+  { label: "Sidi Bou Saïd", utilityIndex: 90 },
+  { label: "Jardins de Carthage", utilityIndex: 90 },
+  { label: "Mutuelleville", utilityIndex: 88 },
+  { label: "Les Jardins d'El Menzah", utilityIndex: 87 },
+  { label: "Ennasr", utilityIndex: 86 },
+  { label: "El Menzah", utilityIndex: 85 },
+  { label: "Lafayette", utilityIndex: 84 },
+  { label: "La Soukra", utilityIndex: 82 },
+  { label: "Charguia", utilityIndex: 78 },
+  { label: "Cité El Khadra", utilityIndex: 77 },
+  { label: "Borj Louzir", utilityIndex: 76 },
+  { label: "El Ghazela", utilityIndex: 75 },
+  { label: "Le Kram", utilityIndex: 75 },
+  { label: "La Goulette", utilityIndex: 73 },
+  { label: "El Omrane", utilityIndex: 73 },
+  { label: "Centre Ville", utilityIndex: 72 },
+  // Côtes & villes balnéaires
+  { label: "Yasmine Hammamet", utilityIndex: 86 },
+  { label: "Sahloul", utilityIndex: 85 },
+  { label: "Hammamet", utilityIndex: 84 },
+  { label: "Khezama", utilityIndex: 82 },
+  { label: "Sousse", utilityIndex: 82 },
+  { label: "Monastir", utilityIndex: 78 },
+  { label: "Nabeul", utilityIndex: 76 },
+  { label: "Djerba Midoun", utilityIndex: 76 },
+  { label: "Mahdia", utilityIndex: 72 },
+  { label: "Djerba Houmt Souk", utilityIndex: 72 },
+  { label: "Tabarka", utilityIndex: 72 },
+  { label: "Kélibia", utilityIndex: 70 },
+  { label: "Zarzis", utilityIndex: 68 },
+  // Grandes villes économiques
+  { label: "Ariana", utilityIndex: 80 },
+  { label: "Sfax", utilityIndex: 78 },
+  { label: "Sfax El Jadida", utilityIndex: 76 },
+  { label: "Bizerte", utilityIndex: 73 },
+  { label: "Gabès", utilityIndex: 66 },
+  { label: "Tozeur", utilityIndex: 66 },
+  { label: "Médenine", utilityIndex: 64 },
+  { label: "Gafsa", utilityIndex: 62 },
+  { label: "Kairouan", utilityIndex: 62 },
+  { label: "Le Kef", utilityIndex: 60 },
+  { label: "Béja", utilityIndex: 60 },
+  { label: "Jendouba", utilityIndex: 58 },
+  { label: "Kébili", utilityIndex: 57 },
+  { label: "Sidi Bouzid", utilityIndex: 56 },
+  { label: "Siliana", utilityIndex: 56 },
+  { label: "Tataouine", utilityIndex: 55 },
+  { label: "Kasserine", utilityIndex: 55 },
+];
+
+const uClamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+
+/** Normalise une saisie libre (minuscules, sans accents ni ponctuation). */
+export const normalizeZoneKey = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['’\-.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * Résout l'utilité de la zone à partir de la ville / du quartier saisis.
+ * Retourne null si aucun quartier ou ville reconnus. L'écart à la moyenne
+ * (indice 72) pilote les modulations appliquées au gouvernorat.
+ */
+export function resolveZoneUtility(city?: string, quartier?: string): ZoneUtility | null {
+  const keys = [city, quartier].filter((x): x is string => !!x).map(normalizeZoneKey);
+  if (keys.length === 0) return null;
+  for (const u of ZONE_UTILITIES) {
+    const k = normalizeZoneKey(u.label);
+    if (keys.some((x) => x === k || x.includes(k) || k.includes(x))) {
+      const delta = u.utilityIndex - 72;
+      return {
+        label: u.label,
+        utilityIndex: u.utilityIndex,
+        demandOffset: Math.round(uClamp(delta * 0.45, -12, 8)),
+        appreciationOffset: Math.round(uClamp(delta * 0.12, -1.5, 1.8) * 10) / 10,
+        riskOffset: Math.round(uClamp(-delta * 0.4, -10, 12)),
+        priceFactor: Math.round((1 + delta * 0.008) * 1000) / 1000,
+        rentFactor: Math.round((1 + delta * 0.01) * 1000) / 1000,
+      };
+    }
+  }
+  return null;
+}
+
 // ── Analysis input ──────────────────────────────────────────────────────────
 
 export const analysisInputValidator = v.object({
@@ -233,6 +344,7 @@ export const analysisInputValidator = v.object({
   area: v.optional(v.number()),
   region: v.string(),
   city: v.optional(v.string()),
+  quartier: v.optional(v.string()),
   monthlyRent: v.number(),
   occupancyRate: v.optional(v.number()),
   annualExpensesPct: v.optional(v.number()),
@@ -251,6 +363,7 @@ export type InvestmentAnalysisInput = {
   area?: number;
   region: string;
   city?: string;
+  quartier?: string;
   monthlyRent: number;
   occupancyRate?: number;
   annualExpensesPct?: number;
@@ -331,6 +444,10 @@ export const zoneInfoValidator = v.object({
   riskScore: v.number(),
   rank: v.number(),
   highlights: v.array(v.string()),
+  city: v.optional(v.string()),
+  quartier: v.optional(v.string()),
+  utilityIndex: v.optional(v.number()),
+  utilityLabel: v.optional(v.string()),
 });
 
 export const indicatorsValidator = v.object({
@@ -430,6 +547,10 @@ export type InvestmentZoneInfo = {
   riskScore: number;
   rank: number;
   highlights: string[];
+  city?: string;
+  quartier?: string;
+  utilityIndex?: number;
+  utilityLabel?: string;
 };
 export type InvestmentIndicators = {
   purchasePrice: number;
