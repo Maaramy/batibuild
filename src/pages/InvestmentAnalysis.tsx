@@ -49,6 +49,7 @@ import {
   TYPE_ORDER,
   NumField,
   ScoreGauge,
+  Kpi,
   fmtNum,
   resolveZoneUtility,
   REGION_CASCADE,
@@ -379,24 +380,36 @@ export default function InvestmentAnalysis() {
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-[1400px] px-3 sm:px-5 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-blue-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-              <Landmark className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-base sm:text-xl font-bold">Analyse de la rentabilité immobilière</h1>
-              <p className="text-[11px] sm:text-xs text-muted-foreground">
-                Étape {step}/3 — {STEPS[step - 1].label} · marché tunisien 2026
-              </p>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div className="min-w-0">
+            <nav className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <button
+                onClick={() => navigate("/dashboard/investments")}
+                className="transition-colors hover:text-primary cursor-pointer"
+              >
+                Analyses immobilières
+              </button>
+              <ChevronRight className="h-3 w-3" />
+              <span className="truncate font-medium text-foreground/80">Nouvelle analyse</span>
+            </nav>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-blue-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                <Landmark className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl font-bold truncate">Analyse de la rentabilité immobilière</h1>
+                <p className="text-[11px] sm:text-xs text-muted-foreground">
+                  Étape {step}/3 — {STEPS[step - 1].label} · marché tunisien 2026
+                </p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={() => navigate("/dashboard")}>
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none -mx-1 px-1 pb-1 lg:pb-0">
+            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs shrink-0" onClick={() => navigate("/dashboard")}>
               <ArrowUpRight className="h-3.5 w-3.5" />
-              Retour
+              Tableau de bord
             </Button>
-            <Button size="sm" className="gap-1.5 h-8 text-xs" variant="outline" onClick={handleReset}>
+            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs shrink-0" onClick={handleReset}>
               <Plus className="h-3.5 w-3.5" />
               Nouvelle analyse
             </Button>
@@ -405,20 +418,25 @@ export default function InvestmentAnalysis() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[380px,1fr] gap-4 sm:gap-6 items-start">
           <div className="space-y-4 lg:sticky lg:top-4">
-            <Card id="investment-form" className="scroll-mt-4 border border-border/40 bg-background/50 backdrop-blur-sm overflow-hidden">
+            <Card id="investment-form" className="relative scroll-mt-4 border border-border/40 bg-background/50 backdrop-blur-sm overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
               <CardHeader className="p-3 sm:p-4 pb-3">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Coins className="h-4 w-4 text-primary" />
-                  Informations de l'investissement
-                </CardTitle>
-                <CardDescription className="text-[11px]">
-                  Remplissez les 3 étapes puis lancez l'analyse
-                </CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-sm">
+                    <Coins className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <CardTitle className="text-sm">Informations de l'investissement</CardTitle>
+                    <CardDescription className="text-[11px]">
+                      Remplissez les 3 étapes puis lancez l'analyse
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
 
               {/* ═══ Stepper ═══ */}
               <div className="px-3 sm:px-4 pb-2">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1 rounded-full bg-muted/40 p-1">
                   {STEPS.map((s) => {
                     const active = step === s.n;
                     const done = step > s.n;
@@ -431,38 +449,19 @@ export default function InvestmentAnalysis() {
                         disabled={!done}
                         title={done ? `Revenir à l'étape ${s.n}` : undefined}
                         className={cn(
-                          "group flex flex-1 items-center gap-2 rounded-lg border px-2 py-1.5 transition-all",
+                          "flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-[10px] font-medium transition-all",
                           active && stepValid
-                            ? "border-emerald-500/40 bg-emerald-500/10"
+                            ? "bg-emerald-600 text-white shadow-sm"
                             : active
-                              ? "border-primary/30 bg-primary/10"
+                              ? "bg-indigo-600 text-white shadow-sm"
                               : done
-                                ? "border-border/30 hover:border-emerald-500/30 hover:bg-emerald-500/5 cursor-pointer"
-                                : "border-border/20 opacity-60",
+                                ? "text-emerald-600 dark:text-emerald-400 cursor-pointer hover:bg-emerald-500/10"
+                                : "text-muted-foreground/60",
                         )}
                       >
-                        <span
-                          className={cn(
-                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors",
-                            active && stepValid
-                              ? "bg-emerald-500 text-white"
-                              : active
-                                ? "bg-indigo-600 text-white"
-                                : done
-                                  ? "bg-emerald-500 text-white"
-                                  : "bg-muted text-muted-foreground",
-                          )}
-                        >
-                          {(done || (active && stepValid)) ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
-                        </span>
-                        <span
-                          className={cn(
-                            "hidden sm:block text-[10px] font-medium truncate",
-                            active ? "text-primary" : "text-muted-foreground",
-                          )}
-                        >
-                          {s.label}
-                        </span>
+                        <Icon className="h-3 w-3 shrink-0" />
+                        <span className="hidden sm:inline truncate">{s.label}</span>
+                        {(done || (active && stepValid)) && <Check className="h-3 w-3 shrink-0" />}
                       </button>
                     );
                   })}
@@ -809,15 +808,15 @@ export default function InvestmentAnalysis() {
                             <Gauge className="h-3 w-3" />
                             Aperçu financier en direct
                           </p>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                            <PreviewTile label="Coût total" value={`${fmtNum(preview.totalCost)} TND`} />
-                            <PreviewTile label="Revenus bruts / an" value={`${fmtNum(preview.grossAnnualRent)} TND`} />
-                            <PreviewTile label="Revenu net / an" value={`${fmtNum(preview.netAnnualIncome)} TND`} tone={preview.netAnnualIncome >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
-                            <PreviewTile label="Cash-flow / mois" value={`${fmtNum(preview.monthlyCashflow)} TND`} tone={preview.monthlyCashflow >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
-                            <PreviewTile label="Rentabilité nette" value={`${preview.netYieldPct.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} />
-                            <PreviewTile label="Récupération" value={preview.paybackYears ? `${fmtNum(Math.round(preview.paybackYears * 10) / 10)} ans` : "—"} />
-                            <PreviewTile label="ROI 5 ans" value={`${preview5.roi.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} tone={preview5.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
-                            <PreviewTile label="ROI 10 ans" value={`${preview10.roi.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} tone={preview10.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <Kpi icon={Coins} label="Coût total" value={`${fmtNum(preview.totalCost)} TND`} sub="Prix + tous frais" tone="text-indigo-600 dark:text-indigo-400" />
+                            <Kpi icon={TrendingUp} label="Revenus bruts / an" value={`${fmtNum(preview.grossAnnualRent)} TND`} sub="Loyers × occupation" tone="text-blue-600 dark:text-blue-400" />
+                            <Kpi icon={Wallet} label="Revenu net / an" value={`${fmtNum(preview.netAnnualIncome)} TND`} tone={preview.netAnnualIncome >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
+                            <Kpi icon={PiggyBank} label="Cash-flow / mois" value={`${fmtNum(preview.monthlyCashflow)} TND`} tone={preview.monthlyCashflow >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
+                            <Kpi icon={Percent} label="Rentabilité nette" value={`${preview.netYieldPct.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} sub="Revenu net / coût total" />
+                            <Kpi icon={CalendarClock} label="Récupération" value={preview.paybackYears ? `${fmtNum(Math.round(preview.paybackYears * 10) / 10)} ans` : "—"} sub="Retour du capital investi" tone="text-amber-600 dark:text-amber-400" />
+                            <Kpi icon={Gauge} label="ROI 5 ans" value={`${preview5.roi.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} tone={preview5.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
+                            <Kpi icon={BarChart3} label="ROI 10 ans" value={`${preview10.roi.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} tone={preview10.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
                           </div>
                           <p className="mt-2 text-[9px] text-muted-foreground/70 leading-relaxed">
                             Estimation indicative recalculée en direct — le rapport IA détaillé affinera ces
@@ -878,7 +877,8 @@ export default function InvestmentAnalysis() {
               </CardContent>
             </Card>
 
-            <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
+            <Card className="relative overflow-hidden border border-border/40 bg-background/50 backdrop-blur-sm">
+              <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
               <CardHeader className="p-3 sm:p-4 pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <FileText className="h-4 w-4 text-primary" />
@@ -980,6 +980,7 @@ export default function InvestmentAnalysis() {
 
           <div className="min-w-0 space-y-4 sm:space-y-6">
             <div className="relative overflow-hidden rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-950/80 via-background to-background p-6 sm:p-10">
+              <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
               <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
               <div className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
               <div className="relative">
@@ -995,6 +996,20 @@ export default function InvestmentAnalysis() {
                   automatiquement les indicateurs financiers, le ROI, la durée de récupération du capital,
                   les prévisions de bénéfices et le score d'investissement, puis génère un rapport PDF complet.
                 </p>
+                <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                  <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-[10px]">
+                    <Gauge className="h-3 w-3" /> Score IA /100
+                  </Badge>
+                  <Badge variant="outline" className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px]">
+                    <TrendingUp className="h-3 w-3" /> 3 scénarios
+                  </Badge>
+                  <Badge variant="outline" className="gap-1 border-blue-500/30 bg-blue-500/10 text-blue-300 text-[10px]">
+                    <Layers className="h-3 w-3" /> 12 types de biens
+                  </Badge>
+                  <Badge variant="outline" className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-300 text-[10px]">
+                    <MapPin className="h-3 w-3" /> 24 zones analysées
+                  </Badge>
+                </div>
                 <div className="mt-5 flex flex-wrap gap-2">
                   <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={scrollToForm}>
                     <Building2 className="h-4 w-4" />
@@ -1052,11 +1067,11 @@ export default function InvestmentAnalysis() {
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <ScoreGauge score={94} grade="Très forte rentabilité et demande locative" />
                   <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 shrink-0 lg:w-[560px]">
-                    <MockKpi icon={Coins} label="Coût total" value="338 240 TND" tone="text-indigo-600 dark:text-indigo-400" />
-                    <MockKpi icon={Percent} label="Rentabilité nette" value="6,2 %" tone="text-emerald-600 dark:text-emerald-400" />
-                    <MockKpi icon={Wallet} label="Cash-flow mensuel" value="+980 TND" tone="text-blue-600 dark:text-blue-400" />
-                    <MockKpi icon={CalendarClock} label="Récupération" value="9,5 ans" tone="text-amber-600 dark:text-amber-400" />
-                    <MockKpi icon={TrendingUp} label="ROI 10 ans" value="82 %" tone="text-violet-600 dark:text-violet-400" />
+                    <Kpi icon={Coins} label="Coût total" value="338 240 TND" tone="text-indigo-600 dark:text-indigo-400" />
+                    <Kpi icon={Percent} label="Rentabilité nette" value="6,2 %" tone="text-emerald-600 dark:text-emerald-400" />
+                    <Kpi icon={Wallet} label="Cash-flow mensuel" value="+980 TND" tone="text-blue-600 dark:text-blue-400" />
+                    <Kpi icon={CalendarClock} label="Récupération" value="9,5 ans" tone="text-amber-600 dark:text-amber-400" />
+                    <Kpi icon={TrendingUp} label="ROI 10 ans" value="82 %" tone="text-violet-600 dark:text-violet-400" />
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border/30 bg-muted/20 p-3">
@@ -1083,29 +1098,4 @@ export default function InvestmentAnalysis() {
   );
 }
 
-function PreviewTile({ label, value, tone = "text-foreground" }: {
-  label: string; value: string; tone?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-indigo-500/15 bg-background/60 px-2 py-1.5">
-      <p className="text-[9px] text-muted-foreground truncate">{label}</p>
-      <p className={cn("text-[11px] font-bold tabular-nums truncate", tone)}>{value}</p>
-    </div>
-  );
-}
 
-function MockKpi({ icon: Icon, label, value, tone = "text-foreground" }: {
-  icon: any; label: string; value: string; tone?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border/30 bg-muted/10 p-2.5 sm:p-3">
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <div className={cn("flex h-6 w-6 items-center justify-center rounded-lg bg-muted/30 border border-border/30", tone)}>
-          <Icon className="h-3 w-3" />
-        </div>
-        <p className="text-[10px] text-muted-foreground font-medium truncate">{label}</p>
-      </div>
-      <p className="text-sm font-bold tabular-nums truncate">{value}</p>
-    </div>
-  );
-}
