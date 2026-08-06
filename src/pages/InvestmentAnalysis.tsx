@@ -803,7 +803,7 @@ export default function InvestmentAnalysis() {
                         </div>
 
                         {/* ── Aperçu financier en direct ── */}
-                        <div className="rounded-xl border border-indigo-500/25 bg-gradient-to-br from-indigo-500/10 to-blue-500/5 p-2.5">
+                        <div className="rounded-xl border border-indigo-500/25 bg-gradient-to-br from-indigo-500/10 to-blue-500/5 p-2.5 dark:from-indigo-500/15 dark:to-blue-500/10">
                           <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 mb-2 flex items-center gap-1">
                             <Gauge className="h-3 w-3" />
                             Aperçu financier en direct
@@ -979,10 +979,10 @@ export default function InvestmentAnalysis() {
           </div>
 
           <div className="min-w-0 space-y-4 sm:space-y-6">
-            <div className="relative overflow-hidden rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-950/80 via-background to-background p-6 sm:p-10">
+            <div className="relative overflow-hidden rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-950/80 via-background to-background p-6 sm:p-10 dark:from-indigo-900/45">
               <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
-              <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
+              <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/20" />
+              <div className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-500/15" />
               <div className="relative">
                 <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-[10px] mb-4">
                   <Sparkles className="h-3 w-3" /> Conseiller financier & immobilier par IA
@@ -1038,7 +1038,7 @@ export default function InvestmentAnalysis() {
                   key={f.label}
                   className="group rounded-xl border border-border/30 bg-background/50 p-3 transition-all hover:border-indigo-500/30 hover:bg-indigo-500/5"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-500 mb-2 transition-transform group-hover:scale-110">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 mb-2 transition-transform group-hover:scale-110">
                     <f.icon className="h-4 w-4" />
                   </div>
                   <p className="text-[11px] font-semibold leading-tight">{f.label}</p>
@@ -1055,7 +1055,7 @@ export default function InvestmentAnalysis() {
                     <Gauge className="h-4 w-4 text-primary" />
                     Exemple de tableau de bord décisionnel
                   </CardTitle>
-                  <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-500 text-[9px]">
+                  <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[9px]">
                     <Sparkles className="h-3 w-3" /> Aperçu du résultat
                   </Badge>
                 </div>
