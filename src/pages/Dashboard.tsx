@@ -46,6 +46,9 @@ import {
   User,
   AlertTriangle,
   Landmark,
+  Wallet,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -616,6 +619,60 @@ export default function Dashboard() {
             </Card>
           )}
 
+          {/* ── Investment analysis CTA (redessiné, placé avant les projets) ── */}
+          <Card
+            className="group relative border border-indigo-500/25 bg-gradient-to-br from-indigo-600/15 via-blue-500/10 to-emerald-500/10 dark:from-indigo-950/60 dark:via-blue-950/30 overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/15 active:scale-[0.99]"
+            onClick={() => navigate("/dashboard/investments")}
+          >
+            <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-indigo-500/15 blur-3xl dark:bg-indigo-500/25" />
+            <div className="pointer-events-none absolute -bottom-32 -left-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl dark:bg-emerald-500/20" />
+            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
+            <CardContent className="relative p-4 sm:p-6">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+                  <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 group-hover:scale-105 group-hover:rotate-3 transition-transform">
+                    <Landmark className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm sm:text-base lg:text-lg font-bold">Analyse de rentabilité immobilière par IA</p>
+                      <Badge className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[9px]">
+                        <Sparkles className="h-3 w-3" />
+                        Conseiller IA
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                      ROI, cash-flow, prévisions, scénarios et score d'investissement — marché tunisien 2026
+                    </p>
+                    {/* Feature chips */}
+                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                      {[
+                        { icon: TrendingUp, label: "ROI & rendement", cls: "border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300" },
+                        { icon: Wallet, label: "Cash-flow", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+                        { icon: BarChart3, label: "Prévisions 10 ans", cls: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+                        { icon: Layers, label: "3 scénarios", cls: "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400" },
+                      ].map((chip) => (
+                        <span key={chip.label} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-medium ${chip.cls}`}>
+                          <chip.icon className="h-3 w-3" />
+                          {chip.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+                  <span className="text-[10px] sm:text-xs text-muted-foreground">
+                    <span className="font-semibold text-indigo-600 dark:text-indigo-300">Gratuit</span> — aucune carte requise
+                  </span>
+                  <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 text-xs font-semibold shrink-0">
+                    <span className="hidden sm:inline">Lancer l'analyse</span>
+                    <ArrowUpRight className="h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Projects section */}
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
@@ -678,29 +735,6 @@ export default function Dashboard() {
                     ))}
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ── Investment analysis CTA banner ── */}
-          <Card
-            className="group relative border border-indigo-500/20 bg-gradient-to-r from-indigo-600/10 via-blue-500/10 to-emerald-500/10 backdrop-blur-sm overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-indigo-500/10 active:scale-[0.99]"
-            onClick={() => navigate("/dashboard/investments")}
-          >
-            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
-            <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
-              <div className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-                <Landmark className="h-4 w-4 sm:h-5 sm:w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-semibold">Analyse de rentabilité immobilière par IA</p>
-                <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
-                  ROI, cash-flow, prévisions, scénarios et score d'investissement — marché tunisien 2026
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 text-xs font-medium shrink-0">
-                <span className="hidden sm:inline">Analyser</span>
-                <ArrowUpRight className="h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </div>
             </CardContent>
           </Card>
