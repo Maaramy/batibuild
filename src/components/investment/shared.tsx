@@ -75,7 +75,10 @@ export interface Indicators {
   paybackYears: number; paybackDate: number; paybackDateLabel: string;
   pricePerM2?: number; priceToRentRatio: number;
 }
-export interface ForecastPoint { year: number; netIncome: number; cumulativeIncome: number; propertyValue: number; cumulativeProfit: number; }
+export interface ForecastPoint {
+  year: number; netIncome: number; cumulativeIncome: number; propertyValue: number; cumulativeProfit: number;
+  grossRent?: number; expenses?: number;
+}
 export interface ForecastSummary { horizon: number; label: string; netIncome: number; futureValue: number; gain: number; cumulativeProfit: number; roiPct: number; }
 export interface Scenario { key: string; label: string; futureValue: number; totalIncome: number; roiPct: number; netYieldPct: number; cumulativeProfit: number; riskLevel: string; risks: string[]; }
 export interface ScoreCriterion { key: string; label: string; score: number; max: number; weight: number; }

@@ -665,6 +665,8 @@ export const forecastPointValidator = v.object({
   cumulativeIncome: v.number(),
   propertyValue: v.number(),
   cumulativeProfit: v.number(),
+  grossRent: v.optional(v.number()),
+  expenses: v.optional(v.number()),
 });
 
 export const forecastSummaryItemValidator = v.object({
@@ -782,6 +784,8 @@ export type InvestmentForecastPoint = {
   cumulativeIncome: number;
   propertyValue: number;
   cumulativeProfit: number;
+  grossRent?: number;
+  expenses?: number;
 };
 export type InvestmentForecastSummaryItem = {
   horizon: number;

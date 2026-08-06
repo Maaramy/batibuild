@@ -82,6 +82,22 @@ export function ResultsView({ run, zones, assistant }: {
     Score: c.score,
   }));
 
+  // ── Évolution des loyers vs charges (rétro-compatible : déduite des
+  // hypothèses fixes loyers +5 %/an, inflation 6 % si absente des points) ──
+  const rentExpenseChartData = (results.forecasts ?? []).map((p) => ({
+    year: `An ${p.year}`,
+    "Loyers annuels": p.grossRent ?? Math.round(ind.grossAnnualRent * Math.pow(1.05, p.year)),
+    "Charges d'exploitation": p.expenses ?? Math.round(ind.operatingExpenses * Math.pow(1.06, p.year)),
+  }));
+
+  // ── Comparaison visuelle des 3 scénarios ──
+  const scenarioChartData = (results.scenarios ?? []).map((s) => ({
+    name: s.label,
+    "Valeur future": s.futureValue,
+    "Revenus totaux": s.totalIncome,
+    "Gain cumulé": s.cumulativeProfit,
+  }));
+
   // ── Répartition des coûts (rétro-compatible avec les anciennes analyses) ──
   const costBreakdownData = [
     { name: "Prix d'achat", value: ind.purchasePrice, color: "#6366f1" },
@@ -431,6 +447,50 @@ export function ResultsView({ run, zones, assistant }: {
                 </div>
               </CardContent>
             </Card>
+
+            <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
+              <CardHeader className="p-4 pb-0">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  Évolution des loyers et des charges
+                </CardTitle>
+                <CardDescription className="text-[11px]">
+                  Loyers annuels bruts (croissance fixe +5 %/an) et charges d'exploitation (indexées sur l'inflation 6 %)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={rentExpenseChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="gRent" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
+                          <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
+                        </linearGradient>
+                        <linearGradient id="gCharges" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" vertical={false} />
+                      <XAxis dataKey="year" tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: "#94a3b8" }}
+                        tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toLocaleString("fr-FR")}k` : `${v}`}
+                        width={55}
+                      />
+                      <Tooltip
+                        formatter={(value: any, name: any) => [fmtTND(Number(value)), name]}
+                        contentStyle={{ borderRadius: 10, border: "1px solid rgba(99,102,241,0.2)", fontSize: 11, background: "rgba(255,255,255,0.96)" }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Area type="monotone" dataKey="Loyers annuels" stroke="#10b981" strokeWidth={2.5} fill="url(#gRent)" />
+                      <Area type="monotone" dataKey="Charges d'exploitation" stroke="#f59e0b" strokeWidth={2.5} fill="url(#gCharges)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -498,6 +558,51 @@ export function ResultsView({ run, zones, assistant }: {
                 </Card>
               ))}
             </div>
+
+            <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
+              <CardHeader className="p-4 pb-0">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                  Comparaison des scénarios
+                </CardTitle>
+                <CardDescription className="text-[11px]">
+                  Valeur future, revenus totaux et gain cumulé à l'horizon retenu — 3 scénarios du moteur IA
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={scenarioChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: "#94a3b8" }}
+                        tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toLocaleString("fr-FR")}k` : `${v}`}
+                        width={55}
+                      />
+                      <Tooltip
+                        formatter={(value: any, name: any) => [fmtTND(Number(value)), name]}
+                        contentStyle={{ borderRadius: 10, border: "1px solid rgba(99,102,241,0.2)", fontSize: 11, background: "rgba(255,255,255,0.96)" }}
+                        cursor={{ fill: "rgba(99,102,241,0.06)" }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="Valeur future" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                      <Bar dataKey="Revenus totaux" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                      <Bar dataKey="Gain cumulé" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {results.scenarios.map((s) => (
+                    <div key={s.key} className="flex items-center gap-1.5 rounded-full border border-border/30 bg-muted/20 px-2.5 py-1 text-[10px]">
+                      <span className={cn("h-2 w-2 rounded-full", s.key === "optimiste" ? "bg-emerald-500" : s.key === "realiste" ? "bg-blue-500" : "bg-amber-500")} />
+                      <span className="font-medium">{s.label}</span>
+                      <span className="text-muted-foreground tabular-nums">ROI {fmtPct(s.roiPct)}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 

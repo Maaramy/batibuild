@@ -201,6 +201,8 @@ export function projectYearSeries(
     cumulativeIncome: number;
     propertyValue: number;
     cumulativeProfit: number;
+    grossRent?: number;
+    expenses?: number;
   }[] = [];
 
   let rent = baseGross;
@@ -214,7 +216,15 @@ export function projectYearSeries(
     cumulativeIncome += net;
     const propertyValue = money(purchasePrice * Math.pow(1 + opts.appreciationPct / 100, y));
     const cumulativeProfit = money(cumulativeIncome + (propertyValue - totalCost));
-    points.push({ year: y, netIncome: net, cumulativeIncome: money(cumulativeIncome), propertyValue, cumulativeProfit });
+    points.push({
+      year: y,
+      netIncome: net,
+      cumulativeIncome: money(cumulativeIncome),
+      propertyValue,
+      cumulativeProfit,
+      grossRent: money(rent),
+      expenses: money(expenses),
+    });
   }
   return points;
 }
