@@ -418,65 +418,6 @@ export default function Dashboard() {
               gradient="from-amber-500/20 to-orange-500/20" iconColor="text-amber-600 dark:text-amber-400" />
           </div>
 
-          {/* ── Investment analysis CTA (redessiné, placé en haut du dashboard) ── */}
-          <Card
-            className="group relative border border-indigo-500/25 bg-gradient-to-br from-indigo-600/15 via-blue-500/10 to-emerald-500/10 dark:from-indigo-950/60 dark:via-blue-950/30 overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/15 active:scale-[0.99]"
-            onClick={() => navigate("/dashboard/investments")}
-          >
-            <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-indigo-500/15 blur-3xl dark:bg-indigo-500/25" />
-            <div className="pointer-events-none absolute -bottom-32 -left-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl dark:bg-emerald-500/20" />
-            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
-            <CardContent className="relative p-4 sm:p-6">
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
-                  <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 group-hover:scale-105 group-hover:rotate-3 transition-transform">
-                    <Landmark className="h-5 w-5 sm:h-6 sm:w-6" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm sm:text-base lg:text-lg font-bold">L'immobilier devient plus intelligent : analysez, anticipez et maximisez la valeur de vos investissements grâce à l'IA.</p>
-                      <Badge className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[9px]">
-                        <Sparkles className="h-3 w-3" />
-                        Conseiller IA
-                      </Badge>
-                    </div>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                      Return on Investment, flux de trésorerie, prévisions, scénarios et score d'investissement — marché tunisien 2026
-                    </p>
-                    {/* Feature chips */}
-                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                      {[
-                        { icon: TrendingUp, label: "Return on Investment & rendement", cls: "border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300" },
-                        { icon: Wallet, label: "Flux de trésorerie", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
-                        { icon: BarChart3, label: "Prévisions 10 ans", cls: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-                        { icon: Layers, label: "3 scénarios", cls: "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400" },
-                      ].map((chip) => (
-                        <span key={chip.label} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-medium ${chip.cls}`}>
-                          <chip.icon className="h-3 w-3" />
-                          {chip.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
-                  <span className="text-[10px] sm:text-xs text-muted-foreground">
-                    <span className="font-semibold text-indigo-600 dark:text-indigo-300">Seulement à 120 TND</span>
-                  </span>
-                  <Button
-                    size="sm"
-                    onClick={(e) => { e.stopPropagation(); navigate("/dashboard/investments"); }}
-                    className="h-8 shrink-0 gap-1.5 px-3.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-600/25 hover:from-indigo-500 hover:to-blue-500 hover:shadow-indigo-600/40 transition-all active:scale-[0.97]"
-                  >
-                    <Landmark className="h-3.5 w-3.5" />
-                    Lancer l'analyse
-                    <ArrowUpRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* ── Plan Counter Card (Free/Pro/Expert) ── */}
           {(projectLimit !== Infinity || userPlan === "expert") && stats.totalProjects > 0 && (
             <Card className={`border ${isNearLimit ? 'border-amber-200/60 dark:border-amber-800/40' : 'border-border/40'} bg-background/50 backdrop-blur-sm overflow-hidden`}>
@@ -740,6 +681,65 @@ export default function Dashboard() {
                     ))}
                   </div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Investment analysis CTA (placé sous les projets) ── */}
+          <Card
+            className="group relative border border-indigo-500/25 bg-gradient-to-br from-indigo-600/15 via-blue-500/10 to-emerald-500/10 dark:from-indigo-950/60 dark:via-blue-950/30 overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/15 active:scale-[0.99]"
+            onClick={() => navigate("/dashboard/investments")}
+          >
+            <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-indigo-500/15 blur-3xl dark:bg-indigo-500/25" />
+            <div className="pointer-events-none absolute -bottom-32 -left-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl dark:bg-emerald-500/20" />
+            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
+            <CardContent className="relative p-4 sm:p-6">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+                  <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 group-hover:scale-105 group-hover:rotate-3 transition-transform">
+                    <Landmark className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm sm:text-base lg:text-lg font-bold">L'immobilier devient plus intelligent : analysez, anticipez et maximisez la valeur de vos investissements grâce à l'IA.</p>
+                      <Badge className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[9px]">
+                        <Sparkles className="h-3 w-3" />
+                        Conseiller IA
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                      Return on Investment, flux de trésorerie, prévisions, scénarios et score d'investissement — marché tunisien 2026
+                    </p>
+                    {/* Feature chips */}
+                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                      {[
+                        { icon: TrendingUp, label: "Return on Investment & rendement", cls: "border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300" },
+                        { icon: Wallet, label: "Flux de trésorerie", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+                        { icon: BarChart3, label: "Prévisions 10 ans", cls: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+                        { icon: Layers, label: "3 scénarios", cls: "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400" },
+                      ].map((chip) => (
+                        <span key={chip.label} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-medium ${chip.cls}`}>
+                          <chip.icon className="h-3 w-3" />
+                          {chip.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+                  <span className="text-[10px] sm:text-xs text-muted-foreground">
+                    <span className="font-semibold text-indigo-600 dark:text-indigo-300">Seulement à 120 TND</span>
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); navigate("/dashboard/investments"); }}
+                    className="h-8 shrink-0 gap-1.5 px-3.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-600/25 hover:from-indigo-500 hover:to-blue-500 hover:shadow-indigo-600/40 transition-all active:scale-[0.97]"
+                  >
+                    <Landmark className="h-3.5 w-3.5" />
+                    Lancer l'analyse
+                    <ArrowUpRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
