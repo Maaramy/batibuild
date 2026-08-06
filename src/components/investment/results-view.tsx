@@ -141,9 +141,9 @@ export function ResultsView({ run, zones, assistant }: {
   return (
     <>
       {/* ═══ Tableau de bord décisionnel ═══ */}
-      <Card className="relative overflow-hidden border-border/40 bg-gradient-to-br from-indigo-950/50 via-background/90 to-background">
-        <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
+      <Card className="relative overflow-hidden border-border/40 bg-gradient-to-br from-indigo-950/50 via-background/90 to-background dark:from-indigo-900/45">
+        <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/20" />
+        <div className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-500/15" />
         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
         <CardContent className="relative p-4 sm:p-6">
           <div className="flex flex-col xl:flex-row xl:items-center gap-5">
@@ -779,7 +779,7 @@ export function ResultsView({ run, zones, assistant }: {
                         <td className="py-2 pr-3 font-medium">
                           {z.name}
                           {z.region === results.zone.region && (
-                            <Badge className="ml-1.5 text-[8px] border-indigo-500/30 bg-indigo-500/10 text-indigo-600">Votre zone</Badge>
+                            <Badge className="ml-1.5 text-[8px] border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">Votre zone</Badge>
                           )}
                         </td>
                         <td className="py-2 pr-3 tabular-nums">{fmtNum(z.pricePerM2)} TND</td>
