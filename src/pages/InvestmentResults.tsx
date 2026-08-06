@@ -23,6 +23,7 @@ import {
   Sparkles,
   Star,
   FileSpreadsheet,
+  ChevronRight,
 } from "lucide-react";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { toast } from "sonner";
@@ -180,21 +181,35 @@ export default function InvestmentResults() {
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-[1400px] px-3 sm:px-5 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* ═══ Header ═══ */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-blue-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-              <Landmark className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-base sm:text-xl font-bold">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div className="min-w-0">
+            <nav className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <button
+                onClick={() => navigate("/dashboard/investments")}
+                className="transition-colors hover:text-primary cursor-pointer"
+              >
+                Analyses immobilières
+              </button>
+              <ChevronRight className="h-3 w-3" />
+              <span className="truncate font-medium text-foreground/80">
                 {run?.input?.name || (run ? TYPE_META[run.input.investmentType as InvestmentType]?.label : "Résultats de l'analyse")}
-              </h1>
-              <p className="text-[11px] sm:text-xs text-muted-foreground">
-                Étape 2 — tableau de bord décisionnel · marché tunisien 2026
-              </p>
+              </span>
+            </nav>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-blue-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                <Landmark className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl font-bold truncate">
+                  {run?.input?.name || (run ? TYPE_META[run.input.investmentType as InvestmentType]?.label : "Résultats de l'analyse")}
+                </h1>
+                <p className="text-[11px] sm:text-xs text-muted-foreground">
+                  Tableau de bord décisionnel · marché tunisien 2026
+                </p>
+              </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none -mx-1 px-1 pb-1 lg:pb-0">
             <Button
               size="sm"
               className="gap-1.5 h-8 text-xs"

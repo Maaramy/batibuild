@@ -218,10 +218,10 @@ export function Kpi({ icon: Icon, label, value, sub, tone = "text-foreground" }:
   icon: any; label: string; value: string; sub?: string; tone?: string;
 }) {
   return (
-    <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-shadow duration-200">
+    <Card className="group border border-border/40 bg-background/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary/[0.03]">
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-center gap-2 mb-2">
-          <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg border border-border/30 bg-muted/30", tone)}>
+          <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg border border-border/30 bg-muted/30 transition-transform duration-200 group-hover:scale-110", tone)}>
             <Icon className="h-3.5 w-3.5" />
           </div>
           <p className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate">{label}</p>

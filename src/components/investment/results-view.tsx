@@ -23,6 +23,7 @@ import {
   Star,
   Banknote,
   Layers as LayersIcon,
+  Landmark as LandmarkIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -139,36 +140,49 @@ export function ResultsView({ run, zones, assistant }: {
 
   return (
     <>
-      {/* ═══ Decision dashboard ═══ */}
-      <Card className="relative border border-border/40 bg-gradient-to-br from-background/90 to-background/60 backdrop-blur-sm overflow-hidden">
+      {/* ═══ Tableau de bord décisionnel ═══ */}
+      <Card className="relative overflow-hidden border-border/40 bg-gradient-to-br from-indigo-950/50 via-background/90 to-background">
+        <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
-        <CardContent className="p-3 sm:p-5">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-bold truncate">
-                  {run.input?.name || TYPE_META[run.input?.investmentType as InvestmentType]?.label}
-                </h2>
+        <CardContent className="relative p-4 sm:p-6">
+          <div className="flex flex-col xl:flex-row xl:items-center gap-5">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-sm">
+                  <LandmarkIcon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-bold truncate">
+                    {run.input?.name || TYPE_META[run.input?.investmentType as InvestmentType]?.label}
+                  </h2>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {TYPE_META[run.input?.investmentType as InvestmentType]?.label} · {fmtTND(ind.purchasePrice)} · Loyer{" "}
+                    {(run.input as any)?.rentMode === "nuit"
+                      ? `${fmtTND((run.input as any)?.rentAmount ?? 0)}/nuit`
+                      : `${fmtTND(ind.monthlyRent)}/mois`}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                 <Badge variant="outline" className="gap-1 border-primary/20 bg-primary/5 text-primary text-[10px]">
                   <MapPin className="h-3 w-3" />
                   {results.zone.name}
+                </Badge>
+                <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px]">
+                  <TrendingUp className="h-3 w-3" />
+                  Rang {results.zone.rank}/24
                 </Badge>
                 <Badge variant="outline" className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px]">
                   <Sparkles className="h-3 w-3" />
                   Confiance IA : {results.aiConfidence}%
                 </Badge>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 truncate">
-                {TYPE_META[run.input?.investmentType as InvestmentType]?.label} · {fmtTND(ind.purchasePrice)} · Loyer{" "}
-                {(run.input as any)?.rentMode === "nuit"
-                  ? `${fmtTND((run.input as any)?.rentAmount ?? 0)}/nuit`
-                  : `${fmtTND(ind.monthlyRent)}/mois`}
-              </p>
-              <div className="mt-3">
+              <div className="mt-4">
                 <ScoreGauge score={results.score.total} grade={results.score.grade} />
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 shrink-0 lg:w-[560px]">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 shrink-0 xl:w-[640px]">
               <Kpi icon={Coins} label="Coût total" value={fmtTND(ind.totalCost)} sub={`${fmtNum(ind.pricePerM2 ?? 0)} TND/m²`} tone="text-indigo-600 dark:text-indigo-400" />
               <Kpi icon={Percent} label="Rentabilité nette" value={fmtPct(ind.netYieldPct)} sub={`Brute ${fmtPct(ind.grossYieldPct)}`} tone="text-emerald-600 dark:text-emerald-400" />
               <Kpi icon={Wallet} label="Cash-flow mensuel" value={fmtTND(ind.monthlyCashflow)} sub={`${fmtTND(ind.annualCashflow)}/an`} tone="text-blue-600 dark:text-blue-400" />
@@ -179,43 +193,54 @@ export function ResultsView({ run, zones, assistant }: {
         </CardContent>
       </Card>
 
-      {/* ═══ Tabs ═══ */}
+      {/* ═══ Tabs (collante) ═══ */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="overflow-x-auto scrollbar-none -mx-3 sm:mx-0 px-3 sm:px-0">
-          <TabsList className="h-auto w-full justify-start gap-1 rounded-xl bg-muted/40 p-1 mb-4 min-w-max">
-            {tabItems.map((t) => (
-              <TabsTrigger
-                key={t.value}
-                value={t.value}
-                className="gap-1.5 text-[11px] sm:text-xs px-2.5 sm:px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"
-              >
-                <t.icon className="h-3.5 w-3.5" />
-                <span className="hidden xs:inline sm:inline">{t.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div className="sticky top-0 z-30 -mx-3 sm:mx-0 mb-4 border-b border-border/20 bg-background/85 px-3 py-2 backdrop-blur-md sm:px-0">
+          <div className="overflow-x-auto scrollbar-none">
+            <TabsList className="h-auto w-full justify-start gap-1 rounded-full bg-muted/40 p-1 min-w-max">
+              {tabItems.map((t) => (
+                <TabsTrigger
+                  key={t.value}
+                  value={t.value}
+                  className="gap-1.5 rounded-full text-[11px] sm:text-xs px-3 py-1.5 transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
+                >
+                  <t.icon className="h-3.5 w-3.5" />
+                  <span className="hidden xs:inline sm:inline">{t.label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
         </div>
 
         {/* ── APERÇU IA ── */}
         {activeTab === "apercu" && (
           <div className="space-y-4">
             {aiInsights && (
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
-                <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    Analyse de l'IA
-                    {aiInsights.usedFallback && (
-                      <Badge variant="outline" className="text-[9px] border-amber-500/30 bg-amber-500/10 text-amber-600">
-                        Mode hors-ligne
-                      </Badge>
-                    )}
-                  </CardTitle>
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm overflow-hidden">
+                <CardHeader className="border-b border-border/20 bg-gradient-to-r from-indigo-500/10 to-blue-500/5 p-4 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-sm">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        Analyse de l'IA
+                        {aiInsights.usedFallback && (
+                          <Badge variant="outline" className="text-[9px] border-amber-500/30 bg-amber-500/10 text-amber-600">
+                            Mode hors-ligne
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <CardDescription className="text-[11px]">Synthèse du conseiller financier & immobilier</CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-4 space-y-3">
-                  <p className="text-xs sm:text-sm leading-relaxed text-foreground/90">{aiInsights.summary}</p>
+                  <div className="rounded-xl border-l-4 border-indigo-500 bg-muted/20 p-3">
+                    <p className="text-xs sm:text-sm leading-relaxed text-foreground/90">{aiInsights.summary}</p>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="rounded-lg border border-border/30 bg-muted/20 p-3">
+                    <div className="rounded-xl border border-border/30 bg-muted/20 p-3 transition-colors hover:border-emerald-500/30">
                       <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mb-1.5 flex items-center gap-1">
                         <CheckCircle2 className="h-3 w-3" /> Recommandations
                       </p>
@@ -228,7 +253,7 @@ export function ResultsView({ run, zones, assistant }: {
                         ))}
                       </ul>
                     </div>
-                    <div className="rounded-lg border border-border/30 bg-muted/20 p-3">
+                    <div className="rounded-xl border border-border/30 bg-muted/20 p-3 transition-colors hover:border-amber-500/30">
                       <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 mb-1.5 flex items-center gap-1">
                         <AlertTriangle className="h-3 w-3" /> Risques
                       </p>
@@ -241,7 +266,7 @@ export function ResultsView({ run, zones, assistant }: {
                         ))}
                       </ul>
                     </div>
-                    <div className="rounded-lg border border-border/30 bg-muted/20 p-3">
+                    <div className="rounded-xl border border-border/30 bg-muted/20 p-3 transition-colors hover:border-blue-500/30">
                       <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 mb-1.5 flex items-center gap-1">
                         <Lightbulb className="h-3 w-3" /> Notes de marché
                       </p>
@@ -322,50 +347,65 @@ export function ResultsView({ run, zones, assistant }: {
             <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
               <CardContent className="p-4">
                 <SectionHeading icon={Percent} title="Indicateurs financiers" desc="Calculs automatiques du moteur" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {[
-                  ["Prix d'achat", fmtTND(ind.purchasePrice)],
-                  ["Frais d'acquisition", fmtTND(ind.acquisitionFees)],
-                  ["Frais de financement", fmtTND((ind as any).financingFees ?? 0)],
-                  ["Frais d'agence", fmtTND((ind as any).agencyFees ?? 0)],
-                  ["Coût d'aménagement", fmtTND(ind.renovationCost ?? 0)],
-                  ["Ameublement", fmtTND((ind as any).furnishingCost ?? 0)],
-                  ["Coût total de l'investissement", fmtTND(ind.totalCost), true],
-                  ["Revenus locatifs bruts annuels", fmtTND(ind.grossAnnualRent)],
-                  ["Charges annuelles", fmtTND((ind as any).annualCharges ?? 0)],
-                  ["Assurance", fmtTND((ind as any).insurance ?? 0)],
-                  ["Frais de gestion", fmtTND((ind as any).managementFees ?? 0)],
-                  ["Fiscalité", fmtTND((ind as any).taxation ?? 0)],
-                  ["Total charges d'exploitation annuelles", `- ${fmtTND(ind.operatingExpenses)}`],
-                  ["Revenu net annuel", fmtTND(ind.netAnnualIncome), true],
-                  ["Cash-flow mensuel", fmtTND(ind.monthlyCashflow)],
-                  ["Cash-flow annuel", fmtTND(ind.annualCashflow)],
-                  ["Rentabilité brute", fmtPct(ind.grossYieldPct)],
-                  ["Rentabilité nette", fmtPct(ind.netYieldPct), true],
-                  ["ROI annuel", fmtPct(ind.roiAnnualPct)],
-                  ["ROI sur 5 ans", fmtPct(ind.roi5yPct)],
-                  ["ROI sur 10 ans", fmtPct(ind.roi10yPct)],
-                  ["Prix au m²", ind.pricePerM2 ? fmtTND(ind.pricePerM2) : "—"],
-                  ["Rapport prix / loyer annuel", `${fmtNum(ind.priceToRentRatio)}×`],
-                  ["Taux d'occupation retenu", fmtPct(ind.occupancyRate)],
-                  ["Durée de récupération du capital", ind.paybackYears >= 99 ? "> 30 ans" : `${fmtNum(ind.paybackYears)} ans`],
-                  ["Date estimée d'amortissement", ind.paybackDateLabel],
-                  ["Indice de confiance de l'estimation", `${results.aiConfidence}%`],
-                ].map(([label, value, highlight]) => (
-                  <div
-                    key={label as string}
-                    className={cn(
-                      "flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5",
-                      highlight ? "border-primary/25 bg-primary/5" : "border-border/30 bg-muted/10",
-                    )}
-                  >
-                    <span className="text-[11px] sm:text-xs text-muted-foreground">{label}</span>
-                    <span className={cn("text-xs sm:text-sm font-bold tabular-nums", highlight ? "text-primary" : "")}>{value}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                <div className="space-y-5">
+                  <IndicatorsGroup
+                    icon={Coins}
+                    title="Acquisition & coûts"
+                    color="text-indigo-600 dark:text-indigo-400"
+                    rows={[
+                      ["Prix d'achat", fmtTND(ind.purchasePrice)],
+                      ["Frais d'acquisition", fmtTND(ind.acquisitionFees)],
+                      ["Frais de financement", fmtTND((ind as any).financingFees ?? 0)],
+                      ["Frais d'agence", fmtTND((ind as any).agencyFees ?? 0)],
+                      ["Coût d'aménagement", fmtTND(ind.renovationCost ?? 0)],
+                      ["Ameublement", fmtTND((ind as any).furnishingCost ?? 0)],
+                      ["Coût total de l'investissement", fmtTND(ind.totalCost), true],
+                    ]}
+                  />
+                  <IndicatorsGroup
+                    icon={Wallet}
+                    title="Revenus & charges"
+                    color="text-emerald-600 dark:text-emerald-400"
+                    rows={[
+                      ["Revenus locatifs bruts annuels", fmtTND(ind.grossAnnualRent)],
+                      ["Charges annuelles", fmtTND((ind as any).annualCharges ?? 0)],
+                      ["Assurance", fmtTND((ind as any).insurance ?? 0)],
+                      ["Frais de gestion", fmtTND((ind as any).managementFees ?? 0)],
+                      ["Fiscalité", fmtTND((ind as any).taxation ?? 0)],
+                      ["Total charges d'exploitation annuelles", `- ${fmtTND(ind.operatingExpenses)}`],
+                      ["Revenu net annuel", fmtTND(ind.netAnnualIncome), true],
+                      ["Cash-flow mensuel", fmtTND(ind.monthlyCashflow)],
+                      ["Cash-flow annuel", fmtTND(ind.annualCashflow)],
+                    ]}
+                  />
+                  <IndicatorsGroup
+                    icon={Percent}
+                    title="Rentabilité"
+                    color="text-blue-600 dark:text-blue-400"
+                    rows={[
+                      ["Rentabilité brute", fmtPct(ind.grossYieldPct)],
+                      ["Rentabilité nette", fmtPct(ind.netYieldPct), true],
+                      ["ROI annuel", fmtPct(ind.roiAnnualPct)],
+                      ["ROI sur 5 ans", fmtPct(ind.roi5yPct)],
+                      ["ROI sur 10 ans", fmtPct(ind.roi10yPct)],
+                      ["Prix au m²", ind.pricePerM2 ? fmtTND(ind.pricePerM2) : "—"],
+                      ["Rapport prix / loyer annuel", `${fmtNum(ind.priceToRentRatio)}×`],
+                      ["Taux d'occupation retenu", fmtPct(ind.occupancyRate)],
+                    ]}
+                  />
+                  <IndicatorsGroup
+                    icon={CalendarClock}
+                    title="Horizon & confiance"
+                    color="text-amber-600 dark:text-amber-400"
+                    rows={[
+                      ["Durée de récupération du capital", ind.paybackYears >= 99 ? "> 30 ans" : `${fmtNum(ind.paybackYears)} ans`],
+                      ["Date estimée d'amortissement", ind.paybackDateLabel],
+                      ["Indice de confiance de l'estimation", `${results.aiConfidence}%`, true],
+                    ]}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
             <CardContent className="p-4">
@@ -847,6 +887,36 @@ export function ResultsView({ run, zones, assistant }: {
         )}
       </Tabs>
     </>
+  );
+}
+
+function IndicatorsGroup({ icon: Icon, title, color, rows }: {
+  icon: any;
+  title: string;
+  color: string;
+  rows: ([string, string] | [string, string, boolean])[];
+}) {
+  return (
+    <div>
+      <p className={cn("mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide", color)}>
+        <Icon className="h-3.5 w-3.5" />
+        {title}
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {rows.map(([label, value, highlight]) => (
+          <div
+            key={label}
+            className={cn(
+              "flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/20",
+              highlight ? "border-primary/25 bg-primary/5" : "border-border/30 bg-muted/10",
+            )}
+          >
+            <span className="text-[11px] sm:text-xs text-muted-foreground">{label}</span>
+            <span className={cn("text-xs sm:text-sm font-bold tabular-nums", highlight ? "text-primary" : "")}>{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
