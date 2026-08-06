@@ -979,17 +979,14 @@ export default function InvestmentAnalysis() {
           </div>
 
           <div className="min-w-0 space-y-4 sm:space-y-6">
-            <div className="relative overflow-hidden rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-950/80 via-background to-background p-6 sm:p-10 dark:from-indigo-900/45">
-              <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
-              <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/20" />
-              <div className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-500/15" />
+            <div className="p-6 sm:p-10">
               <div className="relative">
-                <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-[10px] mb-4">
+                <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[10px] mb-4">
                   <Sparkles className="h-3 w-3" /> Conseiller financier & immobilier par IA
                 </Badge>
                 <h2 className="text-xl sm:text-2xl font-extrabold max-w-xl leading-tight">
                   Analysez la rentabilité de votre investissement{" "}
-                  <span className="bg-gradient-to-r from-indigo-400 to-blue-400 bg-clip-text text-transparent">en quelques secondes</span>
+                  <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent dark:from-indigo-400 dark:to-blue-400">en quelques secondes</span>
                 </h2>
                 <p className="text-xs sm:text-sm text-muted-foreground max-w-xl mt-2 leading-relaxed">
                   Renseignez les informations du bien à gauche puis lancez l'analyse. Le moteur IA calcule
@@ -997,16 +994,16 @@ export default function InvestmentAnalysis() {
                   les prévisions de bénéfices et le score d'investissement, puis génère un rapport PDF complet.
                 </p>
                 <div className="mt-4 flex flex-wrap items-center gap-1.5">
-                  <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-[10px]">
+                  <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[10px]">
                     <Gauge className="h-3 w-3" /> Score IA /100
                   </Badge>
-                  <Badge variant="outline" className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px]">
+                  <Badge variant="outline" className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 text-[10px]">
                     <TrendingUp className="h-3 w-3" /> 3 scénarios
                   </Badge>
-                  <Badge variant="outline" className="gap-1 border-blue-500/30 bg-blue-500/10 text-blue-300 text-[10px]">
+                  <Badge variant="outline" className="gap-1 border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300 text-[10px]">
                     <Layers className="h-3 w-3" /> 12 types de biens
                   </Badge>
-                  <Badge variant="outline" className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-300 text-[10px]">
+                  <Badge variant="outline" className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300 text-[10px]">
                     <MapPin className="h-3 w-3" /> 24 zones analysées
                   </Badge>
                 </div>
