@@ -216,7 +216,7 @@ export function ResultsView({ run, zones, assistant }: {
         {activeTab === "apercu" && (
           <div className="space-y-4">
             {aiInsights && (
-              <Card className="border border-border/40 bg-white dark:bg-card overflow-hidden shadow-sm">
+              <Card className="border border-border/40 bg-white dark:bg-card overflow-hidden">
                 <CardHeader className="border-b border-border/20 bg-gradient-to-r from-indigo-500/10 to-blue-500/5 p-4 pb-3">
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-sm">
