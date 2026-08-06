@@ -45,10 +45,20 @@ export type InvestmentInput = {
   city?: string;
   quartier?: string;
   monthlyRent: number;
+  rentMode?: "nuit" | "mensuel";
+  rentAmount?: number;
   occupancyRate?: number;
   annualExpensesPct?: number;
   renovationCost?: number;
   acquisitionFeesPct?: number;
+  financingFees?: number;
+  agencyFees?: number;
+  furnishingCost?: number;
+  annualCharges?: number;
+  insurance?: number;
+  taxes?: number;
+  managementFees?: number;
+  taxationPct?: number;
   annualAppreciationPct?: number;
   rentGrowthPct?: number;
   inflationPct?: number;
@@ -57,6 +67,9 @@ export type InvestmentInput = {
 
 export interface Indicators {
   purchasePrice: number; totalCost: number; acquisitionFees: number; renovationCost: number;
+  financingFees: number; agencyFees: number; furnishingCost: number;
+  annualCharges: number; insurance: number; taxes: number; managementFees: number; taxation: number;
+  rentMode: "nuit" | "mensuel";
   monthlyRent: number; occupancyRate: number; grossAnnualRent: number; operatingExpenses: number;
   netAnnualIncome: number; monthlyCashflow: number; annualCashflow: number;
   grossYieldPct: number; netYieldPct: number; roiAnnualPct: number; roi5yPct: number; roi10yPct: number;
@@ -112,12 +125,21 @@ export const DEFAULT_FORM = {
   region: "tunis",
   city: "",
   quartier: "",
+  rentMode: "mensuel" as "nuit" | "mensuel",
+  rentAmount: 1500,
   monthlyRent: 1500,
   occupancyRate: 95,
-  annualExpensesPct: 18,
+  annualCharges: 1200,
+  insurance: 300,
+  taxes: 0,
+  managementFees: 0,
+  taxationPct: 10,
   renovationCost: 0,
+  financingFees: 0,
+  agencyFees: 0,
+  furnishingCost: 0,
   acquisitionFeesPct: 6,
-  annualAppreciationPct: undefined as number | undefined,
+  annualAppreciationPct: 5,
   rentGrowthPct: 5,
   inflationPct: 6,
   horizonYears: 10,
@@ -372,11 +394,17 @@ export function generatePdf(run: AnalysisRun) {
       ["Ville / Quartier", [input.city, input.quartier].filter(Boolean).join(" / ") || "—"],
       ["Attractivité du quartier", results.zone.utilityLabel ? `${results.zone.utilityLabel} — ${results.zone.utilityIndex}/100` : "—"],
       ["Prix d'achat", fmtPdf(ind.purchasePrice)],
-      ["Frais d'acquisition", fmtPdf(ind.acquisitionFees)],
-      ["Travaux de rénovation", fmtPdf(ind.renovationCost)],
+      ["Frais d'acquisition (" + (input.acquisitionFeesPct ?? 6) + " %)", fmtPdf(ind.acquisitionFees)],
+      ["Frais de financement", fmtPdf(ind.financingFees ?? 0)],
+      ["Frais d'agence", fmtPdf(ind.agencyFees ?? 0)],
+      ["Coût d'aménagement", fmtPdf(ind.renovationCost ?? 0)],
+      ["Ameublement", fmtPdf(ind.furnishingCost ?? 0)],
       ["Coût total de l'investissement", fmtPdf(ind.totalCost)],
       ["Prix au m²", ind.pricePerM2 ? fmtPdf(ind.pricePerM2) : "—"],
-      ["Loyer mensuel (occupation " + ind.occupancyRate + " %)", fmtPdf(ind.monthlyRent)],
+      ["Loyer estimé (occupation " + ind.occupancyRate + " %)",
+        input.rentMode === "nuit"
+          ? fmtPdf(ind.monthlyRent) + " /mois (" + fmtNum(input.rentAmount ?? 0) + " TND/nuit)"
+          : fmtPdf(ind.monthlyRent) + " /mois"],
     ],
     [70, 30],
   );
@@ -386,7 +414,12 @@ export function generatePdf(run: AnalysisRun) {
     ["Indicateur", "Valeur"],
     [
       ["Revenus locatifs bruts annuels", fmtPdf(ind.grossAnnualRent)],
-      ["Charges d'exploitation annuelles", fmtPdf(ind.operatingExpenses)],
+      ["Charges annuelles", fmtPdf(ind.annualCharges ?? 0)],
+      ["Assurance", fmtPdf(ind.insurance ?? 0)],
+      ["Taxes", fmtPdf(ind.taxes ?? 0)],
+      ["Frais de gestion", fmtPdf(ind.managementFees ?? 0)],
+      ["Fiscalité (" + (input.taxationPct ?? 0) + " % du brut)", fmtPdf(ind.taxation ?? 0)],
+      ["Total charges d'exploitation annuelles", fmtPdf(ind.operatingExpenses)],
       ["Revenu net annuel", fmtPdf(ind.netAnnualIncome)],
       ["Cash-flow mensuel", fmtPdf(ind.monthlyCashflow)],
       ["Cash-flow annuel", fmtPdf(ind.annualCashflow)],
@@ -540,11 +573,19 @@ export function exportCsv(run: AnalysisRun) {
       ["Surface", input.area ? `${input.area} m²` : "—"],
       ["Prix d'achat", `${ind.purchasePrice} TND`],
       ["Frais d'acquisition", `${ind.acquisitionFees} TND`],
-      ["Travaux de rénovation", `${ind.renovationCost} TND`],
+      ["Frais de financement", `${ind.financingFees ?? 0} TND`],
+      ["Frais d'agence", `${ind.agencyFees ?? 0} TND`],
+      ["Coût d'aménagement", `${ind.renovationCost ?? 0} TND`],
+      ["Ameublement", `${ind.furnishingCost ?? 0} TND`],
       ["Coût total de l'investissement", `${ind.totalCost} TND`],
       ["Prix au m²", ind.pricePerM2 ? `${ind.pricePerM2} TND` : "—"],
-      ["Loyer mensuel", `${ind.monthlyRent} TND`],
+      ["Loyer estimé", input.rentMode === "nuit" ? `${input.rentAmount ?? 0} TND/nuit (≈ ${ind.monthlyRent} TND/mois)` : `${ind.monthlyRent} TND/mois`],
       ["Taux d'occupation", `${ind.occupancyRate}%`],
+      ["Charges annuelles", `${ind.annualCharges ?? 0} TND`],
+      ["Assurance", `${ind.insurance ?? 0} TND`],
+      ["Taxes", `${ind.taxes ?? 0} TND`],
+      ["Frais de gestion", `${ind.managementFees ?? 0} TND`],
+      ["Fiscalité", `${input.taxationPct ?? 0}% du brut (${ind.taxation ?? 0} TND/an)`],
       ["Score IA", `${results.score.total}/100 — ${results.score.grade}`],
       ["Indice de confiance de l'estimation", `${results.aiConfidence}%`],
     ],

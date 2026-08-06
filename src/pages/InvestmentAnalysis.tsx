@@ -31,7 +31,12 @@ import {
   ArrowRight,
   Check,
   Star,
+  Lock,
+  MoonStar,
+  CalendarDays,
+  Receipt,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -58,8 +63,8 @@ import { LocationField } from "@/components/investment/location-field";
 
 const STEPS = [
   { n: 1, label: "Le bien", icon: Building2 },
-  { n: 2, label: "Revenus & charges", icon: Coins },
-  { n: 3, label: "Hypothèses", icon: TrendingUp },
+  { n: 2, label: "Loyer & charges", icon: Coins },
+  { n: 3, label: "Coûts & hypothèses", icon: TrendingUp },
 ];
 
 const stepVariants = {
@@ -154,14 +159,23 @@ export default function InvestmentAnalysis() {
     region: form.region,
     city: form.city || undefined,
     quartier: form.quartier || undefined,
-    monthlyRent: form.monthlyRent,
+    rentMode: form.rentMode,
+    rentAmount: form.rentAmount,
+    monthlyRent: form.rentMode === "nuit" ? Math.round((form.rentAmount ?? 0) * (365 / 12)) : form.rentAmount,
     occupancyRate: form.occupancyRate,
-    annualExpensesPct: form.annualExpensesPct,
+    annualCharges: form.annualCharges,
+    insurance: form.insurance,
+    taxes: form.taxes,
+    managementFees: form.managementFees,
+    taxationPct: form.taxationPct,
     renovationCost: form.renovationCost,
+    financingFees: form.financingFees,
+    agencyFees: form.agencyFees,
+    furnishingCost: form.furnishingCost,
     acquisitionFeesPct: form.acquisitionFeesPct,
-    annualAppreciationPct: form.annualAppreciationPct,
-    rentGrowthPct: form.rentGrowthPct,
-    inflationPct: form.inflationPct,
+    annualAppreciationPct: form.annualAppreciationPct ?? 5,
+    rentGrowthPct: 5,
+    inflationPct: 6,
     horizonYears: form.horizonYears,
   });
 
@@ -177,7 +191,8 @@ export default function InvestmentAnalysis() {
       if (!form.region.trim()) { toast.error("Renseignez la région — champ obligatoire."); return; }
       if (!form.city.trim()) { toast.error("Renseignez la ville — champ obligatoire."); return; }
     }
-    if (step === 2 && form.monthlyRent < 0) { toast.error("Renseignez un loyer mensuel valide."); return; }
+    if (step === 2 && (form.rentAmount ?? 0) <= 0) { toast.error("Renseignez un loyer estimé valide."); return; }
+    if (step === 3 && (form.horizonYears ?? 0) < 5) { toast.error("La durée prévue de l'investissement doit être d'au moins 5 ans."); return; }
     goStep(step + 1);
   };
 
@@ -185,7 +200,8 @@ export default function InvestmentAnalysis() {
     if (form.purchasePrice <= 0) { toast.error("Renseignez un prix d'achat valide."); return; }
     if (!form.region.trim()) { toast.error("Renseignez la région — champ obligatoire."); return; }
     if (!form.city.trim()) { toast.error("Renseignez la ville — champ obligatoire."); return; }
-    if (form.monthlyRent < 0) { toast.error("Renseignez un loyer mensuel valide."); return; }
+    if ((form.rentAmount ?? 0) <= 0) { toast.error("Renseignez un loyer estimé valide."); return; }
+    if ((form.horizonYears ?? 0) < 5) { toast.error("La durée prévue de l'investissement doit être d'au moins 5 ans."); return; }
     setRunning(true);
     try {
       const res = await runAnalysisAction({ input: buildInput() });
@@ -233,6 +249,15 @@ export default function InvestmentAnalysis() {
   const selectedZone = zones.find((z: any) => z.region === form.region);
   const selectedUtility: ZoneUtility | null = resolveZoneUtility(form.city, form.quartier);
 
+  // ── Loyer estimé : équivalent mensuel selon le mode (nuitée / mensuel) ──
+  const effectiveMonthlyRent =
+    form.rentMode === "nuit"
+      ? Math.round((form.rentAmount ?? 0) * (365 / 12))
+      : form.rentAmount ?? 0;
+  const grossAnnualEstimate = Math.round(
+    effectiveMonthlyRent * 12 * ((form.occupancyRate ?? 100) / 100),
+  );
+
   // ── Autocomplétion en cascade : Région → Ville → Quartier ──
   // Chaque région affiche le nombre de villes disponibles, chaque ville le
   // nombre de quartiers prédéfinis (badge discret dans la liste déroulante).
@@ -270,19 +295,26 @@ export default function InvestmentAnalysis() {
     city: form.city.trim() !== "" && villeOptions.some((o) => o.label === form.city),
     purchasePrice: positive(form.purchasePrice),
     area: filled(form.area, 1),
-    monthlyRent: positive(form.monthlyRent),
+    rentAmount: positive(form.rentAmount),
     occupancyRate: filled(form.occupancyRate, 1),
-    annualExpensesPct: filled(form.annualExpensesPct, 0),
+    annualCharges: filled(form.annualCharges, 0),
+    insurance: filled(form.insurance, 0),
+    taxes: filled(form.taxes, 0),
+    managementFees: filled(form.managementFees, 0),
+    taxationPct: filled(form.taxationPct, 0),
+    financingFees: filled(form.financingFees, 0),
     acquisitionFeesPct: filled(form.acquisitionFeesPct, 0),
-    renovationCost: filled(form.renovationCost, 0),
-    annualAppreciationPct: typeof form.annualAppreciationPct === "number" && form.annualAppreciationPct >= 0,
+    agencyFees: filled(form.agencyFees, 0),
+    furnishingCost: filled(form.furnishingCost, 0),
+    amenagementCost: filled(form.renovationCost, 0),
+    annualAppreciationPct: typeof form.annualAppreciationPct === "number" && form.annualAppreciationPct >= 4 && form.annualAppreciationPct <= 6,
     inflationPct: filled(form.inflationPct, 0),
-    horizonYears: positive(form.horizonYears),
+    horizonYears: positive(form.horizonYears) && (form.horizonYears ?? 0) >= 5,
   };
 
   const REQUIRED_FIELDS: Record<number, string[]> = {
     1: ["region", "purchasePrice", "city"],
-    2: ["monthlyRent"],
+    2: ["rentAmount"],
     3: ["horizonYears"],
   };
   const reqFields = REQUIRED_FIELDS[step] ?? [];
@@ -530,20 +562,87 @@ export default function InvestmentAnalysis() {
                       </>
                     )}
 
-                    {/* ── ÉTAPE 2 : REVENUS & CHARGES ── */}
+                    {/* ── ÉTAPE 2 : LOYER & CHARGES ── */}
                     {step === 2 && (
                       <>
+                        {/* Loyer estimé : choix nuitée / mensuel */}
+                        <div>
+                          <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                            Loyer estimé<span className="text-red-500"> *</span>
+                          </label>
+                          <div className="mb-2 grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (form.rentMode === "nuit") set("rentAmount", Math.round((form.rentAmount ?? 0) * (365 / 12)));
+                                set("rentMode", "mensuel");
+                              }}
+                              className={cn(
+                                "flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[11px] font-medium transition-all active:scale-[0.98]",
+                                form.rentMode === "mensuel"
+                                  ? "border-primary/40 bg-primary/10 text-primary"
+                                  : "border-border/40 text-muted-foreground hover:border-primary/25 hover:text-foreground",
+                              )}
+                            >
+                              <CalendarDays className="h-3.5 w-3.5" />
+                              Mensuel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (form.rentMode === "mensuel") set("rentAmount", Math.round((form.rentAmount ?? 0) * (12 / 365)));
+                                set("rentMode", "nuit");
+                              }}
+                              className={cn(
+                                "flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[11px] font-medium transition-all active:scale-[0.98]",
+                                form.rentMode === "nuit"
+                                  ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                                  : "border-border/40 text-muted-foreground hover:border-indigo-500/25 hover:text-foreground",
+                              )}
+                            >
+                              <MoonStar className="h-3.5 w-3.5" />
+                              À la nuitée
+                            </button>
+                          </div>
+                          <div className={cn("grid gap-2.5", form.rentMode === "nuit" && "grid-cols-2")}>
+                            <NumField
+                              label={form.rentMode === "nuit" ? "Tarif par nuit" : "Loyer mensuel"}
+                              value={form.rentAmount}
+                              suffix={form.rentMode === "nuit" ? "TND/nuit" : "TND/mois"}
+                              required
+                              valid={fieldChecks.rentAmount}
+                              onChange={(v) => set("rentAmount", v ?? 0)}
+                            />
+                            {form.rentMode === "nuit" && (
+                              <div className="flex flex-col justify-center rounded-lg border border-border/30 bg-muted/20 px-2.5 py-1.5">
+                                <p className="text-[10px] text-muted-foreground">Équivalent mensuel</p>
+                                <p className="text-sm font-bold tabular-nums">≈ {fmtNum(effectiveMonthlyRent)} TND</p>
+                              </div>
+                            )}
+                          </div>
+                          <p className="mt-1 text-[10px] text-muted-foreground/60">
+                            {form.rentMode === "nuit"
+                              ? "Location saisonnière : le taux d'occupation s'applique aux nuitées louées sur l'année."
+                              : "Location annuelle : le taux d'occupation s'applique sur l'année."}
+                          </p>
+                        </div>
+
+                        <NumField label="Taux d'occupation estimé" value={form.occupancyRate} suffix="%" step={1} valid={fieldChecks.occupancyRate} onChange={(v) => set("occupancyRate", v)} />
+
+                        <p className="flex items-center gap-1.5 pt-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          <Receipt className="h-3 w-3" />
+                          Charges d'exploitation annuelles (TND/an)
+                        </p>
                         <div className="grid grid-cols-2 gap-2.5">
-                          <NumField label="Loyer mensuel" value={form.monthlyRent} suffix="TND" required valid={fieldChecks.monthlyRent} onChange={(v) => set("monthlyRent", v ?? 0)} />
-                          <NumField label="Taux d'occupation" value={form.occupancyRate} suffix="%" step={1} valid={fieldChecks.occupancyRate} onChange={(v) => set("occupancyRate", v)} />
+                          <NumField label="Charges annuelles" value={form.annualCharges} suffix="TND/an" valid={fieldChecks.annualCharges} onChange={(v) => set("annualCharges", v ?? 0)} />
+                          <NumField label="Assurance" value={form.insurance} suffix="TND/an" valid={fieldChecks.insurance} onChange={(v) => set("insurance", v ?? 0)} />
                         </div>
                         <div className="grid grid-cols-2 gap-2.5">
-                          <NumField label="Charges annuelles" value={form.annualExpensesPct} suffix="%" step={0.5} valid={fieldChecks.annualExpensesPct} onChange={(v) => set("annualExpensesPct", v)} />
-                          <NumField label="Frais d'acquisition" value={form.acquisitionFeesPct} suffix="%" step={0.5} valid={fieldChecks.acquisitionFeesPct} onChange={(v) => set("acquisitionFeesPct", v)} />
+                          <NumField label="Taxes" value={form.taxes} suffix="TND/an" valid={fieldChecks.taxes} onChange={(v) => set("taxes", v ?? 0)} />
+                          <NumField label="Frais de gestion" value={form.managementFees} suffix="TND/an" hint="Si existant" valid={fieldChecks.managementFees} onChange={(v) => set("managementFees", v ?? 0)} />
                         </div>
-                        <div className="col-span-2">
-                          <NumField label="Travaux de rénovation" value={form.renovationCost} suffix="TND" valid={fieldChecks.renovationCost} onChange={(v) => set("renovationCost", v ?? 0)} />
-                        </div>
+                        <NumField label="Fiscalité" value={form.taxationPct} suffix="%" step={0.5} hint="Impôt sur les revenus locatifs — appliqué au loyer brut" valid={fieldChecks.taxationPct} onChange={(v) => set("taxationPct", v)} />
+
                         <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
                           <p className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
                             <PiggyBank className="h-3 w-3" />
@@ -551,41 +650,77 @@ export default function InvestmentAnalysis() {
                           </p>
                           <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
                             Revenus locatifs bruts estimés :{" "}
-                            <span className="font-semibold text-foreground tabular-nums">
-                              {fmtNum(Math.round(form.monthlyRent * 12 * (form.occupancyRate ?? 100) / 100))} TND/an
-                            </span>
+                            <span className="font-semibold text-foreground tabular-nums">{fmtNum(grossAnnualEstimate)} TND/an</span>
+                            {form.rentMode === "nuit" && form.rentAmount > 0 && (
+                              <>
+                                {" "}soit <span className="font-semibold text-foreground tabular-nums">{fmtNum(Math.round(grossAnnualEstimate / 12))} TND/mois</span>
+                              </>
+                            )}
                           </p>
                         </div>
                       </>
                     )}
 
-                    {/* ── ÉTAPE 3 : HYPOTHÈSES ── */}
+                    {/* ── ÉTAPE 3 : COÛTS & HYPOTHÈSES ── */}
                     {step === 3 && (
                       <>
+                        <p className="flex items-center gap-1.5 pt-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          <Coins className="h-3 w-3" />
+                          Coûts d'acquisition
+                        </p>
                         <div className="grid grid-cols-2 gap-2.5">
-                          <NumField
-                            label="Appréciation annuelle"
-                            value={form.annualAppreciationPct}
-                            suffix="%"
-                            step={0.5}
-                            hint="Vide = moyenne de la zone"
-                            valid={fieldChecks.annualAppreciationPct}
-                            onChange={(v) => set("annualAppreciationPct", v)}
-                          />
-                          <NumField label="Inflation" value={form.inflationPct} suffix="%" step={0.5} valid={fieldChecks.inflationPct} onChange={(v) => set("inflationPct", v)} />
+                          <NumField label="Frais de financement" value={form.financingFees} suffix="TND" valid={fieldChecks.financingFees} onChange={(v) => set("financingFees", v ?? 0)} />
+                          <NumField label="Frais d'acquisition" value={form.acquisitionFeesPct} suffix="%" step={0.5} hint="Enregistrement + notaire" valid={fieldChecks.acquisitionFeesPct} onChange={(v) => set("acquisitionFeesPct", v)} />
                         </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <NumField label="Frais d'agence" value={form.agencyFees} suffix="TND" hint="Si existant" valid={fieldChecks.agencyFees} onChange={(v) => set("agencyFees", v ?? 0)} />
+                          <NumField label="Ameublement" value={form.furnishingCost} suffix="TND" hint="Si existant" valid={fieldChecks.furnishingCost} onChange={(v) => set("furnishingCost", v ?? 0)} />
+                        </div>
+                        <NumField label="Coût d'aménagement" value={form.renovationCost} suffix="TND" hint="Travaux, rénovation, équipements fixes" valid={fieldChecks.amenagementCost} onChange={(v) => set("renovationCost", v ?? 0)} />
+
+                        <p className="flex items-center gap-1.5 pt-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          <TrendingUp className="h-3 w-3" />
+                          Hypothèses du moteur
+                        </p>
                         <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
-                          <p className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                            <TrendingUp className="h-3 w-3" />
-                            Croissance des loyers
+                          <p className="text-[10px] font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                            <Lock className="h-3 w-3" />
+                            Hypothèses fixes (marché tunisien 2026)
                           </p>
-                          <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
-                            Hypothèse fixe du moteur :{" "}
-                            <span className="font-semibold text-foreground tabular-nums">5 %/an</span>{" "}
-                            (indexation des loyers — marché tunisien 2026).
-                          </p>
+                          <div className="space-y-1 text-[10px] text-muted-foreground/70">
+                            <p className="flex items-center justify-between">
+                              <span>Inflation</span>
+                              <span className="font-semibold text-foreground tabular-nums">6 %/an</span>
+                            </p>
+                            <p className="flex items-center justify-between">
+                              <span>Évolution annuelle estimée des loyers</span>
+                              <span className="font-semibold text-foreground tabular-nums">5 %/an</span>
+                            </p>
+                          </div>
                         </div>
-                        <NumField label="Durée prévue de l'investissement" value={form.horizonYears} suffix="ans" step={1} required valid={fieldChecks.horizonYears} onChange={(v) => set("horizonYears", v)} />
+
+                        <div>
+                          <div className="mb-1 flex items-center justify-between gap-1">
+                            <label className="text-[11px] font-medium text-muted-foreground">Évolution annuelle de la valeur du bien</label>
+                            <span className="flex items-center gap-1 text-[11px] font-bold tabular-nums text-primary">
+                              {form.annualAppreciationPct ?? 5} %
+                            </span>
+                          </div>
+                          <Slider
+                            min={4}
+                            max={6}
+                            step={0.5}
+                            value={[form.annualAppreciationPct ?? 5]}
+                            onValueChange={(v) => set("annualAppreciationPct", v[0])}
+                          />
+                          <div className="mt-0.5 flex justify-between text-[10px] text-muted-foreground/60">
+                            <span>4 %</span>
+                            <span className="text-muted-foreground/40">Fourchette fixe 4–6 %</span>
+                            <span>6 %</span>
+                          </div>
+                        </div>
+
+                        <NumField label="Durée prévue de l'investissement" value={form.horizonYears} suffix="ans" step={1} required hint="Minimum 5 ans" valid={fieldChecks.horizonYears} onChange={(v) => set("horizonYears", v)} />
 
                         <div className="rounded-lg border border-primary/25 bg-primary/5 p-2.5">
                           <p className="text-[10px] font-semibold text-primary mb-1.5 flex items-center gap-1">
@@ -603,10 +738,16 @@ export default function InvestmentAnalysis() {
                             <span className="font-semibold text-right tabular-nums">{fmtNum(form.purchasePrice)} TND</span>
                             <span className="text-muted-foreground">Surface</span>
                             <span className="font-semibold text-right tabular-nums">{form.area ? `${fmtNum(form.area)} m²` : "—"}</span>
-                            <span className="text-muted-foreground">Loyer / mois</span>
-                            <span className="font-semibold text-right tabular-nums">{fmtNum(form.monthlyRent)} TND</span>
+                            <span className="text-muted-foreground">Loyer estimé</span>
+                            <span className="font-semibold text-right tabular-nums">
+                              {form.rentMode === "nuit"
+                                ? `${fmtNum(form.rentAmount ?? 0)} TND/nuit`
+                                : `${fmtNum(form.rentAmount ?? 0)} TND/mois`}
+                            </span>
                             <span className="text-muted-foreground">Taux d'occupation</span>
                             <span className="font-semibold text-right tabular-nums">{form.occupancyRate ?? "—"}%</span>
+                            <span className="text-muted-foreground">Fiscalité</span>
+                            <span className="font-semibold text-right tabular-nums">{form.taxationPct ?? 0}% du brut</span>
                           </div>
                         </div>
                       </>

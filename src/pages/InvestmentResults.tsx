@@ -110,10 +110,15 @@ export default function InvestmentResults() {
   const contextFor = (): string | undefined => {
     if (!run) return undefined;
     const ind = run.results.indicators;
+    const input = run.input as any;
+    const rentLabel =
+      input?.rentMode === "nuit"
+        ? `${input?.rentAmount ?? 0} TND/nuit (≈ ${ind.monthlyRent} TND/mois)`
+        : `${ind.monthlyRent} TND/mois`;
     return (
       `Type: ${TYPE_META[run.input.investmentType]?.label ?? run.input.investmentType}. ` +
       `Zone: ${run.results.zone.name} (demande ${run.results.zone.demandIndex}/100, risque ${run.results.zone.riskScore}/100). ` +
-      `Prix d'achat: ${ind.purchasePrice} TND. Coût total: ${ind.totalCost} TND. Loyer mensuel: ${ind.monthlyRent} TND. ` +
+      `Prix d'achat: ${ind.purchasePrice} TND. Coût total: ${ind.totalCost} TND. Loyer estimé: ${rentLabel} (occupation ${ind.occupancyRate}%). ` +
       `Revenu net annuel: ${ind.netAnnualIncome} TND. Rendement net: ${ind.netYieldPct}%. ROI 5 ans: ${ind.roi5yPct}%. ROI 10 ans: ${ind.roi10yPct}%. ` +
       `Récupération du capital: ${ind.paybackYears} ans. Score IA: ${run.results.score.total}/100.`
     );

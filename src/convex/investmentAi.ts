@@ -65,12 +65,19 @@ export const runAnalysis = action({
       });
 
     const location = [normalized.city, normalized.quartier].filter(Boolean).join(" / ");
+    const rentLabel =
+      normalized.rentMode === "nuit"
+        ? `${normalized.rentAmount} TND/nuit (équivalent ${normalized.monthlyRent} TND/mois)`
+        : `${normalized.monthlyRent} TND/mois`;
     const userPrompt =
       `Type de bien: ${meta.label}. Zone: ${results.zone.name} (indice de demande ${results.zone.demandIndex}/100, risque ${results.zone.riskScore}/100, rang ${results.zone.rank}${results.zone.utilityLabel ? `, quartier reconnu « ${results.zone.utilityLabel} » attractivité ${results.zone.utilityIndex}/100` : ""}).\n` +
       (location ? `Localisation saisie: ${location}.\n` : "") +
-      `Prix d'achat: ${ind.purchasePrice} TND · Coût total: ${ind.totalCost} TND · Loyer mensuel: ${normalized.monthlyRent} TND (taux d'occupation ${normalized.occupancyRate}%).\n` +
+      `Prix d'achat: ${ind.purchasePrice} TND · Coût total: ${ind.totalCost} TND (dont frais d'acquisition ${ind.acquisitionFees} TND, financement ${ind.financingFees} TND, agence ${ind.agencyFees} TND, aménagement ${ind.renovationCost} TND, ameublement ${ind.furnishingCost} TND).\n` +
+      `Loyer estimé: ${rentLabel} (taux d'occupation ${normalized.occupancyRate}%).\n` +
+      `Charges annuelles: ${ind.annualCharges} TND (charges courantes ${ind.annualCharges} TND, assurance ${ind.insurance} TND, taxes ${ind.taxes} TND, gestion ${ind.managementFees} TND, fiscalité ${normalized.taxationPct}% soit ${ind.taxation} TND).\n` +
       `Revenu net annuel: ${ind.netAnnualIncome} TND · Rendement brut ${ind.grossYieldPct}% · rendement net ${ind.netYieldPct}%.\n` +
       `Cash-flow mensuel: ${ind.monthlyCashflow} TND · ROI annuel ${ind.roiAnnualPct}% · ROI 5 ans ${ind.roi5yPct}% · ROI 10 ans ${ind.roi10yPct}%.\n` +
+      `Hypothèses fixes du moteur: inflation ${normalized.inflationPct}% · croissance des loyers ${normalized.rentGrowthPct}%/an · appréciation du bien ${normalized.annualAppreciationPct}%/an (fourchette 4-6%).\n` +
       `Récupération du capital: ${ind.paybackYears} ans · Score IA: ${results.score.total}/100 (${results.score.grade}).\n` +
       `Prévisions: ${results.forecastSummary.map((s) => `${s.label} gain ${s.gain} TND, valeur ${s.futureValue} TND`).join(" · ")}.\n` +
       "Génère un conseil d'investissement personnalisé et réaliste. Les recommandations doivent être concrètes et chiffrées en TND.";

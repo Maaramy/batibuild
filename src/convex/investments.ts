@@ -44,10 +44,23 @@ export type NormalizedInput = {
   region: string;
   city?: string;
   quartier?: string;
+  // Loyer : mode (nuitée / mensuel), montant brut saisi et loyer mensuel
+  // équivalent utilisé par le moteur (nuitée → montant × 365/12).
+  rentMode: "nuit" | "mensuel";
+  rentAmount: number;
   monthlyRent: number;
   occupancyRate: number;
-  annualExpensesPct: number;
+  // Charges d'exploitation annuelles détaillées (TND/an)
+  annualCharges: number;
+  insurance: number;
+  taxes: number;
+  managementFees: number;
+  taxationPct: number; // fiscalité (% du revenu locatif brut)
+  // Frais d'acquisition (TND, sauf acquisitionFeesPct en % du prix)
   renovationCost: number;
+  financingFees: number;
+  agencyFees: number;
+  furnishingCost: number;
   acquisitionFeesPct: number;
   annualAppreciationPct: number;
   rentGrowthPct: number;
@@ -55,11 +68,64 @@ export type NormalizedInput = {
   horizonYears: number;
 };
 
+/** Charge d'exploitation annuelle = charges détaillées + fiscalité sur le brut. */
+function annualExpensesFor(input: NormalizedInput, grossAnnualRent: number): number {
+  return money(
+    input.annualCharges +
+      input.insurance +
+      input.taxes +
+      input.managementFees +
+      grossAnnualRent * (input.taxationPct / 100),
+  );
+}
+
 export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput {
   const zone = applyZoneUtility(
     INVESTMENT_ZONE_MAP[input.region] ?? DEFAULT_ZONE,
     resolveZoneUtility(input.city?.trim(), input.quartier?.trim()),
   );
+  const occupancyRate = clamp(input.occupancyRate ?? 95, 50, 100);
+
+  // ── Loyer estimé : choix nuitée / mensuel ──
+  // nuitée : le loyer mensuel équivalent vaut montant × 365/12 (plein tarif,
+  // le taux d'occupation est appliqué ensuite par le moteur sur les nuitées).
+  const rentMode: "nuit" | "mensuel" = input.rentMode === "nuit" ? "nuit" : "mensuel";
+  const rawAmount = Math.max(0, input.rentAmount ?? 0);
+  const rawMonthly = Math.max(0, input.monthlyRent ?? 0);
+  const monthlyRent = money(
+    rentMode === "nuit"
+      ? rawAmount > 0
+        ? rawAmount * (365 / 12)
+        : rawMonthly
+      : rawAmount > 0
+        ? rawAmount
+        : rawMonthly,
+  );
+  const rentAmount =
+    rentMode === "nuit"
+      ? rawAmount > 0
+        ? rawAmount
+        : money(rawMonthly / (365 / 12))
+      : rawAmount > 0
+        ? rawAmount
+        : rawMonthly;
+
+  // ── Charges d'exploitation : nouveau modèle détaillé (TND/an) ──
+  // Rétro-compatibilité : les anciennes analyses ne fournissent que
+  // annualExpensesPct (%) → conversion en montant annuel équivalent.
+  const hasItemized = [
+    input.annualCharges,
+    input.insurance,
+    input.taxes,
+    input.managementFees,
+    input.taxationPct,
+  ].some((x) => typeof x === "number");
+  const annualCharges = hasItemized
+    ? Math.max(0, input.annualCharges ?? 0)
+    : money(
+        monthlyRent * 12 * (occupancyRate / 100) * (clamp(input.annualExpensesPct ?? 18, 0, 60) / 100),
+      );
+
   return {
     name: input.name?.trim() || "Analyse immobilière",
     investmentType: input.investmentType,
@@ -68,18 +134,29 @@ export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput 
     region: input.region,
     city: input.city?.trim() || undefined,
     quartier: input.quartier?.trim() || undefined,
-    monthlyRent: Math.max(0, input.monthlyRent),
-    occupancyRate: clamp(input.occupancyRate ?? 95, 50, 100),
-    annualExpensesPct: clamp(input.annualExpensesPct ?? 18, 0, 60),
+    rentMode,
+    rentAmount,
+    monthlyRent,
+    occupancyRate,
+    annualCharges,
+    insurance: Math.max(0, input.insurance ?? 0),
+    taxes: Math.max(0, input.taxes ?? 0),
+    managementFees: Math.max(0, input.managementFees ?? 0),
+    taxationPct: clamp(input.taxationPct ?? 0, 0, 50),
     renovationCost: Math.max(0, input.renovationCost ?? 0),
+    financingFees: Math.max(0, input.financingFees ?? 0),
+    agencyFees: Math.max(0, input.agencyFees ?? 0),
+    furnishingCost: Math.max(0, input.furnishingCost ?? 0),
     acquisitionFeesPct: clamp(input.acquisitionFeesPct ?? 6, 0, 20),
+    // Hypothèses fixes du moteur (marché tunisien 2026) :
+    // croissance des loyers 5 %/an, inflation 6 %, appréciation du bien 4-6 %.
     annualAppreciationPct:
       input.annualAppreciationPct !== undefined
-        ? clamp(input.annualAppreciationPct, -5, 20)
-        : zone.appreciationPct,
-    // Hypothèse fixe du moteur : croissance des loyers à 5 %/an (marché tunisien 2026)
+        ? clamp(input.annualAppreciationPct, 4, 6)
+        : clamp(zone.appreciationPct, 4, 6),
     rentGrowthPct: 5,
-    inflationPct: clamp(input.inflationPct ?? 6, 0, 25),
+    inflationPct: 6,
+    // Durée minimale de l'investissement : 5 ans
     horizonYears: clamp(Math.round(input.horizonYears ?? 10), 5, 30),
   };
 }
@@ -114,10 +191,13 @@ export function projectYearSeries(
   const purchasePrice = money(input.purchasePrice);
   const totalCost = money(
     purchasePrice * (1 + input.acquisitionFeesPct / 100) +
-      money(input.renovationCost),
+      money(input.renovationCost) +
+      money(input.financingFees) +
+      money(input.agencyFees) +
+      money(input.furnishingCost),
   );
   const baseGross = money(input.monthlyRent * 12 * (opts.occupancyRate / 100));
-  const baseExpenses = money(baseGross * (input.annualExpensesPct / 100));
+  const baseExpenses = annualExpensesFor(input, baseGross);
 
   const points: {
     year: number;
@@ -149,10 +229,14 @@ export function computeIndicators(input: NormalizedInput): InvestmentIndicators 
   const purchasePrice = money(input.purchasePrice);
   const acquisitionFees = money(purchasePrice * (input.acquisitionFeesPct / 100));
   const renovationCost = money(input.renovationCost);
-  const totalCost = purchasePrice + acquisitionFees + renovationCost;
+  const financingFees = money(input.financingFees);
+  const agencyFees = money(input.agencyFees);
+  const furnishingCost = money(input.furnishingCost);
+  const totalCost = purchasePrice + acquisitionFees + renovationCost + financingFees + agencyFees + furnishingCost;
 
   const grossAnnualRent = money(input.monthlyRent * 12 * (input.occupancyRate / 100));
-  const operatingExpenses = money(grossAnnualRent * (input.annualExpensesPct / 100));
+  const taxation = money(grossAnnualRent * (input.taxationPct / 100));
+  const operatingExpenses = annualExpensesFor(input, grossAnnualRent);
   const netAnnualIncome = grossAnnualRent - operatingExpenses;
 
   const monthlyCashflow = money(netAnnualIncome / 12);
@@ -187,6 +271,15 @@ export function computeIndicators(input: NormalizedInput): InvestmentIndicators 
     totalCost,
     acquisitionFees,
     renovationCost,
+    financingFees,
+    agencyFees,
+    furnishingCost,
+    annualCharges: money(input.annualCharges),
+    insurance: money(input.insurance),
+    taxes: money(input.taxes),
+    managementFees: money(input.managementFees),
+    taxation,
+    rentMode: input.rentMode,
     monthlyRent: input.monthlyRent,
     occupancyRate: input.occupancyRate,
     grossAnnualRent,
@@ -287,7 +380,7 @@ export function buildScenarios(input: NormalizedInput): InvestmentScenario[] {
     const last = pts[pts.length - 1];
 
     const gross = money(input.monthlyRent * 12 * (occupancyRate / 100));
-    const expenses = money(gross * (input.annualExpensesPct / 100));
+    const expenses = annualExpensesFor(input, gross);
     const netYieldPct = round2(((gross - expenses) / base.totalCost) * 100);
 
     return {
@@ -450,7 +543,9 @@ export function buildZoneInfo(input: NormalizedInput) {
 export function computeConfidence(input: NormalizedInput): number {
   const zone = resolveZoneInfo(input).zone;
   let c = 88;
-  if (input.annualExpensesPct > 25) c -= 6;
+  const gross = money(input.monthlyRent * 12 * (input.occupancyRate / 100));
+  const expenseRatio = gross > 0 ? annualExpensesFor(input, gross) / gross : 0;
+  if (expenseRatio > 0.3) c -= 6;
   if (input.occupancyRate >= 95) c += 3;
   if (input.occupancyRate < 85) c -= 4;
   if (!input.area) c -= 4;
@@ -514,7 +609,7 @@ export function fallbackInsights(input: NormalizedInput, results: InvestmentAnal
     recs.push(`La demande locative à ${zone.name} est limitée (indice ${zone.demandIndex}/100) : prévoyez des périodes de vacance et un rendement plus volatile.`);
   }
 
-  recs.push("Intégrez 6% de frais d'acquisition (enregistrement + notaire) et une réserve de 5% du budget pour l'imprévu.");
+  recs.push("Intégrez les frais d'acquisition (enregistrement + notaire), les frais de financement et d'agence le cas échéant, et conservez une réserve de 5% du budget pour l'imprévu.");
   recs.push("Faites vérifier le titre foncier, le certificat de conformité et la situation fiscale avant tout engagement.");
 
   const risks: string[] = [
@@ -535,8 +630,9 @@ export function fallbackInsights(input: NormalizedInput, results: InvestmentAnal
   }
   marketNotes.push(
     `Prix moyen à ${zone.name} : ${zone.pricePerM2.toLocaleString("fr-FR")} TND/m² · loyer moyen ${zone.rentPerM2} TND/m²/mois.`,
-    `Appréciation annuelle attendue : ${input.annualAppreciationPct}% (moyenne nationale ~4-5%).`,
-    `Inflation retenue : ${input.inflationPct}% · croissance des loyers : ${input.rentGrowthPct}%/an (hypothèse fixe du moteur).`,
+    `Appréciation annuelle du bien retenue : ${input.annualAppreciationPct}% (fourchette fixe 4-6%).`,
+    `Hypothèses fixes du moteur : inflation ${input.inflationPct}% · croissance des loyers ${input.rentGrowthPct}%/an.`,
+    `Fiscalité retenue : ${input.taxationPct}% du revenu locatif brut${input.taxationPct > 0 ? ", intégrée aux charges d'exploitation" : ""}.`,
     `Score d'attractivité de la zone : ${zone.rank}/${INVESTMENT_ZONES.length} en Tunisie.`,
   );
 
@@ -739,13 +835,23 @@ export const getDemoAnalysis = query({
       area: 40,
       region: "tunis",
       city: "Tunis",
+      rentMode: "mensuel",
+      rentAmount: 2600,
       monthlyRent: 2600,
       occupancyRate: 95,
-      annualExpensesPct: 10,
+      annualCharges: 2400,
+      insurance: 400,
+      taxes: 0,
+      managementFees: 0,
+      taxationPct: 10,
       renovationCost: 8000,
+      financingFees: 0,
+      agencyFees: 0,
+      furnishingCost: 12000,
       acquisitionFeesPct: 6,
       rentGrowthPct: 5,
       inflationPct: 6,
+      annualAppreciationPct: 5,
       horizonYears: 10,
     });
     const results = runEngine(normalized);

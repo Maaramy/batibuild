@@ -606,10 +606,24 @@ export const analysisInputValidator = v.object({
   city: v.optional(v.string()),
   quartier: v.optional(v.string()),
   monthlyRent: v.number(),
+  // Mode de loyer : au mois (mensuel) ou à la nuitée (nuit) — le montant brut
+  // saisi est conservé dans rentAmount, le moteur en déduit le loyer mensuel.
+  rentMode: v.optional(v.union(v.literal("nuit"), v.literal("mensuel"))),
+  rentAmount: v.optional(v.number()),
   occupancyRate: v.optional(v.number()),
   annualExpensesPct: v.optional(v.number()),
   renovationCost: v.optional(v.number()),
   acquisitionFeesPct: v.optional(v.number()),
+  // Frais d'acquisition détaillés (TND, sauf acquisitionFeesPct en %)
+  financingFees: v.optional(v.number()),
+  agencyFees: v.optional(v.number()),
+  furnishingCost: v.optional(v.number()),
+  // Charges d'exploitation annuelles (TND/an)
+  annualCharges: v.optional(v.number()),
+  insurance: v.optional(v.number()),
+  taxes: v.optional(v.number()),
+  managementFees: v.optional(v.number()),
+  taxationPct: v.optional(v.number()),
   annualAppreciationPct: v.optional(v.number()),
   rentGrowthPct: v.optional(v.number()),
   inflationPct: v.optional(v.number()),
@@ -625,10 +639,20 @@ export type InvestmentAnalysisInput = {
   city?: string;
   quartier?: string;
   monthlyRent: number;
+  rentMode?: "nuit" | "mensuel";
+  rentAmount?: number;
   occupancyRate?: number;
   annualExpensesPct?: number;
   renovationCost?: number;
   acquisitionFeesPct?: number;
+  financingFees?: number;
+  agencyFees?: number;
+  furnishingCost?: number;
+  annualCharges?: number;
+  insurance?: number;
+  taxes?: number;
+  managementFees?: number;
+  taxationPct?: number;
   annualAppreciationPct?: number;
   rentGrowthPct?: number;
   inflationPct?: number;
@@ -715,6 +739,15 @@ export const indicatorsValidator = v.object({
   totalCost: v.number(),
   acquisitionFees: v.number(),
   renovationCost: v.number(),
+  financingFees: v.number(),
+  agencyFees: v.number(),
+  furnishingCost: v.number(),
+  annualCharges: v.number(),
+  insurance: v.number(),
+  taxes: v.number(),
+  managementFees: v.number(),
+  taxation: v.number(),
+  rentMode: v.union(v.literal("nuit"), v.literal("mensuel")),
   monthlyRent: v.number(),
   occupancyRate: v.number(),
   grossAnnualRent: v.number(),
@@ -817,6 +850,15 @@ export type InvestmentIndicators = {
   totalCost: number;
   acquisitionFees: number;
   renovationCost: number;
+  financingFees: number;
+  agencyFees: number;
+  furnishingCost: number;
+  annualCharges: number;
+  insurance: number;
+  taxes: number;
+  managementFees: number;
+  taxation: number;
+  rentMode: "nuit" | "mensuel";
   monthlyRent: number;
   occupancyRate: number;
   grossAnnualRent: number;

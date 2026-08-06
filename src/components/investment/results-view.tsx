@@ -119,7 +119,10 @@ export function ResultsView({ run, zones, assistant }: {
                 </Badge>
               </div>
               <p className="text-[11px] text-muted-foreground mt-1 truncate">
-                {TYPE_META[run.input?.investmentType as InvestmentType]?.label} · {fmtTND(ind.purchasePrice)} · Loyer {fmtTND(ind.monthlyRent)}/mois
+                {TYPE_META[run.input?.investmentType as InvestmentType]?.label} · {fmtTND(ind.purchasePrice)} · Loyer{" "}
+                {(run.input as any)?.rentMode === "nuit"
+                  ? `${fmtTND((run.input as any)?.rentAmount ?? 0)}/nuit`
+                  : `${fmtTND(ind.monthlyRent)}/mois`}
               </p>
               <div className="mt-3">
                 <ScoreGauge score={results.score.total} grade={results.score.grade} />
@@ -282,10 +285,18 @@ export function ResultsView({ run, zones, assistant }: {
                 {[
                   ["Prix d'achat", fmtTND(ind.purchasePrice)],
                   ["Frais d'acquisition", fmtTND(ind.acquisitionFees)],
-                  ["Travaux de rénovation", fmtTND(ind.renovationCost)],
+                  ["Frais de financement", fmtTND((ind as any).financingFees ?? 0)],
+                  ["Frais d'agence", fmtTND((ind as any).agencyFees ?? 0)],
+                  ["Coût d'aménagement", fmtTND(ind.renovationCost ?? 0)],
+                  ["Ameublement", fmtTND((ind as any).furnishingCost ?? 0)],
                   ["Coût total de l'investissement", fmtTND(ind.totalCost), true],
                   ["Revenus locatifs bruts annuels", fmtTND(ind.grossAnnualRent)],
-                  ["Charges d'exploitation annuelles", `- ${fmtTND(ind.operatingExpenses)}`],
+                  ["Charges annuelles", fmtTND((ind as any).annualCharges ?? 0)],
+                  ["Assurance", fmtTND((ind as any).insurance ?? 0)],
+                  ["Taxes", fmtTND((ind as any).taxes ?? 0)],
+                  ["Frais de gestion", fmtTND((ind as any).managementFees ?? 0)],
+                  ["Fiscalité", fmtTND((ind as any).taxation ?? 0)],
+                  ["Total charges d'exploitation annuelles", `- ${fmtTND(ind.operatingExpenses)}`],
                   ["Revenu net annuel", fmtTND(ind.netAnnualIncome), true],
                   ["Cash-flow mensuel", fmtTND(ind.monthlyCashflow)],
                   ["Cash-flow annuel", fmtTND(ind.annualCashflow)],

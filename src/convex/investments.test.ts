@@ -62,6 +62,76 @@ describe("Moteur financier (fonctions pures)", () => {
     expect(ind.pricePerM2).toBe(3302); // 396226 / 120 arrondi
   });
 
+  it("loyer à la nuitée : équivalent mensuel = montant × 365/12", () => {
+    const input = normalizeInput({
+      ...BASE_INPUT,
+      rentMode: "nuit",
+      rentAmount: 150,
+      occupancyRate: 60,
+    });
+    const ind = computeIndicators(input);
+    expect(input.rentMode).toBe("nuit");
+    expect(input.rentAmount).toBe(150);
+    expect(ind.monthlyRent).toBe(Math.round((150 * 365) / 12));
+    expect(ind.grossAnnualRent).toBe(Math.round(ind.monthlyRent * 12 * 0.6));
+    expect(ind.occupancyRate).toBe(60);
+  });
+
+  it("charges détaillées et fiscalité intégrées aux charges d'exploitation", () => {
+    const input = normalizeInput({
+      ...BASE_INPUT,
+      annualCharges: 2000,
+      insurance: 500,
+      taxes: 300,
+      managementFees: 0,
+      taxationPct: 10,
+    });
+    const ind = computeIndicators(input);
+    expect(ind.grossAnnualRent).toBe(42000); // 3500 × 12 × 100 %
+    expect(ind.annualCharges).toBe(2000);
+    expect(ind.insurance).toBe(500);
+    expect(ind.taxes).toBe(300);
+    expect(ind.managementFees).toBe(0);
+    expect(ind.taxation).toBe(4200); // 10 % du brut
+    expect(ind.operatingExpenses).toBe(2000 + 500 + 300 + 4200);
+    expect(ind.netAnnualIncome).toBe(42000 - 7000);
+  });
+
+  it("frais de financement, d'agence, d'aménagement et ameublement ajoutés au coût total", () => {
+    const input = normalizeInput({
+      ...BASE_INPUT,
+      financingFees: 5000,
+      agencyFees: 8000,
+      renovationCost: 10000,
+      furnishingCost: 15000,
+    });
+    const ind = computeIndicators(input);
+    expect(ind.acquisitionFees).toBe(23774); // 6 % de 396226
+    expect(ind.financingFees).toBe(5000);
+    expect(ind.agencyFees).toBe(8000);
+    expect(ind.renovationCost).toBe(10000);
+    expect(ind.furnishingCost).toBe(15000);
+    expect(ind.totalCost).toBe(396226 + 23774 + 5000 + 8000 + 10000 + 15000);
+  });
+
+  it("la durée prévue de l'investissement est plancher à 5 ans", () => {
+    const input = normalizeInput({ ...BASE_INPUT, horizonYears: 3 });
+    expect(input.horizonYears).toBe(5);
+  });
+
+  it("l'appréciation annuelle est bornée entre 4 % et 6 %", () => {
+    const low = normalizeInput({ ...BASE_INPUT, annualAppreciationPct: 2 });
+    const high = normalizeInput({ ...BASE_INPUT, annualAppreciationPct: 9 });
+    expect(low.annualAppreciationPct).toBe(4);
+    expect(high.annualAppreciationPct).toBe(6);
+  });
+
+  it("hypothèses fixes du moteur : loyers 5 %, inflation 6 %", () => {
+    const input = normalizeInput({ ...BASE_INPUT });
+    expect(input.rentGrowthPct).toBe(5);
+    expect(input.inflationPct).toBe(6);
+  });
+
   it("prévisions : 10 points, revenus cumulés croissants, résumé 1/3/5/10 ans", () => {
     const input = normalizeInput(BASE_INPUT);
     const { points, summary } = buildForecasts(input);
