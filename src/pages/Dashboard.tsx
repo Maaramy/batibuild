@@ -635,20 +635,20 @@ export default function Dashboard() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm sm:text-base lg:text-lg font-bold">Analyse de rentabilité immobilière par IA</p>
+                      <p className="text-sm sm:text-base lg:text-lg font-bold">L'immobilier devient plus intelligent : analysez, anticipez et maximisez la valeur de vos investissements grâce à l'IA.</p>
                       <Badge className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[9px]">
                         <Sparkles className="h-3 w-3" />
                         Conseiller IA
                       </Badge>
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                      ROI, cash-flow, prévisions, scénarios et score d'investissement — marché tunisien 2026
+                      Return on Investment, flux de trésorerie, prévisions, scénarios et score d'investissement — marché tunisien 2026
                     </p>
                     {/* Feature chips */}
                     <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                       {[
-                        { icon: TrendingUp, label: "ROI & rendement", cls: "border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300" },
-                        { icon: Wallet, label: "Cash-flow", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+                        { icon: TrendingUp, label: "Return on Investment & rendement", cls: "border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300" },
+                        { icon: Wallet, label: "Flux de trésorerie", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
                         { icon: BarChart3, label: "Prévisions 10 ans", cls: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400" },
                         { icon: Layers, label: "3 scénarios", cls: "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400" },
                       ].map((chip) => (
@@ -662,7 +662,7 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3">
                   <span className="text-[10px] sm:text-xs text-muted-foreground">
-                    <span className="font-semibold text-indigo-600 dark:text-indigo-300">Gratuit</span> — aucune carte requise
+                    <span className="font-semibold text-indigo-600 dark:text-indigo-300">Seulement à 120 TND</span>
                   </span>
                   <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 text-xs font-semibold shrink-0">
                     <span className="hidden sm:inline">Lancer l'analyse</span>
