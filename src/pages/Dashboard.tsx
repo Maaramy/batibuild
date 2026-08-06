@@ -289,7 +289,7 @@ export default function Dashboard() {
           { icon: BarChart3, label: "Comparer", onClick: () => setMobileSidebarOpen(false) },
           { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
           { icon: Store, label: "Espace fournisseur", onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
-          { icon: Landmark, label: "Analyse immobilière", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
+          { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
           { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
           ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
         ].map((item) => (
@@ -459,14 +459,19 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
                   <span className="text-[10px] sm:text-xs text-muted-foreground">
                     <span className="font-semibold text-indigo-600 dark:text-indigo-300">Seulement à 120 TND</span>
                   </span>
-                  <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 text-xs font-semibold shrink-0">
-                    <span className="hidden sm:inline">Lancer l'analyse</span>
-                    <ArrowUpRight className="h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </div>
+                  <Button
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); navigate("/dashboard/investments"); }}
+                    className="h-8 shrink-0 gap-1.5 px-3.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-600/25 hover:from-indigo-500 hover:to-blue-500 hover:shadow-indigo-600/40 transition-all active:scale-[0.97]"
+                  >
+                    <Landmark className="h-3.5 w-3.5" />
+                    Lancer l'analyse
+                    <ArrowUpRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </Button>
                 </div>
               </div>
             </CardContent>
