@@ -202,7 +202,7 @@ export function ResultsView({ run, zones, assistant }: {
                 <TabsTrigger
                   key={t.value}
                   value={t.value}
-                  className="gap-1.5 rounded-full text-[11px] sm:text-xs px-3 py-1.5 transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
+                  className="gap-1.5 rounded-full text-[11px] sm:text-xs px-3 py-1.5 transition-all data-[state=active]:bg-violet-500/15 dark:data-[state=active]:bg-violet-500/25 data-[state=active]:text-violet-700 dark:data-[state=active]:text-violet-300 data-[state=active]:shadow-sm"
                 >
                   <t.icon className="h-3.5 w-3.5" />
                   <span className="hidden xs:inline sm:inline">{t.label}</span>
