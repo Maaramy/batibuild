@@ -141,10 +141,7 @@ export function ResultsView({ run, zones, assistant }: {
   return (
     <>
       {/* ═══ Tableau de bord décisionnel ═══ */}
-      <Card className="relative overflow-hidden border-border/40 bg-gradient-to-br from-indigo-950/50 via-background/90 to-background dark:from-indigo-900/45">
-        <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/20" />
-        <div className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-500/15" />
-        <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
+      <Card className="relative overflow-hidden border-border/40 bg-white dark:bg-card">
         <CardContent className="relative p-4 sm:p-6">
           <div className="flex flex-col xl:flex-row xl:items-center gap-5">
             <div className="min-w-0 flex-1">
