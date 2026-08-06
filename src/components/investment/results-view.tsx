@@ -284,7 +284,7 @@ export function ResultsView({ run, zones, assistant }: {
               </Card>
             )}
 
-            <Card className="border border-border/40 bg-white dark:bg-card shadow-sm">
+            <Card className="border border-border/40 bg-white dark:bg-card">
               <CardContent className="p-4">
                 <SectionHeading icon={MapPin} title={`Zone : ${results.zone.name}`} desc={`Rang ${results.zone.rank}/24 en attractivité en Tunisie`} />
                 {(results.zone.city || results.zone.quartier) && (
@@ -317,7 +317,7 @@ export function ResultsView({ run, zones, assistant }: {
               </CardContent>
             </Card>
 
-            <Card className="border border-border/40 bg-white dark:bg-card shadow-sm">
+            <Card className="border border-border/40 bg-white dark:bg-card">
               <CardContent className="p-4">
                 <SectionHeading icon={Gauge} title="Détail du score IA" desc="Critères pondérés de la note finale" />
                 <div className="space-y-2.5">
@@ -344,7 +344,7 @@ export function ResultsView({ run, zones, assistant }: {
         {/* ── INDICATEURS ── */}
         {activeTab === "indicateurs" && (
           <>
-            <Card className="border border-border/40 bg-white dark:bg-card shadow-sm">
+            <Card className="border border-border/40 bg-white dark:bg-card">
               <CardContent className="p-4">
                 <SectionHeading icon={Percent} title="Indicateurs financiers" desc="Calculs automatiques du moteur" />
                 <div className="space-y-5">
@@ -407,7 +407,7 @@ export function ResultsView({ run, zones, assistant }: {
               </CardContent>
             </Card>
 
-          <Card className="border border-border/40 bg-white dark:bg-card shadow-sm">
+          <Card className="border border-border/40 bg-white dark:bg-card">
             <CardContent className="p-4">
               <SectionHeading
                 icon={BarChart3}
@@ -428,7 +428,7 @@ export function ResultsView({ run, zones, assistant }: {
           <div className="space-y-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
               {results.forecastSummary.map((s) => (
-                <Card key={s.horizon} className="border border-border/40 bg-white dark:bg-card shadow-sm overflow-hidden">
+                <Card key={s.horizon} className="border border-border/40 bg-white dark:bg-card overflow-hidden">
                   <div className={cn("h-1 w-full", s.horizon === 10 ? "bg-indigo-500" : s.horizon === 5 ? "bg-blue-500" : s.horizon === 3 ? "bg-emerald-500" : "bg-amber-500")} />
                   <CardContent className="p-3 sm:p-4">
                     <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">Horizon {s.label}</p>
@@ -445,7 +445,7 @@ export function ResultsView({ run, zones, assistant }: {
                 </Card>
               ))}
             </div>
-            <Card className="border border-border/40 bg-white dark:bg-card shadow-sm">
+            <Card className="border border-border/40 bg-white dark:bg-card">
               <CardHeader className="p-4 pb-0">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-primary" />
@@ -488,7 +488,7 @@ export function ResultsView({ run, zones, assistant }: {
               </CardContent>
             </Card>
 
-            <Card className="border border-border/40 bg-white dark:bg-card shadow-sm">
+            <Card className="border border-border/40 bg-white dark:bg-card">
               <CardHeader className="p-4 pb-0">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-primary" />
@@ -542,7 +542,7 @@ export function ResultsView({ run, zones, assistant }: {
                 <Card
                   key={s.key}
                   className={cn(
-                    "border bg-white dark:bg-card shadow-sm overflow-hidden transition-all hover:shadow-md",
+                    "border bg-white dark:bg-card overflow-hidden transition-all",
                     s.key === "optimiste" ? "border-emerald-500/30" : s.key === "realiste" ? "border-blue-500/30" : "border-amber-500/30",
                   )}
                 >
@@ -599,7 +599,7 @@ export function ResultsView({ run, zones, assistant }: {
               ))}
             </div>
 
-            <Card className="border border-border/40 bg-white dark:bg-card shadow-sm">
+            <Card className="border border-border/40 bg-white dark:bg-card">
               <CardHeader className="p-4 pb-0">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <BarChart3 className="h-4 w-4 text-primary" />
@@ -649,7 +649,7 @@ export function ResultsView({ run, zones, assistant }: {
         {/* ── COMPARAISON ── */}
         {activeTab === "comparaison" && (
           <div className="space-y-4">
-            <Card className="border border-border/40 bg-white dark:bg-card shadow-sm">
+            <Card className="border border-border/40 bg-white dark:bg-card">
               <CardContent className="p-4">
                 <SectionHeading
                   icon={BarChart3}
@@ -703,7 +703,7 @@ export function ResultsView({ run, zones, assistant }: {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border border-border/40 bg-white dark:bg-card shadow-sm">
+            <Card className="border border-border/40 bg-white dark:bg-card">
               <CardHeader className="p-4 pb-0">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <BarChart3 className="h-4 w-4 text-primary" />
@@ -739,7 +739,7 @@ export function ResultsView({ run, zones, assistant }: {
 
         {/* ── ZONES ── */}
         {activeTab === "zones" && (
-          <Card className="border border-border/40 bg-white dark:bg-card shadow-sm">
+          <Card className="border border-border/40 bg-white dark:bg-card">
             <CardContent className="p-4">
               <SectionHeading
                 icon={MapPin}
@@ -810,7 +810,7 @@ export function ResultsView({ run, zones, assistant }: {
 
         {/* ── ASSISTANT IA ── */}
         {assistant && activeTab === "assistant" && (
-          <Card className="border border-border/40 bg-white dark:bg-card shadow-sm overflow-hidden">
+          <Card className="border border-border/40 bg-white dark:bg-card overflow-hidden">
             <CardHeader className="p-4 pb-3 border-b border-border/20">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
