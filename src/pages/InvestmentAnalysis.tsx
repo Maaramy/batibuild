@@ -130,6 +130,10 @@ function projectPreview(form: FormState, years: number) {
   return { profit, roi: base.totalCost > 0 ? (profit / base.totalCost) * 100 : 0 };
 }
 
+/** La ville doit être choisie strictement dans la liste des villes de la région. */
+const cityInList = (city: string, region: string) =>
+  city.trim() !== "" && (REGION_CASCADE[region] ?? []).some((c) => c.name === city);
+
 function loadSavedLocation(): Pick<FormState, "region" | "city" | "quartier"> | null {
   try {
     const raw = localStorage.getItem(LOCATION_STORAGE_KEY);
@@ -241,7 +245,7 @@ export default function InvestmentAnalysis() {
     if (step === 1) {
       if (form.purchasePrice <= 0) { toast.error("Renseignez un prix d'achat valide."); return; }
       if (!form.region.trim()) { toast.error("Renseignez la région — champ obligatoire."); return; }
-      if (!form.city.trim()) { toast.error("Renseignez la ville — champ obligatoire."); return; }
+      if (!cityInList(form.city, form.region)) { toast.error("Renseignez la ville — choisissez une ville dans la liste."); return; }
     }
     if (step === 2 && (form.rentAmount ?? 0) <= 0) { toast.error("Renseignez un loyer estimé valide."); return; }
     if (step === 3 && (form.horizonYears ?? 0) < 5) { toast.error("La durée prévue de l'investissement doit être d'au moins 5 ans."); return; }
@@ -251,7 +255,7 @@ export default function InvestmentAnalysis() {
   const handleAnalyze = async () => {
     if (form.purchasePrice <= 0) { toast.error("Renseignez un prix d'achat valide."); return; }
     if (!form.region.trim()) { toast.error("Renseignez la région — champ obligatoire."); return; }
-    if (!form.city.trim()) { toast.error("Renseignez la ville — champ obligatoire."); return; }
+    if (!cityInList(form.city, form.region)) { toast.error("Renseignez la ville — choisissez une ville dans la liste."); return; }
     if ((form.rentAmount ?? 0) <= 0) { toast.error("Renseignez un loyer estimé valide."); return; }
     if ((form.horizonYears ?? 0) < 5) { toast.error("La durée prévue de l'investissement doit être d'au moins 5 ans."); return; }
     setRunning(true);
@@ -349,7 +353,7 @@ export default function InvestmentAnalysis() {
 
   const fieldChecks = {
     region: form.region.trim() !== "",
-    city: form.city.trim() !== "" && villeOptions.some((o) => o.label === form.city),
+    city: cityInList(form.city, form.region),
     purchasePrice: positive(form.purchasePrice),
     area: filled(form.area, 1),
     rentAmount: positive(form.rentAmount),

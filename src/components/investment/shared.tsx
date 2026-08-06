@@ -226,7 +226,7 @@ export function Kpi({ icon: Icon, label, value, sub, tone = "text-foreground" }:
           </div>
           <p className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate">{label}</p>
         </div>
-        <p className="text-base sm:text-lg font-bold tabular-nums truncate">{value}</p>
+        <p className={cn("text-base sm:text-lg font-bold tabular-nums truncate", tone)}>{value}</p>
         {sub && <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate mt-0.5">{sub}</p>}
       </CardContent>
     </Card>
