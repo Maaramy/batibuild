@@ -687,12 +687,9 @@ export default function Dashboard() {
 
           {/* ── Investment analysis CTA (placé sous les projets) ── */}
           <Card
-            className="group relative border border-indigo-500/25 bg-gradient-to-br from-indigo-600/15 via-blue-500/10 to-emerald-500/10 dark:from-indigo-950/60 dark:via-blue-950/30 overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/15 active:scale-[0.99]"
+            className="group relative border border-border/40 bg-white dark:bg-card overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/10 active:scale-[0.99]"
             onClick={() => navigate("/dashboard/investments")}
           >
-            <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-indigo-500/15 blur-3xl dark:bg-indigo-500/25" />
-            <div className="pointer-events-none absolute -bottom-32 -left-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl dark:bg-emerald-500/20" />
-            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
             <CardContent className="relative p-4 sm:p-6">
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
@@ -726,7 +723,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/20 pt-3">
                   <span className="text-[10px] sm:text-xs text-muted-foreground">
                     <span className="font-semibold text-indigo-600 dark:text-indigo-300">Seulement à 120 TND</span>
                   </span>
