@@ -77,6 +77,58 @@ const stepVariants = {
 
 const LOCATION_STORAGE_KEY = "budgetbati.investment.location";
 
+// ── Aperçu financier en direct (miroir des calculs du moteur) ────────────────
+// Recalcule les principaux indicateurs côté client à chaque saisie pour donner
+// un aperçu immédiat avant le lancement de l'analyse IA.
+
+function previewFinance(form: FormState) {
+  const purchasePrice = Math.max(0, form.purchasePrice ?? 0);
+  const acquisitionFees = Math.round(purchasePrice * ((form.acquisitionFeesPct ?? 0) / 100));
+  const totalCost =
+    purchasePrice +
+    acquisitionFees +
+    Math.max(0, form.financingFees ?? 0) +
+    Math.max(0, form.agencyFees ?? 0) +
+    Math.max(0, form.renovationCost ?? 0) +
+    Math.max(0, form.furnishingCost ?? 0);
+
+  const monthlyRent =
+    form.rentMode === "nuit"
+      ? Math.round((form.rentAmount ?? 0) * (365 / 12))
+      : Math.max(0, form.rentAmount ?? 0);
+  const occupancyRate = Math.min(100, Math.max(50, form.occupancyRate ?? 95));
+  const grossAnnualRent = Math.round(monthlyRent * 12 * (occupancyRate / 100));
+  const annualCharges =
+    Math.max(0, form.annualCharges ?? 0) +
+    Math.max(0, form.insurance ?? 0) +
+    Math.max(0, form.managementFees ?? 0);
+  const taxation = Math.round(grossAnnualRent * (Math.max(0, form.taxationPct ?? 0) / 100));
+  const operatingExpenses = annualCharges + taxation;
+  const netAnnualIncome = grossAnnualRent - operatingExpenses;
+  const monthlyCashflow = Math.round(netAnnualIncome / 12);
+  const netYieldPct = totalCost > 0 ? (netAnnualIncome / totalCost) * 100 : 0;
+  const paybackYears = netAnnualIncome > 0 ? totalCost / netAnnualIncome : null;
+  return { totalCost, grossAnnualRent, operatingExpenses, netAnnualIncome, monthlyCashflow, netYieldPct, paybackYears };
+}
+
+/** Projection simplifiée (loyers +5 %, charges +6 %, appréciation saisie). */
+function projectPreview(form: FormState, years: number) {
+  const base = previewFinance(form);
+  let rent = base.grossAnnualRent;
+  let expenses = base.operatingExpenses;
+  let cumulative = 0;
+  for (let y = 1; y <= years; y++) {
+    rent *= 1.05;
+    expenses *= 1.06;
+    cumulative += Math.max(0, Math.round(rent) - Math.round(expenses));
+  }
+  const propertyValue = Math.round(
+    (form.purchasePrice ?? 0) * Math.pow(1 + ((form.annualAppreciationPct ?? 5) / 100), years),
+  );
+  const profit = cumulative + (propertyValue - base.totalCost);
+  return { profit, roi: base.totalCost > 0 ? (profit / base.totalCost) * 100 : 0 };
+}
+
 function loadSavedLocation(): Pick<FormState, "region" | "city" | "quartier"> | null {
   try {
     const raw = localStorage.getItem(LOCATION_STORAGE_KEY);
@@ -165,7 +217,6 @@ export default function InvestmentAnalysis() {
     occupancyRate: form.occupancyRate,
     annualCharges: form.annualCharges,
     insurance: form.insurance,
-    taxes: form.taxes,
     managementFees: form.managementFees,
     taxationPct: form.taxationPct,
     renovationCost: form.renovationCost,
@@ -258,6 +309,11 @@ export default function InvestmentAnalysis() {
     effectiveMonthlyRent * 12 * ((form.occupancyRate ?? 100) / 100),
   );
 
+  // ── Aperçu financier en direct, recalculé à chaque modification ──
+  const preview = previewFinance(form);
+  const preview5 = projectPreview(form, 5);
+  const preview10 = projectPreview(form, 10);
+
   // ── Autocomplétion en cascade : Région → Ville → Quartier ──
   // Chaque région affiche le nombre de villes disponibles, chaque ville le
   // nombre de quartiers prédéfinis (badge discret dans la liste déroulante).
@@ -299,7 +355,6 @@ export default function InvestmentAnalysis() {
     occupancyRate: filled(form.occupancyRate, 1),
     annualCharges: filled(form.annualCharges, 0),
     insurance: filled(form.insurance, 0),
-    taxes: filled(form.taxes, 0),
     managementFees: filled(form.managementFees, 0),
     taxationPct: filled(form.taxationPct, 0),
     financingFees: filled(form.financingFees, 0),
@@ -637,10 +692,7 @@ export default function InvestmentAnalysis() {
                           <NumField label="Charges annuelles" value={form.annualCharges} suffix="TND/an" valid={fieldChecks.annualCharges} onChange={(v) => set("annualCharges", v ?? 0)} />
                           <NumField label="Assurance" value={form.insurance} suffix="TND/an" valid={fieldChecks.insurance} onChange={(v) => set("insurance", v ?? 0)} />
                         </div>
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <NumField label="Taxes" value={form.taxes} suffix="TND/an" valid={fieldChecks.taxes} onChange={(v) => set("taxes", v ?? 0)} />
-                          <NumField label="Frais de gestion" value={form.managementFees} suffix="TND/an" hint="Si existant" valid={fieldChecks.managementFees} onChange={(v) => set("managementFees", v ?? 0)} />
-                        </div>
+                        <NumField label="Frais de gestion" value={form.managementFees} suffix="TND/an" hint="Si existant" valid={fieldChecks.managementFees} onChange={(v) => set("managementFees", v ?? 0)} />
                         <NumField label="Fiscalité" value={form.taxationPct} suffix="%" step={0.5} hint="Impôt sur les revenus locatifs — appliqué au loyer brut" valid={fieldChecks.taxationPct} onChange={(v) => set("taxationPct", v)} />
 
                         <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
@@ -749,6 +801,28 @@ export default function InvestmentAnalysis() {
                             <span className="text-muted-foreground">Fiscalité</span>
                             <span className="font-semibold text-right tabular-nums">{form.taxationPct ?? 0}% du brut</span>
                           </div>
+                        </div>
+
+                        {/* ── Aperçu financier en direct ── */}
+                        <div className="rounded-xl border border-indigo-500/25 bg-gradient-to-br from-indigo-500/10 to-blue-500/5 p-2.5">
+                          <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 mb-2 flex items-center gap-1">
+                            <Gauge className="h-3 w-3" />
+                            Aperçu financier en direct
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                            <PreviewTile label="Coût total" value={`${fmtNum(preview.totalCost)} TND`} />
+                            <PreviewTile label="Revenus bruts / an" value={`${fmtNum(preview.grossAnnualRent)} TND`} />
+                            <PreviewTile label="Revenu net / an" value={`${fmtNum(preview.netAnnualIncome)} TND`} tone={preview.netAnnualIncome >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
+                            <PreviewTile label="Cash-flow / mois" value={`${fmtNum(preview.monthlyCashflow)} TND`} tone={preview.monthlyCashflow >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
+                            <PreviewTile label="Rentabilité nette" value={`${preview.netYieldPct.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} />
+                            <PreviewTile label="Récupération" value={preview.paybackYears ? `${fmtNum(Math.round(preview.paybackYears * 10) / 10)} ans` : "—"} />
+                            <PreviewTile label="ROI 5 ans" value={`${preview5.roi.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} tone={preview5.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
+                            <PreviewTile label="ROI 10 ans" value={`${preview10.roi.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} tone={preview10.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
+                          </div>
+                          <p className="mt-2 text-[9px] text-muted-foreground/70 leading-relaxed">
+                            Estimation indicative recalculée en direct — le rapport IA détaillé affinera ces
+                            chiffres avec les hypothèses fixes du moteur (inflation 6 %, loyers +5 %/an, appréciation {form.annualAppreciationPct ?? 5} %).
+                          </p>
                         </div>
                       </>
                     )}
@@ -1006,6 +1080,17 @@ export default function InvestmentAnalysis() {
         </div>
       </div>
     </main>
+  );
+}
+
+function PreviewTile({ label, value, tone = "text-foreground" }: {
+  label: string; value: string; tone?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-indigo-500/15 bg-background/60 px-2 py-1.5">
+      <p className="text-[9px] text-muted-foreground truncate">{label}</p>
+      <p className={cn("text-[11px] font-bold tabular-nums truncate", tone)}>{value}</p>
+    </div>
   );
 }
 

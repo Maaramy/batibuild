@@ -53,7 +53,6 @@ export type NormalizedInput = {
   // Charges d'exploitation annuelles détaillées (TND/an)
   annualCharges: number;
   insurance: number;
-  taxes: number;
   managementFees: number;
   taxationPct: number; // fiscalité (% du revenu locatif brut)
   // Frais d'acquisition (TND, sauf acquisitionFeesPct en % du prix)
@@ -73,7 +72,6 @@ function annualExpensesFor(input: NormalizedInput, grossAnnualRent: number): num
   return money(
     input.annualCharges +
       input.insurance +
-      input.taxes +
       input.managementFees +
       grossAnnualRent * (input.taxationPct / 100),
   );
@@ -116,7 +114,6 @@ export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput 
   const hasItemized = [
     input.annualCharges,
     input.insurance,
-    input.taxes,
     input.managementFees,
     input.taxationPct,
   ].some((x) => typeof x === "number");
@@ -140,7 +137,6 @@ export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput 
     occupancyRate,
     annualCharges,
     insurance: Math.max(0, input.insurance ?? 0),
-    taxes: Math.max(0, input.taxes ?? 0),
     managementFees: Math.max(0, input.managementFees ?? 0),
     taxationPct: clamp(input.taxationPct ?? 0, 0, 50),
     renovationCost: Math.max(0, input.renovationCost ?? 0),
@@ -276,7 +272,6 @@ export function computeIndicators(input: NormalizedInput): InvestmentIndicators 
     furnishingCost,
     annualCharges: money(input.annualCharges),
     insurance: money(input.insurance),
-    taxes: money(input.taxes),
     managementFees: money(input.managementFees),
     taxation,
     rentMode: input.rentMode,
@@ -841,7 +836,6 @@ export const getDemoAnalysis = query({
       occupancyRate: 95,
       annualCharges: 2400,
       insurance: 400,
-      taxes: 0,
       managementFees: 0,
       taxationPct: 10,
       renovationCost: 8000,

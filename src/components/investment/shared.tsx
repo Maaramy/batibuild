@@ -56,7 +56,6 @@ export type InvestmentInput = {
   furnishingCost?: number;
   annualCharges?: number;
   insurance?: number;
-  taxes?: number;
   managementFees?: number;
   taxationPct?: number;
   annualAppreciationPct?: number;
@@ -68,7 +67,7 @@ export type InvestmentInput = {
 export interface Indicators {
   purchasePrice: number; totalCost: number; acquisitionFees: number; renovationCost: number;
   financingFees: number; agencyFees: number; furnishingCost: number;
-  annualCharges: number; insurance: number; taxes: number; managementFees: number; taxation: number;
+  annualCharges: number; insurance: number; managementFees: number; taxation: number;
   rentMode: "nuit" | "mensuel";
   monthlyRent: number; occupancyRate: number; grossAnnualRent: number; operatingExpenses: number;
   netAnnualIncome: number; monthlyCashflow: number; annualCashflow: number;
@@ -131,7 +130,6 @@ export const DEFAULT_FORM = {
   occupancyRate: 95,
   annualCharges: 1200,
   insurance: 300,
-  taxes: 0,
   managementFees: 0,
   taxationPct: 10,
   renovationCost: 0,
@@ -416,7 +414,6 @@ export function generatePdf(run: AnalysisRun) {
       ["Revenus locatifs bruts annuels", fmtPdf(ind.grossAnnualRent)],
       ["Charges annuelles", fmtPdf(ind.annualCharges ?? 0)],
       ["Assurance", fmtPdf(ind.insurance ?? 0)],
-      ["Taxes", fmtPdf(ind.taxes ?? 0)],
       ["Frais de gestion", fmtPdf(ind.managementFees ?? 0)],
       ["Fiscalité (" + (input.taxationPct ?? 0) + " % du brut)", fmtPdf(ind.taxation ?? 0)],
       ["Total charges d'exploitation annuelles", fmtPdf(ind.operatingExpenses)],
@@ -583,7 +580,6 @@ export function exportCsv(run: AnalysisRun) {
       ["Taux d'occupation", `${ind.occupancyRate}%`],
       ["Charges annuelles", `${ind.annualCharges ?? 0} TND`],
       ["Assurance", `${ind.insurance ?? 0} TND`],
-      ["Taxes", `${ind.taxes ?? 0} TND`],
       ["Frais de gestion", `${ind.managementFees ?? 0} TND`],
       ["Fiscalité", `${input.taxationPct ?? 0}% du brut (${ind.taxation ?? 0} TND/an)`],
       ["Score IA", `${results.score.total}/100 — ${results.score.grade}`],

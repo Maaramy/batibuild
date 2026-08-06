@@ -37,6 +37,8 @@ import {
   CartesianGrid,
   BarChart,
   Bar,
+  PieChart,
+  Pie,
   Cell,
   Legend,
   ReferenceLine,
@@ -79,6 +81,28 @@ export function ResultsView({ run, zones, assistant }: {
     "ROI 10 ans": c.roi10yPct,
     Score: c.score,
   }));
+
+  // ── Répartition des coûts (rétro-compatible avec les anciennes analyses) ──
+  const costBreakdownData = [
+    { name: "Prix d'achat", value: ind.purchasePrice, color: "#6366f1" },
+    { name: "Frais d'acquisition", value: ind.acquisitionFees ?? 0, color: "#3b82f6" },
+    { name: "Frais de financement", value: (ind as any).financingFees ?? 0, color: "#06b6d4" },
+    { name: "Frais d'agence", value: (ind as any).agencyFees ?? 0, color: "#8b5cf6" },
+    { name: "Aménagement", value: ind.renovationCost ?? 0, color: "#f59e0b" },
+    { name: "Ameublement", value: (ind as any).furnishingCost ?? 0, color: "#10b981" },
+  ].filter((d) => d.value > 0);
+  const expenseBreakdown = [
+    { name: "Charges annuelles", value: (ind as any).annualCharges ?? 0, color: "#3b82f6" },
+    { name: "Assurance", value: (ind as any).insurance ?? 0, color: "#10b981" },
+    { name: "Frais de gestion", value: (ind as any).managementFees ?? 0, color: "#8b5cf6" },
+    { name: "Fiscalité", value: (ind as any).taxation ?? 0, color: "#ef4444" },
+  ].filter((d) => d.value > 0);
+  const expenseBreakdownData =
+    expenseBreakdown.length > 0
+      ? expenseBreakdown
+      : ind.operatingExpenses > 0
+        ? [{ name: "Charges d'exploitation", value: ind.operatingExpenses, color: "#6366f1" }]
+        : [];
 
   const QUICK_QUESTIONS = [
     "Cet investissement est-il rentable ?",
@@ -278,9 +302,10 @@ export function ResultsView({ run, zones, assistant }: {
 
         {/* ── INDICATEURS ── */}
         {activeTab === "indicateurs" && (
-          <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
-            <CardContent className="p-4">
-              <SectionHeading icon={Percent} title="Indicateurs financiers" desc="Calculs automatiques du moteur" />
+          <>
+            <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
+              <CardContent className="p-4">
+                <SectionHeading icon={Percent} title="Indicateurs financiers" desc="Calculs automatiques du moteur" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {[
                   ["Prix d'achat", fmtTND(ind.purchasePrice)],
@@ -293,7 +318,6 @@ export function ResultsView({ run, zones, assistant }: {
                   ["Revenus locatifs bruts annuels", fmtTND(ind.grossAnnualRent)],
                   ["Charges annuelles", fmtTND((ind as any).annualCharges ?? 0)],
                   ["Assurance", fmtTND((ind as any).insurance ?? 0)],
-                  ["Taxes", fmtTND((ind as any).taxes ?? 0)],
                   ["Frais de gestion", fmtTND((ind as any).managementFees ?? 0)],
                   ["Fiscalité", fmtTND((ind as any).taxation ?? 0)],
                   ["Total charges d'exploitation annuelles", `- ${fmtTND(ind.operatingExpenses)}`],
@@ -326,6 +350,21 @@ export function ResultsView({ run, zones, assistant }: {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
+            <CardContent className="p-4">
+              <SectionHeading
+                icon={BarChart3}
+                title="Répartition des coûts"
+                desc="Ventilation du coût total d'acquisition et des charges d'exploitation annuelles"
+              />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <DonutBreakdown data={costBreakdownData} title="Coût total de l'investissement" centerLabel="Coût total" />
+                <DonutBreakdown data={expenseBreakdownData} title="Charges d'exploitation annuelles" centerLabel="Charges / an" />
+              </div>
+            </CardContent>
+          </Card>
+          </>
         )}
 
         {/* ── PRÉVISIONS ── */}
@@ -703,5 +742,62 @@ export function ResultsView({ run, zones, assistant }: {
         )}
       </Tabs>
     </>
+  );
+}
+
+function DonutBreakdown({ data, title, centerLabel }: {
+  data: { name: string; value: number; color: string }[];
+  title: string;
+  centerLabel: string;
+}) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  return (
+    <div className="rounded-xl border border-border/30 bg-muted/10 p-3">
+      <p className="text-[11px] font-semibold mb-2">{title}</p>
+      {data.length === 0 ? (
+        <p className="text-[10px] text-muted-foreground py-8 text-center">Aucune donnée à afficher</p>
+      ) : (
+        <div className="relative">
+          <ResponsiveContainer width="100%" height={190}>
+            <PieChart>
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={52}
+                outerRadius={74}
+                paddingAngle={2}
+                strokeWidth={0}
+              >
+                {data.map((d, i) => (
+                  <Cell key={i} fill={d.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(value: any) => [fmtTND(Number(value)), ""]}
+                contentStyle={{ borderRadius: 10, border: "1px solid rgba(99,102,241,0.2)", fontSize: 11, background: "rgba(255,255,255,0.96)" }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-[9px] text-muted-foreground uppercase tracking-wide">{centerLabel}</span>
+            <span className="text-base font-extrabold tabular-nums">{fmtTND(total)}</span>
+          </div>
+        </div>
+      )}
+      {data.length > 0 && (
+        <div className="mt-1.5 space-y-1">
+          {data.map((d) => (
+            <div key={d.name} className="flex items-center justify-between gap-2 text-[10px]">
+              <span className="flex items-center gap-1.5 text-muted-foreground min-w-0">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: d.color }} />
+                <span className="truncate">{d.name}</span>
+              </span>
+              <span className="font-semibold tabular-nums shrink-0">{fmtTND(d.value)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

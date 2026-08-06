@@ -621,7 +621,6 @@ export const analysisInputValidator = v.object({
   // Charges d'exploitation annuelles (TND/an)
   annualCharges: v.optional(v.number()),
   insurance: v.optional(v.number()),
-  taxes: v.optional(v.number()),
   managementFees: v.optional(v.number()),
   taxationPct: v.optional(v.number()),
   annualAppreciationPct: v.optional(v.number()),
@@ -650,7 +649,6 @@ export type InvestmentAnalysisInput = {
   furnishingCost?: number;
   annualCharges?: number;
   insurance?: number;
-  taxes?: number;
   managementFees?: number;
   taxationPct?: number;
   annualAppreciationPct?: number;
@@ -744,7 +742,6 @@ export const indicatorsValidator = v.object({
   furnishingCost: v.number(),
   annualCharges: v.number(),
   insurance: v.number(),
-  taxes: v.number(),
   managementFees: v.number(),
   taxation: v.number(),
   rentMode: v.union(v.literal("nuit"), v.literal("mensuel")),
@@ -855,7 +852,6 @@ export type InvestmentIndicators = {
   furnishingCost: number;
   annualCharges: number;
   insurance: number;
-  taxes: number;
   managementFees: number;
   taxation: number;
   rentMode: "nuit" | "mensuel";

@@ -82,7 +82,6 @@ describe("Moteur financier (fonctions pures)", () => {
       ...BASE_INPUT,
       annualCharges: 2000,
       insurance: 500,
-      taxes: 300,
       managementFees: 0,
       taxationPct: 10,
     });
@@ -90,11 +89,10 @@ describe("Moteur financier (fonctions pures)", () => {
     expect(ind.grossAnnualRent).toBe(42000); // 3500 × 12 × 100 %
     expect(ind.annualCharges).toBe(2000);
     expect(ind.insurance).toBe(500);
-    expect(ind.taxes).toBe(300);
     expect(ind.managementFees).toBe(0);
     expect(ind.taxation).toBe(4200); // 10 % du brut
-    expect(ind.operatingExpenses).toBe(2000 + 500 + 300 + 4200);
-    expect(ind.netAnnualIncome).toBe(42000 - 7000);
+    expect(ind.operatingExpenses).toBe(2000 + 500 + 4200);
+    expect(ind.netAnnualIncome).toBe(42000 - 6700);
   });
 
   it("frais de financement, d'agence, d'aménagement et ameublement ajoutés au coût total", () => {

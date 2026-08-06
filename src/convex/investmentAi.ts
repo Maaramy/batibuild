@@ -74,7 +74,7 @@ export const runAnalysis = action({
       (location ? `Localisation saisie: ${location}.\n` : "") +
       `Prix d'achat: ${ind.purchasePrice} TND · Coût total: ${ind.totalCost} TND (dont frais d'acquisition ${ind.acquisitionFees} TND, financement ${ind.financingFees} TND, agence ${ind.agencyFees} TND, aménagement ${ind.renovationCost} TND, ameublement ${ind.furnishingCost} TND).\n` +
       `Loyer estimé: ${rentLabel} (taux d'occupation ${normalized.occupancyRate}%).\n` +
-      `Charges annuelles: ${ind.annualCharges} TND (charges courantes ${ind.annualCharges} TND, assurance ${ind.insurance} TND, taxes ${ind.taxes} TND, gestion ${ind.managementFees} TND, fiscalité ${normalized.taxationPct}% soit ${ind.taxation} TND).\n` +
+      `Charges annuelles: ${ind.annualCharges} TND (charges courantes ${ind.annualCharges} TND, assurance ${ind.insurance} TND, gestion ${ind.managementFees} TND, fiscalité ${normalized.taxationPct}% soit ${ind.taxation} TND).\n` +
       `Revenu net annuel: ${ind.netAnnualIncome} TND · Rendement brut ${ind.grossYieldPct}% · rendement net ${ind.netYieldPct}%.\n` +
       `Cash-flow mensuel: ${ind.monthlyCashflow} TND · ROI annuel ${ind.roiAnnualPct}% · ROI 5 ans ${ind.roi5yPct}% · ROI 10 ans ${ind.roi10yPct}%.\n` +
       `Hypothèses fixes du moteur: inflation ${normalized.inflationPct}% · croissance des loyers ${normalized.rentGrowthPct}%/an · appréciation du bien ${normalized.annualAppreciationPct}%/an (fourchette 4-6%).\n` +
