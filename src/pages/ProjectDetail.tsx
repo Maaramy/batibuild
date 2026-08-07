@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation, useAction } from "convex/react";
+import type { InvestmentType } from "@/components/investment/shared";
 import { useParams, useNavigate } from "react-router";
 import { useState, useMemo, Fragment, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -74,6 +75,33 @@ const COMPARE_REGIONS = [
   { key: "sfax", name: "Sfax" }, { key: "nabeul", name: "Nabeul" },
   { key: "kairouan", name: "Kairouan" }, { key: "kasserine", name: "Kasserine" },
 ];
+
+// ── Correspondance catégorie de projet → type de bien investissement ──────
+// Le bouton « Return on Investment » n'apparaît sur la page de résultat que si
+// la catégorie du projet correspond à un type de bien géré par le formulaire
+// d'analyse de rentabilité immobilière. Les catégories hors périmètre
+// (piscine, jardin, clôture, rénovation, voirie…) n'affichent pas le bouton.
+const PROJECT_TO_INVESTMENT: Record<string, InvestmentType> = {
+  maison: "maison",
+  "maison_r+1": "maison",
+  villa: "villa",
+  immeuble_residentiel: "immeuble",
+  local_commercial: "local_commercial",
+  bureau: "bureau",
+  entrepot: "entrepot",
+  hotel: "residence_touristique",
+  restaurant: "local_commercial",
+  cafe: "local_commercial",
+  atelier: "local_commercial",
+  depot: "entrepot",
+  usine: "entrepot",
+  ferme: "terrain",
+  renovation_interieure: "appartement",
+};
+
+/** Type de bien investissement si la catégorie du projet est prise en charge. */
+const investmentTypeForProject = (category?: string): InvestmentType | null =>
+  category && PROJECT_TO_INVESTMENT[category] ? PROJECT_TO_INVESTMENT[category] : null;
 
 const CONFIDENCE_STEPS = [
   { min: 80, label: "Fiable", color: "text-emerald-600", bg: "bg-emerald-100", bar: "bg-emerald-500" },
@@ -1029,6 +1057,33 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-1">
             {done && (
               <>
+                {(() => {
+                  const invType = investmentTypeForProject(project.category);
+                  if (!invType || !ce) return null;
+                  return (
+                    <button
+                      onClick={() =>
+                        navigate("/dashboard/investments", {
+                          state: {
+                            prefill: {
+                              name: `${project.name} — analyse rentabilité`,
+                              investmentType: invType,
+                              purchasePrice: Math.round(ce.totalCost),
+                              area: project.surface ?? undefined,
+                              region: project.region ?? "tunis",
+                            },
+                          },
+                        })
+                      }
+                      title="Lancer une analyse de rentabilité immobilière (Return on Investment)"
+                      className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 active:scale-95"
+                    >
+                      <TrendingUp className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Return on Investment</span>
+                      <span className="sm:hidden">ROI</span>
+                    </button>
+                  );
+                })()}
                 <button onClick={handleDownloadClick} disabled={exporting}
                   className={cn("flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-border/30",
                     exporting
