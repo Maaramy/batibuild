@@ -1169,25 +1169,24 @@ export default function InvestmentAnalysis() {
                           <Coins className="h-3 w-3" />
                           Coûts d'acquisition
                         </p>
+                        <p className="flex items-center gap-1.5 pt-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          <Coins className="h-3 w-3" />
+                          Frais de financement (crédit bancaire)
+                        </p>
                         <div className="grid grid-cols-2 gap-2.5">
-                          <div>
-                            <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-                              Frais de financement
-                            </label>
-                            <div className="space-y-2 rounded-lg border border-border/30 bg-muted/20 p-2.5">
-                              <NumField label="Intérêts du crédit" value={form.financingInterest} suffix="TND" valid={fieldChecks.financingInterest} onChange={(v) => set("financingInterest", v ?? 0)} />
-                              <NumField label="Frais de dossier" value={form.financingDossierFees} suffix="TND" valid={fieldChecks.financingDossierFees} onChange={(v) => set("financingDossierFees", v ?? 0)} />
-                              <NumField label="Assurance de prêt" value={form.financingInsurance} suffix="TND" valid={fieldChecks.financingInsurance} onChange={(v) => set("financingInsurance", v ?? 0)} />
-                              <div className="flex items-center justify-between gap-2 border-t border-border/20 pt-1.5">
-                                <span className="text-[10px] text-muted-foreground">Total financement</span>
-                                <span className="text-[11px] font-bold tabular-nums text-primary">
-                                  {fmtNum(financingTotalFor(form))} TND
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <NumField label="Frais d'acquisition" value={form.acquisitionFeesPct} suffix="%" step={0.5} hint="Enregistrement + notaire" valid={fieldChecks.acquisitionFeesPct} onChange={(v) => set("acquisitionFeesPct", v)} />
+                          <NumField label="Intérêts du crédit" value={form.financingInterest} suffix="TND" valid={fieldChecks.financingInterest} onChange={(v) => set("financingInterest", v ?? 0)} />
+                          <NumField label="Frais de dossier" value={form.financingDossierFees} suffix="TND" valid={fieldChecks.financingDossierFees} onChange={(v) => set("financingDossierFees", v ?? 0)} />
                         </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <NumField label="Assurance de prêt" value={form.financingInsurance} suffix="TND" valid={fieldChecks.financingInsurance} onChange={(v) => set("financingInsurance", v ?? 0)} />
+                          <div className="flex flex-col justify-center rounded-lg border border-border/30 bg-muted/20 px-2.5 py-1.5">
+                            <p className="text-[10px] text-muted-foreground">Total financement</p>
+                            <p className="text-sm font-bold tabular-nums text-primary">
+                              {fmtNum(financingTotalFor(form))} TND
+                            </p>
+                          </div>
+                        </div>
+                        <NumField label="Frais d'acquisition" value={form.acquisitionFeesPct} suffix="%" step={0.5} hint="Enregistrement + notaire" valid={fieldChecks.acquisitionFeesPct} onChange={(v) => set("acquisitionFeesPct", v)} />
                         <div className="grid grid-cols-2 gap-2.5">
                           <NumField label="Frais d'agence" value={form.agencyFees} suffix="TND" hint="Si existant" valid={fieldChecks.agencyFees} onChange={(v) => set("agencyFees", v ?? 0)} />
                           <NumField label="Ameublement" value={form.furnishingCost} suffix="TND" hint="Si existant" valid={fieldChecks.furnishingCost} onChange={(v) => set("furnishingCost", v ?? 0)} />
