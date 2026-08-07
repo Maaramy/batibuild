@@ -123,9 +123,17 @@ export function ResultsView({ run, zones, assistant }: {
 
   const QUICK_QUESTIONS = [
     "Cet investissement est-il rentable ?",
-    "Quel est le meilleur quartier pour investir ?",
+    "Combien de temps pour récupérer mon capital ?",
     "Combien vais-je gagner dans 10 ans ?",
     "Quel est le risque de cet investissement ?",
+    "Quel est le meilleur quartier pour investir ?",
+    "Location longue durée ou nuitée : quel est le plus rentable ?",
+    "Comment l'IA estime-t-elle mon taux d'occupation ?",
+    "Quelle fiscalité s'applique à mes revenus locatifs en Tunisie ?",
+    "Quel type de bien offre le meilleur rendement ?",
+    "Comment se compare mon investissement au livret d'épargne ?",
+    "Quelle est la meilleure zone pour un premier investissement ?",
+    "Que se passe-t-il si les loyers stagnent ?",
   ];
 
   const tabItems = [
