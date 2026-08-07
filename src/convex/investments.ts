@@ -782,6 +782,59 @@ export const toggleFavorite = mutation({
   },
 });
 
+// ── Migration : nettoyage des anciens champs de financement détaillés ────────
+// La fonctionnalité « frais de financement détaillés » (intérêts, frais de
+// dossier, assurance de prêt) a été retirée du formulaire et du moteur.
+// Cette migration supprime les 3 clés restées dans les analyses enregistrées
+// pendant la période où la fonctionnalité existait : `input.*` et
+// `results.indicators.*`. Le champ `financingFees` conserve sa valeur (le
+// moteur y avait déjà stocké la somme des 3 composantes). Idempotente :
+// relançable sans risque. Exécution : `convex run investments:cleanupLegacyFinancingFields`.
+
+export const cleanupLegacyFinancingFields = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const docs = await ctx.db.query("investmentAnalyses").collect();
+    let cleanedInput = 0;
+    let cleanedIndicators = 0;
+
+    for (const doc of docs) {
+      const patch: { input?: unknown; results?: unknown; updatedAt?: number } = {};
+      const input = doc.input as Record<string, unknown> | undefined;
+      if (
+        input &&
+        (input.financingInterest !== undefined ||
+          input.financingDossierFees !== undefined ||
+          input.financingInsurance !== undefined)
+      ) {
+        const { financingInterest, financingDossierFees, financingInsurance, ...rest } = input;
+        patch.input = rest;
+        cleanedInput++;
+      }
+
+      const indicators = (doc.results as any)?.indicators as Record<string, unknown> | undefined;
+      if (
+        indicators &&
+        (indicators.financingInterest !== undefined ||
+          indicators.financingDossierFees !== undefined ||
+          indicators.financingInsurance !== undefined)
+      ) {
+        const { financingInterest, financingDossierFees, financingInsurance, ...rest } = indicators;
+        patch.results = { ...(doc.results as any), indicators: rest };
+        cleanedIndicators++;
+      }
+
+      if (Object.keys(patch).length > 0) {
+        // Les anciens documents peuvent dévier du type actuel : le patch est
+        // volontairement lâche (schemaValidation: false en base).
+        await ctx.db.patch(doc._id, { ...patch, updatedAt: Date.now() } as any);
+      }
+    }
+
+    return { analyzed: docs.length, cleanedInput, cleanedIndicators };
+  },
+});
+
 // ============================================================================
 // Partage public (lecture seule)
 // ============================================================================
