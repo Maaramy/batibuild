@@ -53,6 +53,7 @@ import {
   fmtNum,
   resolveZoneUtility,
   estimateOccupancyRate,
+  forcedRentModeFor,
   REGION_CASCADE,
 } from "@/components/investment/shared";
 import type { FormState, InvestmentInput, InvestmentType, ZoneUtility } from "@/components/investment/shared";
@@ -312,6 +313,25 @@ export default function InvestmentAnalysis() {
   // demande du gouvernorat et l'attractivité de la ville / du quartier.
   // L'utilisateur garde la main : une saisie manuelle reste en place jusqu'au
   // prochain changement de localisation ou de mode.
+  // ── Mode de loyer imposé par le type de bien ──────────────────────────────
+  // Local commercial / bureau / entrepôt / terrain → mensuel uniquement ;
+  // résidence touristique → nuitée uniquement. Le mode (et le montant, pour
+  // préserver l'équivalent mensuel) sont recalés automatiquement à chaque
+  // changement de type de bien, y compris au chargement (pré-remplissage).
+  const forcedMode = forcedRentModeFor(form.investmentType);
+  useEffect(() => {
+    if (!forcedMode || form.rentMode === forcedMode) return;
+    setForm((f) => ({
+      ...f,
+      rentMode: forcedMode,
+      rentAmount:
+        forcedMode === "nuit"
+          ? Math.round((f.rentAmount ?? 0) * (12 / 365))
+          : Math.round((f.rentAmount ?? 0) * (365 / 12)),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.investmentType]);
+
   const locationSignature = [form.region, form.city, form.quartier, form.rentMode].join("|");
   useEffect(() => {
     const est = estimateOccupancyRate({
@@ -539,6 +559,7 @@ export default function InvestmentAnalysis() {
                               const meta = TYPE_META[t];
                               const Icon = meta.icon;
                               const selected = form.investmentType === t;
+                              const tileForced = forcedRentModeFor(t);
                               return (
                                 <button
                                   key={t}
@@ -550,14 +571,37 @@ export default function InvestmentAnalysis() {
                                       ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
                                       : "border-border/40 text-muted-foreground hover:border-primary/25 hover:text-foreground",
                                   )}
-                                  title={meta.desc}
+                                  title={`${meta.desc}${tileForced ? ` — location ${tileForced === "mensuel" ? "mensuelle uniquement" : "à la nuitée uniquement"}` : ""}`}
                                 >
                                   <Icon className="h-4 w-4" />
                                   <span className="text-[9px] leading-tight font-medium line-clamp-2">{meta.label}</span>
+                                  {tileForced && (
+                                    <span
+                                      className={cn(
+                                        "inline-flex items-center gap-0.5 rounded-full px-1 py-px text-[8px] font-semibold leading-none",
+                                        tileForced === "nuit"
+                                          ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-300"
+                                          : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
+                                      )}
+                                    >
+                                      <Lock className="h-2 w-2" />
+                                      {tileForced === "mensuel" ? "Mensuel" : "Nuitée"}
+                                    </span>
+                                  )}
                                 </button>
                               );
                             })}
                           </div>
+                          {forcedMode && (
+                            <p className="mt-1 flex items-start gap-1 text-[10px] text-amber-600 dark:text-amber-400">
+                              <Lock className="h-3 w-3 shrink-0 mt-px" />
+                              <span>
+                                {TYPE_META[form.investmentType]?.label} : location{" "}
+                                {forcedMode === "mensuel" ? "mensuelle uniquement" : "à la nuitée uniquement"}{" "}
+                                — le mode de loyer est imposé pour ce type de bien.
+                              </span>
+                            </p>
+                          )}
                         </div>
 
                         <div>
@@ -660,15 +704,25 @@ export default function InvestmentAnalysis() {
                                 if (form.rentMode === "nuit") set("rentAmount", Math.round((form.rentAmount ?? 0) * (365 / 12)));
                                 set("rentMode", "mensuel");
                               }}
+                              disabled={forcedMode === "nuit"}
+                              title={
+                                forcedMode === "nuit"
+                                  ? `${TYPE_META[form.investmentType]?.label} : location à la nuitée uniquement`
+                                  : undefined
+                              }
                               className={cn(
                                 "flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[11px] font-medium transition-all active:scale-[0.98]",
                                 form.rentMode === "mensuel"
                                   ? "border-primary/40 bg-primary/10 text-primary"
                                   : "border-border/40 text-muted-foreground hover:border-primary/25 hover:text-foreground",
+                                forcedMode === "nuit" && "cursor-not-allowed opacity-45 hover:border-border/40 hover:text-muted-foreground",
                               )}
                             >
-                              <CalendarDays className="h-3.5 w-3.5" />
+                              {forcedMode === "nuit" ? <Lock className="h-3.5 w-3.5" /> : <CalendarDays className="h-3.5 w-3.5" />}
                               Mensuel
+                              {forcedMode === "mensuel" && (
+                                <span className="rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-semibold">Imposé</span>
+                              )}
                             </button>
                             <button
                               type="button"
@@ -676,17 +730,39 @@ export default function InvestmentAnalysis() {
                                 if (form.rentMode === "mensuel") set("rentAmount", Math.round((form.rentAmount ?? 0) * (12 / 365)));
                                 set("rentMode", "nuit");
                               }}
+                              disabled={forcedMode === "mensuel"}
+                              title={
+                                forcedMode === "mensuel"
+                                  ? `${TYPE_META[form.investmentType]?.label} : location mensuelle uniquement`
+                                  : undefined
+                              }
                               className={cn(
                                 "flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[11px] font-medium transition-all active:scale-[0.98]",
                                 form.rentMode === "nuit"
                                   ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
                                   : "border-border/40 text-muted-foreground hover:border-indigo-500/25 hover:text-foreground",
+                                forcedMode === "mensuel" && "cursor-not-allowed opacity-45 hover:border-border/40 hover:text-muted-foreground",
                               )}
                             >
-                              <MoonStar className="h-3.5 w-3.5" />
+                              {forcedMode === "mensuel" ? <Lock className="h-3.5 w-3.5" /> : <MoonStar className="h-3.5 w-3.5" />}
                               À la nuitée
+                              {forcedMode === "nuit" && (
+                                <span className="rounded-full bg-indigo-500/15 px-1.5 py-px text-[9px] font-semibold">Imposé</span>
+                              )}
                             </button>
                           </div>
+                          {forcedMode && (
+                            <p className="mb-1 flex items-start gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                              <Lock className="h-3 w-3 shrink-0 mt-px" />
+                              <span>
+                                {TYPE_META[form.investmentType]?.label} : location{" "}
+                                {forcedMode === "mensuel"
+                                  ? "mensuelle uniquement (bail commercial ou professionnel à l'année)"
+                                  : "à la nuitée uniquement (usage touristique saisonnier)"}
+                                {" — appliqué automatiquement."}
+                              </span>
+                            </p>
+                          )}
                           <div className={cn("grid gap-2.5", form.rentMode === "nuit" && "grid-cols-2")}>
                             <NumField
                               label={form.rentMode === "nuit" ? "Tarif par nuit" : "Loyer mensuel"}

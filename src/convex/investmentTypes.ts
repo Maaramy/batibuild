@@ -604,12 +604,34 @@ export function resolveZoneUtility(city?: string, quartier?: string): ZoneUtilit
  * Le score de localisation combine l'indice de demande du gouvernorat (60 %)
  * et l'indice d'attractivité de la ville / du quartier (40 %).
  */
+export type RentMode = "nuit" | "mensuel";
+
 export type OccupancyEstimateInput = {
   region?: string;
   city?: string;
   quartier?: string;
-  rentMode?: "nuit" | "mensuel";
+  rentMode?: RentMode;
 };
+
+/**
+ * Mode de loyer imposé par le type de bien :
+ * - local commercial, bureau, entrepôt, terrain → location mensuelle uniquement
+ *   (baux commerciaux / professionnels à l'année, pas de location saisonnière).
+ * - résidence touristique → location à la nuitée uniquement (usage saisonnier).
+ * - tous les autres types → les deux modes restent possibles (null).
+ */
+export function forcedRentModeFor(type: InvestmentType): RentMode | null {
+  if (type === "residence_touristique") return "nuit";
+  if (
+    type === "local_commercial" ||
+    type === "bureau" ||
+    type === "entrepot" ||
+    type === "terrain"
+  ) {
+    return "mensuel";
+  }
+  return null;
+}
 
 export function estimateOccupancyRate({ region, city, quartier, rentMode }: OccupancyEstimateInput = {}): number {
   const zone = region ? INVESTMENT_ZONE_MAP[region] : undefined;

@@ -24,6 +24,7 @@ import type { ReactNode } from "react";
 import {
   resolveZoneUtility,
   estimateOccupancyRate,
+  forcedRentModeFor,
   ZONE_UTILITIES,
   REGION_CASCADE,
   ALL_CITIES,
@@ -31,8 +32,8 @@ import {
 
 applyAutotablePlugin(jsPDF);
 
-export { resolveZoneUtility, estimateOccupancyRate, ZONE_UTILITIES, REGION_CASCADE, ALL_CITIES };
-export type { ZoneUtility, CascadeCity, OccupancyEstimateInput } from "@/convex/investmentTypes";
+export { resolveZoneUtility, estimateOccupancyRate, forcedRentModeFor, ZONE_UTILITIES, REGION_CASCADE, ALL_CITIES };
+export type { ZoneUtility, CascadeCity, OccupancyEstimateInput, RentMode } from "@/convex/investmentTypes";
 
 // ============================================================================
 // Types (mirror of src/convex/investmentTypes.ts)

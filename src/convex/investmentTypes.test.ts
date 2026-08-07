@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import { describe, it, expect } from "vitest";
-import { estimateOccupancyRate, resolveZoneUtility } from "./investmentTypes.js";
+import { estimateOccupancyRate, resolveZoneUtility, forcedRentModeFor } from "./investmentTypes.js";
 
 describe("estimateOccupancyRate — estimation IA du taux d'occupation", () => {
   it("aucune localisation : mensuel ≈ 90 %, nuitée ≈ 55 %", () => {
@@ -53,6 +53,25 @@ describe("estimateOccupancyRate — estimation IA du taux d'occupation", () => {
     const nabeul = estimateOccupancyRate({ region: "nabeul", rentMode: "nuit" });
     const hammamet = estimateOccupancyRate({ region: "nabeul", city: "Hammamet", rentMode: "nuit" });
     expect(hammamet).toBeGreaterThan(nabeul);
+  });
+});
+
+describe("forcedRentModeFor — mode de loyer imposé par le type de bien", () => {
+  it("local commercial, bureau, entrepôt et terrain → mensuel uniquement", () => {
+    expect(forcedRentModeFor("local_commercial")).toBe("mensuel");
+    expect(forcedRentModeFor("bureau")).toBe("mensuel");
+    expect(forcedRentModeFor("entrepot")).toBe("mensuel");
+    expect(forcedRentModeFor("terrain")).toBe("mensuel");
+  });
+
+  it("résidence touristique → nuitée uniquement", () => {
+    expect(forcedRentModeFor("residence_touristique")).toBe("nuit");
+  });
+
+  it("les autres types de bien laissent les deux modes possibles", () => {
+    for (const t of ["maison", "villa", "appartement", "studio", "duplex", "immeuble", "projet_neuf"] as const) {
+      expect(forcedRentModeFor(t)).toBeNull();
+    }
   });
 });
 

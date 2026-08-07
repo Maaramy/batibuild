@@ -77,6 +77,47 @@ describe("Moteur financier (fonctions pures)", () => {
     expect(ind.occupancyRate).toBe(60);
   });
 
+  it("local commercial en nuitée → recalé en mensuel, équivalent mensuel préservé", () => {
+    const input = normalizeInput({
+      ...BASE_INPUT,
+      investmentType: "local_commercial",
+      rentMode: "nuit",
+      rentAmount: 100, // tarif nuité saisi (mode non autorisé)
+      occupancyRate: 60,
+    });
+    expect(input.rentMode).toBe("mensuel");
+    expect(input.rentAmount).toBe(Math.round((100 * 365) / 12)); // converti en loyer mensuel
+    expect(input.monthlyRent).toBe(Math.round((100 * 365) / 12));
+  });
+
+  it("résidence touristique en mensuel → recalée en nuitée, équivalent mensuel préservé", () => {
+    const input = normalizeInput({
+      ...BASE_INPUT,
+      investmentType: "residence_touristique",
+      rentMode: "mensuel",
+      rentAmount: 1500, // loyer mensuel saisi (mode non autorisé)
+      occupancyRate: 60,
+    });
+    expect(input.rentMode).toBe("nuit");
+    expect(input.monthlyRent).toBe(1500);
+    expect(input.rentAmount).toBe(Math.round(1500 / (365 / 12))); // converti en tarif nuité
+  });
+
+  it("bureau et terrain imposent aussi le mode mensuel", () => {
+    for (const investmentType of ["bureau", "terrain", "entrepot"] as const) {
+      const input = normalizeInput({ ...BASE_INPUT, investmentType, rentMode: "nuit", rentAmount: 120 });
+      expect(input.rentMode).toBe("mensuel");
+      expect(input.monthlyRent).toBe(Math.round((120 * 365) / 12));
+    }
+  });
+
+  it("un type non contraint garde le mode saisi (appartement en nuitée)", () => {
+    const input = normalizeInput({ ...BASE_INPUT, rentMode: "nuit", rentAmount: 200, occupancyRate: 60 });
+    expect(input.rentMode).toBe("nuit");
+    expect(input.rentAmount).toBe(200);
+    expect(input.monthlyRent).toBe(Math.round((200 * 365) / 12));
+  });
+
   it("le taux d'occupation IA en nuitée est accepté sous 50 % (plancher 30 %)", () => {
     const input = normalizeInput({ ...BASE_INPUT, rentMode: "nuit", rentAmount: 200, occupancyRate: 40 });
     expect(input.occupancyRate).toBe(40);

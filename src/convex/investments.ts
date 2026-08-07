@@ -10,6 +10,7 @@ import {
   SCENARIO_DEFAULTS,
   FORECAST_HORIZONS,
   resolveZoneUtility,
+  forcedRentModeFor,
   type ZoneUtility,
   type InvestmentZone,
   analysisInputValidator,
@@ -87,28 +88,31 @@ export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput 
   const occupancyRate = clamp(input.occupancyRate ?? 95, 30, 100);
 
   // ── Loyer estimé : choix nuitée / mensuel ──
-  // nuitée : le loyer mensuel équivalent vaut montant × 365/12 (plein tarif,
-  // le taux d'occupation est appliqué ensuite par le moteur sur les nuitées).
-  const rentMode: "nuit" | "mensuel" = input.rentMode === "nuit" ? "nuit" : "mensuel";
+  // Certains types de bien imposent un mode de loyer unique (local commercial,
+  // bureau, entrepôt, terrain → mensuel ; résidence touristique → nuitée) : le
+  // mode est recalé et le montant converti pour préserver l'équivalent mensuel.
+  // nuitée : l'équivalent mensuel vaut montant × 365/12 (plein tarif, le taux
+  // d'occupation est appliqué ensuite par le moteur sur les nuitées).
+  const inputMode: "nuit" | "mensuel" = input.rentMode === "nuit" ? "nuit" : "mensuel";
+  const rentMode: "nuit" | "mensuel" = forcedRentModeFor(input.investmentType) ?? inputMode;
   const rawAmount = Math.max(0, input.rentAmount ?? 0);
   const rawMonthly = Math.max(0, input.monthlyRent ?? 0);
-  const monthlyRent = money(
-    rentMode === "nuit"
-      ? rawAmount > 0
+  // Équivalent mensuel du montant saisi, interprété dans le mode d'origine.
+  const sourceMonthly =
+    rawAmount > 0
+      ? inputMode === "nuit"
         ? rawAmount * (365 / 12)
-        : rawMonthly
-      : rawAmount > 0
-        ? rawAmount
-        : rawMonthly,
-  );
+        : rawAmount
+      : rawMonthly;
+  const monthlyRent = money(sourceMonthly);
   const rentAmount =
     rentMode === "nuit"
-      ? rawAmount > 0
+      ? rawAmount > 0 && inputMode === "nuit"
         ? rawAmount
-        : money(rawMonthly / (365 / 12))
-      : rawAmount > 0
+        : money(sourceMonthly / (365 / 12))
+      : rawAmount > 0 && inputMode === "mensuel"
         ? rawAmount
-        : rawMonthly;
+        : money(sourceMonthly);
 
   // ── Charges d'exploitation : nouveau modèle détaillé (TND/an) ──
   // Rétro-compatibilité : les anciennes analyses ne fournissent que
