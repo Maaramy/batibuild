@@ -254,6 +254,26 @@ export default function ProjectDetail() {
     }
   };
 
+  // ── Lancer une analyse de rentabilité (Return on Investment) ──
+  // Ouvre le formulaire d'investissement pré-rempli avec les données du projet
+  // (coût total estimé → prix d'achat, surface, région, type de bien mappé).
+  const handleInvestRoi = () => {
+    if (!project || !ce) return;
+    const invType = investmentTypeForProject(project.category);
+    if (!invType) return;
+    navigate("/dashboard/investments", {
+      state: {
+        prefill: {
+          name: `${project.name} — analyse rentabilité`,
+          investmentType: invType,
+          purchasePrice: Math.round(ce.totalCost),
+          area: project.surface ?? undefined,
+          region: project.region ?? "tunis",
+        },
+      },
+    });
+  };
+
   const generatePDF = async (scenario: string) => {
     if (!project || !ce || !ai) {
       toast.error("Le rapport n'est pas prêt");
@@ -1057,34 +1077,18 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-1">
             {done && (
               <>
-                {(() => {
-                  const invType = investmentTypeForProject(project.category);
-                  if (!invType || !ce) return null;
-                  return (
-                    <button
-                      onClick={() =>
-                        navigate("/dashboard/investments", {
-                          state: {
-                            prefill: {
-                              name: `${project.name} — analyse rentabilité`,
-                              investmentType: invType,
-                              purchasePrice: Math.round(ce.totalCost),
-                              area: project.surface ?? undefined,
-                              region: project.region ?? "tunis",
-                            },
-                          },
-                        })
-                      }
-                      title="Lancer une analyse de rentabilité immobilière (Return on Investment)"
-                      className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 active:scale-95"
-                    >
-                      <TrendingUp className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Return on Investment</span>
-                      <span className="sm:hidden">ROI</span>
-                    </button>
-                  );
-                })()}
-                <button onClick={handleDownloadClick} disabled={exporting}
+                {investmentTypeForProject(project.category) && ce && (
+                  <button
+                    onClick={handleInvestRoi}
+                    title="Lancer une analyse de rentabilité immobilière (Return on Investment)"
+                    className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 active:scale-95"
+                  >
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Return on Investment</span>
+                    <span className="sm:hidden">ROI</span>
+                  </button>
+                    )}
+                    <button onClick={handleDownloadClick} disabled={exporting}
                   className={cn("flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-border/30",
                     exporting
                       ? "opacity-50 cursor-not-allowed bg-muted/30"
@@ -1095,7 +1099,8 @@ export default function ProjectDetail() {
                   ) : (
                     <Download className="h-3.5 w-3.5" />
                   )}
-                  <span className="hidden sm:inline">Télécharger le devis</span>
+                  <span className="hidden sm:inline">                      Télécharger le devis
+</span>
                   <span className="sm:hidden">PDF</span>
                 </button>
 
