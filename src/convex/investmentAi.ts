@@ -167,7 +167,12 @@ function fallbackAssistant(message: string, context?: string): string {
     );
   }
   if (context) {
-    return `Voici mon analyse basée sur votre étude en cours : ${context.slice(0, 400)}... Si vous voulez aller plus loin, demandez-moi la comparaison avec d'autres types de biens, le risque ou les meilleures zones.`;
+    const excerpt = context
+      .split("\n")
+      .filter((l) => /^(Type de bien|Zone|Localisation|Score IA|Rentabilité|Récupération)/.test(l))
+      .slice(0, 3)
+      .join(" | ");
+    return `Voici mon analyse basée sur votre étude en cours : ${excerpt || context.slice(0, 240)}. Si vous voulez aller plus loin, demandez-moi la comparaison avec d'autres types de biens, le risque ou les meilleures zones.`;
   }
   return (
     "Je suis votre assistant investissement immobilier pour la Tunisie. Je peux vous aider sur :\n" +
@@ -185,15 +190,20 @@ export const askInvestorAssistant = action({
     if (!user) throw new Error("Non connecté");
     if (args.message.trim().length < 2) throw new Error("Message trop court");
 
-    const systemPrompt =
-      "Tu es un assistant expert en investissement immobilier en Tunisie (conseiller financier et immobilier). " +
+    const baseSystemPrompt =
+      "Tu es un assistant expert en investissement immobilier en Tunisie (conseiller financier et immobilier), intégré à l'outil BudgetBati. " +
       "Réponds en français, de façon concise (4-8 lignes), structurée avec des puces si utile, avec des ordres de grandeur réalistes en TND. " +
-      "Utilise le contexte d'analyse fourni quand il est présent pour personnaliser la réponse. " +
-      "Tu peux répondre à : rentabilité, ROI, cash-flow, récupération du capital, prévisions à 1/3/5/10 ans, scénarios, zones d'investissement, risque, financement.";
+      "Tu couvres : rentabilité, ROI, cash-flow, récupération du capital, prévisions à 1/3/5/10 ans, scénarios, zones d'investissement, risque, financement, fiscalité tunisienne, comparaison entre types de biens.";
 
-    const userPrompt = args.context
-      ? `Contexte d'analyse: ${args.context}\n\nQuestion de l'investisseur: ${args.message}`
-      : `Question de l'investisseur: ${args.message}`;
+    const systemPrompt = args.context
+      ? `${baseSystemPrompt}\n\n## Contexte de l'analyse de l'utilisateur\n${args.context}\n\n## Règles d'utilisation du contexte\n` +
+        "- Ancre chaque réponse sur les chiffres exacts du contexte (montants TND, pourcentages, scores, zones) ; ne les remplace jamais par des fourchettes génériques.\n" +
+        "- Cite les indicateurs pertinents quand ils existent : score IA (/100), ROI, rendement net, cash-flow, récupération du capital, zone et ses risques.\n" +
+        "- Quand la question dépasse le contexte (fiscalité générale, zones hors analyse, conseils de financement), réponds avec tes connaissances du marché tunisien en restant cohérent avec les données, puis recadre sur l'analyse si possible.\n" +
+        "- Ne mentionne jamais l'existence d'un « contexte » ; parle naturellement de « votre analyse »."
+      : baseSystemPrompt;
+
+    const userPrompt = args.message;
 
     try {
       const result = await vly.ai.completion({

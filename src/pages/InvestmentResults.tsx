@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router";
 import { cn } from "@/lib/utils";
-import { generatePdf, exportCsv, TYPE_META } from "@/components/investment/shared";
+import { generatePdf, exportCsv, TYPE_META, fmtTND, fmtNum } from "@/components/investment/shared";
 import type { AnalysisRun, ChatMsg, InvestmentType } from "@/components/investment/shared";
 import { ResultsView } from "@/components/investment/results-view";
 
@@ -112,17 +112,39 @@ export default function InvestmentResults() {
     if (!run) return undefined;
     const ind = run.results.indicators;
     const input = run.input as any;
+    const zone = run.results.zone;
+    const score = run.results.score;
+    const ai = run.aiInsights;
+    const loc = [input?.city, input?.quartier].filter(Boolean).join(" / ");
     const rentLabel =
       input?.rentMode === "nuit"
-        ? `${input?.rentAmount ?? 0} TND/nuit (≈ ${ind.monthlyRent} TND/mois)`
-        : `${ind.monthlyRent} TND/mois`;
-    return (
-      `Type: ${TYPE_META[run.input.investmentType]?.label ?? run.input.investmentType}. ` +
-      `Zone: ${run.results.zone.name} (demande ${run.results.zone.demandIndex}/100, risque ${run.results.zone.riskScore}/100). ` +
-      `Prix d'achat: ${ind.purchasePrice} TND. Coût total: ${ind.totalCost} TND. Loyer estimé: ${rentLabel} (occupation ${ind.occupancyRate}%). ` +
-      `Revenu net annuel: ${ind.netAnnualIncome} TND. Rendement net: ${ind.netYieldPct}%. ROI 5 ans: ${ind.roi5yPct}%. ROI 10 ans: ${ind.roi10yPct}%. ` +
-      `Récupération du capital: ${ind.paybackYears} ans. Score IA: ${run.results.score.total}/100.`
-    );
+        ? `${input?.rentAmount ?? 0} TND/nuit (≈ ${fmtTND(ind.monthlyRent)}/mois)`
+        : `${fmtTND(ind.monthlyRent)}/mois`;
+    const lines = [
+      `Type de bien: ${TYPE_META[run.input.investmentType]?.label ?? run.input.investmentType}${input?.name ? ` (intitulé « ${input.name} »)` : ""}${input?.area ? `, surface ${input.area} m²` : ""}.`,
+      `Zone: ${zone.name} (région ${zone.region}), rang ${zone.rank}/24 — demande ${zone.demandIndex}/100, risque ${zone.riskScore}/100, appréciation attendue ${zone.appreciationPct}%/an. Prix moyen de la zone: ${fmtTND(zone.pricePerM2)}/m², loyer moyen ${zone.rentPerM2} TND/m²/mois.`,
+      zone.utilityLabel
+        ? `Localisation: ${loc || zone.name} — quartier reconnu « ${zone.utilityLabel} » (attractivité ${zone.utilityIndex}/100).`
+        : loc
+          ? `Localisation: ${loc}.`
+          : "",
+      `Coût d'achat: ${fmtTND(ind.purchasePrice)}${ind.pricePerM2 ? ` (${fmtTND(ind.pricePerM2)}/m²)` : ""}. Frais d'acquisition ${fmtTND(ind.acquisitionFees)}, financement ${fmtTND(ind.financingFees)}, agence ${fmtTND(ind.agencyFees)}, aménagement ${fmtTND(ind.renovationCost)}, ameublement ${fmtTND(ind.furnishingCost)} → coût total ${fmtTND(ind.totalCost)}.`,
+      `Loyer estimé: ${rentLabel} (mode ${input?.rentMode === "nuit" ? "nuitée" : "mensuel"}, taux d'occupation ${ind.occupancyRate}%).`,
+      `Charges annuelles: ${fmtTND(ind.annualCharges)} + assurance ${fmtTND(ind.insurance)} + gestion ${fmtTND(ind.managementFees)} + fiscalité ${input?.taxationPct ?? 0}% (${fmtTND(ind.taxation)}) = ${fmtTND(ind.operatingExpenses)}/an.`,
+      `Revenu net: ${fmtTND(ind.netAnnualIncome)}/an. Cash-flow: ${fmtTND(ind.monthlyCashflow)}/mois (${fmtTND(ind.annualCashflow)}/an).`,
+      `Rentabilité: brute ${ind.grossYieldPct}%, nette ${ind.netYieldPct}%. ROI ${ind.roiAnnualPct}%/an, ${ind.roi5yPct}% sur 5 ans, ${ind.roi10yPct}% sur 10 ans. Ratio prix/loyer ${fmtNum(ind.priceToRentRatio)}×.`,
+      `Récupération du capital: ${ind.paybackYears >= 99 ? "> 30 ans" : `${ind.paybackYears} ans`} (${ind.paybackDateLabel}).`,
+      `Hypothèses du moteur: inflation ${input?.inflationPct ?? 6}%, croissance des loyers ${input?.rentGrowthPct ?? 5}%/an, appréciation du bien ${input?.annualAppreciationPct ?? 5}%/an, horizon ${run.results.forecasts.length} ans.`,
+      `Score IA: ${score.total}/100 (${score.grade}) — ${score.criteria.map((c) => `${c.label} ${c.score}/${c.max} (poids ${c.weight}%)`).join(", ")}.`,
+      `Prévisions: ${run.results.forecastSummary.map((s) => `${s.label}: gain ${fmtTND(s.gain)}, valeur ${fmtTND(s.futureValue)}, ROI ${s.roiPct}%`).join(" | ")}.`,
+      `Scénarios: ${run.results.scenarios.map((s) => `${s.label} (risque ${s.riskLevel}): ROI ${s.roiPct}%, valeur future ${fmtTND(s.futureValue)}`).join(" | ")}.`,
+      `Benchmark: ${run.results.comparison.map((c) => `${c.label}: rendement net ${c.netYieldPct}%, ROI 10 ans ${c.roi10yPct}%, risque ${c.riskLevel}, score ${c.score}/100`).join(" | ")}.`,
+      ai?.summary ? `Synthèse du conseiller IA: ${ai.summary}` : "",
+      ai?.recommendations?.length ? `Recommandations IA: ${ai.recommendations.slice(0, 3).join(" · ")}.` : "",
+      ai?.risks?.length ? `Risques IA: ${ai.risks.slice(0, 3).join(" · ")}.` : "",
+      ai?.marketNotes?.length ? `Notes de marché IA: ${ai.marketNotes.slice(0, 3).join(" · ")}.` : "",
+    ];
+    return lines.filter(Boolean).join("\n");
   };
 
   const sendChat = async (text?: string) => {
