@@ -595,6 +595,37 @@ export function resolveZoneUtility(city?: string, quartier?: string): ZoneUtilit
   return null;
 }
 
+/**
+ * Estimation IA du taux d'occupation locatif (%) à partir de la localisation
+ * (région → ville → quartier) et du mode de loyer :
+ * - « mensuel » : location classique à l'année → taux élevé et stable (80-98 %).
+ * - « nuit » : location saisonnière → part des nuitées louées sur l'année
+ *   (38-80 %), très dépendante de l'attractivité touristique de la zone.
+ * Le score de localisation combine l'indice de demande du gouvernorat (60 %)
+ * et l'indice d'attractivité de la ville / du quartier (40 %).
+ */
+export type OccupancyEstimateInput = {
+  region?: string;
+  city?: string;
+  quartier?: string;
+  rentMode?: "nuit" | "mensuel";
+};
+
+export function estimateOccupancyRate({ region, city, quartier, rentMode }: OccupancyEstimateInput = {}): number {
+  const zone = region ? INVESTMENT_ZONE_MAP[region] : undefined;
+  const demandIndex = zone?.demandIndex ?? 72;
+  const utility = resolveZoneUtility(city, quartier);
+  const utilityIndex = utility?.utilityIndex ?? 72;
+  const locationScore = Math.round(demandIndex * 0.6 + utilityIndex * 0.4);
+
+  if (rentMode === "nuit") {
+    // Saisonnier : % de nuitées louées sur l'année (forte variabilité).
+    return Math.round(uClamp(45 + (locationScore - 60) * 0.85, 38, 80));
+  }
+  // Location classique : taux d'occupation annuel élevé et stable.
+  return Math.round(uClamp(86 + (locationScore - 60) * 0.35, 80, 98));
+}
+
 // ── Analysis input ──────────────────────────────────────────────────────────
 
 export const analysisInputValidator = v.object({

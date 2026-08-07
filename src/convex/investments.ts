@@ -82,7 +82,9 @@ export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput 
     INVESTMENT_ZONE_MAP[input.region] ?? DEFAULT_ZONE,
     resolveZoneUtility(input.city?.trim(), input.quartier?.trim()),
   );
-  const occupancyRate = clamp(input.occupancyRate ?? 95, 50, 100);
+  // Borne basse 30 % : l'estimation IA du taux d'occupation en mode nuitée
+  // (location saisonnière) peut légitimement descendre sous 50 %.
+  const occupancyRate = clamp(input.occupancyRate ?? 95, 30, 100);
 
   // ── Loyer estimé : choix nuitée / mensuel ──
   // nuitée : le loyer mensuel équivalent vaut montant × 365/12 (plein tarif,
@@ -375,7 +377,7 @@ export function buildScenarios(input: NormalizedInput): InvestmentScenario[] {
         : clamp(input.annualAppreciationPct + d.appreciationOffset, 0, 20);
     const inflationPct =
       key === "realiste" ? input.inflationPct : d.inflationPct;
-    const occupancyRate = clamp(input.occupancyRate + d.occupancyOffset, 50, 100);
+    const occupancyRate = clamp(input.occupancyRate + d.occupancyOffset, 30, 100);
 
     const pts = projectYearSeries(
       input,

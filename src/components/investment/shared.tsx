@@ -20,12 +20,19 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
-import { resolveZoneUtility, ZONE_UTILITIES, REGION_CASCADE, ALL_CITIES } from "@/convex/investmentTypes";
+import type { ReactNode } from "react";
+import {
+  resolveZoneUtility,
+  estimateOccupancyRate,
+  ZONE_UTILITIES,
+  REGION_CASCADE,
+  ALL_CITIES,
+} from "@/convex/investmentTypes";
 
 applyAutotablePlugin(jsPDF);
 
-export { resolveZoneUtility, ZONE_UTILITIES, REGION_CASCADE, ALL_CITIES };
-export type { ZoneUtility, CascadeCity } from "@/convex/investmentTypes";
+export { resolveZoneUtility, estimateOccupancyRate, ZONE_UTILITIES, REGION_CASCADE, ALL_CITIES };
+export type { ZoneUtility, CascadeCity, OccupancyEstimateInput } from "@/convex/investmentTypes";
 
 // ============================================================================
 // Types (mirror of src/convex/investmentTypes.ts)
@@ -233,17 +240,20 @@ export function Kpi({ icon: Icon, label, value, sub, tone = "text-foreground" }:
   );
 }
 
-export function NumField({ label, value, onChange, suffix, step = 1, hint, valid, required }: {
+export function NumField({ label, value, onChange, suffix, step = 1, hint, valid, required, labelExtra }: {
   label: string; value: number | undefined; onChange: (v: number | undefined) => void;
-  suffix?: string; step?: number; hint?: string; valid?: boolean; required?: boolean;
+  suffix?: string; step?: number; hint?: ReactNode; valid?: boolean; required?: boolean; labelExtra?: ReactNode;
 }) {
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-1">
-        <label className="text-[11px] font-medium text-muted-foreground">
-          {label}
-          {required && <span className="text-red-500"> *</span>}
-        </label>
+        <div className="flex items-center gap-1.5">
+          <label className="text-[11px] font-medium text-muted-foreground">
+            {label}
+            {required && <span className="text-red-500"> *</span>}
+          </label>
+          {labelExtra}
+        </div>
         {valid && (
           <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" aria-label="Champ rempli" />
         )}

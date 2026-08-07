@@ -52,6 +52,7 @@ import {
   Kpi,
   fmtNum,
   resolveZoneUtility,
+  estimateOccupancyRate,
   REGION_CASCADE,
 } from "@/components/investment/shared";
 import type { FormState, InvestmentInput, InvestmentType, ZoneUtility } from "@/components/investment/shared";
@@ -97,7 +98,7 @@ function previewFinance(form: FormState) {
     form.rentMode === "nuit"
       ? Math.round((form.rentAmount ?? 0) * (365 / 12))
       : Math.max(0, form.rentAmount ?? 0);
-  const occupancyRate = Math.min(100, Math.max(50, form.occupancyRate ?? 95));
+  const occupancyRate = Math.min(100, Math.max(30, form.occupancyRate ?? 95));
   const grossAnnualRent = Math.round(monthlyRent * 12 * (occupancyRate / 100));
   const annualCharges =
     Math.max(0, form.annualCharges ?? 0) +
@@ -304,6 +305,30 @@ export default function InvestmentAnalysis() {
 
   const selectedZone = zones.find((z: any) => z.region === form.region);
   const selectedUtility: ZoneUtility | null = resolveZoneUtility(form.city, form.quartier);
+
+  // ── Taux d'occupation : estimation IA automatique ───────────────────────────
+  // Le taux est recalé automatiquement dès que la localisation (région → ville →
+  // quartier) ou le mode de loyer (mensuel / nuitée) change, en combinant la
+  // demande du gouvernorat et l'attractivité de la ville / du quartier.
+  // L'utilisateur garde la main : une saisie manuelle reste en place jusqu'au
+  // prochain changement de localisation ou de mode.
+  const locationSignature = [form.region, form.city, form.quartier, form.rentMode].join("|");
+  useEffect(() => {
+    const est = estimateOccupancyRate({
+      region: form.region,
+      city: form.city,
+      quartier: form.quartier,
+      rentMode: form.rentMode,
+    });
+    setForm((f) => (f.occupancyRate === est ? f : { ...f, occupancyRate: est }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationSignature]);
+
+  const occupancyBasis = form.quartier
+    ? `${form.quartier}${form.city ? `, ${form.city}` : ""}${selectedZone ? ` (${selectedZone.name})` : ""}`
+    : form.city
+      ? `${form.city}${selectedZone ? ` (${selectedZone.name})` : ""}`
+      : selectedZone?.name ?? "le marché tunisien";
 
   // ── Loyer estimé : équivalent mensuel selon le mode (nuitée / mensuel) ──
   const effectiveMonthlyRent =
@@ -685,7 +710,33 @@ export default function InvestmentAnalysis() {
                           </p>
                         </div>
 
-                        <NumField label="Taux d'occupation estimé" value={form.occupancyRate} suffix="%" step={1} valid={fieldChecks.occupancyRate} onChange={(v) => set("occupancyRate", v)} />
+                        <NumField
+                          label="Taux d'occupation estimé"
+                          labelExtra={
+                            <span className="inline-flex items-center gap-0.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-px text-[9px] font-semibold text-indigo-600 dark:text-indigo-300">
+                              <Sparkles className="h-2.5 w-2.5" />
+                              IA
+                            </span>
+                          }
+                          value={form.occupancyRate}
+                          suffix="%"
+                          step={1}
+                          valid={fieldChecks.occupancyRate}
+                          onChange={(v) => set("occupancyRate", v)}
+                          hint={
+                            <span className="flex items-start gap-1">
+                              <Sparkles className="h-3 w-3 shrink-0 text-indigo-500 dark:text-indigo-400 mt-px" />
+                              <span>
+                                Estimation IA d'après{" "}
+                                <span className="font-medium text-foreground/70">{occupancyBasis}</span> en{" "}
+                                <span className="font-medium text-foreground/70">
+                                  {form.rentMode === "nuit" ? "nuitée" : "mensuel"}
+                                </span>
+                                {" — recalée automatiquement à chaque changement de localisation ou de mode. Modifiable."}
+                              </span>
+                            </span>
+                          }
+                        />
 
                         <p className="flex items-center gap-1.5 pt-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                           <Receipt className="h-3 w-3" />

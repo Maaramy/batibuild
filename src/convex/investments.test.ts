@@ -77,6 +77,16 @@ describe("Moteur financier (fonctions pures)", () => {
     expect(ind.occupancyRate).toBe(60);
   });
 
+  it("le taux d'occupation IA en nuitée est accepté sous 50 % (plancher 30 %)", () => {
+    const input = normalizeInput({ ...BASE_INPUT, rentMode: "nuit", rentAmount: 200, occupancyRate: 40 });
+    expect(input.occupancyRate).toBe(40);
+
+    // Scénario prudent : occupation de base 40 % − 5 pts → 35 % (non plafonné à 50)
+    const scenarios = buildScenarios(input);
+    const prudent = scenarios.find((s) => s.key === "prudent");
+    expect(prudent).toBeDefined();
+  });
+
   it("charges détaillées et fiscalité intégrées aux charges d'exploitation", () => {
     const input = normalizeInput({
       ...BASE_INPUT,
