@@ -35,8 +35,24 @@ import {
   MoonStar,
   CalendarDays,
   Receipt,
+  HelpCircle,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -75,6 +91,172 @@ const stepVariants = {
   center: { opacity: 1, x: 0 },
   exit: (dir: number) => ({ opacity: 0, x: dir * -32 }),
 };
+
+// ── Guide bilingue (français / العربية) des informations à saisir ──────────
+// Alimente la popup « Explication » ouverte depuis le formulaire. Chaque champ
+// est décrit en français puis en arabe, groupé par étape du formulaire.
+
+type GuideField = {
+  nameFr: string;
+  nameAr: string;
+  descFr: string;
+  descAr: string;
+};
+
+type GuideSection = {
+  step: string;
+  icon: LucideIcon;
+  titleFr: string;
+  titleAr: string;
+  fields: GuideField[];
+};
+
+const FIELD_GUIDE: GuideSection[] = [
+  {
+    step: "etape-1",
+    icon: Building2,
+    titleFr: "Étape 1 — Le bien",
+    titleAr: "المرحلة 1 — العقار",
+    fields: [
+      {
+        nameFr: "Type de bien",
+        nameAr: "نوع العقار",
+        descFr: "Le type de bien détermine le mode de location (mensuel ou à la nuitée) et les références de marché utilisées par l'IA. Certains types imposent un mode de location (ex. local commercial → mensuel, résidence touristique → nuitée).",
+        descAr: "يحدد نوع العقار نمط الإيجار (شهري أو ليلي) ومراجع السوق التي تستخدمها الذكاء الاصطناعي. بعض الأنواع تُفرض عليها طريقة إيجار محددة (مثال: محل تجاري → شهري، إقامة سياحية → ليلي).",
+      },
+      {
+        nameFr: "Nom de l'analyse (optionnel)",
+        nameAr: "اسم التحليل (اختياري)",
+        descFr: "Un libellé libre pour retrouver facilement cette analyse dans vos analyses enregistrées. Exemple : « Appartement La Marsa ».",
+        descAr: "تسمية حرة لتسهيل العثور على هذا التحليل ضمن تحليلاتك المحفوظة. مثال: «شقة المرسى».",
+      },
+      {
+        nameFr: "Prix d'achat",
+        nameAr: "سعر الشراء",
+        descFr: "Le prix d'acquisition du bien en dinars tunisiens (TND). C'est la base du calcul du coût total et des rendements.",
+        descAr: "سعر اقتناء العقار بالدينار التونسي. وهو أساس حساب التكلفة الإجمالية والعوائد.",
+      },
+      {
+        nameFr: "Surface (m²)",
+        nameAr: "المساحة (م²)",
+        descFr: "La surface habitable en mètres carrés. Elle sert au calcul du prix au m² et aux loyers de référence de la zone.",
+        descAr: "المساحة القابلة للسكن بالمتر المربع. تُستعمل لحساب سعر المتر المربع وإيجارات المنطقة المرجعية.",
+      },
+      {
+        nameFr: "Région",
+        nameAr: "الجهة",
+        descFr: "Le gouvernorat où se situe le bien. L'IA ajuste la demande, le niveau de prix et le risque selon la région choisie.",
+        descAr: "الولاية التي يقع فيها العقار. تضبط الذكاء الاصطناعي الطلب ومستوى الأسعار والمخاطر حسب الجهة المختارة.",
+      },
+      {
+        nameFr: "Ville",
+        nameAr: "المدينة",
+        descFr: "La ville du bien, choisie dans la liste des villes de la région. Champ obligatoire pour l'estimation.",
+        descAr: "مدينة العقار، تُختار من قائمة مدن الجهة. حقل إجباري للتقدير.",
+      },
+      {
+        nameFr: "Quartier (optionnel)",
+        nameAr: "الحي (اختياري)",
+        descFr: "Le quartier précis s'il est connu. Les quartiers reconnus bénéficient d'un indice d'attractivité qui affine les estimations de l'IA.",
+        descAr: "الحي الدقيق إذا كان معروفًا. الأحياء المعروفة تستفيد من مؤشر جاذبية يحسّن تقديرات الذكاء الاصطناعي.",
+      },
+    ],
+  },
+  {
+    step: "etape-2",
+    icon: Coins,
+    titleFr: "Étape 2 — Loyer & charges",
+    titleAr: "المرحلة 2 — الإيجار والمصاريف",
+    fields: [
+      {
+        nameFr: "Loyer estimé (mensuel / nuitée)",
+        nameAr: "الإيجار التقديري (شهري / ليلي)",
+        descFr: "Le loyer que vous comptez percevoir : mensuel (location à l'année) ou à la nuitée (location saisonnière). Le montant est converti automatiquement si le mode change.",
+        descAr: "الإيجار الذي تنوي تحصيله: شهري (كراء سنوي) أو ليلي (كراء موسمي). يُحوَّل المبلغ تلقائيًا عند تغيير النمط.",
+      },
+      {
+        nameFr: "Taux d'occupation estimé",
+        nameAr: "نسبة الإشغال التقديرية",
+        descFr: "Le pourcentage de l'année durant lequel le bien est loué. Il est estimé automatiquement par l'IA selon la localisation et le mode de location. Vous pouvez le modifier.",
+        descAr: "نسبة السنة التي يكون فيها العقار مؤجّرًا. تُقدَّر تلقائيًا من طرف الذكاء الاصطناعي حسب الموقع ونمط الإيجار. يمكنك تعديلها.",
+      },
+      {
+        nameFr: "Charges annuelles",
+        nameAr: "المصاريف السنوية",
+        descFr: "Les charges récurrentes du bien : copropriété, entretien, services communs (syndic, eau, électricité commune…).",
+        descAr: "المصاريف المتكررة للعقار: الملكية المشتركة، الصيانة، الخدمات المشتركة (السنديك، الماء، الكهرباء المشتركة…).",
+      },
+      {
+        nameFr: "Assurance",
+        nameAr: "التأمين",
+        descFr: "Le coût annuel de l'assurance du bien (incendie, dégâts des eaux, multirisque habitation…).",
+        descAr: "التكلفة السنوية لتأمين العقار (الحريق، أضرار المياه، التأمين متعدد المخاطر للسكن…).",
+      },
+      {
+        nameFr: "Frais de gestion (si existant)",
+        nameAr: "مصاريف التسيير (إن وجدت)",
+        descFr: "Les honoraires d'un gestionnaire immobilier si vous déléguez la gestion du bien (agence de gestion, conciergerie…).",
+        descAr: "أتعاب مدير عقاري إذا فوّضت تسيير العقار (وكالة تسيير، خدمة استقبال…).",
+      },
+      {
+        nameFr: "Fiscalité",
+        nameAr: "الضرائب",
+        descFr: "Le pourcentage de l'impôt sur les revenus locatifs appliqué sur le loyer brut (en Tunisie, les revenus locatifs sont imposés selon un barème progressif).",
+        descAr: "نسبة الضريبة على الدخل الكرائي المطبقة على الإيجار الخام (في تونس، تُجبى الإيرادات الكرائية وفق جدول تصاعدي).",
+      },
+    ],
+  },
+  {
+    step: "etape-3",
+    icon: TrendingUp,
+    titleFr: "Étape 3 — Coûts & hypothèses",
+    titleAr: "المرحلة 3 — التكاليف والفرضيات",
+    fields: [
+      {
+        nameFr: "Frais de financement",
+        nameAr: "مصاريف التمويل",
+        descFr: "Les coûts liés au crédit bancaire si le bien est financé : intérêts, frais de dossier, assurance de prêt…",
+        descAr: "التكاليف المرتبطة بالقرض البنكي إذا كان العقار ممولًا: الفوائد، مصاريف الملف، تأمين القرض…",
+      },
+      {
+        nameFr: "Frais d'acquisition",
+        nameAr: "مصاريف الاقتناء",
+        descFr: "Le pourcentage du prix d'achat représentant les frais d'enregistrement et de notaire (environ 5-6 % en Tunisie).",
+        descAr: "نسبة من سعر الشراء تمثل مصاريف التسجيل والعدالة (حوالي 5-6% في تونس).",
+      },
+      {
+        nameFr: "Frais d'agence (si existant)",
+        nameAr: "أتعاب الوكالة (إن وجدت)",
+        descFr: "Les honoraires de l'agence immobilière si vous passez par une agence pour l'achat du bien.",
+        descAr: "أتعاب الوكالة العقارية إذا تعاملت مع وكالة لشراء العقار.",
+      },
+      {
+        nameFr: "Ameublement (si existant)",
+        nameAr: "التأثيث (إن وجد)",
+        descFr: "Le coût du mobilier et de l'équipement si le bien est loué meublé (important pour la location à la nuitée).",
+        descAr: "تكلفة الأثاث والتجهيزات إذا كان العقار مؤجّرًا مفروشًا (مهم للكراء الليلي).",
+      },
+      {
+        nameFr: "Coût d'aménagement",
+        nameAr: "تكلفة التهيئة",
+        descFr: "Les travaux de rénovation, d'aménagement et les équipements fixes nécessaires avant la mise en location.",
+        descAr: "أشغال الترميم والتهيئة والتجهيزات الثابتة اللازمة قبل وضع العقار للكراء.",
+      },
+      {
+        nameFr: "Évolution annuelle de la valeur du bien",
+        nameAr: "التطور السنوي لقيمة العقار",
+        descFr: "La revalorisation annuelle estimée du bien. Fourchette fixe de 4 à 6 % retenue par le moteur pour les projections de plus-value.",
+        descAr: "الارتفاع السنوي التقديري لقيمة العقار. نطاق ثابت من 4% إلى 6% يعتمد عليه المحرك في توقعات الأرباح الرأسمالية.",
+      },
+      {
+        nameFr: "Durée prévue de l'investissement",
+        nameAr: "المدة المتوقعة للاستثمار",
+        descFr: "L'horizon d'investissement en années — minimum 5 ans. Il détermine les prévisions de bénéfices, la récupération du capital et le Return on Investment.",
+        descAr: "أفق الاستثمار بالسنوات — 5 سنوات على الأقل. يحدد توقعات الأرباح، واسترداد رأس المال، والعائد على الاستثمار.",
+      },
+    ],
+  },
+];
 
 // ── Persistance de la localisation (pré-remplissage de la prochaine analyse) ──
 
@@ -474,12 +656,87 @@ export default function InvestmentAnalysis() {
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-sm">
                     <Coins className="h-4 w-4" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <CardTitle className="text-sm">Informations de l'investissement</CardTitle>
                     <CardDescription className="text-[11px]">
                       Remplissez les 3 étapes puis lancez l'analyse
                     </CardDescription>
                   </div>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-[11px] text-indigo-600 dark:text-indigo-400 border-indigo-500/25 hover:border-indigo-500/40 hover:bg-indigo-500/10">
+                        <HelpCircle className="h-3.5 w-3.5" />
+                        Explication
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-2xl rounded-2xl max-h-[85vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-base">
+                          <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                          Explication des informations à saisir
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                          Guide bilingue — chaque champ du formulaire expliqué en français et en العربية.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <Accordion type="multiple" defaultValue={["etape-1", "etape-2", "etape-3"]} className="w-full">
+                        {FIELD_GUIDE.map((section) => {
+                          const SectionIcon = section.icon;
+                          return (
+                            <AccordionItem key={section.step} value={section.step} className="border-border/30">
+                              <AccordionTrigger className="gap-2 py-3 text-xs font-semibold">
+                                <span className="flex items-center gap-2">
+                                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                                    <SectionIcon className="h-3.5 w-3.5" />
+                                  </span>
+                                  {section.titleFr}
+                                </span>
+                                <span className="text-[10px] font-normal text-muted-foreground" dir="rtl" lang="ar">
+                                  {section.titleAr}
+                                </span>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="space-y-2 pb-2">
+                                  {section.fields.map((f) => (
+                                    <div
+                                      key={f.nameFr}
+                                      className="rounded-lg border border-border/30 bg-muted/20 p-2.5"
+                                    >
+                                      <p className="text-xs font-semibold flex flex-wrap items-baseline gap-x-2">
+                                        <span>{f.nameFr}</span>
+                                        <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400" dir="rtl" lang="ar">
+                                          {f.nameAr}
+                                        </span>
+                                      </p>
+                                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{f.descFr}</p>
+                                      <p className="mt-1.5 border-t border-dashed border-border/30 pt-1.5 text-[11px] leading-relaxed text-muted-foreground/80" dir="rtl" lang="ar">
+                                        {f.descAr}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          );
+                        })}
+                      </Accordion>
+
+                      <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5">
+                        <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                          <ShieldAlert className="h-3.5 w-3.5" />
+                          Hypothèses fixes du moteur
+                        </p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                          Inflation 6 %/an · évolution des loyers +5 %/an · évolution de la valeur du bien 4-6 %/an ·
+                          durée minimale d'investissement 5 ans. Ces hypothèses sont appliquées automatiquement aux projections.
+                        </p>
+                        <p className="mt-1.5 border-t border-dashed border-border/30 pt-1.5 text-[11px] leading-relaxed text-muted-foreground/80" dir="rtl" lang="ar">
+                          التضخم 6% سنويًا · تطور الإيجارات +5% سنويًا · تطور قيمة العقار 4-6% سنويًا · مدة الاستثمار الدنيا 5 سنوات. تُطبَّق هذه الفرضيات تلقائيًا على التوقعات.
+                        </p>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardHeader>
 
