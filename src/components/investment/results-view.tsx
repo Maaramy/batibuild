@@ -370,16 +370,6 @@ export function ResultsView({ run, zones, assistant }: {
                       ["Prix d'achat", fmtTND(ind.purchasePrice)],
                       ["Frais d'acquisition", fmtTND(ind.acquisitionFees)],
                       ["Frais de financement", fmtTND((ind as any).financingFees ?? 0)],
-                      ...(((ind as any).financingInterest ?? 0) +
-                      ((ind as any).financingDossierFees ?? 0) +
-                      ((ind as any).financingInsurance ?? 0) >
-                        0
-                        ? ([
-                            ["Intérêts du crédit", fmtTND((ind as any).financingInterest ?? 0)],
-                            ["Frais de dossier", fmtTND((ind as any).financingDossierFees ?? 0)],
-                            ["Assurance de prêt", fmtTND((ind as any).financingInsurance ?? 0)],
-                          ] as [string, string][])
-                        : []),
                       ["Frais d'agence", fmtTND((ind as any).agencyFees ?? 0)],
                       ["Coût d'aménagement", fmtTND(ind.renovationCost ?? 0)],
                       ["Ameublement", fmtTND((ind as any).furnishingCost ?? 0)],

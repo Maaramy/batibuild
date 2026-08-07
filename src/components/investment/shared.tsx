@@ -60,10 +60,6 @@ export type InvestmentInput = {
   renovationCost?: number;
   acquisitionFeesPct?: number;
   financingFees?: number;
-  // Frais de financement détaillés (crédit bancaire)
-  financingInterest?: number;
-  financingDossierFees?: number;
-  financingInsurance?: number;
   agencyFees?: number;
   furnishingCost?: number;
   annualCharges?: number;
@@ -78,8 +74,7 @@ export type InvestmentInput = {
 
 export interface Indicators {
   purchasePrice: number; totalCost: number; acquisitionFees: number; renovationCost: number;
-  financingFees: number; financingInterest: number; financingDossierFees: number; financingInsurance: number;
-  agencyFees: number; furnishingCost: number;
+  financingFees: number; agencyFees: number; furnishingCost: number;
   annualCharges: number; insurance: number; managementFees: number; taxation: number;
   rentMode: "nuit" | "mensuel";
   monthlyRent: number; occupancyRate: number; grossAnnualRent: number; operatingExpenses: number;
@@ -150,9 +145,6 @@ export const DEFAULT_FORM = {
   taxationPct: 10,
   renovationCost: 0,
   financingFees: 0,
-  financingInterest: 0,
-  financingDossierFees: 0,
-  financingInsurance: 0,
   agencyFees: 0,
   furnishingCost: 0,
   acquisitionFeesPct: 6,
@@ -430,13 +422,6 @@ export function generatePdf(run: AnalysisRun) {
       ["Prix d'achat", fmtPdf(ind.purchasePrice)],
       ["Frais d'acquisition (" + (input.acquisitionFeesPct ?? 6) + " %)", fmtPdf(ind.acquisitionFees)],
       ["Frais de financement", fmtPdf(ind.financingFees ?? 0)],
-      ...((ind.financingInterest ?? 0) + (ind.financingDossierFees ?? 0) + (ind.financingInsurance ?? 0) > 0
-        ? [
-            ["Intérêts du crédit", fmtPdf(ind.financingInterest ?? 0)],
-            ["Frais de dossier", fmtPdf(ind.financingDossierFees ?? 0)],
-            ["Assurance de prêt", fmtPdf(ind.financingInsurance ?? 0)],
-          ] as [string, string][]
-        : []),
       ["Frais d'agence", fmtPdf(ind.agencyFees ?? 0)],
       ["Coût d'aménagement", fmtPdf(ind.renovationCost ?? 0)],
       ["Ameublement", fmtPdf(ind.furnishingCost ?? 0)],
@@ -616,13 +601,6 @@ export function exportCsv(run: AnalysisRun) {
       ["Prix d'achat", `${ind.purchasePrice} TND`],
       ["Frais d'acquisition", `${ind.acquisitionFees} TND`],
       ["Frais de financement", `${ind.financingFees ?? 0} TND`],
-      ...((ind.financingInterest ?? 0) + (ind.financingDossierFees ?? 0) + (ind.financingInsurance ?? 0) > 0
-        ? [
-            ["Intérêts du crédit", `${ind.financingInterest ?? 0} TND`],
-            ["Frais de dossier", `${ind.financingDossierFees ?? 0} TND`],
-            ["Assurance de prêt", `${ind.financingInsurance ?? 0} TND`],
-          ] as [string, string][]
-        : []),
       ["Frais d'agence", `${ind.agencyFees ?? 0} TND`],
       ["Coût d'aménagement", `${ind.renovationCost ?? 0} TND`],
       ["Ameublement", `${ind.furnishingCost ?? 0} TND`],

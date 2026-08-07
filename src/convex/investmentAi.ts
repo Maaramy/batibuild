@@ -65,10 +65,6 @@ export const runAnalysis = action({
       });
 
     const location = [normalized.city, normalized.quartier].filter(Boolean).join(" / ");
-    const financingDetail =
-      normalized.financingInterest || normalized.financingDossierFees || normalized.financingInsurance
-        ? ` (intérêts ${normalized.financingInterest} TND, frais de dossier ${normalized.financingDossierFees} TND, assurance de prêt ${normalized.financingInsurance} TND)`
-        : "";
     const rentLabel =
       normalized.rentMode === "nuit"
         ? `${normalized.rentAmount} TND/nuit (équivalent ${normalized.monthlyRent} TND/mois)`
@@ -76,7 +72,7 @@ export const runAnalysis = action({
     const userPrompt =
       `Type de bien: ${meta.label}. Zone: ${results.zone.name} (indice de demande ${results.zone.demandIndex}/100, risque ${results.zone.riskScore}/100, rang ${results.zone.rank}${results.zone.utilityLabel ? `, quartier reconnu « ${results.zone.utilityLabel} » attractivité ${results.zone.utilityIndex}/100` : ""}).\n` +
       (location ? `Localisation saisie: ${location}.\n` : "") +
-      `Prix d'achat: ${ind.purchasePrice} TND · Coût total: ${ind.totalCost} TND (dont frais d'acquisition ${ind.acquisitionFees} TND, financement ${ind.financingFees} TND${financingDetail}, agence ${ind.agencyFees} TND, aménagement ${ind.renovationCost} TND, ameublement ${ind.furnishingCost} TND).\n` +
+      `Prix d'achat: ${ind.purchasePrice} TND · Coût total: ${ind.totalCost} TND (dont frais d'acquisition ${ind.acquisitionFees} TND, financement ${ind.financingFees} TND, agence ${ind.agencyFees} TND, aménagement ${ind.renovationCost} TND, ameublement ${ind.furnishingCost} TND).\n` +
       `Loyer estimé: ${rentLabel} (taux d'occupation ${normalized.occupancyRate}%).\n` +
       `Charges annuelles: ${ind.annualCharges} TND (charges courantes ${ind.annualCharges} TND, assurance ${ind.insurance} TND, gestion ${ind.managementFees} TND, fiscalité ${normalized.taxationPct}% soit ${ind.taxation} TND).\n` +
       `Revenu net annuel: ${ind.netAnnualIncome} TND · Rendement brut ${ind.grossYieldPct}% · rendement net ${ind.netYieldPct}%.\n` +
