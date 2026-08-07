@@ -155,7 +155,7 @@ function loadSavedLocation(): Pick<FormState, "region" | "city" | "quartier"> | 
 export default function InvestmentAnalysis() {
   usePageSEO({
     title: "Analyse de rentabilité immobilière - BudgetBati",
-    description: "Évaluez la rentabilité de vos investissements immobiliers en Tunisie avec l'IA : ROI, cash-flow, prévisions, scénarios et score d'investissement.",
+    description: "Évaluez la rentabilité de vos investissements immobiliers en Tunisie avec l'IA : Return on Investment, flux de trésorerie, prévisions, scénarios et score d'investissement.",
   });
   const navigate = useNavigate();
   const location = useLocation();
@@ -867,11 +867,11 @@ export default function InvestmentAnalysis() {
                             <Kpi icon={Coins} label="Coût total" value={`${fmtNum(preview.totalCost)} TND`} sub="Prix + tous frais" tone="text-indigo-600 dark:text-indigo-400" />
                             <Kpi icon={TrendingUp} label="Revenus bruts / an" value={`${fmtNum(preview.grossAnnualRent)} TND`} sub="Loyers × occupation" tone="text-blue-600 dark:text-blue-400" />
                             <Kpi icon={Wallet} label="Revenu net / an" value={`${fmtNum(preview.netAnnualIncome)} TND`} tone={preview.netAnnualIncome >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
-                            <Kpi icon={PiggyBank} label="Cash-flow / mois" value={`${fmtNum(preview.monthlyCashflow)} TND`} tone={preview.monthlyCashflow >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
+                            <Kpi icon={PiggyBank} label="Flux de trésorerie / mois" value={`${fmtNum(preview.monthlyCashflow)} TND`} tone={preview.monthlyCashflow >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
                             <Kpi icon={Percent} label="Rentabilité nette" value={`${preview.netYieldPct.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} sub="Revenu net / coût total" />
                             <Kpi icon={CalendarClock} label="Récupération" value={preview.paybackYears ? `${fmtNum(Math.round(preview.paybackYears * 10) / 10)} ans` : "—"} sub="Retour du capital investi" tone="text-amber-600 dark:text-amber-400" />
-                            <Kpi icon={Gauge} label="ROI 5 ans" value={`${preview5.roi.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} tone={preview5.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
-                            <Kpi icon={BarChart3} label="ROI 10 ans" value={`${preview10.roi.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} tone={preview10.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
+                            <Kpi icon={Gauge} label="Return on Investment 5 ans" value={`${preview5.roi.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} tone={preview5.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
+                            <Kpi icon={BarChart3} label="Return on Investment 10 ans" value={`${preview10.roi.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`} tone={preview10.roi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600"} />
                           </div>
                           <p className="mt-2 text-[9px] text-muted-foreground/70 leading-relaxed">
                             Estimation indicative recalculée en direct — le rapport IA détaillé affinera ces
@@ -1045,7 +1045,7 @@ export default function InvestmentAnalysis() {
                 </h2>
                 <p className="text-xs sm:text-sm text-muted-foreground max-w-xl mt-2 leading-relaxed">
                   Renseignez les informations du bien à gauche puis lancez l'analyse. Le moteur IA calcule
-                  automatiquement les indicateurs financiers, le ROI, la durée de récupération du capital,
+                  automatiquement les indicateurs financiers, le Return on Investment, la durée de récupération du capital,
                   les prévisions de bénéfices et le score d'investissement, puis génère un rapport PDF complet.
                 </p>
                 <div className="mt-4 flex flex-wrap items-center gap-1.5">
@@ -1078,7 +1078,7 @@ export default function InvestmentAnalysis() {
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
               {[
                 { icon: Percent, label: "Rentabilité brute & nette", desc: "Rendement locatif calculé" },
-                { icon: PiggyBank, label: "Cash-flow mensuel", desc: "Revenus moins charges" },
+                { icon: PiggyBank, label: "Flux de trésorerie mensuel", desc: "Revenus moins charges" },
                 { icon: CalendarClock, label: "Récupération du capital", desc: "Durée + date d'amortissement" },
                 { icon: TrendingUp, label: "Prévisions IA", desc: "Gains à 1, 3, 5 et 10 ans" },
                 { icon: Layers, label: "3 scénarios", desc: "Optimiste, réaliste, prudent" },
@@ -1121,9 +1121,9 @@ export default function InvestmentAnalysis() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 shrink-0 lg:w-[560px]">
                     <Kpi icon={Coins} label="Coût total" value="338 240 TND" tone="text-indigo-600 dark:text-indigo-400" />
                     <Kpi icon={Percent} label="Rentabilité nette" value="6,2 %" tone="text-emerald-600 dark:text-emerald-400" />
-                    <Kpi icon={Wallet} label="Cash-flow mensuel" value="+980 TND" tone="text-blue-600 dark:text-blue-400" />
+                    <Kpi icon={Wallet} label="Flux de trésorerie mensuel" value="+980 TND" tone="text-blue-600 dark:text-blue-400" />
                     <Kpi icon={CalendarClock} label="Récupération" value="9,5 ans" tone="text-amber-600 dark:text-amber-400" />
-                    <Kpi icon={TrendingUp} label="ROI 10 ans" value="82 %" tone="text-violet-600 dark:text-violet-400" />
+                    <Kpi icon={TrendingUp} label="Return on Investment 10 ans" value="82 %" tone="text-violet-600 dark:text-violet-400" />
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border/30 bg-muted/20 p-3">

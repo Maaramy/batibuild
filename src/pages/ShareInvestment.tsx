@@ -46,7 +46,7 @@ export default function ShareInvestment() {
       ? `Analyse partagée : ${run.input?.name || TYPE_META[run.input.investmentType as InvestmentType]?.label} - BudgetBati`
       : "Analyse immobilière partagée - BudgetBati",
     description: run
-      ? `Analyse de rentabilité immobilière partagée : score IA ${run.results.score.total}/100, rentabilité nette ${run.results.indicators.netYieldPct}%, ROI 10 ans ${run.results.indicators.roi10yPct}%.`
+      ? `Analyse de rentabilité immobilière partagée : score IA ${run.results.score.total}/100, rentabilité nette ${run.results.indicators.netYieldPct}%, Return on Investment 10 ans ${run.results.indicators.roi10yPct}%.`
       : "Consultez une analyse de rentabilité immobilière partagée par son auteur sur BudgetBati.",
   });
 

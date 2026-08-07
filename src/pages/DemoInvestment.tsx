@@ -25,7 +25,7 @@ import { ResultsView } from "@/components/investment/results-view";
 export default function DemoInvestment() {
   usePageSEO({
     title: "Exemple d'analyse de rentabilité immobilière - BudgetBati",
-    description: "Découvrez un exemple complet d'analyse de rentabilité immobilière en Tunisie : score IA, ROI, cash-flow, prévisions, scénarios et comparaison — calculés par le moteur BudgetBati.",
+    description: "Découvrez un exemple complet d'analyse de rentabilité immobilière en Tunisie : score IA, Return on Investment, flux de trésorerie, prévisions, scénarios et comparaison — calculés par le moteur BudgetBati.",
   });
   const navigate = useNavigate();
 

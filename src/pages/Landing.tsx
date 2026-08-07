@@ -179,7 +179,7 @@ const INVESTMENT_POINTS = [
   {
     icon: Percent,
     title: "Indicateurs financiers complets",
-    desc: "Rentabilité brute et nette, cash-flow mensuel et annuel, ROI à 1, 5 et 10 ans.",
+    desc: "Rentabilité brute et nette, flux de trésorerie mensuel et annuel, Return on Investment à 1, 5 et 10 ans.",
     gradient: "from-indigo-500/20 to-blue-500/20",
     iconColor: "text-indigo-600 dark:text-indigo-400",
   },
@@ -920,8 +920,8 @@ function MockInvestmentScreen() {
       <div className="grid grid-cols-3 gap-2">
         {[
           { label: "Rendement net", value: "6,2%", color: "text-emerald-600 dark:text-emerald-400", icon: Percent },
-          { label: "Cash-flow", value: "+980 TND", color: "text-blue-600 dark:text-blue-400", icon: Wallet },
-          { label: "ROI 10 ans", value: "82%", color: "text-indigo-600 dark:text-indigo-400", icon: TrendingUp },
+          { label: "Flux de trésorerie", value: "+980 TND", color: "text-blue-600 dark:text-blue-400", icon: Wallet },
+          { label: "Return on Investment 10 ans", value: "82%", color: "text-indigo-600 dark:text-indigo-400", icon: TrendingUp },
         ].map((kpi) => (
           <div key={kpi.label} className="rounded-lg border border-border/20 bg-background/50 p-2.5 text-center">
             <kpi.icon className={`h-3.5 w-3.5 mx-auto mb-1 ${kpi.color}`} />
@@ -999,7 +999,7 @@ function InvestmentsSection() {
             <span className="gradient-text">investissements immobiliers</span>
           </h2>
           <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
-            Le moteur IA évalue automatiquement vos projets d'investissement en Tunisie : ROI, cash-flow,
+            Le moteur IA évalue automatiquement vos projets d'investissement en Tunisie : Return on Investment, flux de trésorerie,
             récupération du capital, prévisions de bénéfices et score d'investissement.
           </p>
         </motion.div>

@@ -79,7 +79,7 @@ export function ResultsView({ run, zones, assistant }: {
 
   const comparisonChartData = (results.comparison ?? []).map((c) => ({
     name: c.label,
-    "ROI 10 ans": c.roi10yPct,
+    "Return on Investment 10 ans": c.roi10yPct,
     Score: c.score,
   }));
 
@@ -190,9 +190,9 @@ export function ResultsView({ run, zones, assistant }: {
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 shrink-0 xl:w-[640px]">
               <Kpi icon={Coins} label="Coût total" value={fmtTND(ind.totalCost)} sub={`${fmtNum(ind.pricePerM2 ?? 0)} TND/m²`} tone="text-indigo-600 dark:text-indigo-400" />
               <Kpi icon={Percent} label="Rentabilité nette" value={fmtPct(ind.netYieldPct)} sub={`Brute ${fmtPct(ind.grossYieldPct)}`} tone="text-emerald-600 dark:text-emerald-400" />
-              <Kpi icon={Wallet} label="Cash-flow mensuel" value={fmtTND(ind.monthlyCashflow)} sub={`${fmtTND(ind.annualCashflow)}/an`} tone="text-blue-600 dark:text-blue-400" />
+              <Kpi icon={Wallet} label="Flux de trésorerie mensuel" value={fmtTND(ind.monthlyCashflow)} sub={`${fmtTND(ind.annualCashflow)}/an`} tone="text-blue-600 dark:text-blue-400" />
               <Kpi icon={CalendarClock} label="Récupération" value={ind.paybackYears >= 99 ? "> 30 ans" : `${ind.paybackYears} ans`} sub={ind.paybackDateLabel} tone="text-amber-600 dark:text-amber-400" />
-              <Kpi icon={TrendingUp} label="ROI 10 ans" value={fmtPct(ind.roi10yPct)} sub={`5 ans : ${fmtPct(ind.roi5yPct)}`} tone="text-violet-600 dark:text-violet-400" />
+              <Kpi icon={TrendingUp} label="Return on Investment 10 ans" value={fmtPct(ind.roi10yPct)} sub={`5 ans : ${fmtPct(ind.roi5yPct)}`} tone="text-violet-600 dark:text-violet-400" />
             </div>
           </div>
         </CardContent>
@@ -379,8 +379,8 @@ export function ResultsView({ run, zones, assistant }: {
                       ["Fiscalité", fmtTND((ind as any).taxation ?? 0)],
                       ["Total charges d'exploitation annuelles", `- ${fmtTND(ind.operatingExpenses)}`],
                       ["Revenu net annuel", fmtTND(ind.netAnnualIncome), true],
-                      ["Cash-flow mensuel", fmtTND(ind.monthlyCashflow)],
-                      ["Cash-flow annuel", fmtTND(ind.annualCashflow)],
+                      ["Flux de trésorerie mensuel", fmtTND(ind.monthlyCashflow)],
+                      ["Flux de trésorerie annuel", fmtTND(ind.annualCashflow)],
                     ]}
                   />
                   <IndicatorsGroup
@@ -390,9 +390,9 @@ export function ResultsView({ run, zones, assistant }: {
                     rows={[
                       ["Rentabilité brute", fmtPct(ind.grossYieldPct)],
                       ["Rentabilité nette", fmtPct(ind.netYieldPct), true],
-                      ["ROI annuel", fmtPct(ind.roiAnnualPct)],
-                      ["ROI sur 5 ans", fmtPct(ind.roi5yPct)],
-                      ["ROI sur 10 ans", fmtPct(ind.roi10yPct)],
+                      ["Return on Investment annuel", fmtPct(ind.roiAnnualPct)],
+                      ["Return on Investment sur 5 ans", fmtPct(ind.roi5yPct)],
+                      ["Return on Investment sur 10 ans", fmtPct(ind.roi10yPct)],
                       ["Prix au m²", ind.pricePerM2 ? fmtTND(ind.pricePerM2) : "—"],
                       ["Rapport prix / loyer annuel", `${fmtNum(ind.priceToRentRatio)}×`],
                       ["Taux d'occupation retenu", fmtPct(ind.occupancyRate)],
@@ -444,7 +444,7 @@ export function ResultsView({ run, zones, assistant }: {
                     <div className="mt-2 space-y-1 border-t border-border/20 pt-2 text-[10px] sm:text-[11px]">
                       <p className="flex justify-between"><span className="text-muted-foreground">Valeur future</span><span className="font-semibold tabular-nums">{fmtTND(s.futureValue)}</span></p>
                       <p className="flex justify-between"><span className="text-muted-foreground">Revenus cumulés</span><span className="font-semibold tabular-nums">{fmtTND(s.cumulativeProfit)}</span></p>
-                      <p className="flex justify-between"><span className="text-muted-foreground">ROI</span><span className={cn("font-semibold tabular-nums", s.roiPct >= 0 ? "text-emerald-600" : "text-red-600")}>{fmtPct(s.roiPct)}</span></p>
+                      <p className="flex justify-between"><span className="text-muted-foreground">Return on Investment</span><span className={cn("font-semibold tabular-nums", s.roiPct >= 0 ? "text-emerald-600" : "text-red-600")}>{fmtPct(s.roiPct)}</span></p>
                     </div>
                   </CardContent>
                 </Card>
@@ -583,7 +583,7 @@ export function ResultsView({ run, zones, assistant }: {
                         <p className="text-sm font-bold tabular-nums text-emerald-600">{fmtPct(s.netYieldPct)}</p>
                       </div>
                       <div className="rounded-lg border border-border/30 bg-muted/10 p-2.5">
-                        <p className="text-[9px] text-muted-foreground">ROI {results.forecasts.length} ans</p>
+                        <p className="text-[9px] text-muted-foreground">Return on Investment {results.forecasts.length} ans</p>
                         <p className={cn("text-sm font-bold tabular-nums", s.roiPct >= 0 ? "text-emerald-600" : "text-red-600")}>{fmtPct(s.roiPct)}</p>
                       </div>
                     </div>
@@ -642,7 +642,7 @@ export function ResultsView({ run, zones, assistant }: {
                     <div key={s.key} className="flex items-center gap-1.5 rounded-full border border-border/30 bg-muted/20 px-2.5 py-1 text-[10px]">
                       <span className={cn("h-2 w-2 rounded-full", s.key === "optimiste" ? "bg-emerald-500" : s.key === "realiste" ? "bg-blue-500" : "bg-amber-500")} />
                       <span className="font-medium">{s.label}</span>
-                      <span className="text-muted-foreground tabular-nums">ROI {fmtPct(s.roiPct)}</span>
+                      <span className="text-muted-foreground tabular-nums">Return on Investment {fmtPct(s.roiPct)}</span>
                     </div>
                   ))}
                 </div>
@@ -668,7 +668,7 @@ export function ResultsView({ run, zones, assistant }: {
                         <th className="py-2 pr-3 font-medium">Type</th>
                         <th className="py-2 pr-3 font-medium">Revenu annuel</th>
                         <th className="py-2 pr-3 font-medium">Rentabilité nette</th>
-                        <th className="py-2 pr-3 font-medium">ROI 10 ans</th>
+                        <th className="py-2 pr-3 font-medium">Return on Investment 10 ans</th>
                         <th className="py-2 pr-3 font-medium">Appréciation</th>
                         <th className="py-2 pr-3 font-medium">Risque</th>
                         <th className="py-2 font-medium text-right">Score</th>

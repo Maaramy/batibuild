@@ -41,7 +41,7 @@ import { ResultsView } from "@/components/investment/results-view";
 export default function InvestmentResults() {
   usePageSEO({
     title: "Résultats de l'analyse immobilière - BudgetBati",
-    description: "Tableau de bord décisionnel de votre investissement immobilier en Tunisie : ROI, cash-flow, prévisions, scénarios, score IA et assistant investisseur.",
+    description: "Tableau de bord décisionnel de votre investissement immobilier en Tunisie : Return on Investment, flux de trésorerie, prévisions, scénarios, score IA et assistant investisseur.",
   });
   const navigate = useNavigate();
   const { analysisId } = useParams<{ analysisId: string }>();
@@ -131,14 +131,14 @@ export default function InvestmentResults() {
       `Coût d'achat: ${fmtTND(ind.purchasePrice)}${ind.pricePerM2 ? ` (${fmtTND(ind.pricePerM2)}/m²)` : ""}. Frais d'acquisition ${fmtTND(ind.acquisitionFees)}, financement ${fmtTND(ind.financingFees)}, agence ${fmtTND(ind.agencyFees)}, aménagement ${fmtTND(ind.renovationCost)}, ameublement ${fmtTND(ind.furnishingCost)} → coût total ${fmtTND(ind.totalCost)}.`,
       `Loyer estimé: ${rentLabel} (mode ${input?.rentMode === "nuit" ? "nuitée" : "mensuel"}, taux d'occupation ${ind.occupancyRate}%).`,
       `Charges annuelles: ${fmtTND(ind.annualCharges)} + assurance ${fmtTND(ind.insurance)} + gestion ${fmtTND(ind.managementFees)} + fiscalité ${input?.taxationPct ?? 0}% (${fmtTND(ind.taxation)}) = ${fmtTND(ind.operatingExpenses)}/an.`,
-      `Revenu net: ${fmtTND(ind.netAnnualIncome)}/an. Cash-flow: ${fmtTND(ind.monthlyCashflow)}/mois (${fmtTND(ind.annualCashflow)}/an).`,
-      `Rentabilité: brute ${ind.grossYieldPct}%, nette ${ind.netYieldPct}%. ROI ${ind.roiAnnualPct}%/an, ${ind.roi5yPct}% sur 5 ans, ${ind.roi10yPct}% sur 10 ans. Ratio prix/loyer ${fmtNum(ind.priceToRentRatio)}×.`,
+      `Revenu net: ${fmtTND(ind.netAnnualIncome)}/an. Flux de trésorerie: ${fmtTND(ind.monthlyCashflow)}/mois (${fmtTND(ind.annualCashflow)}/an).`,
+      `Rentabilité: brute ${ind.grossYieldPct}%, nette ${ind.netYieldPct}%. Return on Investment ${ind.roiAnnualPct}%/an, ${ind.roi5yPct}% sur 5 ans, ${ind.roi10yPct}% sur 10 ans. Ratio prix/loyer ${fmtNum(ind.priceToRentRatio)}×.`,
       `Récupération du capital: ${ind.paybackYears >= 99 ? "> 30 ans" : `${ind.paybackYears} ans`} (${ind.paybackDateLabel}).`,
       `Hypothèses du moteur: inflation ${input?.inflationPct ?? 6}%, croissance des loyers ${input?.rentGrowthPct ?? 5}%/an, appréciation du bien ${input?.annualAppreciationPct ?? 5}%/an, horizon ${run.results.forecasts.length} ans.`,
       `Score IA: ${score.total}/100 (${score.grade}) — ${score.criteria.map((c) => `${c.label} ${c.score}/${c.max} (poids ${c.weight}%)`).join(", ")}.`,
-      `Prévisions: ${run.results.forecastSummary.map((s) => `${s.label}: gain ${fmtTND(s.gain)}, valeur ${fmtTND(s.futureValue)}, ROI ${s.roiPct}%`).join(" | ")}.`,
-      `Scénarios: ${run.results.scenarios.map((s) => `${s.label} (risque ${s.riskLevel}): ROI ${s.roiPct}%, valeur future ${fmtTND(s.futureValue)}`).join(" | ")}.`,
-      `Benchmark: ${run.results.comparison.map((c) => `${c.label}: rendement net ${c.netYieldPct}%, ROI 10 ans ${c.roi10yPct}%, risque ${c.riskLevel}, score ${c.score}/100`).join(" | ")}.`,
+      `Prévisions: ${run.results.forecastSummary.map((s) => `${s.label}: gain ${fmtTND(s.gain)}, valeur ${fmtTND(s.futureValue)}, Return on Investment ${s.roiPct}%`).join(" | ")}.`,
+      `Scénarios: ${run.results.scenarios.map((s) => `${s.label} (risque ${s.riskLevel}): Return on Investment ${s.roiPct}%, valeur future ${fmtTND(s.futureValue)}`).join(" | ")}.`,
+      `Benchmark: ${run.results.comparison.map((c) => `${c.label}: rendement net ${c.netYieldPct}%, Return on Investment 10 ans ${c.roi10yPct}%, risque ${c.riskLevel}, score ${c.score}/100`).join(" | ")}.`,
       ai?.summary ? `Synthèse du conseiller IA: ${ai.summary}` : "",
       ai?.recommendations?.length ? `Recommandations IA: ${ai.recommendations.slice(0, 3).join(" · ")}.` : "",
       ai?.risks?.length ? `Risques IA: ${ai.risks.slice(0, 3).join(" · ")}.` : "",

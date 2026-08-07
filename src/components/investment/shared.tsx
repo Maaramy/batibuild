@@ -431,13 +431,13 @@ export function generatePdf(run: AnalysisRun) {
       ["Fiscalité (" + (input.taxationPct ?? 0) + " % du brut)", fmtPdf(ind.taxation ?? 0)],
       ["Total charges d'exploitation annuelles", fmtPdf(ind.operatingExpenses)],
       ["Revenu net annuel", fmtPdf(ind.netAnnualIncome)],
-      ["Cash-flow mensuel", fmtPdf(ind.monthlyCashflow)],
-      ["Cash-flow annuel", fmtPdf(ind.annualCashflow)],
+      ["Flux de trésorerie mensuel", fmtPdf(ind.monthlyCashflow)],
+      ["Flux de trésorerie annuel", fmtPdf(ind.annualCashflow)],
       ["Rentabilité brute", ind.grossYieldPct.toLocaleString("fr-FR") + " %"],
       ["Rentabilité nette", ind.netYieldPct.toLocaleString("fr-FR") + " %"],
-      ["ROI annuel", ind.roiAnnualPct.toLocaleString("fr-FR") + " %"],
-      ["ROI sur 5 ans", ind.roi5yPct.toLocaleString("fr-FR") + " %"],
-      ["ROI sur 10 ans", ind.roi10yPct.toLocaleString("fr-FR") + " %"],
+      ["Return on Investment annuel", ind.roiAnnualPct.toLocaleString("fr-FR") + " %"],
+      ["Return on Investment sur 5 ans", ind.roi5yPct.toLocaleString("fr-FR") + " %"],
+      ["Return on Investment sur 10 ans", ind.roi10yPct.toLocaleString("fr-FR") + " %"],
       ["Rapport prix / loyer annuel", ind.priceToRentRatio.toLocaleString("fr-FR")],
     ],
     [70, 30],
@@ -455,7 +455,7 @@ export function generatePdf(run: AnalysisRun) {
 
   h("Prévisions des bénéfices");
   table(
-    ["Horizon", "Revenu net", "Valeur future", "Gain estimé", "ROI"],
+    ["Horizon", "Revenu net", "Valeur future", "Gain estimé", "Return on Investment"],
     results.forecastSummary.map((s) => [
       s.label,
       fmtPdf(s.netIncome),
@@ -468,7 +468,7 @@ export function generatePdf(run: AnalysisRun) {
 
   h("Simulation de scénarios");
   table(
-    ["Scénario", "Valeur future", "Revenus totaux", "Rentabilité nette", "ROI", "Risque"],
+    ["Scénario", "Valeur future", "Revenus totaux", "Rentabilité nette", "Return on Investment", "Risque"],
     results.scenarios.map((s) => [
       s.label,
       fmtPdf(s.futureValue),
@@ -482,7 +482,7 @@ export function generatePdf(run: AnalysisRun) {
 
   h("Comparaison avec d'autres investissements");
   table(
-    ["Type", "Revenu annuel", "Rentabilité nette", "ROI 10 ans", "Risque", "Score"],
+    ["Type", "Revenu annuel", "Rentabilité nette", "Return on Investment 10 ans", "Risque", "Score"],
     results.comparison.map((c) => [
       c.label,
       fmtPdf(c.annualIncome),
@@ -607,13 +607,13 @@ export function exportCsv(run: AnalysisRun) {
       ["Revenus locatifs bruts annuels", `${ind.grossAnnualRent} TND`],
       ["Charges d'exploitation annuelles", `${ind.operatingExpenses} TND`],
       ["Revenu net annuel", `${ind.netAnnualIncome} TND`],
-      ["Cash-flow mensuel", `${ind.monthlyCashflow} TND`],
-      ["Cash-flow annuel", `${ind.annualCashflow} TND`],
+      ["Flux de trésorerie mensuel", `${ind.monthlyCashflow} TND`],
+      ["Flux de trésorerie annuel", `${ind.annualCashflow} TND`],
       ["Rentabilité brute", `${ind.grossYieldPct}%`],
       ["Rentabilité nette", `${ind.netYieldPct}%`],
-      ["ROI annuel", `${ind.roiAnnualPct}%`],
-      ["ROI sur 5 ans", `${ind.roi5yPct}%`],
-      ["ROI sur 10 ans", `${ind.roi10yPct}%`],
+      ["Return on Investment annuel", `${ind.roiAnnualPct}%`],
+      ["Return on Investment sur 5 ans", `${ind.roi5yPct}%`],
+      ["Return on Investment sur 10 ans", `${ind.roi10yPct}%`],
       ["Rapport prix / loyer annuel", `${ind.priceToRentRatio}x`],
       ["Durée de récupération du capital", ind.paybackYears >= 99 ? "> 30 ans" : `${ind.paybackYears} ans`],
       ["Date estimée d'amortissement", ind.paybackDateLabel],
@@ -622,7 +622,7 @@ export function exportCsv(run: AnalysisRun) {
 
   // ── Prévisions ──
   sections.push(csvRows(
-    ["Horizon", "Revenu net", "Valeur future", "Gain estimé", "ROI"],
+    ["Horizon", "Revenu net", "Valeur future", "Gain estimé", "Return on Investment"],
     results.forecastSummary.map((s) => [
       s.label,
       `${s.netIncome} TND`,
@@ -634,7 +634,7 @@ export function exportCsv(run: AnalysisRun) {
 
   // ── Scénarios ──
   sections.push(csvRows(
-    ["Scénario", "Valeur future", "Revenus totaux", "Rentabilité nette", "ROI", "Risque"],
+    ["Scénario", "Valeur future", "Revenus totaux", "Rentabilité nette", "Return on Investment", "Risque"],
     results.scenarios.map((s) => [
       s.label,
       `${s.futureValue} TND`,
@@ -647,7 +647,7 @@ export function exportCsv(run: AnalysisRun) {
 
   // ── Comparaison ──
   sections.push(csvRows(
-    ["Type", "Revenu annuel", "Rentabilité nette", "ROI 10 ans", "Appréciation", "Risque", "Score"],
+    ["Type", "Revenu annuel", "Rentabilité nette", "Return on Investment 10 ans", "Appréciation", "Risque", "Score"],
     results.comparison.map((c) => [
       c.label,
       `${c.annualIncome} TND`,

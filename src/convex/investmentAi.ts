@@ -76,7 +76,7 @@ export const runAnalysis = action({
       `Loyer estimé: ${rentLabel} (taux d'occupation ${normalized.occupancyRate}%).\n` +
       `Charges annuelles: ${ind.annualCharges} TND (charges courantes ${ind.annualCharges} TND, assurance ${ind.insurance} TND, gestion ${ind.managementFees} TND, fiscalité ${normalized.taxationPct}% soit ${ind.taxation} TND).\n` +
       `Revenu net annuel: ${ind.netAnnualIncome} TND · Rendement brut ${ind.grossYieldPct}% · rendement net ${ind.netYieldPct}%.\n` +
-      `Cash-flow mensuel: ${ind.monthlyCashflow} TND · ROI annuel ${ind.roiAnnualPct}% · ROI 5 ans ${ind.roi5yPct}% · ROI 10 ans ${ind.roi10yPct}%.\n` +
+      `Flux de trésorerie mensuel: ${ind.monthlyCashflow} TND · Return on Investment annuel ${ind.roiAnnualPct}% · Return on Investment 5 ans ${ind.roi5yPct}% · Return on Investment 10 ans ${ind.roi10yPct}%.\n` +
       `Hypothèses fixes du moteur: inflation ${normalized.inflationPct}% · croissance des loyers ${normalized.rentGrowthPct}%/an · appréciation du bien ${normalized.annualAppreciationPct}%/an (fourchette 4-6%).\n` +
       `Récupération du capital: ${ind.paybackYears} ans · Score IA: ${results.score.total}/100 (${results.score.grade}).\n` +
       `Prévisions: ${results.forecastSummary.map((s) => `${s.label} gain ${s.gain} TND, valeur ${s.futureValue} TND`).join(" · ")}.\n` +
@@ -176,7 +176,7 @@ function fallbackAssistant(message: string, context?: string): string {
   }
   return (
     "Je suis votre assistant investissement immobilier pour la Tunisie. Je peux vous aider sur :\n" +
-    "• La rentabilité d'un bien (rendement, ROI)\n• Les meilleures zones et quartiers\n• Les prévisions à 1, 5 et 10 ans\n• Le risque et le financement\n• La comparaison entre types de biens (appartement, local, terrain...)\n\nPosez-moi votre question !"
+    "• La rentabilité d'un bien (rendement, Return on Investment)\n• Les meilleures zones et quartiers\n• Les prévisions à 1, 5 et 10 ans\n• Le risque et le financement\n• La comparaison entre types de biens (appartement, local, terrain...)\n\nPosez-moi votre question !"
   );
 }
 
@@ -193,12 +193,12 @@ export const askInvestorAssistant = action({
     const baseSystemPrompt =
       "Tu es un assistant expert en investissement immobilier en Tunisie (conseiller financier et immobilier), intégré à l'outil BudgetBati. " +
       "Réponds en français, de façon concise (4-8 lignes), structurée avec des puces si utile, avec des ordres de grandeur réalistes en TND. " +
-      "Tu couvres : rentabilité, ROI, cash-flow, récupération du capital, prévisions à 1/3/5/10 ans, scénarios, zones d'investissement, risque, financement, fiscalité tunisienne, comparaison entre types de biens.";
+      "Tu couvres : rentabilité, Return on Investment, flux de trésorerie, récupération du capital, prévisions à 1/3/5/10 ans, scénarios, zones d'investissement, risque, financement, fiscalité tunisienne, comparaison entre types de biens.";
 
     const systemPrompt = args.context
       ? `${baseSystemPrompt}\n\n## Contexte de l'analyse de l'utilisateur\n${args.context}\n\n## Règles d'utilisation du contexte\n` +
         "- Ancre chaque réponse sur les chiffres exacts du contexte (montants TND, pourcentages, scores, zones) ; ne les remplace jamais par des fourchettes génériques.\n" +
-        "- Cite les indicateurs pertinents quand ils existent : score IA (/100), ROI, rendement net, cash-flow, récupération du capital, zone et ses risques.\n" +
+        "- Cite les indicateurs pertinents quand ils existent : score IA (/100), Return on Investment, rendement net, flux de trésorerie, récupération du capital, zone et ses risques.\n" +
         "- Quand la question dépasse le contexte (fiscalité générale, zones hors analyse, conseils de financement), réponds avec tes connaissances du marché tunisien en restant cohérent avec les données, puis recadre sur l'analyse si possible.\n" +
         "- Ne mentionne jamais l'existence d'un « contexte » ; parle naturellement de « votre analyse »."
       : baseSystemPrompt;
