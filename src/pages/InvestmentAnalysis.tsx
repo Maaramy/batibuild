@@ -36,14 +36,15 @@ import {
   CalendarDays,
   Receipt,
   HelpCircle,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -669,31 +670,53 @@ export default function InvestmentAnalysis() {
                         Explication
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-2xl rounded-2xl max-h-[85vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-base">
-                          <HelpCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                          Explication des informations à saisir
-                        </DialogTitle>
-                        <DialogDescription className="text-xs">
-                          Guide bilingue — chaque champ du formulaire expliqué en français et en العربية.
-                        </DialogDescription>
-                      </DialogHeader>
+                    <DialogContent
+                      showCloseButton={false}
+                      className="flex w-full max-h-[92dvh] flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-h-[85vh] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-border/40"
+                    >
+                      {/* En-tête fixe avec icône de fermeture */}
+                      <div className="flex items-start justify-between gap-3 border-b border-border/30 bg-background/95 px-4 py-3 backdrop-blur-sm sm:px-5">
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                            <HelpCircle className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <DialogTitle className="text-sm leading-snug sm:text-base">
+                              Explication des informations à saisir
+                            </DialogTitle>
+                            <DialogDescription className="mt-0.5 text-[10px] sm:text-xs">
+                              Guide bilingue — chaque champ du formulaire expliqué en français et en العربية.
+                            </DialogDescription>
+                          </div>
+                        </div>
+                        <DialogClose asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Fermer"
+                            className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </DialogClose>
+                      </div>
 
-                      <Accordion type="multiple" defaultValue={["etape-1", "etape-2", "etape-3"]} className="w-full">
+                      {/* Corps défilable */}
+                      <div className="overflow-y-auto px-4 pb-5 pt-3 sm:px-5 sm:pb-6">
+                        <Accordion type="multiple" defaultValue={["etape-1", "etape-2", "etape-3"]} className="w-full">
                         {FIELD_GUIDE.map((section) => {
                           const SectionIcon = section.icon;
                           return (
                             <AccordionItem key={section.step} value={section.step} className="border-border/30">
                               <AccordionTrigger className="gap-2 py-3 text-xs font-semibold">
-                                <span className="flex items-center gap-2">
+                                <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                                     <SectionIcon className="h-3.5 w-3.5" />
                                   </span>
                                   {section.titleFr}
-                                </span>
-                                <span className="text-[10px] font-normal text-muted-foreground" dir="rtl" lang="ar">
-                                  {section.titleAr}
+                                  <span className="text-[10px] font-normal text-muted-foreground" dir="rtl" lang="ar">
+                                    {section.titleAr}
+                                  </span>
                                 </span>
                               </AccordionTrigger>
                               <AccordionContent>
@@ -734,6 +757,7 @@ export default function InvestmentAnalysis() {
                         <p className="mt-1.5 border-t border-dashed border-border/30 pt-1.5 text-[11px] leading-relaxed text-muted-foreground/80" dir="rtl" lang="ar">
                           التضخم 6% سنويًا · تطور الإيجارات +5% سنويًا · تطور قيمة العقار 4-6% سنويًا · مدة الاستثمار الدنيا 5 سنوات. تُطبَّق هذه الفرضيات تلقائيًا على التوقعات.
                         </p>
+                      </div>
                       </div>
                     </DialogContent>
                   </Dialog>
