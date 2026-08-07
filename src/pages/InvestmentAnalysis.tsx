@@ -216,8 +216,26 @@ const FIELD_GUIDE: GuideSection[] = [
       {
         nameFr: "Frais de financement",
         nameAr: "مصاريف التمويل",
-        descFr: "Les coûts liés au crédit bancaire si le bien est financé : intérêts, frais de dossier, assurance de prêt…",
-        descAr: "التكاليف المرتبطة بالقرض البنكي إذا كان العقار ممولًا: الفوائد، مصاريف الملف، تأمين القرض…",
+        descFr: "Le total des coûts liés au crédit bancaire si le bien est financé. Il est calculé automatiquement comme la somme des trois composantes ci-dessous.",
+        descAr: "إجمالي التكاليف المرتبطة بالقرض البنكي إذا كان العقار ممولًا. يُحتسب تلقائيًا كمجموع المكونات الثلاثة أدناه.",
+      },
+      {
+        nameFr: "Intérêts du crédit",
+        nameAr: "فوائد القرض",
+        descFr: "Les intérêts du prêt bancaire supportés sur la durée du financement (partie intérêts des mensualités, hors remboursement du capital).",
+        descAr: "فوائد القرض البنكي على مدة التمويل (جزء الفوائد من الأقساط الشهرية، دون احتساب سداد رأس المال).",
+      },
+      {
+        nameFr: "Frais de dossier",
+        nameAr: "مصاريف الملف",
+        descFr: "Les frais bancaires de constitution et d'instruction du dossier de crédit (étude, commission de dossier…).",
+        descAr: "المصاريف البنكية لتكوين ودراسة ملف القرض (الدراسة، عمولة الملف…).",
+      },
+      {
+        nameFr: "Assurance de prêt",
+        nameAr: "تأمين القرض",
+        descFr: "L'assurance emprunteur exigée par la banque (invalidité, décès, chômage…) : coût total sur la durée du prêt.",
+        descAr: "تأمين المقترض الذي تطلبه البنوك (العجز، الوفاة، البطالة…): التكلفة الإجمالية على مدة القرض.",
       },
       {
         nameFr: "Frais d'acquisition",
@@ -273,7 +291,7 @@ function previewFinance(form: FormState) {
   const totalCost =
     purchasePrice +
     acquisitionFees +
-    Math.max(0, form.financingFees ?? 0) +
+    Math.max(0, financingTotalFor(form)) +
     Math.max(0, form.agencyFees ?? 0) +
     Math.max(0, form.renovationCost ?? 0) +
     Math.max(0, form.furnishingCost ?? 0);
@@ -295,6 +313,20 @@ function previewFinance(form: FormState) {
   const netYieldPct = totalCost > 0 ? (netAnnualIncome / totalCost) * 100 : 0;
   const paybackYears = netAnnualIncome > 0 ? totalCost / netAnnualIncome : null;
   return { totalCost, grossAnnualRent, operatingExpenses, netAnnualIncome, monthlyCashflow, netYieldPct, paybackYears };
+}
+
+/** Total des frais de financement = somme des 3 composantes crédit (ou forfait). */
+function financingTotalFor(form: FormState): number {
+  const hasDetail =
+    form.financingInterest !== undefined ||
+    form.financingDossierFees !== undefined ||
+    form.financingInsurance !== undefined;
+  if (!hasDetail) return Math.max(0, form.financingFees ?? 0);
+  return (
+    Math.max(0, form.financingInterest ?? 0) +
+    Math.max(0, form.financingDossierFees ?? 0) +
+    Math.max(0, form.financingInsurance ?? 0)
+  );
 }
 
 /** Projection simplifiée (loyers +5 %, charges +6 %, appréciation saisie). */
@@ -410,7 +442,10 @@ export default function InvestmentAnalysis() {
     managementFees: form.managementFees,
     taxationPct: form.taxationPct,
     renovationCost: form.renovationCost,
-    financingFees: form.financingFees,
+    financingFees: financingTotalFor(form),
+    financingInterest: form.financingInterest,
+    financingDossierFees: form.financingDossierFees,
+    financingInsurance: form.financingInsurance,
     agencyFees: form.agencyFees,
     furnishingCost: form.furnishingCost,
     acquisitionFeesPct: form.acquisitionFeesPct,
@@ -591,6 +626,9 @@ export default function InvestmentAnalysis() {
     managementFees: filled(form.managementFees, 0),
     taxationPct: filled(form.taxationPct, 0),
     financingFees: filled(form.financingFees, 0),
+    financingInterest: filled(form.financingInterest, 0),
+    financingDossierFees: filled(form.financingDossierFees, 0),
+    financingInsurance: filled(form.financingInsurance, 0),
     acquisitionFeesPct: filled(form.acquisitionFeesPct, 0),
     agencyFees: filled(form.agencyFees, 0),
     furnishingCost: filled(form.furnishingCost, 0),
@@ -1132,7 +1170,22 @@ export default function InvestmentAnalysis() {
                           Coûts d'acquisition
                         </p>
                         <div className="grid grid-cols-2 gap-2.5">
-                          <NumField label="Frais de financement" value={form.financingFees} suffix="TND" valid={fieldChecks.financingFees} onChange={(v) => set("financingFees", v ?? 0)} />
+                          <div>
+                            <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                              Frais de financement
+                            </label>
+                            <div className="space-y-2 rounded-lg border border-border/30 bg-muted/20 p-2.5">
+                              <NumField label="Intérêts du crédit" value={form.financingInterest} suffix="TND" valid={fieldChecks.financingInterest} onChange={(v) => set("financingInterest", v ?? 0)} />
+                              <NumField label="Frais de dossier" value={form.financingDossierFees} suffix="TND" valid={fieldChecks.financingDossierFees} onChange={(v) => set("financingDossierFees", v ?? 0)} />
+                              <NumField label="Assurance de prêt" value={form.financingInsurance} suffix="TND" valid={fieldChecks.financingInsurance} onChange={(v) => set("financingInsurance", v ?? 0)} />
+                              <div className="flex items-center justify-between gap-2 border-t border-border/20 pt-1.5">
+                                <span className="text-[10px] text-muted-foreground">Total financement</span>
+                                <span className="text-[11px] font-bold tabular-nums text-primary">
+                                  {fmtNum(financingTotalFor(form))} TND
+                                </span>
+                              </div>
+                            </div>
+                          </div>
                           <NumField label="Frais d'acquisition" value={form.acquisitionFeesPct} suffix="%" step={0.5} hint="Enregistrement + notaire" valid={fieldChecks.acquisitionFeesPct} onChange={(v) => set("acquisitionFeesPct", v)} />
                         </div>
                         <div className="grid grid-cols-2 gap-2.5">

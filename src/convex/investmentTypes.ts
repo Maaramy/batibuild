@@ -669,6 +669,10 @@ export const analysisInputValidator = v.object({
   acquisitionFeesPct: v.optional(v.number()),
   // Frais d'acquisition détaillés (TND, sauf acquisitionFeesPct en %)
   financingFees: v.optional(v.number()),
+  // Frais de financement détaillés (crédit bancaire : intérêts, dossier, assurance)
+  financingInterest: v.optional(v.number()),
+  financingDossierFees: v.optional(v.number()),
+  financingInsurance: v.optional(v.number()),
   agencyFees: v.optional(v.number()),
   furnishingCost: v.optional(v.number()),
   // Charges d'exploitation annuelles (TND/an)
@@ -698,6 +702,10 @@ export type InvestmentAnalysisInput = {
   renovationCost?: number;
   acquisitionFeesPct?: number;
   financingFees?: number;
+  // Frais de financement détaillés (crédit bancaire : intérêts, dossier, assurance)
+  financingInterest?: number;
+  financingDossierFees?: number;
+  financingInsurance?: number;
   agencyFees?: number;
   furnishingCost?: number;
   annualCharges?: number;
@@ -796,6 +804,9 @@ export const indicatorsValidator = v.object({
   acquisitionFees: v.number(),
   renovationCost: v.number(),
   financingFees: v.number(),
+  financingInterest: v.optional(v.number()),
+  financingDossierFees: v.optional(v.number()),
+  financingInsurance: v.optional(v.number()),
   agencyFees: v.number(),
   furnishingCost: v.number(),
   annualCharges: v.number(),
@@ -909,6 +920,9 @@ export type InvestmentIndicators = {
   acquisitionFees: number;
   renovationCost: number;
   financingFees: number;
+  financingInterest?: number;
+  financingDossierFees?: number;
+  financingInsurance?: number;
   agencyFees: number;
   furnishingCost: number;
   annualCharges: number;

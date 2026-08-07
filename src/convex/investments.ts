@@ -59,6 +59,10 @@ export type NormalizedInput = {
   // Frais d'acquisition (TND, sauf acquisitionFeesPct en % du prix)
   renovationCost: number;
   financingFees: number;
+  // Frais de financement détaillés (crédit bancaire) — financingFees en est la somme
+  financingInterest: number;
+  financingDossierFees: number;
+  financingInsurance: number;
   agencyFees: number;
   furnishingCost: number;
   acquisitionFeesPct: number;
@@ -114,6 +118,20 @@ export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput 
         ? rawAmount
         : money(sourceMonthly);
 
+  // ── Frais de financement : détail crédit (intérêts + dossier + assurance) ──
+  // Si au moins une des trois composantes est renseignée, financingFees devient
+  // leur somme ; sinon on conserve la valeur forfaitaire financingFees (rétro-compat).
+  const financingInterest = Math.max(0, input.financingInterest ?? 0);
+  const financingDossierFees = Math.max(0, input.financingDossierFees ?? 0);
+  const financingInsurance = Math.max(0, input.financingInsurance ?? 0);
+  const hasFinancingDetail =
+    input.financingInterest !== undefined ||
+    input.financingDossierFees !== undefined ||
+    input.financingInsurance !== undefined;
+  const financingFees = hasFinancingDetail
+    ? financingInterest + financingDossierFees + financingInsurance
+    : Math.max(0, input.financingFees ?? 0);
+
   // ── Charges d'exploitation : nouveau modèle détaillé (TND/an) ──
   // Rétro-compatibilité : les anciennes analyses ne fournissent que
   // annualExpensesPct (%) → conversion en montant annuel équivalent.
@@ -146,7 +164,10 @@ export function normalizeInput(input: InvestmentAnalysisInput): NormalizedInput 
     managementFees: Math.max(0, input.managementFees ?? 0),
     taxationPct: clamp(input.taxationPct ?? 0, 0, 50),
     renovationCost: Math.max(0, input.renovationCost ?? 0),
-    financingFees: Math.max(0, input.financingFees ?? 0),
+    financingFees,
+    financingInterest,
+    financingDossierFees,
+    financingInsurance,
     agencyFees: Math.max(0, input.agencyFees ?? 0),
     furnishingCost: Math.max(0, input.furnishingCost ?? 0),
     acquisitionFeesPct: clamp(input.acquisitionFeesPct ?? 6, 0, 20),
@@ -284,6 +305,9 @@ export function computeIndicators(input: NormalizedInput): InvestmentIndicators 
     acquisitionFees,
     renovationCost,
     financingFees,
+    financingInterest: money(input.financingInterest),
+    financingDossierFees: money(input.financingDossierFees),
+    financingInsurance: money(input.financingInsurance),
     agencyFees,
     furnishingCost,
     annualCharges: money(input.annualCharges),

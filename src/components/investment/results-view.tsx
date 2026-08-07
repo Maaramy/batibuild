@@ -152,7 +152,7 @@ export function ResultsView({ run, zones, assistant }: {
   return (
     <>
       {/* ═══ Tableau de bord décisionnel ═══ */}
-      <Card className="relative overflow-hidden border-border/40 bg-white dark:bg-card">
+      <Card className="relative overflow-hidden border-border/40 bg-white shadow-none dark:bg-card">
         <CardContent className="relative p-4 sm:p-6">
           <div className="flex flex-col xl:flex-row xl:items-center gap-5">
             <div className="min-w-0 flex-1">
@@ -370,6 +370,16 @@ export function ResultsView({ run, zones, assistant }: {
                       ["Prix d'achat", fmtTND(ind.purchasePrice)],
                       ["Frais d'acquisition", fmtTND(ind.acquisitionFees)],
                       ["Frais de financement", fmtTND((ind as any).financingFees ?? 0)],
+                      ...(((ind as any).financingInterest ?? 0) +
+                      ((ind as any).financingDossierFees ?? 0) +
+                      ((ind as any).financingInsurance ?? 0) >
+                        0
+                        ? ([
+                            ["Intérêts du crédit", fmtTND((ind as any).financingInterest ?? 0)],
+                            ["Frais de dossier", fmtTND((ind as any).financingDossierFees ?? 0)],
+                            ["Assurance de prêt", fmtTND((ind as any).financingInsurance ?? 0)],
+                          ] as [string, string][])
+                        : []),
                       ["Frais d'agence", fmtTND((ind as any).agencyFees ?? 0)],
                       ["Coût d'aménagement", fmtTND(ind.renovationCost ?? 0)],
                       ["Ameublement", fmtTND((ind as any).furnishingCost ?? 0)],
