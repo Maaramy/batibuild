@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router";
 import { cn } from "@/lib/utils";
-import { generatePdf, exportCsv, TYPE_META, fmtTND, fmtNum } from "@/components/investment/shared";
+import { generatePdf, exportCsv, TYPE_META, forcedRentModeFor, fmtTND, fmtNum } from "@/components/investment/shared";
 import type { AnalysisRun, ChatMsg, InvestmentType } from "@/components/investment/shared";
 import { ResultsView } from "@/components/investment/results-view";
 
@@ -120,8 +120,9 @@ export default function InvestmentResults() {
       input?.rentMode === "nuit"
         ? `${input?.rentAmount ?? 0} TND/nuit (≈ ${fmtTND(ind.monthlyRent)}/mois)`
         : `${fmtTND(ind.monthlyRent)}/mois`;
+    const forcedMode = forcedRentModeFor(run.input.investmentType);
     const lines = [
-      `Type de bien: ${TYPE_META[run.input.investmentType]?.label ?? run.input.investmentType}${input?.name ? ` (intitulé « ${input.name} »)` : ""}${input?.area ? `, surface ${input.area} m²` : ""}.`,
+      `Type de bien: ${TYPE_META[run.input.investmentType]?.label ?? run.input.investmentType}${input?.name ? ` (intitulé « ${input.name} »)` : ""}${input?.area ? `, surface ${input.area} m²` : ""}${forcedMode ? ` (mode de location imposé : ${forcedMode === "nuit" ? "nuitée" : "mensuel"})` : ""}.`,
       `Zone: ${zone.name} (région ${zone.region}), rang ${zone.rank}/24 — demande ${zone.demandIndex}/100, risque ${zone.riskScore}/100, appréciation attendue ${zone.appreciationPct}%/an. Prix moyen de la zone: ${fmtTND(zone.pricePerM2)}/m², loyer moyen ${zone.rentPerM2} TND/m²/mois.`,
       zone.utilityLabel
         ? `Localisation: ${loc || zone.name} — quartier reconnu « ${zone.utilityLabel} » (attractivité ${zone.utilityIndex}/100).`
@@ -138,7 +139,7 @@ export default function InvestmentResults() {
       `Score IA: ${score.total}/100 (${score.grade}) — ${score.criteria.map((c) => `${c.label} ${c.score}/${c.max} (poids ${c.weight}%)`).join(", ")}.`,
       `Prévisions: ${run.results.forecastSummary.map((s) => `${s.label}: gain ${fmtTND(s.gain)}, valeur ${fmtTND(s.futureValue)}, Return on Investment ${s.roiPct}%`).join(" | ")}.`,
       `Scénarios: ${run.results.scenarios.map((s) => `${s.label} (risque ${s.riskLevel}): Return on Investment ${s.roiPct}%, valeur future ${fmtTND(s.futureValue)}`).join(" | ")}.`,
-      `Benchmark: ${run.results.comparison.map((c) => `${c.label}: rendement net ${c.netYieldPct}%, Return on Investment 10 ans ${c.roi10yPct}%, risque ${c.riskLevel}, score ${c.score}/100`).join(" | ")}.`,
+      `Benchmark: ${run.results.comparison.map((c) => `${c.label} (${c.rentMode === "nuit" ? "nuitée" : "mensuel"}): rendement net ${c.netYieldPct}%, Return on Investment 10 ans ${c.roi10yPct}%, risque ${c.riskLevel}, score ${c.score}/100`).join(" | ")}.`,
       ai?.summary ? `Synthèse du conseiller IA: ${ai.summary}` : "",
       ai?.recommendations?.length ? `Recommandations IA: ${ai.recommendations.slice(0, 3).join(" · ")}.` : "",
       ai?.risks?.length ? `Risques IA: ${ai.risks.slice(0, 3).join(" · ")}.` : "",

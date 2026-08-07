@@ -769,6 +769,9 @@ export const comparisonItemValidator = v.object({
   riskLevel: v.string(),
   appreciationPct: v.number(),
   score: v.number(),
+  // Mode de loyer du type comparé (mensuel imposé pour local commercial /
+  // bureau / entrepôt / terrain, nuitée imposée pour résidence touristique).
+  rentMode: v.optional(v.union(v.literal("nuit"), v.literal("mensuel"))),
 });
 
 export const zoneInfoValidator = v.object({
@@ -883,6 +886,7 @@ export type InvestmentComparisonItem = {
   riskLevel: string;
   appreciationPct: number;
   score: number;
+  rentMode?: "nuit" | "mensuel";
 };
 export type InvestmentZoneInfo = {
   region: string;

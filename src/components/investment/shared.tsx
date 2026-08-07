@@ -91,7 +91,7 @@ export interface ForecastSummary { horizon: number; label: string; netIncome: nu
 export interface Scenario { key: string; label: string; futureValue: number; totalIncome: number; roiPct: number; netYieldPct: number; cumulativeProfit: number; riskLevel: string; risks: string[]; }
 export interface ScoreCriterion { key: string; label: string; score: number; max: number; weight: number; }
 export interface Score { total: number; grade: string; label: string; criteria: ScoreCriterion[]; }
-export interface ComparisonItem { type: string; label: string; totalCost: number; annualIncome: number; netYieldPct: number; roi10yPct: number; riskLevel: string; appreciationPct: number; score: number; }
+export interface ComparisonItem { type: string; label: string; totalCost: number; annualIncome: number; netYieldPct: number; roi10yPct: number; riskLevel: string; appreciationPct: number; score: number; rentMode?: "nuit" | "mensuel"; }
 export interface ZoneInfo { region: string; name: string; pricePerM2: number; rentPerM2: number; demandIndex: number; appreciationPct: number; riskScore: number; rank: number; highlights: string[]; city?: string; quartier?: string; utilityIndex?: number; utilityLabel?: string; }
 export interface AnalysisResults {
   indicators: Indicators; forecasts: ForecastPoint[]; forecastSummary: ForecastSummary[];
@@ -164,6 +164,20 @@ export const fmtTND = (n: number) =>
 export const fmtNum = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 
 export const fmtPct = (n: number) => `${Number(n).toLocaleString("fr-FR")}%`;
+
+/**
+ * Libellé du mode de location, avec rappel quand le type de bien l'impose
+ * (ex. « Mensuel (imposé pour ce type) » pour un local commercial).
+ * `mode` absent (anciennes données) → mode imposé si connu, sinon mensuel.
+ */
+export const rentModeLabel = (mode: "nuit" | "mensuel" | undefined, type?: InvestmentType): string => {
+  const forced = type ? forcedRentModeFor(type) : null;
+  const effective = mode ?? forced ?? "mensuel";
+  const base = effective === "nuit" ? "Nuitée" : "Mensuel";
+  return forced === effective
+    ? `${base} (${effective === "nuit" ? "imposée" : "imposé"} pour ce type)`
+    : base;
+};
 
 export const stripEmojis = (text: string) =>
   text.replace(/[\u{1F000}-\u{1FFFF}]|\u{FE0F}|\u{200D}|[\u{2600}-\u{27BF}]|[\u{231A}-\u{23FF}]|[\u{24C2}-\u{1F9FF}]/gu, "").trim();
@@ -417,6 +431,7 @@ export function generatePdf(run: AnalysisRun) {
         input.rentMode === "nuit"
           ? fmtPdf(ind.monthlyRent) + " /mois (" + fmtNum(input.rentAmount ?? 0) + " TND/nuit)"
           : fmtPdf(ind.monthlyRent) + " /mois"],
+      ["Mode de location", rentModeLabel(ind.rentMode, input.investmentType)],
     ],
     [70, 30],
   );
@@ -483,16 +498,17 @@ export function generatePdf(run: AnalysisRun) {
 
   h("Comparaison avec d'autres investissements");
   table(
-    ["Type", "Revenu annuel", "Rentabilité nette", "Return on Investment 10 ans", "Risque", "Score"],
+    ["Type", "Mode", "Revenu annuel", "Rentabilité nette", "Return on Investment 10 ans", "Risque", "Score"],
     results.comparison.map((c) => [
       c.label,
+      c.rentMode === "nuit" ? "Nuitée" : "Mensuel",
       fmtPdf(c.annualIncome),
       c.netYieldPct.toLocaleString("fr-FR") + " %",
       c.roi10yPct.toLocaleString("fr-FR") + " %",
       c.riskLevel,
       c.score + " / 100",
     ]),
-    [26, 20, 18, 16, 12, 8],
+    [20, 10, 18, 16, 14, 12, 10],
   );
 
   h("Score IA — " + results.score.total + " / 100 (" + results.score.grade + ")");
@@ -591,6 +607,7 @@ export function exportCsv(run: AnalysisRun) {
       ["Coût total de l'investissement", `${ind.totalCost} TND`],
       ["Prix au m²", ind.pricePerM2 ? `${ind.pricePerM2} TND` : "—"],
       ["Loyer estimé", input.rentMode === "nuit" ? `${input.rentAmount ?? 0} TND/nuit (≈ ${ind.monthlyRent} TND/mois)` : `${ind.monthlyRent} TND/mois`],
+      ["Mode de location", rentModeLabel(ind.rentMode, input.investmentType)],
       ["Taux d'occupation", `${ind.occupancyRate}%`],
       ["Charges annuelles", `${ind.annualCharges ?? 0} TND`],
       ["Assurance", `${ind.insurance ?? 0} TND`],
@@ -648,9 +665,10 @@ export function exportCsv(run: AnalysisRun) {
 
   // ── Comparaison ──
   sections.push(csvRows(
-    ["Type", "Revenu annuel", "Rentabilité nette", "Return on Investment 10 ans", "Appréciation", "Risque", "Score"],
+    ["Type", "Mode", "Revenu annuel", "Rentabilité nette", "Return on Investment 10 ans", "Appréciation", "Risque", "Score"],
     results.comparison.map((c) => [
       c.label,
+      c.rentMode === "nuit" ? "Nuitée" : "Mensuel",
       `${c.annualIncome} TND`,
       `${c.netYieldPct}%`,
       `${c.roi10yPct}%`,

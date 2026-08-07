@@ -235,6 +235,22 @@ describe("Moteur financier (fonctions pures)", () => {
     }
   });
 
+  it("comparateur : mode de loyer cohérent avec le type comparé (types contraints en mensuel)", () => {
+    // Analyse en nuitée : les types contraints (mensuel uniquement) doivent
+    // être comparés en mensuel, les autres héritent du mode de l'analyse.
+    const input = normalizeInput({ ...BASE_INPUT, rentMode: "nuit", rentAmount: 200, occupancyRate: 60 });
+    const ind = computeIndicators(input);
+    const comparison = buildComparison(input, ind);
+    const modeOf = (t: string) => comparison.find((c) => c.type === t)?.rentMode;
+
+    expect(modeOf("local_commercial")).toBe("mensuel");
+    expect(modeOf("bureau")).toBe("mensuel");
+    expect(modeOf("terrain")).toBe("mensuel");
+    // Types non contraints : héritent du mode de l'analyse
+    expect(modeOf("appartement")).toBe("nuit");
+    expect(modeOf("villa")).toBe("nuit");
+  });
+
   it("runEngine produit une analyse complète avec zone rankée", () => {
     const results = runEngine(BASE_INPUT);
     expect(results.indicators.totalCost).toBeGreaterThan(0);

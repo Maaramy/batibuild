@@ -487,6 +487,10 @@ export function buildComparison(input: NormalizedInput, indicators: InvestmentIn
 
   return compareTypes.map((type) => {
     const meta = INVESTMENT_TYPE_META[type];
+    // Mode de loyer cohérent avec le type comparé : imposé pour les types
+    // contraints (local commercial / bureau / entrepôt / terrain → mensuel),
+    // sinon hérité du mode de l'analyse de l'utilisateur.
+    const rentMode: "nuit" | "mensuel" = forcedRentModeFor(type) ?? input.rentMode;
     const appreciationPct = round1((zone.appreciationPct + meta.appreciationBenchmark) / 2);
     const annualIncome = money(budget * (meta.yieldBenchmark / 100));
     const netYieldPct = round2((annualIncome / budget) * 100);
@@ -522,6 +526,7 @@ export function buildComparison(input: NormalizedInput, indicators: InvestmentIn
       riskLevel: meta.riskLevel,
       appreciationPct,
       score,
+      rentMode,
     };
   });
 }

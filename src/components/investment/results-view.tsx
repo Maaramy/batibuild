@@ -22,6 +22,7 @@ import {
   Gauge,
   Star,
   Banknote,
+  Lock,
   Layers as LayersIcon,
   Landmark as LandmarkIcon,
 } from "lucide-react";
@@ -44,7 +45,7 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import { ScoreGauge, Kpi, SectionHeading, TYPE_META, fmtTND, fmtNum, fmtPct, scoreTone } from "@/components/investment/shared";
+import { ScoreGauge, Kpi, SectionHeading, TYPE_META, forcedRentModeFor, rentModeLabel, fmtTND, fmtNum, fmtPct, scoreTone } from "@/components/investment/shared";
 import type { AnalysisRun, ChatMsg, InvestmentType, ZoneRow } from "@/components/investment/shared";
 
 // ============================================================================
@@ -70,6 +71,8 @@ export function ResultsView({ run, zones, assistant }: {
   const ind = run.results.indicators;
   const results = run.results;
   const aiInsights = run.aiInsights;
+  // Mode de loyer imposé par le type de bien (rappel affiché dans le héro).
+  const forcedMode = forcedRentModeFor(run.input?.investmentType as InvestmentType) ?? null;
 
   const forecastChartData = (results.forecasts ?? []).map((p) => ({
     year: `An ${p.year}`,
@@ -182,6 +185,12 @@ export function ResultsView({ run, zones, assistant }: {
                   <Sparkles className="h-3 w-3" />
                   Confiance IA : {results.aiConfidence}%
                 </Badge>
+                {forcedMode && (
+                  <Badge variant="outline" className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px]">
+                    <Lock className="h-3 w-3" />
+                    {forcedMode === "nuit" ? "Nuitée imposée" : "Mensuel imposé"}
+                  </Badge>
+                )}
               </div>
               <div className="mt-4">
                 <ScoreGauge score={results.score.total} grade={results.score.grade} />
@@ -372,6 +381,7 @@ export function ResultsView({ run, zones, assistant }: {
                     title="Revenus & charges"
                     color="text-emerald-600 dark:text-emerald-400"
                     rows={[
+                      ["Mode de location", rentModeLabel(ind.rentMode, run.input?.investmentType as InvestmentType)],
                       ["Revenus locatifs bruts annuels", fmtTND(ind.grossAnnualRent)],
                       ["Charges annuelles", fmtTND((ind as any).annualCharges ?? 0)],
                       ["Assurance", fmtTND((ind as any).insurance ?? 0)],
@@ -662,10 +672,11 @@ export function ResultsView({ run, zones, assistant }: {
                   desc="Même budget dans la même zone — rendements benchmark du marché tunisien"
                 />
                 <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
-                  <table className="w-full min-w-[640px] text-left text-xs sm:text-sm">
+                  <table className="w-full min-w-[720px] text-left text-xs sm:text-sm">
                     <thead>
                       <tr className="border-b border-border/40 text-[10px] uppercase tracking-wide text-muted-foreground">
                         <th className="py-2 pr-3 font-medium">Type</th>
+                        <th className="py-2 pr-3 font-medium">Mode</th>
                         <th className="py-2 pr-3 font-medium">Revenu annuel</th>
                         <th className="py-2 pr-3 font-medium">Rentabilité nette</th>
                         <th className="py-2 pr-3 font-medium">Return on Investment 10 ans</th>
@@ -678,6 +689,20 @@ export function ResultsView({ run, zones, assistant }: {
                       {results.comparison.map((c) => (
                         <tr key={c.type} className="border-b border-border/20 last:border-0 hover:bg-muted/20 transition-colors">
                           <td className="py-2.5 pr-3 font-medium">{c.label}</td>
+                          <td className="py-2.5 pr-3">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                                c.rentMode === "nuit"
+                                  ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                              )}
+                              title={rentModeLabel(c.rentMode as any, c.type as InvestmentType)}
+                            >
+                              {c.rentMode === "nuit" ? "Nuitée" : "Mensuel"}
+                              {forcedRentModeFor(c.type as InvestmentType) === c.rentMode && <Lock className="h-2.5 w-2.5" />}
+                            </span>
+                          </td>
                           <td className="py-2.5 pr-3 tabular-nums">{fmtTND(c.annualIncome)}</td>
                           <td className="py-2.5 pr-3 tabular-nums">
                             <span className={c.netYieldPct >= 6 ? "text-emerald-600 font-semibold" : ""}>{fmtPct(c.netYieldPct)}</span>
