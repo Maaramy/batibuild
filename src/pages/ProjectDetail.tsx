@@ -1087,9 +1087,9 @@ export default function ProjectDetail() {
                     <span className="hidden sm:inline">Return on Investment</span>
                     <span className="sm:hidden">ROI</span>
                   </button>
-                    )}
+                )}
                     <button onClick={handleDownloadClick} disabled={exporting}
-                  className={cn("flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-border/30",
+                      className={cn("flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-border/30",
                     exporting
                       ? "opacity-50 cursor-not-allowed bg-muted/30"
                       : "hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-95 bg-background"
@@ -1450,6 +1450,14 @@ export default function ProjectDetail() {
                         <Hourglass className="h-3 w-3 text-muted-foreground" />
                         <span className="font-semibold">{ai.estimatedDuration}</span>
                       </div>
+                    )}
+                    {investmentTypeForProject(project.category) && (
+                      <button onClick={handleInvestRoi}
+                        title="Lancer une analyse de rentabilité immobilière (Return on Investment)"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 active:scale-95">
+                        <TrendingUp className="h-3 w-3" />
+                        Return on Investment
+                      </button>
                     )}
                     <button onClick={handleDownloadClick} disabled={exporting}
                       className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border",
