@@ -680,6 +680,12 @@ export const analysisInputValidator = v.object({
   rentGrowthPct: v.optional(v.number()),
   inflationPct: v.optional(v.number()),
   horizonYears: v.optional(v.number()),
+  // Nombre de pièces (maison, appartement, villa, immeuble)
+  bedrooms: v.optional(v.number()),
+  bathrooms: v.optional(v.number()),
+  kitchens: v.optional(v.number()),
+  livingRooms: v.optional(v.number()),
+  garages: v.optional(v.number()),
 });
 
 export type InvestmentAnalysisInput = {
@@ -708,6 +714,11 @@ export type InvestmentAnalysisInput = {
   rentGrowthPct?: number;
   inflationPct?: number;
   horizonYears?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  kitchens?: number;
+  livingRooms?: number;
+  garages?: number;
 };
 
 // ── Results (computed) ──────────────────────────────────────────────────────

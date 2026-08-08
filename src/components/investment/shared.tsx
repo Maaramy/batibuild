@@ -70,6 +70,12 @@ export type InvestmentInput = {
   rentGrowthPct?: number;
   inflationPct?: number;
   horizonYears?: number;
+  // Nombre de pièces (maison, appartement, villa, immeuble)
+  bedrooms?: number;
+  bathrooms?: number;
+  kitchens?: number;
+  livingRooms?: number;
+  garages?: number;
 };
 
 export interface Indicators {
@@ -152,9 +158,31 @@ export const DEFAULT_FORM = {
   rentGrowthPct: 5,
   inflationPct: 6,
   horizonYears: 10,
+  // Nombre de pièces (maison, appartement, villa, immeuble)
+  bedrooms: 2,
+  bathrooms: 1,
+  kitchens: 1,
+  livingRooms: 1,
+  garages: 0,
 };
 
 export type FormState = typeof DEFAULT_FORM;
+
+/** Types éligibles à la saisie du nombre de pièces. */
+export const ROOM_ELIGIBLE_TYPES: InvestmentType[] = ["maison", "appartement", "villa", "immeuble"];
+
+export const isRoomEligibleType = (t: InvestmentType): boolean => ROOM_ELIGIBLE_TYPES.includes(t);
+
+/** Libellé complet du nombre de pièces (ex. « 2 chambres · 1 salle de bain »). */
+export const roomCountLabel = (input: Pick<InvestmentInput, "bedrooms" | "bathrooms" | "kitchens" | "livingRooms" | "garages">): string => {
+  const parts: string[] = [];
+  if (input.bedrooms) parts.push(`${input.bedrooms} chambre${input.bedrooms > 1 ? "s" : ""}`);
+  if (input.bathrooms) parts.push(`${input.bathrooms} salle${input.bathrooms > 1 ? "s" : ""} de bain`);
+  if (input.kitchens) parts.push(`${input.kitchens} cuisine${input.kitchens > 1 ? "s" : ""}`);
+  if (input.livingRooms) parts.push(`${input.livingRooms} salon${input.livingRooms > 1 ? "s" : ""}`);
+  if (input.garages) parts.push(`${input.garages} garage${input.garages > 1 ? "s" : ""}`);
+  return parts.length ? parts.join(" · ") : "—";
+};
 
 // ─── Formatters ─────────────────────────────────────────────────────────────
 
@@ -416,6 +444,7 @@ export function generatePdf(run: AnalysisRun) {
     ["Paramètre", "Valeur"],
     [
       ["Type de bien", typeLabel],
+      ["Nombre de pièces", roomCountLabel(input)],
       ["Zone / Gouvernorat", results.zone.name],
       ["Ville / Quartier", [input.city, input.quartier].filter(Boolean).join(" / ") || "—"],
       ["Attractivité du quartier", results.zone.utilityLabel ? `${results.zone.utilityLabel} — ${results.zone.utilityIndex}/100` : "—"],
@@ -593,6 +622,7 @@ export function exportCsv(run: AnalysisRun) {
     ["Paramètre", "Valeur"],
     [
       ["Type de bien", typeLabel],
+      ["Nombre de pièces", roomCountLabel(input)],
       ["Nom de l'analyse", input.name || "—"],
       ["Zone / Gouvernorat", results.zone.name],
       ["Ville / Quartier", [input.city, input.quartier].filter(Boolean).join(" / ") || "—"],

@@ -32,6 +32,12 @@ import {
   Check,
   Star,
   Lock,
+  LayoutGrid,
+  BedDouble,
+  Bath,
+  ChefHat,
+  Sofa,
+  Car,
   MoonStar,
   CalendarDays,
   Receipt,
@@ -71,6 +77,8 @@ import {
   resolveZoneUtility,
   estimateOccupancyRate,
   forcedRentModeFor,
+  isRoomEligibleType,
+  roomCountLabel,
   REGION_CASCADE,
 } from "@/components/investment/shared";
 import type { FormState, InvestmentInput, InvestmentType, ZoneUtility } from "@/components/investment/shared";
@@ -83,8 +91,9 @@ import { LocationField } from "@/components/investment/location-field";
 
 const STEPS = [
   { n: 1, label: "Le bien", icon: Building2 },
-  { n: 2, label: "Loyer & charges", icon: Coins },
-  { n: 3, label: "Coûts & hypothèses", icon: TrendingUp },
+  { n: 2, label: "Nombre de pièces", icon: LayoutGrid },
+  { n: 3, label: "Loyer & charges", icon: Coins },
+  { n: 4, label: "Coûts & hypothèses", icon: TrendingUp },
 ];
 
 const stepVariants = {
@@ -165,9 +174,47 @@ const FIELD_GUIDE: GuideSection[] = [
   },
   {
     step: "etape-2",
+    icon: LayoutGrid,
+    titleFr: "Étape 2 — Nombre de pièces",
+    titleAr: "المرحلة 2 — عدد الغرف",
+    fields: [
+      {
+        nameFr: "Chambres",
+        nameAr: "غرف النوم",
+        descFr: "Le nombre de chambres à coucher du bien (maison, appartement, villa, immeuble). Ce détail affine l'évaluation du potentiel locatif et de la valeur du bien.",
+        descAr: "عدد غرف النوم في العقار (منزل، شقة، فيلا، عمارة). تساعد هذه التفاصيل في تحسين تقييم الإمكانات الكرائية وقيمة العقار.",
+      },
+      {
+        nameFr: "Salle de bain",
+        nameAr: "الحمّام",
+        descFr: "Le nombre de salles de bain du bien. Un bien avec plusieurs salles de bain est généralement mieux valorisé sur le marché.",
+        descAr: "عدد الحمّامات في العقار. العقار ذو الحمّامات المتعددة يُقيَّم عادةً بشكل أفضل في السوق.",
+      },
+      {
+        nameFr: "Cuisine",
+        nameAr: "المطبخ",
+        descFr: "Le nombre de cuisines (indépendante ou ouverte sur le séjour). La cuisine est un critère d'attractivité pour la location.",
+        descAr: "عدد المطابخ (مستقلة أو مفتوحة على قاعة الجلوس). المطبخ معيار جاذبية للكراء.",
+      },
+      {
+        nameFr: "Salon",
+        nameAr: "الصالون",
+        descFr: "Le nombre de salons / séjours du bien. Un salon spacieux augmente le confort perçu et le loyer envisageable.",
+        descAr: "عدد الصالونات/قاعات الجلوس في العقار. الصالون الواسع يرفع مستوى الراحة والإيجار المحتمل.",
+      },
+      {
+        nameFr: "Garages",
+        nameAr: "المرائب",
+        descFr: "Le nombre de garages ou places de stationnement incluses. Un garage est un atout apprécié dans les zones urbaines denses.",
+        descAr: "عدد المرائب أو أماكن الركن المضمنة. المرآب ميزة ثمينة في المناطق الحضرية الكثيفة.",
+      },
+    ],
+  },
+  {
+    step: "etape-3",
     icon: Coins,
-    titleFr: "Étape 2 — Loyer & charges",
-    titleAr: "المرحلة 2 — الإيجار والمصاريف",
+    titleFr: "Étape 3 — Loyer & charges",
+    titleAr: "المرحلة 3 — الإيجار والمصاريف",
     fields: [
       {
         nameFr: "Loyer estimé (mensuel / nuitée)",
@@ -208,10 +255,10 @@ const FIELD_GUIDE: GuideSection[] = [
     ],
   },
   {
-    step: "etape-3",
+    step: "etape-4",
     icon: TrendingUp,
-    titleFr: "Étape 3 — Coûts & hypothèses",
-    titleAr: "المرحلة 3 — التكاليف والفرضيات",
+    titleFr: "Étape 4 — Coûts & hypothèses",
+    titleAr: "المرحلة 4 — التكاليف والفرضيات",
     fields: [
       {
         nameFr: "Frais de financement",
@@ -418,12 +465,20 @@ export default function InvestmentAnalysis() {
     rentGrowthPct: 5,
     inflationPct: 6,
     horizonYears: form.horizonYears,
+    bedrooms: form.bedrooms,
+    bathrooms: form.bathrooms,
+    kitchens: form.kitchens,
+    livingRooms: form.livingRooms,
+    garages: form.garages,
   });
 
   const goStep = (s: number) => {
     if (s < 1 || s > STEPS.length) return;
-    setDirection(s > step ? 1 : -1);
-    setStep(s);
+    // Étape « Nombre de pièces » : sautée pour les types non éligibles.
+    let target = s;
+    if (target === 2 && !roomEligible) target = s > step ? 3 : 1;
+    setDirection(target > step ? 1 : -1);
+    setStep(target);
   };
 
   const goNext = () => {
@@ -432,8 +487,9 @@ export default function InvestmentAnalysis() {
       if (!form.region.trim()) { toast.error("Renseignez la région — champ obligatoire."); return; }
       if (!cityInList(form.city, form.region)) { toast.error("Renseignez la ville — choisissez une ville dans la liste."); return; }
     }
-    if (step === 2 && (form.rentAmount ?? 0) <= 0) { toast.error("Renseignez un loyer estimé valide."); return; }
-    if (step === 3 && (form.horizonYears ?? 0) < 5) { toast.error("La durée prévue de l'investissement doit être d'au moins 5 ans."); return; }
+    if (step === 2 && roomEligible && (form.bedrooms ?? 0) < 1) { toast.error("Renseignez au moins une chambre."); return; }
+    if (step === 3 && (form.rentAmount ?? 0) <= 0) { toast.error("Renseignez un loyer estimé valide."); return; }
+    if (step === 4 && (form.horizonYears ?? 0) < 5) { toast.error("La durée prévue de l'investissement doit être d'au moins 5 ans."); return; }
     goStep(step + 1);
   };
 
@@ -502,6 +558,7 @@ export default function InvestmentAnalysis() {
   // préserver l'équivalent mensuel) sont recalés automatiquement à chaque
   // changement de type de bien, y compris au chargement (pré-remplissage).
   const forcedMode = forcedRentModeFor(form.investmentType);
+  const roomEligible = isRoomEligibleType(form.investmentType);
   useEffect(() => {
     if (!forcedMode || form.rentMode === forcedMode) return;
     setForm((f) => ({
@@ -598,12 +655,18 @@ export default function InvestmentAnalysis() {
     annualAppreciationPct: typeof form.annualAppreciationPct === "number" && form.annualAppreciationPct >= 4 && form.annualAppreciationPct <= 6,
     inflationPct: filled(form.inflationPct, 0),
     horizonYears: positive(form.horizonYears) && (form.horizonYears ?? 0) >= 5,
+    bedrooms: (form.bedrooms ?? 0) >= 1,
+    bathrooms: (form.bathrooms ?? 0) >= 0,
+    kitchens: (form.kitchens ?? 0) >= 0,
+    livingRooms: (form.livingRooms ?? 0) >= 0,
+    garages: (form.garages ?? 0) >= 0,
   };
 
   const REQUIRED_FIELDS: Record<number, string[]> = {
     1: ["region", "purchasePrice", "city"],
-    2: ["rentAmount"],
-    3: ["horizonYears"],
+    2: roomEligible ? ["bedrooms"] : [],
+    3: ["rentAmount"],
+    4: ["horizonYears"],
   };
   const reqFields = REQUIRED_FIELDS[step] ?? [];
   const reqDone = reqFields.filter((k) => (fieldChecks as any)[k]).length;
@@ -631,7 +694,7 @@ export default function InvestmentAnalysis() {
               <div className="min-w-0">
                 <h1 className="text-base sm:text-xl font-bold truncate">Analyse de la rentabilité immobilière</h1>
                 <p className="text-[11px] sm:text-xs text-muted-foreground">
-                  Étape {step}/3 — {STEPS[step - 1].label} · marché tunisien 2026
+                  Étape {step}/{STEPS.length} — {STEPS[step - 1].label} · marché tunisien 2026
                 </p>
               </div>
             </div>
@@ -703,7 +766,7 @@ export default function InvestmentAnalysis() {
 
                       {/* Corps défilable */}
                       <div className="overflow-y-auto px-4 pb-5 pt-3 sm:px-5 sm:pb-6">
-                        <Accordion type="multiple" defaultValue={["etape-1", "etape-2", "etape-3"]} className="w-full">
+                        <Accordion type="multiple" defaultValue={["etape-1", "etape-2", "etape-3", "etape-4"]} className="w-full">
                         {FIELD_GUIDE.map((section) => {
                           const SectionIcon = section.icon;
                           return (
@@ -770,28 +833,34 @@ export default function InvestmentAnalysis() {
                   {STEPS.map((s) => {
                     const active = step === s.n;
                     const done = step > s.n;
+                    // Étape « Nombre de pièces » non applicable → sautée dans le stepper.
+                    const skipped = s.n === 2 && !roomEligible;
                     const Icon = s.icon;
                     return (
                       <button
                         key={s.n}
                         type="button"
-                        onClick={() => done && goStep(s.n)}
-                        disabled={!done}
-                        title={done ? `Revenir à l'étape ${s.n}` : undefined}
+                        onClick={() => done && !skipped && goStep(s.n)}
+                        disabled={!done || skipped}
+                        title={skipped ? `Non applicable pour ${TYPE_META[form.investmentType]?.label}` : done ? `Revenir à l'étape ${s.n}` : undefined}
                         className={cn(
                           "flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-[10px] font-medium transition-all",
-                          active && stepValid
-                            ? "bg-emerald-600 text-white shadow-sm"
-                            : active
-                              ? "bg-indigo-600 text-white shadow-sm"
-                              : done
-                                ? "text-emerald-600 dark:text-emerald-400 cursor-pointer hover:bg-emerald-500/10"
-                                : "text-muted-foreground/60",
+                          skipped
+                            ? "text-muted-foreground/40"
+                            : active && stepValid
+                              ? "bg-emerald-600 text-white shadow-sm"
+                              : active
+                                ? "bg-indigo-600 text-white shadow-sm"
+                                : done
+                                  ? "text-emerald-600 dark:text-emerald-400 cursor-pointer hover:bg-emerald-500/10"
+                                  : "text-muted-foreground/60",
                         )}
                       >
                         <Icon className="h-3 w-3 shrink-0" />
                         <span className="hidden sm:inline truncate">{s.label}</span>
-                        {(done || (active && stepValid)) && <Check className="h-3 w-3 shrink-0" />}
+                        {skipped ? (
+                          <Lock className="h-3 w-3 shrink-0" />
+                        ) : (done || (active && stepValid)) && <Check className="h-3 w-3 shrink-0" />}
                       </button>
                     );
                   })}
@@ -970,8 +1039,54 @@ export default function InvestmentAnalysis() {
                       </>
                     )}
 
-                    {/* ── ÉTAPE 2 : LOYER & CHARGES ── */}
+                    {/* ── ÉTAPE 2 : NOMBRE DE PIÈCES ── */}
                     {step === 2 && (
+                      <>
+                        <div className="rounded-lg border border-border/30 bg-muted/20 p-2.5">
+                          <p className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                            <LayoutGrid className="h-3 w-3" />
+                            Composition du bien — {TYPE_META[form.investmentType]?.label}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                            Indiquez le nombre de chaque pièce pour affiner l'estimation du potentiel locatif
+                            et de la valorisation du bien. Ce champ s'applique aux maisons, appartements,
+                            villas et immeubles.
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <NumField label="Chambres" value={form.bedrooms} suffix="chambre(s)" step={1} required valid={fieldChecks.bedrooms} onChange={(v) => set("bedrooms", v ?? 0)} />
+                          <NumField label="Salle(s) de bain" value={form.bathrooms} suffix="sdb" step={1} valid={fieldChecks.bathrooms} onChange={(v) => set("bathrooms", v ?? 0)} />
+                          <NumField label="Cuisine(s)" value={form.kitchens} suffix="cuisine(s)" step={1} valid={fieldChecks.kitchens} onChange={(v) => set("kitchens", v ?? 0)} />
+                          <NumField label="Salon(s)" value={form.livingRooms} suffix="salon(s)" step={1} valid={fieldChecks.livingRooms} onChange={(v) => set("livingRooms", v ?? 0)} />
+                          <NumField label="Garage(s)" value={form.garages} suffix="garage(s)" step={1} valid={fieldChecks.garages} onChange={(v) => set("garages", v ?? 0)} />
+                        </div>
+                        {roomEligible ? (
+                          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5">
+                            <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                              <Check className="h-3 w-3" />
+                              {roomCountLabel(form)}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground/70 mt-0.5 leading-relaxed">
+                              Ces informations complètent le profil du bien saisi à l'étape 1.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5">
+                            <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                              <ShieldAlert className="h-3 w-3" />
+                              Étape non requise pour ce type de bien
+                            </p>
+                            <p className="text-[10px] text-muted-foreground/70 mt-0.5 leading-relaxed">
+                              Le nombre de pièces s'applique uniquement aux maisons, appartements, villas et
+                              immeubles. Cliquez sur Suivant pour continuer.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* ── ÉTAPE 3 : LOYER & CHARGES ── */}
+                    {step === 3 && (
                       <>
                         {/* Loyer estimé : choix nuitée / mensuel */}
                         <div>
@@ -1124,8 +1239,8 @@ export default function InvestmentAnalysis() {
                       </>
                     )}
 
-                    {/* ── ÉTAPE 3 : COÛTS & HYPOTHÈSES ── */}
-                    {step === 3 && (
+                    {/* ── ÉTAPE 4 : COÛTS & HYPOTHÈSES ── */}
+                    {step === 4 && (
                       <>
                         <p className="flex items-center gap-1.5 pt-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                           <Coins className="h-3 w-3" />
@@ -1201,6 +1316,8 @@ export default function InvestmentAnalysis() {
                             <span className="font-semibold text-right tabular-nums">{fmtNum(form.purchasePrice)} TND</span>
                             <span className="text-muted-foreground">Surface</span>
                             <span className="font-semibold text-right tabular-nums">{form.area ? `${fmtNum(form.area)} m²` : "—"}</span>
+                            <span className="text-muted-foreground">Pièces</span>
+                            <span className="font-semibold text-right truncate">{roomCountLabel(form)}</span>
                             <span className="text-muted-foreground">Loyer estimé</span>
                             <span className="font-semibold text-right tabular-nums">
                               {form.rentMode === "nuit"

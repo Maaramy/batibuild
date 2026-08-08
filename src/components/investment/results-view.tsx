@@ -45,7 +45,7 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import { ScoreGauge, Kpi, SectionHeading, TYPE_META, forcedRentModeFor, rentModeLabel, fmtTND, fmtNum, fmtPct, scoreTone } from "@/components/investment/shared";
+import { ScoreGauge, Kpi, SectionHeading, TYPE_META, forcedRentModeFor, rentModeLabel, roomCountLabel, fmtTND, fmtNum, fmtPct, scoreTone } from "@/components/investment/shared";
 import type { AnalysisRun, ChatMsg, InvestmentType, ZoneRow } from "@/components/investment/shared";
 
 // ============================================================================
@@ -189,6 +189,12 @@ export function ResultsView({ run, zones, assistant }: {
                   <Badge variant="outline" className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px]">
                     <Lock className="h-3 w-3" />
                     {forcedMode === "nuit" ? "Nuitée imposée" : "Mensuel imposé"}
+                  </Badge>
+                )}
+                {roomCountLabel(run.input as any) !== "—" && (
+                  <Badge variant="outline" className="gap-1 border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px]">
+                    <LayersIcon className="h-3 w-3" />
+                    {roomCountLabel(run.input as any)}
                   </Badge>
                 )}
               </div>
