@@ -240,27 +240,132 @@ for (const _rk of _regKeys) {
 // MATERIAL CALCULATORS (Generate items with realistic quantities)
 // ============================================================================
 
+// Profil technique d'un type de projet → guide les quantités générées
+function catProfile(cat: string): string {
+  if (cat === "piscine") return "pool";
+  if (["jardin", "amenagement_paysager", "aire_de_jeux"].includes(cat)) return "garden";
+  if (["cloture", "mur_de_separation"].includes(cat)) return "fence";
+  if (cat === "installation_solaire") return "solar";
+  if (["usine", "depot", "entrepot", "atelier", "chateau_d_eau", "serre_agricole"].includes(cat)) return "industrial";
+  if (["local_commercial", "bureau", "hotel", "restaurant", "cafe"].includes(cat)) return "commercial";
+  if (["parking", "route", "trottoir"].includes(cat)) return "parking";
+  if (cat.startsWith("renovation")) return "renovation";
+  return "residential";
+}
+
 function genGOItems(surface: number, floors: number, cat: string, targetBudget: number, wallFactor = 1) {
   const tb = surface * (floors || 1);
+  const profile = catProfile(cat);
   const isSmall = ["cloture","mur_de_separation","trottoir","pergola","terrasse","garage"].includes(cat);
   const isHeavy = ["immeuble_residentiel","usine","depot","entrepot","chateau_d_eau","mosquee","ecole"].includes(cat);
   const d = isSmall ? 0.5 : isHeavy ? 1.3 : 1;
   const dW = d * wallFactor; // cloisons supplémentaires selon le nb de pièces
-  // Realistic Tunisian quantities per m²
-  const items = [
-    {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*3.5*d), u:"sacs", up:P.cement.bag42_5},
-    {n:"Ciment CPJ 32.5 (Maçonnerie)", q:Math.round(tb*1.0*d), u:"sacs", up:P.cement.bag32_5},
-    {n:"Sable de construction 0/4", q:Math.round(tb*0.25*d*10)/10, u:"m³", up:P.sand.construction},
-    {n:"Gravier 15/25mm", q:Math.round(tb*0.15*d*10)/10, u:"m³", up:P.gravel["15_25mm"]},
-    {n:"Acier à béton T12", q:Math.round(tb*0.02*d*100)/100, u:"tonnes", up:P.steel.t12_ton},
-    {n:"Treillis soudé ST25", q:Math.round(tb*0.12), u:"m²", up:P.steel.treillis_m2},
-    {n:"Brique creuse 10cm", q:Math.round(tb*45*dW), u:"unités", up:P.bricks.hollow_10},
-    {n:"Hourdis 16x50", q:Math.round(tb*7*d), u:"unités", up:P.bricks.hourdis_16},
-    {n:"Béton prêt à l'emploi 300kg/m³", q:Math.round(tb*0.25*d*10)/10, u:"m³", up:P.concrete.ready_mix_300},
-    {n:"Bois de coffrage", q:Math.round(tb*0.04*100)/100, u:"m³", up:P.wood.formwork_m3},
-    {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
-    {n:"Parpaing creux 20cm", q:Math.round(tb*12*dW), u:"unités", up:P.bricks.parpaing_20},
-  ];
+
+  let items: any[];
+  if (profile === "pool") {
+    // Piscine : pas de maçonnerie de logement → excavation + coque béton armé
+    items = [
+      {n:"Terrassement & excavation piscine", q:Math.round(tb*0.8*10)/10, u:"m³", up:18},
+      {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.1*10)/10, u:"m³", up:85},
+      {n:"Béton armé coque C25/30", q:Math.round(tb*0.35*10)/10, u:"m³", up:140},
+      {n:"Acier à béton T12", q:Math.round(tb*0.018*100)/100, u:"tonnes", up:P.steel.t12_ton},
+      {n:"Treillis soudé ST25", q:Math.round(tb*0.15), u:"m²", up:P.steel.treillis_m2},
+      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*1.5), u:"sacs", up:P.cement.bag42_5},
+      {n:"Sable de construction 0/4", q:Math.round(tb*0.15*10)/10, u:"m³", up:P.sand.construction},
+      {n:"Gravier 15/25mm", q:Math.round(tb*0.15*10)/10, u:"m³", up:P.gravel["15_25mm"]},
+      {n:"Bois de coffrage", q:Math.round(tb*0.03*100)/100, u:"m³", up:P.wood.formwork_m3},
+      {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
+    ];
+  } else if (profile === "garden") {
+    // Jardin / paysager : pas de gros œuvre lourd → terrassement + terre végétale
+    items = [
+      {n:"Terre végétale amendée", q:Math.round(tb*0.2*10)/10, u:"m³", up:35},
+      {n:"Gravier concassé (drainage)", q:Math.round(tb*0.12*10)/10, u:"m³", up:28},
+      {n:"Sable de construction 0/4", q:Math.round(tb*0.1*10)/10, u:"m³", up:P.sand.construction},
+      {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.06*10)/10, u:"m³", up:85},
+      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*0.8), u:"sacs", up:P.cement.bag42_5},
+      {n:"Parpaing creux 20cm", q:Math.round(tb*4), u:"unités", up:P.bricks.parpaing_20},
+      {n:"Fouilles en rigole", q:Math.round(tb*0.08), u:"m³", up:18},
+    ];
+  } else if (profile === "fence") {
+    // Clôture / mur : fondations linéaires + parpaings + poteaux
+    items = [
+      {n:"Béton de fondation linéaire", q:Math.round(tb*0.12*10)/10, u:"m³", up:95},
+      {n:"Acier à béton T10", q:Math.round(tb*0.008*100)/100, u:"tonnes", up:P.steel.t12_ton},
+      {n:"Parpaing creux 20cm", q:Math.round(tb*10*dW), u:"unités", up:P.bricks.parpaing_20},
+      {n:"Brique pleine 22x11x7", q:Math.round(tb*18*dW), u:"unités", up:P.bricks.hollow_10},
+      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*1.2), u:"sacs", up:P.cement.bag42_5},
+      {n:"Sable de construction 0/4", q:Math.round(tb*0.15*10)/10, u:"m³", up:P.sand.construction},
+      {n:"Poteau préfabriqué béton", q:Math.max(4,Math.round(tb/4)), u:"unités", up:35},
+      {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
+    ];
+  } else if (profile === "solar") {
+    // Solaire : pas de maçonnerie → fondations massifs + supports + câbles
+    items = [
+      {n:"Béton de fondation massifs", q:Math.round(tb*0.08*10)/10, u:"m³", up:95},
+      {n:"Acier à béton T10", q:Math.round(tb*0.005*100)/100, u:"tonnes", up:P.steel.t12_ton},
+      {n:"Support aluminium fixation panneaux", q:Math.round(tb*0.4), u:"m²", up:45},
+      {n:"Câble solaire DC 6mm²", q:Math.round(tb*1.2), u:"ml", up:3},
+      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*0.3), u:"sacs", up:P.cement.bag42_5},
+      {n:"Sable de construction 0/4", q:Math.round(tb*0.05*10)/10, u:"m³", up:P.sand.construction},
+      {n:"Fouilles en rigole", q:Math.round(tb*0.05), u:"m³", up:18},
+    ];
+  } else if (profile === "industrial") {
+    // Industriel : dalle industrielle + charpente, pas de cloisons fines
+    items = [
+      {n:"Béton de dalle industrielle C25/30", q:Math.round(tb*0.22*10)/10, u:"m³", up:130},
+      {n:"Acier à béton T12", q:Math.round(tb*0.014*100)/100, u:"tonnes", up:P.steel.t12_ton},
+      {n:"Treillis soudé ST25", q:Math.round(tb*0.15), u:"m²", up:P.steel.treillis_m2},
+      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*1.5), u:"sacs", up:P.cement.bag42_5},
+      {n:"Sable de construction 0/4", q:Math.round(tb*0.15*10)/10, u:"m³", up:P.sand.construction},
+      {n:"Gravier 15/25mm", q:Math.round(tb*0.15*10)/10, u:"m³", up:P.gravel["15_25mm"]},
+      {n:"Parpaing creux 20cm", q:Math.round(tb*8), u:"unités", up:P.bricks.parpaing_20},
+      {n:"Bois de coffrage", q:Math.round(tb*0.02*100)/100, u:"m³", up:P.wood.formwork_m3},
+      {n:"Fouilles en rigole", q:Math.round(tb*0.08), u:"m³", up:18},
+    ];
+  } else if (profile === "parking") {
+    // Parking / route : pas de bâtiment → couche de forme + béton
+    items = [
+      {n:"Graves non traitées (couche de forme)", q:Math.round(tb*0.2*10)/10, u:"m³", up:28},
+      {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.08*10)/10, u:"m³", up:85},
+      {n:"Acier à béton T12", q:Math.round(tb*0.008*100)/100, u:"tonnes", up:P.steel.t12_ton},
+      {n:"Treillis soudé ST25", q:Math.round(tb*0.1), u:"m²", up:P.steel.treillis_m2},
+      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*1.0), u:"sacs", up:P.cement.bag42_5},
+      {n:"Sable de construction 0/4", q:Math.round(tb*0.12*10)/10, u:"m³", up:P.sand.construction},
+      {n:"Gravier 15/25mm", q:Math.round(tb*0.1*10)/10, u:"m³", up:P.gravel["15_25mm"]},
+      {n:"Fouilles en rigole", q:Math.round(tb*0.06), u:"m³", up:18},
+    ];
+  } else if (profile === "commercial") {
+    // Commercial / bureau / resto : maçonnerie classique sans hourdis de toiture
+    items = [
+      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*3.5*d), u:"sacs", up:P.cement.bag42_5},
+      {n:"Sable de construction 0/4", q:Math.round(tb*0.25*d*10)/10, u:"m³", up:P.sand.construction},
+      {n:"Gravier 15/25mm", q:Math.round(tb*0.15*d*10)/10, u:"m³", up:P.gravel["15_25mm"]},
+      {n:"Acier à béton T12", q:Math.round(tb*0.02*d*100)/100, u:"tonnes", up:P.steel.t12_ton},
+      {n:"Treillis soudé ST25", q:Math.round(tb*0.12), u:"m²", up:P.steel.treillis_m2},
+      {n:"Brique creuse 10cm", q:Math.round(tb*45*dW), u:"unités", up:P.bricks.hollow_10},
+      {n:"Béton prêt à l'emploi 300kg/m³", q:Math.round(tb*0.25*d*10)/10, u:"m³", up:P.concrete.ready_mix_300},
+      {n:"Bois de coffrage", q:Math.round(tb*0.04*100)/100, u:"m³", up:P.wood.formwork_m3},
+      {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
+      {n:"Parpaing creux 20cm", q:Math.round(tb*12*dW), u:"unités", up:P.bricks.parpaing_20},
+    ];
+  } else {
+    // Résidentiel / rénovation : structure classique tunisienne
+    items = [
+      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*3.5*d), u:"sacs", up:P.cement.bag42_5},
+      {n:"Ciment CPJ 32.5 (Maçonnerie)", q:Math.round(tb*1.0*d), u:"sacs", up:P.cement.bag32_5},
+      {n:"Sable de construction 0/4", q:Math.round(tb*0.25*d*10)/10, u:"m³", up:P.sand.construction},
+      {n:"Gravier 15/25mm", q:Math.round(tb*0.15*d*10)/10, u:"m³", up:P.gravel["15_25mm"]},
+      {n:"Acier à béton T12", q:Math.round(tb*0.02*d*100)/100, u:"tonnes", up:P.steel.t12_ton},
+      {n:"Treillis soudé ST25", q:Math.round(tb*0.12), u:"m²", up:P.steel.treillis_m2},
+      {n:"Brique creuse 10cm", q:Math.round(tb*45*dW), u:"unités", up:P.bricks.hollow_10},
+      {n:"Hourdis 16x50", q:Math.round(tb*7*d), u:"unités", up:P.bricks.hourdis_16},
+      {n:"Béton prêt à l'emploi 300kg/m³", q:Math.round(tb*0.25*d*10)/10, u:"m³", up:P.concrete.ready_mix_300},
+      {n:"Bois de coffrage", q:Math.round(tb*0.04*100)/100, u:"m³", up:P.wood.formwork_m3},
+      {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
+      {n:"Parpaing creux 20cm", q:Math.round(tb*12*dW), u:"unités", up:P.bricks.parpaing_20},
+    ];
+  }
   const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
   const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
   return items.map(i => ({
@@ -271,29 +376,100 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
 
 function genSOItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { total?: number }) {
   const tb = surface * (floors || 1);
+  const profile = catProfile(cat);
   const isRenov = cat.startsWith("renovation");
   const tileQty = Math.round(tb * (isRenov ? 0.5 : 0.65));
   const paintL = Math.round(tb * (isRenov ? 0.4 : 0.3));
   // Une porte intérieure par pièce principale ; les fenêtres suivent les pièces
   const doorC = Math.max(1, rooms?.total ?? Math.round(tb / 45));
   const winC = Math.max(1, Math.round((rooms?.total ?? Math.round(tb / 30)) * 1.4));
-  const items: any[] = [
-    {n:"Carrelage sol grès cérame 40x40", q:tileQty, u:"m²", up:30},
-    {n:"Carrelage mural faïence 20x30", q:Math.round(tileQty*0.25), u:"m²", up:25},
-    {n:"Peinture intérieure mate lessivable", q:paintL, u:"litres", up:20},
-    {n:"Peinture extérieure acrylique", q:Math.round(paintL*0.2), u:"litres", up:25},
-    {n:"Enduit de lissage prêt à gâcher", q:Math.round(tb*2.0), u:"kg", up:1.2},
-    {n:"Plinthe céramique 8x30", q:Math.round(tb*0.35), u:"ml", up:7},
-    {n:"Porte intérieure en bois pleine", q:Math.max(1,doorC), u:"unités", up:300},
-    {n:"Porte d'entrée métallique blindée", q:1, u:"unité", up:450},
-    {n:"Fenêtre coulissante alu simple vitrage", q:Math.max(2,winC), u:"unités", up:380},
-    {n:"Grille de protection métallique", q:Math.max(2,winC), u:"unités", up:180},
-    {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.25), u:"m²", up:15},
-    {n:"Tuile canal rouge", q:Math.round(tb*0.65), u:"m²", up:12},
-  ];
-  if (isRenov) {
-    items.push({n:"Panneau de placoplâtre BA13", q:Math.round(tb*0.15), u:"m²", up:20});
-    items.push({n:"Corniche en plâtre", q:Math.round(tb*0.2), u:"ml", up:8});
+
+  let items: any[] = [];
+  if (profile === "pool") {
+    // Piscine : pas de fenêtres alu ni de portes → margelles, revêtement, plage
+    items = [
+      {n:"Revêtement liner PVC armé", q:Math.round(tb*1.05), u:"m²", up:85},
+      {n:"Margelles piscine granito 60x40", q:Math.round(tb*0.3), u:"ml", up:40},
+      {n:"Carrelage anti-dérapant (plage)", q:Math.round(tb*0.4), u:"m²", up:55},
+      {n:"Étanchéité enduit piscine hydrofuge", q:Math.round(tb*1.2), u:"m²", up:18},
+      {n:"Peinture piscine (bassin)", q:Math.round(tb*0.6), u:"litres", up:22},
+      {n:"Escalier inox + main courante", q:1, u:"unité", up:380},
+      {n:"Plinthe piscine 60x20", q:Math.round(tb*0.25), u:"ml", up:12},
+    ];
+  } else if (profile === "garden") {
+    // Jardin / paysager : pas de menuiserie → pavés, gazon, bordures
+    items = [
+      {n:"Gazon en plaques", q:Math.round(tb*0.55), u:"m²", up:14},
+      {n:"Pavé autobloquant 6cm", q:Math.round(tb*0.3), u:"m²", up:38},
+      {n:"Gravier décoratif 10/20", q:Math.round(tb*0.12), u:"m³", up:45},
+      {n:"Bordure béton 50x20", q:Math.round(tb*0.15), u:"ml", up:15},
+      {n:"Terre végétale amendée", q:Math.round(tb*0.08*10)/10, u:"m³", up:35},
+      {n:"Dalle grès cérame antidérapante 40x40", q:Math.round(tb*0.18), u:"m²", up:45},
+    ];
+  } else if (profile === "fence") {
+    // Clôture / mur : pas de fenêtres → enduit, crépi, portail
+    items = [
+      {n:"Enduit de façade ciment", q:Math.round(tb*1.1), u:"m²", up:12},
+      {n:"Peinture extérieure acrylique", q:Math.round(tb*0.3), u:"litres", up:25},
+      {n:"Crénelage + chaperon béton", q:Math.round(tb*0.2), u:"ml", up:18},
+      {n:"Portail métallique à deux vantaux", q:Math.max(1,Math.round(tb/10)), u:"unités", up:850},
+      {n:"Étanchéité liquide bitumeuse (tête de mur)", q:Math.round(tb*0.15), u:"m²", up:15},
+    ];
+  } else if (profile === "solar") {
+    // Solaire : pas de finitions intérieures → étanchéité + chemins de câbles
+    items = [
+      {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.3), u:"m²", up:15},
+      {n:"Peinture antirouille supports", q:Math.round(tb*0.1), u:"litres", up:28},
+      {n:"Chemin de câbles galvanisé", q:Math.round(tb*0.2), u:"ml", up:18},
+      {n:"Goulotte PVC 40x60", q:Math.round(tb*0.15), u:"ml", up:8},
+    ];
+  } else if (profile === "industrial") {
+    // Industriel : pas de tuiles ni fenêtres alu résidentielles
+    items = [
+      {n:"Peinture époxy sol atelier", q:Math.round(tb*0.6), u:"m²", up:35},
+      {n:"Porte sectionnelle industrielle 3x3", q:Math.max(1,Math.round(tb/250)), u:"unités", up:1800},
+      {n:"Étanchéité toiture bac acier", q:Math.round(tb*0.6), u:"m²", up:20},
+      {n:"Bardage métallique prélaqué", q:Math.round(tb*0.35), u:"m²", up:45},
+      {n:"Peinture intérieure mate", q:Math.round(tb*0.2), u:"litres", up:20},
+    ];
+  } else if (profile === "parking") {
+    // Parking / route : pas de bâtiment → enrobé, marquage, bordures
+    items = [
+      {n:"Enrobé bitumineux 5cm", q:Math.round(tb*0.85), u:"m²", up:45},
+      {n:"Bordures béton T2", q:Math.round(tb*0.1), u:"ml", up:15},
+      {n:"Peinture marquage au sol", q:Math.round(tb*0.04), u:"litres", up:18},
+      {n:"Caniveau béton préfabriqué", q:Math.round(tb*0.06), u:"ml", up:40},
+    ];
+  } else if (profile === "commercial") {
+    // Commercial / bureau / resto : vitrine au lieu de fenêtres résidentielles
+    items = [
+      {n:"Carrelage sol grès cérame 60x60", q:Math.round(tb*0.7), u:"m²", up:45},
+      {n:"Peinture intérieure mate lessivable", q:paintL, u:"litres", up:20},
+      {n:"Vitrine aluminium + porte coulissante", q:Math.max(1,Math.round(tb/40)), u:"unités", up:1400},
+      {n:"Faux plafond dalles 60x60", q:Math.round(tb*0.5), u:"m²", up:25},
+      {n:"Enduit de lissage prêt à gâcher", q:Math.round(tb*2.0), u:"kg", up:1.2},
+      {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.25), u:"m²", up:15},
+    ];
+  } else {
+    // Résidentiel / rénovation : finitions classiques tunisiennes
+    items = [
+      {n:"Carrelage sol grès cérame 40x40", q:tileQty, u:"m²", up:30},
+      {n:"Carrelage mural faïence 20x30", q:Math.round(tileQty*0.25), u:"m²", up:25},
+      {n:"Peinture intérieure mate lessivable", q:paintL, u:"litres", up:20},
+      {n:"Peinture extérieure acrylique", q:Math.round(paintL*0.2), u:"litres", up:25},
+      {n:"Enduit de lissage prêt à gâcher", q:Math.round(tb*2.0), u:"kg", up:1.2},
+      {n:"Plinthe céramique 8x30", q:Math.round(tb*0.35), u:"ml", up:7},
+      {n:"Porte intérieure en bois pleine", q:Math.max(1,doorC), u:"unités", up:300},
+      {n:"Porte d'entrée métallique blindée", q:1, u:"unité", up:450},
+      {n:"Fenêtre coulissante alu simple vitrage", q:Math.max(2,winC), u:"unités", up:380},
+      {n:"Grille de protection métallique", q:Math.max(2,winC), u:"unités", up:180},
+      {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.25), u:"m²", up:15},
+      {n:"Tuile canal rouge", q:Math.round(tb*0.65), u:"m²", up:12},
+    ];
+    if (isRenov) {
+      items.push({n:"Panneau de placoplâtre BA13", q:Math.round(tb*0.15), u:"m²", up:20});
+      items.push({n:"Corniche en plâtre", q:Math.round(tb*0.2), u:"ml", up:8});
+    }
   }
   const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
   const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
@@ -306,6 +482,7 @@ function genSOItems(surface: number, floors: number, cat: string, targetBudget: 
 function genEQItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { bathrooms?: number; kitchens?: number; total?: number }) {
   const tb = surface * (floors || 1);
   const items: any[] = [];
+  const profile = catProfile(cat);
   const isPool = cat === "piscine";
   const isSolar = cat === "installation_solaire";
   const doorC = Math.max(1, Math.round(tb / 40));
@@ -317,13 +494,48 @@ function genEQItems(surface: number, floors: number, cat: string, targetBudget: 
   if (isPool) {
     items.push({n:"Pompe de filtration + filtre à sable", q:1, u:"forfait", up:1200},
       {n:"Projecteur LED piscine", q:2, u:"unités", up:250},
-      {n:"Skimmer + buses de refoulement", q:1, u:"forfait", up:300});
+      {n:"Skimmer + buses de refoulement", q:1, u:"forfait", up:300},
+      {n:"Chauffage électrique piscine 9kW", q:1, u:"unité", up:1800},
+      {n:"Robot nettoyeur piscine", q:1, u:"unité", up:700});
   } else if (isSolar) {
     const panels = Math.round(surface * 0.3);
     items.push({n:"Panneau photovoltaïque 450Wc monocristallin", q:panels, u:"unités", up:550},
       {n:"Onduleur central", q:1, u:"unité", up:2500},
-      {n:"Coffret de protection DC/AC", q:1, u:"unité", up:400});
+      {n:"Coffret de protection DC/AC", q:1, u:"unité", up:400},
+      {n:"Batterie de stockage lithium 10kWh", q:Math.max(1,Math.round(panels/8)), u:"unités", up:3200});
+  } else if (profile === "garden") {
+    // Jardin / paysager : arrosage automatique + éclairage extérieur, pas de sanitaires
+    items.push(
+      {n:"Programmateur d'arrosage automatique", q:1, u:"unité", up:180},
+      {n:"Goutte-à-goutte + tuyau PER", q:Math.round(tb*0.4), u:"ml", up:3},
+      {n:"Turbine d'arrosage", q:Math.max(2,Math.round(tb/25)), u:"unités", up:35},
+      {n:"Projecteur LED extérieur étanche", q:Math.max(2,Math.round(tb/30)), u:"unités", up:80},
+      {n:"Câble électrique 2.5mm²", q:Math.round(tb*0.5), u:"ml", up:1.5},
+      {n:"Pompe de jardin + crépine", q:1, u:"unité", up:350});
+  } else if (profile === "fence") {
+    // Clôture : motorisation portail + interphone + éclairage
+    items.push(
+      {n:"Motorisation portail coulissant 600kg", q:1, u:"forfait", up:900},
+      {n:"Interphone / vidéophone", q:1, u:"unité", up:180},
+      {n:"Éclairage LED extérieur sur poteaux", q:Math.max(2,Math.round(tb/15)), u:"unités", up:70},
+      {n:"Câble électrique 2.5mm²", q:Math.round(tb*0.4), u:"ml", up:1.5});
+  } else if (profile === "industrial" || profile === "parking") {
+    // Industriel / parking : éclairage haute baie + distribution électrique
+    items.push(
+      {n:"Luminaire LED haute baie 150W", q:Math.max(2,Math.round(tb/40)), u:"unités", up:180},
+      {n:"Tableau électrique industriel", q:1, u:"unité", up:450},
+      {n:"Câble électrique 2.5mm²", q:Math.round(tb*0.8), u:"ml", up:1.5},
+      {n:"Prise industrielle triphasée 32A", q:Math.max(2,Math.round(tb/60)), u:"unités", up:60});
+  } else if (profile === "commercial") {
+    // Commercial / bureau / resto : clim + éclairage pro, sanitaires réduits
+    items.push(
+      {n:"Climatisation split 12000 BTU", q:Math.max(1,Math.round(tb/40)), u:"unités", up:1100},
+      {n:"Luminaire LED encastré 60x60", q:Math.max(2,Math.round(tb/6)), u:"unités", up:45},
+      {n:"WC public + lave-mains", q:Math.max(1,Math.round(tb/80)), u:"unités", up:350},
+      {n:"Câble électrique 2.5mm²", q:Math.round(tb*1.5), u:"ml", up:1.5},
+      {n:"Disjoncteur divisionnaire 20A", q:Math.max(2,Math.round(tb/60)), u:"unités", up:35});
   } else {
+    // Résidentiel / rénovation : sanitaires + électricité domestique
     items.push(
       {n:"WC complet avec réservoir", q:bathrooms, u:"unités", up:250},
       {n:"Lavabo vasque + robinetterie", q:saniC, u:"unités", up:140},
@@ -348,19 +560,83 @@ function genEQItems(surface: number, floors: number, cat: string, targetBudget: 
 
 function genMOItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { total?: number; bathrooms?: number; kitchens?: number }) {
   const tb = surface * (floors || 1);
+  const profile = catProfile(cat);
   const ih = ["immeuble_residentiel","usine","mosquee","ecole","hotel"].includes(cat) ? 1.2 : 1;
   // Plus de pièces = plus de points électriques & sanitaires à poser
   const roomFactor = rooms?.total ? Math.min(1.4, Math.max(0.7, rooms.total / 6)) : 1;
   const saniFactor = rooms?.bathrooms ? Math.min(1.3, Math.max(0.8, ((rooms.bathrooms || 1) + (rooms.kitchens || 1)) / 3)) : 1;
-  const items = [
-    {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:80},
-    {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:55},
-    {n:"Électricien", q:Math.round(tb/60*ih*roomFactor*10)/10, u:"jours", up:75},
-    {n:"Plombier", q:Math.round(tb/80*ih*saniFactor*10)/10, u:"jours", up:75},
-    {n:"Carreleur", q:Math.round(tb/45*ih*10)/10, u:"jours", up:80},
-    {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:65},
-    {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:100},
-  ];
+
+  let items: any[] = [];
+  if (profile === "pool") {
+    // Piscine : piscinier, terrassier, carreleur ; pas de maçon de logement
+    items = [
+      {n:"Piscinier (coque & étanchéité)", q:Math.round(tb/10*10)/10, u:"jours", up:85},
+      {n:"Terrassier / pelleteur", q:Math.round(tb/20*10)/10, u:"jours", up:60},
+      {n:"Ferronnier (armatures)", q:Math.round(tb/40*10)/10, u:"jours", up:70},
+      {n:"Carreleur piscine", q:Math.round(tb/30*10)/10, u:"jours", up:80},
+      {n:"Plombier (filtration & hydraulique)", q:Math.round(tb/50*10)/10, u:"jours", up:75},
+      {n:"Électricien (éclairage & équipements)", q:Math.round(tb/70*10)/10, u:"jours", up:75},
+      {n:"Chef de chantier", q:Math.round(tb/120*10)/10, u:"jours", up:100},
+    ];
+  } else if (profile === "garden") {
+    items = [
+      {n:"Jardinier paysagiste", q:Math.round(tb/25*10)/10, u:"jours", up:65},
+      {n:"Terrassier", q:Math.round(tb/30*10)/10, u:"jours", up:55},
+      {n:"Maçon (dalles & bordures)", q:Math.round(tb/40*10)/10, u:"jours", up:80},
+      {n:"Électricien (arrosage & éclairage)", q:Math.round(tb/80*10)/10, u:"jours", up:75},
+      {n:"Plombier (réseau arrosage)", q:Math.round(tb/70*10)/10, u:"jours", up:75},
+      {n:"Chef de chantier", q:Math.round(tb/150*10)/10, u:"jours", up:100},
+    ];
+  } else if (profile === "solar") {
+    items = [
+      {n:"Électricien photovoltaïque", q:Math.round(tb/18*10)/10, u:"jours", up:85},
+      {n:"Manœuvre", q:Math.round(tb/25*10)/10, u:"jours", up:55},
+      {n:"Monteur charpente/supports", q:Math.round(tb/22*10)/10, u:"jours", up:70},
+      {n:"Maçon (fondations massifs)", q:Math.round(tb/60*10)/10, u:"jours", up:80},
+      {n:"Chef de chantier", q:Math.round(tb/90*10)/10, u:"jours", up:100},
+    ];
+  } else if (profile === "fence" || profile === "parking") {
+    items = [
+      {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:80},
+      {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:55},
+      {n:"Électricien", q:Math.round(tb/60*ih*roomFactor*10)/10, u:"jours", up:75},
+      {n:"Soudeur (portail / structures)", q:Math.round(tb/70*10)/10, u:"jours", up:80},
+      {n:"Carreleur / paveur", q:Math.round(tb/45*ih*10)/10, u:"jours", up:80},
+      {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:100},
+    ];
+  } else if (profile === "industrial") {
+    items = [
+      {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:80},
+      {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:55},
+      {n:"Électricien industriel", q:Math.round(tb/50*ih*roomFactor*10)/10, u:"jours", up:80},
+      {n:"Soudeur / métallier", q:Math.round(tb/45*10)/10, u:"jours", up:85},
+      {n:"Carreleur / solier", q:Math.round(tb/45*ih*10)/10, u:"jours", up:80},
+      {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:65},
+      {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:100},
+    ];
+  } else if (profile === "commercial") {
+    items = [
+      {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:80},
+      {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:55},
+      {n:"Électricien", q:Math.round(tb/55*ih*roomFactor*10)/10, u:"jours", up:75},
+      {n:"Plombier", q:Math.round(tb/75*ih*saniFactor*10)/10, u:"jours", up:75},
+      {n:"Faux plafonniste", q:Math.round(tb/50*10)/10, u:"jours", up:70},
+      {n:"Carreleur", q:Math.round(tb/45*ih*10)/10, u:"jours", up:80},
+      {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:65},
+      {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:100},
+    ];
+  } else {
+    // Résidentiel / rénovation : corps de métiers classiques
+    items = [
+      {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:80},
+      {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:55},
+      {n:"Électricien", q:Math.round(tb/60*ih*roomFactor*10)/10, u:"jours", up:75},
+      {n:"Plombier", q:Math.round(tb/80*ih*saniFactor*10)/10, u:"jours", up:75},
+      {n:"Carreleur", q:Math.round(tb/45*ih*10)/10, u:"jours", up:80},
+      {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:65},
+      {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:100},
+    ];
+  }
   const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
   const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
   return items.map(i => ({
@@ -369,14 +645,26 @@ function genMOItems(surface: number, floors: number, cat: string, targetBudget: 
   }));
 }
 
-function genTRItems(surface: number, floors: number, targetBudget: number) {
+function genTRItems(surface: number, floors: number, targetBudget: number, cat = "maison") {
   const tb = surface * (floors || 1);
-  const items = [
-    {n:"Transport matériaux (benne 10t)", q:Math.max(2,Math.round(tb/30)), u:"voyages", up:170},
-    {n:"Pompe à béton stationnaire", q:Math.round(tb*0.25), u:"m³", up:28},
-    {n:"Location tractopelle", q:Math.max(1,Math.round(tb/100)), u:"jours", up:280},
-    {n:"Évacuation gravats (benne 8m³)", q:Math.max(1,Math.round(tb/60)), u:"bennes", up:200},
-  ];
+  const profile = catProfile(cat);
+  let items: any[];
+  if (profile === "pool" || profile === "garden") {
+    // Piscine / jardin : beaucoup de terre à évacuer / apporter, peu de béton
+    items = [
+      {n:"Transport matériaux (benne 10t)", q:Math.max(2,Math.round(tb/25)), u:"voyages", up:170},
+      {n:"Évacuation terre excavée (benne 8m³)", q:Math.max(2,Math.round(tb/35)), u:"bennes", up:200},
+      {n:"Location tractopelle", q:Math.max(2,Math.round(tb/60)), u:"jours", up:280},
+      {n:"Apport terre végétale (camion 8m³)", q:Math.max(1,Math.round(tb/80)), u:"camions", up:250},
+    ];
+  } else {
+    items = [
+      {n:"Transport matériaux (benne 10t)", q:Math.max(2,Math.round(tb/30)), u:"voyages", up:170},
+      {n:"Pompe à béton stationnaire", q:Math.round(tb*0.25), u:"m³", up:28},
+      {n:"Location tractopelle", q:Math.max(1,Math.round(tb/100)), u:"jours", up:280},
+      {n:"Évacuation gravats (benne 8m³)", q:Math.max(1,Math.round(tb/60)), u:"bennes", up:200},
+    ];
+  }
   const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
   const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
   return items.map(i => ({
@@ -843,7 +1131,7 @@ export function runBIMEstimation(
     second_oeuvre: genSOItems,
     equipements: genEQItems,
     main_oeuvre: (s: number, f: number, c: string, b: number, r: typeof roomInfo) => genMOItems(s, f, c, b, r),
-    transport: (s: number, f: number, c: string, b: number, r) => genTRItems(s, f, b),
+    transport: (s: number, f: number, c: string, b: number, r) => genTRItems(s, f, b, c),
     etudes_imprevus: (s: number, f: number, c: string, b: number, r) => genEIItems(finalTotal, b),
   };
 
