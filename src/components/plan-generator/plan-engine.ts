@@ -41,6 +41,21 @@ export const PLAN_TYPES: { id: PlanTypeId; label: string }[] = [
 export const isHousingType = (t: PlanTypeId) =>
   t === "maison" || t === "villa" || t === "appartement" || t === "immeuble";
 
+/**
+ * Détection automatique du type de bien à partir de la surface au sol (m²).
+ * Heuristique calibrée pour le marché tunisien : petit logement → maison,
+ * moyen → villa, grand → immeuble, très grand → entrepôt, immense → générique.
+ * (La catégorie explicite du projet, si elle existe, reste prioritaire.)
+ */
+export function detectPlanTypeFromSurface(surface: number): PlanTypeId {
+  const s = Math.max(0, surface || 0);
+  if (s < 90) return "maison";
+  if (s < 170) return "villa";
+  if (s < 380) return "immeuble";
+  if (s < 950) return "entrepot";
+  return "generique";
+}
+
 export type RoomKind =
   | "room"
   | "corridor"
@@ -49,7 +64,8 @@ export type RoomKind =
   | "shopfloor"
   | "quai"
   | "wet"
-  | "priere";
+  | "priere"
+  | "stairs";
 
 export interface Room {
   id: string;
@@ -149,18 +165,21 @@ function housing(
   beds: number,
   villa: boolean,
   apartment: boolean,
+  floors: number,
+  rnd: () => number,
 ): Room[] {
   const rooms: Room[] = [];
-  const corridorW = clamp(w * 0.13, 1.1, 1.9);
+  const jit = (lo: number, hi: number) => lo + rnd() * (hi - lo);
+  const corridorW = clamp(w * 0.13 * jit(0.92, 1.08), 1.1, 1.9);
   const entH = 1.4; // bande d'entrée (pleine largeur, façade)
-  const wetColW = clamp(w * 0.18, 2.8, 3.6);
+  const wetColW = clamp(w * 0.18 * jit(0.9, 1.1), 2.8, 3.6);
   const wetX = w - wetColW;
   const areaX = corridorW;
   const areaW = w - corridorW - wetColW;
   const areaY = entH;
   const areaH = h - entH;
   // Terrasse en façade (villa) ou balcon à l'arrière (appartement)
-  const stripH = villa ? 2.0 : apartment ? 1.6 : 0;
+  const stripH = villa ? jit(1.6, 2.3) : apartment ? jit(1.3, 1.9) : 0;
   const y0 = areaY + (villa ? stripH : 0);
   const usableH = areaH - stripH;
   const B = clamp(Math.round(beds) || 2, 1, 6);
@@ -175,6 +194,18 @@ function housing(
     h: areaH,
     kind: "corridor",
   });
+  // Escalier (logements à étages) en bas du couloir
+  if (floors > 1) {
+    rooms.push({
+      id: "escalier",
+      name: "Escalier",
+      x: 0,
+      y: areaY + areaH - 2.4,
+      w: corridorW,
+      h: 2.4,
+      kind: "stairs",
+    });
+  }
 
   // Colonne humide (droite) : SDB + WC + buanderie
   const wetTop = y0;
@@ -214,7 +245,7 @@ function housing(
   // Rangée séjour / cuisine
   const salonY = y0 + rowsCount * chambreRowH;
   const salonH = usableH - rowsCount * chambreRowH;
-  const salW = areaW * 0.56;
+  const salW = areaW * jit(0.5, 0.62);
   rooms.push({ id: "salon", name: "Séjour / Salon", x: areaX, y: salonY, w: salW, h: salonH });
   rooms.push({ id: "cuisine", name: "Cuisine", x: areaX + salW, y: salonY, w: areaW - salW, h: salonH, kind: "wet" });
 
@@ -230,130 +261,162 @@ function housing(
 
 // ─── Template : commerce / restaurant / café ────────────────────────────────
 
-function commerce(w: number, h: number, restaurant: boolean): Room[] {
+function commerce(w: number, h: number, restaurant: boolean, rnd: () => number): Room[] {
   const rooms: Room[] = [];
+  // Bande avant (cuisine / réserve / sanitaires / bureaux) : hauteur variable
+  const frontH = h * (0.26 + rnd() * 0.12);
+  const mainW = w * (0.34 + rnd() * 0.18);
+  const sanW = w * (0.18 + rnd() * 0.08);
   if (restaurant) {
     rooms.push({
       id: "salle",
       name: "Salle de restaurant",
       x: 0,
-      y: h * 0.32,
+      y: frontH,
       w,
-      h: h * 0.68,
+      h: h - frontH,
       kind: "shopfloor",
       glassEdge: ["bottom"],
     });
-    rooms.push({ id: "cuisine", name: "Cuisine", x: 0, y: 0, w: w * 0.42, h: h * 0.32, kind: "wet" });
-    rooms.push({ id: "sanitaire", name: "Sanitaires", x: w * 0.42, y: 0, w: w * 0.2, h: h * 0.32, kind: "wet" });
-    rooms.push({ id: "bureau", name: "Bureau / Caisse", x: w * 0.62, y: 0, w: w * 0.38, h: h * 0.32 });
+    rooms.push({ id: "cuisine", name: "Cuisine", x: 0, y: 0, w: mainW, h: frontH, kind: "wet" });
+    rooms.push({ id: "sanitaire", name: "Sanitaires", x: mainW, y: 0, w: sanW, h: frontH, kind: "wet" });
+    rooms.push({ id: "bureau", name: "Bureau / Caisse", x: mainW + sanW, y: 0, w: w - mainW - sanW, h: frontH });
   } else {
     rooms.push({
       id: "salle",
       name: "Espace de vente",
       x: 0,
-      y: h * 0.3,
+      y: frontH,
       w,
-      h: h * 0.7,
+      h: h - frontH,
       kind: "shopfloor",
       glassEdge: ["bottom"],
     });
-    rooms.push({ id: "reserve", name: "Réserve", x: 0, y: 0, w: w * 0.42, h: h * 0.3 });
-    rooms.push({ id: "sanitaire", name: "Sanitaires", x: w * 0.42, y: 0, w: w * 0.22, h: h * 0.3, kind: "wet" });
-    rooms.push({ id: "bureau", name: "Bureau / Comptoir", x: w * 0.64, y: 0, w: w * 0.36, h: h * 0.3 });
+    rooms.push({ id: "reserve", name: "Réserve", x: 0, y: 0, w: mainW, h: frontH });
+    rooms.push({ id: "sanitaire", name: "Sanitaires", x: mainW, y: 0, w: sanW, h: frontH, kind: "wet" });
+    rooms.push({ id: "bureau", name: "Bureau / Comptoir", x: mainW + sanW, y: 0, w: w - mainW - sanW, h: frontH });
   }
   return rooms;
 }
 
 // ─── Template : bureau ───────────────────────────────────────────────────────
 
-function bureau(w: number, h: number): Room[] {
+function bureau(w: number, h: number, rnd: () => number): Room[] {
+  const bandH = h * (0.26 + rnd() * 0.08);
+  const accueilH = h * (0.14 + rnd() * 0.06);
+  const meetW = w * (0.32 + rnd() * 0.16);
+  const sanW = w * (0.14 + rnd() * 0.08);
+  const restW = w - meetW - sanW;
   return [
-    { id: "reunion", name: "Salle de réunion", x: 0, y: 0, w: w * 0.4, h: h * 0.3 },
-    { id: "sanitaires", name: "Sanitaires", x: w * 0.4, y: 0, w: w * 0.18, h: h * 0.3, kind: "wet" },
-    { id: "bureau1", name: "Bureau", x: w * 0.58, y: 0, w: w * 0.21, h: h * 0.3 },
-    { id: "bureau2", name: "Bureau", x: w * 0.79, y: 0, w: w * 0.21, h: h * 0.3 },
-    { id: "openspace", name: "Open space", x: 0, y: h * 0.3, w, h: h * 0.54 },
-    { id: "accueil", name: "Accueil", x: 0, y: h * 0.84, w, h: h * 0.16 },
+    { id: "reunion", name: "Salle de réunion", x: 0, y: 0, w: meetW, h: bandH },
+    { id: "sanitaires", name: "Sanitaires", x: meetW, y: 0, w: sanW, h: bandH, kind: "wet" },
+    { id: "bureau1", name: "Bureau", x: meetW + sanW, y: 0, w: restW / 2, h: bandH },
+    { id: "bureau2", name: "Bureau", x: meetW + sanW + restW / 2, y: 0, w: restW / 2, h: bandH },
+    { id: "openspace", name: "Open space", x: 0, y: bandH, w, h: h - bandH - accueilH },
+    { id: "accueil", name: "Accueil", x: 0, y: h - accueilH, w, h: accueilH },
   ];
 }
 
 // ─── Template : entrepôt / atelier / usine ───────────────────────────────────
 
-function entrepot(w: number, h: number): Room[] {
+function entrepot(w: number, h: number, rnd: () => number): Room[] {
+  const bandH = h * (0.22 + rnd() * 0.08);
+  const officeW = w * (0.28 + rnd() * 0.12);
+  const sanW = w * (0.12 + rnd() * 0.06);
+  const vestW = w * (0.16 + rnd() * 0.08);
+  const quaiH = h * (0.08 + rnd() * 0.06);
   return [
-    { id: "bureaux", name: "Bureaux", x: 0, y: 0, w: w * 0.34, h: h * 0.24 },
-    { id: "sanitaires", name: "Sanitaires", x: w * 0.34, y: 0, w: w * 0.16, h: h * 0.24, kind: "wet" },
-    { id: "vestiaires", name: "Vestiaires", x: w * 0.5, y: 0, w: w * 0.2, h: h * 0.24 },
-    { id: "stockage", name: "Stockage / Atelier", x: w * 0.7, y: 0, w: w * 0.3, h: h * 0.24 },
-    { id: "hall", name: "Hall principal", x: 0, y: h * 0.24, w, h: h * 0.66 },
-    { id: "quai", name: "Quai de chargement", x: 0, y: h * 0.9, w, h: h * 0.1, kind: "quai" },
+    { id: "bureaux", name: "Bureaux", x: 0, y: 0, w: officeW, h: bandH },
+    { id: "sanitaires", name: "Sanitaires", x: officeW, y: 0, w: sanW, h: bandH, kind: "wet" },
+    { id: "vestiaires", name: "Vestiaires", x: officeW + sanW, y: 0, w: vestW, h: bandH },
+    { id: "stockage", name: "Stockage / Atelier", x: officeW + sanW + vestW, y: 0, w: w - officeW - sanW - vestW, h: bandH },
+    { id: "hall", name: "Hall principal", x: 0, y: bandH, w, h: h - bandH - quaiH },
+    { id: "quai", name: "Quai de chargement", x: 0, y: h - quaiH, w, h: quaiH, kind: "quai" },
   ];
 }
 
 // ─── Template : ferme agricole ───────────────────────────────────────────────
 
-function ferme(w: number, h: number): Room[] {
+function ferme(w: number, h: number, rnd: () => number): Room[] {
+  const bandH = h * (0.26 + rnd() * 0.08);
+  const officeW = w * (0.28 + rnd() * 0.1);
+  const sanW = w * (0.12 + rnd() * 0.06);
+  const vestW = w * (0.16 + rnd() * 0.08);
+  const hangarW = w * (0.56 + rnd() * 0.14);
   return [
-    { id: "bureaux", name: "Bureaux", x: 0, y: 0, w: w * 0.34, h: h * 0.28 },
-    { id: "sanitaires", name: "Sanitaires", x: w * 0.34, y: 0, w: w * 0.16, h: h * 0.28, kind: "wet" },
-    { id: "vestiaire", name: "Vestiaire", x: w * 0.5, y: 0, w: w * 0.2, h: h * 0.28 },
-    { id: "rangement", name: "Rangement", x: w * 0.7, y: 0, w: w * 0.3, h: h * 0.28 },
-    { id: "hangar", name: "Hangar / Étable", x: 0, y: h * 0.28, w: w * 0.62, h: h * 0.72 },
-    { id: "stockage", name: "Stockage / Grange", x: w * 0.62, y: h * 0.28, w: w * 0.38, h: h * 0.72 },
+    { id: "bureaux", name: "Bureaux", x: 0, y: 0, w: officeW, h: bandH },
+    { id: "sanitaires", name: "Sanitaires", x: officeW, y: 0, w: sanW, h: bandH, kind: "wet" },
+    { id: "vestiaire", name: "Vestiaire", x: officeW + sanW, y: 0, w: vestW, h: bandH },
+    { id: "rangement", name: "Rangement", x: officeW + sanW + vestW, y: 0, w: w - officeW - sanW - vestW, h: bandH },
+    { id: "hangar", name: "Hangar / Étable", x: 0, y: bandH, w: hangarW, h: h - bandH },
+    { id: "stockage", name: "Stockage / Grange", x: hangarW, y: bandH, w: w - hangarW, h: h - bandH },
   ];
 }
 
 // ─── Template : école ────────────────────────────────────────────────────────
 
-function ecole(w: number, h: number): Room[] {
+function ecole(w: number, h: number, rnd: () => number): Room[] {
+  const topH = h * (0.38 + rnd() * 0.08);
+  const corridorH = h * (0.13 + rnd() * 0.06);
+  const c1 = w * (0.3 + rnd() * 0.08);
+  const c2 = w * (0.3 + rnd() * 0.08);
+  const bottomY = topH + corridorH;
+  const bottomH = h - bottomY;
+  const b1 = w * (0.22 + rnd() * 0.06);
+  const b2 = w * (0.16 + rnd() * 0.06);
+  const b3 = w * (0.14 + rnd() * 0.06);
+  const b4 = w * (0.14 + rnd() * 0.06);
   return [
-    { id: "classe1", name: "Salle de classe", x: 0, y: 0, w: w * 0.34, h: h * 0.42 },
-    { id: "classe2", name: "Salle de classe", x: w * 0.34, y: 0, w: w * 0.33, h: h * 0.42 },
-    { id: "classe3", name: "Salle de classe", x: w * 0.67, y: 0, w: w * 0.33, h: h * 0.42 },
-    { id: "couloir", name: "Couloir", x: 0, y: h * 0.42, w, h: h * 0.16, kind: "corridor" },
-    { id: "biblio", name: "Bibliothèque", x: 0, y: h * 0.58, w: w * 0.26, h: h * 0.42 },
-    { id: "bureau", name: "Bureau directeur", x: w * 0.26, y: h * 0.58, w: w * 0.2, h: h * 0.42 },
-    { id: "sanitaires", name: "Sanitaires", x: w * 0.46, y: h * 0.58, w: w * 0.18, h: h * 0.42, kind: "wet" },
-    { id: "accueil", name: "Accueil", x: w * 0.64, y: h * 0.58, w: w * 0.18, h: h * 0.42 },
-    { id: "cantine", name: "Cantine", x: w * 0.82, y: h * 0.58, w: w * 0.18, h: h * 0.42 },
+    { id: "classe1", name: "Salle de classe", x: 0, y: 0, w: c1, h: topH },
+    { id: "classe2", name: "Salle de classe", x: c1, y: 0, w: c2, h: topH },
+    { id: "classe3", name: "Salle de classe", x: c1 + c2, y: 0, w: w - c1 - c2, h: topH },
+    { id: "couloir", name: "Couloir", x: 0, y: topH, w, h: corridorH, kind: "corridor" },
+    { id: "biblio", name: "Bibliothèque", x: 0, y: bottomY, w: b1, h: bottomH },
+    { id: "bureau", name: "Bureau directeur", x: b1, y: bottomY, w: b2, h: bottomH },
+    { id: "sanitaires", name: "Sanitaires", x: b1 + b2, y: bottomY, w: b3, h: bottomH, kind: "wet" },
+    { id: "accueil", name: "Accueil", x: b1 + b2 + b3, y: bottomY, w: b4, h: bottomH },
+    { id: "cantine", name: "Cantine", x: b1 + b2 + b3 + b4, y: bottomY, w: w - b1 - b2 - b3 - b4, h: bottomH },
   ];
 }
 
 // ─── Template : mosquée ──────────────────────────────────────────────────────
 
-function mosquee(w: number, h: number): Room[] {
+function mosquee(w: number, h: number, rnd: () => number): Room[] {
+  const sideW = w * (0.13 + rnd() * 0.05);
+  const entH = h * (0.14 + rnd() * 0.08);
   return [
-    { id: "vestiaire", name: "Vestiaire", x: 0, y: 0, w: w * 0.15, h: h * 0.45 },
-    { id: "ablutions", name: "Ablutions", x: 0, y: h * 0.45, w: w * 0.15, h: h * 0.55, kind: "wet" },
-    { id: "entree", name: "Entrée", x: w * 0.15, y: 0, w: w * 0.7, h: h * 0.2 },
-    { id: "biblio", name: "Bibliothèque", x: w * 0.85, y: 0, w: w * 0.15, h: h * 0.45 },
-    { id: "sanitaires", name: "Sanitaires", x: w * 0.85, y: h * 0.45, w: w * 0.15, h: h * 0.55, kind: "wet" },
-    { id: "priere", name: "Salle de prière", x: w * 0.15, y: h * 0.2, w: w * 0.7, h: h * 0.8, kind: "priere" },
+    { id: "vestiaire", name: "Vestiaire", x: 0, y: 0, w: sideW, h: h * 0.45 },
+    { id: "ablutions", name: "Ablutions", x: 0, y: h * 0.45, w: sideW, h: h * 0.55, kind: "wet" },
+    { id: "entree", name: "Entrée", x: sideW, y: 0, w: w - 2 * sideW, h: entH },
+    { id: "biblio", name: "Bibliothèque", x: w - sideW, y: 0, w: sideW, h: h * 0.45 },
+    { id: "sanitaires", name: "Sanitaires", x: w - sideW, y: h * 0.45, w: sideW, h: h * 0.55, kind: "wet" },
+    { id: "priere", name: "Salle de prière", x: sideW, y: entH, w: w - 2 * sideW, h: h - entH, kind: "priere" },
   ];
 }
 
 // ─── Template : générique ────────────────────────────────────────────────────
 
-function generique(w: number, h: number): Room[] {
+function generique(w: number, h: number, rnd: () => number): Room[] {
   const rooms: Room[] = [];
-  const corridorW = w * 0.14;
+  const side = rnd() < 0.5 ? "left" : "right";
+  const corridorW = w * (0.12 + rnd() * 0.05);
   const entH = 1.5;
-  rooms.push({ id: "entree", name: "Entrée", x: 0, y: 0, w: corridorW, h: entH });
-  rooms.push({ id: "corridor", name: "Couloir", x: 0, y: entH, w: corridorW, h: h - entH, kind: "corridor" });
+  const cols = rnd() < 0.5 ? 2 : 3;
+  const rows = rnd() < 0.5 ? 3 : 2;
+  const cx = side === "left" ? 0 : w - corridorW;
   const gw = w - corridorW;
-  const gh = h;
-  const cols = 3;
-  const rows = 2;
+  rooms.push({ id: "entree", name: "Entrée", x: cx, y: 0, w: corridorW, h: entH });
+  rooms.push({ id: "corridor", name: "Couloir", x: cx, y: entH, w: corridorW, h: h - entH, kind: "corridor" });
   let n = 1;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       rooms.push({
         id: `espace${n}`,
         name: `Espace ${String(n).padStart(2, "0")}`,
-        x: corridorW + (c * gw) / cols,
-        y: (r * gh) / rows,
+        x: cx + (c * gw) / cols,
+        y: (r * h) / rows,
         w: gw / cols,
-        h: gh / rows,
+        h: h / rows,
       });
       n++;
     }
@@ -361,43 +424,65 @@ function generique(w: number, h: number): Room[] {
   return rooms;
 }
 
-function buildRooms(type: PlanTypeId, w: number, h: number, beds: number, seed: number): Room[] {
+function buildRooms(type: PlanTypeId, w: number, h: number, beds: number, seed: number, floors: number): Room[] {
   const rnd = mulberry32(seed);
-  void rnd; // réservé aux futures variantes paramétriques
+  let rooms: Room[];
   switch (type) {
     case "maison":
-      return housing(w, h, beds, false, false);
+      rooms = housing(w, h, beds, false, false, floors, rnd);
+      break;
     case "villa":
-      return housing(w, h, beds, true, false);
+      rooms = housing(w, h, beds, true, false, floors, rnd);
+      break;
     case "appartement":
     case "immeuble":
-      return housing(w, h, beds, false, true);
+      rooms = housing(w, h, beds, false, true, floors, rnd);
+      break;
     case "commerce":
-      return commerce(w, h, false);
+      rooms = commerce(w, h, false, rnd);
+      break;
     case "restaurant":
-      return commerce(w, h, true);
+      rooms = commerce(w, h, true, rnd);
+      break;
     case "bureau":
-      return bureau(w, h);
+      rooms = bureau(w, h, rnd);
+      break;
     case "entrepot":
     case "atelier":
-      return entrepot(w, h);
+      rooms = entrepot(w, h, rnd);
+      break;
     case "ferme":
-      return ferme(w, h);
+      rooms = ferme(w, h, rnd);
+      break;
     case "ecole":
-      return ecole(w, h);
+      rooms = ecole(w, h, rnd);
+      break;
     case "mosquee":
-      return mosquee(w, h);
+      rooms = mosquee(w, h, rnd);
+      break;
     default:
-      return generique(w, h);
+      rooms = generique(w, h, rnd);
   }
+  // Variante : miroir horizontal (disposition inversée) selon la graine
+  if (rnd() < 0.5) {
+    for (const r of rooms) {
+      r.x = w - r.x - r.w;
+      r.glassEdge = r.glassEdge?.map((e) =>
+        e === "left" ? "right" : e === "right" ? "left" : e,
+      );
+    }
+  }
+  return rooms;
 }
 
 // ─── Ouvertures : portes + fenêtres ──────────────────────────────────────────
 
-function buildOpenings(rooms: Room[], W: number, H: number): { doors: DoorSpec[]; windows: WinSpec[] } {
+function buildOpenings(rooms: Room[], W: number, H: number, seed: number): { doors: DoorSpec[]; windows: WinSpec[] } {
   const doors: DoorSpec[] = [];
   const windows: WinSpec[] = [];
   const eps = 0.02;
+  // Graine décalée pour que portes / fenêtres varient indépendamment des pièces
+  const rnd = mulberry32((seed ^ 0x9e3779b9) >>> 0);
 
   const addAdjacentDoor = (a: Room, b: Room, axis: "h" | "v", at: number, from: number, to: number) => {
     if (to - from < 1.2) return;
@@ -424,18 +509,25 @@ function buildOpenings(rooms: Room[], W: number, H: number): { doors: DoorSpec[]
     }
   }
 
-  const exteriorDoor = (roomId: string, edge: "top" | "bottom" | "left" | "right", len: number) => {
+  const exteriorDoor = (roomId: string, edge: "top" | "bottom" | "left" | "right", len: number, atOverride?: number) => {
     const r = rooms.find((x) => x.id === roomId);
     if (!r) return;
     const big = len >= 2.4;
-    if (edge === "bottom") doors.push({ axis: "h", at: r.y + r.h, from: r.x, to: r.x + r.w, len, swing: 1, big });
-    else if (edge === "top") doors.push({ axis: "h", at: r.y, from: r.x, to: r.x + r.w, len, swing: -1, big });
+    const c = atOverride ?? r.x + r.w / 2;
+    const from = c - len / 2;
+    const to = c + len / 2;
+    if (edge === "bottom") doors.push({ axis: "h", at: r.y + r.h, from, to, len, swing: 1, big });
+    else if (edge === "top") doors.push({ axis: "h", at: r.y, from, to, len, swing: -1, big });
     else if (edge === "left") doors.push({ axis: "v", at: r.x, from: r.y, to: r.y + r.h, len, swing: -1, big });
     else doors.push({ axis: "v", at: r.x + r.w, from: r.y, to: r.y + r.h, len, swing: 1, big });
   };
 
   const has = (id: string) => rooms.some((r) => r.id === id);
-  if (has("entree")) exteriorDoor("entree", "top", 1.0);
+  if (has("entree")) {
+    const ent = rooms.find((x) => x.id === "entree");
+    const c = ent ? ent.x + ent.w * (0.25 + 0.5 * rnd()) : undefined;
+    exteriorDoor("entree", "top", 1.0, c);
+  }
   const shop = rooms.find((r) => r.kind === "shopfloor");
   if (shop) exteriorDoor(shop.id, "bottom", 1.2);
   if (has("quai")) exteriorDoor("quai", "bottom", 3.5);
@@ -463,7 +555,7 @@ function buildOpenings(rooms: Room[], W: number, H: number): { doors: DoorSpec[]
       if (r.glassEdge?.includes(e.edge)) continue;
       const L = e.to - e.from;
       if (L < 1.5) continue;
-      const count = L >= 5.5 ? 2 : 1;
+      const count = (L >= 5.5 ? 2 : 1) + (L >= 4.2 && rnd() < 0.45 ? 1 : 0);
       const slot = L / count;
       for (let k = 0; k < count; k++) {
         const c = e.from + slot * k + slot / 2;
@@ -493,8 +585,8 @@ export function generatePlan(p: PlanParams): PlanLayout {
   w = round1(w);
   h = round1(h);
   const bedrooms = clamp(Math.round(p.bedrooms) || 2, 1, 6);
-  const rooms = buildRooms(type, w, h, bedrooms, p.seed);
-  const { doors, windows } = buildOpenings(rooms, w, h);
+  const rooms = buildRooms(type, w, h, bedrooms, p.seed, floors);
+  const { doors, windows } = buildOpenings(rooms, w, h, p.seed);
   const typeLabel = PLAN_TYPES.find((t) => t.id === type)?.label ?? type;
 
   return {

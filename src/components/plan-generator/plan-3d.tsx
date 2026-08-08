@@ -96,6 +96,8 @@ function fillForRoom(r: Room, i: number): string {
       return "#e2e8f0";
     case "priere":
       return "#fdfaf3";
+    case "stairs":
+      return "#f5f3ff";
     default:
       return ROOM_FILLS[i % ROOM_FILLS.length];
   }

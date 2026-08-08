@@ -3,7 +3,9 @@
 // ----------------------------------------------------------------------------
 // Composant autonome intégré à la page résultat de l'estimation d'un bien :
 // - Moteur de plans 2D (floor plan) piloté par les caractéristiques du projet
-// - Panneau de paramètres (type de bien, surface, étages, chambres, variante)
+// - Détection automatique du type de bien à partir de la surface du terrain
+// - Variantes plafonnées à 10 par type de bien (le plan change à chaque clic)
+// - Panneau de paramètres (type, surface, étages, chambres, variante)
 // - Export PNG / JPG / PDF
 // - Avertissement légal affiché sous chaque plan (UI + documents exportés)
 // ============================================================================
@@ -27,10 +29,12 @@ import {
   Pause,
   Play,
   RotateCcw,
+  Sparkles,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import {
   generatePlan,
+  detectPlanTypeFromSurface,
   isHousingType,
   PLAN_TYPES,
   type PlanLayout,
@@ -149,6 +153,8 @@ const fillFor = (r: Room, i: number) => {
       return "#e2e8f0";
     case "priere":
       return "#fdfaf3";
+    case "stairs":
+      return "#f5f3ff";
     default:
       return ROOM_FILLS[i % ROOM_FILLS.length];
   }
@@ -160,6 +166,7 @@ const PX = 46; // px par mètre
 const PAD = 56;
 const GUT = 52;
 const HDR = 78;
+const LEG = 96;
 const DISC = 64;
 
 function PlanSvg({ layout }: { layout: PlanLayout }) {
@@ -167,7 +174,10 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
   const ox = PAD;
   const oy = HDR + 26;
   const totalW = ox + W * PX + GUT + 22;
-  const totalH = oy + H * PX + GUT + 22 + DISC;
+  const planBottom = oy + H * PX;
+  const legendY = planBottom + GUT + 10;
+  const totalH = legendY + LEG + DISC;
+  const restaurant = rooms.some((r) => r.id === "cuisine");
   const X = (m: number) => ox + m * PX;
   const Y = (m: number) => oy + m * PX;
 
@@ -248,6 +258,35 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
             <rect x={X(r.x)} y={Y(r.y)} width={r.w * PX} height={r.h * PX} fill="url(#bb-hatch)" opacity="0.3" />
           )}
         </g>
+      ))}
+
+      {/* ═══ Escaliers (girons + flèche de montée) ═══ */}
+      {rooms
+        .filter((r) => r.kind === "stairs")
+        .map((r) => {
+          const x0 = X(r.x);
+          const y0 = Y(r.y);
+          const wpx = r.w * PX;
+          const hpx = r.h * PX;
+          const steps = Math.max(3, Math.floor(hpx / 15));
+          const treads = [];
+          for (let k = 1; k < steps; k++) {
+            const ty = y0 + (k * hpx) / steps;
+            treads.push(<line key={k} x1={x0 + 3} y1={ty} x2={x0 + wpx - 3} y2={ty} stroke="#c4b5fd" strokeWidth="1.2" />);
+          }
+          const ax = x0 + wpx / 2;
+          return (
+            <g key={r.id}>
+              {treads}
+              <line x1={ax} y1={y0 + hpx - 9} x2={ax} y2={y0 + 9} stroke="#8b5cf6" strokeWidth="1.5" />
+              <path d={`M ${ax - 4} ${y0 + 12} L ${ax} ${y0 + 6} L ${ax + 4} ${y0 + 12}`} fill="none" stroke="#8b5cf6" strokeWidth="1.4" />
+            </g>
+          );
+        })}
+
+      {/* ═══ Mobilier symbolique par pièce ═══ */}
+      {rooms.map((r) => (
+        <RoomFurniture key={`fur-${r.id}`} r={r} X={X} Y={Y} restaurant={restaurant} />
       ))}
 
       {/* ═══ Vitrines (façade vitrée) ═══ */}
@@ -417,6 +456,7 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
         const wPx = r.w * PX;
         const hPx = r.h * PX;
         const area = r.w * r.h;
+        if (r.kind === "stairs") return null;
         if (r.kind === "corridor") {
           return (
             <text
@@ -475,7 +515,7 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
         </text>
       </g>
 
-      {/* ═══ Rose des vents + échelle graphique ═══ */}
+      {/* ═══ Rose des vents ═══ */}
       <g>
         <circle cx={ox + 24} cy={oy + 28} r="13" fill="none" stroke="#94a3b8" strokeWidth="1" />
         <path d={`M ${ox + 24} ${oy + 16} L ${ox + 19} ${oy + 31} L ${ox + 24} ${oy + 27} L ${ox + 29} ${oy + 31} Z`} fill="#3b82f6" />
@@ -483,22 +523,51 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
           N
         </text>
       </g>
+
+      {/* ═══ Échelle graphique (coin bas-droit du plan) ═══ */}
       <g>
+        <rect x={totalW - 178} y={planBottom - 46} width="150" height="40" rx="6" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1" />
         {[0, 1, 2, 3, 4, 5].map((k) => {
-          const bx = ox + 24 + k * (PX / 2);
+          const bx = totalW - 166 + k * (PX / 2);
           return (
             <g key={k}>
-              <line x1={bx} y1={totalH - DISC - 34} x2={bx} y2={totalH - DISC - 26} stroke="#334155" strokeWidth="1" />
-              <rect x={bx} y={totalH - DISC - 32} width={PX / 2} height="6" fill={k % 2 === 0 ? "#1e293b" : "#ffffff"} stroke="#334155" strokeWidth="0.6" />
+              <line x1={bx} y1={planBottom - 26} x2={bx} y2={planBottom - 18} stroke="#334155" strokeWidth="1" />
+              <rect x={bx} y={planBottom - 24} width={PX / 2} height="6" fill={k % 2 === 0 ? "#1e293b" : "#ffffff"} stroke="#334155" strokeWidth="0.6" />
             </g>
           );
         })}
-        <text x={ox + 24} y={totalH - DISC - 20} fontSize="9" fill="#64748b">
+        <text x={totalW - 166} y={planBottom - 12} fontSize="8.5" fill="#64748b">
           0
         </text>
-        <text x={ox + 24 + 5 * (PX / 2)} y={totalH - DISC - 20} fontSize="9" fill="#64748b" textAnchor="middle">
+        <text x={totalW - 166 + 5 * (PX / 2)} y={planBottom - 12} fontSize="8.5" fill="#64748b" textAnchor="middle">
           5 m
         </text>
+        <text x={totalW - 166} y={planBottom - 34} fontSize="8.5" fontWeight="600" fill="#475569">
+          Échelle indicative
+        </text>
+      </g>
+
+      {/* ═══ Légende ═══ */}
+      <g>
+        <rect x="0" y={legendY} width={totalW} height={LEG} fill="#f8fafc" />
+        <rect x="0" y={legendY} width={totalW} height="1.5" fill="#e2e8f0" />
+        <text x="18" y={legendY + 22} fontSize="11" fontWeight="700" fill="#334155">
+          Légende
+        </text>
+        {LEGEND_ITEMS.map((item, i) => {
+          const slot = (totalW - 36) / 4;
+          const sx = 18 + (i % 4) * slot;
+          const sy = legendY + (Math.floor(i / 4) === 0 ? 52 : 84);
+          const swatchX = sx + (slot - 24) / 2;
+          return (
+            <g key={item.label}>
+              <g transform={`translate(${swatchX} ${sy})`}>{item.draw}</g>
+              <text x={sx + slot / 2} y={sy + 4} textAnchor="middle" fontSize="9.5" fill="#475569">
+                {item.label}
+              </text>
+            </g>
+          );
+        })}
       </g>
 
       {/* ═══ Avertissement légal (bandeau) ═══ */}
@@ -516,6 +585,424 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
       </g>
     </svg>
   );
+}
+
+// ─── Légende + mobilier (rendu 2D) ───────────────────────────────────────────
+
+const LEGEND_ITEMS: { label: string; draw: ReactNode }[] = [
+  { label: "Mur extérieur", draw: <line x1="0" y1="8" x2="24" y2="8" stroke="#1e293b" strokeWidth="4" /> },
+  { label: "Mur intérieur", draw: <line x1="0" y1="8" x2="24" y2="8" stroke="#64748b" strokeWidth="2" /> },
+  {
+    label: "Porte",
+    draw: (
+      <>
+        <path d="M 4 12 A 8 8 0 0 1 12 4" fill="none" stroke="#334155" strokeWidth="1.4" />
+        <line x1="4" y1="12" x2="12" y2="12" stroke="#334155" strokeWidth="1.4" />
+      </>
+    ),
+  },
+  {
+    label: "Fenêtre",
+    draw: (
+      <>
+        <line x1="0" y1="6" x2="24" y2="6" stroke="#0ea5e9" strokeWidth="1.6" />
+        <line x1="0" y1="10" x2="24" y2="10" stroke="#0ea5e9" strokeWidth="1.6" />
+      </>
+    ),
+  },
+  {
+    label: "Vitrine",
+    draw: (
+      <>
+        <line x1="0" y1="4" x2="24" y2="4" stroke="#38bdf8" strokeWidth="1.4" />
+        <line x1="0" y1="8" x2="24" y2="8" stroke="#38bdf8" strokeWidth="1.8" />
+        <line x1="0" y1="12" x2="24" y2="12" stroke="#38bdf8" strokeWidth="1.4" />
+        <line x1="12" y1="3" x2="12" y2="13" stroke="#38bdf8" strokeWidth="1" />
+      </>
+    ),
+  },
+  {
+    label: "Escalier",
+    draw: (
+      <>
+        <line x1="0" y1="2" x2="24" y2="6" stroke="#a78bfa" strokeWidth="1.2" />
+        <line x1="0" y1="6" x2="24" y2="10" stroke="#a78bfa" strokeWidth="1.2" />
+        <line x1="0" y1="10" x2="24" y2="14" stroke="#a78bfa" strokeWidth="1.2" />
+      </>
+    ),
+  },
+  {
+    label: "Mobilier",
+    draw: (
+      <>
+        <rect x="1" y="4" width="22" height="10" rx="2" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.2" />
+        <rect x="2" y="4" width="6" height="4" rx="1" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="0.8" />
+      </>
+    ),
+  },
+  {
+    label: "Salle humide",
+    draw: (
+      <>
+        <rect x="1" y="1" width="22" height="14" fill="#eff6ff" stroke="#93c5fd" strokeWidth="1" />
+        <line x1="3" y1="15" x2="8" y2="1" stroke="#93c5fd" strokeWidth="0.8" />
+        <line x1="11" y1="15" x2="16" y2="1" stroke="#93c5fd" strokeWidth="0.8" />
+        <line x1="19" y1="15" x2="24" y2="1" stroke="#93c5fd" strokeWidth="0.8" />
+      </>
+    ),
+  },
+];
+
+const FURN = "#94a3b8";
+
+/** Mobilier symbolique dessiné dans chaque pièce (lits, canapés, tables…). */
+function RoomFurniture({
+  r,
+  X,
+  Y,
+  restaurant,
+}: {
+  r: Room;
+  X: (m: number) => number;
+  Y: (m: number) => number;
+  restaurant: boolean;
+}) {
+  const w = r.w;
+  const h = r.h;
+  const id = r.id;
+  if (Math.min(w * PX, h * PX) < 36) return null;
+
+  // ══ Chambres : lit + armoire ══
+  if (/^ch\d+$/.test(id)) {
+    const bedW = Math.min(w - 1.2, h - 1.2);
+    const bedH = 1.7;
+    const bx = X(r.x + (w - bedW) / 2);
+    const by = Y(r.y + (h - bedH) / 2);
+    const bw = bedW * PX;
+    const bh = bedH * PX;
+    return (
+      <g>
+        <rect x={bx} y={by} width={bw} height={bh} rx="3" fill="#ffffff" stroke={FURN} strokeWidth="1.3" />
+        <rect x={bx + 3} y={by + 3} width={Math.min(16, bw * 0.3)} height={bh - 6} rx="2" fill="#eef2f7" stroke={FURN} strokeWidth="0.9" />
+        <line x1={bx + bw - 7} y1={by + 3} x2={bx + bw - 7} y2={by + bh - 3} stroke={FURN} strokeWidth="1" />
+        {w >= 2.6 && (
+          <rect x={X(r.x + w - 0.75)} y={Y(r.y + 0.45)} width="8" height={h * PX - 18} fill="#f8fafc" stroke={FURN} strokeWidth="1" />
+        )}
+      </g>
+    );
+  }
+
+  // ══ Séjour / salon ══
+  if (id === "salon") {
+    const s = 0.55;
+    const cw = Math.min(2.0, w - 1.0);
+    const ch = Math.min(1.5, h - 1.0);
+    return (
+      <g>
+        <rect x={X(r.x + 0.4)} y={Y(r.y + h - 0.95)} width={cw * PX} height={s * PX} rx="3" fill="#ffffff" stroke={FURN} strokeWidth="1.3" />
+        <rect x={X(r.x + 0.4)} y={Y(r.y + h - 0.95 - ch)} width={s * PX} height={ch * PX} rx="3" fill="#ffffff" stroke={FURN} strokeWidth="1.3" />
+        <rect x={X(r.x + w / 2 - 0.45)} y={Y(r.y + h / 2 + 0.15)} width="18" height="12" rx="2" fill="#ffffff" stroke={FURN} strokeWidth="1.1" />
+        <rect x={X(r.x + w - 0.9)} y={Y(r.y + 0.6)} width="9" height={Math.min(1.2, h * 0.4) * PX} fill="#f8fafc" stroke={FURN} strokeWidth="1" />
+      </g>
+    );
+  }
+
+  // ══ Cuisine ══
+  if (id === "cuisine") {
+    const cw = Math.min(w - 0.8, 2.8);
+    return (
+      <g>
+        <rect x={X(r.x + 0.4)} y={Y(r.y + 0.4)} width={cw * PX} height="26" fill="#ffffff" stroke={FURN} strokeWidth="1.3" />
+        {cw >= 1.7 && (
+          <>
+            <rect x={X(r.x + 0.7)} y={Y(r.y + 0.7)} width="14" height="12" rx="2" fill="#e0f2fe" stroke={FURN} strokeWidth="0.9" />
+            <circle cx={X(r.x + cw - 1.2)} cy={Y(r.y + 1.3)} r="4.5" fill="#ffffff" stroke={FURN} strokeWidth="0.9" />
+            <circle cx={X(r.x + cw - 0.55)} cy={Y(r.y + 1.3)} r="4.5" fill="#ffffff" stroke={FURN} strokeWidth="0.9" />
+          </>
+        )}
+      </g>
+    );
+  }
+
+  // ══ Salle de bain : baignoire + lavabo + WC ══
+  if (id === "sdb") {
+    const bathW = Math.min(w - 0.8, 1.6);
+    return (
+      <g>
+        <rect x={X(r.x + 0.4)} y={Y(r.y + 0.4)} width={bathW * PX} height="24" rx="4" fill="#e0f2fe" stroke={FURN} strokeWidth="1.2" />
+        <line x1={X(r.x + 0.4)} y1={Y(r.y + 1.15)} x2={X(r.x + 0.4 + bathW)} y2={Y(r.y + 1.15)} stroke={FURN} strokeWidth="0.8" />
+        <circle cx={X(r.x + w - 0.9)} cy={Y(r.y + 0.9)} r="6" fill="#ffffff" stroke={FURN} strokeWidth="1" />
+        {h >= 1.7 && (
+          <g>
+            <rect x={X(r.x + w - 1.05)} y={Y(r.y + h - 1.15)} width="8" height="6" fill="#f8fafc" stroke={FURN} strokeWidth="0.9" />
+            <ellipse cx={X(r.x + w - 0.95)} cy={Y(r.y + h - 0.55)} rx="5.5" ry="6.5" fill="#ffffff" stroke={FURN} strokeWidth="1" />
+          </g>
+        )}
+      </g>
+    );
+  }
+
+  // ══ WC / sanitaires ══
+  if (id === "wc" || id === "sanitaire" || id === "sanitaires") {
+    return (
+      <g>
+        <rect x={X(r.x + w - 1.0)} y={Y(r.y + h - 1.1)} width="8" height="6" fill="#f8fafc" stroke={FURN} strokeWidth="0.9" />
+        <ellipse cx={X(r.x + w - 0.9)} cy={Y(r.y + h - 0.5)} rx="5.5" ry="6.5" fill="#ffffff" stroke={FURN} strokeWidth="1" />
+        <circle cx={X(r.x + 0.6)} cy={Y(r.y + 0.7)} r="6" fill="#ffffff" stroke={FURN} strokeWidth="1" />
+      </g>
+    );
+  }
+
+  // ══ Buanderie ══
+  if (id === "buanderie") {
+    return (
+      <g>
+        <rect x={X(r.x + 0.45)} y={Y(r.y + h - 1.15)} width="21" height="21" rx="3" fill="#ffffff" stroke={FURN} strokeWidth="1.3" />
+        <circle cx={X(r.x + 0.45) + 8} cy={Y(r.y + h - 1.15) + 8} r="3.5" fill="#e0f2fe" stroke={FURN} strokeWidth="0.8" />
+      </g>
+    );
+  }
+
+  // ══ Dressing / armoire ══
+  if (id === "dressing") {
+    const dw = Math.min(w - 0.7, 2.0);
+    const dh = Math.min(h - 0.7, 2.0);
+    return (
+      <g>
+        <rect x={X(r.x + 0.35)} y={Y(r.y + 0.35)} width={dw * PX} height={dh * PX} fill="#ffffff" stroke={FURN} strokeWidth="1.2" />
+        <line x1={X(r.x + 0.35)} y1={Y(r.y + 0.35 + dh / 2)} x2={X(r.x + 0.35 + dw)} y2={Y(r.y + 0.35 + dh / 2)} stroke={FURN} strokeWidth="0.9" />
+      </g>
+    );
+  }
+
+  // ══ Bureaux ══
+  if (id === "bureau1" || id === "bureau2") {
+    return (
+      <g>
+        <rect x={X(r.x + 0.5)} y={Y(r.y + h - 1.3)} width={Math.min(w - 1.0, 1.6) * PX} height="12" fill="#ffffff" stroke={FURN} strokeWidth="1.2" />
+        <circle cx={X(r.x + 0.7)} cy={Y(r.y + h - 0.6)} r="4.5" fill="#ffffff" stroke={FURN} strokeWidth="0.9" />
+      </g>
+    );
+  }
+
+  // ══ Salle de réunion ══
+  if (id === "reunion") {
+    const tw = Math.min(w - 0.8, 2.4);
+    const th = Math.min(h - 0.8, 1.2);
+    const tx = X(r.x + (w - tw) / 2);
+    const ty = Y(r.y + (h - th) / 2);
+    const chairs = [-1, 1].flatMap((sx) =>
+      [-1, 1].map((sy) => (
+        <circle
+          key={`${sx}${sy}`}
+          cx={tx + (tw * PX) / 2 + sx * ((tw * PX) / 2 + 5)}
+          cy={ty + (th * PX) / 2 + sy * ((th * PX) / 2 + 5)}
+          r="4"
+          fill="#ffffff"
+          stroke={FURN}
+          strokeWidth="0.9"
+        />
+      )),
+    );
+    return (
+      <g>
+        <rect x={tx} y={ty} width={tw * PX} height={th * PX} rx="6" fill="#ffffff" stroke={FURN} strokeWidth="1.3" />
+        {chairs}
+      </g>
+    );
+  }
+
+  // ══ Open space ══
+  if (id === "openspace") {
+    const cols = 2;
+    const rows = 2;
+    const desks = [];
+    for (let rr = 0; rr < rows; rr++) {
+      for (let cc = 0; cc < cols; cc++) {
+        const dw = (w - 1.4) / cols;
+        const dh = (h - 1.4) / rows;
+        desks.push(
+          <rect
+            key={`${rr}${cc}`}
+            x={X(r.x + 0.7 + cc * dw)}
+            y={Y(r.y + 0.7 + rr * dh)}
+            width={dw * PX * 0.55}
+            height="12"
+            fill="#ffffff"
+            stroke={FURN}
+            strokeWidth="1"
+          />,
+        );
+      }
+    }
+    return <g>{desks}</g>;
+  }
+
+  // ══ Accueil / comptoir ══
+  if (id === "accueil") {
+    return (
+      <g>
+        <rect x={X(r.x + 0.4)} y={Y(r.y + h - 0.75)} width={Math.min(w - 0.8, 2.4) * PX} height="14" fill="#ffffff" stroke={FURN} strokeWidth="1.2" />
+      </g>
+    );
+  }
+
+  // ══ Salle de restaurant : tables ══
+  if (r.kind === "shopfloor" && restaurant) {
+    const perCol = Math.max(1, Math.min(3, Math.floor(h / 2.6)));
+    const perRow = Math.max(1, Math.min(3, Math.floor(w / 2.6)));
+    const startX = r.x + (w - perRow * 2.6) / 2 + 1.3;
+    const startY = r.y + (h - perCol * 2.6) / 2 + 1.3;
+    const tables = [];
+    for (let rr = 0; rr < perCol; rr++) {
+      for (let cc = 0; cc < perRow; cc++) {
+        const cx = X(startX + cc * 2.6);
+        const cy = Y(startY + rr * 2.6);
+        tables.push(
+          <g key={`${rr}${cc}`}>
+            <circle cx={cx} cy={cy} r="7.5" fill="#ffffff" stroke={FURN} strokeWidth="1.2" />
+            {[
+              [0, -12],
+              [0, 12],
+              [-12, 0],
+              [12, 0],
+            ].map(([dx, dy], k) => (
+              <circle key={k} cx={cx + dx} cy={cy + dy} r="3.5" fill="#ffffff" stroke={FURN} strokeWidth="0.8" />
+            ))}
+          </g>,
+        );
+      }
+    }
+    return <g>{tables}</g>;
+  }
+
+  // ══ Local commercial : rayonnages ══
+  if (r.kind === "shopfloor") {
+    const rows = Math.max(1, Math.min(3, Math.floor(h / 2.8)));
+    const racks = [];
+    for (let rr = 0; rr < rows; rr++) {
+      const y = Y(r.y + (h * (rr + 1)) / (rows + 1));
+      racks.push(
+        <g key={rr}>
+          <line x1={X(r.x + 0.5)} y1={y} x2={X(r.x + w - 0.5)} y2={y} stroke={FURN} strokeWidth="2.5" />
+          <line x1={X(r.x + 0.5)} y1={y + 3} x2={X(r.x + w - 0.5)} y2={y + 3} stroke={FURN} strokeWidth="0.8" />
+        </g>,
+      );
+    }
+    return <g>{racks}</g>;
+  }
+
+  // ══ Réserves / stockage : rayonnages ══
+  if (id === "reserve" || id === "stockage" || id === "rangement" || id === "vestiaire" || id === "vestiaires") {
+    const cols = Math.max(1, Math.min(3, Math.floor(w / 1.7)));
+    const racks = [];
+    const rw = Math.min(0.55, (w - 0.8) / cols / 2) * PX;
+    for (let k = 0; k < cols; k++) {
+      const rx = X(r.x + 0.4 + k * ((w - 0.8) / cols));
+      const rh = h * PX - 30;
+      racks.push(
+        <g key={k}>
+          <rect x={rx} y={Y(r.y + 0.4)} width={rw} height={rh} fill="#ffffff" stroke={FURN} strokeWidth="1.1" />
+          <line x1={rx} y1={Y(r.y + 0.4) + rh / 2} x2={rx + rw} y2={Y(r.y + 0.4) + rh / 2} stroke={FURN} strokeWidth="0.8" />
+        </g>,
+      );
+    }
+    return <g>{racks}</g>;
+  }
+
+  // ══ Hangar / étable ══
+  if (id === "hangar") {
+    const stalls = Math.max(2, Math.min(5, Math.floor(w / 2.4)));
+    const lines = [];
+    for (let k = 1; k < stalls; k++) {
+      lines.push(
+        <line
+          key={k}
+          x1={X(r.x + (k * w) / stalls)}
+          y1={Y(r.y + 0.5)}
+          x2={X(r.x + (k * w) / stalls)}
+          y2={Y(r.y + h - 0.5)}
+          stroke={FURN}
+          strokeWidth="0.9"
+          strokeDasharray="3 3"
+        />,
+      );
+    }
+    return <g>{lines}</g>;
+  }
+
+  // ══ Salles de classe ══
+  if (/^classe\d+$/.test(id)) {
+    const perRow = Math.max(2, Math.min(4, Math.floor(w / 1.4)));
+    const perCol = Math.max(1, Math.min(3, Math.floor(h / 1.8)));
+    const startX = r.x + (w - perRow * 1.3) / 2 + 0.4;
+    const startY = r.y + 1.2;
+    const desks = [
+      <rect key="teacher" x={X(r.x + w / 2 - 0.35)} y={Y(r.y + 0.45)} width="14" height="9" fill="#ffffff" stroke={FURN} strokeWidth="1" />,
+    ];
+    for (let rr = 0; rr < perCol; rr++) {
+      for (let cc = 0; cc < perRow; cc++) {
+        desks.push(
+          <rect
+            key={`${rr}${cc}`}
+            x={X(startX + cc * 1.3)}
+            y={Y(startY + rr * 1.7)}
+            width="10"
+            height="8"
+            fill="#ffffff"
+            stroke={FURN}
+            strokeWidth="0.9"
+          />,
+        );
+      }
+    }
+    return <g>{desks}</g>;
+  }
+
+  // ══ Salle de prière : rangées ══
+  if (r.kind === "priere") {
+    const rows = Math.max(2, Math.min(6, Math.floor(h / 1.6)));
+    const lines = [];
+    for (let k = 1; k < rows; k++) {
+      lines.push(
+        <line
+          key={k}
+          x1={X(r.x + 0.6)}
+          y1={Y(r.y + (h * k) / rows)}
+          x2={X(r.x + w - 0.6)}
+          y2={Y(r.y + (h * k) / rows)}
+          stroke={FURN}
+          strokeWidth="0.8"
+          strokeDasharray="4 3"
+        />,
+      );
+    }
+    return <g>{lines}</g>;
+  }
+
+  // ══ Bibliothèque ══
+  if (id === "biblio") {
+    const cols = Math.max(1, Math.min(3, Math.floor(w / 1.4)));
+    const racks = [];
+    for (let k = 0; k < cols; k++) {
+      const rx = X(r.x + 0.4 + k * ((w - 0.8) / cols));
+      racks.push(
+        <rect key={k} x={rx} y={Y(r.y + 0.4)} width="10" height={Math.min(1.1, h - 0.8) * PX} fill="#ffffff" stroke={FURN} strokeWidth="1" />,
+      );
+    }
+    return <g>{racks}</g>;
+  }
+
+  // ══ Entrée : console ══
+  if (id === "entree") {
+    return (
+      <g>
+        <rect x={X(r.x + 0.5)} y={Y(r.y + h - 0.6)} width={Math.min(w - 1.0, 1.2) * PX} height="10" fill="#ffffff" stroke={FURN} strokeWidth="1.1" />
+      </g>
+    );
+  }
+
+  return null;
 }
 
 // ─── Helpers d'export ────────────────────────────────────────────────────────
@@ -581,19 +1068,25 @@ export function PlanGenerator({
   floors?: number;
   region?: string;
 }) {
-  const initType = (CATEGORY_TO_PLAN[category ?? ""] ?? "generique") as PlanTypeId;
   const initSurface = Math.max(30, surfaceProp ?? 80);
   const initFloors = Math.max(1, floorsProp ?? 1);
+  const mappedType = CATEGORY_TO_PLAN[category ?? ""];
+  const initType = (mappedType ?? detectPlanTypeFromSurface(initSurface)) as PlanTypeId;
 
   const [type, setType] = useState<PlanTypeId>(initType);
   const [surface, setSurface] = useState(initSurface);
   const [floors, setFloors] = useState(initFloors);
   const [bedrooms, setBedrooms] = useState(() => clamp(Math.round(initSurface / initFloors / 22), 1, 5));
-  const [seed, setSeed] = useState(1);
+  const [variant, setVariant] = useState(1);
+  const [generated, setGenerated] = useState<Record<string, number>>({});
+  const [autoType, setAutoType] = useState(!mappedType);
   const [ready, setReady] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genStep, setGenStep] = useState(0);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  /** Nombre maximal de variantes explorables par type de bien. */
+  const MAX_VARIANTS = 10;
 
   // Vue 2D / 3D + rotation de la vue 3D
   const [view, setView] = useState<"2d" | "3d">("2d");
@@ -609,11 +1102,11 @@ export function PlanGenerator({
         surface,
         floors,
         bedrooms,
-        seed,
+        seed: variant,
         projectName,
         region,
       }),
-    [type, surface, floors, bedrooms, seed, projectName, region],
+    [type, surface, floors, bedrooms, variant, projectName, region],
   );
 
   useEffect(() => {
@@ -635,12 +1128,35 @@ export function PlanGenerator({
     if (generating) return;
     setGenerating(true);
     setGenStep(0);
-    window.setTimeout(() => setSeed((s) => s + 1), 1150);
-    window.setTimeout(() => setGenerating(false), 1150);
+    window.setTimeout(() => {
+      setVariant((v) => {
+        const next = (v % MAX_VARIANTS) + 1;
+        if (next === 1) {
+          toast.info(`Les ${MAX_VARIANTS} variantes de ce type ont été explorées — retour à la variante 1`);
+        }
+        return next;
+      });
+      setGenerated((g) => ({ ...g, [type]: Math.min(MAX_VARIANTS, (g[type] ?? 0) + 1) }));
+      setGenerating(false);
+    }, 1150);
+  };
+
+  const maxed = (generated[type] ?? 0) >= MAX_VARIANTS;
+
+  /** Détection automatique du type de bien à partir de la surface (m²). */
+  const detectType = (surfaceM2: number) => {
+    const t = detectPlanTypeFromSurface(surfaceM2);
+    setType(t);
+    setVariant(1);
+    if (isHousingType(t)) {
+      setBedrooms(clamp(Math.round(surfaceM2 / Math.max(1, floors) / 22), 1, 5));
+    }
   };
 
   const handleTypeChange = (t: PlanTypeId) => {
     setType(t);
+    setAutoType(false);
+    setVariant(1);
     if (isHousingType(t)) {
       setBedrooms(clamp(Math.round(surface / Math.max(1, floors) / 22), 1, 5));
     }
@@ -701,8 +1217,9 @@ export function PlanGenerator({
         <div className="min-w-0">
           <p className="text-xs font-semibold">Moteur de génération paramétrique (IA)</p>
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Le plan d'étage 2D et sa vue 3D sont générés automatiquement à partir du type de bien, de la
-            surface, des étages et des chambres. Régénérez une variante pour explorer d'autres dispositions.
+            Le type de bien est détecté automatiquement à partir de la surface du terrain (mode « Auto »). Le
+            plan 2D et sa vue 3D sont générés depuis le type, la surface, les étages et les chambres — régénérez
+            pour explorer jusqu'à {MAX_VARIANTS} variantes par type de bien.
           </p>
         </div>
       </div>
@@ -710,17 +1227,39 @@ export function PlanGenerator({
       {/* ═══ Contrôles ═══ */}
       <div className="flex flex-wrap items-end gap-2.5">
         <Field label="Type de bien">
-          <select
-            value={type}
-            onChange={(e) => handleTypeChange(e.target.value as PlanTypeId)}
-            className="h-8 rounded-lg border border-border/40 bg-background px-2 text-xs outline-none focus:border-primary cursor-pointer"
-          >
-            {PLAN_TYPES.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-1.5">
+            <select
+              value={type}
+              onChange={(e) => handleTypeChange(e.target.value as PlanTypeId)}
+              className="h-8 rounded-lg border border-border/40 bg-background px-2 text-xs outline-none focus:border-primary cursor-pointer"
+            >
+              {PLAN_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => {
+                setAutoType(true);
+                detectType(surface);
+              }}
+              className={cn(
+                "flex h-8 items-center gap-1 rounded-lg border px-2 text-[10px] font-semibold transition-all cursor-pointer",
+                autoType
+                  ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+                  : "border-border/40 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
+              )}
+              title="Détecter automatiquement le type de bien à partir de la surface du terrain"
+            >
+              <Sparkles className="h-3 w-3" />
+              Auto
+            </button>
+          </div>
+          {autoType && (
+            <span className="text-[9px] text-primary/80">Type détecté automatiquement via la surface</span>
+          )}
         </Field>
         <Field label="Surface totale (m²)">
           <input
@@ -728,7 +1267,11 @@ export function PlanGenerator({
             min={30}
             step={5}
             value={surface}
-            onChange={(e) => setSurface(Math.max(30, Number(e.target.value) || 30))}
+            onChange={(e) => {
+              const v = Math.max(30, Number(e.target.value) || 30);
+              setSurface(v);
+              if (autoType) detectType(v);
+            }}
             className="h-8 w-28 rounded-lg border border-border/40 bg-background px-2 text-xs outline-none focus:border-primary"
           />
         </Field>
@@ -762,10 +1305,30 @@ export function PlanGenerator({
           className="h-8 gap-1.5 text-xs"
           onClick={regenerate}
           disabled={busy}
+          title={
+            maxed
+              ? `Les ${MAX_VARIANTS} variantes de ce type ont été explorées — le bouton revient à la variante 1`
+              : `Générer la variante suivante (actuellement ${variant}/${MAX_VARIANTS})`
+          }
         >
           {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          Régénérer une variante
+          Régénérer
         </Button>
+        <span
+          className={cn(
+            "inline-flex h-8 items-center rounded-lg border px-2.5 text-[10px] font-semibold",
+            maxed
+              ? "border-amber-300/60 bg-amber-50 text-amber-700"
+              : "border-border/40 bg-background text-muted-foreground",
+          )}
+          title={
+            maxed
+              ? "10 variantes générées pour ce type — le bouton « Régénérer » revient à la variante 1"
+              : "Variante affichée / nombre maximal de variantes pour ce type de bien"
+          }
+        >
+          Variante {variant}/{MAX_VARIANTS}
+        </span>
         <div className="ml-auto flex items-center gap-2">
           <span className="hidden md:inline-flex items-center gap-1 text-[10px] text-muted-foreground">
             <Layers className="h-3 w-3" />

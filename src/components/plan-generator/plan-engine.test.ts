@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { generatePlan, PLAN_TYPES, isHousingType, type PlanTypeId } from "./plan-engine";
+import {
+  generatePlan,
+  detectPlanTypeFromSurface,
+  PLAN_TYPES,
+  isHousingType,
+  type PlanTypeId,
+} from "./plan-engine";
 
 const baseParams = {
   type: "maison" as PlanTypeId,
@@ -83,10 +89,60 @@ describe("generatePlan — moteur de plans architecturaux", () => {
   it("génère une variante différente avec une autre graine", () => {
     const a = generatePlan({ ...baseParams, seed: 1 });
     const b = generatePlan({ ...baseParams, seed: 2 });
-    // La géométrie (largeur/hauteur) peut rester identique, mais la
-    // disposition intérieure est variée par la graine.
-    expect(typeof a.width).toBe("number");
-    expect(typeof a.rooms).toBe("object");
-    expect(b.rooms.length).toBe(a.rooms.length);
+    // La disposition intérieure doit réellement changer (murs, pièces, portes)
+    expect(a.rooms).not.toEqual(b.rooms);
+  });
+
+  it("chaque graine produit une disposition différente pour tous les types de plan", () => {
+    for (const t of PLAN_TYPES) {
+      const a = generatePlan({ ...baseParams, type: t.id, seed: 1 });
+      const b = generatePlan({ ...baseParams, type: t.id, seed: 2 });
+      expect(a.rooms, `type ${t.id}`).not.toEqual(b.rooms);
+      expect(a.doors, `type ${t.id}`).not.toEqual(b.doors);
+    }
+  });
+
+  it("place un escalier dans les logements à plusieurs étages", () => {
+    const layout = generatePlan({ ...baseParams, floors: 2 });
+    const stairs = layout.rooms.filter((r) => r.kind === "stairs");
+    expect(stairs.length).toBeGreaterThan(0);
+    expect(stairs[0].name).toBe("Escalier");
+    // Pas d'escalier dans un logement sans étage
+    const single = generatePlan({ ...baseParams, floors: 1 });
+    expect(single.rooms.some((r) => r.kind === "stairs")).toBe(false);
+  });
+});
+
+describe("detectPlanTypeFromSurface — détection automatique du type", () => {
+  it("détecte une maison pour une petite surface", () => {
+    expect(detectPlanTypeFromSurface(60)).toBe("maison");
+    expect(detectPlanTypeFromSurface(89)).toBe("maison");
+  });
+
+  it("détecte une villa pour une surface moyenne", () => {
+    expect(detectPlanTypeFromSurface(120)).toBe("villa");
+    expect(detectPlanTypeFromSurface(169)).toBe("villa");
+  });
+
+  it("détecte un immeuble pour une grande surface", () => {
+    expect(detectPlanTypeFromSurface(250)).toBe("immeuble");
+    expect(detectPlanTypeFromSurface(379)).toBe("immeuble");
+  });
+
+  it("détecte un entrepôt pour une très grande surface", () => {
+    expect(detectPlanTypeFromSurface(600)).toBe("entrepot");
+    expect(detectPlanTypeFromSurface(949)).toBe("entrepot");
+  });
+
+  it("retombe sur le gabarit générique pour les surfaces immenses", () => {
+    expect(detectPlanTypeFromSurface(1200)).toBe("generique");
+    expect(detectPlanTypeFromSurface(0)).toBe("maison");
+  });
+
+  it("les seuils sont exacts aux limites", () => {
+    expect(detectPlanTypeFromSurface(90)).toBe("villa");
+    expect(detectPlanTypeFromSurface(170)).toBe("immeuble");
+    expect(detectPlanTypeFromSurface(380)).toBe("entrepot");
+    expect(detectPlanTypeFromSurface(950)).toBe("generique");
   });
 });
