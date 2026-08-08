@@ -728,7 +728,13 @@ export const simulateAnalysis = mutation({
     const region = project.region ?? "tunis";
     const finishLevel = (project as any).finish_level || "standard";
 
-    const result = runBIMEstimation(category, surface, floors, region, finishLevel);
+    const result = runBIMEstimation(category, surface, floors, region, finishLevel, {
+      bedrooms: project.bedrooms,
+      bathrooms: project.bathrooms,
+      kitchens: project.kitchens,
+      livingRooms: project.livingRooms,
+      garages: project.garages,
+    });
 
     // Generate AI provider recommendations
     const recommendations = generateProviderRecommendations(

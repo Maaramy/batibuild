@@ -240,11 +240,12 @@ for (const _rk of _regKeys) {
 // MATERIAL CALCULATORS (Generate items with realistic quantities)
 // ============================================================================
 
-function genGOItems(surface: number, floors: number, cat: string, targetBudget: number) {
+function genGOItems(surface: number, floors: number, cat: string, targetBudget: number, wallFactor = 1) {
   const tb = surface * (floors || 1);
   const isSmall = ["cloture","mur_de_separation","trottoir","pergola","terrasse","garage"].includes(cat);
   const isHeavy = ["immeuble_residentiel","usine","depot","entrepot","chateau_d_eau","mosquee","ecole"].includes(cat);
   const d = isSmall ? 0.5 : isHeavy ? 1.3 : 1;
+  const dW = d * wallFactor; // cloisons supplémentaires selon le nb de pièces
   // Realistic Tunisian quantities per m²
   const items = [
     {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*3.5*d), u:"sacs", up:P.cement.bag42_5},
@@ -253,12 +254,12 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
     {n:"Gravier 15/25mm", q:Math.round(tb*0.15*d*10)/10, u:"m³", up:P.gravel["15_25mm"]},
     {n:"Acier à béton T12", q:Math.round(tb*0.02*d*100)/100, u:"tonnes", up:P.steel.t12_ton},
     {n:"Treillis soudé ST25", q:Math.round(tb*0.12), u:"m²", up:P.steel.treillis_m2},
-    {n:"Brique creuse 10cm", q:Math.round(tb*45*d), u:"unités", up:P.bricks.hollow_10},
+    {n:"Brique creuse 10cm", q:Math.round(tb*45*dW), u:"unités", up:P.bricks.hollow_10},
     {n:"Hourdis 16x50", q:Math.round(tb*7*d), u:"unités", up:P.bricks.hourdis_16},
     {n:"Béton prêt à l'emploi 300kg/m³", q:Math.round(tb*0.25*d*10)/10, u:"m³", up:P.concrete.ready_mix_300},
     {n:"Bois de coffrage", q:Math.round(tb*0.04*100)/100, u:"m³", up:P.wood.formwork_m3},
     {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
-    {n:"Parpaing creux 20cm", q:Math.round(tb*12*d), u:"unités", up:P.bricks.parpaing_20},
+    {n:"Parpaing creux 20cm", q:Math.round(tb*12*dW), u:"unités", up:P.bricks.parpaing_20},
   ];
   const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
   const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
@@ -268,13 +269,14 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
   }));
 }
 
-function genSOItems(surface: number, floors: number, cat: string, targetBudget: number) {
+function genSOItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { total?: number }) {
   const tb = surface * (floors || 1);
   const isRenov = cat.startsWith("renovation");
   const tileQty = Math.round(tb * (isRenov ? 0.5 : 0.65));
   const paintL = Math.round(tb * (isRenov ? 0.4 : 0.3));
-  const doorC = Math.max(1, Math.round(tb / 45));
-  const winC = Math.max(1, Math.round(tb / 30));
+  // Une porte intérieure par pièce principale ; les fenêtres suivent les pièces
+  const doorC = Math.max(1, rooms?.total ?? Math.round(tb / 45));
+  const winC = Math.max(1, Math.round((rooms?.total ?? Math.round(tb / 30)) * 1.4));
   const items: any[] = [
     {n:"Carrelage sol grès cérame 40x40", q:tileQty, u:"m²", up:30},
     {n:"Carrelage mural faïence 20x30", q:Math.round(tileQty*0.25), u:"m²", up:25},
@@ -301,12 +303,16 @@ function genSOItems(surface: number, floors: number, cat: string, targetBudget: 
   }));
 }
 
-function genEQItems(surface: number, floors: number, cat: string, targetBudget: number) {
+function genEQItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { bathrooms?: number; kitchens?: number; total?: number }) {
   const tb = surface * (floors || 1);
   const items: any[] = [];
   const isPool = cat === "piscine";
   const isSolar = cat === "installation_solaire";
   const doorC = Math.max(1, Math.round(tb / 40));
+  // Sanitaires dimensionnés selon le nombre de salles de bain + cuisine
+  const bathrooms = Math.max(1, rooms?.bathrooms ?? 1);
+  const kitchens = Math.max(1, rooms?.kitchens ?? 1);
+  const saniC = Math.max(1, bathrooms + kitchens - 1);
 
   if (isPool) {
     items.push({n:"Pompe de filtration + filtre à sable", q:1, u:"forfait", up:1200},
@@ -319,14 +325,14 @@ function genEQItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Coffret de protection DC/AC", q:1, u:"unité", up:400});
   } else {
     items.push(
-      {n:"WC complet avec réservoir", q:Math.max(1,Math.round(doorC*0.3)), u:"unités", up:250},
-      {n:"Lavabo vasque + robinetterie", q:Math.max(1,Math.round(doorC*0.25)), u:"unités", up:140},
-      {n:"Chauffe-eau électrique 80L", q:Math.max(1,Math.round(doorC*0.2)), u:"unités", up:400},
-      {n:"Receveur de douche 90x90", q:Math.max(1,Math.round(doorC*0.15)), u:"unités", up:200},
+      {n:"WC complet avec réservoir", q:bathrooms, u:"unités", up:250},
+      {n:"Lavabo vasque + robinetterie", q:saniC, u:"unités", up:140},
+      {n:"Chauffe-eau électrique 80L", q:Math.max(1,Math.round(bathrooms*0.6)), u:"unités", up:400},
+      {n:"Receveur de douche 90x90", q:bathrooms, u:"unités", up:200},
       {n:"Tuyau PER Ø16", q:Math.round(tb*0.5), u:"ml", up:4},
       {n:"Tuyau PVC Ø100 évacuation", q:Math.round(tb*0.05), u:"ml", up:10},
       {n:"Câble électrique 2.5mm² (rouleau 100m)", q:Math.round(tb*2), u:"ml", up:1.5},
-      {n:"Disjoncteur divisionnaire 20A", q:Math.max(2,Math.round(doorC*0.3)), u:"unités", up:35},
+      {n:"Disjoncteur divisionnaire 20A", q:Math.max(2,Math.round((rooms?.total ?? doorC)*0.5)), u:"unités", up:35},
       {n:"Tableau électrique 13 modules", q:1, u:"unité", up:150},
       {n:"Prise de courant 2P+T encastrée", q:Math.max(4,doorC*2), u:"unités", up:6},
       {n:"Interrupteur va-et-vient", q:Math.max(3,doorC*1.5), u:"unités", up:5},
@@ -752,9 +758,18 @@ export function generateProviderRecommendations(
 // MAIN ENTRY POINT
 // ============================================================================
 
+export interface RoomCounts {
+  bedrooms?: number;
+  bathrooms?: number;
+  kitchens?: number;
+  livingRooms?: number;
+  garages?: number;
+}
+
 export function runBIMEstimation(
   category: string, surface: number, floors: number,
-  region?: string, finishLevel?: string
+  region?: string, finishLevel?: string,
+  rooms?: RoomCounts
 ) {
   const pct = PROJECT_PCT[category] || [35, 30, 15, 10, 3, 7];
   const marketPrices = MARKET_PRICE_M2[category] || { eco: 1000, std: 1500, premium: 2500 };
@@ -787,7 +802,22 @@ export function runBIMEstimation(
   const finalPriceM2 = Math.round(baseRegionM2 * projectRatio);
 
   const tb = surface * (floors || 1);
-  const finalTotal = Math.round(finalPriceM2 * tb);
+
+  // ── Nombre de pièces : impact sur le prix au m² ──
+  // Défauts réalistes : maison tunisienne type (~1 pièce / 35-45 m²)
+  const bedrooms = rooms?.bedrooms ?? Math.max(1, Math.round(tb / 45));
+  const bathrooms = rooms?.bathrooms ?? Math.max(1, Math.round(tb / 80));
+  const kitchens = rooms?.kitchens ?? 1;
+  const livingRooms = rooms?.livingRooms ?? Math.max(1, Math.round(tb / 75));
+  const garages = rooms?.garages ?? 0;
+  const totalRooms = bedrooms + bathrooms + kitchens + livingRooms + garages;
+  // Référence : ~1 pièce pour 28 m² (logement tunisien type)
+  const stdRooms = Math.max(3, Math.round(tb / 28));
+  // Plus de pièces pour la même surface = plus de cloisons, portes & équipements
+  const roomsFactor = Math.min(1.12, Math.max(0.92, 1 + (totalRooms - stdRooms) * 0.02));
+  const wallFactor = Math.min(1.25, Math.max(0.8, totalRooms / Math.max(1, stdRooms)));
+
+  const finalTotal = Math.round(finalPriceM2 * roomsFactor * tb);
   const costM2 = tb > 0 ? Math.round(finalTotal / tb) : 0;
 
   const keys = ["gros_oeuvre","second_oeuvre","equipements","main_oeuvre","transport","etudes_imprevus"];
@@ -803,18 +833,19 @@ export function runBIMEstimation(
   categoryBudgets.main_oeuvre = Math.max(1, categoryBudgets.main_oeuvre - (sum - finalTotal));
 
   // Generate itemized lists per category
-  const genMap: Record<string, (s: number, f: number, c: string, b: number) => any[]> = {
-    gros_oeuvre: genGOItems,
+  const roomInfo = { bedrooms, bathrooms, kitchens, livingRooms, garages, total: totalRooms };
+  const genMap: Record<string, (s: number, f: number, c: string, b: number, r: typeof roomInfo) => any[]> = {
+    gros_oeuvre: (s, f, c, b, r) => genGOItems(s, f, c, b, wallFactor),
     second_oeuvre: genSOItems,
     equipements: genEQItems,
     main_oeuvre: genMOItems,
-    transport: (s: number, f: number, c: string, b: number) => genTRItems(s, f, b),
-    etudes_imprevus: (s: number, f: number, c: string, b: number) => genEIItems(finalTotal, b),
+    transport: (s: number, f: number, c: string, b: number, r) => genTRItems(s, f, b),
+    etudes_imprevus: (s: number, f: number, c: string, b: number, r) => genEIItems(finalTotal, b),
   };
 
   const breakdown = keys.map((k, i) => {
     const budget = categoryBudgets[k];
-    const items = genMap[k](surface, floors, category, budget);
+    const items = genMap[k](surface, floors, category, budget, roomInfo);
     const itemTotal = items.reduce((s, it) => s + it.totalPrice, 0);
     // Scale items to match budget exactly
     const scale = itemTotal > 0 ? budget / itemTotal : 1;
