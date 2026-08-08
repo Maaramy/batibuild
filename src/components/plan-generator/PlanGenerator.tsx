@@ -22,6 +22,11 @@ import {
   DraftingCompass,
   Ruler,
   Layers,
+  Box,
+  MousePointer2,
+  Pause,
+  Play,
+  RotateCcw,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import {
@@ -35,6 +40,7 @@ import {
   type DoorSpec,
   type WinSpec,
 } from "./plan-engine";
+import { Plan3dSvg } from "./plan-3d";
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
@@ -589,6 +595,13 @@ export function PlanGenerator({
   const [genStep, setGenStep] = useState(0);
   const svgRef = useRef<SVGSVGElement>(null);
 
+  // Vue 2D / 3D + rotation de la vue 3D
+  const [view, setView] = useState<"2d" | "3d">("2d");
+  const [yaw, setYaw] = useState(38);
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; yaw: number } | null>(null);
+
   const layout = useMemo<PlanLayout>(
     () =>
       generatePlan({
@@ -635,6 +648,18 @@ export function PlanGenerator({
 
   const busy = !ready || generating;
 
+  // Rotation automatique lente de la vue 3D (mode « Auto »)
+  useEffect(() => {
+    if (!autoRotate || view !== "3d" || busy) return;
+    const id = window.setInterval(() => setYaw((y) => (y + 0.4) % 360), 40);
+    return () => window.clearInterval(id);
+  }, [autoRotate, view, busy]);
+
+  const resetView3d = () => {
+    setYaw(38);
+    setAutoRotate(false);
+  };
+
   const doExport = async (fmt: "png" | "jpg" | "pdf") => {
     const el = svgRef.current;
     if (!el || busy) return;
@@ -676,8 +701,8 @@ export function PlanGenerator({
         <div className="min-w-0">
           <p className="text-xs font-semibold">Moteur de génération paramétrique (IA)</p>
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Le plan d'étage est généré automatiquement à partir du type de bien, de la surface, des étages
-            et des chambres. Régénérez une variante pour explorer d'autres dispositions.
+            Le plan d'étage 2D et sa vue 3D sont générés automatiquement à partir du type de bien, de la
+            surface, des étages et des chambres. Régénérez une variante pour explorer d'autres dispositions.
           </p>
         </div>
       </div>
@@ -761,12 +786,95 @@ export function PlanGenerator({
         </div>
       </div>
 
-      {/* ═══ Aperçu du plan ═══ */}
+      {/* ═══ Sélecteur de vue 2D / 3D ═══ */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex items-center rounded-lg border border-border/40 bg-muted/20 p-0.5">
+          {(["2d", "3d"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={cn(
+                "flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-all cursor-pointer",
+                view === v
+                  ? "border border-border/40 bg-background text-foreground shadow-sm"
+                  : "border border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {v === "2d" ? <FileText className="h-3.5 w-3.5" /> : <Box className="h-3.5 w-3.5" />}
+              {v === "2d" ? "Plan 2D" : "Vue 3D"}
+            </button>
+          ))}
+        </div>
+        {view === "3d" && (
+          <div className="flex items-center gap-1.5">
+            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+              <MousePointer2 className="h-3 w-3" />
+              Glisser pour pivoter
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 text-[11px]"
+              onClick={resetView3d}
+              title="Réinitialiser l'angle de vue"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Angle
+            </Button>
+            <Button
+              size="sm"
+              variant={autoRotate ? "default" : "outline"}
+              className="h-7 gap-1.5 text-[11px]"
+              onClick={() => setAutoRotate((v) => !v)}
+              title={autoRotate ? "Arrêter la rotation automatique" : "Rotation automatique"}
+            >
+              {autoRotate ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+              {autoRotate ? "Arrêter" : "Auto"}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* ═══ Aperçu (plan 2D ou vue 3D) ═══ */}
       <div className="relative overflow-hidden rounded-xl border border-border/40 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <svg ref={svgRef} className="block w-full h-auto min-w-[640px]">
-            <PlanSvg layout={layout} />
-          </svg>
+          {view === "2d" ? (
+            <svg ref={svgRef} className="block w-full h-auto min-w-[640px]">
+              <PlanSvg layout={layout} />
+            </svg>
+          ) : (
+            <svg
+              ref={svgRef}
+              className="block w-full h-auto min-w-[560px]"
+              style={{ touchAction: "none", cursor: dragging ? "grabbing" : "grab" }}
+              onPointerDown={(e) => {
+                if (busy) return;
+                setDragging(true);
+                dragStartRef.current = { x: e.clientX, yaw };
+                e.currentTarget.setPointerCapture(e.pointerId);
+              }}
+              onPointerMove={(e) => {
+                if (!dragging || !dragStartRef.current) return;
+                const dx = e.clientX - dragStartRef.current.x;
+                setYaw((((dragStartRef.current.yaw + dx * 0.4) % 360) + 360) % 360);
+              }}
+              onPointerUp={(e) => {
+                setDragging(false);
+                dragStartRef.current = null;
+                try {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                } catch {
+                  /* déjà relâché */
+                }
+              }}
+              onPointerCancel={() => {
+                setDragging(false);
+                dragStartRef.current = null;
+              }}
+            >
+              <Plan3dSvg layout={layout} yaw={yaw} disclaimer={DISCLAIMER_LINES} />
+            </svg>
+          )}
         </div>
         {busy && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/90 backdrop-blur-sm">
@@ -788,12 +896,25 @@ export function PlanGenerator({
 
       {/* ═══ Légende + avertissement sous le plan ═══ */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <Ruler className="h-3 w-3" /> Échelle indicative 1 : 50 — cotes réelles en mètres
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Layers className="h-3 w-3" /> {layout.typeLabel} — surface utile ≈ {layout.perFloor} m²/niveau
-        </span>
+        {view === "2d" ? (
+          <>
+            <span className="inline-flex items-center gap-1">
+              <Ruler className="h-3 w-3" /> Échelle indicative 1 : 50 — cotes réelles en mètres
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Layers className="h-3 w-3" /> {layout.typeLabel} — surface utile ≈ {layout.perFloor} m²/niveau
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="inline-flex items-center gap-1">
+              <Box className="h-3 w-3" /> Vue 3D — {layout.floors} niveau{layout.floors > 1 ? "x" : ""} · {fmtM(layout.width)} × {fmtM(layout.height)} au sol · hauteur ≈ {((layout.floors * 3).toFixed(1)).replace(".", ",")} m
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <MousePointer2 className="h-3 w-3" /> Glissez sur l'image pour faire pivoter le bâtiment
+            </span>
+          </>
+        )}
       </div>
       <div className="rounded-lg border border-amber-300/50 bg-amber-50 p-3">
         <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-amber-800">
