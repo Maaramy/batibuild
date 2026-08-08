@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
+import { PlanGenerator } from "@/components/plan-generator/PlanGenerator";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
@@ -33,7 +34,7 @@ import {
   Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
   Percent, ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
-  LockKeyhole, RefreshCw,
+  LockKeyhole, RefreshCw, DraftingCompass,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -2236,6 +2237,21 @@ export default function ProjectDetail() {
             </div>
 
             {/* ═══ Project Info ═══ */}
+
+            {/* ═══ Générateur de plans architecturaux par IA ═══ */}
+            <SectionCard icon={DraftingCompass} title="Générateur de plans architecturaux par Intelligence Artificielle" badge="IA" defaultOpen={false}>
+              <p className="mb-4 text-[11px] sm:text-xs text-muted-foreground/80 leading-relaxed">
+                Générez automatiquement un plan 2D de type floor plan adapté au type de bien, à la surface
+                et aux contraintes de ce projet. Le plan est téléchargeable en PNG, JPG et PDF.
+              </p>
+              <PlanGenerator
+                projectName={project.name ?? "Projet"}
+                category={ai.category}
+                surface={project.surface ?? undefined}
+                floors={project.floors ?? undefined}
+                region={project.region ? (REGION_LABELS[project.region] ?? project.region) : undefined}
+              />
+            </SectionCard>
             <SectionCard icon={Info} title="Informations projet">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                 {[
