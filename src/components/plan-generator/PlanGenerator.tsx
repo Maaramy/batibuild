@@ -11,7 +11,7 @@
 // ============================================================================
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -203,12 +203,12 @@ const fillFor = (r: Room, i: number) => {
 
 const PX = 46; // px par mètre
 const PAD = 56;
-const GUT = 52;
+const GUT = 66;
 const HDR = 78;
 const LEG = 96;
 const DISC = 64;
 
-function PlanSvg({ layout }: { layout: PlanLayout }) {
+function PlanSvg({ layout, svgRef }: { layout: PlanLayout; svgRef?: Ref<SVGSVGElement> }) {
   const { width: W, height: H, rooms, doors, windows } = layout;
   const ox = PAD;
   const oy = HDR + 26;
@@ -217,6 +217,7 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
   const legendY = planBottom + GUT + 10;
   const totalH = legendY + LEG + DISC;
   const restaurant = rooms.some((r) => r.id === "cuisine");
+  const usefulArea = rooms.reduce((s, r) => s + r.w * r.h, 0);
   const X = (m: number) => ox + m * PX;
   const Y = (m: number) => oy + m * PX;
 
@@ -244,11 +245,12 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
 
   return (
     <svg
+      ref={svgRef}
       xmlns="http://www.w3.org/2000/svg"
       width={totalW}
       height={totalH}
       viewBox={`0 0 ${totalW} ${totalH}`}
-      className="block w-full h-auto"
+      className="block w-full h-auto min-w-[640px]"
       fontFamily="'Segoe UI', system-ui, -apple-system, sans-serif"
       role="img"
       aria-label={`Plan architectural ${layout.typeLabel} généré par IA`}
@@ -260,6 +262,36 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
       </defs>
 
       <rect x="0" y="0" width={totalW} height={totalH} fill="#ffffff" />
+
+      {/* ═══ Grille modulaire 1 m + axes de cotation ═══ */}
+      <g>
+        {Array.from({ length: Math.floor(W) + 1 }, (_, i) => (
+          <line key={`gv${i}`} x1={X(i)} y1={Y(0)} x2={X(i)} y2={Y(H)} stroke="#e2e8f0" strokeWidth="0.5" strokeDasharray="2 3" />
+        ))}
+        {Array.from({ length: Math.floor(H) + 1 }, (_, i) => (
+          <line key={`gh${i}`} x1={X(0)} y1={Y(i)} x2={X(W)} y2={Y(i)} stroke="#e2e8f0" strokeWidth="0.5" strokeDasharray="2 3" />
+        ))}
+        {Array.from({ length: Math.floor(W / 3) + 1 }, (_, i) => (
+          <line key={`axv${i}`} x1={X(Math.min(i * 3, W))} y1={Y(0)} x2={X(Math.min(i * 3, W))} y2={Y(H)} stroke="#cbd5e1" strokeWidth="0.8" />
+        ))}
+        {Array.from({ length: Math.floor(H / 3) + 1 }, (_, i) => (
+          <line key={`axh${i}`} x1={X(0)} y1={Y(Math.min(i * 3, H))} x2={X(W)} y2={Y(Math.min(i * 3, H))} stroke="#cbd5e1" strokeWidth="0.8" />
+        ))}
+      </g>
+
+      {/* ═══ Numéros d'axes (bas) + lettres (gauche) ═══ */}
+      <g fontSize="8.5" fill="#94a3b8" fontWeight="600">
+        {Array.from({ length: Math.floor(W / 3) + 1 }, (_, i) => (
+          <text key={`axn${i}`} x={X(Math.min(i * 3, W))} y={planBottom + 52} textAnchor="middle">
+            {i + 1}
+          </text>
+        ))}
+        {Array.from({ length: Math.floor(H / 3) + 1 }, (_, i) => (
+          <text key={`axl${i}`} x={ox - 14} y={Y(Math.min(i * 3, H))} textAnchor="middle" transform={`rotate(-90 ${ox - 14} ${Y(Math.min(i * 3, H))})`}>
+            {String.fromCharCode(65 + i)}
+          </text>
+        ))}
+      </g>
 
       {/* ═══ Header ═══ */}
       <rect x="0" y="0" width={totalW} height={HDR} fill="#0f172a" />
@@ -488,7 +520,7 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
         );
       })}
 
-      {/* ═══ Libellés des pièces ═══ */}
+      {/* ═══ Libellés des pièces (nom + surface + cotes) ═══ */}
       {rooms.map((r) => {
         const cx = X(r.x + r.w / 2);
         const cy = Y(r.y + r.h / 2);
@@ -496,7 +528,9 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
         const hPx = r.h * PX;
         const area = r.w * r.h;
         if (r.kind === "stairs") return null;
-        if (r.kind === "corridor") {
+        const narrow = wPx < 34 || hPx < 24;
+        // Pièces étroites : libellé compact pivoté (comme les couloirs)
+        if (r.kind === "corridor" || narrow) {
           return (
             <text
               key={`lbl-${r.id}`}
@@ -505,7 +539,7 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
               textAnchor="middle"
               dominantBaseline="middle"
               transform={`rotate(-90 ${cx} ${cy})`}
-              fontSize="10"
+              fontSize={narrow ? "8" : "10"}
               fill="#64748b"
               fontWeight="600"
             >
@@ -513,10 +547,9 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
             </text>
           );
         }
-        if (wPx < 34 || hPx < 26) return null;
         // Clarté du plan : nom + surface + cotes réelles (L × l) de chaque pièce
-        const showDims = hPx >= 64 && wPx >= 72;
-        const showArea = hPx >= 44;
+        const showDims = hPx >= 56 && wPx >= 64;
+        const showArea = hPx >= 32;
         const nameY = showDims ? cy - 9 : showArea ? cy - 2 : cy + 2;
         return (
           <g key={`lbl-${r.id}`}>
@@ -601,6 +634,9 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
         <rect x="0" y={legendY} width={totalW} height="1.5" fill="#e2e8f0" />
         <text x="18" y={legendY + 22} fontSize="11" fontWeight="700" fill="#334155">
           Légende
+        </text>
+        <text x={totalW - 18} y={legendY + 22} fontSize="10.5" fontWeight="700" fill="#334155" textAnchor="end">
+          Surface utile ≈ {usefulArea.toFixed(1).replace(".", ",")} m² · {rooms.length} espaces · {doors.length} portes · {windows.length} fenêtres
         </text>
         {LEGEND_ITEMS.map((item, i) => {
           const slot = (totalW - 36) / 4;
@@ -1586,9 +1622,7 @@ export function PlanGenerator({
       <div className="relative overflow-hidden rounded-xl border border-border/40 bg-white shadow-sm">
         <div className="overflow-x-auto">
           {view === "2d" ? (
-            <svg ref={svgRef} className="block w-full h-auto min-w-[640px]">
-              <PlanSvg layout={layout} />
-            </svg>
+            <PlanSvg layout={layout} svgRef={svgRef} />
           ) : (
             <svg
               ref={svgRef}
