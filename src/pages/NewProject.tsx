@@ -17,6 +17,7 @@ import {
   FileUp, MapPin, AlertCircle, Asterisk, Crown, AlertTriangle,
   CircleDot, CircleDashed, CircleCheck, Circle,
   Home, Building, Waves, Sprout, Trees, Car, Shield, Sofa, Flower2,
+  BedDouble, LayoutGrid,
   ArrowUpFromLine, Hammer, Bath, ChefHat, Briefcase, Store, Package,
   Zap, Moon, BookOpen, Hotel, Utensils, Coffee, Leaf, Factory, Square,
 } from "lucide-react";
@@ -71,6 +72,9 @@ const PROJECT_CATEGORIES: { value: string; label: string; icon: LucideIcon }[] =
   { value: "demolition", label: "Démolition", icon: AlertTriangle },
 ];
 
+// Catégories éligibles à l'étape « Nombre de pièces »
+const ROOM_ELIGIBLE_CATEGORIES = ["maison", "maison_r+1", "villa", "immeuble_residentiel"];
+
 const IMPORT_METHODS = [
   { id: "manual", icon: Ruler, label: "Manuelle", desc: "Saisie directe" },
   { id: "photo", icon: Image, label: "Photo", desc: "Importez une photo" },
@@ -86,6 +90,7 @@ const STEPS = [
   { key: "method",    label: "Méthode d'import",  desc: "Choisissez comment importer" },
   { key: "upload",    label: "Fichiers",           desc: "Ajoutez vos documents" },
   { key: "form",      label: "Détails du projet",  desc: "Complétez les informations" },
+  { key: "rooms",     label: "Nombre de pièces",   desc: "Chambres, sdb, cuisine, salon, garages" },
   { key: "analyzing", label: "Analyse IA",         desc: "Calcul de l'estimation" },
 ] as const;
 
@@ -251,6 +256,12 @@ function ProjectSummary({
   region,
   surface,
   floors,
+  bedrooms,
+  bathrooms,
+  kitchens,
+  livingRooms,
+  garages,
+  roomEligible,
   importMethod,
   files,
   step,
@@ -263,6 +274,12 @@ function ProjectSummary({
   region: string;
   surface: string;
   floors: string;
+  bedrooms: string;
+  bathrooms: string;
+  kitchens: string;
+  livingRooms: string;
+  garages: string;
+  roomEligible: boolean;
   importMethod: string;
   files: File[];
   step: StepKey;
@@ -286,6 +303,16 @@ function ProjectSummary({
     items.push({ label: "Surface", value: `${surface} m²`, icon: Ruler });
   if (floors && floors !== "0" && floors !== "")
     items.push({ label: "Étages", value: `${floors} étage${parseInt(floors) > 1 ? "s" : ""}`, icon: Building2 });
+  if (roomEligible) {
+    const parts: string[] = [];
+    if (parseInt(bedrooms || "0") > 0) parts.push(`${bedrooms} chambre${parseInt(bedrooms) > 1 ? "s" : ""}`);
+    if (parseInt(bathrooms || "0") > 0) parts.push(`${bathrooms} sdb`);
+    if (parseInt(kitchens || "0") > 0) parts.push(`${kitchens} cuisine${parseInt(kitchens) > 1 ? "s" : ""}`);
+    if (parseInt(livingRooms || "0") > 0) parts.push(`${livingRooms} salon${parseInt(livingRooms) > 1 ? "s" : ""}`);
+    if (parseInt(garages || "0") > 0) parts.push(`${garages} garage${parseInt(garages) > 1 ? "s" : ""}`);
+    if (parts.length > 0)
+      items.push({ label: "Pièces", value: parts.join(" · "), icon: LayoutGrid });
+  }
   if (files.length > 0)
     items.push({ label: "Fichiers", value: `${files.length} fichier${files.length > 1 ? "s" : ""}`, icon: FileText });
 
@@ -542,6 +569,11 @@ export default function NewProject() {
   const [region, setRegion] = useState("");
   const [surface, setSurface] = useState("");
   const [floors, setFloors] = useState("1");
+  const [bedrooms, setBedrooms] = useState("2");
+  const [bathrooms, setBathrooms] = useState("1");
+  const [kitchens, setKitchens] = useState("1");
+  const [livingRooms, setLivingRooms] = useState("1");
+  const [garages, setGarages] = useState("0");
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -557,6 +589,8 @@ export default function NewProject() {
 
   // Determine which steps are in the flow
   const hasUploadStep = importMethod !== "" && importMethod !== "manual";
+  const roomEligible = ROOM_ELIGIBLE_CATEGORIES.includes(selectedCategory);
+  const flowSteps = STEPS.filter((s) => s.key !== "rooms" || roomEligible);
   const visibleSteps = STEPS.filter((s) => s.key !== "upload" || hasUploadStep);
 
   const validateForm = () => {
@@ -610,11 +644,26 @@ export default function NewProject() {
     }
   };
 
+  const handleFormNext = () => {
+    if (!validateForm()) return;
+    markStepCompleted("form");
+    if (roomEligible) {
+      goToStep("rooms");
+    } else {
+      handleStartAnalysis();
+    }
+  };
+
   const handleStartAnalysis = async () => {
     if (!validateForm()) return;
+    if (roomEligible && (!bedrooms || parseInt(bedrooms) < 1)) {
+      setErrors((e) => ({ ...e, bedrooms: "Renseignez au moins 1 chambre" }));
+      return;
+    }
 
     setAnalyzing(true);
     markStepCompleted("form");
+    if (roomEligible) markStepCompleted("rooms");
     goToStep("analyzing");
 
     const interval = setInterval(() => {
@@ -632,6 +681,11 @@ export default function NewProject() {
         region: region ? (region as any) : undefined,
         surface: surface ? parseFloat(surface) : undefined,
         floors: floors ? parseInt(floors) : 1,
+        bedrooms: bedrooms ? parseInt(bedrooms) : undefined,
+        bathrooms: bathrooms ? parseInt(bathrooms) : undefined,
+        kitchens: kitchens ? parseInt(kitchens) : undefined,
+        livingRooms: livingRooms ? parseInt(livingRooms) : undefined,
+        garages: garages ? parseInt(garages) : undefined,
       });
 
       await simulateAnalysis({ projectId });
@@ -985,6 +1039,88 @@ export default function NewProject() {
               <Button
                 size="sm"
                 className="h-9 text-xs gap-1.5"
+                onClick={handleFormNext}
+                disabled={analyzing}
+              >
+                {analyzing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                {analyzing ? "Analyse..." : roomEligible ? "Continuer" : "Lancer l'estimation"}
+                {!analyzing && <ChevronRight className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {step === "rooms" && (
+          <motion.div
+            key="rooms"
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
+            <div className="mb-6">
+              <h2 className="text-lg sm:text-xl font-bold">Nombre de pièces</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                Composition du bien — {CATEGORY_LABEL[selectedCategory] || selectedCategory}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { key: "bedrooms",  label: "Chambres",        icon: BedDouble, value: bedrooms,    set: setBedrooms,    min: 1, placeholder: "ex: 3" },
+                { key: "bathrooms", label: "Salle(s) de bain", icon: Bath,     value: bathrooms,   set: setBathrooms,   min: 1, placeholder: "ex: 2" },
+                { key: "kitchens",  label: "Cuisine(s)",      icon: ChefHat,   value: kitchens,    set: setKitchens,    min: 1, placeholder: "ex: 1" },
+                { key: "livingRooms", label: "Salon(s)",      icon: Sofa,      value: livingRooms, set: setLivingRooms, min: 1, placeholder: "ex: 1" },
+                { key: "garages",   label: "Garage(s)",       icon: Car,       value: garages,     set: setGarages,     min: 0, placeholder: "ex: 1" },
+              ].map((f) => (
+                <div key={f.key} className="p-4 rounded-xl border border-border/40 bg-card/30">
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    <f.icon className="h-3.5 w-3.5 text-primary" />
+                    {f.label}
+                  </Label>
+                  <Input
+                    type="number"
+                    min={f.min}
+                    value={f.value}
+                    onChange={(e) => { f.set(e.target.value); setErrors((err) => ({ ...err, [f.key]: "" })); }}
+                    placeholder={f.placeholder}
+                    className="mt-1.5 h-9 sm:h-10 text-xs sm:text-sm"
+                  />
+                  {errors[f.key] && (
+                    <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />{errors[f.key]}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Live composition recap */}
+            <div className="mt-3 p-3 rounded-lg border border-border/20 bg-muted/20 text-[11px] text-muted-foreground flex items-center gap-2">
+              <LayoutGrid className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span>
+                {parseInt(bedrooms || "0")} chambre{parseInt(bedrooms || "0") > 1 ? "s" : ""}
+                {parseInt(bathrooms || "0") > 0 && ` · ${parseInt(bathrooms)} salle${parseInt(bathrooms) > 1 ? "s" : ""} de bain`}
+                {parseInt(kitchens || "0") > 0 && ` · ${parseInt(kitchens)} cuisine${parseInt(kitchens) > 1 ? "s" : ""}`}
+                {parseInt(livingRooms || "0") > 0 && ` · ${parseInt(livingRooms)} salon${parseInt(livingRooms) > 1 ? "s" : ""}`}
+                {parseInt(garages || "0") > 0 && ` · ${parseInt(garages)} garage${parseInt(garages) > 1 ? "s" : ""}`}
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-3 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 text-xs"
+                onClick={() => goToStep("form")}
+              >
+                <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Retour
+              </Button>
+              <Button
+                size="sm"
+                className="h-9 text-xs gap-1.5"
                 onClick={handleStartAnalysis}
                 disabled={analyzing}
               >
@@ -1134,7 +1270,7 @@ export default function NewProject() {
             {/* Desktop: full vertical stepper */}
             <div className="hidden md:block sticky top-20">
               <VerticalStepper
-                steps={STEPS}
+                steps={flowSteps}
                 currentStep={step}
                 completedSteps={completedSteps}
                 onStepClick={goToStep}
@@ -1144,7 +1280,7 @@ export default function NewProject() {
             {/* Mobile: compact horizontal indicator */}
             <div className="md:hidden mb-3">
               <div className="flex items-center justify-between gap-0 overflow-x-auto pb-2">
-                {STEPS.map((s, i) => {
+                {flowSteps.map((s, i) => {
                   const done = completedSteps.has(s.key as StepKey);
                   const active = s.key === step;
                   return (
@@ -1160,7 +1296,7 @@ export default function NewProject() {
                       >
                         {done ? <Check className="h-3 w-3" /> : i + 1}
                       </button>
-                      {i < STEPS.length - 1 && (
+                      {i < flowSteps.length - 1 && (
                         <div className={cn(
                           "w-6 h-px",
                           done ? "bg-emerald-400" : "bg-border"
@@ -1171,7 +1307,7 @@ export default function NewProject() {
                 })}
               </div>
               <p className="text-center text-[10px] font-medium text-muted-foreground mt-1">
-                {STEPS.find((s) => s.key === step)?.label ?? ""}
+                {flowSteps.find((s) => s.key === step)?.label ?? ""}
               </p>
             </div>
 
@@ -1183,6 +1319,12 @@ export default function NewProject() {
                 region={region}
                 surface={surface}
                 floors={floors}
+                bedrooms={bedrooms}
+                bathrooms={bathrooms}
+                kitchens={kitchens}
+                livingRooms={livingRooms}
+                garages={garages}
+                roomEligible={roomEligible}
                 importMethod={importMethod}
                 files={files}
                 step={step}
@@ -1209,6 +1351,12 @@ export default function NewProject() {
                 region={region}
                 surface={surface}
                 floors={floors}
+                bedrooms={bedrooms}
+                bathrooms={bathrooms}
+                kitchens={kitchens}
+                livingRooms={livingRooms}
+                garages={garages}
+                roomEligible={roomEligible}
                 importMethod={importMethod}
                 files={files}
                 step={step}

@@ -33,7 +33,7 @@ import {
   Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
   Percent, ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
-  LockKeyhole, RefreshCw,
+  LockKeyhole, RefreshCw, BedDouble, LayoutGrid,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -2244,6 +2244,17 @@ export default function ProjectDetail() {
                   { label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", icon: MapPin },
                   { label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", icon: Ruler },
                   { label: "Étages", value: String(project.floors ?? 1), icon: Building2 },
+                  {
+                    label: "Pièces",
+                    value: [
+                      project.bedrooms ? `${project.bedrooms} ch.` : "",
+                      project.bathrooms ? `${project.bathrooms} sdb` : "",
+                      project.kitchens ? `${project.kitchens} cuis.` : "",
+                      project.livingRooms ? `${project.livingRooms} salon` : "",
+                      project.garages ? `${project.garages} gar.` : "",
+                    ].filter(Boolean).join(" · ") || "Non définie",
+                    icon: LayoutGrid,
+                  },
                   { label: "Créé le", value: new Date(project.createdAt).toLocaleDateString("fr-FR"), icon: Calendar },
                   { label: "Statut", value: "Terminé", icon: CheckCircle2 },
                 ].map((info, i) => (

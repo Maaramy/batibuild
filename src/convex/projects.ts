@@ -239,6 +239,12 @@ export const createProject = mutation({
     region: v.optional(regionValidator),
     surface: v.optional(v.number()),
     floors: v.optional(v.number()),
+    // Nombre de pièces (maison, villa, immeuble résidentiel)
+    bedrooms: v.optional(v.number()),
+    bathrooms: v.optional(v.number()),
+    kitchens: v.optional(v.number()),
+    livingRooms: v.optional(v.number()),
+    garages: v.optional(v.number()),
     manualInput: v.optional(
       v.object({
         surface: v.optional(v.number()),
@@ -294,6 +300,11 @@ export const createProject = mutation({
       region: args.region,
       surface: args.surface,
       floors: args.floors,
+      bedrooms: args.bedrooms,
+      bathrooms: args.bathrooms,
+      kitchens: args.kitchens,
+      livingRooms: args.livingRooms,
+      garages: args.garages,
       manualInput: args.manualInput,
       isFavorite: false,
       createdAt: now,

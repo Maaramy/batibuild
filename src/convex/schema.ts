@@ -410,6 +410,12 @@ const schema = defineSchema(
       // Surface (unified field, in m²)
       surface: v.optional(v.number()),
       floors: v.optional(v.number()),
+      // Nombre de pièces (maison, villa, immeuble résidentiel)
+      bedrooms: v.optional(v.number()),
+      bathrooms: v.optional(v.number()),
+      kitchens: v.optional(v.number()),
+      livingRooms: v.optional(v.number()),
+      garages: v.optional(v.number()),
       
       // AI Analysis results
       aiAnalysis: v.optional(
