@@ -98,6 +98,25 @@ function fillForRoom(r: Room, i: number): string {
       return "#fdfaf3";
     case "stairs":
       return "#f5f3ff";
+    case "pool":
+    case "water":
+      return "#e0f2fe";
+    case "green":
+      return "#ecfdf5";
+    case "car":
+      return "#f8fafc";
+    case "play":
+      return "#fff7ed";
+    case "roof":
+      return "#f1f5f9";
+    case "solar":
+      return "#fef9c3";
+    case "road":
+      return "#f1f5f9";
+    case "pipe":
+      return "#eef2f7";
+    case "cloture":
+      return "#f8fafc";
     default:
       return ROOM_FILLS[i % ROOM_FILLS.length];
   }

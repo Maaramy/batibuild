@@ -61,31 +61,51 @@ const GEN_STEPS = [
   "Placement des portes, fenêtres et cotes…",
 ];
 
-/** Correspondance catégorie de projet → gabarit de plan. */
+/** Correspondance catégorie de projet → gabarit de plan (les 42 catégories). */
 const CATEGORY_TO_PLAN: Record<string, PlanTypeId> = {
   maison: "maison",
   maison_r_1: "maison",
   "maison_r+1": "maison",
   villa: "villa",
   immeuble_residentiel: "immeuble",
+  piscine: "piscine",
+  jardin: "jardin",
+  amenagement_paysager: "jardin",
+  garage: "garage",
+  cloture: "cloture",
+  mur_de_separation: "cloture",
+  cuisine_exterieure: "terrasse",
+  terrasse: "terrasse",
+  pergola: "terrasse",
+  toiture: "toiture",
+  extension_batiment: "maison",
+  entrepot: "entrepot",
+  depot: "entrepot",
   local_commercial: "commerce",
   cafe: "commerce",
   restaurant: "restaurant",
   hotel: "restaurant",
   bureau: "bureau",
-  entrepot: "entrepot",
-  depot: "entrepot",
-  garage: "entrepot",
-  parking: "entrepot",
-  atelier: "atelier",
-  usine: "atelier",
   ferme: "ferme",
   serre_agricole: "ferme",
-  ecole: "ecole",
+  parking: "parking",
+  aire_de_jeux: "aire_jeux",
   mosquee: "mosquee",
-  extension_batiment: "maison",
+  ecole: "ecole",
+  atelier: "atelier",
+  usine: "atelier",
+  installation_solaire: "solaire",
+  chateau_d_eau: "chateau_eau",
+  systeme_irrigation: "irrigation",
+  route: "voirie",
+  trottoir: "voirie",
   renovation_interieure: "appartement",
-  terrasse: "appartement",
+  renovation_salle_de_bain: "chantier",
+  renovation_cuisine: "chantier",
+  renovation_facade: "chantier",
+  demolition: "chantier",
+  installations_sanitaires: "reseau",
+  installations_electricite: "reseau",
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -155,6 +175,25 @@ const fillFor = (r: Room, i: number) => {
       return "#fdfaf3";
     case "stairs":
       return "#f5f3ff";
+    case "pool":
+    case "water":
+      return "#e0f2fe";
+    case "green":
+      return "#ecfdf5";
+    case "car":
+      return "#f8fafc";
+    case "play":
+      return "#fff7ed";
+    case "roof":
+      return "#f1f5f9";
+    case "solar":
+      return "#fef9c3";
+    case "road":
+      return "#f1f5f9";
+    case "pipe":
+      return "#eef2f7";
+    case "cloture":
+      return "#f8fafc";
     default:
       return ROOM_FILLS[i % ROOM_FILLS.length];
   }
@@ -475,14 +514,23 @@ function PlanSvg({ layout }: { layout: PlanLayout }) {
           );
         }
         if (wPx < 34 || hPx < 26) return null;
+        // Clarté du plan : nom + surface + cotes réelles (L × l) de chaque pièce
+        const showDims = hPx >= 64 && wPx >= 72;
+        const showArea = hPx >= 44;
+        const nameY = showDims ? cy - 9 : showArea ? cy - 2 : cy + 2;
         return (
           <g key={`lbl-${r.id}`}>
-            <text x={cx} y={hPx < 46 ? cy + 2 : cy - 1} textAnchor="middle" fontSize="12" fill="#1e293b" fontWeight="700">
+            <text x={cx} y={nameY} textAnchor="middle" fontSize="12" fill="#1e293b" fontWeight="700">
               {r.name}
             </text>
-            {hPx >= 46 && (
-              <text x={cx} y={cy + 13} textAnchor="middle" fontSize="9.5" fill="#64748b">
+            {showArea && (
+              <text x={cx} y={nameY + 14} textAnchor="middle" fontSize="9.5" fill="#64748b">
                 {area.toFixed(1).replace(".", ",")} m²
+              </text>
+            )}
+            {showDims && (
+              <text x={cx} y={nameY + 26} textAnchor="middle" fontSize="9" fill="#94a3b8" fontWeight="600">
+                {fmtM(r.w)} × {fmtM(r.h)}
               </text>
             )}
           </g>
@@ -998,6 +1046,142 @@ function RoomFurniture({
     return (
       <g>
         <rect x={X(r.x + 0.5)} y={Y(r.y + h - 0.6)} width={Math.min(w - 1.0, 1.2) * PX} height="10" fill="#ffffff" stroke={FURN} strokeWidth="1.1" />
+      </g>
+    );
+  }
+
+  // ══ Bassin de piscine : couloirs de nage + échelle ══
+  if (id === "bassin") {
+    const lanes = Math.max(2, Math.min(6, Math.floor(w / 2.2)));
+    const lines = [];
+    for (let k = 1; k < lanes; k++) {
+      const lx = X(r.x + (k * w) / lanes);
+      lines.push(
+        <line key={k} x1={lx} y1={Y(r.y + 0.6)} x2={lx} y2={Y(r.y + h - 0.6)} stroke="#7dd3fc" strokeWidth="1" strokeDasharray="6 4" />,
+      );
+    }
+    return (
+      <g>
+        <rect x={X(r.x + 0.5)} y={Y(r.y + 0.5)} width={w * PX - PX} height={h * PX - PX} rx="8" fill="#e0f2fe" stroke="#0ea5e9" strokeWidth="1.2" />
+        {lines}
+        <rect x={X(r.x + 0.7)} y={Y(r.y + h - 2.4)} width="9" height="14" fill="none" stroke="#0369a1" strokeWidth="1.2" />
+        <line x1={X(r.x + 1.15)} y1={Y(r.y + h - 2.4)} x2={X(r.x + 1.15)} y2={Y(r.y + h - 1.0)} stroke="#0369a1" strokeWidth="1.2" />
+      </g>
+    );
+  }
+
+  // ══ Réservoir (château d'eau) ══
+  if (id === "reservoir") {
+    const cx = X(r.x + w / 2);
+    const cy = Y(r.y + h / 2);
+    const rad = Math.min(w, h) * 0.3 * PX;
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={rad} fill="#e0f2fe" stroke="#0ea5e9" strokeWidth="1.4" />
+        <circle cx={cx} cy={cy} r={rad - 6} fill="none" stroke="#bae6fd" strokeWidth="1" />
+        <line x1={cx - rad} y1={cy} x2={cx + rad} y2={cy} stroke="#0ea5e9" strokeWidth="0.9" />
+        <line x1={cx} y1={cy - rad} x2={cx} y2={cy + rad} stroke="#0ea5e9" strokeWidth="0.9" />
+      </g>
+    );
+  }
+
+  // ══ Espaces verts / pelouse : arbres ══
+  if (r.kind === "green") {
+    const perRow = Math.max(1, Math.min(4, Math.floor(w / 3.2)));
+    const perCol = Math.max(1, Math.min(3, Math.floor(h / 3.2)));
+    const trees = [];
+    for (let rr = 0; rr < perCol; rr++) {
+      for (let cc = 0; cc < perRow; cc++) {
+        const cx = X(r.x + (w * (cc + 0.5)) / perRow);
+        const cy = Y(r.y + (h * (rr + 0.5)) / perCol);
+        trees.push(
+          <g key={`${rr}${cc}`}>
+            <circle cx={cx} cy={cy} r="6" fill="#d1fae5" stroke="#34d399" strokeWidth="1" />
+            <circle cx={cx} cy={cy} r="2.2" fill="#34d399" />
+          </g>,
+        );
+      }
+    }
+    return <g>{trees}</g>;
+  }
+
+  // ══ Aire de stationnement : places de parking ══
+  if (r.kind === "car") {
+    const cols = Math.max(2, Math.min(6, Math.floor(w / 2.6)));
+    const rows = Math.max(1, Math.min(2, Math.floor(h / 4.8)));
+    const lines = [];
+    for (let c = 1; c < cols; c++) {
+      lines.push(
+        <line key={`c${c}`} x1={X(r.x + (c * w) / cols)} y1={Y(r.y + 0.4)} x2={X(r.x + (c * w) / cols)} y2={Y(r.y + h - 0.4)} stroke="#cbd5e1" strokeWidth="1" />,
+      );
+    }
+    for (let k = 0; k < rows; k++) {
+      const yy = Y(r.y + ((k + 0.5) * h) / rows);
+      lines.push(<line key={`r${k}`} x1={X(r.x + 0.4)} y1={yy} x2={X(r.x + w - 0.4)} y2={yy} stroke="#e2e8f0" strokeWidth="4" />);
+    }
+    return <g>{lines}</g>;
+  }
+
+  // ══ Champ photovoltaïque : panneaux ══
+  if (r.kind === "solar") {
+    const perRow = Math.max(2, Math.min(6, Math.floor(w / 2.8)));
+    const perCol = Math.max(1, Math.min(4, Math.floor(h / 2.4)));
+    const panels = [];
+    for (let rr = 0; rr < perCol; rr++) {
+      for (let cc = 0; cc < perRow; cc++) {
+        const px = X(r.x + 0.5 + cc * ((w - 1) / perRow));
+        const py = Y(r.y + 0.5 + rr * ((h - 1) / perCol));
+        const pw = ((w - 1) / perRow) * PX * 0.72;
+        const ph = ((h - 1) / perCol) * PX * 0.55;
+        panels.push(
+          <rect key={`${rr}${cc}`} x={px} y={py} width={pw} height={ph} rx="2" fill="#fef9c3" stroke="#f59e0b" strokeWidth="0.9" />,
+        );
+      }
+    }
+    return <g>{panels}</g>;
+  }
+
+  // ══ Chaussée / voirie : ligne médiane ══
+  if (r.kind === "road") {
+    return (
+      <g>
+        <line x1={X(r.x + 0.5)} y1={Y(r.y + h / 2)} x2={X(r.x + w - 0.5)} y2={Y(r.y + h / 2)} stroke="#fbbf24" strokeWidth="2" strokeDasharray="10 6" />
+      </g>
+    );
+  }
+
+  // ══ Réseaux techniques : gaines ══
+  if (r.kind === "pipe") {
+    return (
+      <g>
+        <line x1={X(r.x + 0.5)} y1={Y(r.y + h / 2)} x2={X(r.x + w - 0.5)} y2={Y(r.y + h / 2)} stroke="#818cf8" strokeWidth="1.6" strokeDasharray="7 4" />
+        <line x1={X(r.x + w / 2)} y1={Y(r.y + 0.5)} x2={X(r.x + w / 2)} y2={Y(r.y + h - 0.5)} stroke="#a5b4fc" strokeWidth="1" strokeDasharray="5 4" />
+      </g>
+    );
+  }
+
+  // ══ Aire de jeux : équipements ══
+  if (r.kind === "play") {
+    const eq = [];
+    for (let k = 1; k <= 4; k++) {
+      const cx = X(r.x + (k * w) / 5);
+      const cy = Y(r.y + h / 2);
+      eq.push(
+        <g key={k}>
+          <circle cx={cx} cy={cy} r="5" fill="#ffffff" stroke={FURN} strokeWidth="1" />
+          <circle cx={cx + 8} cy={cy} r="5" fill="#ffffff" stroke={FURN} strokeWidth="1" />
+        </g>,
+      );
+    }
+    return <g>{eq}</g>;
+  }
+
+  // ══ Toiture : lanterneaux ══
+  if (r.kind === "roof") {
+    return (
+      <g>
+        <rect x={X(r.x + w * 0.55)} y={Y(r.y + h * 0.45)} width="18" height="14" rx="2" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1" />
+        <rect x={X(r.x + w * 0.62)} y={Y(r.y + h * 0.7)} width="18" height="14" rx="2" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1" />
       </g>
     );
   }

@@ -113,6 +113,55 @@ describe("generatePlan — moteur de plans architecturaux", () => {
   });
 });
 
+describe("generatePlan — gabarits dédiés par catégorie", () => {
+  const specific: [PlanTypeId, string][] = [
+    ["piscine", "Bassin"],
+    ["jardin", "Pelouse"],
+    ["garage", "Aire de stationnement"],
+    ["cloture", "Cour intérieure"],
+    ["terrasse", "Terrasse principale"],
+    ["toiture", "Dalle de toiture"],
+    ["parking", "Aire de stationnement"],
+    ["aire_jeux", "Terrain de jeux"],
+    ["chateau_eau", "Réservoir"],
+    ["irrigation", "Bassin de stockage"],
+    ["voirie", "Chaussée"],
+    ["solaire", "Champ photovoltaïque"],
+    ["chantier", "Zone d'intervention"],
+    ["reseau", "Réseau principal"],
+  ];
+
+  it("chaque gabarit dédié contient sa pièce principale", () => {
+    for (const [type, roomName] of specific) {
+      const layout = generatePlan({ ...baseParams, type });
+      expect(
+        layout.rooms.some((r) => r.name === roomName),
+        `type ${type} devrait contenir « ${roomName} »`,
+      ).toBe(true);
+    }
+  });
+
+  it("les pièces restent dans les limites du bâtiment pour tous les gabarits dédiés", () => {
+    for (const [type] of specific) {
+      const layout = generatePlan({ ...baseParams, type });
+      for (const r of layout.rooms) {
+        expect(r.x, `type ${type}`).toBeGreaterThanOrEqual(-0.01);
+        expect(r.y, `type ${type}`).toBeGreaterThanOrEqual(-0.01);
+        expect(r.x + r.w, `type ${type}`).toBeLessThanOrEqual(layout.width + 0.01);
+        expect(r.y + r.h, `type ${type}`).toBeLessThanOrEqual(layout.height + 0.01);
+      }
+    }
+  });
+
+  it("chaque graine produit une variante différente pour les gabarits dédiés", () => {
+    for (const [type] of specific) {
+      const a = generatePlan({ ...baseParams, type, seed: 1 });
+      const b = generatePlan({ ...baseParams, type, seed: 2 });
+      expect(a.rooms, `type ${type}`).not.toEqual(b.rooms);
+    }
+  });
+});
+
 describe("detectPlanTypeFromSurface — détection automatique du type", () => {
   it("détecte une maison pour une petite surface", () => {
     expect(detectPlanTypeFromSurface(60)).toBe("maison");

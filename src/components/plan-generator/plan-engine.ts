@@ -20,6 +20,20 @@ export type PlanTypeId =
   | "ferme"
   | "ecole"
   | "mosquee"
+  | "piscine"
+  | "jardin"
+  | "garage"
+  | "cloture"
+  | "terrasse"
+  | "toiture"
+  | "parking"
+  | "aire_jeux"
+  | "chateau_eau"
+  | "irrigation"
+  | "voirie"
+  | "solaire"
+  | "chantier"
+  | "reseau"
   | "generique";
 
 export const PLAN_TYPES: { id: PlanTypeId; label: string }[] = [
@@ -35,6 +49,20 @@ export const PLAN_TYPES: { id: PlanTypeId; label: string }[] = [
   { id: "ferme", label: "Ferme agricole" },
   { id: "ecole", label: "École" },
   { id: "mosquee", label: "Mosquée" },
+  { id: "piscine", label: "Piscine" },
+  { id: "jardin", label: "Jardin / Espace paysager" },
+  { id: "garage", label: "Garage / Abri" },
+  { id: "cloture", label: "Clôture / Mur de séparation" },
+  { id: "terrasse", label: "Terrasse / Pergola" },
+  { id: "toiture", label: "Toiture / Dalle" },
+  { id: "parking", label: "Parking / Stationnement" },
+  { id: "aire_jeux", label: "Aire de jeux" },
+  { id: "chateau_eau", label: "Château d'eau" },
+  { id: "irrigation", label: "Système d'irrigation" },
+  { id: "voirie", label: "Route / Trottoir" },
+  { id: "solaire", label: "Installation solaire" },
+  { id: "chantier", label: "Chantier / Rénovation" },
+  { id: "reseau", label: "Réseaux techniques" },
   { id: "generique", label: "Bâtiment générique" },
 ];
 
@@ -65,7 +93,17 @@ export type RoomKind =
   | "quai"
   | "wet"
   | "priere"
-  | "stairs";
+  | "stairs"
+  | "pool"
+  | "green"
+  | "car"
+  | "play"
+  | "roof"
+  | "solar"
+  | "water"
+  | "road"
+  | "pipe"
+  | "cloture";
 
 export interface Room {
   id: string;
@@ -154,6 +192,20 @@ const ASPECT: Record<PlanTypeId, number> = {
   ferme: 1.8,
   ecole: 2.0,
   mosquee: 1.35,
+  piscine: 2.1,
+  jardin: 1.7,
+  garage: 1.9,
+  cloture: 1.6,
+  terrasse: 1.8,
+  toiture: 1.5,
+  parking: 2.2,
+  aire_jeux: 1.8,
+  chateau_eau: 1.0,
+  irrigation: 1.9,
+  voirie: 3.4,
+  solaire: 2.0,
+  chantier: 1.5,
+  reseau: 1.9,
   generique: 1.5,
 };
 
@@ -394,6 +446,217 @@ function mosquee(w: number, h: number, rnd: () => number): Room[] {
   ];
 }
 
+// ─── Template : piscine ─────────────────────────────────────────────────────
+
+function piscine(w: number, h: number, rnd: () => number): Room[] {
+  const deckH = clamp(h * (0.13 + rnd() * 0.03), 1.6, 3.0);
+  const techH = clamp(h * (0.11 + rnd() * 0.03), 1.2, 2.2);
+  const bassinH = h - deckH - techH;
+  const techW = w * (0.45 + rnd() * 0.1);
+  return [
+    { id: "plage", name: "Plage / Détente", x: 0, y: 0, w, h: deckH, kind: "terrace" },
+    { id: "bassin", name: "Bassin", x: 0, y: deckH, w, h: bassinH, kind: "pool" },
+    { id: "technique", name: "Local technique", x: 0, y: deckH + bassinH, w: techW, h: techH, kind: "wet" },
+    { id: "douches", name: "Douches", x: techW, y: deckH + bassinH, w: w - techW, h: techH, kind: "wet" },
+  ];
+}
+
+// ─── Template : jardin / aménagement paysager ───────────────────────────────
+
+function jardin(w: number, h: number, rnd: () => number): Room[] {
+  const alleeH = clamp(h * (0.13 + rnd() * 0.03), 1.2, 2.0);
+  const sideW = w * (0.2 + rnd() * 0.05);
+  const deckW = w * 0.2;
+  const bodyH = h - alleeH;
+  const deckH = bodyH * 0.55;
+  return [
+    { id: "allee", name: "Allée principale", x: 0, y: 0, w, h: alleeH, kind: "corridor" },
+    { id: "massif", name: "Massif fleuri", x: 0, y: alleeH, w: sideW, h: bodyH, kind: "green" },
+    { id: "pelouse", name: "Pelouse", x: sideW, y: alleeH, w: w - sideW - deckW, h: bodyH, kind: "green" },
+    { id: "terrasse", name: "Terrasse détente", x: w - deckW, y: alleeH, w: deckW, h: deckH, kind: "terrace" },
+    { id: "point_eau", name: "Point d'eau", x: w - deckW, y: alleeH + deckH, w: deckW, h: bodyH - deckH, kind: "pool" },
+  ];
+}
+
+// ─── Template : garage / abri ───────────────────────────────────────────────
+
+function garage(w: number, h: number, rnd: () => number): Room[] {
+  const rampeH = clamp(h * (0.14 + rnd() * 0.04), 1.4, 2.4);
+  const localW = w * (0.3 + rnd() * 0.1);
+  return [
+    { id: "stationnement", name: "Aire de stationnement", x: 0, y: 0, w, h: h - rampeH, kind: "car" },
+    { id: "rampe", name: "Rampe d'accès", x: 0, y: h - rampeH, w: w - localW, h: rampeH, kind: "corridor" },
+    { id: "local", name: "Local technique", x: w - localW, y: h - rampeH, w: localW, h: rampeH, kind: "wet" },
+  ];
+}
+
+// ─── Template : clôture / mur de séparation ─────────────────────────────────
+
+function cloture(w: number, h: number, rnd: () => number): Room[] {
+  const t = 0.3 + rnd() * 0.2; // épaisseur du mur périphérique (0,3 – 0,5 m)
+  return [
+    { id: "mur_haut", name: "Mur périphérique", x: 0, y: 0, w, h: t, kind: "cloture" },
+    { id: "mur_bas", name: "Mur périphérique", x: 0, y: h - t, w, h: t, kind: "cloture" },
+    { id: "mur_gauche", name: "Mur périphérique", x: 0, y: t, w: t, h: h - 2 * t, kind: "cloture" },
+    { id: "mur_droit", name: "Mur périphérique", x: w - t, y: t, w: t, h: h - 2 * t, kind: "cloture" },
+    { id: "cour", name: "Cour intérieure", x: t, y: t, w: w - 2 * t, h: h - 2 * t, kind: "green" },
+  ];
+}
+
+// ─── Template : terrasse / pergola / cuisine extérieure ─────────────────────
+
+function terrasse(w: number, h: number, rnd: () => number): Room[] {
+  const pergolaH = clamp(h * (0.14 + rnd() * 0.04), 1.2, 2.2);
+  const repasH = clamp(h * (0.16 + rnd() * 0.04), 1.3, 2.4);
+  const cuisineW = w * (0.32 + rnd() * 0.08);
+  const bodyH = h - pergolaH - repasH;
+  return [
+    { id: "pergola", name: "Pergola / Ombrière", x: 0, y: 0, w, h: pergolaH, kind: "terrace" },
+    { id: "terrasse", name: "Terrasse principale", x: 0, y: pergolaH, w: w - cuisineW, h: bodyH, kind: "terrace" },
+    { id: "cuisine_ext", name: "Cuisine extérieure", x: w - cuisineW, y: pergolaH, w: cuisineW, h: bodyH, kind: "wet" },
+    { id: "repas", name: "Coin repas", x: 0, y: pergolaH + bodyH, w, h: repasH, kind: "terrace" },
+  ];
+}
+
+// ─── Template : toiture / dalle ─────────────────────────────────────────────
+
+function toiture(w: number, h: number, rnd: () => number): Room[] {
+  const t = 0.4;
+  const cageW = clamp(w * (0.2 + rnd() * 0.05), 2.2, 3.6);
+  const cageH = clamp(h * (0.28 + rnd() * 0.06), 2.4, 3.6);
+  const techH = clamp(h * (0.2 + rnd() * 0.05), 1.8, 2.8);
+  const x0 = t;
+  const y0 = t;
+  const iw = w - 2 * t;
+  const ih = h - 2 * t;
+  return [
+    { id: "acro_haut", name: "Acrotère", x: 0, y: 0, w, h: t, kind: "cloture" },
+    { id: "acro_bas", name: "Acrotère", x: 0, y: h - t, w, h: t, kind: "cloture" },
+    { id: "acro_gauche", name: "Acrotère", x: 0, y: t, w: t, h: ih, kind: "cloture" },
+    { id: "acro_droit", name: "Acrotère", x: w - t, y: t, w: t, h: ih, kind: "cloture" },
+    { id: "dalle", name: "Dalle de toiture", x: x0, y: y0, w: iw, h: ih, kind: "roof" },
+    { id: "escalier", name: "Cage d'escalier", x: x0, y: y0, w: cageW, h: cageH, kind: "stairs" },
+    { id: "local_tech", name: "Local technique", x: x0 + cageW, y: y0, w: iw - cageW, h: techH, kind: "wet" },
+    { id: "evacuation", name: "Évacuation eaux pluviales", x: x0 + cageW, y: y0 + techH, w: iw - cageW, h: ih - techH, kind: "pool" },
+  ];
+}
+
+// ─── Template : parking extérieur ───────────────────────────────────────────
+
+function parking(w: number, h: number, rnd: () => number): Room[] {
+  const accesW = w * (0.2 + rnd() * 0.05);
+  const voieH = clamp(h * (0.18 + rnd() * 0.05), 1.6, 3.2);
+  const rowH = h - voieH;
+  return [
+    { id: "places", name: "Aire de stationnement", x: 0, y: 0, w: w - accesW, h: rowH, kind: "car" },
+    { id: "acces", name: "Accès véhicules", x: w - accesW, y: 0, w: accesW, h: rowH, kind: "corridor" },
+    { id: "voie", name: "Voie de circulation", x: 0, y: rowH, w, h: voieH, kind: "road" },
+  ];
+}
+
+// ─── Template : aire de jeux ────────────────────────────────────────────────
+
+function aireJeux(w: number, h: number, rnd: () => number): Room[] {
+  const parentsH = clamp(h * (0.12 + rnd() * 0.04), 1.3, 2.2);
+  const sableW = w * (0.36 + rnd() * 0.08);
+  const bodyH = h - parentsH;
+  return [
+    { id: "parents", name: "Espace parents / Bancs", x: 0, y: 0, w, h: parentsH, kind: "play" },
+    { id: "terrain", name: "Terrain de jeux", x: 0, y: parentsH, w: w - sableW, h: bodyH, kind: "green" },
+    { id: "sable", name: "Aire de sable", x: w - sableW, y: parentsH, w: sableW, h: bodyH, kind: "play" },
+  ];
+}
+
+// ─── Template : château d'eau ───────────────────────────────────────────────
+
+function chateauEau(w: number, h: number, rnd: () => number): Room[] {
+  const couronneH = clamp(h * (0.08 + rnd() * 0.03), 0.9, 1.6);
+  const piedH = clamp(h * (0.16 + rnd() * 0.04), 1.6, 2.6);
+  const techW = w * (0.42 + rnd() * 0.1);
+  return [
+    { id: "couronne", name: "Garde-corps", x: 0, y: 0, w, h: couronneH, kind: "cloture" },
+    { id: "reservoir", name: "Réservoir", x: 0, y: couronneH, w, h: h - couronneH - piedH, kind: "water" },
+    { id: "technique", name: "Local technique", x: 0, y: h - piedH, w: techW, h: piedH, kind: "wet" },
+    { id: "acces", name: "Accès", x: techW, y: h - piedH, w: w - techW, h: piedH, kind: "corridor" },
+  ];
+}
+
+// ─── Template : système d'irrigation ────────────────────────────────────────
+
+function irrigation(w: number, h: number, rnd: () => number): Room[] {
+  const bassinW = w * (0.34 + rnd() * 0.1);
+  const pompeW = w * 0.2;
+  const collecteurH = clamp(h * (0.1 + rnd() * 0.04), 1.0, 1.8);
+  return [
+    { id: "bassin", name: "Bassin de stockage", x: 0, y: 0, w: bassinW, h: h - collecteurH, kind: "pool" },
+    { id: "pompe", name: "Pompe / Local", x: bassinW, y: 0, w: pompeW, h: h - collecteurH, kind: "wet" },
+    { id: "compteur", name: "Compteur / Vannes", x: bassinW + pompeW, y: 0, w: w - bassinW - pompeW, h: h - collecteurH, kind: "pipe" },
+    { id: "collecteur", name: "Collecteur", x: 0, y: h - collecteurH, w, h: collecteurH, kind: "pipe" },
+  ];
+}
+
+// ─── Template : voirie (route / trottoir) ───────────────────────────────────
+
+function voirie(w: number, h: number, rnd: () => number): Room[] {
+  const trottoirH = clamp(h * (0.13 + rnd() * 0.03), 1.2, 2.0);
+  const stationW = w * (0.12 + rnd() * 0.04);
+  const vertW = w * (0.1 + rnd() * 0.04);
+  const bodyH = h - 2 * trottoirH;
+  return [
+    { id: "trottoir_haut", name: "Trottoir", x: 0, y: 0, w, h: trottoirH, kind: "corridor" },
+    { id: "trottoir_bas", name: "Trottoir", x: 0, y: h - trottoirH, w, h: trottoirH, kind: "corridor" },
+    { id: "stationnement", name: "Stationnement", x: 0, y: trottoirH, w: stationW, h: bodyH, kind: "car" },
+    { id: "chaussee", name: "Chaussée", x: stationW, y: trottoirH, w: w - stationW - vertW, h: bodyH, kind: "road" },
+    { id: "vegetale", name: "Bande végétale", x: w - vertW, y: trottoirH, w: vertW, h: bodyH, kind: "green" },
+  ];
+}
+
+// ─── Template : installation solaire ────────────────────────────────────────
+
+function solaire(w: number, h: number, rnd: () => number): Room[] {
+  const bandH = clamp(h * (0.14 + rnd() * 0.1), 1.4, 2.4);
+  const onduleurW = w * (0.22 + rnd() * 0.05);
+  const localW = w * 0.3;
+  return [
+    { id: "local", name: "Local technique", x: 0, y: 0, w: localW, h: bandH, kind: "wet" },
+    { id: "onduleurs", name: "Onduleurs", x: localW, y: 0, w: onduleurW, h: bandH, kind: "pipe" },
+    { id: "acces", name: "Accès maintenance", x: localW + onduleurW, y: 0, w: w - localW - onduleurW, h: bandH, kind: "corridor" },
+    { id: "champ", name: "Champ photovoltaïque", x: 0, y: bandH, w, h: h - bandH, kind: "solar" },
+  ];
+}
+
+// ─── Template : chantier (rénovation / démolition) ──────────────────────────
+
+function chantier(w: number, h: number, rnd: () => number): Room[] {
+  const stockW = w * (0.2 + rnd() * 0.06);
+  const benneH = clamp(h * (0.12 + rnd() * 0.04), 1.2, 2.0);
+  const accesH = clamp(h * (0.09 + rnd() * 0.03), 1.0, 1.6);
+  const bodyH = h - benneH - accesH;
+  return [
+    { id: "intervention", name: "Zone d'intervention", x: 0, y: 0, w: w - stockW, h: bodyH, kind: "shopfloor" },
+    { id: "stockage", name: "Zone de stockage", x: w - stockW, y: 0, w: stockW, h: bodyH, kind: "quai" },
+    { id: "benne", name: "Benne / Évacuation", x: 0, y: bodyH, w, h: benneH, kind: "quai" },
+    { id: "acces", name: "Accès chantier", x: 0, y: bodyH + benneH, w, h: accesH, kind: "corridor" },
+  ];
+}
+
+// ─── Template : réseaux techniques (sanitaires / électricité) ───────────────
+
+function reseau(w: number, h: number, rnd: () => number): Room[] {
+  const primW = w * 0.24;
+  const secW = w * 0.18;
+  const tabW = w * (0.2 + rnd() * 0.06);
+  const gridW = w - primW - secW;
+  return [
+    { id: "primaire", name: "Réseau principal", x: 0, y: 0, w: primW, h, kind: "pipe" },
+    { id: "secondaire", name: "Réseau secondaire", x: primW, y: 0, w: secW, h, kind: "pipe" },
+    { id: "tableau", name: "Tableau / Compteurs", x: primW + secW, y: 0, w: tabW, h: h * 0.4, kind: "wet" },
+    { id: "p1", name: "Point d'usage 1", x: primW + secW + tabW, y: 0, w: gridW - tabW, h: h * 0.4 },
+    { id: "p2", name: "Point d'usage 2", x: primW + secW, y: h * 0.4, w: gridW, h: h * 0.3 },
+    { id: "p3", name: "Point d'usage 3", x: primW + secW, y: h * 0.7, w: gridW, h: h * 0.3 },
+  ];
+}
+
 // ─── Template : générique ────────────────────────────────────────────────────
 
 function generique(w: number, h: number, rnd: () => number): Room[] {
@@ -459,6 +722,48 @@ function buildRooms(type: PlanTypeId, w: number, h: number, beds: number, seed: 
       break;
     case "mosquee":
       rooms = mosquee(w, h, rnd);
+      break;
+    case "piscine":
+      rooms = piscine(w, h, rnd);
+      break;
+    case "jardin":
+      rooms = jardin(w, h, rnd);
+      break;
+    case "garage":
+      rooms = garage(w, h, rnd);
+      break;
+    case "cloture":
+      rooms = cloture(w, h, rnd);
+      break;
+    case "terrasse":
+      rooms = terrasse(w, h, rnd);
+      break;
+    case "toiture":
+      rooms = toiture(w, h, rnd);
+      break;
+    case "parking":
+      rooms = parking(w, h, rnd);
+      break;
+    case "aire_jeux":
+      rooms = aireJeux(w, h, rnd);
+      break;
+    case "chateau_eau":
+      rooms = chateauEau(w, h, rnd);
+      break;
+    case "irrigation":
+      rooms = irrigation(w, h, rnd);
+      break;
+    case "voirie":
+      rooms = voirie(w, h, rnd);
+      break;
+    case "solaire":
+      rooms = solaire(w, h, rnd);
+      break;
+    case "chantier":
+      rooms = chantier(w, h, rnd);
+      break;
+    case "reseau":
+      rooms = reseau(w, h, rnd);
       break;
     default:
       rooms = generique(w, h, rnd);
@@ -531,6 +836,10 @@ function buildOpenings(rooms: Room[], W: number, H: number, seed: number): { doo
   const shop = rooms.find((r) => r.kind === "shopfloor");
   if (shop) exteriorDoor(shop.id, "bottom", 1.2);
   if (has("quai")) exteriorDoor("quai", "bottom", 3.5);
+  if (has("cour")) exteriorDoor("cour", "bottom", 3.0); // portail de la clôture
+  if (has("rampe")) exteriorDoor("rampe", "bottom", 3.2); // porte de garage
+  if (has("voie")) exteriorDoor("voie", "bottom", 4.0); // entrée véhicules du parking
+  if (has("benne")) exteriorDoor("acces", "bottom", 2.6); // accès chantier
   if (has("accueil")) exteriorDoor("accueil", "bottom", 1.1);
   if (has("hangar")) exteriorDoor("hangar", "bottom", 3.0);
   if (has("stockage") && has("hangar")) exteriorDoor("stockage", "bottom", 3.0);
@@ -544,7 +853,23 @@ function buildOpenings(rooms: Room[], W: number, H: number, seed: number): { doo
   }));
 
   for (const r of rooms) {
-    if (r.kind === "corridor" || r.kind === "terrace" || r.kind === "balcon" || r.kind === "quai") continue;
+    if (
+      r.kind === "corridor" ||
+      r.kind === "terrace" ||
+      r.kind === "balcon" ||
+      r.kind === "quai" ||
+      r.kind === "pool" ||
+      r.kind === "green" ||
+      r.kind === "car" ||
+      r.kind === "play" ||
+      r.kind === "roof" ||
+      r.kind === "solar" ||
+      r.kind === "water" ||
+      r.kind === "road" ||
+      r.kind === "pipe" ||
+      r.kind === "cloture"
+    )
+      continue;
     const edges: { edge: "top" | "bottom" | "left" | "right"; axis: "h" | "v"; at: number; from: number; to: number }[] = [];
     if (r.y <= eps) edges.push({ edge: "top", axis: "h", at: r.y, from: r.x, to: r.x + r.w });
     if (r.y + r.h >= H - eps) edges.push({ edge: "bottom", axis: "h", at: r.y + r.h, from: r.x, to: r.x + r.w });
