@@ -30,6 +30,12 @@ import {
   Play,
   RotateCcw,
   Sparkles,
+  BedDouble,
+  Bath,
+  ChefHat,
+  LandPlot,
+  Building2,
+  ShieldCheck,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import {
@@ -1427,6 +1433,22 @@ export function PlanGenerator({
     }
   };
 
+  // ── Données du plan (lues depuis le projet — aucune modification) ──
+  const chambres = layout.rooms.filter((r) => /^ch\d+$/.test(r.id)).length || (isHousingType(type) ? layout.bedrooms : 0);
+  const sdb = layout.rooms.filter((r) => r.id === "sdb" || r.name === "Salle de bain").length;
+  const cuisine = layout.rooms.some((r) => r.id === "cuisine" || r.id === "cuisine_ext");
+  const terrainM2 = Math.round(layout.width * layout.height);
+  const planData = [
+    { label: "Type de bien", value: layout.typeLabel, icon: Building2 },
+    { label: "Chambres", value: chambres > 0 ? String(chambres) : "—", icon: BedDouble },
+    { label: "Salle(s) de bain", value: sdb > 0 ? String(sdb) : "—", icon: Bath },
+    { label: "Cuisine", value: cuisine ? "Oui" : "—", icon: ChefHat },
+    { label: "Surface couverte", value: `${layout.surface} m²`, icon: Ruler },
+    { label: "Terrain (emprise au sol)", value: `${terrainM2} m²`, icon: LandPlot },
+    { label: "Étages", value: String(layout.floors), icon: Layers },
+    { label: "Surface utile / niveau", value: `${layout.perFloor} m²`, icon: DraftingCompass },
+  ];
+
   return (
     <div className="space-y-4">
       {/* ═══ Bandeau descriptif ═══ */}
@@ -1441,6 +1463,31 @@ export function PlanGenerator({
             plan 2D et sa vue 3D sont générés depuis le type, la surface, les étages et les chambres — régénérez
             pour explorer jusqu'à {MAX_VARIANTS} variantes par type de bien.
           </p>
+        </div>
+      </div>
+
+      {/* ═══ Données du bien (lues du projet — non modifiées) ═══ */}
+      <div className="rounded-lg border border-border/40 bg-background">
+        <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2">
+          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <Building2 className="h-3 w-3" /> Données du bien
+          </p>
+          <span className="inline-flex items-center gap-1 text-[9px] text-emerald-600">
+            <ShieldCheck className="h-3 w-3" /> Lecture seule — les données du projet ne sont pas modifiées
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-px bg-border/40 sm:grid-cols-4">
+          {planData.map((d) => (
+            <div key={d.label} className="flex items-center gap-2 bg-background px-3 py-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <d.icon className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-[8px] uppercase tracking-wide text-muted-foreground/70">{d.label}</p>
+                <p className="truncate text-[11px] font-semibold">{d.value}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -1624,8 +1671,11 @@ export function PlanGenerator({
           {view === "2d" ? (
             <PlanSvg layout={layout} svgRef={svgRef} />
           ) : (
-            <svg
-              ref={svgRef}
+            <Plan3dSvg
+              layout={layout}
+              yaw={yaw}
+              disclaimer={DISCLAIMER_LINES}
+              svgRef={svgRef}
               className="block w-full h-auto min-w-[560px]"
               style={{ touchAction: "none", cursor: dragging ? "grabbing" : "grab" }}
               onPointerDown={(e) => {
@@ -1652,9 +1702,7 @@ export function PlanGenerator({
                 setDragging(false);
                 dragStartRef.current = null;
               }}
-            >
-              <Plan3dSvg layout={layout} yaw={yaw} disclaimer={DISCLAIMER_LINES} />
-            </svg>
+            />
           )}
         </div>
         {busy && (

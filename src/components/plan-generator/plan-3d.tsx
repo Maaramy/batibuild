@@ -11,6 +11,7 @@
 // ============================================================================
 
 import { useMemo } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent, Ref } from "react";
 import type { PlanLayout, Room } from "./plan-engine";
 
 // ─── Constantes de projection (axonométrie isométrique) ─────────────────────
@@ -155,10 +156,24 @@ export function Plan3dSvg({
   layout,
   yaw,
   disclaimer,
+  svgRef,
+  className,
+  style,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
 }: {
   layout: PlanLayout;
   yaw: number;
   disclaimer: string[];
+  svgRef?: Ref<SVGSVGElement>;
+  className?: string;
+  style?: CSSProperties;
+  onPointerDown?: (e: ReactPointerEvent<SVGSVGElement>) => void;
+  onPointerMove?: (e: ReactPointerEvent<SVGSVGElement>) => void;
+  onPointerUp?: (e: ReactPointerEvent<SVGSVGElement>) => void;
+  onPointerCancel?: (e: ReactPointerEvent<SVGSVGElement>) => void;
 }) {
   const { width: W, height: H, floors, rooms } = layout;
   const H3 = Math.max(3, floors * FLOOR_H);
@@ -391,11 +406,17 @@ export function Plan3dSvg({
 
   return (
     <svg
+      ref={svgRef}
       xmlns="http://www.w3.org/2000/svg"
       width={VB_W}
       height={VB_H}
       viewBox={`0 0 ${VB_W} ${VB_H}`}
-      className="block w-full h-auto"
+      className={className ?? "block w-full h-auto"}
+      style={style}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
       fontFamily="'Segoe UI', system-ui, -apple-system, sans-serif"
       role="img"
       aria-label={`Vue 3D du bâtiment ${layout.typeLabel} générée par IA`}
