@@ -414,10 +414,21 @@ export default function ProjectDetail() {
       y = 26;
 
       // ═══ PROJECT INFO BOX ══════════════════════════════════════════
+      // Composition du bien (pièces) si renseignée
+      const roomParts = [
+        project.bedrooms ? `${project.bedrooms} chambre${project.bedrooms > 1 ? "s" : ""}` : "",
+        project.bathrooms ? `${project.bathrooms} sdb` : "",
+        project.kitchens ? `${project.kitchens} cuisine${project.kitchens > 1 ? "s" : ""}` : "",
+        project.livingRooms ? `${project.livingRooms} salon${project.livingRooms > 1 ? "s" : ""}` : "",
+        project.garages ? `${project.garages} garage${project.garages > 1 ? "s" : ""}` : "",
+      ].filter(Boolean);
+      const hasRooms = roomParts.length > 0;
+      const boxH = hasRooms ? 24 : 16;
+
       doc.setFillColor(C.bgLight[0], C.bgLight[1], C.bgLight[2]);
-      doc.rect(ml, y, cw, 16, "F");
+      doc.rect(ml, y, cw, boxH, "F");
       doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
-      doc.rect(ml, y, cw, 16, "S");
+      doc.rect(ml, y, cw, boxH, "S");
 
       doc.setTextColor(C.text[0], C.text[1], C.text[2]);
       doc.setFontSize(10);
@@ -439,7 +450,14 @@ export default function ProjectDetail() {
         xInfo += doc.getTextWidth(item) + 10;
       });
 
-      y += 21;
+      if (hasRooms) {
+        doc.setFontSize(6.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+        doc.text(`Pièces: ${roomParts.join(" · ")}`, ml + 3, y + 16.5);
+      }
+
+      y += boxH + 5;
 
       // ═══ TOTAL COST HERO ═══════════════════════════════════════════
       addPageIfNeeded(28);

@@ -346,14 +346,17 @@ function genEQItems(surface: number, floors: number, cat: string, targetBudget: 
   }));
 }
 
-function genMOItems(surface: number, floors: number, cat: string, targetBudget: number) {
+function genMOItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { total?: number; bathrooms?: number; kitchens?: number }) {
   const tb = surface * (floors || 1);
   const ih = ["immeuble_residentiel","usine","mosquee","ecole","hotel"].includes(cat) ? 1.2 : 1;
+  // Plus de pièces = plus de points électriques & sanitaires à poser
+  const roomFactor = rooms?.total ? Math.min(1.4, Math.max(0.7, rooms.total / 6)) : 1;
+  const saniFactor = rooms?.bathrooms ? Math.min(1.3, Math.max(0.8, ((rooms.bathrooms || 1) + (rooms.kitchens || 1)) / 3)) : 1;
   const items = [
     {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:80},
     {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:55},
-    {n:"Électricien", q:Math.round(tb/60*ih*10)/10, u:"jours", up:75},
-    {n:"Plombier", q:Math.round(tb/80*ih*10)/10, u:"jours", up:75},
+    {n:"Électricien", q:Math.round(tb/60*ih*roomFactor*10)/10, u:"jours", up:75},
+    {n:"Plombier", q:Math.round(tb/80*ih*saniFactor*10)/10, u:"jours", up:75},
     {n:"Carreleur", q:Math.round(tb/45*ih*10)/10, u:"jours", up:80},
     {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:65},
     {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:100},
@@ -399,14 +402,15 @@ function genEIItems(totalBudget: number, targetBudget: number) {
   }));
 }
 
-function estimateDuration(s: number, fl: number, cat: string): string {
+function estimateDuration(s: number, fl: number, cat: string, roomsFactor = 1): string {
   const tb = s * (fl || 1);
-  if (cat.startsWith("renovation")) return `${Math.max(1, Math.round(tb/40))} mois`;
-  if (["pergola","terrasse","cloture","mur_de_separation","trottoir","garage"].includes(cat)) return `${Math.max(1, Math.round(tb/60))} mois`;
-  if (cat==="piscine") return `${Math.max(2, Math.round(s/12))} mois`;
-  if (["jardin","amenagement_paysager","aire_de_jeux"].includes(cat)) return `${Math.max(1, Math.round(tb/100))} mois`;
-  if (cat==="installation_solaire") return `${Math.max(1, Math.round(tb/80))} mois`;
-  return `${Math.max(2, Math.round(tb/40*(fl||1)))} mois`;
+  const adj = (base: number) => Math.max(1, Math.round(base * roomsFactor));
+  if (cat.startsWith("renovation")) return `${adj(Math.round(tb/40))} mois`;
+  if (["pergola","terrasse","cloture","mur_de_separation","trottoir","garage"].includes(cat)) return `${adj(Math.round(tb/60))} mois`;
+  if (cat==="piscine") return `${adj(Math.max(2, Math.round(s/12)))} mois`;
+  if (["jardin","amenagement_paysager","aire_de_jeux"].includes(cat)) return `${adj(Math.round(tb/100))} mois`;
+  if (cat==="installation_solaire") return `${adj(Math.round(tb/80))} mois`;
+  return `${adj(Math.max(2, Math.round(tb/40*(fl||1))))} mois`;
 }
 
 function detectAnomalies(cat: string, s: number, fl: number) {
@@ -838,7 +842,7 @@ export function runBIMEstimation(
     gros_oeuvre: (s, f, c, b, r) => genGOItems(s, f, c, b, wallFactor),
     second_oeuvre: genSOItems,
     equipements: genEQItems,
-    main_oeuvre: genMOItems,
+    main_oeuvre: (s: number, f: number, c: string, b: number, r: typeof roomInfo) => genMOItems(s, f, c, b, r),
     transport: (s: number, f: number, c: string, b: number, r) => genTRItems(s, f, b),
     etudes_imprevus: (s: number, f: number, c: string, b: number, r) => genEIItems(finalTotal, b),
   };
@@ -894,7 +898,9 @@ export function runBIMEstimation(
   const avgWorkers = Math.max(1, Math.round(totalDays / 22));
 
   const anomalies = detectAnomalies(category, surface, floors);
-  const duration = estimateDuration(surface, floors, category);
+  // Durée du chantier : plus de pièces = finitions & second œuvre plus longs
+  const durationRoomsFactor = Math.min(1.3, Math.max(0.9, 1 + (totalRooms - stdRooms) * 0.03));
+  const duration = estimateDuration(surface, floors, category, durationRoomsFactor);
 
   // Optimization tips with region context
   const tips = generateTips(category, surface, region, finishLevel, costM2);
