@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
+import { runBIMEstimation } from "@/convex/bimEngine";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
@@ -999,6 +1000,38 @@ export default function ProjectDetail() {
     return { pct, info: CONFIDENCE_STEPS.find((s) => pct >= s.min) ?? CONFIDENCE_STEPS[2] };
   }, [ai]);
 
+  // Impact du nombre de pièces sur le coût estimé (vs composition standard)
+  const roomsImpact = useMemo(() => {
+    if (!project || !ce) return null;
+    const hasRooms =
+      project.bedrooms != null || project.bathrooms != null ||
+      project.kitchens != null || project.livingRooms != null || project.garages != null;
+    if (!hasRooms) return null;
+    const finishLevel = (project as any).finish_level || "standard";
+    const surface = project.surface ?? 150;
+    const floors = project.floors ?? 1;
+    const region = project.region ?? "tunis";
+    const withRooms = runBIMEstimation(project.category, surface, floors, region, finishLevel, {
+      bedrooms: project.bedrooms,
+      bathrooms: project.bathrooms,
+      kitchens: project.kitchens,
+      livingRooms: project.livingRooms,
+      garages: project.garages,
+    });
+    const ref = runBIMEstimation(project.category, surface, floors, region, finishLevel);
+    const refTotal = ref.costEstimate.totalCost || 1;
+    const diffPct = Math.round(
+      ((withRooms.costEstimate.totalCost - refTotal) / refTotal) * 100,
+    );
+    const parts: string[] = [];
+    if (project.bedrooms) parts.push(`${project.bedrooms} ch`);
+    if (project.bathrooms) parts.push(`${project.bathrooms} sdb`);
+    if (project.kitchens) parts.push(`${project.kitchens} cuis`);
+    if (project.livingRooms) parts.push(`${project.livingRooms} salon`);
+    if (project.garages) parts.push(`${project.garages} gar`);
+    return { parts: parts.join(" · "), diffPct };
+  }, [project, ce]);
+
   const scenarios = ce?.budgetScenarios;
 
   // Scale factor based on selected scenario vs standard
@@ -1441,6 +1474,14 @@ export default function ProjectDetail() {
                   <Badge variant="outline" className={cn("text-[9px] gap-1", confInfo.info.color, "border-current/20")}>
                     <Shield className="h-3 w-3" /> {confInfo.pct}%
                   </Badge>
+                  {roomsImpact && (
+                    <Badge variant="outline" className="gap-1 border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[9px]" title={`Composition déclarée : ${roomsImpact.parts} — écart vs composition standard de ${roomsImpact.diffPct >= 0 ? "+" : ""}${roomsImpact.diffPct}%`}>
+                      <LayoutGrid className="h-3 w-3" /> {roomsImpact.parts}
+                      <span className={cn("font-bold", roomsImpact.diffPct >= 0 ? "text-amber-500" : "text-emerald-500")}>
+                        {roomsImpact.diffPct >= 0 ? "+" : ""}{roomsImpact.diffPct}%
+                      </span>
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">

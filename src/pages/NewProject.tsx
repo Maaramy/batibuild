@@ -73,7 +73,25 @@ const PROJECT_CATEGORIES: { value: string; label: string; icon: LucideIcon }[] =
 ];
 
 // Catégories éligibles à l'étape « Nombre de pièces »
-const ROOM_ELIGIBLE_CATEGORIES = ["maison", "maison_r+1", "villa", "immeuble_residentiel"];
+const ROOM_ELIGIBLE_CATEGORIES = [
+  "maison", "maison_r+1", "villa", "immeuble_residentiel",
+  // Rénovations : la composition du bien affine aussi l'estimation
+  "renovation_interieure", "renovation_exterieure",
+  "renovation_salle_de_bain", "renovation_cuisine", "renovation_facade",
+];
+
+// Valeurs par défaut des pièces selon le type de projet sélectionné
+const ROOM_DEFAULTS: Record<string, { bedrooms: string; bathrooms: string; kitchens: string; livingRooms: string; garages: string }> = {
+  maison:               { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
+  "maison_r+1":         { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "2", garages: "1" },
+  villa:                { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1" },
+  immeuble_residentiel: { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
+  renovation_interieure:   { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
+  renovation_exterieure:   { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
+  renovation_salle_de_bain: { bedrooms: "0", bathrooms: "1", kitchens: "0", livingRooms: "0", garages: "0" },
+  renovation_cuisine:      { bedrooms: "0", bathrooms: "0", kitchens: "1", livingRooms: "0", garages: "0" },
+  renovation_facade:       { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
+};
 
 const IMPORT_METHODS = [
   { id: "manual", icon: Ruler, label: "Manuelle", desc: "Saisie directe" },
@@ -627,6 +645,20 @@ export default function NewProject() {
     setStep(key);
   };
 
+  // Applique les valeurs de pièces par défaut quand on change de type de projet
+  const handleCategorySelect = (cat: string) => {
+    setSelectedCategory(cat);
+    const d = ROOM_DEFAULTS[cat];
+    if (d) {
+      setBedrooms(d.bedrooms);
+      setBathrooms(d.bathrooms);
+      setKitchens(d.kitchens);
+      setLivingRooms(d.livingRooms);
+      setGarages(d.garages);
+    }
+    setErrors((e) => ({ ...e, category: "" }));
+  };
+
   const handleMethodSelect = (methodId: string) => {
     setImportMethod(methodId);
     markStepCompleted("method");
@@ -656,9 +688,15 @@ export default function NewProject() {
 
   const handleStartAnalysis = async () => {
     if (!validateForm()) return;
-    if (roomEligible && (!bedrooms || parseInt(bedrooms) < 1)) {
-      setErrors((e) => ({ ...e, bedrooms: "Renseignez au moins 1 chambre" }));
-      return;
+    if (roomEligible) {
+      const totalRooms =
+        (parseInt(bedrooms || "0") || 0) + (parseInt(bathrooms || "0") || 0) +
+        (parseInt(kitchens || "0") || 0) + (parseInt(livingRooms || "0") || 0) +
+        (parseInt(garages || "0") || 0);
+      if (totalRooms < 1) {
+        setErrors((e) => ({ ...e, bedrooms: "Renseignez au moins une pièce" }));
+        return;
+      }
     }
 
     setAnalyzing(true);
@@ -921,7 +959,7 @@ export default function NewProject() {
                     <button
                       key={cat.value}
                       type="button"
-                      onClick={() => { setSelectedCategory(cat.value); setErrors((e) => ({...e, category: ''})); }}
+                      onClick={() => handleCategorySelect(cat.value)}
                       className={cn(
                         "flex items-center gap-1.5 px-2 py-2 rounded-lg text-[10px] sm:text-xs border transition-all",
                         selectedCategory === cat.value
