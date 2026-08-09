@@ -576,6 +576,18 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     {error && <ErrorBanner message={error} />}
                     <PrimaryButton loading={isLoading} loadingText="Connexion...">Se connecter</PrimaryButton>
                   </form>
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 10%, transparent)" }} />
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="bg-card/80 px-2 text-[10px] uppercase tracking-wide" style={{ color: "var(--foreground)", opacity: 0.4 }}>ou</span>
+                    </div>
+                  </div>
+                  <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--foreground)" }}
+                    onClick={handleGuestLogin} disabled={isLoading}>
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />} Continuer en invité
+                  </Button>
 
                 </motion.div>
               ) : (
