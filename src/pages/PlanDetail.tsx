@@ -56,10 +56,10 @@ export default function PlanDetail() {
   const plan = plans?.[index] ?? null;
   const request: PlanRequest | null = doc?.request ?? null;
 
-  const costEstimate = useMemo(() => {
+  const bim = useMemo<ReturnType<typeof runBIMEstimation> | null>(() => {
     if (!plan || !request) return null;
     try {
-      const result = runBIMEstimation(
+      return runBIMEstimation(
         bimCategoryFor(request.bienType),
         plan.stats.construite || request.surfaceCouverte,
         plan.levels,
@@ -73,11 +73,11 @@ export default function PlanDetail() {
           garages: plan.rooms.filter((r) => r.type === "garage").length,
         },
       );
-      return result.costEstimate;
     } catch {
       return null;
     }
   }, [plan, request]);
+  const costEstimate = bim?.costEstimate ?? null;
 
   const handleEditApply = async (newReq: PlanRequest, regenerateAll: boolean, editIndex?: number) => {
     if (!id) return;
@@ -174,6 +174,8 @@ export default function PlanDetail() {
           favorite={doc.favorite}
           onToggleFavorite={() => toggleFavorite({ planId: doc._id })}
           onOpenEdit={() => setEditOpen(true)}
+          request={request}
+          bim={bim}
         />
       </div>
 

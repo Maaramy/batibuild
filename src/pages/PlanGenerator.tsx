@@ -273,11 +273,11 @@ export default function PlanGenerator() {
     }
   };
 
-  const costEstimate = useMemo(() => {
+  const bim = useMemo<ReturnType<typeof runBIMEstimation> | null>(() => {
     if (!plans || viewerIndex == null) return null;
     const p = plans[viewerIndex];
     try {
-      const result = runBIMEstimation(
+      return runBIMEstimation(
         bimCategoryFor(req.bienType),
         p.stats.construite || req.surfaceCouverte,
         p.levels,
@@ -291,11 +291,11 @@ export default function PlanGenerator() {
           garages: p.rooms.filter((r) => r.type === "garage").length,
         },
       );
-      return result.costEstimate;
     } catch {
       return null;
     }
   }, [plans, viewerIndex, req.bienType, req.standing, req.surfaceCouverte]);
+  const costEstimate = bim?.costEstimate ?? null;
 
   const openInvestAnalysis = (plan: GeneratedPlan) => {
     navigate("/dashboard/investments", {
@@ -409,6 +409,8 @@ export default function PlanGenerator() {
             open={viewerIndex != null}
             onClose={() => setViewerIndex(null)}
             onOpenEdit={() => setEditIndex(viewerIndex)}
+            request={req}
+            bim={bim}
           />
         )}
         <PlanCompareModal

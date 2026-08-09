@@ -6,11 +6,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   X, Download, FileImage, FileText, FileArchive, Loader2,
   ZoomIn, ZoomOut, Maximize2, RefreshCw, ChevronLeft, ChevronRight,
-  Box, LayoutGrid, AlertTriangle, Star, StarOff, Gauge,
+  Box, LayoutGrid, AlertTriangle, Star, StarOff, Gauge, ClipboardList,
 } from "lucide-react";
-import type { GeneratedPlan } from "@/convex/planEngine";
+import type { GeneratedPlan, PlanRequest } from "@/convex/planEngine";
 import { FloorPlanView } from "@/components/plans/FloorPlanView";
-import { exportPlanImage, exportPlanPdf, exportPlanJson } from "@/lib/planExport";
+import { PlanSheetModal } from "@/components/plans/PlanSheetModal";
+import { exportPlanImage, exportPlanPdf } from "@/lib/planExport";
+import type { PlanBimResult } from "@/lib/planSheet";
 import { toast } from "sonner";
 
 const DISCLAIMER =
@@ -26,6 +28,8 @@ export function PlanViewerModal({
   favorite,
   onToggleFavorite,
   onOpenEdit,
+  request,
+  bim,
 }: {
   plan: GeneratedPlan;
   plans: GeneratedPlan[];
@@ -36,6 +40,8 @@ export function PlanViewerModal({
   favorite?: boolean;
   onToggleFavorite?: () => void;
   onOpenEdit?: () => void;
+  request?: PlanRequest | null;
+  bim?: PlanBimResult | null;
 }) {
   const [mode, setMode] = useState<"2d" | "3d">("2d");
   const [zoom, setZoom] = useState(1);
@@ -43,6 +49,7 @@ export function PlanViewerModal({
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef({ sx: 0, sy: 0, px: 0, py: 0 });
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     setZoom(1);
@@ -91,11 +98,6 @@ export function PlanViewerModal({
     }
   };
 
-  const downloadJson = () => {
-    exportPlanJson(plan, `plan-${String(plan.index).padStart(2, "0")}`);
-    toast.success("Fiche technique téléchargée");
-  };
-
   const stats = plan.stats;
 
   return (
@@ -141,8 +143,8 @@ export function PlanViewerModal({
                 <RefreshCw className="h-3.5 w-3.5" /> Modifier
               </Button>
             )}
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={downloadJson}>
-              <FileText className="h-3.5 w-3.5" /> Fiche
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setSheetOpen(true)}>
+              <ClipboardList className="h-3.5 w-3.5" /> Fiche
             </Button>
             <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={downloadPdf} disabled={downloading === "pdf"}>
               {downloading === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} PDF
@@ -214,6 +216,17 @@ export function PlanViewerModal({
             </p>
           </div>
         </div>
+
+        {/* Fiche descriptive */}
+        {sheetOpen && (
+          <PlanSheetModal
+            plan={plan}
+            request={request ?? null}
+            bim={bim ?? null}
+            open={sheetOpen}
+            onClose={() => setSheetOpen(false)}
+          />
+        )}
 
         {/* Panneau de stats rapide */}
         <div className="shrink-0 border-t border-border/40 px-4 py-2.5 flex items-center gap-3 sm:gap-5 overflow-x-auto scrollbar-none text-[10px] sm:text-xs">
