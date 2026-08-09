@@ -1065,6 +1065,24 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_created", ["createdAt"])
       .index("by_share_token", ["shareToken"]),
+
+    // Générateur de plans architecturaux par IA
+    architecturalPlans: defineTable({
+      userId: v.id("users"),
+      name: v.string(),
+      bienType: v.string(),
+      request: v.any(),             // PlanRequest d'origine
+      plans: v.any(),               // GeneratedPlan[] (version active)
+      selectedIndex: v.optional(v.number()),
+      favorite: v.optional(v.boolean()),
+      // Historique des versions : [{ v, createdAt, plans }]
+      versions: v.optional(v.array(v.any())),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_created", ["userId", "createdAt"])
+      .index("by_created", ["createdAt"]),
   },
   {
     schemaValidation: false,

@@ -48,6 +48,7 @@ import {
   Landmark,
   Wallet,
   Layers,
+  LayoutGrid,
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -302,6 +303,7 @@ export default function Dashboard() {
           { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
           { icon: Store, label: "Espace fournisseur", onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
           { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
+          { icon: Sparkles, label: "Plans architecturaux IA", onClick: () => { navigate("/dashboard/plans"); setMobileSidebarOpen(false); } },
           { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
           ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
         ].map((item) => (
@@ -746,6 +748,61 @@ export default function Dashboard() {
                   >
                     <Landmark className="h-3.5 w-3.5" />
                     Lancer l'analyse
+                    <ArrowUpRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Générateur de plans architecturaux par IA (CTA sous l'investissement) ── */}
+          <Card
+            className="group relative border border-border/40 bg-white dark:bg-card overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-xl hover:shadow-violet-500/10 active:scale-[0.99]"
+            onClick={() => navigate("/dashboard/plans")}
+          >
+            <CardContent className="relative p-4 sm:p-6">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+                  <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-lg shadow-violet-500/30 group-hover:scale-105 group-hover:-rotate-3 transition-transform">
+                    <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm sm:text-base lg:text-lg font-bold">Générateur de plans architecturaux par Intelligence Artificielle.</p>
+                      <Badge className="gap-1 border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300 text-[9px]">
+                        <Sparkles className="h-3 w-3" />
+                        IA
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                      10 propositions de Floor Plans 2D & 3D adaptées à votre bien, vos pièces et vos contraintes — téléchargeables en PNG, JPG et PDF.
+                    </p>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                      {[
+                        { icon: Home, label: "12 types de biens" },
+                        { icon: LayoutGrid, label: "10 plans par projet" },
+                        { icon: Sparkles, label: "Scores IA & comparaison" },
+                        { icon: Layers, label: "2D + 3D" },
+                      ].map((chip) => (
+                        <span key={chip.label} className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-violet-600 dark:text-violet-300">
+                          <chip.icon className="h-3 w-3" />
+                          {chip.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/20 pt-3">
+                  <span className="text-[10px] sm:text-xs text-muted-foreground">
+                    <span className="font-semibold text-violet-600 dark:text-violet-300">Génération instantanée</span> — aucun fichier à importer.
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); navigate("/dashboard/plans/new"); }}
+                    className="h-8 shrink-0 gap-1.5 px-3.5 text-xs font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/25 hover:from-violet-500 hover:to-indigo-500 hover:shadow-violet-600/40 transition-all active:scale-[0.97]"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Générer mes plans
                     <ArrowUpRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                   </Button>
                 </div>
