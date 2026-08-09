@@ -80,8 +80,9 @@ const COMPARE_REGIONS = [
 // ── Correspondance catégorie de projet → type de bien investissement ──────
 // Le bouton « Return on Investment » n'apparaît sur la page de résultat que si
 // la catégorie du projet correspond à un type de bien géré par le formulaire
-// d'analyse de rentabilité immobilière. Les catégories hors périmètre
-// (piscine, jardin, clôture, rénovation, voirie…) n'affichent pas le bouton.
+// d'analyse de rentabilité immobilière. Les rénovations sont mappées vers le
+// type résidentiel le plus proche ; les catégories hors périmètre
+// (piscine, jardin, clôture, voirie…) n'affichent pas le bouton.
 const PROJECT_TO_INVESTMENT: Record<string, InvestmentType> = {
   maison: "maison",
   "maison_r+1": "maison",
@@ -104,6 +105,10 @@ const PROJECT_TO_INVESTMENT: Record<string, InvestmentType> = {
   usine: "entrepot",
   ferme: "terrain",
   renovation_interieure: "appartement",
+  renovation_exterieure: "maison",
+  renovation_salle_de_bain: "appartement",
+  renovation_cuisine: "appartement",
+  renovation_facade: "maison",
 };
 
 /** Type de bien investissement si la catégorie du projet est prise en charge. */

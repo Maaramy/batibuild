@@ -95,7 +95,11 @@ function ProjectCard({ project }: { project: any }) {
     piscine: "Piscine",
     jardin: "Jardin",
     garage: "Garage",
-    renovation_interieure: "Rénovation",
+    renovation_interieure: "Rénovation intérieure",
+    renovation_exterieure: "Rénovation extérieure",
+    renovation_salle_de_bain: "Rénovation salle de bain",
+    renovation_cuisine: "Rénovation cuisine",
+    renovation_facade: "Rénovation façade",
   };
 
   return (
