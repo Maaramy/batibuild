@@ -123,7 +123,7 @@ export default function PlanDetail() {
   return (
     <main className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-border/30 bg-background/85 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-between h-14">
+        <div className="mx-auto max-w-7xl px-3 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 sm:min-h-14 sm:py-0">
           <div className="flex items-center gap-2 min-w-0">
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => navigate("/dashboard/plans")}>
               <ArrowLeft className="h-4 w-4" />
@@ -136,7 +136,7 @@ export default function PlanDetail() {
               <p className="text-[10px] text-muted-foreground truncate">{bienTypeLabel(doc.bienType)} · {plan.stats.construite.toFixed(0)} m² · v{Array.isArray(doc.versions) ? doc.versions.length + 1 : 1}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             {costEstimate && (
               <div className="hidden md:flex flex-col items-end mr-1">
                 <span className="text-[9px] text-muted-foreground">Estimation coût</span>
@@ -146,17 +146,17 @@ export default function PlanDetail() {
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleFavorite({ planId: doc._id })} title="Favori">
               <Star className={`h-4 w-4 ${doc.favorite ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`} />
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setCompareOpen(true)}>
-              <Gauge className="h-3.5 w-3.5" /> Comparer
+            <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => setCompareOpen(true)} title="Comparer les plans">
+              <Gauge className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Comparer</span>
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={async () => {
+            <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={async () => {
               try { await exportAllPlansZip(plans, doc.name); toast.success("Les 10 plans téléchargés (ZIP)"); }
               catch (e: any) { toast.error(e?.message || "Échec ZIP"); }
-            }}>
-              <FileArchive className="h-3.5 w-3.5" /> ZIP
+            }} title="Télécharger les 10 plans (ZIP)">
+              <FileArchive className="h-3.5 w-3.5" /> <span className="hidden sm:inline">ZIP</span>
             </Button>
-            <Button size="sm" className="h-8 text-xs gap-1" onClick={() => navigate("/dashboard/investments", { state: { prefill: { name: doc.name, investmentType: investTypeFor(doc.bienType), area: plan.stats.utile, region: "tunis", monthlyRent: Math.round((costEstimate?.totalCost ?? 200000) * 0.0055), rentMode: "mensuel", rentAmount: Math.round((costEstimate?.totalCost ?? 200000) * 0.0055) } } })}>
-              <TrendingUp className="h-3.5 w-3.5" /> Rentabilité
+            <Button size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => navigate("/dashboard/investments", { state: { prefill: { name: doc.name, investmentType: investTypeFor(doc.bienType), area: plan.stats.utile, region: "tunis", monthlyRent: Math.round((costEstimate?.totalCost ?? 200000) * 0.0055), rentMode: "mensuel", rentAmount: Math.round((costEstimate?.totalCost ?? 200000) * 0.0055) } } })} title="Analyse de rentabilité">
+              <TrendingUp className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Rentabilité</span>
             </Button>
           </div>
         </div>

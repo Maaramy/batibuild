@@ -139,8 +139,8 @@ export function PlanViewerModal({
               </Button>
             )}
             {onOpenEdit && (
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={onOpenEdit}>
-                <RefreshCw className="h-3.5 w-3.5" /> Modifier
+              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={onOpenEdit} title="Modifier">
+                <RefreshCw className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Modifier</span>
               </Button>
             )}
             <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setSheetOpen(true)}>
