@@ -65,11 +65,6 @@ export const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium
   villa:              { eco: 900,  std: 1350, premium: 2200 },
   immeuble_residentiel:{ eco: 950,  std: 1400, premium: 2200 },
   appartement:        { eco: 1000, std: 1500, premium: 2400 },
-  studio:             { eco: 950,  std: 1450, premium: 2350 },
-  duplex:             { eco: 1000, std: 1500, premium: 2450 },
-  immeuble:           { eco: 950,  std: 1400, premium: 2200 },
-  residence_touristique:{ eco: 1000, std: 1500, premium: 2500 },
-  projet_neuf:        { eco: 900,  std: 1350, premium: 2200 },
 
   // Piscine & Extérieur
   piscine:            { eco: 750,  std: 1100, premium: 1800 },
@@ -133,11 +128,6 @@ export const PROJECT_PCT: Record<string, Percentages> = {
   villa: [33, 34, 20, 5, 3, 5],
   immeuble_residentiel: [43, 24, 15, 10, 3, 5],
   appartement: [29, 39, 20, 5, 2, 5],
-  studio: [28, 40, 20, 5, 2, 5],
-  duplex: [33, 35, 18, 7, 2, 5],
-  immeuble: [43, 24, 15, 10, 3, 5],
-  residence_touristique: [30, 35, 22, 6, 2, 5],
-  projet_neuf: [38, 30, 16, 8, 3, 5],
   piscine: [43, 20, 25, 5, 2, 5],
   jardin: [18, 25, 45, 5, 2, 5],
   amenagement_paysager: [20, 25, 43, 5, 2, 5],
@@ -182,8 +172,6 @@ export const PROJECT_PCT: Record<string, Percentages> = {
 const CATEGORY_LABEL: Record<string, string> = {
   maison: "Maison", maison_r_plus_1: "Maison R+1", villa: "Villa",
   immeuble_residentiel: "Immeuble résidentiel", appartement: "Appartement",
-  studio: "Studio", duplex: "Duplex", immeuble: "Immeuble",
-  residence_touristique: "Résidence touristique", projet_neuf: "Projet immobilier neuf",
   piscine: "Piscine", jardin: "Jardin", amenagement_paysager: "Aménagement paysager",
   garage: "Garage", cloture: "Clôture", mur_de_separation: "Mur de séparation",
   cuisine_exterieure: "Cuisine extérieure", terrasse: "Terrasse", pergola: "Pergola",
@@ -259,7 +247,7 @@ function catProfile(cat: string): string {
   if (["cloture", "mur_de_separation"].includes(cat)) return "fence";
   if (cat === "installation_solaire") return "solar";
   if (["usine", "depot", "entrepot", "atelier", "chateau_d_eau", "serre_agricole"].includes(cat)) return "industrial";
-  if (["local_commercial", "bureau", "hotel", "restaurant", "cafe", "residence_touristique"].includes(cat)) return "commercial";
+  if (["local_commercial", "bureau", "hotel", "restaurant", "cafe"].includes(cat)) return "commercial";
   if (["parking", "route", "trottoir"].includes(cat)) return "parking";
   if (cat.startsWith("renovation")) return "renovation";
   return "residential";
@@ -269,7 +257,7 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
   const tb = surface * (floors || 1);
   const profile = catProfile(cat);
   const isSmall = ["cloture","mur_de_separation","trottoir","pergola","terrasse","garage"].includes(cat);
-  const isHeavy = ["immeuble_residentiel","immeuble","usine","depot","entrepot","chateau_d_eau","mosquee","ecole"].includes(cat);
+  const isHeavy = ["immeuble_residentiel","usine","depot","entrepot","chateau_d_eau","mosquee","ecole"].includes(cat);
   const d = isSmall ? 0.5 : isHeavy ? 1.3 : 1;
   const dW = d * wallFactor; // cloisons supplémentaires selon le nb de pièces
 
@@ -573,7 +561,7 @@ function genEQItems(surface: number, floors: number, cat: string, targetBudget: 
 function genMOItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { total?: number; bathrooms?: number; kitchens?: number }) {
   const tb = surface * (floors || 1);
   const profile = catProfile(cat);
-  const ih = ["immeuble_residentiel","immeuble","usine","mosquee","ecole","hotel","residence_touristique"].includes(cat) ? 1.2 : 1;
+  const ih = ["immeuble_residentiel","usine","mosquee","ecole","hotel"].includes(cat) ? 1.2 : 1;
   // Plus de pièces = plus de points électriques & sanitaires à poser
   const roomFactor = rooms?.total ? Math.min(1.4, Math.max(0.7, rooms.total / 6)) : 1;
   const saniFactor = rooms?.bathrooms ? Math.min(1.3, Math.max(0.8, ((rooms.bathrooms || 1) + (rooms.kitchens || 1)) / 3)) : 1;
