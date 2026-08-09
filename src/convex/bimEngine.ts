@@ -657,7 +657,7 @@ function genMOItems(surface: number, floors: number, cat: string, targetBudget: 
   }));
 }
 
-function genTRItems(surface: number, floors: number, targetBudget: number, cat = "maison") { // VIEW-PROBE-2B
+function genTRItems(surface: number, floors: number, targetBudget: number, cat = "maison") {
   const tb = surface * (floors || 1);
   const profile = catProfile(cat);
   let items: any[];
