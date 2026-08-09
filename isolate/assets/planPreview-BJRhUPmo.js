@@ -1,0 +1,1 @@
+function o(s,t){return{index:s.index??1,key:"saved",name:t,description:"",strengths:[],weaknesses:[],width:s.width??10,depth:s.depth??8,levels:s.levels??1,rooms:s.rooms??[],doors:s.doors??[],windows:s.windows??[],stairs:s.stairs??[],alerts:{incompatible:!1,messages:[]},scores:s.scores,stats:s.stats}}export{o as p};
