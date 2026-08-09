@@ -1270,7 +1270,7 @@ export default function NewProject() {
       </AnimatePresence>
 
       {/* ── Header ── */}
-      <header className="sticky top-0 z-20 border-b border-border/20 bg-background/80 backdrop-blur-md">
+      <header className="glass-header sticky top-0 z-20">
         <div className="mx-auto max-w-6xl px-3 sm:px-6 flex items-center h-12 sm:h-14">
           <Button variant="ghost" size="sm" className="gap-1 h-8 shrink-0" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4" />

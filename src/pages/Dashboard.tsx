@@ -55,7 +55,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useTheme } from "next-themes";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { FloorPlan2D } from "@/components/plans/FloorPlanView";
@@ -222,14 +224,14 @@ function ProjectCard({ project }: { project: any }) {
 
 function StatsCard({ icon: Icon, label, value, gradient, iconColor }: any) {
   return (
-    <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-shadow duration-200">
-      <CardContent className="p-3 sm:p-4">
+    <Card className="group border border-border/40 bg-card/60 shadow-soft transition-all duration-200 hover:border-primary/25 hover:shadow-soft-lg">
+      <CardContent className="p-3.5 sm:p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[10px] sm:text-xs text-muted-foreground font-medium truncate">{label}</p>
-            <p className="text-sm sm:text-lg lg:text-xl font-bold mt-0.5 truncate">{value}</p>
+            <p className="label-overline truncate">{label}</p>
+            <p className="text-base sm:text-lg lg:text-2xl font-black mt-1 truncate tabular-nums">{value}</p>
           </div>
-          <div className={`flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${gradient} ${iconColor}`}>
+          <div className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} ${iconColor} transition-transform duration-200 group-hover:scale-105`}>
             <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
           </div>
         </div>
@@ -274,6 +276,25 @@ export default function Dashboard() {
   const isNearLimit = usagePercent >= 80 && projectLimit !== Infinity;
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
+
+  const costSeries = useMemo(() => {
+    const byMonth = new Map<string, { label: string; total: number }>();
+    (projects as any[]).forEach((p) => {
+      const total = p.costEstimate?.totalCost;
+      if (!total) return;
+      const d = new Date(p.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const cur = byMonth.get(key) ?? {
+        label: d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
+        total: 0,
+      };
+      cur.total += total;
+      byMonth.set(key, cur);
+    });
+    return [...byMonth.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([, v]) => v);
+  }, [projects]);
 
   const filteredProjects = projects.filter((p: any) => {
     if (activeTab === "favorites") return p.isFavorite;
@@ -360,7 +381,7 @@ export default function Dashboard() {
       {/* Main content */}
       <div className="lg:pl-56 xl:pl-64">
         {/* Top header */}
-        <header className="sticky top-0 z-30 border-b border-border/30 bg-background/80 backdrop-blur-md">
+        <header className="glass-header sticky top-0 z-30">
           <div className="flex items-center justify-between px-3 sm:px-5 lg:px-6 h-12 sm:h-14 lg:h-16">
             <div className="flex items-center gap-2 lg:gap-3 min-w-0">
               <button onClick={() => setMobileSidebarOpen(true)}
@@ -433,10 +454,63 @@ export default function Dashboard() {
             <StatsCard icon={CheckCircle2} label="Terminés" value={stats.completedProjects}
               gradient="from-emerald-500/20 to-teal-500/20" iconColor="text-emerald-600 dark:text-emerald-400" />
             <StatsCard icon={TrendingUp} label="Coût total" value={formatter.format(stats.totalEstimatedCost)}
-              gradient="from-violet-500/20 to-purple-500/20" iconColor="text-violet-600 dark:text-violet-400" />
+              gradient="from-teal-500/20 to-emerald-500/20" iconColor="text-teal-600 dark:text-teal-400" />
             <StatsCard icon={BarChart3} label="Moyenne" value={formatter.format(stats.averageCostPerProject)}
               gradient="from-amber-500/20 to-orange-500/20" iconColor="text-amber-600 dark:text-amber-400" />
           </div>
+
+          {/* ── Évolution des coûts (Recharts) ── */}
+          {costSeries.length >= 2 && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <Card className="border border-border/40 bg-card/60 shadow-soft">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 lg:p-5">
+                  <div>
+                    <CardTitle className="text-sm sm:text-base">Évolution des coûts estimés</CardTitle>
+                    <CardDescription className="text-[10px] sm:text-xs">Montant total des estimations par mois (TND)</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      Coûts cumulés
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-2 pb-3">
+                  <div className="h-56 sm:h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={costSeries} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="costFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#059669" stopOpacity={0.28} />
+                            <stop offset="100%" stopColor="#059669" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                        <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} width={44} />
+                        <Tooltip
+                          cursor={{ stroke: "var(--ring)", strokeWidth: 1, strokeDasharray: "4 4" }}
+                          contentStyle={{
+                            borderRadius: 12,
+                            border: "1px solid var(--border)",
+                            background: "var(--card)",
+                            boxShadow: "0 12px 32px -12px oklch(0 0 0 / 0.25)",
+                            fontSize: 12,
+                          }}
+                          formatter={(value: any) => [formatter.format(Number(value)), "Coût estimé"]}
+                        />
+                        <Area type="monotone" dataKey="total" stroke="#059669" strokeWidth={2.5} fill="url(#costFill)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {/* ── Plan Counter Card (Free/Pro/Expert) ── */}
           {(projectLimit !== Infinity || userPlan === "expert") && stats.totalProjects > 0 && (

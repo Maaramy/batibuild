@@ -87,8 +87,8 @@ const FEATURES = [
     icon: Cpu,
     title: "Analyse IA Automatique",
     desc: "L'IA reconnaît le type de projet, détecte les dimensions et identifie les matériaux nécessaires.",
-    gradient: "from-violet-500/20 to-purple-500/20",
-    iconColor: "text-violet-600 dark:text-violet-400",
+    gradient: "from-emerald-500/20 to-teal-500/20",
+    iconColor: "text-emerald-600 dark:text-emerald-400",
   },
   {
     icon: TrendingUp,
@@ -108,15 +108,15 @@ const FEATURES = [
     icon: Ruler,
     title: "40+ Types de Projets",
     desc: "Maisons, villas, piscines, immeubles, rénovations et bien plus encore.",
-    gradient: "from-rose-500/20 to-pink-500/20",
-    iconColor: "text-rose-600 dark:text-rose-400",
+    gradient: "from-sky-500/20 to-blue-500/20",
+    iconColor: "text-sky-600 dark:text-sky-400",
   },
   {
     icon: Layers,
     title: "Gestion des Matériaux",
     desc: "Base de données des prix des matériaux actualisée avec historique des changements.",
-    gradient: "from-indigo-500/20 to-blue-500/20",
-    iconColor: "text-indigo-600 dark:text-indigo-400",
+    gradient: "from-teal-500/20 to-cyan-500/20",
+    iconColor: "text-teal-600 dark:text-teal-400",
   },
 ];
 
@@ -182,8 +182,8 @@ const INVESTMENT_POINTS = [
     icon: Percent,
     title: "Indicateurs financiers complets",
     desc: "Rentabilité brute et nette, flux de trésorerie mensuel et annuel, Return on Investment à 1, 5 et 10 ans.",
-    gradient: "from-indigo-500/20 to-blue-500/20",
-    iconColor: "text-indigo-600 dark:text-indigo-400",
+    gradient: "from-blue-500/20 to-sky-500/20",
+    iconColor: "text-blue-600 dark:text-blue-400",
   },
   {
     icon: CalendarClock,
@@ -203,8 +203,8 @@ const INVESTMENT_POINTS = [
     icon: Layers,
     title: "3 scénarios de simulation",
     desc: "Optimiste, réaliste et prudent : anticipez chaque cas de figure avant d'investir.",
-    gradient: "from-violet-500/20 to-purple-500/20",
-    iconColor: "text-violet-600 dark:text-violet-400",
+    gradient: "from-sky-500/20 to-blue-500/20",
+    iconColor: "text-sky-600 dark:text-sky-400",
   },
   {
     icon: Gauge,
@@ -217,8 +217,8 @@ const INVESTMENT_POINTS = [
     icon: Bot,
     title: "Assistant IA investisseur",
     desc: "Posez vos questions : rentabilité, meilleures zones d'investissement, risque, financement.",
-    gradient: "from-rose-500/20 to-pink-500/20",
-    iconColor: "text-rose-600 dark:text-rose-400",
+    gradient: "from-teal-500/20 to-emerald-500/20",
+    iconColor: "text-teal-600 dark:text-teal-400",
   },
 ];
 
@@ -334,40 +334,32 @@ function Navbar() {
 
 function HeroSection() {
   const navigate = useNavigate();
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start start", "end start"],
-  });
-  const y = useTransform(scrollYProgress, [0, 1], [0, 150]);
-  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   return (
-    <section ref={ref} className="relative min-h-screen flex items-center overflow-hidden pt-16">
+    <section className="relative overflow-hidden pt-16">
       {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-background" />
-      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-      <div className="absolute top-1/3 -right-32 w-80 h-80 bg-blue-400/5 rounded-full blur-3xl" />
-      
-      <motion.div style={{ y, opacity }} className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 w-full">
-        <div className="mx-auto max-w-4xl text-center">
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+      <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.06] via-transparent to-background" />
+      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
+      <div className="absolute top-1/3 -right-32 w-80 h-80 bg-sky-400/10 rounded-full blur-3xl" />
+
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 sm:py-20 w-full">
+        <div className="mx-auto max-w-5xl text-center">
+          {/* Overline + badge */}
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.5 }}
-            className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm"
+            transition={{ delay: 0.05, duration: 0.5 }}
+            className="label-overline mb-4"
           >
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            <span className="text-muted-foreground">Estimation par IA pour le marché tunisien</span>
-          </motion.div>
+            Estimation de construction par IA — Tunisie 2026
+          </motion.p>
 
           {/* Title */}
           <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-tight"
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 0.15, duration: 0.55, ease: "easeOut" }}
+            className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.05]"
           >
             Estimez vos projets de{" "}
             <span className="gradient-text">construction</span>{" "}
@@ -378,10 +370,10 @@ function HeroSection() {
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
+            transition={{ delay: 0.25, duration: 0.5 }}
             className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed"
           >
-            Importez une photo, un plan ou des dimensions. L'intelligence artificielle analyse, 
+            Importez une photo, un plan ou des dimensions. L'intelligence artificielle analyse,
             calcule et génère un devis complet basé sur les prix actualisés du marché tunisien.
           </motion.p>
 
@@ -389,12 +381,12 @@ function HeroSection() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
+            transition={{ delay: 0.35, duration: 0.5 }}
             className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3"
           >
             <Button
               size="lg"
-              className="h-12 px-8 text-base gap-2 w-full sm:w-auto shadow-lg shadow-primary/20"
+              className="btn-gradient h-12 px-8 text-base gap-2 w-full sm:w-auto text-white border-0"
               onClick={() => navigate("/auth")}
             >
               Commencer un devis gratuit
@@ -410,31 +402,80 @@ function HeroSection() {
             </Button>
           </motion.div>
 
-          {/* Categories bar */}
+          {/* Signature hero card : résultat en dégradé + watermark + chiffre clé */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.5 }}
-            className="mt-12"
+            initial={{ opacity: 0, y: 30, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 0.45, duration: 0.6, ease: "easeOut" }}
+            className="relative mt-12 sm:mt-14 overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-green-900 p-6 sm:p-9 text-left shadow-soft-lg"
           >
-            <p className="text-xs text-muted-foreground mb-4 uppercase tracking-wider font-medium">
-              Types de biens immobiliers pris en charge
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {PROJECT_CATEGORIES_DISPLAY.map((cat) => (
-                <Badge
-                  key={cat}
-                  variant="secondary"
-                  className="px-3 py-1.5 text-xs font-medium bg-secondary/70 hover:bg-secondary transition-colors"
-                >
-                  {cat}
-                </Badge>
-              ))}
+            <div className="dotted-watermark absolute inset-0 opacity-40" />
+            <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
 
+            <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 backdrop-blur-sm">
+                  <MapPin className="h-3.5 w-3.5 text-emerald-100" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">Marché tunisien</span>
+                </div>
+                <p className="mt-4 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/80">
+                  Devis moyen — maison R+1 · 150 m² · standard
+                </p>
+                <p className="mt-1 text-4xl sm:text-5xl font-black text-white tabular-nums">253 590 TND</p>
+                <p className="mt-2 text-xs text-emerald-100/80 max-w-sm leading-relaxed">
+                  Répartition IA : gros œuvre, second œuvre, équipements et finitions — prix actualisés 2026.
+                </p>
+              </div>
+
+              <div className="flex sm:flex-col gap-2 shrink-0">
+                <div className="flex-1 sm:flex-none rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/10">
+                  <p className="text-[9px] uppercase tracking-widest text-emerald-100/70">Confiance IA</p>
+                  <p className="text-xl font-black text-white">95%</p>
+                </div>
+                <div className="flex-1 sm:flex-none rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/10">
+                  <p className="text-[9px] uppercase tracking-widest text-emerald-100/70">Durée chantier</p>
+                  <p className="text-xl font-black text-white">6 mois</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative mt-6 flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/10">
+              <Sparkles className="h-4 w-4 text-emerald-100 shrink-0" />
+              <p className="text-[11px] text-emerald-50/90 leading-snug">
+                Rapport complet : liste des matériaux, quantités, main-d'œuvre, planning et recommandations — export PDF / Excel / CSV.
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Categories chips */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.55, duration: 0.5 }}
+            className="mt-10"
+          >
+            <p className="label-overline mb-4">40+ types de projets pris en charge</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {PROJECT_CATEGORIES_DISPLAY.slice(0, 8).map((cat, i) => (
+                <span
+                  key={cat}
+                  className={`inline-flex items-center gap-1.5 rounded-full border-2 px-3.5 py-1.5 text-[11px] font-semibold transition-all ${
+                    i === 0
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-300"
+                      : "border-border/60 bg-background/60 text-muted-foreground hover:border-emerald-500/40 hover:text-foreground"
+                  }`}
+                >
+                  {i === 0 && <Check className="h-3 w-3" />}
+                  {cat}
+                </span>
+              ))}
+              <span className="inline-flex items-center rounded-full border-2 border-dashed border-border/70 px-3.5 py-1.5 text-[11px] font-semibold text-muted-foreground">
+                +32 autres
+              </span>
             </div>
           </motion.div>
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 }
@@ -463,10 +504,10 @@ function HowItWorksSection() {
       title: "L'IA analyse",
       shortTitle: "Analyse",
       desc: "L'intelligence artificielle identifie le type de projet, calcule les surfaces et détecte les matériaux.",
-      gradient: "from-violet-500 to-purple-500",
-      bgGradient: "from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20",
-      border: "border-violet-200/50 dark:border-violet-800/30",
-      textColor: "text-violet-600 dark:text-violet-400",
+      gradient: "from-teal-500 to-cyan-500",
+      bgGradient: "from-teal-50/50 to-cyan-50/50 dark:from-teal-950/20 dark:to-cyan-950/20",
+      border: "border-teal-200/50 dark:border-teal-800/30",
+      textColor: "text-teal-600 dark:text-teal-400",
     },
     {
       step: "03",
@@ -520,10 +561,8 @@ function HowItWorksSection() {
           transition={{ duration: 0.5 }}
           className="mx-auto max-w-2xl text-center mb-16"
         >
-          <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Comment ça marche
-          </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+          <p className="label-overline mb-3">Process</p>
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
             De l'import au rapport en{" "}
             <span className="gradient-text">3 étapes</span>
           </h2>
@@ -844,10 +883,8 @@ function FeaturesSection() {
     <section id="features" ref={ref} className="relative py-24 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Fonctionnalités
-          </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+          <p className="label-overline mb-3">Fonctionnalités</p>
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
             Tout ce dont vous avez besoin pour estimer vos projets
           </h2>
           <p className="mt-4 text-muted-foreground">
@@ -989,12 +1026,12 @@ function InvestmentsSection() {
           transition={{ duration: 0.5 }}
           className="mx-auto max-w-2xl text-center mb-16"
         >
-          <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/5 px-3 py-1 text-xs font-medium">
-            <Landmark className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-            Investissement immobilier
-            <span className="ml-1 rounded-full bg-indigo-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-600 dark:text-indigo-400">Nouveau</span>
+          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/5 px-3 py-1 text-xs font-medium">
+            <Landmark className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+            Module investissement
+            <span className="ml-1 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-blue-600 dark:text-blue-400">Nouveau</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
             Analysez la rentabilité de vos{" "}
             <span className="gradient-text">investissements immobiliers</span>
           </h2>
@@ -1134,8 +1171,8 @@ function BenefitsSection() {
               transition={{ delay: index * 0.1, duration: 0.5 }}
               className="text-center"
             >
-              <div className="text-4xl sm:text-5xl font-bold gradient-text mb-2">{benefit.number}</div>
-              <div className="text-sm font-semibold mb-1">{benefit.label}</div>
+              <div className="text-4xl sm:text-5xl font-black gradient-text mb-2">{benefit.number}</div>
+              <div className="label-overline mb-1">{benefit.label}</div>
               <div className="text-xs text-muted-foreground">{benefit.desc}</div>
             </motion.div>
           ))}
@@ -1151,10 +1188,8 @@ function TestimonialsSection() {
       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-primary/5" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Témoignages
-          </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+          <p className="label-overline mb-3">Social proof</p>
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
             Ce que disent nos utilisateurs
           </h2>
           <p className="mt-4 text-muted-foreground">
@@ -1209,34 +1244,35 @@ function CTASection() {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-50px" }}
-          className="relative rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-blue-500/5 border border-primary/20 p-8 sm:p-12 lg:p-16 text-center overflow-hidden"
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-green-900 p-8 sm:p-12 lg:p-16 text-center shadow-soft-lg"
         >
-          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-400/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-          
+          <div className="dotted-watermark absolute inset-0 opacity-30" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-sky-400/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+
           <div className="relative">
-            <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium bg-background/50">
-              Prêt à commencer ?
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 backdrop-blur-sm">
+              <Sparkles className="h-3.5 w-3.5 text-emerald-100" />
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">Prêt à commencer ?</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white mb-4">
               Estimez votre premier projet gratuitement
             </h2>
-            <p className="text-muted-foreground max-w-lg mx-auto mb-8">
+            <p className="text-emerald-100/80 max-w-lg mx-auto mb-8">
               Rejoignez les professionnels tunisiens qui utilisent l'IA pour optimiser leurs estimations de construction.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
                 size="lg"
-                className="h-12 px-8 text-base gap-2 shadow-lg shadow-primary/20"
+                className="h-12 px-8 text-base gap-2 bg-white text-emerald-800 hover:bg-emerald-50 border-0 shadow-lg shadow-black/20"
                 onClick={() => navigate("/auth")}
               >
                 <Upload className="h-4 w-4" />
                 Commencer maintenant
               </Button>
               <Button
-                variant="outline"
                 size="lg"
-                className="h-12 px-8 text-base"
+                className="h-12 px-8 text-base bg-white/10 text-white hover:bg-white/20 border border-white/20 backdrop-blur-sm"
                 onClick={() => navigate("/auth")}
               >
                 Créer un compte

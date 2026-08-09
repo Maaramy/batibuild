@@ -42,72 +42,72 @@
 }
 
 :root {
-  --radius: 0.75rem;
-  --background: oklch(0.985 0.003 264.542);
-  --foreground: oklch(0.13 0.028 261.692);
+  --radius: 1rem;
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.145 0.015 260);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.028 261.692);
+  --card-foreground: oklch(0.145 0.015 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.028 261.692);
-  --primary: oklch(0.546 0.245 262.881);
+  --popover-foreground: oklch(0.145 0.015 260);
+  --primary: oklch(0.596 0.145 163.2);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.034 264.665);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.551 0.027 264.364);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.034 264.665);
+  --secondary: oklch(0.968 0.002 248);
+  --secondary-foreground: oklch(0.208 0.042 265);
+  --muted: oklch(0.968 0.002 248);
+  --muted-foreground: oklch(0.556 0.02 257);
+  --accent: oklch(0.968 0.002 248);
+  --accent-foreground: oklch(0.208 0.042 265);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.546 0.245 262.881);
-  --chart-1: oklch(0.546 0.245 262.881);
-  --chart-2: oklch(0.627 0.194 149.214);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.13 0.028 261.692);
-  --sidebar-primary: oklch(0.546 0.245 262.881);
+  --border: oklch(0.918 0.004 248);
+  --input: oklch(0.918 0.004 248);
+  --ring: oklch(0.596 0.145 163.2);
+  --chart-1: oklch(0.596 0.145 163.2);
+  --chart-2: oklch(0.545 0.175 252);
+  --chart-3: oklch(0.769 0.12 83);
+  --chart-4: oklch(0.627 0.15 229);
+  --chart-5: oklch(0.69 0.16 300);
+  --sidebar: oklch(0.992 0.001 250);
+  --sidebar-foreground: oklch(0.145 0.015 260);
+  --sidebar-primary: oklch(0.596 0.145 163.2);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.034 264.665);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.546 0.245 262.881);
+  --sidebar-accent: oklch(0.96 0.004 248);
+  --sidebar-accent-foreground: oklch(0.208 0.042 265);
+  --sidebar-border: oklch(0.92 0.004 248);
+  --sidebar-ring: oklch(0.596 0.145 163.2);
 }
 
 .dark {
-  --background: oklch(0.13 0.028 261.692);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.18 0.034 261.692);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.18 0.034 261.692);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.546 0.245 262.881);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.28 0.033 261.692);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.28 0.033 261.692);
-  --muted-foreground: oklch(0.708 0.028 261.692);
-  --accent: oklch(0.28 0.033 261.692);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: oklch(0.145 0.012 258);
+  --foreground: oklch(0.985 0.002 250);
+  --card: oklch(0.185 0.014 258);
+  --card-foreground: oklch(0.985 0.002 250);
+  --popover: oklch(0.185 0.014 258);
+  --popover-foreground: oklch(0.985 0.002 250);
+  --primary: oklch(0.696 0.17 162.5);
+  --primary-foreground: oklch(0.145 0.012 258);
+  --secondary: oklch(0.26 0.016 258);
+  --secondary-foreground: oklch(0.985 0.002 250);
+  --muted: oklch(0.26 0.016 258);
+  --muted-foreground: oklch(0.708 0.02 256);
+  --accent: oklch(0.26 0.016 258);
+  --accent-foreground: oklch(0.985 0.002 250);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.546 0.245 262.881);
-  --chart-1: oklch(0.546 0.245 262.881);
-  --chart-2: oklch(0.627 0.194 149.214);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.18 0.034 261.692);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.546 0.245 262.881);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.28 0.033 261.692);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.696 0.17 162.5);
+  --chart-1: oklch(0.696 0.17 162.5);
+  --chart-2: oklch(0.623 0.19 253);
+  --chart-3: oklch(0.769 0.12 83);
+  --chart-4: oklch(0.627 0.15 229);
+  --chart-5: oklch(0.69 0.16 300);
+  --sidebar: oklch(0.185 0.014 258);
+  --sidebar-foreground: oklch(0.985 0.002 250);
+  --sidebar-primary: oklch(0.696 0.17 162.5);
+  --sidebar-primary-foreground: oklch(0.145 0.012 258);
+  --sidebar-accent: oklch(0.26 0.016 258);
+  --sidebar-accent-foreground: oklch(0.985 0.002 250);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.546 0.245 262.881);
+  --sidebar-ring: oklch(0.696 0.17 162.5);
 }
 
 @layer base {
@@ -150,19 +150,83 @@
 
 /* Gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, var(--primary) 0%, oklch(0.7 0.2 200) 50%, var(--primary) 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, oklch(0.72 0.15 175) 55%, var(--primary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* ============================================================================
+   Design system — shadcn/ui premium SaaS
+   ============================================================================ */
+
+/* Body: subtle slate gradient (light: slate-50 → white → slate-50, dark: gray-950 → gray-900) */
+body {
+  background-image: linear-gradient(180deg, oklch(0.985 0.002 250), oklch(1 0 0) 32%, oklch(0.985 0.002 250));
+  background-attachment: fixed;
+}
+.dark body {
+  background-image: linear-gradient(180deg, oklch(0.13 0.012 258), oklch(0.15 0.014 258) 40%, oklch(0.13 0.012 258));
+}
+
+@layer utilities {
+  /* Micro-label: uppercase tracking-widest 9-10px slate-400 */
+  .label-overline {
+    @apply text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  /* Soft diffuse card shadow (never hard borders) */
+  .shadow-soft {
+    box-shadow: 0 1px 2px oklch(0 0 0 / 0.03), 0 8px 24px -12px oklch(0 0 0 / 0.08);
+  }
+  .shadow-soft-lg {
+    box-shadow: 0 2px 4px oklch(0 0 0 / 0.04), 0 16px 40px -16px oklch(0 0 0 / 0.14);
+  }
+
+  /* Dotted watermark (hero cards) */
+  .dotted-watermark {
+    background-image: radial-gradient(oklch(1 0 0 / 0.18) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+
+  /* Zebra rows */
+  .table-zebra tbody tr:nth-child(odd) {
+    background: var(--muted);
+  }
+
+  /* Glass sticky headers */
+  .glass-header {
+    background: oklch(1 0 0 / 0.72);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid oklch(0.92 0.004 248 / 0.6);
+  }
+  .dark .glass-header {
+    background: oklch(0.145 0.012 258 / 0.72);
+    border-bottom: 1px solid oklch(1 0 0 / 0.08);
+  }
+
+  /* Primary gradient buttons with colored shadow */
+  .btn-gradient {
+    background-image: linear-gradient(135deg, oklch(0.62 0.15 163) 0%, oklch(0.55 0.16 168) 100%);
+    box-shadow: 0 8px 20px -8px oklch(0.62 0.15 163 / 0.55);
+  }
+  .btn-gradient:hover {
+    filter: brightness(1.06);
+    box-shadow: 0 10px 26px -8px oklch(0.62 0.15 163 / 0.65);
+  }
+}
+
+/* Focus visible — accessible, always on brand */
+:where(button, a, input, select, textarea, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 /* Smooth scroll */
 html {
   scroll-behavior: smooth;
 }
-
-/* Inter font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ============================================================================
    BudgetBati Auth Theme — Tunisian Construction Palette
@@ -279,8 +343,7 @@ html {
   font-family: "Noto Sans Arabic", "Tajawal", "Cairo", ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Import Arabic fonts */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&display=swap');
+
 
 /* RTL text alignment utilities */
 html.rtl .text-start {
