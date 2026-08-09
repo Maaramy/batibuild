@@ -16,10 +16,10 @@ import {
   Loader2, Check, X, Building2, ChevronRight, ChevronDown, HardHat, Image,
   FileUp, MapPin, AlertCircle, Asterisk, Crown, AlertTriangle,
   CircleDot, CircleDashed, CircleCheck, Circle,
-  Home, Building, Waves, Sprout, Trees, Car, Shield, Sofa, Flower2,
+  Home, Building, Car, Sofa,
   BedDouble, LayoutGrid,
-  ArrowUpFromLine, Hammer, Bath, ChefHat, Briefcase, Store, Package,
-  Zap, Moon, BookOpen, Hotel, Utensils, Coffee, Leaf, Factory, Square,
+  Bath, ChefHat, Briefcase, Store, Package,
+  DoorOpen, Layers, Palmtree,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,56 +41,39 @@ const TUNISIA_REGIONS = [
   { value: "tozeur", label: "Tozeur" }, { value: "kebili", label: "Kébili" },
 ];
 
+// Types de bien synchronisés avec le formulaire d'investissement
+// (à l'exception de « Terrain constructible », qui n'est pas un projet de construction)
 const PROJECT_CATEGORIES: { value: string; label: string; icon: LucideIcon }[] = [
   { value: "maison", label: "Maison", icon: Home },
   { value: "villa", label: "Villa", icon: Building },
-  { value: "immeuble_residentiel", label: "Immeuble", icon: Building2 },
-  { value: "piscine", label: "Piscine", icon: Waves },
-  { value: "jardin", label: "Jardin", icon: Sprout },
-  { value: "amenagement_paysager", label: "Paysager", icon: Trees },
-  { value: "garage", label: "Garage", icon: Car },
-  { value: "cloture", label: "Clôture", icon: Shield },
-  { value: "terrasse", label: "Terrasse", icon: Sofa },
-  { value: "pergola", label: "Pergola", icon: Flower2 },
-  { value: "toiture", label: "Toiture", icon: ArrowUpFromLine },
-  { value: "renovation_interieure", label: "Rénovation intérieure", icon: Hammer },
-  { value: "renovation_exterieure", label: "Rénovation extérieure", icon: Square },
-  { value: "renovation_salle_de_bain", label: "Salle de bain", icon: Bath },
-  { value: "renovation_cuisine", label: "Cuisine", icon: ChefHat },
+  { value: "appartement", label: "Appartement", icon: Building2 },
+  { value: "studio", label: "Studio", icon: DoorOpen },
+  { value: "duplex", label: "Duplex", icon: Layers },
+  { value: "immeuble", label: "Immeuble", icon: Building2 },
+  { value: "residence_touristique", label: "Résidence touristique", icon: Palmtree },
+  { value: "projet_neuf", label: "Projet immobilier neuf", icon: HardHat },
+  { value: "local_commercial", label: "Local commercial", icon: Store },
   { value: "bureau", label: "Bureau", icon: Briefcase },
-  { value: "local_commercial", label: "Commerce", icon: Store },
   { value: "entrepot", label: "Entrepôt", icon: Package },
-  { value: "installation_solaire", label: "Solaire", icon: Zap },
-  { value: "mosquee", label: "Mosquée", icon: Moon },
-  { value: "ecole", label: "École", icon: BookOpen },
-  { value: "hotel", label: "Hôtel", icon: Hotel },
-  { value: "restaurant", label: "Restaurant", icon: Utensils },
-  { value: "cafe", label: "Café", icon: Coffee },
-  { value: "ferme", label: "Ferme", icon: Leaf },
-  { value: "usine", label: "Usine", icon: Factory },
-  { value: "parking", label: "Parking", icon: Square },
-  { value: "demolition", label: "Démolition", icon: AlertTriangle },
 ];
 
-// Catégories éligibles à l'étape « Nombre de pièces »
+// Types de bien éligibles à l'étape « Nombre de pièces »
+// (résidentiel : la composition du bien affine l'estimation)
 const ROOM_ELIGIBLE_CATEGORIES = [
-  "maison", "maison_r+1", "villa", "immeuble_residentiel",
-  // Rénovations : la composition du bien affine aussi l'estimation
-  "renovation_interieure", "renovation_exterieure",
-  "renovation_salle_de_bain", "renovation_cuisine", "renovation_facade",
+  "maison", "villa", "appartement", "studio", "duplex", "immeuble",
+  "residence_touristique", "projet_neuf",
 ];
 
-// Valeurs par défaut des pièces selon le type de projet sélectionné
+// Valeurs par défaut des pièces selon le type de bien sélectionné
 const ROOM_DEFAULTS: Record<string, { bedrooms: string; bathrooms: string; kitchens: string; livingRooms: string; garages: string }> = {
   maison:               { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
-  "maison_r+1":         { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "2", garages: "1" },
   villa:                { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1" },
-  immeuble_residentiel: { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
-  renovation_interieure:   { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
-  renovation_exterieure:   { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
-  renovation_salle_de_bain: { bedrooms: "0", bathrooms: "1", kitchens: "0", livingRooms: "0", garages: "0" },
-  renovation_cuisine:      { bedrooms: "0", bathrooms: "0", kitchens: "1", livingRooms: "0", garages: "0" },
-  renovation_facade:       { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
+  appartement:          { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
+  studio:               { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "0", garages: "0" },
+  duplex:               { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1" },
+  immeuble:             { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
+  residence_touristique:{ bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1" },
+  projet_neuf:          { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1" },
 };
 
 const IMPORT_METHODS = [
@@ -236,32 +219,15 @@ const METHOD_LABEL: Record<string, string> = {
 const CATEGORY_COLORS: Record<string, { hue: number; sat: number; light: number }> = {
   maison:                  { hue: 221, sat: 83, light: 53 },  // blue
   villa:                   { hue: 239, sat: 84, light: 65 },  // indigo
-  immeuble_residentiel:    { hue: 215, sat: 25, light: 35 },  // slate
-  piscine:                 { hue: 189, sat: 94, light: 43 },  // cyan
-  jardin:                  { hue: 142, sat: 71, light: 45 },  // green
-  amenagement_paysager:    { hue: 160, sat: 84, light: 39 },  // emerald
-  garage:                  { hue: 38,  sat: 92, light: 50 },  // amber
-  cloture:                 { hue: 30,  sat: 8,  light: 35 },  // stone
-  terrasse:                { hue: 24,  sat: 95, light: 53 },  // orange
-  pergola:                 { hue: 25,  sat: 40, light: 40 },  // warm
-  toiture:                 { hue: 0,   sat: 84, light: 60 },  // red
-  renovation_interieure:   { hue: 337, sat: 65, light: 47 },  // rose
-  renovation_exterieure:   { hue: 330, sat: 67, light: 50 },  // pink
-  renovation_salle_de_bain:{ hue: 271, sat: 81, light: 56 },  // violet
-  renovation_cuisine:      { hue: 291, sat: 64, light: 42 },  // fuchsia
-  bureau:                  { hue: 220, sat: 9,  light: 46 },  // gray
+  appartement:             { hue: 200, sat: 90, light: 50 },  // sky
+  studio:                  { hue: 189, sat: 94, light: 43 },  // cyan
+  duplex:                  { hue: 262, sat: 83, light: 58 },  // violet
+  immeuble:                { hue: 215, sat: 25, light: 35 },  // slate
+  residence_touristique:   { hue: 173, sat: 80, light: 40 },  // teal
+  projet_neuf:             { hue: 38,  sat: 92, light: 50 },  // amber
   local_commercial:        { hue: 48,  sat: 96, light: 53 },  // yellow
+  bureau:                  { hue: 220, sat: 9,  light: 46 },  // gray
   entrepot:                { hue: 30,  sat: 6,  light: 35 },  // warm gray
-  installation_solaire:    { hue: 43,  sat: 96, light: 54 },  // amber
-  mosquee:                 { hue: 173, sat: 80, light: 40 },  // teal
-  ecole:                   { hue: 199, sat: 89, light: 48 },  // sky
-  hotel:                   { hue: 271, sat: 81, light: 56 },  // violet
-  restaurant:              { hue: 350, sat: 89, light: 60 },  // rose
-  cafe:                    { hue: 32,  sat: 95, light: 54 },  // amber
-  ferme:                   { hue: 84,  sat: 60, light: 44 },  // lime
-  usine:                   { hue: 240, sat: 5,  light: 36 },  // zinc
-  parking:                 { hue: 0,   sat: 0,  light: 45 },  // neutral
-  demolition:              { hue: 0,   sat: 0,  light: 30 },  // neutral dark
 };
 
 const DEFAULT_CATEGORY_COLOR = { hue: 221, sat: 83, light: 53 };

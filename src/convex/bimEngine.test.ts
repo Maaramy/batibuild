@@ -197,4 +197,30 @@ describe("runBIMEstimation — quantitatif cohérent par type de projet", () => 
     expect(names.some((n) => n.includes("Piscinier"))).toBe(true);
     expect(names.some((n) => n.includes("Maçon qualifié"))).toBe(false);
   });
+
+  it("immeuble : profil résidentiel (menuiseries et tuiles)", () => {
+    const names = soItems("immeuble");
+    expect(names.some((n) => n.includes("Fenêtre coulissante alu"))).toBe(true);
+    expect(names.some((n) => n.includes("Porte intérieure"))).toBe(true);
+  });
+
+  it("résidence touristique : profil hôtelier (vitrine)", () => {
+    const names = soItems("residence_touristique");
+    expect(names.some((n) => n.includes("Vitrine"))).toBe(true);
+  });
+
+  it("appartement et studio : profil résidentiel", () => {
+    for (const cat of ["appartement", "studio"]) {
+      const names = soItems(cat);
+      expect(names.some((n) => n.includes("Fenêtre coulissante alu"))).toBe(true);
+    }
+  });
+
+  it("les types synchronisés avec l'investissement produisent une estimation complète", () => {
+    for (const cat of ["appartement", "studio", "duplex", "immeuble", "residence_touristique", "projet_neuf"]) {
+      const res = runBIMEstimation(cat, 100, 1, "tunis", "standard");
+      expect(res.costEstimate.totalCost).toBeGreaterThan(0);
+      expect(res.costEstimate.breakdown.length).toBe(6);
+    }
+  });
 });

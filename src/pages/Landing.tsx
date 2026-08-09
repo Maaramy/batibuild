@@ -171,8 +171,8 @@ const TESTIMONIALS = [
 ];
 
 const PROJECT_CATEGORIES_DISPLAY = [
-  "Maison", "Villa", "Piscine", "Jardin", "Garage", "Immeuble",
-  "Bureau", "Restaurant", "Rénovation", "Terrasse", "Ferme", "Mosquée",
+  "Maison", "Villa", "Appartement", "Studio", "Duplex", "Immeuble",
+  "Résidence touristique", "Local commercial", "Bureau", "Entrepôt", "Projet neuf",
 ];
 
 const INVESTMENT_POINTS = [
@@ -416,7 +416,7 @@ function HeroSection() {
             className="mt-12"
           >
             <p className="text-xs text-muted-foreground mb-4 uppercase tracking-wider font-medium">
-              Plus de 40 types de projets pris en charge
+              Types de biens immobiliers pris en charge
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {PROJECT_CATEGORIES_DISPLAY.map((cat) => (
@@ -428,9 +428,7 @@ function HeroSection() {
                   {cat}
                 </Badge>
               ))}
-              <Badge variant="outline" className="px-3 py-1.5 text-xs text-muted-foreground">
-                + 28 autres
-              </Badge>
+
             </div>
           </motion.div>
         </div>

@@ -82,11 +82,19 @@ function ProjectCard({ project }: { project: any }) {
   const categoryLabels: Record<string, string> = {
     maison: "Maison",
     villa: "Villa",
+    appartement: "Appartement",
+    studio: "Studio",
+    duplex: "Duplex",
+    immeuble: "Immeuble",
+    immeuble_residentiel: "Immeuble",
+    local_commercial: "Local commercial",
+    bureau: "Bureau",
+    entrepot: "Entrepôt",
+    residence_touristique: "Résidence touristique",
+    projet_neuf: "Projet immobilier neuf",
     piscine: "Piscine",
     jardin: "Jardin",
     garage: "Garage",
-    immeuble_residentiel: "Immeuble",
-    bureau: "Bureau",
     renovation_interieure: "Rénovation",
   };
 
