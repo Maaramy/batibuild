@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
-  ArrowLeft, Plus, Sparkles, Star, Trash2, Copy, Download, History,
+  ArrowLeft, Plus, Sparkles, Star, Trash2, Copy, Download, History, Clock,
   RotateCcw, Search, Loader2, Crown,
   Box, Ruler, BedDouble, Bath, Check, X, Pencil,
 } from "lucide-react";
@@ -19,6 +19,7 @@ import type { GeneratedPlan } from "@/convex/planEngine";
 import { bienTypeLabel } from "@/convex/planEngine";
 import { FloorPlan2D } from "@/components/plans/FloorPlanView";
 import { exportPlanImage } from "@/lib/planExport";
+import { planPreviewToGeneratedPlan } from "@/lib/planPreview";
 import { usePageSEO } from "@/hooks/use-page-seo";
 
 // ============================================================================
@@ -223,26 +224,49 @@ function LibraryCard({ plan, onOpen, onRename, onDelete, onDuplicate, onFavorite
   const preview = plan.preview;
 
   return (
-    <Card className="group overflow-hidden border border-border/40 hover:border-primary/30 transition-all hover:shadow-lg hover:shadow-primary/5">
-      <div className="relative aspect-[4/3] overflow-hidden bg-white dark:bg-slate-100/90 cursor-pointer" onClick={() => onOpen(plan.selectedIndex - 1)}>
+    <Card className="group flex flex-col overflow-hidden border border-border/40 hover:border-primary/30 transition-all hover:shadow-lg hover:shadow-primary/5">
+      {/* En-tête : nom + type */}
+      <CardContent className="flex items-start justify-between gap-2 p-3 pb-0">
+        <div className="min-w-0">
+          {renaming ? (
+            <div className="flex items-center gap-1.5">
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="h-7 text-xs" autoFocus onKeyDown={(e) => { if (e.key === "Enter") onConfirmRename(); if (e.key === "Escape") onCancelRename(); }} />
+              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={onConfirmRename}><Check className="h-3.5 w-3.5 text-emerald-500" /></Button>
+              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={onCancelRename}><X className="h-3.5 w-3.5" /></Button>
+            </div>
+          ) : (
+            <p className="text-xs font-bold truncate">{plan.name}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
+            {preview?.stats && (
+              <>
+                <span className="flex items-center gap-1"><Ruler className="h-3 w-3" /> {preview.stats.construite.toFixed(0)} m²</span>
+                <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {preview.stats.nbChambres} ch</span>
+                <span className="flex items-center gap-1"><Bath className="h-3 w-3" /> {preview.stats.nbSdb} sdb</span>
+                <span className="flex items-center gap-1 text-violet-600"><Crown className="h-3 w-3" /> {preview.scores.global}/100</span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <Badge className="bg-slate-900/85 text-white border-0 text-[9px]">{bienTypeLabel(plan.bienType)}</Badge>
+          {plan.versionsCount > 0 && (
+            <Badge variant="secondary" className="text-[8px] gap-0.5">
+              <History className="h-2.5 w-2.5" /> v{plan.versionsCount + 1}
+            </Badge>
+          )}
+        </div>
+      </CardContent>
+
+      {/* Image du plan — grande et nette, sous le nom */}
+      <div className="relative aspect-[5/4] mx-3 mt-3 overflow-hidden rounded-xl bg-white dark:bg-slate-100/90 border border-border/30 cursor-pointer" onClick={() => onOpen(plan.selectedIndex - 1)}>
         {preview ? (
-          <div className="absolute inset-0 transition-transform duration-300 group-hover:scale-105">
+          <div className="absolute inset-0 flex items-center justify-center">
             <FloorPlan2D
-              plan={{
-                ...preview,
-                index: preview.index,
-                name: plan.name,
-                key: "saved",
-                levels: Math.max(1, Math.round((plan.preview?.depth ?? 5) / 5)),
-                description: "",
-                strengths: [],
-                weaknesses: [],
-                alerts: { incompatible: false, messages: [] },
-                scores: preview.scores,
-                stats: preview.stats,
-              } as GeneratedPlan}
+              plan={planPreviewToGeneratedPlan(preview, plan.name)}
               compact
               showDimensions={false}
+              fit
             />
           </div>
         ) : (
@@ -250,39 +274,20 @@ function LibraryCard({ plan, onOpen, onRename, onDelete, onDuplicate, onFavorite
             <Box className="h-8 w-8" />
           </div>
         )}
-        <div className="absolute top-2 left-2 flex items-center gap-1.5">
-          <Badge className="bg-slate-900/85 text-white border-0 text-[9px]">{bienTypeLabel(plan.bienType)}</Badge>
-          {plan.favorite && <Badge className="bg-amber-400 text-black border-0 text-[9px]"><Star className="h-2.5 w-2.5 fill-current" /></Badge>}
+        {plan.favorite && <Badge className="absolute top-2 right-2 bg-amber-400 text-black border-0 text-[9px]"><Star className="h-2.5 w-2.5 fill-current" /></Badge>}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+          <span className="flex items-center gap-1.5 rounded-full bg-white text-slate-900 px-3.5 py-1.5 text-[11px] font-semibold shadow-lg">
+            <Sparkles className="h-3.5 w-3.5" /> Ouvrir
+          </span>
         </div>
-        {plan.versionsCount > 0 && (
-          <Badge variant="secondary" className="absolute top-2 right-2 text-[8px] gap-0.5">
-            <History className="h-2.5 w-2.5" /> v{plan.versionsCount + 1}
-          </Badge>
-        )}
       </div>
-      <CardContent className="p-3">
-        {renaming ? (
-          <div className="flex items-center gap-1.5">
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="h-7 text-xs" autoFocus onKeyDown={(e) => { if (e.key === "Enter") onConfirmRename(); if (e.key === "Escape") onCancelRename(); }} />
-            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={onConfirmRename}><Check className="h-3.5 w-3.5 text-emerald-500" /></Button>
-            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={onCancelRename}><X className="h-3.5 w-3.5" /></Button>
-          </div>
-        ) : (
-          <p className="text-xs font-bold truncate">{plan.name}</p>
-        )}
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1.5 text-[10px] text-muted-foreground">
-          {preview?.stats && (
-            <>
-              <span className="flex items-center gap-1"><Ruler className="h-3 w-3" /> {preview.stats.construite.toFixed(0)} m²</span>
-              <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {preview.stats.nbChambres} ch</span>
-              <span className="flex items-center gap-1"><Bath className="h-3 w-3" /> {preview.stats.nbSdb} sdb</span>
-              <span className="flex items-center gap-1 text-violet-600"><Crown className="h-3 w-3" /> {preview.scores.global}/100</span>
-            </>
-          )}
-          <span className="ml-auto text-muted-foreground/60">{formatDate(plan.updatedAt)}</span>
-        </div>
 
-        <div className="flex items-center gap-1.5 mt-3">
+      {/* Actions */}
+      <CardContent className="p-3 mt-auto">
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60 mb-2">
+          <Clock className="h-3 w-3" /> {formatDate(plan.updatedAt)}
+        </div>
+        <div className="flex items-center gap-1.5">
           <Button size="sm" className="h-7 flex-1 text-[10px] gap-1" onClick={() => onOpen(plan.selectedIndex - 1)}>
             <Sparkles className="h-3 w-3" /> Ouvrir
           </Button>

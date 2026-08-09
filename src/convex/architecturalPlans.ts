@@ -51,6 +51,7 @@ export const getMyPlans = query({
           ? {
               index: d.plans[0].index,
               name: d.plans[0].name,
+              levels: d.plans[0].levels,
               stats: d.plans[0].stats,
               scores: d.plans[0].scores,
               rooms: d.plans[0].rooms,

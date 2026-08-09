@@ -50,12 +50,17 @@ import {
   Layers,
   LayoutGrid,
   Sparkles,
+  Box,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { FloorPlan2D } from "@/components/plans/FloorPlanView";
+import { planPreviewToGeneratedPlan } from "@/lib/planPreview";
+import { bienTypeLabel } from "@/convex/planEngine";
 
 // ============================================================================
 // Project Card (compact for mobile)
@@ -250,6 +255,7 @@ export default function Dashboard() {
   useEffect(() => setMounted(true), []);
 
   const projects = useQuery(api.projects.getUserProjects, {}) || [];
+  const planHistory = useQuery(api.architecturalPlans.getMyPlans) || [];
   const stats = useQuery(api.projects.getProjectStats) || {
     totalProjects: 0, completedProjects: 0, analyzingProjects: 0, draftProjects: 0,
     totalEstimatedCost: 0, averageCostPerProject: 0, recentProjects: [],
@@ -809,6 +815,61 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+
+          {/* ── Historique des plans architecturaux (dashboard) ── */}
+          {planHistory.length > 0 && (
+            <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 text-white">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <CardTitle className="text-sm sm:text-base lg:text-lg">Mes plans architecturaux</CardTitle>
+                    <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
+                      {planHistory.length} plan{planHistory.length > 1 ? "s" : ""} généré{planHistory.length > 1 ? "s" : ""} par IA
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button variant="outline" size="sm" className="h-8 gap-1 text-xs sm:text-sm" onClick={() => navigate("/dashboard/plans")}>
+                    <History className="h-3.5 w-3.5" /> Voir tout
+                  </Button>
+                  <Button size="sm" className="h-8 gap-1 text-xs sm:text-sm" onClick={() => navigate("/dashboard/plans/new")}>
+                    <Plus className="h-3.5 w-3.5" /> Nouveau
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 sm:p-4 lg:p-5 pt-0">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+                  {planHistory.slice(0, 6).map((p: any) => (
+                    <button
+                      key={p._id}
+                      onClick={() => navigate(`/dashboard/plans/${p._id}`)}
+                      className="group text-left cursor-pointer"
+                    >
+                      <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-white dark:bg-slate-100/90 border border-border/30 group-hover:border-primary/40 transition-colors">
+                        {p.preview ? (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <FloorPlan2D plan={planPreviewToGeneratedPlan(p.preview, p.name)} compact showDimensions={false} showNorth={false} fit />
+                          </div>
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                            <Box className="h-6 w-6" />
+                          </div>
+                        )}
+                        {p.favorite && <Star className="absolute top-1.5 right-1.5 h-3 w-3 fill-amber-400 text-amber-400" />}
+                      </div>
+                      <p className="text-[10px] sm:text-xs font-semibold truncate mt-1.5 group-hover:text-primary transition-colors">{p.name}</p>
+                      <p className="text-[9px] sm:text-[10px] text-muted-foreground truncate">
+                        {bienTypeLabel(p.bienType)} · {new Date(p.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Quick actions - horizontal scroll on mobile */}
           <div className="overflow-x-auto scrollbar-none -mx-3 sm:mx-0 px-3 sm:px-0">

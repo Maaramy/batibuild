@@ -202,7 +202,6 @@ export default function PlanGenerator() {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [planName, setPlanName] = useState("");
   const [saveOpen, setSaveOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [formStep, setFormStep] = useState<StepKey>("bien");
 
   const set = useCallback(<K extends keyof PlanRequest>(key: K, value: PlanRequest[K]) => {
@@ -230,7 +229,6 @@ export default function PlanGenerator() {
     if (idx < STEPS.length - 1) setStep(STEPS[idx + 1].key);
     else {
       runGeneration(req, seed);
-      setMobileOpen(false);
     }
   };
 
@@ -322,7 +320,7 @@ export default function PlanGenerator() {
     return (
       <main className="min-h-screen bg-background">
         <header className="sticky top-0 z-30 border-b border-border/30 bg-background/85 backdrop-blur-md">
-          <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-between h-14">
+          <div className="mx-auto max-w-7xl px-3 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 sm:min-h-14 sm:py-0">
             <div className="flex items-center gap-2 min-w-0">
               <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { setPlans(null); setStep(formStep); }}>
                 <ArrowLeft className="h-4 w-4" />
@@ -337,21 +335,21 @@ export default function PlanGenerator() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={handleRegenerateAll} disabled={generating}>
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={handleRegenerateAll} disabled={generating} title="10 nouvelles propositions">
                 {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                <span className="hidden sm:inline">10 nouvelles propositions</span>
+                <span className="hidden md:inline">10 nouvelles propositions</span>
               </Button>
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setCompareOpen(true)}>
-                <Trophy className="h-3.5 w-3.5" /> Comparer
+              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => setCompareOpen(true)}>
+                <Trophy className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Comparer</span>
               </Button>
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={async () => {
+              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={async () => {
                 try { await exportAllPlansZip(plans, `${bienTypeLabel(req.bienType)}-${req.surfaceCouverte}m2`); toast.success("Les 10 plans ont été téléchargés (ZIP)"); }
                 catch (err: any) { toast.error(err?.message || "Échec du ZIP"); }
-              }}>
-                <FileArchive className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Télécharger les 10</span>
+              }} title="Télécharger les 10 plans">
+                <FileArchive className="h-3.5 w-3.5" /> <span className="hidden md:inline">Télécharger les 10</span>
               </Button>
-              <Button size="sm" className="h-8 text-xs gap-1" onClick={() => { setSaveOpen(true); setPlanName(""); }}>
+              <Button size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => { setSaveOpen(true); setPlanName(""); }}>
                 <Save className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Sauvegarder</span>
               </Button>
             </div>
@@ -499,9 +497,6 @@ export default function PlanGenerator() {
               <p className="text-[10px] text-muted-foreground hidden sm:block">Par IA — 10 propositions automatiques</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setMobileOpen(!mobileOpen)}>
-            <LayoutGrid className="h-3.5 w-3.5" /> Étapes
-          </Button>
         </div>
       </header>
 
@@ -841,19 +836,33 @@ function PlanCard({ plan, onView, onDownload, onEdit, onInvest }: {
 }) {
   const [downloading, setDownloading] = useState(false);
   return (
-    <Card className="group overflow-hidden border border-border/40 hover:border-primary/30 transition-all hover:shadow-lg hover:shadow-primary/5 active:scale-[0.99]">
-      {/* Aperçu du plan */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-white dark:bg-slate-100/90" onClick={onView}>
-        <div className="absolute inset-0 transition-transform duration-300 group-hover:scale-105">
-          <FloorPlan2D plan={plan} compact showDimensions={false} />
+    <Card className="group flex flex-col overflow-hidden border border-border/40 hover:border-primary/30 transition-all hover:shadow-lg hover:shadow-primary/5 active:scale-[0.99]">
+      {/* En-tête : nom du plan + score */}
+      <CardContent className="flex items-start justify-between gap-2 p-3 pb-0">
+        <div className="min-w-0">
+          <p className="text-xs font-bold truncate">{plan.name}</p>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1"><Ruler className="h-3 w-3" /> {plan.stats.construite.toFixed(0)} m²</span>
+            <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {plan.stats.nbChambres} ch</span>
+            <span className="flex items-center gap-1"><Bath className="h-3 w-3" /> {plan.stats.nbSdb} sdb</span>
+            <span className="flex items-center gap-1"><Layers className="h-3 w-3" /> R+{plan.levels - 1}</span>
+            <span className="flex items-center gap-1 text-emerald-600"><LayoutGrid className="h-3 w-3" /> {plan.stats.tauxUtilisation}% util.</span>
+          </div>
         </div>
-        <div className="absolute top-2 left-2 flex items-center gap-1.5">
-          <Badge className="bg-slate-900/85 text-white border-0 text-[9px]">
-            Plan {String(plan.index).padStart(2, "0")}
-          </Badge>
+        <div className="flex flex-col items-end gap-1 shrink-0">
           <Badge className="bg-violet-600/90 text-white border-0 text-[9px] gap-0.5">
             <Gauge className="h-2.5 w-2.5" /> {plan.scores.global}/100
           </Badge>
+          <Badge className="bg-slate-900/85 text-white border-0 text-[9px]">
+            Plan {String(plan.index).padStart(2, "0")}
+          </Badge>
+        </div>
+      </CardContent>
+
+      {/* Image du plan — grande et nette, sous le nom */}
+      <div className="relative aspect-[5/4] mx-3 mt-3 overflow-hidden rounded-xl bg-white dark:bg-slate-100/90 border border-border/30 cursor-pointer" onClick={onView}>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <FloorPlan2D plan={plan} compact showDimensions={false} fit />
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onView(); }}
@@ -865,19 +874,9 @@ function PlanCard({ plan, onView, onDownload, onEdit, onInvest }: {
         </button>
       </div>
 
-      {/* Infos */}
-      <CardContent className="p-3">
-        <p className="text-xs font-bold truncate">{plan.name}</p>
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1.5 text-[10px] text-muted-foreground">
-          <span className="flex items-center gap-1"><Ruler className="h-3 w-3" /> {plan.stats.construite.toFixed(0)} m²</span>
-          <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {plan.stats.nbChambres} ch</span>
-          <span className="flex items-center gap-1"><Bath className="h-3 w-3" /> {plan.stats.nbSdb} sdb</span>
-          <span className="flex items-center gap-1"><Layers className="h-3 w-3" /> R+{plan.levels - 1}</span>
-          <span className="flex items-center gap-1 text-emerald-600"><LayoutGrid className="h-3 w-3" /> {plan.stats.tauxUtilisation}% util.</span>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1.5 mt-3">
+      {/* Actions */}
+      <CardContent className="p-3 mt-auto">
+        <div className="flex items-center gap-1.5">
           <Button size="sm" className="h-7 flex-1 text-[10px] gap-1" onClick={onView}>
             <Sparkles className="h-3 w-3" /> Voir
           </Button>

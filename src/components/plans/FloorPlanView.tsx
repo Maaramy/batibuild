@@ -83,10 +83,13 @@ function StairBlock({ x, y, w, h }: { x: number; y: number; w: number; h: number
 
 // ─── Pièce (murs, étiquette, surface) ───────────────────────────────────────
 
-function RoomBlock({ room, isUpper }: { room: PlacedRoom; isUpper?: boolean }) {
+function RoomBlock({ room, isUpper, compact }: { room: PlacedRoom; isUpper?: boolean; compact?: boolean }) {
   const { cx, cy } = roomCenter(room);
   const fill = room.exterior ? `${roomColor(room.type)}55` : `${roomColor(room.type)}cc`;
-  const fontSize = Math.max(0.32, Math.min(room.w, room.h) * 0.34);
+  // En mode compact (cartes), labels plus grands pour une lecture nette.
+  const fontSize = compact
+    ? Math.min(1.15, Math.max(0.45, Math.min(room.w, room.h) * 0.4))
+    : Math.max(0.32, Math.min(room.w, room.h) * 0.34);
   const stroke = room.exterior ? "#a8a29e" : "#475569";
   return (
     <g>
@@ -113,7 +116,7 @@ function RoomBlock({ room, isUpper }: { room: PlacedRoom; isUpper?: boolean }) {
         </text>
       )}
       {isUpper && (
-        <text x={room.x + 0.18} y={room.y + 0.42} fontSize={0.34} fill="#7c3aed" fontWeight={700}>▲</text>
+        <text x={room.x + 0.18} y={room.y + 0.42} fontSize={compact ? 0.45 : 0.34} fill="#7c3aed" fontWeight={700}>▲</text>
       )}
     </g>
   );
@@ -166,19 +169,26 @@ export interface FloorPlanViewProps {
   showNorth?: boolean;
   compact?: boolean;      // masque cartouche et libellés lourds
   whiteBg?: boolean;      // fond blanc (exports)
+  fit?: boolean;          // remplit le conteneur (h-full) sans rogner le plan
 }
 
-export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, compact = false, whiteBg = false }: FloorPlanViewProps) {
+export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, compact = false, whiteBg = false, fit = false }: FloorPlanViewProps) {
   const maxW = plan.rooms.reduce((m, r) => Math.max(m, r.x + r.w), plan.width);
   const maxD = plan.rooms.reduce((m, r) => Math.max(m, r.y + r.h), plan.depth);
 
   const windows = plan.windows ?? [];
   const doors = plan.doors ?? [];
 
+  // En compact : cadre resserré → le plan occupe presque tout le SVG (plus grand, plus net).
+  const viewBox = compact
+    ? `${-0.45} ${-0.45} ${maxW + 1.15} ${maxD + 1.15}`
+    : `${-0.6} ${-0.6} ${maxW + 4.2} ${maxD + 3.6}`;
+
   return (
     <svg
-      viewBox={`${-0.6} ${-0.6} ${maxW + 4.2} ${maxD + 3.6}`}
-      className="w-full h-auto"
+      viewBox={viewBox}
+      className={fit ? "w-full h-full" : "w-full h-auto"}
+      preserveAspectRatio="xMidYMid meet"
       style={{ background: whiteBg ? "#ffffff" : "transparent", fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
       role="img"
       aria-label={`Plan architectural ${plan.name}`}
@@ -193,10 +203,10 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
       {plan.rooms.filter((r) => r.exterior).map((r) => (
         <g key={r.id}>
           <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={`${roomColor(r.type)}33`} stroke="#a8a29e" strokeWidth={0.08} strokeDasharray="0.3 0.2" />
-          <text x={r.x + r.w / 2} y={r.y + r.h / 2} textAnchor="middle" fontSize={0.42} fill="#57534e" fontWeight={600} style={{ pointerEvents: "none" }}>
+          <text x={r.x + r.w / 2} y={r.y + r.h / 2} textAnchor="middle" fontSize={compact ? 0.55 : 0.42} fill="#57534e" fontWeight={600} style={{ pointerEvents: "none" }}>
             {r.name}
           </text>
-          <text x={r.x + r.w / 2} y={r.y + r.h / 2 + 0.5} textAnchor="middle" fontSize={0.34} fill="#78716c" style={{ pointerEvents: "none" }}>
+          <text x={r.x + r.w / 2} y={r.y + r.h / 2 + 0.5} textAnchor="middle" fontSize={compact ? 0.44 : 0.34} fill="#78716c" style={{ pointerEvents: "none" }}>
             {r.area.toFixed(1)} m²
           </text>
         </g>
@@ -204,7 +214,7 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
 
       {/* Sol des pièces + murs */}
       {plan.rooms.filter((r) => !r.exterior).map((r) => (
-        <RoomBlock key={r.id} room={r} isUpper={r.level > 0} />
+        <RoomBlock key={r.id} room={r} isUpper={r.level > 0} compact={compact} />
       ))}
 
       {/* Escaliers */}
