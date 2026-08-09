@@ -247,7 +247,7 @@ function catProfile(cat: string): string {
   if (["cloture", "mur_de_separation"].includes(cat)) return "fence";
   if (cat === "installation_solaire") return "solar";
   if (["usine", "depot", "entrepot", "atelier", "chateau_d_eau", "serre_agricole"].includes(cat)) return "industrial";
-  if (["local_commercial", "bureau", "hotel", "restaurant", "cafe"].includes(cat)) return "commercial";
+  if (["local_commercial", "bureau", "hotel", "restaurant", "cafe", "residence_touristique"].includes(cat)) return "commercial";
   if (["parking", "route", "trottoir"].includes(cat)) return "parking";
   if (cat.startsWith("renovation")) return "renovation";
   return "residential";
@@ -1274,7 +1274,6 @@ function generateTips(cat: string, s: number, reg?: string, fLvl?: string, costM
   }
   if (cat==="projet_neuf") {
     t.push("Pour un projet neuf vendu sur plan, intégrez les frais de commercialisation et de notaire dans votre budget.");
-  }
   }
   if (cat.startsWith("renovation")) {
     t.push("Conservez les structures existantes (murs porteurs, charpente) quand c'est possible.");
