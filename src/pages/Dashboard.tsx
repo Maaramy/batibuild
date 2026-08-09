@@ -52,6 +52,10 @@ import {
   Sparkles,
   Box,
   History,
+  MapPin,
+  Percent,
+  Gauge,
+  Ruler,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -63,6 +67,8 @@ import { usePageSEO } from "@/hooks/use-page-seo";
 import { FloorPlan2D } from "@/components/plans/FloorPlanView";
 import { planPreviewToGeneratedPlan } from "@/lib/planPreview";
 import { bienTypeLabel } from "@/convex/planEngine";
+import { TYPE_META, fmtTND, fmtPct } from "@/components/investment/shared";
+import { REGION_LABELS } from "@/convex/investmentTypes";
 
 // ============================================================================
 // Project Card (compact for mobile)
@@ -219,6 +225,100 @@ function ProjectCard({ project }: { project: any }) {
 }
 
 // ============================================================================
+// Mini Stat (compact chip with icon)
+// ============================================================================
+
+function MiniStat({ icon: Icon, label, value, tone }: any) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-border/30 bg-muted/20 px-3 py-2">
+      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${tone?.bg ?? "bg-primary/10"}`}>
+        <Icon className={`h-3.5 w-3.5 ${tone?.text ?? "text-primary"}`} />
+      </div>
+      <div className="min-w-0">
+        <p className="label-overline truncate">{label}</p>
+        <p className="text-sm font-bold truncate tabular-nums">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Investment Analysis Card (projet d'investissement enregistré)
+// ============================================================================
+
+function InvestmentCard({ analysis }: { analysis: any }) {
+  const navigate = useNavigate();
+  const ind = analysis?.results?.indicators;
+  const score = analysis?.results?.score;
+  const input = analysis?.input ?? {};
+  const typeLabel = TYPE_META[input.investmentType as keyof typeof TYPE_META]?.label ?? input.investmentType ?? "Investissement";
+  const regionLabel = REGION_LABELS[input.region] ?? input.region ?? "";
+
+  return (
+    <Card
+      className="group relative border border-border/40 hover:border-indigo-400/40 transition-all duration-200 hover:shadow-md hover:shadow-indigo-500/5 bg-background/50 backdrop-blur-sm cursor-pointer overflow-hidden active:scale-[0.98]"
+      onClick={() => navigate(`/dashboard/investments/result/${analysis._id}`)}
+    >
+      <div className="absolute top-0 left-0 w-[3px] h-full bg-gradient-to-b from-indigo-500 to-blue-500" />
+      <div className="p-3 sm:p-4 pl-4 sm:pl-5">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-300">
+                {typeLabel}
+              </span>
+              {analysis.isFavorite && <Heart className="h-3 w-3 fill-red-400 text-red-400 shrink-0" />}
+            </div>
+            <h3 className="text-sm sm:text-base font-semibold truncate mt-1">{input.name || typeLabel}</h3>
+          </div>
+          {score && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+              {score.total}/100
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs text-muted-foreground mb-2 flex-wrap">
+          {regionLabel && (
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3 w-3 shrink-0" />
+              {regionLabel}
+            </span>
+          )}
+          {input.area && (
+            <span className="flex items-center gap-1">
+              <HardHat className="h-3 w-3 shrink-0" />
+              {input.area} m²
+            </span>
+          )}
+          <span className="flex items-center gap-1 text-muted-foreground/60">
+            <Clock className="h-3 w-3 shrink-0" />
+            {new Date(analysis.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+          </span>
+        </div>
+
+        {ind && (
+          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/20">
+            <div className="min-w-0">
+              <span className="text-[10px] text-muted-foreground">Coût total</span>
+              <p className="text-xs sm:text-sm font-bold truncate">{fmtTND(ind.totalCost)}</p>
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] text-muted-foreground">Rendement net</span>
+              <p className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 truncate">{fmtPct(ind.netYieldPct)}</p>
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] text-muted-foreground">Cashflow</span>
+              <p className="text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 truncate">{fmtTND(ind.monthlyCashflow)}/mois</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// ============================================================================
 // Stats Card (compact mobile version)
 // ============================================================================
 
@@ -258,6 +358,7 @@ export default function Dashboard() {
 
   const projects = useQuery(api.projects.getUserProjects, {}) || [];
   const planHistory = useQuery(api.architecturalPlans.getMyPlans) || [];
+  const analyses = useQuery(api.investments.listAnalyses) || [];
   const stats = useQuery(api.projects.getProjectStats) || {
     totalProjects: 0, completedProjects: 0, analyzingProjects: 0, draftProjects: 0,
     totalEstimatedCost: 0, averageCostPerProject: 0, recentProjects: [],
@@ -295,6 +396,47 @@ export default function Dashboard() {
       .sort((a, b) => (a[0] < b[0] ? -1 : 1))
       .map(([, v]) => v);
   }, [projects]);
+
+  // ── Statistiques des projets d'investissement enregistrés ──
+  const investStats = useMemo(() => {
+    let totalBudget = 0;
+    const yields: number[] = [];
+    let bestScore = 0;
+    let favorites = 0;
+    (analyses as any[]).forEach((a) => {
+      totalBudget += a.results?.indicators?.totalCost ?? 0;
+      if (typeof a.results?.indicators?.netYieldPct === "number") yields.push(a.results.indicators.netYieldPct);
+      bestScore = Math.max(bestScore, a.results?.score?.total ?? 0);
+      if (a.isFavorite) favorites++;
+    });
+    return {
+      totalBudget,
+      avgYield: yields.length ? yields.reduce((s, v) => s + v, 0) / yields.length : 0,
+      bestScore,
+      favorites,
+    };
+  }, [analyses]);
+
+  // ── Statistiques des plans architecturaux générés ──
+  const planStats = useMemo(() => {
+    let totalArea = 0;
+    let scoreSum = 0;
+    let scoreCount = 0;
+    let favorites = 0;
+    (planHistory as any[]).forEach((p) => {
+      if (typeof p.preview?.stats?.construite === "number") totalArea += p.preview.stats.construite;
+      if (typeof p.preview?.scores?.global === "number") {
+        scoreSum += p.preview.scores.global;
+        scoreCount++;
+      }
+      if (p.favorite) favorites++;
+    });
+    return {
+      totalArea,
+      avgScore: scoreCount ? scoreSum / scoreCount : 0,
+      favorites,
+    };
+  }, [planHistory]);
 
   const filteredProjects = projects.filter((p: any) => {
     if (activeTab === "favorites") return p.isFavorite;
@@ -391,7 +533,7 @@ export default function Dashboard() {
               <div className="min-w-0">
                 <h1 className="text-sm sm:text-base font-semibold truncate">Dashboard</h1>
                 <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                  {user?.name ? `Bienvenue, ${user.name.split(' ')[0]}` : "Gérez vos projets"}
+                  {user?.name ? `Bienvenue, ${user.name.split(' ')[0]}` : "Gérez vos projets de construction"}
                 </p>
               </div>
             </div>
@@ -449,7 +591,7 @@ export default function Dashboard() {
         <div className="p-3 sm:p-5 lg:p-6 xl:p-8 space-y-3 sm:space-y-4 lg:space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-            <StatsCard icon={HardHat} label="Total projets" value={stats.totalProjects}
+            <StatsCard icon={HardHat} label="Projets constr." value={stats.totalProjects}
               gradient="from-blue-500/20 to-cyan-500/20" iconColor="text-blue-600 dark:text-blue-400" />
             <StatsCard icon={CheckCircle2} label="Terminés" value={stats.completedProjects}
               gradient="from-emerald-500/20 to-teal-500/20" iconColor="text-emerald-600 dark:text-emerald-400" />
@@ -658,7 +800,7 @@ export default function Dashboard() {
                         <span className="font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{stats.completedProjects}</span>
                         <span className="text-muted-foreground/50"> / </span>
                         <span className="tabular-nums">{stats.totalProjects}</span>
-                        {" "}projets terminés
+                        {" "}projets de construction terminés
                       </p>
                     </div>
                   </div>
@@ -717,9 +859,9 @@ export default function Dashboard() {
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
               <div className="min-w-0">
-                <CardTitle className="text-sm sm:text-base lg:text-lg">Mes projets</CardTitle>
+                <CardTitle className="text-sm sm:text-base lg:text-lg">Mes projets de construction</CardTitle>
                 <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
-                  {filteredProjects.length} projet{filteredProjects.length > 1 ? 's' : ''}
+                  {filteredProjects.length} projet{filteredProjects.length > 1 ? 's' : ''} de construction
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -761,8 +903,8 @@ export default function Dashboard() {
                     <div className="mx-auto mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-muted">
                       <HardHat className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                     </div>
-                    <p className="text-sm sm:text-base font-medium mb-1">Aucun projet</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground mb-3">Créez votre premier projet</p>
+                    <p className="text-sm sm:text-base font-medium mb-1">Aucun projet de construction</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mb-3">Créez votre premier projet de construction</p>
                     <Button size="sm" className="text-xs" onClick={() => navigate("/dashboard/new")}>
                       <Plus className="h-3.5 w-3.5 mr-1" />
                       Nouveau projet
@@ -779,59 +921,61 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* ── Investment analysis CTA (placé sous les projets) ── */}
-          <Card
-            className="group relative border border-border/40 bg-white dark:bg-card overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/10 active:scale-[0.99]"
-            onClick={() => navigate("/dashboard/investments")}
-          >
-            <CardContent className="relative p-4 sm:p-6">
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
-                  <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/30 group-hover:scale-105 group-hover:rotate-3 transition-transform">
-                    <Landmark className="h-5 w-5 sm:h-6 sm:w-6" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm sm:text-base lg:text-lg font-bold">L'immobilier devient plus intelligent : analysez, anticipez et maximisez la valeur de vos investissements grâce à l'IA.</p>
-                      <Badge className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[9px]">
-                        <Sparkles className="h-3 w-3" />
-                        Conseiller IA
-                      </Badge>
-                    </div>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                      Return on Investment, flux de trésorerie, prévisions, scénarios et score d'investissement — marché tunisien 2026
-                    </p>
-                    {/* Feature chips */}
-                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                      {[
-                        { icon: TrendingUp, label: "Return on Investment & rendement", cls: "border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300" },
-                        { icon: Wallet, label: "Flux de trésorerie", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
-                        { icon: BarChart3, label: "Prévisions 10 ans", cls: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-                        { icon: Layers, label: "3 scénarios", cls: "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400" },
-                      ].map((chip) => (
-                        <span key={chip.label} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-medium ${chip.cls}`}>
-                          <chip.icon className="h-3 w-3" />
-                          {chip.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+          {/* ── Mes projets d'investissement enregistrés (avec statistiques) ── */}
+          <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
+                  <Landmark className="h-4 w-4" />
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/20 pt-3">
-                  <span className="text-[10px] sm:text-xs text-muted-foreground">
-                    <span className="font-semibold text-indigo-600 dark:text-indigo-300">Seulement à 120 TND</span>
-                  </span>
-                  <Button
-                    size="sm"
-                    onClick={(e) => { e.stopPropagation(); navigate("/dashboard/investments"); }}
-                    className="h-8 shrink-0 gap-1.5 px-3.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-600/25 hover:from-indigo-500 hover:to-blue-500 hover:shadow-indigo-600/40 transition-all active:scale-[0.97]"
-                  >
-                    <Landmark className="h-3.5 w-3.5" />
-                    Lancer l'analyse
-                    <ArrowUpRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </Button>
+                <div className="min-w-0">
+                  <CardTitle className="text-sm sm:text-base lg:text-lg">Mes projets d'investissement</CardTitle>
+                  <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
+                    {analyses.length} analyse{analyses.length > 1 ? "s" : ""} enregistrée{analyses.length > 1 ? "s" : ""}
+                  </CardDescription>
                 </div>
               </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" className="h-8 gap-1 text-xs sm:text-sm bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-600/25 hover:from-indigo-500 hover:to-blue-500" onClick={() => navigate("/dashboard/investments")}>
+                  <Plus className="h-3.5 w-3.5" /> Nouvelle analyse
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-4 lg:p-5 pt-0">
+              {/* Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                <MiniStat icon={Wallet} label="Budget investi" value={fmtTND(investStats.totalBudget)} tone={{ bg: "bg-indigo-500/10", text: "text-indigo-600 dark:text-indigo-400" }} />
+                <MiniStat icon={Percent} label="Rendement net moyen" value={fmtPct(investStats.avgYield)} tone={{ bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" }} />
+                <MiniStat icon={Gauge} label="Meilleur score" value={investStats.bestScore ? `${investStats.bestScore}/100` : "—"} tone={{ bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400" }} />
+                <MiniStat icon={Heart} label="Favoris" value={investStats.favorites} tone={{ bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400" }} />
+              </div>
+
+              {analyses.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-indigo-300/40 dark:border-indigo-800/30 bg-indigo-50/40 dark:bg-indigo-950/20 text-center py-6 sm:py-8 px-4">
+                  <div className="mx-auto mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-indigo-500/10">
+                    <Landmark className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-600 dark:text-indigo-300" />
+                  </div>
+                  <p className="text-sm sm:text-base font-medium mb-1">Aucun projet d'investissement</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-3 max-w-md mx-auto">
+                    Analysez un bien immobilier, comparez les scénarios et enregistrez vos prévisions, rendements et score IA — marché tunisien 2026.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="gap-1.5 text-xs bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-600/25 hover:from-indigo-500 hover:to-blue-500 hover:shadow-indigo-600/40 transition-all active:scale-[0.97]"
+                    onClick={() => navigate("/dashboard/investments")}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Lancer une analyse
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+                  {analyses.map((a: any) => (
+                    <InvestmentCard key={a._id} analysis={a} />
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -915,6 +1059,13 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent className="p-3 sm:p-4 lg:p-5 pt-0">
+                {/* Stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                  <MiniStat icon={Sparkles} label="Plans générés" value={planHistory.length} tone={{ bg: "bg-violet-500/10", text: "text-violet-600 dark:text-violet-400" }} />
+                  <MiniStat icon={Ruler} label="Surface générée" value={`${Math.round(planStats.totalArea)} m²`} tone={{ bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400" }} />
+                  <MiniStat icon={Gauge} label="Score IA moyen" value={planStats.avgScore ? `${planStats.avgScore.toFixed(0)}/100` : "—"} tone={{ bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" }} />
+                  <MiniStat icon={Heart} label="Favoris" value={planStats.favorites} tone={{ bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400" }} />
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
                   {planHistory.slice(0, 6).map((p: any) => (
                     <button
