@@ -386,7 +386,7 @@ export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPl
     if (sheet.cost.costPerSquareMeter > 0) extra.push(`Prix moyen : ${formatTnd(sheet.cost.costPerSquareMeter)}/m²`);
     if (sheet.cost.confidence != null) extra.push(`Indice de confiance : ${sheet.cost.confidence}%`);
     if (sheet.cost.duration) extra.push(`Durée estimée : ${sheet.cost.duration}`);
-    if (sheet.cost.labor) extra.push(`Main-d'œuvre : ${sheet.cost.labor.totalWorkers} ouvriers / ${sheet.cost.labor.totalDays} jours`);
+    if (sheet.cost.labor) extra.push(`Main-d'œuvre : ${sheet.cost.labor.totalWorkers} ouvriers`);
     doc.text(extra.join("   ·   "), margin, y + 5);
     y += 10;
     if (sheet.cost.breakdown.length > 0) {

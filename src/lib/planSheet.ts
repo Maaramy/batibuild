@@ -131,8 +131,6 @@ export function buildPlanSheet(
     { label: "Pièces", value: `${stats.nbPieces}`, hint: `dont ${stats.nbChambres} chambre${stats.nbChambres > 1 ? "s" : ""}` },
     { label: "Salles de bain", value: `${stats.nbSdb}` },
     { label: "WC", value: `${stats.nbWc}` },
-    { label: "Portes", value: `${plan.doors.length}`, hint: `${plan.doors.filter((d) => d.exterior).length} extérieure(s)` },
-    { label: "Fenêtres", value: `${plan.windows.length}` },
     { label: "Escaliers", value: `${plan.stairs.length}` },
     { label: "Emprise", value: `${Math.round(plan.width)} × ${Math.round(plan.depth)} m`, hint: "Hors-tout" },
   ];

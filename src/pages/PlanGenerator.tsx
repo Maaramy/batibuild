@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import {
   Ruler, MapPin, Palette, Check, ChevronRight, Crown, Gauge, PenLine,
   BedDouble, Bath, Armchair, Utensils, CookingPot, Car, Trees, Waves,
   Shirt, Briefcase as BriefcaseIcon, Wrench, PencilRuler, HardHat,
+  Info, ChevronDown, FileText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -34,6 +35,7 @@ import { usePageSEO } from "@/hooks/use-page-seo";
 
 // ============================================================================
 // Générateur de plans architecturaux par IA — parcours guidé
+// Design unifié avec « Nouveau projet » (estimation) et « Investissement ».
 // ============================================================================
 
 const STEPS = [
@@ -44,6 +46,33 @@ const STEPS = [
   { key: "style", label: "Style & contraintes", desc: "Standing, style, exigences" },
 ] as const;
 type StepKey = (typeof STEPS)[number]["key"];
+
+// Types de bien à un seul niveau (rez-de-chaussée imposé)
+const SINGLE_LEVEL_TYPES = ["local_commercial", "entrepot", "bureau"];
+
+// Légende des abréviations affichées sur les plans
+const PLAN_LEGEND: { abbr: string; label: string }[] = [
+  { abbr: "S", label: "Salon" },
+  { abbr: "SàM", label: "Salle à manger" },
+  { abbr: "Cui", label: "Cuisine" },
+  { abbr: "Ch", label: "Chambre" },
+  { abbr: "Ch. prin.", label: "Chambre principale" },
+  { abbr: "SDB", label: "Salle de bain" },
+  { abbr: "WC", label: "WC" },
+  { abbr: "Buan", label: "Buanderie" },
+  { abbr: "Dress", label: "Dressing" },
+  { abbr: "Bur", label: "Bureau" },
+  { abbr: "Loc. tech", label: "Local technique" },
+  { abbr: "Esc", label: "Escalier" },
+  { abbr: "Circ", label: "Circulation / entrée" },
+  { abbr: "Gar.", label: "Garage" },
+  { abbr: "Park.", label: "Parking" },
+  { abbr: "Ter.", label: "Terrasse" },
+  { abbr: "Balc.", label: "Balcon" },
+  { abbr: "Jard.", label: "Jardin" },
+  { abbr: "Pisc.", label: "Piscine" },
+  { abbr: "N", label: "Nord (boussole)" },
+];
 
 const DEFAULT_REQUEST: PlanRequest = {
   bienType: "maison",
@@ -123,17 +152,100 @@ function bimCategoryFor(bienType: string): string {
   return map[bienType] ?? "maison";
 }
 
-/** Mapping bienType → type de bien investissement (prefill rentabilité). */
-function investTypeFor(bienType: string): string {
-  const map: Record<string, string> = {
-    maison: "maison", villa: "villa", appartement: "appartement",
-    studio: "studio", duplex: "duplex", immeuble: "immeuble",
-    local_commercial: "local_commercial", bureau: "bureau",
-    entrepot: "entrepot", residence_touristique: "residence_touristique",
-    projet_neuf: "projet_neuf",
-  };
-  return map[bienType] ?? "maison";
+// ─── Stepper vertical (design unifié « Nouveau projet ») ─────────────────────
+
+function VerticalStepper({ current, onSelect }: { current: StepKey; onSelect: (k: StepKey) => void }) {
+  const idx = STEPS.findIndex((s) => s.key === current);
+  return (
+    <nav className="flex flex-col gap-0" aria-label="Progression du plan">
+      {STEPS.map((st, i) => {
+        const done = i < idx;
+        const active = i === idx;
+        return (
+          <div key={st.key} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <button
+                onClick={() => (done || active) && onSelect(st.key)}
+                disabled={!done && !active}
+                className={cn(
+                  "relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300",
+                  done && "border-emerald-500 bg-emerald-500 cursor-pointer hover:shadow-md hover:shadow-emerald-500/20",
+                  active && "border-primary bg-primary/10 text-primary shadow-sm shadow-primary/20",
+                  !done && !active && "border-muted-foreground/25 bg-muted/10 text-muted-foreground/40",
+                )}
+              >
+                {done ? (
+                  <Check className="h-3.5 w-3.5 text-white" />
+                ) : active ? (
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                    className="h-2.5 w-2.5 rounded-full bg-primary"
+                  />
+                ) : (
+                  <span className="text-[10px] font-semibold">{i + 1}</span>
+                )}
+              </button>
+              {i < STEPS.length - 1 && (
+                <div className={cn("w-0.5 h-10 sm:h-12 transition-colors duration-500", done ? "bg-emerald-400" : "bg-border/40")} />
+              )}
+            </div>
+            <div
+              className={cn(
+                "flex flex-col justify-start pb-6 sm:pb-7 transition-all duration-300 min-w-0",
+                active && "translate-x-0",
+                !done && !active && "opacity-40",
+                done && "opacity-70 hover:opacity-100 cursor-pointer",
+              )}
+              onClick={() => (done || active) && onSelect(st.key)}
+            >
+              <span
+                className={cn(
+                  "text-xs sm:text-sm font-semibold leading-tight transition-colors",
+                  done && "text-emerald-600",
+                  active && "text-foreground",
+                  !done && !active && "text-muted-foreground/60",
+                )}
+              >
+                {st.label}
+              </span>
+              <span className="text-[10px] sm:text-xs text-muted-foreground/60 mt-0.5 leading-tight">
+                {active ? st.desc : done ? "Terminé" : "À venir"}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </nav>
+  );
 }
+
+// ─── Légende des abréviations ────────────────────────────────────────────────
+
+function PlanLegend() {
+  return (
+    <details className="group rounded-xl border border-border/40 bg-card/40 px-4 py-3">
+      <summary className="cursor-pointer flex items-center gap-2 text-xs font-semibold list-none select-none">
+        <Info className="h-3.5 w-3.5 text-primary shrink-0" />
+        Légende des abréviations du plan
+        <ChevronDown className="h-3.5 w-3.5 ml-auto text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {PLAN_LEGEND.map((l) => (
+          <span
+            key={l.abbr}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background/60 px-2.5 py-1 text-[10px]"
+          >
+            <span className="font-bold text-primary">{l.abbr}</span>
+            <span className="text-muted-foreground">{l.label}</span>
+          </span>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+// ─── Petits composants du formulaire ─────────────────────────────────────────
 
 function CountStepper({ label, value, onChange, min, max, icon: Icon }: { label: string; value: number; onChange: (v: number) => void; min: number; max: number; icon: LucideIcon }) {
   return (
@@ -188,6 +300,10 @@ function ToggleChip({ label, icon: Icon, checked, onChange }: { label: string; i
   );
 }
 
+// ============================================================================
+// Page principale
+// ============================================================================
+
 export default function PlanGenerator() {
   usePageSEO({ title: "Générateur de plans architecturaux — BuildEase", description: "Générez automatiquement 10 plans d'architecture par IA selon vos contraintes." });
   const navigate = useNavigate();
@@ -206,6 +322,13 @@ export default function PlanGenerator() {
   const [planName, setPlanName] = useState("");
   const [saveOpen, setSaveOpen] = useState(false);
   const [formStep, setFormStep] = useState<StepKey>("bien");
+  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
+
+  // Types à un seul niveau : rez-de-chaussée imposé
+  const singleLevel = SINGLE_LEVEL_TYPES.includes(req.bienType);
+  useEffect(() => {
+    if (singleLevel) setReq((r) => (r.floors !== 1 ? { ...r, floors: 1 } : r));
+  }, [singleLevel]);
 
   const set = useCallback(<K extends keyof PlanRequest>(key: K, value: PlanRequest[K]) => {
     setReq((r) => ({ ...r, [key]: value }));
@@ -298,37 +421,20 @@ export default function PlanGenerator() {
   }, [plans, viewerIndex, req.bienType, req.standing, req.surfaceCouverte]);
   const costEstimate = bim?.costEstimate ?? null;
 
-  const openInvestAnalysis = (plan: GeneratedPlan) => {
-    navigate("/dashboard/investments", {
-      state: {
-        prefill: {
-          name: `${bienTypeLabel(req.bienType)} — ${plan.name}`,
-          investmentType: investTypeFor(req.bienType),
-          area: plan.stats.utile,
-          region: "tunis",
-          purchasePrice: Math.round((costEstimate?.totalCost ?? req.surfaceCouverte * 1400) * 0.8),
-          monthlyRent: Math.round((costEstimate?.totalCost ?? req.surfaceCouverte * 1400) * 0.0055),
-          rentMode: "mensuel",
-          rentAmount: Math.round((costEstimate?.totalCost ?? req.surfaceCouverte * 1400) * 0.0055),
-        },
-      },
-    });
-  };
-
   const formatTND = (n: number) =>
     new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(n);
 
   // ─── Écran résultats ───────────────────────────────────────────────────────
   if (plans) {
     return (
-      <main className="min-h-screen bg-background">
-        <header className="sticky top-0 z-30 border-b border-border/30 bg-background/85 backdrop-blur-md">
+      <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+        <header className="glass-header sticky top-0 z-30">
           <div className="mx-auto max-w-7xl px-3 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 sm:min-h-14 sm:py-0">
             <div className="flex items-center gap-2 min-w-0">
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { setPlans(null); setStep(formStep); }}>
+              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 shrink-0" onClick={() => { setPlans(null); setStep(formStep); }} aria-label="Retour au formulaire">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 text-white">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shrink-0">
                 <Sparkles className="h-3.5 w-3.5" />
               </div>
               <div className="min-w-0">
@@ -383,7 +489,6 @@ export default function PlanGenerator() {
                 onView={() => setViewerIndex(plan.index - 1)}
                 onDownload={() => exportPlanImage(plan, { format: "png", scale: 2.5 }).then(() => toast.success(`Plan ${plan.index} téléchargé`)).catch((e: any) => toast.error(e?.message || "Erreur"))}
                 onEdit={() => setEditIndex(plan.index - 1)}
-                onInvest={() => openInvestAnalysis(plan)}
               />
             ))}
 
@@ -398,6 +503,9 @@ export default function PlanGenerator() {
               <span className="text-[10px] text-center leading-snug">Conserve les mêmes caractéristiques mais produit des configurations différentes.</span>
             </button>
           </div>
+
+          {/* Légende des abréviations */}
+          <PlanLegend />
         </div>
 
         {/* Modales */}
@@ -459,20 +567,20 @@ export default function PlanGenerator() {
                       value={planName}
                       onChange={(e) => setPlanName(e.target.value)}
                       placeholder={`${bienTypeLabel(req.bienType)} — ${Math.round(req.surfaceCouverte)} m²`}
-                      className="mt-1.5 h-9 text-xs"
+                      className="mt-1.5 h-11 sm:h-9 text-xs"
                       autoFocus
                     />
                     <div className="flex gap-2 mt-5">
-                      <Button variant="outline" size="sm" className="h-9 flex-1 text-xs" onClick={() => setSaveOpen(false)}>Annuler</Button>
-                      <Button size="sm" className="h-9 flex-1 text-xs gap-1" onClick={handleSave} disabled={saving}>
+                      <Button variant="outline" size="sm" className="h-11 sm:h-9 flex-1 text-xs" onClick={() => setSaveOpen(false)}>Annuler</Button>
+                      <Button size="sm" className="h-11 sm:h-9 flex-1 text-xs gap-1" onClick={handleSave} disabled={saving}>
                         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Sauvegarder
                       </Button>
                     </div>
                   </>
                 ) : (
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="h-9 flex-1 text-xs" onClick={() => { setSavedId(null); setSaveOpen(false); }}>Fermer</Button>
-                    <Button size="sm" className="h-9 flex-1 text-xs" onClick={() => navigate("/dashboard/plans")}>Mes plans</Button>
+                    <Button variant="outline" size="sm" className="h-11 sm:h-9 flex-1 text-xs" onClick={() => { setSavedId(null); setSaveOpen(false); }}>Fermer</Button>
+                    <Button size="sm" className="h-11 sm:h-9 flex-1 text-xs" onClick={() => navigate("/dashboard/plans")}>Mes plans</Button>
                   </div>
                 )}
               </motion.div>
@@ -483,359 +591,511 @@ export default function PlanGenerator() {
     );
   }
 
-  // ─── Écran formulaire (wizard) ─────────────────────────────────────────────
+  // ─── Écran formulaire (wizard) — design unifié « Nouveau projet » ─────────
   return (
-    <main className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b border-border/30 bg-background/85 backdrop-blur-md">
-        <div className="mx-auto max-w-5xl px-3 sm:px-6 flex items-center justify-between h-14">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/dashboard/plans")}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 text-white">
-              <Sparkles className="h-3.5 w-3.5" />
+    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+      {/* Header */}
+      <header className="glass-header sticky top-0 z-20">
+        <div className="mx-auto max-w-6xl px-3 sm:px-6 flex items-center h-12 sm:h-14">
+          <Button variant="ghost" size="sm" className="gap-1 h-9 sm:h-8 shrink-0" onClick={() => navigate("/dashboard/plans")}>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline text-xs">Retour</span>
+          </Button>
+          <div className="ml-2 flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Sparkles className="h-3 w-3" />
             </div>
-            <div>
-              <p className="text-sm font-semibold">Générateur de plans architecturaux</p>
-              <p className="text-[10px] text-muted-foreground hidden sm:block">Par IA — 10 propositions automatiques</p>
-            </div>
+            <span className="font-semibold text-xs sm:text-sm">Générateur de plans architecturaux</span>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-3 sm:px-6 py-6 grid lg:grid-cols-[240px_1fr] gap-6">
-        {/* Stepper */}
-        <aside className="hidden lg:block">
-          <div className="sticky top-20 space-y-1">
-            {STEPS.map((st, i) => {
-              const idx = STEPS.findIndex((s) => s.key === step);
-              const done = i < idx;
-              const active = i === idx;
-              return (
-                <button
-                  key={st.key}
-                  onClick={() => (done || active) && setStep(st.key)}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all",
-                    active ? "bg-primary/10 text-primary" : done ? "text-muted-foreground hover:bg-muted/50" : "opacity-45",
-                  )}
-                >
-                  <span className={cn(
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold border-2",
-                    active ? "border-primary bg-primary text-white" : done ? "border-emerald-500 bg-emerald-500 text-white" : "border-border",
-                  )}>
-                    {done ? <Check className="h-3 w-3" /> : i + 1}
-                  </span>
-                  <span>
-                    <span className="block text-xs font-semibold">{st.label}</span>
-                    <span className="block text-[9px] text-muted-foreground">{st.desc}</span>
-                  </span>
-                </button>
-              );
-            })}
-            <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
-              <p className="text-[10px] text-primary font-semibold flex items-center gap-1"><Sparkles className="h-3 w-3" /> 10 plans générés</p>
-              <p className="text-[9px] text-muted-foreground mt-0.5 leading-snug">Le moteur procédural produit 10 organisations différentes respectant vos contraintes.</p>
+      <div className="mx-auto max-w-6xl px-3 sm:px-6 py-6 sm:py-10">
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8 lg:gap-12">
+          {/* ── Stepper ── */}
+          <aside className="md:w-56 lg:w-64 shrink-0">
+            <div className="hidden md:block sticky top-20">
+              <VerticalStepper current={step} onSelect={(k) => setStep(k)} />
             </div>
-          </div>
-        </aside>
 
-        {/* Contenu */}
-        <div>
-          {/* Stepper mobile — défilement horizontal sans scroll de page */}
-          <div className="lg:hidden mb-4 flex gap-1.5 overflow-x-auto scrollbar-none pb-1 -mx-3 px-3">
-            {STEPS.map((st, i) => {
-              const idx = STEPS.findIndex((s) => s.key === step);
-              const done = i < idx;
-              const active = i === idx;
-              return (
-                <button
-                  key={st.key}
-                  onClick={() => (done || active) && setStep(st.key)}
-                  className={cn(
-                    "shrink-0 flex items-center gap-1.5 px-3 py-2 min-h-10 rounded-lg text-[10px] font-medium border active:scale-[0.97]",
-                    active ? "border-primary bg-primary/10 text-primary" : done ? "border-emerald-500/40 text-emerald-600" : "border-border/40 text-muted-foreground",
-                  )}
-                >
-                  {done ? <Check className="h-3 w-3" /> : <span>{i + 1}</span>}
-                  {st.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={step}
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ duration: 0.22, ease: "easeOut" }}
-            >
-              {/* Étape 1 — Type de bien */}
-              {step === "bien" && (
-                <div>
-                  <h2 className="text-lg font-bold mb-1">Choisissez le type de bien</h2>
-                  <p className="text-xs text-muted-foreground mb-4">Le moteur adapte l'organisation des espaces au type de projet.</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {BIEN_TYPES.map((b) => {
-                      const Icon = BIEN_ICONS[b.value] ?? Box;
-                      const active = req.bienType === b.value;
-                      return (
-                        <button
-                          key={b.value}
-                          onClick={() => set("bienType", b.value)}
-                          className={cn(
-                            "flex flex-col items-start gap-2 p-4 rounded-xl border-2 text-left transition-all",
-                            active ? "border-primary bg-primary/5 shadow-sm" : "border-border/40 hover:border-primary/30",
-                          )}
-                        >
-                          <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
-                          <span className="text-xs font-semibold leading-tight">{b.label}</span>
-                          {active && <Badge className="mt-1 bg-primary text-primary-foreground text-[8px]"><Check className="h-2.5 w-2.5" /> Sélectionné</Badge>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Étape 2 — Surfaces */}
-              {step === "surface" && (
-                <div>
-                  <h2 className="text-lg font-bold mb-1">Surfaces & niveaux</h2>
-                  <p className="text-xs text-muted-foreground mb-4">Le moteur vérifie la cohérence entre la surface totale et les pièces.</p>
-                  <div className="space-y-4">
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="rounded-xl border border-border/40 p-4">
-                        <Label className="text-xs font-semibold flex items-center gap-1.5"><Ruler className="h-3.5 w-3.5 text-primary" /> Surface totale disponible (m²)</Label>
-                        <Input type="number" inputMode="decimal" min={20} value={req.surfaceTotale || ""} onChange={(e) => set("surfaceTotale", parseFloat(e.target.value) || 0)} className="mt-1.5 h-11 sm:h-9 w-full text-sm" placeholder="ex : 400" />
-                        <p className="text-[10px] text-muted-foreground mt-1">Terrain ou plateau complet.</p>
-                      </div>
-                      <div className="rounded-xl border border-border/40 p-4">
-                        <Label className="text-xs font-semibold flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-primary" /> Surface couverte (m²)</Label>
-                        <Input type="number" inputMode="decimal" min={15} value={req.surfaceCouverte || ""} onChange={(e) => set("surfaceCouverte", parseFloat(e.target.value) || 0)} className="mt-1.5 h-11 sm:h-9 w-full text-sm" placeholder="ex : 150" />
-                        <p className="text-[10px] text-muted-foreground mt-1">Emprise construite totale (tous niveaux).</p>
-                      </div>
+            {/* Stepper mobile horizontal */}
+            <div className="md:hidden mb-3">
+              <div className="flex items-center justify-between gap-0 overflow-x-auto pb-2 scrollbar-none -mx-3 px-3">
+                {STEPS.map((s, i) => {
+                  const idx = STEPS.findIndex((x) => x.key === step);
+                  const done = i < idx;
+                  const active = i === idx;
+                  return (
+                    <div key={s.key} className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => (done || active) && setStep(s.key)}
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-medium transition-all active:scale-95",
+                          done && "bg-emerald-500 text-white",
+                          active && "bg-primary text-primary-foreground shadow-sm",
+                          !done && !active && "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {done ? <Check className="h-3 w-3" /> : i + 1}
+                      </button>
+                      {i < STEPS.length - 1 && (
+                        <div className={cn("w-4 sm:w-6 h-px", done ? "bg-emerald-400" : "bg-border")} />
+                      )}
                     </div>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="rounded-xl border border-border/40 p-4">
-                        <Label className="text-xs font-semibold flex items-center gap-1.5"><Layers className="h-3.5 w-3.5 text-primary" /> Nombre de niveaux</Label>
-                        <div className="flex items-center gap-2 mt-1.5">
-                          {[1, 2, 3].map((f) => (
-                        <button
-                          key={f}
-                          onClick={() => set("floors", f)}
-                          className={cn(
-                            "flex-1 py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-xs font-semibold transition-all active:scale-[0.97]",
-                            req.floors === f ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
-                          )}
-                        >
-                          R+{f - 1}
-                        </button>
-                          ))}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">R+0 = plain-pied, R+1 = 2 niveaux…</p>
+                  );
+                })}
+              </div>
+              <p className="text-center text-[10px] font-medium text-muted-foreground mt-1">
+                {STEPS.find((s) => s.key === step)?.label ?? ""}
+              </p>
+            </div>
+
+            {/* Récapitulatif mobile repliable */}
+            <div className="md:hidden mb-4">
+              <div className="rounded-xl border border-border/40 bg-card/50 shadow-sm overflow-hidden">
+                <button
+                  onClick={() => setMobileSummaryOpen((v) => !v)}
+                  className="w-full flex items-center justify-between gap-2 px-4 py-3 hover:bg-muted/10 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <FileText className="h-3 w-3" />
+                    </div>
+                    <span className="text-xs font-semibold">Récapitulatif</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="h-5 w-5 -rotate-90" viewBox="0 0 20 20">
+                      <circle cx="10" cy="10" r="8" fill="none" stroke="hsl(var(--border))" strokeWidth="2" />
+                      <motion.circle
+                        cx="10" cy="10" r="8" fill="none"
+                        stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round"
+                        strokeDasharray={2 * Math.PI * 8}
+                        initial={{ strokeDashoffset: 2 * Math.PI * 8 }}
+                        animate={{ strokeDashoffset: 2 * Math.PI * 8 * (1 - 100 / 100) }}
+                        transition={{ duration: 0.6 }}
+                      />
+                    </svg>
+                    <motion.div animate={{ rotate: mobileSummaryOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    </motion.div>
+                  </div>
+                </button>
+                <AnimatePresence initial={false}>
+                  {mobileSummaryOpen && (
+                    <motion.div
+                      key="mobile-summary"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-4 pb-4">
+                        <PlanSummaryContent req={req} step={step} />
                       </div>
-                      <div className="rounded-xl border border-border/40 p-4">
-                        <Label className="text-xs font-semibold flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-primary" /> Orientation & entrée</Label>
-                        <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-                          {(["nord", "est", "sud", "ouest"] as const).map((dir) => (
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </aside>
+
+          {/* ── Contenu ── */}
+          <section className="flex-1 min-w-0">
+            <div className="rounded-2xl border border-border/40 bg-card/50 p-4 sm:p-6 lg:p-8 shadow-sm">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={step}
+                  initial={{ opacity: 0, x: 24 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -24 }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
+                >
+                  {/* Étape 1 — Type de bien */}
+                  {step === "bien" && (
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold mb-1">Choisissez le type de bien</h2>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-4">Le moteur adapte l'organisation des espaces au type de projet.</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {BIEN_TYPES.map((b) => {
+                          const Icon = BIEN_ICONS[b.value] ?? Box;
+                          const active = req.bienType === b.value;
+                          return (
                             <button
-                              key={dir}
-                              onClick={() => set("entreePosition", dir)}
+                              key={b.value}
+                              onClick={() => set("bienType", b.value)}
                               className={cn(
-                                "py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-[10px] font-medium capitalize transition-all active:scale-[0.97]",
-                                req.entreePosition === dir ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
+                                "flex flex-col items-start gap-2 p-4 rounded-xl border-2 text-left transition-all active:scale-[0.98]",
+                                active ? "border-primary bg-primary/5 shadow-sm" : "border-border/40 hover:border-primary/30",
                               )}
                             >
-                              {dir}
+                              <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
+                              <span className="text-xs font-semibold leading-tight">{b.label}</span>
+                              {active && <Badge className="mt-1 bg-primary text-primary-foreground text-[8px]"><Check className="h-2.5 w-2.5" /> Sélectionné</Badge>}
                             </button>
-                          ))}
-                          <button
-                            onClick={() => set("entreePosition", req.entreePosition === "sud" ? "ouest" : "sud")}
-                            className="py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border border-border/40 text-[10px] font-medium text-muted-foreground hover:border-primary/30 active:scale-[0.97]"
-                          >
-                            Auto
-                          </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Étape 2 — Surfaces */}
+                  {step === "surface" && (
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold mb-1">Surfaces & niveaux</h2>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-4">Le moteur vérifie la cohérence entre la surface totale et les pièces.</p>
+                      <div className="space-y-4">
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <div className="rounded-xl border border-border/40 p-4">
+                            <Label className="text-xs font-semibold flex items-center gap-1.5"><Ruler className="h-3.5 w-3.5 text-primary" /> Surface totale disponible (m²)</Label>
+                            <Input type="number" inputMode="decimal" min={20} value={req.surfaceTotale || ""} onChange={(e) => set("surfaceTotale", parseFloat(e.target.value) || 0)} className="mt-1.5 h-11 sm:h-9 w-full text-sm" placeholder="ex : 400" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Terrain ou plateau complet.</p>
+                          </div>
+                          <div className="rounded-xl border border-border/40 p-4">
+                            <Label className="text-xs font-semibold flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-primary" /> Surface couverte (m²)</Label>
+                            <Input type="number" inputMode="decimal" min={15} value={req.surfaceCouverte || ""} onChange={(e) => set("surfaceCouverte", parseFloat(e.target.value) || 0)} className="mt-1.5 h-11 sm:h-9 w-full text-sm" placeholder="ex : 150" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Emprise construite totale (tous niveaux).</p>
+                          </div>
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">Position de l'entrée principale.</p>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <div className="rounded-xl border border-border/40 p-4">
+                            <Label className="text-xs font-semibold flex items-center gap-1.5"><Layers className="h-3.5 w-3.5 text-primary" /> Nombre de niveaux</Label>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              {[1, 2, 3].map((f) => (
+                                <button
+                                  key={f}
+                                  onClick={() => !singleLevel && set("floors", f)}
+                                  disabled={singleLevel && f !== 1}
+                                  className={cn(
+                                    "flex-1 py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-xs font-semibold transition-all active:scale-[0.97]",
+                                    req.floors === f ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
+                                    singleLevel && f !== 1 && "opacity-40 cursor-not-allowed",
+                                  )}
+                                >
+                                  R+{f - 1}
+                                </button>
+                              ))}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              {singleLevel
+                                ? "Rez-de-chaussée uniquement pour ce type de bien (local commercial, entrepôt, bureau)."
+                                : "R+0 = plain-pied, R+1 = 2 niveaux…"}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-border/40 p-4">
+                            <Label className="text-xs font-semibold flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-primary" /> Orientation & entrée</Label>
+                            <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+                              {(["nord", "est", "sud", "ouest"] as const).map((dir) => (
+                                <button
+                                  key={dir}
+                                  onClick={() => set("entreePosition", dir)}
+                                  className={cn(
+                                    "py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-[10px] font-medium capitalize transition-all active:scale-[0.97]",
+                                    req.entreePosition === dir ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
+                                  )}
+                                >
+                                  {dir}
+                                </button>
+                              ))}
+                              <button
+                                onClick={() => set("entreePosition", req.entreePosition === "sud" ? "ouest" : "sud")}
+                                className="py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border border-border/40 text-[10px] font-medium text-muted-foreground hover:border-primary/30 active:scale-[0.97]"
+                              >
+                                Auto
+                              </button>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1">Position de l'entrée principale.</p>
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-border/40 p-4">
+                          <Label className="text-xs font-semibold flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-primary" /> Nombre de façades exposées</Label>
+                          <div className="flex gap-1.5 mt-1.5">
+                            {[1, 2, 3, 4].map((f) => (
+                              <button
+                                key={f}
+                                onClick={() => set("facades", f)}
+                                className={cn(
+                                  "flex-1 px-4 py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-xs font-semibold transition-all active:scale-[0.97]",
+                                  req.facades === f ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
+                                )}
+                              >
+                                {f}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="rounded-xl border border-border/40 p-4">
-                      <Label className="text-xs font-semibold flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-primary" /> Nombre de façades exposées</Label>
-                      <div className="flex gap-1.5 mt-1.5">
-                        {[1, 2, 3, 4].map((f) => (
-                          <button
-                            key={f}
-                            onClick={() => set("facades", f)}
-                            className={cn(
-                              "flex-1 px-4 py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-xs font-semibold transition-all active:scale-[0.97]",
-                              req.facades === f ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
-                            )}
-                          >
-                            {f}
-                          </button>
+                  )}
+
+                  {/* Étape 3 — Pièces */}
+                  {step === "pieces" && (
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold mb-1">Composition intérieure</h2>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-4">Le nombre de pièces influence la surface utile et la circulation.</p>
+                      <div className="space-y-3">
+                        <div className="grid sm:grid-cols-3 gap-3">
+                          {COUNT_FIELDS.map((f) => (
+                            <CountStepper
+                              key={f.key}
+                              label={f.label}
+                              icon={f.icon}
+                              min={f.min}
+                              max={f.max}
+                              value={(req as any)[f.key] as number}
+                              onChange={(v) => set(f.key as keyof PlanRequest, v as any)}
+                            />
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {ROOM_TOGGLES.map((t) => (
+                            <ToggleChip
+                              key={t.key}
+                              label={t.label}
+                              icon={t.icon}
+                              checked={(req as any)[t.key] as boolean}
+                              onChange={(v) => set(t.key as keyof PlanRequest, v as any)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Étape 4 — Extérieurs */}
+                  {step === "exterieur" && (
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold mb-1">Espaces extérieurs</h2>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-4">Garage, stationnement, terrasse, jardin et piscine sont placés sur la parcelle.</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {EXT_TOGGLES.map((t) => (
+                          <ToggleChip
+                            key={t.key}
+                            label={t.label}
+                            icon={t.icon}
+                            checked={(req as any)[t.key] as boolean}
+                            onChange={(v) => set(t.key as keyof PlanRequest, v as any)}
+                          />
                         ))}
                       </div>
                     </div>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {/* Étape 3 — Pièces */}
-              {step === "pieces" && (
-                <div>
-                  <h2 className="text-lg font-bold mb-1">Composition intérieure</h2>
-                  <p className="text-xs text-muted-foreground mb-4">Le nombre de pièces influence la surface utile et la circulation.</p>
-                  <div className="space-y-3">
-                    <div className="grid sm:grid-cols-3 gap-3">
-                      {COUNT_FIELDS.map((f) => (
-                        <CountStepper
-                          key={f.key}
-                          label={f.label}
-                          icon={f.icon}
-                          min={f.min}
-                          max={f.max}
-                          value={(req as any)[f.key] as number}
-                          onChange={(v) => set(f.key as keyof PlanRequest, v as any)}
-                        />
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {ROOM_TOGGLES.map((t) => (
-                        <ToggleChip
-                          key={t.key}
-                          label={t.label}
-                          icon={t.icon}
-                          checked={(req as any)[t.key] as boolean}
-                          onChange={(v) => set(t.key as keyof PlanRequest, v as any)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Étape 4 — Extérieurs */}
-              {step === "exterieur" && (
-                <div>
-                  <h2 className="text-lg font-bold mb-1">Espaces extérieurs</h2>
-                  <p className="text-xs text-muted-foreground mb-4">Garage, stationnement, terrasse, jardin et piscine sont placés sur la parcelle.</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {EXT_TOGGLES.map((t) => (
-                      <ToggleChip
-                        key={t.key}
-                        label={t.label}
-                        icon={t.icon}
-                        checked={(req as any)[t.key] as boolean}
-                        onChange={(v) => set(t.key as keyof PlanRequest, v as any)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Étape 5 — Style & exigences */}
-              {step === "style" && (
-                <div>
-                  <h2 className="text-lg font-bold mb-1">Style & contraintes</h2>
-                  <p className="text-xs text-muted-foreground mb-4">Définissez le niveau de standing, le style architectural et vos exigences.</p>
-                  <div className="space-y-4">
+                  {/* Étape 5 — Style & exigences */}
+                  {step === "style" && (
                     <div>
-                      <Label className="text-xs font-semibold flex items-center gap-1.5"><Crown className="h-3.5 w-3.5 text-primary" /> Niveau de standing</Label>
-                      <div className="grid sm:grid-cols-3 gap-2 mt-1.5">
-                        {STANDINGS.map((s) => (
-                          <button
-                            key={s.value}
-                            onClick={() => set("standing", s.value)}
-                            className={cn(
-                              "flex items-center gap-2 p-3 min-h-[60px] rounded-xl border-2 text-left transition-all active:scale-[0.98]",
-                              req.standing === s.value ? "border-primary bg-primary/5" : "border-border/40 hover:border-primary/30",
-                            )}
-                          >
-                            <s.icon className={cn("h-4 w-4", req.standing === s.value ? "text-primary" : "text-muted-foreground")} />
-                            <span>
-                              <span className="block text-xs font-semibold">{s.label}</span>
-                              <span className="block text-[9px] text-muted-foreground">{s.desc}</span>
-                            </span>
-                          </button>
-                        ))}
+                      <h2 className="text-lg sm:text-xl font-bold mb-1">Style & contraintes</h2>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-4">Définissez le niveau de standing, le style architectural et vos exigences.</p>
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-xs font-semibold flex items-center gap-1.5"><Crown className="h-3.5 w-3.5 text-primary" /> Niveau de standing</Label>
+                          <div className="grid sm:grid-cols-3 gap-2 mt-1.5">
+                            {STANDINGS.map((s) => (
+                              <button
+                                key={s.value}
+                                onClick={() => set("standing", s.value)}
+                                className={cn(
+                                  "flex items-center gap-2 p-3 min-h-[60px] rounded-xl border-2 text-left transition-all active:scale-[0.98]",
+                                  req.standing === s.value ? "border-primary bg-primary/5" : "border-border/40 hover:border-primary/30",
+                                )}
+                              >
+                                <s.icon className={cn("h-4 w-4", req.standing === s.value ? "text-primary" : "text-muted-foreground")} />
+                                <span>
+                                  <span className="block text-xs font-semibold">{s.label}</span>
+                                  <span className="block text-[9px] text-muted-foreground">{s.desc}</span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-semibold flex items-center gap-1.5"><Palette className="h-3.5 w-3.5 text-primary" /> Style architectural</Label>
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {(Object.keys(STYLE_LABELS) as Array<keyof typeof STYLE_LABELS>).map((st) => (
+                              <button
+                                key={st}
+                                onClick={() => set("style", st as any)}
+                                className={cn(
+                                  "px-3.5 py-2.5 sm:py-1.5 min-h-11 sm:min-h-9 rounded-lg border text-[11px] font-medium transition-all active:scale-[0.97]",
+                                  req.style === st ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:border-primary/30",
+                                )}
+                              >
+                                {STYLE_LABELS[st]}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-semibold flex items-center gap-1.5"><PenLine className="h-3.5 w-3.5 text-primary" /> Exigences supplémentaires</Label>
+                          <Textarea
+                            value={req.exigences ?? ""}
+                            onChange={(e) => set("exigences", e.target.value)}
+                            placeholder="Décrivez librement vos besoins : double salon, salle de jeux, orientation du salon plein sud, cuisine fermée, etc."
+                            className="mt-1.5 min-h-[100px] text-xs w-full"
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <Label className="text-xs font-semibold flex items-center gap-1.5"><Palette className="h-3.5 w-3.5 text-primary" /> Style architectural</Label>
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {(Object.keys(STYLE_LABELS) as Array<keyof typeof STYLE_LABELS>).map((st) => (
-                          <button
-                            key={st}
-                            onClick={() => set("style", st as any)}
-                            className={cn(
-                              "px-3.5 py-2.5 sm:py-1.5 min-h-11 sm:min-h-9 rounded-lg border text-[11px] font-medium transition-all active:scale-[0.97]",
-                              req.style === st ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:border-primary/30",
-                            )}
-                          >
-                            {STYLE_LABELS[st]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-semibold flex items-center gap-1.5"><PenLine className="h-3.5 w-3.5 text-primary" /> Exigences supplémentaires</Label>
-                      <Textarea
-                        value={req.exigences ?? ""}
-                        onChange={(e) => set("exigences", e.target.value)}
-                        placeholder="Décrivez librement vos besoins : double salon, salle de jeux, orientation du salon plein sud, cuisine fermée, etc."
-                        className="mt-1.5 min-h-[100px] text-xs w-full"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {/* Navigation — barre sticky en bas sur mobile pour un accès tactile facile */}
-              <div className="sticky bottom-0 z-10 -mx-3 sm:mx-0 mt-6 flex items-center justify-between gap-3 border-t border-border/40 bg-background/95 backdrop-blur px-3 py-3 sm:static sm:mt-6 sm:border-0 sm:bg-transparent sm:backdrop-blur-none sm:p-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-11 sm:h-9 flex-1 sm:flex-none text-xs gap-1"
-                  onClick={() => {
-                    const idx = STEPS.findIndex((st) => st.key === step);
-                    if (idx > 0) setStep(STEPS[idx - 1].key);
-                  }}
-                  disabled={STEPS.findIndex((st) => st.key === step) === 0}
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" /> Retour
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-11 sm:h-9 flex-1 sm:flex-none text-xs gap-1"
-                  onClick={handleNext}
-                  disabled={!canNext || generating}
-                >
-                  {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : step === "style" ? <Sparkles className="h-3.5 w-3.5" /> : null}
-                  {generating ? "Génération…" : step === "style" ? "Générer 10 plans" : "Continuer"}
-                  {!generating && step !== "style" && <ChevronRight className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
-            </motion.div>
-          </AnimatePresence>
+                  {/* Navigation — barre sticky en bas sur mobile */}
+                  <div className="sticky bottom-0 z-10 -mx-4 sm:-mx-6 sm:mx-0 mt-6 flex items-center justify-between gap-3 border-t border-border/40 bg-background/95 backdrop-blur px-4 py-3 sm:static sm:mt-6 sm:border-0 sm:bg-transparent sm:backdrop-blur-none sm:p-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-11 sm:h-9 flex-1 sm:flex-none text-xs gap-1"
+                      onClick={() => {
+                        const idx = STEPS.findIndex((st) => st.key === step);
+                        if (idx > 0) setStep(STEPS[idx - 1].key);
+                      }}
+                      disabled={STEPS.findIndex((st) => st.key === step) === 0}
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" /> Retour
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-11 sm:h-9 flex-1 sm:flex-none text-xs gap-1"
+                      onClick={handleNext}
+                      disabled={!canNext || generating}
+                    >
+                      {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : step === "style" ? <Sparkles className="h-3.5 w-3.5" /> : null}
+                      {generating ? "Génération…" : step === "style" ? "Générer 10 plans" : "Continuer"}
+                      {!generating && step !== "style" && <ChevronRight className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </section>
+
+          {/* ── Récapitulatif desktop ── */}
+          <aside className="hidden lg:block w-64 xl:w-72 shrink-0">
+            <PlanSummaryContent req={req} step={step} sticky />
+          </aside>
         </div>
       </div>
     </main>
   );
 }
 
+/** Contenu du récapitulatif (partagé desktop / mobile). */
+function PlanSummaryContent({ req, step, sticky = false }: { req: PlanRequest; step: StepKey; sticky?: boolean }) {
+  const items: { label: string; value: string; icon: LucideIcon }[] = [
+    { label: "Type de bien", value: bienTypeLabel(req.bienType), icon: Home },
+    { label: "Surface totale", value: `${Math.round(req.surfaceTotale)} m²`, icon: Ruler },
+    { label: "Surface couverte", value: `${Math.round(req.surfaceCouverte)} m²`, icon: Building2 },
+    { label: "Niveaux", value: `${req.floors} niveau${req.floors > 1 ? "x" : ""}`, icon: Layers },
+    { label: "Composition", value: `${req.bedrooms} ch · ${req.bathrooms} sdb · ${req.wcs} wc`, icon: BedDouble },
+    { label: "Équipements", value: `${ROOM_TOGGLES.filter((t) => (req as any)[t.key]).length} pièce(s)`, icon: LayoutGrid },
+    { label: "Extérieurs", value: `${EXT_TOGGLES.filter((t) => (req as any)[t.key]).length} espace(s)`, icon: Trees },
+    { label: "Standing", value: STANDINGS.find((s) => s.value === req.standing)?.label ?? req.standing, icon: Crown },
+    { label: "Style", value: STYLE_LABELS[req.style] ?? req.style, icon: Palette },
+  ];
+
+  const totalFields = 9;
+  const progress = Math.min(Math.round((items.length / totalFields) * 100), 100);
+  const R = 16;
+  const circumference = 2 * Math.PI * R;
+  const offset = circumference * (1 - progress / 100);
+
+  const body = (
+    <>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative h-11 w-11 shrink-0">
+          <svg className="h-11 w-11 -rotate-90" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r={R} fill="none" stroke="hsl(var(--border))" strokeWidth="2.5" />
+            <motion.circle
+              cx="20" cy="20" r={R}
+              fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinecap="round"
+              strokeDasharray={circumference}
+              initial={{ strokeDashoffset: circumference }}
+              animate={{ strokeDashoffset: offset }}
+              transition={{ duration: 1.8, ease: [0.34, 1.56, 0.64, 1] }}
+            />
+          </svg>
+          <motion.span
+            className="absolute inset-0 flex items-center justify-center text-[9px] font-bold"
+            style={{ color: "hsl(var(--primary))" }}
+            animate={progress > 0 && progress < 100 ? { scale: [1, 1.1, 1] } : {}}
+            transition={{ repeat: Infinity, duration: 4.5, ease: "easeInOut" }}
+          >
+            {progress}%
+          </motion.span>
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-medium">
+            {progress < 30 && "💭 Commencez à remplir le formulaire"}
+            {progress >= 30 && progress < 60 && "🧠 Bonne progression !"}
+            {progress >= 60 && progress < 90 && "⚡ Presque complet !"}
+            {progress >= 90 && "✅ Prêt pour la génération"}
+          </p>
+          <p className="text-[9px] text-muted-foreground">
+            {step === "style" ? "Toutes les contraintes saisies" : "Informations saisies"}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        {items.map((item, i) => (
+          <motion.div
+            key={item.label}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.04 }}
+            className="flex items-center gap-2 py-1.5 px-2 rounded-lg border border-border/20 bg-muted/20"
+          >
+            <item.icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] text-muted-foreground leading-tight">{item.label}</p>
+              <p className="text-[10px] font-medium truncate leading-tight">{item.value}</p>
+            </div>
+            <motion.div
+              className="h-1.5 w-1.5 rounded-full shrink-0 bg-primary"
+              animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
+              transition={{ repeat: Infinity, duration: 2, delay: i * 0.15, ease: "easeInOut" }}
+            />
+          </motion.div>
+        ))}
+      </div>
+    </>
+  );
+
+  if (sticky) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+        className="sticky top-20"
+      >
+        <div className="rounded-xl border border-border/40 bg-card/50 p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border/20">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FileText className="h-3.5 w-3.5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-xs font-semibold">Récapitulatif</h3>
+              <p className="text-[9px] text-muted-foreground">{items.length}/{totalFields} champs</p>
+            </div>
+          </div>
+          {body}
+        </div>
+      </motion.div>
+    );
+  }
+
+  return body;
+}
+
 // ============================================================================
 // Carte d'un plan dans la grille de résultats
 // ============================================================================
 
-function PlanCard({ plan, onView, onDownload, onEdit, onInvest }: {
+function PlanCard({ plan, onView, onDownload, onEdit }: {
   plan: GeneratedPlan;
   onView: () => void;
   onDownload: () => void;
   onEdit: () => void;
-  onInvest: () => void;
 }) {
   const [downloading, setDownloading] = useState(false);
   return (
@@ -870,6 +1130,7 @@ function PlanCard({ plan, onView, onDownload, onEdit, onInvest }: {
         <button
           onClick={(e) => { e.stopPropagation(); onView(); }}
           className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30"
+          aria-label={`Voir le plan ${plan.index}`}
         >
           <span className="flex items-center gap-1.5 rounded-full bg-white text-slate-900 px-3.5 py-1.5 text-[11px] font-semibold shadow-lg">
             <Sparkles className="h-3.5 w-3.5" /> Voir le plan
@@ -897,20 +1158,8 @@ function PlanCard({ plan, onView, onDownload, onEdit, onInvest }: {
           >
             {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           </Button>
-          <Button size="sm" variant="ghost" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px] gap-1" onClick={onInvest} title="Analyse de rentabilité" aria-label="Lancer l'analyse de rentabilité">
-            <TrendingIcon />
-          </Button>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function TrendingIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-      <polyline points="16 7 22 7 22 13" />
-    </svg>
   );
 }

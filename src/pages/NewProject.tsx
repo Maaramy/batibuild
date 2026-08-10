@@ -73,6 +73,9 @@ const ROOM_ELIGIBLE_CATEGORIES = [
   "residence_touristique", "projet_neuf",
 ];
 
+// Types de bien à un seul niveau (rez-de-chaussée imposé)
+const SINGLE_LEVEL_TYPES = ["local_commercial", "entrepot", "bureau"];
+
 // Valeurs par défaut des pièces selon le type de bien sélectionné
 const ROOM_DEFAULTS: Record<string, { bedrooms: string; bathrooms: string; kitchens: string; livingRooms: string; garages: string }> = {
   maison:               { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
@@ -631,6 +634,8 @@ export default function NewProject() {
       setLivingRooms(d.livingRooms);
       setGarages(d.garages);
     }
+    // Rez-de-chaussée imposé pour les locaux d'activité
+    if (SINGLE_LEVEL_TYPES.includes(cat)) setFloors("1");
     setErrors((e) => ({ ...e, category: "" }));
   };
 
@@ -1021,9 +1026,16 @@ export default function NewProject() {
                       onChange={(e) => setFloors(e.target.value)}
                       min="0"
                       max="20"
-                      className="pl-9 h-9 sm:h-10 text-xs sm:text-sm"
+                      disabled={SINGLE_LEVEL_TYPES.includes(selectedCategory)}
+                      className="pl-9 h-9 sm:h-10 text-xs sm:text-sm disabled:opacity-60"
                     />
                   </div>
+                  {SINGLE_LEVEL_TYPES.includes(selectedCategory) && (
+                    <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      Rez-de-chaussée uniquement pour ce type de bien (local commercial, entrepôt, bureau).
+                    </p>
+                  )}
                 </div>
                 <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30 sm:col-span-2">
                   <Label htmlFor="description" className="text-xs sm:text-sm font-semibold">

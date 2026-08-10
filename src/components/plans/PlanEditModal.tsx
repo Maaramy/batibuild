@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,9 @@ import type { PlanRequest, GeneratedPlan } from "@/convex/planEngine";
 // Modification d'un plan : ajuste les contraintes et régénère automatiquement
 // la variante (ou les 10) en conservant les autres contraintes.
 // ============================================================================
+
+// Types de bien à un seul niveau (rez-de-chaussée imposé)
+const SINGLE_LEVEL_TYPES = ["local_commercial", "entrepot", "bureau"];
 
 const COMMANDS: { key: string; label: string; hint: string }[] = [
   { key: "bedrooms", label: "Chambres", hint: "Ajouter / supprimer une chambre" },
@@ -42,6 +45,12 @@ export function PlanEditModal({
   const [req, setReq] = useState<PlanRequest>(request);
   const [regenAll, setRegenAll] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // Rez-de-chaussée imposé pour les locaux d'activité
+  const singleLevel = SINGLE_LEVEL_TYPES.includes(req.bienType);
+  useEffect(() => {
+    if (singleLevel) setReq((r) => (r.floors !== 1 ? { ...r, floors: 1 } : r));
+  }, [singleLevel]);
 
   const set = <K extends keyof PlanRequest>(key: K, value: PlanRequest[K]) =>
     setReq((r) => ({ ...r, [key]: value }));
@@ -78,13 +87,17 @@ export function PlanEditModal({
                 {[1, 2, 3].map((f) => (
                   <button
                     key={f}
-                    onClick={() => set("floors", f)}
-                    className={`flex-1 py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-md border text-[11px] font-semibold transition-all active:scale-[0.97] ${req.floors === f ? "border-primary bg-primary/10 text-primary" : "border-border/40"}`}
+                    onClick={() => !singleLevel && set("floors", f)}
+                    disabled={singleLevel && f !== 1}
+                    className={`flex-1 py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-md border text-[11px] font-semibold transition-all active:scale-[0.97] ${req.floors === f ? "border-primary bg-primary/10 text-primary" : "border-border/40"} ${singleLevel && f !== 1 ? "opacity-40 cursor-not-allowed" : ""}`}
                   >
                     R+{f - 1}
                   </button>
                 ))}
               </div>
+              {singleLevel && (
+                <p className="text-[9px] text-muted-foreground mt-1">Rez-de-chaussée uniquement pour ce type de bien.</p>
+              )}
             </div>
           </div>
 

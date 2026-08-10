@@ -85,8 +85,9 @@ describe("buildPlanSheet", () => {
     expect(f["Surface construite"]).toBe(`${Math.round(plan.stats.construite)} m²`);
     expect(f["Surface utile"]).toBe(`${Math.round(plan.stats.utile)} m²`);
     expect(f["Taux d'utilisation"]).toBe(`${plan.stats.tauxUtilisation}%`);
-    expect(f["Portes"]).toBe(`${plan.doors.length}`);
-    expect(f["Fenêtres"]).toBe(`${plan.windows.length}`);
+    // Portes / Fenêtres ne figurent plus dans les chiffres clés (déjà comptées dans le tableau des pièces)
+    expect(f["Portes"]).toBeUndefined();
+    expect(f["Fenêtres"]).toBeUndefined();
   });
 
   it("liste toutes les pièces couvertes avec leur niveau et surface", () => {

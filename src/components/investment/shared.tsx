@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
+import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import {
   resolveZoneUtility,
@@ -259,6 +260,21 @@ export function NumField({ label, value, onChange, suffix, step = 1, hint, valid
   label: string; value: number | undefined; onChange: (v: number | undefined) => void;
   suffix?: string; step?: number; hint?: ReactNode; valid?: boolean; required?: boolean; labelExtra?: ReactNode;
 }) {
+  // Saisie libre (texte) : l'état local permet de taper des décimales et de
+  // vider le champ sans blocage — le type "number" natif cassait la saisie
+  // (e.target.value = "" sur les valeurs partielles comme "12.").
+  const [text, setText] = useState(value != null ? String(value) : "");
+  const lastEmitted = useRef<number | undefined>(value);
+
+  // Synchronisation uniquement quand la valeur change depuis l'extérieur
+  // (prefill, réinitialisation) — jamais pendant la frappe de l'utilisateur.
+  useEffect(() => {
+    if (value !== lastEmitted.current) {
+      lastEmitted.current = value;
+      setText(value != null ? String(value) : "");
+    }
+  }, [value]);
+
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-1">
@@ -275,11 +291,24 @@ export function NumField({ label, value, onChange, suffix, step = 1, hint, valid
       </div>
       <div className="relative">
         <Input
-          type="number"
-          value={value ?? ""}
-          step={step}
-          onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))}
-          className="h-9 text-sm tabular-nums pr-12"
+          type="text"
+          inputMode="decimal"
+          value={text}
+          onChange={(e) => {
+            const raw = e.target.value.replace(",", ".");
+            setText(raw);
+            if (raw === "" || raw === "-" || raw === "." || raw === "-.") {
+              lastEmitted.current = undefined;
+              onChange(undefined);
+            } else {
+              const n = Number(raw);
+              if (!Number.isNaN(n)) {
+                lastEmitted.current = n;
+                onChange(n);
+              }
+            }
+          }}
+          className="h-9 sm:h-10 text-sm tabular-nums pr-12"
         />
         {suffix && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60 pointer-events-none">

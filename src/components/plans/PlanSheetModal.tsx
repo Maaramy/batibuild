@@ -248,7 +248,7 @@ export function PlanSheetModal({
                     )}
                     {sheet.cost.labor && (
                       <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-white/60 dark:bg-emerald-950/30 px-2 py-0.5 text-[9px] font-medium">
-                        <Users className="h-3 w-3" /> {sheet.cost.labor.totalWorkers} ouvriers / {sheet.cost.labor.totalDays} j
+                        <Users className="h-3 w-3" /> {sheet.cost.labor.totalWorkers} ouvriers
                       </span>
                     )}
                   </div>
