@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
-  ArrowLeft, Plus, Sparkles, Star, Trash2, Copy, Download, History, Clock,
+  ArrowLeft, Plus, Sparkles, Star, Trash2, Copy, FileText, History, Clock,
   RotateCcw, Search, Loader2, Crown,
   Box, Ruler, BedDouble, Bath, Check, X, Pencil,
 } from "lucide-react";
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import type { GeneratedPlan } from "@/convex/planEngine";
 import { bienTypeLabel } from "@/convex/planEngine";
 import { FloorPlan2D } from "@/components/plans/FloorPlanView";
-import { exportPlanImage } from "@/lib/planExport";
+import { exportPlanPdf } from "@/lib/planExport";
 import { planPreviewToGeneratedPlan } from "@/lib/planPreview";
 import { usePageSEO } from "@/hooks/use-page-seo";
 
@@ -275,11 +275,6 @@ function LibraryCard({ plan, onOpen, onRename, onDelete, onDuplicate, onFavorite
           </div>
         )}
         {plan.favorite && <Badge className="absolute top-2 right-2 bg-amber-400 text-black border-0 text-[9px]"><Star className="h-2.5 w-2.5 fill-current" /></Badge>}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
-          <span className="flex items-center gap-1.5 rounded-full bg-white text-slate-900 px-3.5 py-1.5 text-[11px] font-semibold shadow-lg">
-            <Sparkles className="h-3.5 w-3.5" /> Ouvrir
-          </span>
-        </div>
       </div>
 
       {/* Actions */}
@@ -292,18 +287,18 @@ function LibraryCard({ plan, onOpen, onRename, onDelete, onDuplicate, onFavorite
             <Sparkles className="h-3 w-3" /> Ouvrir
           </Button>
           <Button
-            size="sm" variant="outline" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]" title="Télécharger" aria-label="Télécharger le plan en PNG" disabled={downloading || !preview}
+            size="sm" variant="outline" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]" title="Télécharger en PDF (haute résolution)" aria-label="Télécharger le plan en PDF" disabled={downloading || !preview}
             onClick={async () => {
               if (!preview) return;
               setDownloading(true);
               try {
-                await exportPlanImage(preview as GeneratedPlan, { format: "png", scale: 2 });
-                toast.success("Plan téléchargé (PNG)");
+                await exportPlanPdf(preview as GeneratedPlan);
+                toast.success("Plan téléchargé (PDF haute résolution)");
               } catch (e: any) { toast.error(e?.message || "Erreur"); }
               setDownloading(false);
             }}
           >
-            {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
           </Button>
           <Button size="sm" variant="ghost" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]" title="Historique des versions" aria-label="Historique des versions" onClick={onVersions}>
             <History className="h-3.5 w-3.5" />

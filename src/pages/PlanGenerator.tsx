@@ -14,11 +14,11 @@ import { cn } from "@/lib/utils";
 import {
   ArrowLeft, Building2, Home, Landmark, Store, Warehouse,
   Briefcase, Building, Layers, DoorOpen, Box, LayoutGrid, Sparkles,
-  Loader2, Download, FileArchive, RefreshCw, Save, Trophy,
+  Loader2, FileArchive, RefreshCw, Save, Trophy,
   Ruler, MapPin, Palette, Check, ChevronRight, Crown, Gauge, PenLine,
   BedDouble, Bath, Armchair, Utensils, CookingPot, Car, Trees, Waves,
   Shirt, Briefcase as BriefcaseIcon, Wrench, PencilRuler, HardHat,
-  Info, ChevronDown, FileText,
+  Info, ChevronDown, FileText, ClipboardList,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -27,10 +27,10 @@ import {
 } from "@/convex/planEngine";
 import { runBIMEstimation } from "@/convex/bimEngine";
 import { FloorPlan2D } from "@/components/plans/FloorPlanView";
-import { PlanViewerModal } from "@/components/plans/PlanViewerModal";
 import { PlanCompareModal } from "@/components/plans/PlanCompareModal";
 import { PlanEditModal } from "@/components/plans/PlanEditModal";
-import { exportPlanImage, exportAllPlansZip } from "@/lib/planExport";
+import { PlanSheetModal } from "@/components/plans/PlanSheetModal";
+import { exportPlanPdf, exportAllPlansZip } from "@/lib/planExport";
 import { usePageSEO } from "@/hooks/use-page-seo";
 
 // ============================================================================
@@ -315,7 +315,7 @@ export default function PlanGenerator() {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [seed, setSeed] = useState(2026);
-  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [ficheIndex, setFicheIndex] = useState<number | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
@@ -385,7 +385,7 @@ export default function PlanGenerator() {
         name: planName.trim() || `${bienTypeLabel(req.bienType)} — ${new Date().toLocaleDateString("fr-FR")}`,
         request: { ...req, seed },
         plans,
-        selectedIndex: viewerIndex ?? 1,
+        selectedIndex: ficheIndex ?? 1,
       });
       setSavedId(id as unknown as string);
       setSaveOpen(false);
@@ -398,8 +398,8 @@ export default function PlanGenerator() {
   };
 
   const bim = useMemo<ReturnType<typeof runBIMEstimation> | null>(() => {
-    if (!plans || viewerIndex == null) return null;
-    const p = plans[viewerIndex];
+    if (!plans || ficheIndex == null) return null;
+    const p = plans[ficheIndex];
     try {
       return runBIMEstimation(
         bimCategoryFor(req.bienType),
@@ -418,11 +418,7 @@ export default function PlanGenerator() {
     } catch {
       return null;
     }
-  }, [plans, viewerIndex, req.bienType, req.standing, req.surfaceCouverte]);
-  const costEstimate = bim?.costEstimate ?? null;
-
-  const formatTND = (n: number) =>
-    new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(n);
+  }, [plans, ficheIndex, req.bienType, req.standing, req.surfaceCouverte]);
 
   // ─── Écran résultats ───────────────────────────────────────────────────────
   if (plans) {
@@ -486,9 +482,9 @@ export default function PlanGenerator() {
               <PlanCard
                 key={plan.index}
                 plan={plan}
-                onView={() => setViewerIndex(plan.index - 1)}
-                onDownload={() => exportPlanImage(plan, { format: "png", scale: 2.5 }).then(() => toast.success(`Plan ${plan.index} téléchargé`)).catch((e: any) => toast.error(e?.message || "Erreur"))}
+                onFiche={() => setFicheIndex(plan.index - 1)}
                 onEdit={() => setEditIndex(plan.index - 1)}
+                onDownloadPdf={() => exportPlanPdf(plan).then(() => toast.success(`Plan ${plan.index} téléchargé (PDF haute résolution)`)).catch((e: any) => toast.error(e?.message || "Erreur"))}
               />
             ))}
 
@@ -509,24 +505,20 @@ export default function PlanGenerator() {
         </div>
 
         {/* Modales */}
-        {viewerIndex != null && plans[viewerIndex] && (
-          <PlanViewerModal
-            plan={plans[viewerIndex]}
-            plans={plans}
-            index={viewerIndex}
-            onIndexChange={(i) => setViewerIndex(i)}
-            open={viewerIndex != null}
-            onClose={() => setViewerIndex(null)}
-            onOpenEdit={() => setEditIndex(viewerIndex)}
+        {ficheIndex != null && plans[ficheIndex] && (
+          <PlanSheetModal
+            plan={plans[ficheIndex]}
             request={req}
             bim={bim}
+            open={ficheIndex != null}
+            onClose={() => setFicheIndex(null)}
           />
         )}
         <PlanCompareModal
           plans={plans}
           open={compareOpen}
           onClose={() => setCompareOpen(false)}
-          onSelect={(p) => { setCompareOpen(false); setViewerIndex(p.index - 1); }}
+          onSelect={(p) => { setCompareOpen(false); setFicheIndex(p.index - 1); }}
         />
         {editIndex != null && (
           <PlanEditModal
@@ -1091,11 +1083,11 @@ function PlanSummaryContent({ req, step, sticky = false }: { req: PlanRequest; s
 // Carte d'un plan dans la grille de résultats
 // ============================================================================
 
-function PlanCard({ plan, onView, onDownload, onEdit }: {
+function PlanCard({ plan, onFiche, onEdit, onDownloadPdf }: {
   plan: GeneratedPlan;
-  onView: () => void;
-  onDownload: () => void;
+  onFiche: () => void;
   onEdit: () => void;
+  onDownloadPdf: () => void;
 }) {
   const [downloading, setDownloading] = useState(false);
   return (
@@ -1108,7 +1100,6 @@ function PlanCard({ plan, onView, onDownload, onEdit }: {
             <span className="flex items-center gap-1"><Ruler className="h-3 w-3" /> {plan.stats.construite.toFixed(0)} m²</span>
             <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {plan.stats.nbChambres} ch</span>
             <span className="flex items-center gap-1"><Bath className="h-3 w-3" /> {plan.stats.nbSdb} sdb</span>
-            <span className="flex items-center gap-1"><Layers className="h-3 w-3" /> R+{plan.levels - 1}</span>
             <span className="flex items-center gap-1 text-emerald-600"><LayoutGrid className="h-3 w-3" /> {plan.stats.tauxUtilisation}% util.</span>
           </div>
         </div>
@@ -1122,41 +1113,32 @@ function PlanCard({ plan, onView, onDownload, onEdit }: {
         </div>
       </CardContent>
 
-      {/* Image du plan — grande et nette, sous le nom */}
-      <div className="relative aspect-[5/4] mx-3 mt-3 overflow-hidden rounded-xl bg-white dark:bg-slate-100/90 border border-border/30 cursor-pointer" onClick={onView}>
+      {/* Image du plan — maximisée, grande et nette, sans popup au survol */}
+      <div className="relative aspect-[4/3] mx-3 mt-3 overflow-hidden rounded-xl bg-white dark:bg-slate-100/90 border border-border/30">
         <div className="absolute inset-0 flex items-center justify-center">
           <FloorPlan2D plan={plan} compact showDimensions={false} fit />
         </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); onView(); }}
-          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30"
-          aria-label={`Voir le plan ${plan.index}`}
-        >
-          <span className="flex items-center gap-1.5 rounded-full bg-white text-slate-900 px-3.5 py-1.5 text-[11px] font-semibold shadow-lg">
-            <Sparkles className="h-3.5 w-3.5" /> Voir le plan
-          </span>
-        </button>
       </div>
 
-      {/* Actions — zones tactiles généreuses sur mobile */}
+      {/* Opérations directement sur la carte : Modifier / Fiche technique / Télécharger (PDF net) */}
       <CardContent className="p-3 mt-auto">
-        <div className="flex items-center gap-1.5">
-          <Button size="sm" className="h-10 sm:h-8 flex-1 text-[10px] sm:text-[11px] gap-1" onClick={onView}>
-            <Sparkles className="h-3 w-3" /> Voir
+        <div className="grid grid-cols-3 gap-1.5">
+          <Button size="sm" variant="outline" className="h-10 sm:h-8 text-[10px] sm:text-[11px] gap-1 px-1" onClick={onEdit} title="Modifier ce plan" aria-label={`Modifier le plan ${plan.index}`}>
+            <PenLine className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Modifier</span>
           </Button>
-          <Button size="sm" variant="outline" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]" onClick={onEdit} title="Modifier" aria-label="Modifier ce plan">
-            <PenLine className="h-3.5 w-3.5" />
+          <Button size="sm" className="h-10 sm:h-8 text-[10px] sm:text-[11px] gap-1 px-1" onClick={onFiche} title="Fiche technique" aria-label={`Fiche technique du plan ${plan.index}`}>
+            <ClipboardList className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Fiche</span>
           </Button>
           <Button
             size="sm"
             variant="outline"
-            className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]"
-            onClick={async () => { setDownloading(true); await onDownload(); setDownloading(false); }}
+            className="h-10 sm:h-8 text-[10px] sm:text-[11px] gap-1 px-1"
+            onClick={async () => { setDownloading(true); try { await onDownloadPdf(); } finally { setDownloading(false); } }}
             disabled={downloading}
-            title="Télécharger PNG"
-            aria-label="Télécharger le plan en PNG"
+            title="Télécharger en PDF (haute résolution)"
+            aria-label={`Télécharger le plan ${plan.index} en PDF`}
           >
-            {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <FileText className="h-3.5 w-3.5 shrink-0" />} <span className="truncate">PDF</span>
           </Button>
         </div>
       </CardContent>

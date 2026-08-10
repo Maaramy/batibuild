@@ -24,11 +24,14 @@ export function serializeSvg(el: SVGSVGElement, widthPx: number, heightPx: numbe
 }
 
 /**
- * Rasterise un élément SVG vers un canvas. `scale` contrôle la résolution
- * finale (2 = rendu 2× pour la netteté).
+ * Rasterise un élément SVG vers un canvas.
+ * Le viewBox du plan est exprimé en mètres (~10-20 unités) : on vise une
+ * largeur finale en PIXELS (défaut 2048 px) pour obtenir un rendu net, sinon
+ * l'image rasterisée ne ferait que quelques dizaines de pixels et serait floue.
  */
-export async function svgToCanvas(el: SVGSVGElement, scale = 2): Promise<HTMLCanvasElement> {
+export async function svgToCanvas(el: SVGSVGElement, targetWidthPx = 2048): Promise<HTMLCanvasElement> {
   const vb = el.viewBox.baseVal;
+  const scale = targetWidthPx / Math.max(1, vb.width);
   const wPx = Math.round(vb.width * scale);
   const hPx = Math.round(vb.height * scale);
   const svg = serializeSvg(el, wPx, hPx);
@@ -74,6 +77,7 @@ export function sanitizeFilename(name: string): string {
 
 export interface PlanExportOptions {
   format: "png" | "jpg";
+  /** Largeur cible en pixels de l'image exportée (défaut 2048 px → net). */
   scale?: number;
 }
 
@@ -104,7 +108,7 @@ export async function exportPlanImage(
     document.body.removeChild(mount);
     throw new Error("Rendu SVG introuvable");
   }
-  const canvas = await svgToCanvas(svg, opts.scale ?? 2);
+  const canvas = await svgToCanvas(svg, 2048);
   root.unmount();
   document.body.removeChild(mount);
 
@@ -133,7 +137,7 @@ export async function exportPlanPdf(plan: GeneratedPlan, filenameBase?: string):
     document.body.removeChild(mount);
     throw new Error("Rendu SVG introuvable");
   }
-  const canvas = await svgToCanvas(svg, 2.5);
+  const canvas = await svgToCanvas(svg, 2400);
   root.unmount();
   document.body.removeChild(mount);
 
@@ -175,7 +179,7 @@ export async function exportAllPlansZip(plans: GeneratedPlan[], projectName: str
       await new Promise((r) => setTimeout(r, 40));
       const svg = mount.querySelector("svg");
       if (!svg) continue;
-      const canvas = await svgToCanvas(svg, 2);
+      const canvas = await svgToCanvas(svg, 1600);
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
       if (blob) {
         folder.file(`plan-${String(plan.index).padStart(2, "0")}-${sanitizeFilename(plan.name)}.png`, blob);
@@ -221,7 +225,7 @@ async function rasterizePlan(plan: GeneratedPlan, scale = 2.5): Promise<HTMLCanv
     document.body.removeChild(mount);
     throw new Error("Rendu SVG introuvable");
   }
-  const canvas = await svgToCanvas(svg, scale);
+  const canvas = await svgToCanvas(svg, 2200);
   root.unmount();
   document.body.removeChild(mount);
   return canvas;

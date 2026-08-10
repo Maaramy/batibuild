@@ -4,14 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  X, Download, FileImage, FileText, FileArchive, Loader2,
+  X, FileText, FileArchive, Loader2,
   ZoomIn, ZoomOut, Maximize2, RefreshCw, ChevronLeft, ChevronRight,
   Box, LayoutGrid, AlertTriangle, Star, StarOff, Gauge, ClipboardList,
 } from "lucide-react";
 import type { GeneratedPlan, PlanRequest } from "@/convex/planEngine";
 import { FloorPlanView } from "@/components/plans/FloorPlanView";
 import { PlanSheetModal } from "@/components/plans/PlanSheetModal";
-import { exportPlanImage, exportPlanPdf } from "@/lib/planExport";
+import { exportPlanPdf } from "@/lib/planExport";
 import type { PlanBimResult } from "@/lib/planSheet";
 import { toast } from "sonner";
 
@@ -91,18 +91,7 @@ export function PlanViewerModal({
   };
   const zoomIn = () => setZoom((z) => Math.min(5, z * 1.4));
 
-  const download = async (format: "png" | "jpg") => {
-    setDownloading(format);
-    try {
-      await exportPlanImage(plan, { format, scale: 2.5 });
-      toast.success(`Plan téléchargé en ${format.toUpperCase()}`);
-    } catch (err: any) {
-      toast.error(err?.message || "Échec du téléchargement");
-    } finally {
-      setDownloading(null);
-    }
-  };
-
+  // Téléchargement unifié en PDF : rendu vectoriel haute résolution, jamais flou.
   const downloadPdf = async () => {
     setDownloading("pdf");
     try {
@@ -166,9 +155,7 @@ export function PlanViewerModal({
             <Button variant="outline" size="sm" className="h-9 sm:h-8 px-2 sm:px-3 text-xs gap-1" onClick={downloadPdf} disabled={downloading === "pdf"} aria-label="Télécharger le plan en PDF">
               {downloading === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} <span className="hidden sm:inline">PDF</span>
             </Button>
-            <Button size="sm" className="h-9 sm:h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => download("png")} disabled={!!downloading} aria-label="Télécharger le plan en PNG">
-              {downloading === "png" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} <span className="hidden sm:inline">PNG</span>
-            </Button>
+
           </div>
         </div>
 
@@ -260,7 +247,7 @@ export function PlanViewerModal({
           <span className="text-muted-foreground shrink-0">Taux utilisation <strong className="text-emerald-600">{stats.tauxUtilisation}%</strong></span>
           <span className="ml-auto hidden sm:flex items-center gap-1 text-muted-foreground shrink-0">
             <FileArchive className="h-3.5 w-3.5" />
-            JPG / PNG / PDF / ZIP disponibles
+            PDF / ZIP disponibles
           </span>
         </div>
       </DialogContent>
