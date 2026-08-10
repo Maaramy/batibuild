@@ -202,6 +202,45 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 // ============================================================================
+// CATALOGUE OFFICIEL DES TYPES DE BIEN (source unique du moteur BIM)
+// Synchronisé avec le formulaire « Nouveau projet », le module d'investissement
+// et le générateur de plans — à l'exception de « Terrain constructible », qui
+// n'est pas un projet de construction. Les libellés rétro-compatibles des
+// anciens types (maison_r_plus_1, piscine, jardin…) restent supportés par
+// MARKET_PRICE_M2 / PROJECT_PCT pour les projets déjà enregistrés.
+// ============================================================================
+export const BIM_CATEGORIES = [
+  "maison",
+  "villa",
+  "appartement",
+  "studio",
+  "duplex",
+  "immeuble",
+  "residence_touristique",
+  "projet_neuf",
+  "local_commercial",
+  "bureau",
+  "entrepot",
+] as const;
+
+export type BIMCategory = (typeof BIM_CATEGORIES)[number];
+
+/** Libellé français d'un type de bien du catalogue officiel. */
+export const BIM_CATEGORY_LABELS: Record<BIMCategory, string> = {
+  maison: "Maison",
+  villa: "Villa",
+  appartement: "Appartement",
+  studio: "Studio",
+  duplex: "Duplex",
+  immeuble: "Immeuble",
+  residence_touristique: "Résidence touristique",
+  projet_neuf: "Projet immobilier neuf",
+  local_commercial: "Local commercial",
+  bureau: "Bureau",
+  entrepot: "Entrepôt",
+};
+
+// ============================================================================
 // REGION-SPECIFIC CONSTRUCTION COSTS (TND/m² - clé en main)
 // Source: Marché tunisien 2026 - fourchettes réelles constatées
 // Mid-point de chaque fourchette utilisée pour le calcul

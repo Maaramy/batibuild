@@ -452,7 +452,7 @@ function HeroSection() {
             transition={{ delay: 0.55, duration: 0.5 }}
             className="mt-10"
           >
-            <p className="label-overline mb-4">40+ types de projets pris en charge</p>
+            <p className="label-overline mb-4">11 types de biens pris en charge</p>
             <div className="flex flex-wrap justify-center gap-2">
               {PROJECT_CATEGORIES_DISPLAY.slice(0, 8).map((cat, i) => (
                 <span
@@ -468,7 +468,7 @@ function HeroSection() {
                 </span>
               ))}
               <span className="inline-flex items-center rounded-full border-2 border-dashed border-border/70 px-3.5 py-1.5 text-[11px] font-semibold text-muted-foreground">
-                +32 autres
+                +3 autres
               </span>
             </div>
           </motion.div>

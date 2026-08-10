@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { BIM_CATEGORIES, BIM_CATEGORY_LABELS } from "@/convex/bimEngine";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
@@ -41,21 +42,29 @@ const TUNISIA_REGIONS = [
   { value: "tozeur", label: "Tozeur" }, { value: "kebili", label: "Kébili" },
 ];
 
-// Types de bien synchronisés avec le formulaire d'investissement
-// (à l'exception de « Terrain constructible », qui n'est pas un projet de construction)
-const PROJECT_CATEGORIES: { value: string; label: string; icon: LucideIcon }[] = [
-  { value: "maison", label: "Maison", icon: Home },
-  { value: "villa", label: "Villa", icon: Building },
-  { value: "appartement", label: "Appartement", icon: Building2 },
-  { value: "studio", label: "Studio", icon: DoorOpen },
-  { value: "duplex", label: "Duplex", icon: Layers },
-  { value: "immeuble", label: "Immeuble", icon: Building2 },
-  { value: "residence_touristique", label: "Résidence touristique", icon: Palmtree },
-  { value: "projet_neuf", label: "Projet immobilier neuf", icon: HardHat },
-  { value: "local_commercial", label: "Local commercial", icon: Store },
-  { value: "bureau", label: "Bureau", icon: Briefcase },
-  { value: "entrepot", label: "Entrepôt", icon: Package },
-];
+// Types de bien — catalogue officiel du moteur BIM, synchronisé avec le
+// formulaire d'investissement (à l'exception de « Terrain constructible »,
+// qui n'est pas un projet de construction).
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  maison: Home,
+  villa: Building,
+  appartement: Building2,
+  studio: DoorOpen,
+  duplex: Layers,
+  immeuble: Building2,
+  residence_touristique: Palmtree,
+  projet_neuf: HardHat,
+  local_commercial: Store,
+  bureau: Briefcase,
+  entrepot: Package,
+};
+
+const PROJECT_CATEGORIES: { value: string; label: string; icon: LucideIcon }[] =
+  BIM_CATEGORIES.map((value) => ({
+    value,
+    label: BIM_CATEGORY_LABELS[value],
+    icon: CATEGORY_ICONS[value] || Building2,
+  }));
 
 // Types de bien éligibles à l'étape « Nombre de pièces »
 // (résidentiel : la composition du bien affine l'estimation)
