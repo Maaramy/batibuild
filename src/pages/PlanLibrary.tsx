@@ -258,8 +258,8 @@ function LibraryCard({ plan, onOpen, onRename, onDelete, onDuplicate, onFavorite
         </div>
       </CardContent>
 
-      {/* Image du plan — grande et nette, sous le nom */}
-      <div className="relative aspect-[5/4] mx-3 mt-3 overflow-hidden rounded-xl bg-white dark:bg-slate-100/90 border border-border/30 cursor-pointer" onClick={() => onOpen(plan.selectedIndex - 1)}>
+      {/* Image du plan — pleine largeur bord à bord, ratio carré, maximisée et nette */}
+      <div className="relative aspect-square w-full overflow-hidden bg-white dark:bg-slate-100/90 cursor-pointer" onClick={() => onOpen(plan.selectedIndex - 1)}>
         {preview ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <FloorPlan2D

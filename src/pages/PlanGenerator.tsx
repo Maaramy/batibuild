@@ -1093,7 +1093,7 @@ function PlanCard({ plan, onFiche, onEdit, onDownloadPdf }: {
   return (
     <Card className="group flex flex-col overflow-hidden border border-border/40 hover:border-primary/30 transition-all hover:shadow-lg hover:shadow-primary/5 active:scale-[0.99]">
       {/* En-tête : nom du plan + score */}
-      <CardContent className="flex items-start justify-between gap-2 p-3 pb-0">
+      <CardContent className="flex items-start justify-between gap-2 p-3 pb-2">
         <div className="min-w-0">
           <p className="text-xs font-bold truncate">{plan.name}</p>
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
@@ -1113,8 +1113,8 @@ function PlanCard({ plan, onFiche, onEdit, onDownloadPdf }: {
         </div>
       </CardContent>
 
-      {/* Image du plan — maximisée, grande et nette, sans popup au survol */}
-      <div className="relative aspect-[4/3] mx-3 mt-3 overflow-hidden rounded-xl bg-white dark:bg-slate-100/90 border border-border/30">
+      {/* Image du plan — pleine largeur bord à bord, ratio carré, maximisée et nette, sans popup au survol */}
+      <div className="relative aspect-square w-full overflow-hidden bg-white dark:bg-slate-100/90">
         <div className="absolute inset-0 flex items-center justify-center">
           <FloorPlan2D plan={plan} compact showDimensions={false} fit />
         </div>
