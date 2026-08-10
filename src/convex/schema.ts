@@ -118,12 +118,6 @@ export const PROJECT_CATEGORIES = [
   "entrepot",
   "residence_touristique",
   "projet_neuf",
-  // Types de rénovation (gérés par le moteur BIM)
-  "renovation_interieure",
-  "renovation_exterieure",
-  "renovation_salle_de_bain",
-  "renovation_cuisine",
-  "renovation_facade",
 ] as const;
 
 export const projectCategoryValidator = v.union(

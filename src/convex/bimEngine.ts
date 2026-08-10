@@ -64,7 +64,12 @@ export const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium
   maison_r_plus_1:    { eco: 800,  std: 1150, premium: 1900 },
   villa:              { eco: 900,  std: 1350, premium: 2200 },
   immeuble_residentiel:{ eco: 950,  std: 1400, premium: 2200 },
+  immeuble:           { eco: 950,  std: 1400, premium: 2200 },
   appartement:        { eco: 1000, std: 1500, premium: 2400 },
+  studio:             { eco: 950,  std: 1400, premium: 2200 },
+  duplex:             { eco: 1050, std: 1550, premium: 2450 },
+  residence_touristique:{ eco: 1000, std: 1450, premium: 2300 },
+  projet_neuf:        { eco: 950,  std: 1400, premium: 2200 },
 
   // Piscine & Extérieur
   piscine:            { eco: 750,  std: 1100, premium: 1800 },
@@ -127,7 +132,12 @@ export const PROJECT_PCT: Record<string, Percentages> = {
   maison_r_plus_1: [40, 28, 14, 10, 3, 5],
   villa: [33, 34, 20, 5, 3, 5],
   immeuble_residentiel: [43, 24, 15, 10, 3, 5],
+  immeuble: [43, 24, 15, 10, 3, 5],
   appartement: [29, 39, 20, 5, 2, 5],
+  studio: [26, 42, 20, 5, 2, 5],
+  duplex: [34, 32, 20, 6, 3, 5],
+  residence_touristique: [28, 35, 25, 5, 2, 5],
+  projet_neuf: [43, 24, 15, 10, 3, 5],
   piscine: [43, 20, 25, 5, 2, 5],
   jardin: [18, 25, 45, 5, 2, 5],
   amenagement_paysager: [20, 25, 43, 5, 2, 5],
@@ -171,7 +181,9 @@ export const PROJECT_PCT: Record<string, Percentages> = {
 
 const CATEGORY_LABEL: Record<string, string> = {
   maison: "Maison", maison_r_plus_1: "Maison R+1", villa: "Villa",
-  immeuble_residentiel: "Immeuble résidentiel", appartement: "Appartement",
+  immeuble_residentiel: "Immeuble résidentiel", immeuble: "Immeuble",
+  appartement: "Appartement", studio: "Studio", duplex: "Duplex",
+  residence_touristique: "Résidence touristique", projet_neuf: "Projet immobilier neuf",
   piscine: "Piscine", jardin: "Jardin", amenagement_paysager: "Aménagement paysager",
   garage: "Garage", cloture: "Clôture", mur_de_separation: "Mur de séparation",
   cuisine_exterieure: "Cuisine extérieure", terrasse: "Terrasse", pergola: "Pergola",
@@ -257,7 +269,7 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
   const tb = surface * (floors || 1);
   const profile = catProfile(cat);
   const isSmall = ["cloture","mur_de_separation","trottoir","pergola","terrasse","garage"].includes(cat);
-  const isHeavy = ["immeuble_residentiel","usine","depot","entrepot","chateau_d_eau","mosquee","ecole"].includes(cat);
+  const isHeavy = ["immeuble_residentiel","immeuble","usine","depot","entrepot","chateau_d_eau","mosquee","ecole"].includes(cat);
   const d = isSmall ? 0.5 : isHeavy ? 1.3 : 1;
   const dW = d * wallFactor; // cloisons supplémentaires selon le nb de pièces
 
@@ -561,7 +573,7 @@ function genEQItems(surface: number, floors: number, cat: string, targetBudget: 
 function genMOItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { total?: number; bathrooms?: number; kitchens?: number }) {
   const tb = surface * (floors || 1);
   const profile = catProfile(cat);
-  const ih = ["immeuble_residentiel","usine","mosquee","ecole","hotel"].includes(cat) ? 1.2 : 1;
+  const ih = ["immeuble_residentiel","immeuble","usine","mosquee","ecole","hotel"].includes(cat) ? 1.2 : 1;
   // Plus de pièces = plus de points électriques & sanitaires à poser
   const roomFactor = rooms?.total ? Math.min(1.4, Math.max(0.7, rooms.total / 6)) : 1;
   const saniFactor = rooms?.bathrooms ? Math.min(1.3, Math.max(0.8, ((rooms.bathrooms || 1) + (rooms.kitchens || 1)) / 3)) : 1;

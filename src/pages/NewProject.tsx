@@ -20,7 +20,6 @@ import {
   BedDouble, LayoutGrid,
   Bath, ChefHat, Briefcase, Store, Package,
   DoorOpen, Layers, Palmtree,
-  PaintRoller, Brush, ShowerHead, Paintbrush,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -56,12 +55,6 @@ const PROJECT_CATEGORIES: { value: string; label: string; icon: LucideIcon }[] =
   { value: "local_commercial", label: "Local commercial", icon: Store },
   { value: "bureau", label: "Bureau", icon: Briefcase },
   { value: "entrepot", label: "Entrepôt", icon: Package },
-  // Types de rénovation (étape pièces incluse pour affiner le périmètre)
-  { value: "renovation_interieure", label: "Rénovation intérieure", icon: PaintRoller },
-  { value: "renovation_exterieure", label: "Rénovation extérieure", icon: Brush },
-  { value: "renovation_salle_de_bain", label: "Rénovation salle de bain", icon: ShowerHead },
-  { value: "renovation_cuisine", label: "Rénovation cuisine", icon: ChefHat },
-  { value: "renovation_facade", label: "Rénovation façade", icon: Paintbrush },
 ];
 
 // Types de bien éligibles à l'étape « Nombre de pièces »
@@ -69,8 +62,6 @@ const PROJECT_CATEGORIES: { value: string; label: string; icon: LucideIcon }[] =
 const ROOM_ELIGIBLE_CATEGORIES = [
   "maison", "villa", "appartement", "studio", "duplex", "immeuble",
   "residence_touristique", "projet_neuf",
-  "renovation_interieure", "renovation_exterieure", "renovation_salle_de_bain",
-  "renovation_cuisine", "renovation_facade",
 ];
 
 // Valeurs par défaut des pièces selon le type de bien sélectionné
@@ -83,12 +74,6 @@ const ROOM_DEFAULTS: Record<string, { bedrooms: string; bathrooms: string; kitch
   immeuble:             { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
   residence_touristique:{ bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1" },
   projet_neuf:          { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1" },
-  // Rénovations : composition du logement rénové (affine le périmètre des travaux)
-  renovation_interieure:{ bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
-  renovation_exterieure:{ bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
-  renovation_salle_de_bain:{ bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
-  renovation_cuisine:   { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
-  renovation_facade:    { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
 };
 
 const IMPORT_METHODS = [
@@ -243,11 +228,6 @@ const CATEGORY_COLORS: Record<string, { hue: number; sat: number; light: number 
   local_commercial:        { hue: 48,  sat: 96, light: 53 },  // yellow
   bureau:                  { hue: 220, sat: 9,  light: 46 },  // gray
   entrepot:                { hue: 30,  sat: 6,  light: 35 },  // warm gray
-  renovation_interieure:   { hue: 358, sat: 75, light: 45 },  // red (travaux intérieurs)
-  renovation_exterieure:   { hue: 27,  sat: 75, light: 45 },  // orange (extérieur)
-  renovation_salle_de_bain:{ hue: 199, sat: 89, light: 48 },  // cyan (eau)
-  renovation_cuisine:      { hue: 32,  sat: 90, light: 50 },  // amber (cuisine)
-  renovation_facade:       { hue: 340, sat: 65, light: 50 },  // rose (façade)
 };
 
 const DEFAULT_CATEGORY_COLOR = { hue: 221, sat: 83, light: 53 };

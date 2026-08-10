@@ -173,8 +173,6 @@ const TESTIMONIALS = [
 const PROJECT_CATEGORIES_DISPLAY = [
   "Maison", "Villa", "Appartement", "Studio", "Duplex", "Immeuble",
   "Résidence touristique", "Local commercial", "Bureau", "Entrepôt", "Projet neuf",
-  "Rénovation intérieure", "Rénovation extérieure", "Rénovation salle de bain",
-  "Rénovation cuisine", "Rénovation façade",
 ];
 
 const INVESTMENT_POINTS = [

@@ -115,10 +115,10 @@ const STANDINGS = [
 function bimCategoryFor(bienType: string): string {
   const map: Record<string, string> = {
     appartement: "appartement", villa: "villa", maison: "maison",
-    duplex: "maison", studio: "appartement", residence: "immeuble_residentiel",
-    immeuble: "immeuble_residentiel", bureau: "bureau",
+    duplex: "duplex", studio: "studio", residence: "residence_touristique",
+    immeuble: "immeuble", bureau: "bureau",
     local_commercial: "local_commercial", entrepot: "entrepot",
-    mixte: "immeuble_residentiel", autre: "maison",
+    mixte: "immeuble", autre: "maison",
   };
   return map[bienType] ?? "maison";
 }
