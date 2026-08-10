@@ -425,7 +425,7 @@ export function generatePdf(run: AnalysisRun) {
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("BudgetBati", ml + 17, 10);
+  doc.text("batibuild App", ml + 17, 10);
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.text("Rapport d'analyse de rentabilite immobiliere — Marche tunisien 2026", ml + 17, 15.5);
@@ -574,11 +574,11 @@ export function generatePdf(run: AnalysisRun) {
   doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
   doc.setFont("helvetica", "italic");
   doc.text(
-    "Rapport genere par le moteur d'intelligence artificielle BudgetBati. Les estimations reposent sur les prix du marche tunisien 2026 et des hypotheses saisies par l'utilisateur. Document indicatif : ne constitue pas un conseil financier ou juridique.",
+    "Rapport genere par le moteur d'intelligence artificielle batibuild App. Les estimations reposent sur les prix du marche tunisien 2026 et des hypotheses saisies par l'utilisateur. Document indicatif : ne constitue pas un conseil financier ou juridique.",
     ml, y, { maxWidth: cw },
   );
   doc.setFont("helvetica", "normal");
-  doc.text("BudgetBati — Analyse de rentabilite immobiliere par IA", ml, y + 6);
+  doc.text("batibuild App — Analyse de rentabilite immobiliere par IA", ml, y + 6);
 
   doc.save(`rapport_investissement_${safeName}.pdf`);
 }

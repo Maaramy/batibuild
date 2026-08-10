@@ -1,47 +1,50 @@
 {
-  "pageTitle": "Pricing - BudgetBati",
+  "pageTitle": "Pricing - batibuild App",
   "title": "Our plans",
-  "subtitle": "Choose the plan that fits your needs",
-  "monthly": "per month",
+  "subtitle": "One-time payment plans — choose the one that fits your needs",
+  "monthly": "one-time payment",
   "popular": "Popular",
   "mostPopular": "Most popular",
   "freePlan": {
     "name": "Start",
-    "price": "0",
-    "desc": "To discover the tool",
+    "price": "79",
+    "desc": "For a first project",
     "features": {
-      "projects": "3 projects",
-      "devis": "Preview only",
-      "exports": "No downloads",
+      "projects": "1 construction project",
+      "investments": "1 investment analysis",
+      "plans": "1 architectural plan",
+      "exports": "1 PDF download",
       "support": "Email support",
-      "materials": "Standard material prices"
+      "materials": "AI estimation at Tunisian prices"
     }
   },
   "proPlan": {
     "name": "Pro",
-    "price": "79",
-    "desc": "For professionals",
+    "price": "120",
+    "desc": "For construction professionals",
     "features": {
-      "projects": "10 projects/month",
-      "devis": "10 PDF quotes/month",
-      "exports": "PDF, Excel, CSV export",
+      "projects": "5 construction projects",
+      "investments": "5 investment analyses",
+      "plans": "5 architectural plans",
+      "exports": "5 PDF downloads",
       "support": "Priority support",
-      "materials": "Regional material prices",
-      "suppliers": "Supplier access"
+      "materials": "Advanced AI analysis",
+      "suppliers": "Project comparison"
     }
   },
   "expertPlan": {
     "name": "Expert",
     "price": "320",
-    "desc": "For large agencies",
+    "desc": "For companies and large projects",
     "features": {
-      "projects": "100 projects/month",
-      "devis": "100 PDF quotes/month",
-      "exports": "Unlimited export",
+      "projects": "20 construction projects",
+      "investments": "20 investment analyses",
+      "plans": "20 architectural plans",
+      "exports": "20 PDF downloads",
       "support": "24/7 dedicated support",
-      "materials": "Real-time material prices",
-      "suppliers": "Premium supplier access",
-      "analytics": "Advanced analytics"
+      "materials": "Advanced AI analysis",
+      "suppliers": "Priority verified suppliers",
+      "analytics": "PDF, Excel, CSV export"
     }
   },
   "supplierPlan": {
@@ -58,7 +61,7 @@
     }
   },
   "cta": {
-    "start": "Get started",
+    "start": "Choose this plan",
     "current": "Current plan",
     "upgrade": "Upgrade to",
     "contact": "Contact support"
@@ -89,10 +92,10 @@
   },
   "faq": {
     "title": "Frequently asked questions",
-    "q1": "Can I change plans at any time?",
-    "a1": "Yes, you can upgrade to a higher plan at any time. Downloads reset each month.",
-    "q2": "How does the supplier trial work?",
-    "a2": "Suppliers get 7 days free trial to test the supplier space.",
+    "q1": "Are the plans monthly?",
+    "a1": "No. All plans are one-time payments with no monthly renewal. When your quotas are exhausted, you simply purchase a plan again at any time.",
+    "q2": "Can I change plans at any time?",
+    "a2": "Yes, you can upgrade to a higher plan at any time, even if your quotas are not exhausted yet.",
     "q3": "What payment methods do you accept?",
     "a3": "We accept bank transfer and D17 payment via Tunisian Post."
   }

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { usePageSEO } from "@/hooks/use-page-seo";
 
 export default function ContactPage() {
-  usePageSEO({ title: "Contact - BudgetBati", description: "Contactez l'équipe BudgetBati pour vos projets de construction en Tunisie." });
+  usePageSEO({ title: "Contact - batibuild App", description: "Contactez l'équipe batibuild App pour vos projets de construction en Tunisie." });
   const navigate = useNavigate();
 
   return (
@@ -24,7 +24,7 @@ export default function ContactPage() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <HardHat className="h-3.5 w-3.5" />
               </div>
-              <span className="text-sm font-semibold">BudgetBati</span>
+              <span className="text-sm font-semibold">batibuild App</span>
             </div>
           </div>
         </div>
@@ -67,11 +67,11 @@ export default function ContactPage() {
               </div>
             </div>
             <a
-              href="mailto:Rania.marzougui@budgetbati.com"
+              href="mailto:Rania.marzougui@batibuild.app"
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group-hover:translate-x-0.5 transition-transform"
             >
               <Mail className="h-4 w-4 shrink-0" />
-              <span className="truncate">Rania.marzougui@budgetbati.com</span>
+              <span className="truncate">Rania.marzougui@batibuild.app</span>
             </a>
           </motion.div>
 
@@ -92,11 +92,11 @@ export default function ContactPage() {
               </div>
             </div>
             <a
-              href="mailto:rami.maatougui@budgetbati.com"
+              href="mailto:rami.maatougui@batibuild.app"
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group-hover:translate-x-0.5 transition-transform"
             >
               <Mail className="h-4 w-4 shrink-0" />
-              <span className="truncate">rami.maatougui@budgetbati.com</span>
+              <span className="truncate">rami.maatougui@batibuild.app</span>
             </a>
           </motion.div>
 
@@ -121,11 +121,11 @@ export default function ContactPage() {
               <span className="truncate">Safi, Tunisie</span>
             </div>
             <a
-              href="mailto:Maatougui.Seifeddine@budgetbati.com"
+              href="mailto:Maatougui.Seifeddine@batibuild.app"
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mt-2 group-hover:translate-x-0.5 transition-transform"
             >
               <Mail className="h-4 w-4 shrink-0" />
-              <span className="truncate">Maatougui.Seifeddine@budgetbati.com</span>
+              <span className="truncate">Maatougui.Seifeddine@batibuild.app</span>
             </a>
           </motion.div>
 
@@ -146,11 +146,11 @@ export default function ContactPage() {
               </div>
             </div>
             <a
-              href="mailto:Riadh.marzougui@budgetbati.com"
+              href="mailto:Riadh.marzougui@batibuild.app"
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group-hover:translate-x-0.5 transition-transform"
             >
               <Mail className="h-4 w-4 shrink-0" />
-              <span className="truncate">Riadh.marzougui@budgetbati.com</span>
+              <span className="truncate">Riadh.marzougui@batibuild.app</span>
             </a>
           </motion.div>
         </div>

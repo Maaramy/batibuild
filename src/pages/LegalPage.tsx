@@ -68,7 +68,7 @@ function TermsContent() {
       icon: ScrollText,
       title: "1. Objet du service",
       paragraphs: [
-        "BudgetBati est une plateforme SaaS tunisienne qui utilise l'intelligence artificielle pour estimer les coûts de projets de construction, d'aménagement ou de rénovation en Tunisie.",
+        "batibuild App est une plateforme SaaS tunisienne qui utilise l'intelligence artificielle pour estimer les coûts de projets de construction, d'aménagement ou de rénovation en Tunisie.",
         "À partir d'une photo de terrain ou de chantier, d'une image satellite, d'un plan architectural (PDF, JPG, PNG, aperçu DWG), d'un croquis dessiné à la main ou de dimensions saisies manuellement, la plateforme identifie le type de projet, estime les dimensions réelles, calcule les surfaces construites, détermine les matériaux nécessaires et produit une estimation du coût selon les prix du marché tunisien.",
       ],
     },
@@ -223,10 +223,10 @@ function PrivacyContent() {
 export default function LegalPage({ kind = "terms" }: { kind?: LegalKind }) {
   const isTerms = kind === "terms";
   usePageSEO({
-    title: `${isTerms ? "Conditions d'utilisation" : "Données personnelles"} - BudgetBati`,
+    title: `${isTerms ? "Conditions d'utilisation" : "Données personnelles"} - batibuild App`,
     description: isTerms
-      ? "Conditions d'utilisation de la plateforme BudgetBati d'estimation des coûts de construction en Tunisie."
-      : "Politique de confidentialité et protection des données personnelles sur BudgetBati.",
+      ? "Conditions d'utilisation de la plateforme batibuild App d'estimation des coûts de construction en Tunisie."
+      : "Politique de confidentialité et protection des données personnelles sur batibuild App.",
   });
 
   return (
@@ -242,8 +242,8 @@ export default function LegalPage({ kind = "terms" }: { kind?: LegalKind }) {
         <div className="flex items-center justify-between mb-8">
           <Link to="/">
             <div className="flex items-center gap-2">
-              <img src={logo} alt="BudgetBati" width={34} height={34} className="rounded-lg" />
-              <span className="font-bold text-base" style={{ color: "var(--foreground)" }}>BudgetBati</span>
+              <img src={logo} alt="batibuild App" width={34} height={34} className="rounded-lg" />
+              <span className="font-bold text-base" style={{ color: "var(--foreground)" }}>batibuild App</span>
             </div>
           </Link>
           <Link
@@ -266,8 +266,8 @@ export default function LegalPage({ kind = "terms" }: { kind?: LegalKind }) {
           </h1>
           <p className="text-sm max-w-xl mx-auto" style={{ color: "var(--foreground)", opacity: 0.6 }}>
             {isTerms
-              ? "Les conditions qui régissent votre utilisation de la plateforme BudgetBati d'estimation des coûts de construction."
-              : "Comment BudgetBati collecte, utilise et protège vos données personnelles, conformément à la loi tunisienne n° 2004-63."}
+              ? "Les conditions qui régissent votre utilisation de la plateforme batibuild App d'estimation des coûts de construction."
+              : "Comment batibuild App collecte, utilise et protège vos données personnelles, conformément à la loi tunisienne n° 2004-63."}
           </p>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs mt-4"
             style={{ background: "color-mix(in srgb, var(--auth-gold) 16%, transparent)", color: "var(--auth-gold)" }}>

@@ -1,47 +1,50 @@
 {
-  "pageTitle": "Tarifs - BudgetBati",
+  "pageTitle": "Tarifs - batibuild App",
   "title": "Nos offres",
-  "subtitle": "Choisissez le forfait qui correspond à vos besoins",
-  "monthly": "par mois",
+  "subtitle": "Forfaits à paiement unique — choisissez celui qui correspond à vos besoins",
+  "monthly": "paiement unique",
   "popular": "Populaire",
   "mostPopular": "Le plus populaire",
   "freePlan": {
     "name": "Start",
-    "price": "0",
-    "desc": "Pour découvrir l'outil",
+    "price": "79",
+    "desc": "Pour un premier projet",
     "features": {
-      "projects": "3 projets",
-      "devis": "Aperçu uniquement",
-      "exports": "Pas de téléchargement",
-      "support": "Support par email",
-      "materials": "Prix matériaux standard"
+      "projects": "1 projet de construction",
+      "investments": "1 analyse d'investissement",
+      "plans": "1 plan d'architecture",
+      "exports": "1 téléchargement PDF",
+      "support": "Support email",
+      "materials": "Estimation IA aux prix tunisiens"
     }
   },
   "proPlan": {
     "name": "Pro",
-    "price": "79",
-    "desc": "Pour les professionnels",
+    "price": "120",
+    "desc": "Pour les professionnels de la construction",
     "features": {
-      "projects": "10 projets/mois",
-      "devis": "10 devis PDF/mois",
-      "exports": "Export PDF, Excel, CSV",
+      "projects": "5 projets de construction",
+      "investments": "5 analyses d'investissement",
+      "plans": "5 plans d'architecture",
+      "exports": "5 téléchargements PDF",
       "support": "Support prioritaire",
-      "materials": "Prix matériaux régionaux",
-      "suppliers": "Accès fournisseurs"
+      "materials": "Analyse IA avancée",
+      "suppliers": "Comparaison de projets"
     }
   },
   "expertPlan": {
     "name": "Expert",
     "price": "320",
-    "desc": "Pour les grandes agences",
+    "desc": "Pour les entreprises et grands projets",
     "features": {
-      "projects": "100 projets/mois",
-      "devis": "100 devis PDF/mois",
-      "exports": "Export illimité",
+      "projects": "20 projets de construction",
+      "investments": "20 analyses d'investissement",
+      "plans": "20 plans d'architecture",
+      "exports": "20 téléchargements PDF",
       "support": "Support dédié 24/7",
-      "materials": "Prix matériaux temps réel",
-      "suppliers": "Accès fournisseurs premium",
-      "analytics": "Analytiques avancées"
+      "materials": "Analyse IA avancée",
+      "suppliers": "Fournisseurs vérifiés prioritaires",
+      "analytics": "Export PDF, Excel, CSV"
     }
   },
   "supplierPlan": {
@@ -58,7 +61,7 @@
     }
   },
   "cta": {
-    "start": "Commencer",
+    "start": "Choisir ce forfait",
     "current": "Offre actuelle",
     "upgrade": "Passer à l'offre",
     "contact": "Contacter le support"
@@ -89,10 +92,10 @@
   },
   "faq": {
     "title": "Questions fréquentes",
-    "q1": "Puis-je changer d'offre à tout moment ?",
-    "a1": "Oui, vous pouvez passer à une offre supérieure à tout moment. Les téléchargements sont remis à zéro chaque mois.",
-    "q2": "Comment fonctionne la période d'essai fournisseur ?",
-    "a2": "Les fournisseurs bénéficient de 7 jours d'essai gratuit pour tester l'espace fournisseur.",
+    "q1": "Les forfaits sont-ils mensuels ?",
+    "a1": "Non. Tous les forfaits sont à paiement unique, sans reconduction mensuelle. Quand vos quotas sont épuisés, vous rachetez un forfait à tout moment.",
+    "q2": "Puis-je changer d'offre à tout moment ?",
+    "a2": "Oui, vous pouvez passer à une offre supérieure à tout moment, même si vos quotas ne sont pas épuisés.",
     "q3": "Quels moyens de paiement acceptez-vous ?",
     "a3": "Nous acceptons le virement bancaire et le paiement D17 par la Poste Tunisienne."
   }

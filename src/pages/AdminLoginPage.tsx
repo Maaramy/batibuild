@@ -200,7 +200,7 @@ export default function AdminLoginPage() {
             <Shield className="h-12 w-12 text-emerald-400" />
           </motion.div>
 
-          <h1 className="text-3xl font-bold text-white mb-3">BudgetBati</h1>
+          <h1 className="text-3xl font-bold text-white mb-3">batibuild App</h1>
           <p className="text-lg text-slate-400 mb-6">Panneau d'administration</p>                  {isFirstSetup && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
@@ -281,7 +281,7 @@ export default function AdminLoginPage() {
                     <Shield className="h-5 w-5 text-emerald-400" />
                   </div>
                   <div className="text-left">
-                    <span className="font-bold text-white text-sm">BudgetBati</span>
+                    <span className="font-bold text-white text-sm">batibuild App</span>
                     <p className="text-[9px] text-slate-500">Administration</p>
                   </div>
                 </div>
@@ -443,7 +443,7 @@ export default function AdminLoginPage() {
                         id="admin-email"
                         name="email"
                         type="email"
-                        placeholder="admin@budgetbati.tn"
+                        placeholder="admin@batibuild.app"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="h-11 pl-9 bg-slate-900/50 border-slate-700/50 text-slate-200 placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
@@ -575,7 +575,7 @@ export default function AdminLoginPage() {
           </Card>
 
           <p className="text-center text-xs text-slate-600 mt-6">
-            BudgetBati &copy; {new Date().getFullYear()} — Administration
+            batibuild App &copy; {new Date().getFullYear()} — Administration
           </p>
         </motion.div>
       </div>

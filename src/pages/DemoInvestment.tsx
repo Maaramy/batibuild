@@ -24,8 +24,8 @@ import { ResultsView } from "@/components/investment/results-view";
 
 export default function DemoInvestment() {
   usePageSEO({
-    title: "Exemple d'analyse de rentabilité immobilière - BudgetBati",
-    description: "Découvrez un exemple complet d'analyse de rentabilité immobilière en Tunisie : score IA, Return on Investment, flux de trésorerie, prévisions, scénarios et comparaison — calculés par le moteur BudgetBati.",
+    title: "Exemple d'analyse de rentabilité immobilière - batibuild App",
+    description: "Découvrez un exemple complet d'analyse de rentabilité immobilière en Tunisie : score IA, Return on Investment, flux de trésorerie, prévisions, scénarios et comparaison — calculés par le moteur batibuild App.",
   });
   const navigate = useNavigate();
 
@@ -54,7 +54,7 @@ export default function DemoInvestment() {
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white">
               <Landmark className="h-4 w-4" />
             </span>
-            BudgetBati
+            batibuild App
           </button>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px]">
@@ -120,7 +120,7 @@ export default function DemoInvestment() {
                 <FlaskConical className="h-3.5 w-3.5" />
                 Analyse de démonstration
               </span>
-              Ces chiffres sont générés automatiquement par le moteur BudgetBati à partir d'un bien fictif
+              Ces chiffres sont générés automatiquement par le moteur batibuild App à partir d'un bien fictif
               (local commercial à Tunis). Lancez votre propre analyse pour des résultats personnalisés.
             </div>
 

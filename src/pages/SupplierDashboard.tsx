@@ -167,7 +167,7 @@ function PaymentCoordinates({
           </div>
           <div className="flex items-center justify-between gap-3 px-4 py-2.5">
             <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">Email</span>
-            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.d17Email || "paiement@budgetbati.tn"}</span>
+            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.d17Email || "paiement@batibuild.app"}</span>
           </div>
         </div>
       </div>
@@ -665,7 +665,7 @@ export default function SupplierDashboard() {
                               </div>
                               <div className="flex items-center justify-between gap-3 px-4 py-2.5">
                                 <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">Email</span>
-                                <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.d17Email || "paiement@budgetbati.tn"}</span>
+                                <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.d17Email || "paiement@batibuild.app"}</span>
                               </div>
                             </div>
                           </div>

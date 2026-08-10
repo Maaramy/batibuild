@@ -1,5 +1,5 @@
 {
-  "pageTitle": "Détail du projet - BudgetBati",
+  "pageTitle": "Détail du projet - batibuild App",
   "back": "Retour",
   "status": {
     "draft": "Brouillon",
@@ -125,7 +125,7 @@
     "totalHT": "Total HT",
     "tva": "TVA (19%)",
     "totalTTC": "Total TTC",
-    "generatedBy": "Devis créé par les experts de BudgetBati",
+    "generatedBy": "Devis créé par les experts de batibuild App",
     "company": "GALISKON PROJECT",
     "stampText": "Cachet & Signature"
   }

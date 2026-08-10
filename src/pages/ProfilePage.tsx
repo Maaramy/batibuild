@@ -346,7 +346,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-xs font-medium">{isPro ? "Gérer mon abonnement" : "Passer à l'offre Pro"}</p>
                     <p className="text-[9px] text-muted-foreground/60">
-                      {isPro ? "Export PDF, 10 téléchargements/mois" : "Export PDF, rapports détaillés"}
+                      {isPro ? "Paiement unique · quotas par forfait" : "Export PDF, rapports détaillés"}
                     </p>
                   </div>
                 </div>

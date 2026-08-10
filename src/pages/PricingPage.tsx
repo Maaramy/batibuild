@@ -19,41 +19,51 @@ const DEFAULT_PAYMENT = {
   bankSwift: "BTBK TN TT",
   d17MerchantName: "GALISKON PROJECT",
   d17Phone: "+216 XX XXX XXX",
-  d17Email: "paiement@budgetbati.tn",
+  d17Email: "paiement@batibuild.app",
   d17Notice: "Envoyez le paiement via l'application D17 de La Poste Tunisienne",
-  proPrice: 79,
+  startPrice: 79,
+  proPrice: 120,
   supplierPrice: 120,
   expertPrice: 320,
   currency: "TND",
 };
 
+// Forfaits à paiement unique (non mensuels) :
+//   Start  → 79 TND — 1 construction + 1 investissement + 1 plan + 1 PDF
+//   Pro    → 120 TND — 5 + 5 + 5 + 5 PDF
+//   Expert → 320 TND — 20 + 20 + 20 + 20 PDF
+// Quand les quotas sont épuisés, l'utilisateur rachète un forfait.
 const PLANS = [
   {
     id: "free",
     name: "Start",
-    price: "0",
-    period: "TND/mois",
-    description: "Pour découvrir l'outil",
+    priceKey: "start",
+    period: "paiement unique",
+    description: "Pour démarrer un premier projet",
     features: [
-      "3 projets par mois",
-      "Estimation de base",
-      "Analyse IA standard",
+      "1 projet de construction",
+      "1 analyse d'investissement",
+      "1 plan d'architecture",
+      "1 téléchargement PDF",
+      "Estimation IA aux prix tunisiens",
       "Support email",
     ],
     gradient: "from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-800/30",
-    note: "Export PDF non inclus",
+    note: "Paiement unique — sans reconduction mensuelle",
   },
   {
     id: "pro",
     name: "Pro",
     priceKey: "pro",
-    period: "TND/mois",
+    period: "paiement unique",
     description: "Pour les professionnels de la construction",
     features: [
-      "10 projets par mois",
+      "5 projets de construction",
+      "5 analyses d'investissement",
+      "5 plans d'architecture",
+      "5 téléchargements PDF",
       "Analyse IA avancée",
-      "Export PDF du devis détaillé",
-      "10 téléchargements de devis / mois",
+      "Export PDF, Excel, CSV",
       "Rapports détaillés",
       "Comparaison de projets",
       "Historique complet",
@@ -65,13 +75,15 @@ const PLANS = [
     id: "expert",
     name: "Expert",
     priceKey: "expert",
-    period: "TND/mois",
+    period: "paiement unique",
     description: "Pour les entreprises et les grands projets",
     features: [
-      "100 projets par mois",
+      "20 projets de construction",
+      "20 analyses d'investissement",
+      "20 plans d'architecture",
+      "20 téléchargements PDF",
       "Analyse IA avancée",
-      "Export PDF du devis détaillé",
-      "100 téléchargements de devis / mois",
+      "Export PDF, Excel, CSV",
       "Rapports détaillés",
       "Comparaison de projets",
       "Historique complet",
@@ -119,7 +131,7 @@ function PaymentField({
 }
 
 export default function PricingPage() {
-  usePageSEO({ title: "Abonnements - BudgetBati", description: "Choisissez l'abonnement BudgetBati adapté à vos besoins : Start, Pro ou Expert." });
+  usePageSEO({ title: "Abonnements - batibuild App", description: "Choisissez le forfait batibuild App adapté à vos besoins : Start, Pro ou Expert — paiement unique." });
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const currentSubscription = useQuery(api.subscriptions.getMySubscription);
@@ -138,12 +150,13 @@ export default function PricingPage() {
   const [searchParams] = useSearchParams();
   const [selectedPlan, setSelectedPlan] = useState<string>(() => {
     const p = searchParams.get("plan");
-    return p === "expert" || p === "pro" ? p : "pro";
+    return p === "expert" || p === "pro" || p === "free" || p === "start" ? p : "pro";
   });
   
   // Get the correct price based on selected plan
   const getSelectedPrice = () => {
     if (selectedPlan === "expert") return paymentConfig?.expertPrice ?? DEFAULT_PAYMENT.expertPrice ?? 320;
+    if (selectedPlan === "free" || selectedPlan === "start") return paymentConfig?.startPrice ?? DEFAULT_PAYMENT.startPrice ?? 79;
     return paymentConfig?.proPrice ?? DEFAULT_PAYMENT.proPrice;
   };
   
@@ -179,27 +192,20 @@ export default function PricingPage() {
     notice: DEFAULT_PAYMENT.d17Notice,
   };
   
+  const startPrice = paymentConfig?.startPrice || DEFAULT_PAYMENT.startPrice || 79;
   const proPrice = paymentConfig?.proPrice || DEFAULT_PAYMENT.proPrice;
   const expertPrice = paymentConfig?.expertPrice || DEFAULT_PAYMENT.expertPrice || 320;
   const currency = paymentConfig?.currency || DEFAULT_PAYMENT.currency;
 
   const currentPlan = user?.subscriptionPlan || "free";
-  const isPro = currentPlan === "pro";
+  const isSubscribed = currentPlan !== "free";
   const isPending = currentSubscription?.status === "pending";
-  const downloadLimit = currentSubscription?.downloadLimit ?? (currentSubscription?.plan === 'expert' ? 100 : 10);
+  const downloadLimit = currentSubscription?.downloadLimit ?? (currentSubscription?.plan === 'expert' ? 20 : currentSubscription?.plan === 'pro' ? 5 : 1);
   const remainingDownloads = currentSubscription?.monthlyDownloadCount != null
     ? downloadLimit - currentSubscription.monthlyDownloadCount
     : null;
 
   const handleSelectPlan = async (planId: string) => {
-    if (planId === "free") {
-      if (currentPlan !== "free") {
-        await cancelSubscription();
-        toast.success("Abonnement gratuit activé");
-      }
-      return;
-    }
-
     if (!isAuthenticated) {
       navigate("/auth");
       return;
@@ -213,9 +219,11 @@ export default function PricingPage() {
       paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
 
-    // Calculate the correct amount based on selected plan
+    // Calculate the correct amount based on selected plan (paiement unique)
     const planAmount = planId === "expert"
       ? (paymentConfig?.expertPrice ?? DEFAULT_PAYMENT.expertPrice ?? 320)
+      : planId === "free" || planId === "start"
+      ? (paymentConfig?.startPrice ?? DEFAULT_PAYMENT.startPrice ?? 79)
       : (paymentConfig?.proPrice ?? DEFAULT_PAYMENT.proPrice);
 
     // For paid plans, create subscription with virement bancaire
@@ -323,16 +331,16 @@ export default function PricingPage() {
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-10">
         <div className="text-center mb-8">
           <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Offre actuelle : {currentPlan === "free" ? "Start" : "Pro"}
+            Offre actuelle : {currentPlan === "expert" ? "Expert" : currentPlan === "pro" ? "Pro" : "Start"}
             {isPending && " (En attente de validation)"}
           </Badge>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre offre</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre forfait</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
-            Passez à l'offre Pro pour télécharger vos devis en PDF.
+            Paiement unique — aucune reconduction mensuelle. Quand vos quotas sont épuisés, vous rachetez un forfait.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-6 mb-10">
           {PLANS.map((plan, index) => {
             const isCurrentPlan = currentPlan === plan.id && !isPending;
 
@@ -365,7 +373,7 @@ export default function PricingPage() {
                   </div>
                 )}
 
-                {isPending && plan.id === "pro" && (
+                {isPending && plan.id === currentSubscription?.plan && (
                   <div className="absolute -top-3 right-4">
                     <Badge variant="outline" className="px-3 py-0.5 text-xs border-amber-300 text-amber-600 bg-amber-50">
                       En attente
@@ -379,8 +387,8 @@ export default function PricingPage() {
                 </div>
 
                 <div className="mb-5">
-                  <span className="text-4xl font-bold">{plan.priceKey === "expert" ? expertPrice : plan.priceKey === "pro" ? proPrice : plan.price}</span>
-                  <span className="ml-1 text-sm text-muted-foreground">/{plan.period}</span>
+                  <span className="text-4xl font-bold">{plan.priceKey === "expert" ? expertPrice : plan.priceKey === "pro" ? proPrice : startPrice}</span>
+                  <span className="ml-1 text-sm text-muted-foreground">TND · {plan.period}</span>
                 </div>
 
                 {plan.note && (
@@ -405,16 +413,14 @@ export default function PricingPage() {
                   variant={plan.popular && !isCurrentPlan ? "default" : "outline"}
                   className="w-full h-11 text-sm gap-1"
                   onClick={() => handleSelectPlan(plan.id)}
-                  disabled={isCurrentPlan || (isPending && plan.id === "pro")}
+                  disabled={isCurrentPlan || (isPending && plan.id === currentSubscription?.plan)}
                 >
                   {isCurrentPlan
                     ? "Offre actuelle"
-                    : isPending && plan.id === "pro"
+                    : isPending && plan.id === currentSubscription?.plan
                     ? "En attente..."
-                    : plan.id === "free"
-                    ? "Rester gratuit"
                     : `Choisir ${plan.name}`}
-                  {!isCurrentPlan && plan.id !== "free" && !isPending && <ChevronRight className="h-3.5 w-3.5" />}
+                  {!isCurrentPlan && !isPending && <ChevronRight className="h-3.5 w-3.5" />}
                 </Button>
               </motion.div>
             );
@@ -436,7 +442,7 @@ export default function PricingPage() {
             <div>
               <h2 className="text-base font-semibold leading-tight">Moyen de paiement</h2>
               <p className="text-[11px] text-muted-foreground">
-                Forfait <strong>{selectedPlan === "expert" ? "Expert" : "Pro"} · {currentPrice} {currency}/mois</strong>
+                Forfait <strong>{selectedPlan === "expert" ? "Expert" : selectedPlan === "free" || selectedPlan === "start" ? "Start" : "Pro"} · {currentPrice} {currency} (paiement unique)</strong>
               </p>
             </div>
           </div>
@@ -517,7 +523,7 @@ export default function PricingPage() {
               <div className="mt-2.5 flex items-start gap-1.5 text-[10px] text-muted-foreground/70">
                 <Shield className="h-3 w-3 shrink-0 mt-0.5" />
                 <p>
-                  Activation manuelle sous 24h ouvrées après réception du virement. Confirmation par email. Question ? support@budgetbati.tn
+                  Activation manuelle sous 24h ouvrées après réception du virement. Confirmation par email. Question ? support@batibuild.app
                 </p>
               </div>
             </>
@@ -586,19 +592,22 @@ export default function PricingPage() {
             </>
           )}
 
-          {isPro && (
+          {currentSubscription?.status === "active" && (
             <div className="mt-4 px-4 py-3 sm:py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-1.5">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Check className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
                   <span className="text-xs sm:text-xs text-emerald-700 leading-relaxed">
-                    Vous êtes déjà abonné Pro.
+                    Forfait {currentSubscription?.plan === "expert" ? "Expert" : currentSubscription?.plan === "pro" ? "Pro" : "Start"} actif — paiement unique.
                   </span>
                 </div>
                 <span className="text-xs sm:text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-full sm:rounded-md whitespace-nowrap">
-                  {remainingDownloads ?? 10} téléchargement{remainingDownloads && remainingDownloads > 1 ? "s" : ""} restant{remainingDownloads && remainingDownloads > 1 ? "s" : ""}
+                  {remainingDownloads ?? downloadLimit} téléchargement{remainingDownloads && remainingDownloads > 1 ? "s" : ""} restant{remainingDownloads && remainingDownloads > 1 ? "s" : ""}
                 </span>
               </div>
+              <p className="mt-2 text-[10px] text-emerald-700/70">
+                Quotas épuisés ? Vous pouvez racheter un forfait à tout moment — paiement unique, sans abonnement mensuel.
+              </p>
             </div>
           )}
 

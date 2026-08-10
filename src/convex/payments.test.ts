@@ -388,7 +388,7 @@ describe("updatePaymentConfig", () => {
     await adminT.mutation(api.payments.updatePaymentConfig, {
       d17MerchantName: "GALISKON PROJECT",
       d17Phone: "+216 XX XXX XXX",
-      d17Email: "paiement@budgetbati.tn",
+      d17Email: "paiement@batibuild.app",
       d17Notice: "Paiement via D17",
     });
 
@@ -396,7 +396,7 @@ describe("updatePaymentConfig", () => {
     expect(config).not.toBeNull();
     expect(config!.d17MerchantName).toBe("GALISKON PROJECT");
     expect(config!.d17Phone).toBe("+216 XX XXX XXX");
-    expect(config!.d17Email).toBe("paiement@budgetbati.tn");
+    expect(config!.d17Email).toBe("paiement@batibuild.app");
     expect(config!.d17Notice).toBe("Paiement via D17");
   });
 

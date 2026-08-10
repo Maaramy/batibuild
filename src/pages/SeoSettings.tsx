@@ -61,7 +61,7 @@ export default function SeoSettings() {
   useEffect(() => {
     if (seoConfig) {
       setForm({
-        siteName: seoConfig.siteName || "BudgetBati - Estimation Construction Tunisie",
+        siteName: seoConfig.siteName || "batibuild App - Estimation Construction Tunisie",
         siteDescription: seoConfig.siteDescription || "",
         keywords: seoConfig.keywords || "",
         ogTitle: seoConfig.ogTitle || "",
@@ -134,7 +134,7 @@ export default function SeoSettings() {
           <div>
             <CardTitle className="text-sm sm:text-base">Paramètres SEO</CardTitle>
             <CardDescription className="text-xs">
-              Optimisez le référencement de BudgetBati sur les moteurs de recherche.
+              Optimisez le référencement de batibuild App sur les moteurs de recherche.
             </CardDescription>
           </div>
         </div>
@@ -151,7 +151,7 @@ export default function SeoSettings() {
               label="Nom du site (title)"
               key="siteName"
               opts={{
-                placeholder: "BudgetBati - Estimation Construction Tunisie",
+                placeholder: "batibuild App - Estimation Construction Tunisie",
                 hint: "Apparaît dans l'onglet et les résultats de recherche",
               }}
             />
@@ -159,7 +159,7 @@ export default function SeoSettings() {
               label="URL canonique"
               key="canonicalUrl"
               opts={{
-                placeholder: "https://budgetbati.com",
+                placeholder: "https://batibuild.app",
                 hint: "URL principale du site",
               }}
             />
@@ -201,7 +201,7 @@ export default function SeoSettings() {
               label="Titre OG"
               key="ogTitle"
               opts={{
-                placeholder: "BudgetBati - Estimation Construction",
+                placeholder: "batibuild App - Estimation Construction",
                 hint: "Pour Facebook, LinkedIn...",
               }}
             />
@@ -209,7 +209,7 @@ export default function SeoSettings() {
               label="Image OG (URL)"
               key="ogImage"
               opts={{
-                placeholder: "https://budgetbati.com/og-image.jpg",
+                placeholder: "https://batibuild.app/og-image.jpg",
                 hint: "1200x630px recommandé",
               }}
             />
@@ -250,7 +250,7 @@ export default function SeoSettings() {
               label="Titre du blog (title)"
               key="blogTitle"
               opts={{
-                placeholder: "Blog BudgetBati — Construction & Rénovation",
+                placeholder: "Blog batibuild App — Construction & Rénovation",
                 hint: "Apparaît sur la page /blog et dans les résultats de recherche",
               }}
             />
@@ -258,7 +258,7 @@ export default function SeoSettings() {
               label="Image OG du blog (URL)"
               key="blogOgImage"
               opts={{
-                placeholder: "https://budgetbati.com/blog-og.jpg",
+                placeholder: "https://batibuild.app/blog-og.jpg",
                 hint: "1200x630px recommandé — partage du blog sur les réseaux",
               }}
             />
@@ -333,10 +333,10 @@ export default function SeoSettings() {
           </p>
           <div className="bg-white dark:bg-background rounded-lg p-3 border border-border/20">
             <p className="text-[#1a0dab] dark:text-[#8ab4f8] text-sm font-medium truncate">
-              {form.siteName || "BudgetBati"}
+              {form.siteName || "batibuild App"}
             </p>
             <p className="text-[#006621] dark:text-[#bdc1c6] text-xs truncate">
-              {form.canonicalUrl || "https://budgetbati.com"}
+              {form.canonicalUrl || "https://batibuild.app"}
             </p>
             <p className="text-[#545454] dark:text-[#bdc1c6] text-xs line-clamp-2 mt-0.5">
               {form.siteDescription || "Estimation de coûts de construction par IA pour la Tunisie."}

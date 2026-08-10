@@ -7,7 +7,7 @@ import { getCurrentUser } from "./users";
 // ============================================================================
 
 export const DEFAULT_EMAIL_CONFIG = {
-  senderName: "BudgetBati",
+  senderName: "batibuild App",
   senderEmail: "",
   replyTo: "",
   smtpHost: "",

@@ -338,7 +338,7 @@ function loadSavedLocation(): Pick<FormState, "region" | "city" | "quartier"> | 
 
 export default function InvestmentAnalysis() {
   usePageSEO({
-    title: "Analyse de rentabilité immobilière - BudgetBati",
+    title: "Analyse de rentabilité immobilière - batibuild App",
     description: "Évaluez la rentabilité de vos investissements immobiliers en Tunisie avec l'IA : Return on Investment, flux de trésorerie, prévisions, scénarios et score d'investissement.",
   });
   const navigate = useNavigate();

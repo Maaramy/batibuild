@@ -1,5 +1,5 @@
 {
-  "pageTitle": "Contact - BudgetBati",
+  "pageTitle": "Contact - batibuild App",
   "title": "Contact us",
   "subtitle": "A question? Need help? Our team is here for you.",
   "form": {
@@ -22,22 +22,22 @@
     "rami": {
       "name": "Maatougui Rami",
       "role": "Technical Director & CEO - Founder",
-      "email": "rami.maatougui@budgetbati.com"
+      "email": "rami.maatougui@batibuild.app"
     },
     "rania": {
       "name": "Rania Marzougui",
       "role": "Manager",
-      "email": "rania.marzougui@budgetbati.com"
+      "email": "rania.marzougui@batibuild.app"
     },
     "riadh": {
       "name": "Marzougui Riadh",
       "role": "Architect (expert advisor)",
-      "email": "riadh.marzougui@budgetbati.com"
+      "email": "riadh.marzougui@batibuild.app"
     },
     "seifeddine": {
       "name": "Maatougui Seifeddine",
       "role": "Consultant & Regional Director (SAFI)",
-      "email": "maatougui.seifeddine@budgetbati.com"
+      "email": "maatougui.seifeddine@batibuild.app"
     }
   }
 }

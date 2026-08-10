@@ -42,7 +42,7 @@ export interface ProjectPdfOptions {
 }
 
 /**
- * Generates the full BudgetBati estimate PDF (A4, programmatic jsPDF — no
+ * Generates the full batibuild App estimate PDF (A4, programmatic jsPDF — no
  * html2canvas, no oklch). All page-level side effects are routed through the
  * `on*` callbacks so this module stays a pure, testable utility.
  */
@@ -147,7 +147,7 @@ export async function generateProjectPdf({
     doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
     doc.rect(0, 2.5, pw, 20, "F");
 
-    // ── Draw BudgetBati logo (vector building icon) ──
+    // ── Draw batibuild App logo (vector building icon) ──
     const logoX = ml;
     const logoY = 5;
     const logoScale = 0.9;
@@ -174,7 +174,7 @@ export async function generateProjectPdf({
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("BudgetBati", titleX, 10);
+    doc.text("batibuild App", titleX, 10);
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     doc.text("Devis estimatif — Prix Tunisie 2026", titleX, 16);
@@ -579,7 +579,7 @@ export async function generateProjectPdf({
             C.textLight[2],
           );
           doc.text(
-            `BudgetBati — Devis estimatif — Page ${pageCount}`,
+            `batibuild App — Devis estimatif — Page ${pageCount}`,
             ml,
             ph - 4,
           );
@@ -669,7 +669,7 @@ export async function generateProjectPdf({
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(C.text[0], C.text[1], C.text[2]);
-    doc.text("Devis créé par les experts de BudgetBati", stampX + stampW / 2, stampY + 20, { align: "center" });
+    doc.text("Devis créé par les experts de batibuild App", stampX + stampW / 2, stampY + 20, { align: "center" });
 
     // Separator bar
     doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
@@ -700,7 +700,7 @@ export async function generateProjectPdf({
     doc.setFont("helvetica", "italic");
     doc.setTextColor(C.textLight[0], C.textLight[1], C.textLight[2]);
     const disclaimer =
-      "Ce document est un devis estimatif généré automatiquement par BudgetBati. " +
+      "Ce document est un devis estimatif généré automatiquement par batibuild App. " +
       "Les prix indiqués sont basés sur les moyennes du marché tunisien 2026 et sont " +
       "donnés à titre indicatif. Ils ne constituent pas un engagement contractuel. " +
       "Pour un devis précis, veuillez consulter un professionnel du bâtiment.";

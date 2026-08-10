@@ -380,7 +380,7 @@ export default function SettingsPage() {
             <CardContent className="p-5 sm:p-6 pt-2 space-y-1">
               <SettingRow
                 icon={HardHat}
-                title="BudgetBati"
+                title="batibuild App"
                 description="Version 1.0.0"
               >
                 <Badge variant="outline" className="text-[9px]">
@@ -390,7 +390,7 @@ export default function SettingsPage() {
               <SettingRow
                 icon={BookOpen}
                 title="Guide d'utilisation"
-                description="Apprenez à utiliser BudgetBati"
+                description="Apprenez à utiliser batibuild App"
                 onClick={() => {}}
               />
               <SettingRow
@@ -438,7 +438,7 @@ export default function SettingsPage() {
           variants={itemVariants}
           className="text-center text-[10px] text-muted-foreground/40 pb-8"
         >
-          BudgetBati &copy; {new Date().getFullYear()} — Estimation de coûts de construction en Tunisie
+          batibuild App &copy; {new Date().getFullYear()} — Estimation de coûts de construction en Tunisie
         </motion.p>
       </motion.div>
     </main>

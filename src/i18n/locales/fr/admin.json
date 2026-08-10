@@ -1,5 +1,5 @@
 {
-  "pageTitle": "Administration - BudgetBati",
+  "pageTitle": "Administration - batibuild App",
   "title": "Panneau d'administration",
   "tabs": {
     "users": "Utilisateurs",
@@ -95,9 +95,9 @@
     "save": "Enregistrer",
     "saved": "Paramètres enregistrés",
     "planSettings": "Prix des abonnements",
-    "proPrice": "Abonnement Pro (TND/mois)",
-    "expertPrice": "Abonnement Expert (TND/mois)",
-    "supplierPrice": "Abonnement Fournisseur (TND/mois)",
+    "proPrice": "Abonnement Pro (TND (paiement unique))",
+    "expertPrice": "Abonnement Expert (TND (paiement unique))",
+    "supplierPrice": "Abonnement Fournisseur (TND (paiement unique))",
     "proProjects": "Limite projets Pro",
     "proDownloads": "Limite téléchargements Pro",
     "expertProjects": "Limite projets Expert",
@@ -117,10 +117,10 @@
   },
   "limits": {
     "title": "Limites des forfaits",
-    "freeProjects": "Projets gratuits",
+    "freeProjects": "Projets Start",
     "proProjects": "Projets Pro",
     "expertProjects": "Projets Expert",
-    "proDownloads": "Téléchargements Pro/mois",
-    "expertDownloads": "Téléchargements Expert/mois"
+    "proDownloads": "Téléchargements Pro (forfait)",
+    "expertDownloads": "Téléchargements Expert (forfait)"
   }
 }

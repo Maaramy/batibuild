@@ -159,7 +159,7 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const project = useQuery(api.projects.getProject, { projectId: id as any });
   usePageSEO({
-    title: project ? `Devis ${project.name} - BudgetBati` : "Détail du projet - BudgetBati",
+    title: project ? `Devis ${project.name} - batibuild App` : "Détail du projet - batibuild App",
     description: project ? `Devis estimatif pour ${project.name}. Coût total, matériaux et analyse IA.` : "Consultez le détail de votre projet de construction.",
   });
   const { user: currentUser } = useAuth();
@@ -234,7 +234,7 @@ export default function ProjectDetail() {
     if (checkDownloadAllowed?.allowed) {
       setShowPicker(true);
     } else if (checkDownloadAllowed?.reason === "limite_atteinte") {
-      toast.error(`Vous avez atteint votre limite de ${checkDownloadAllowed?.limit ?? 10} téléchargements pour ce mois`);
+      toast.error(`Vous avez atteint votre limite de ${checkDownloadAllowed?.limit ?? 1} téléchargements pour ce forfait`);
     } else {
       setShowUpgradeDialog(true);
     }
@@ -546,7 +546,7 @@ export default function ProjectDetail() {
                     <DialogHeader>
                       <DialogTitle className="text-base">Offre Start</DialogTitle>
                       <DialogDescription className="text-xs">
-                        Le téléchargement de devis en PDF est réservé aux abonnés Pro
+                        Le téléchargement de devis en PDF nécessite un forfait payant
                       </DialogDescription>
                     </DialogHeader>
                     <div className="py-2 text-center">
@@ -556,11 +556,11 @@ export default function ProjectDetail() {
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
-                        Passez à l'offre <strong>Pro à 79 TND/mois</strong> pour télécharger vos devis en PDF.
+                        Passez à l'offre <strong>Pro à 120 TND (paiement unique)</strong> pour télécharger vos devis en PDF.
                       </p>
                       <div className="text-xs text-muted-foreground/60 space-y-1 mb-4">
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />{checkDownloadAllowed?.limit ?? 10} téléchargements de devis / mois</p>
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Projets illimités</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />{checkDownloadAllowed?.limit ?? 5} téléchargements de devis par forfait</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />5 projets de construction</p>
                         <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Paiement par virement bancaire</p>
                       </div>
                       <Button className="w-full" onClick={() => { setShowUpgradeDialog(false); navigate("/dashboard/pricing"); }}>
@@ -1675,7 +1675,7 @@ export default function ProjectDetail() {
               {selectedProfile?.companyName || 'Profil fournisseur'}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Fournisseur inscrit et vérifié sur BudgetBati
+              Fournisseur inscrit et vérifié sur batibuild App
             </DialogDescription>
           </DialogHeader>
           {selectedProfile ? (

@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { ArrowLeft, Compass, HardHat, Home, Search } from "lucide-react";
 
 export default function NotFound() {
-  usePageSEO({ title: "404 - Page non trouvée - BudgetBati", description: "La page que vous cherchez n'existe pas." });
+  usePageSEO({ title: "404 - Page non trouvée - batibuild App", description: "La page que vous cherchez n'existe pas." });
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 

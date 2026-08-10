@@ -1,5 +1,5 @@
 {
-  "pageTitle": "اتصل بنا - ميزانية البناء",
+  "pageTitle": "اتصل بنا - باتيبيلد",
   "title": "اتصل بنا",
   "subtitle": "لديك سؤال؟ تحتاج مساعدة؟ فريقنا هنا لمساعدتك.",
   "form": {
@@ -22,22 +22,22 @@
     "rami": {
       "name": "معتوقي رامي",
       "role": "المدير التقني والرئيس التنفيذي - المؤسس",
-      "email": "rami.maatougui@budgetbati.com"
+      "email": "rami.maatougui@batibuild.app"
     },
     "rania": {
       "name": "رانيا مرزوقي",
       "role": "مسؤولة",
-      "email": "rania.marzougui@budgetbati.com"
+      "email": "rania.marzougui@batibuild.app"
     },
     "riadh": {
       "name": "مرزوقي رياض",
       "role": "مهندس معماري (خبير استشاري)",
-      "email": "riadh.marzougui@budgetbati.com"
+      "email": "riadh.marzougui@batibuild.app"
     },
     "seifeddine": {
       "name": "معتوقي سيف الدين",
       "role": "مستشار ومدير جهوي (صفاقس)",
-      "email": "maatougui.seifeddine@budgetbati.com"
+      "email": "maatougui.seifeddine@batibuild.app"
     }
   }
 }

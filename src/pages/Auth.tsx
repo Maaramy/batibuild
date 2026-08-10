@@ -238,11 +238,11 @@ function LeftPanel() {
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, damping: 15 }}
             className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-8 mx-auto"
             style={{ background: "color-mix(in srgb, white 12%, transparent)", backdropFilter: "blur(8px)" }}>
-            <img src={logo} alt="BudgetBati" width={56} height={56} className="rounded-xl brightness-0 invert" />
+            <img src={logo} alt="batibuild App" width={56} height={56} className="rounded-xl brightness-0 invert" />
           </motion.div>
         </Link>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <h1 className="text-4xl font-bold mb-3 text-white">BudgetBati</h1>
+          <h1 className="text-4xl font-bold mb-3 text-white">batibuild App</h1>
           <p className="text-lg mb-4" style={{ color: "color-mix(in srgb, white 70%, transparent)" }}>Estimation de coÃ»ts de construction</p>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium"
             style={{ background: "color-mix(in srgb, var(--auth-gold) 20%, transparent)", color: "var(--auth-gold)", backdropFilter: "blur(4px)" }}>
@@ -275,8 +275,8 @@ function MobileLogo() {
     <div className="lg:hidden flex justify-center pt-6 pb-2">
       <Link to="/">
         <div className="flex items-center gap-2">
-          <img src={logo} alt="BudgetBati" width={36} height={36} className="rounded-lg" />
-          <span className="font-bold text-lg" style={{ color: "var(--foreground)" }}>BudgetBati</span>
+          <img src={logo} alt="batibuild App" width={36} height={36} className="rounded-lg" />
+          <span className="font-bold text-lg" style={{ color: "var(--foreground)" }}>batibuild App</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "color-mix(in srgb, var(--auth-accent) 12%, transparent)", color: "var(--auth-accent)" }}>Tunisie</span>
         </div>
       </Link>
@@ -447,7 +447,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         <div className="relative z-10 w-full max-w-sm mx-auto">
           <AuthCard topBar>
             <div className="flex justify-center mb-6">
-              <Link to="/"><img src={logo} alt="BudgetBati" width={48} height={48} className="rounded-xl" style={{ boxShadow: "0 0 0 2px color-mix(in srgb, var(--auth-primary) 20%, transparent)" }} /></Link>
+              <Link to="/"><img src={logo} alt="batibuild App" width={48} height={48} className="rounded-xl" style={{ boxShadow: "0 0 0 2px color-mix(in srgb, var(--auth-primary) 20%, transparent)" }} /></Link>
             </div>
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4 mx-auto" style={{ background: "color-mix(in srgb, var(--auth-accent) 12%, transparent)" }}>
@@ -595,7 +595,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <motion.div key="register-pw" variants={stagger} initial="hidden" animate="visible" exit={{ opacity: 0, y: -8 }}>
                   <div className="mb-5">
                     <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>Créer un compte</h2>
-                    <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Rejoignez BudgetBati et estimez vos projets</p>
+                    <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Rejoignez batibuild App et estimez vos projets</p>
                   </div>
                   <form onSubmit={handlePasswordRegister} className="space-y-4">
                     <FormField label="Nom complet" id="reg-name" name="name" placeholder="Votre nom" icon={User} disabled={isLoading} required autoComplete="name" />
@@ -666,7 +666,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
 // ===================== EXPORT =====================
 export default function AuthPage(props: AuthProps) {
-  usePageSEO({ title: "Connexion - BudgetBati", description: "Connectez-vous ou créez un compte BudgetBati pour estimer vos projets de construction." });
+  usePageSEO({ title: "Connexion - batibuild App", description: "Connectez-vous ou créez un compte batibuild App pour estimer vos projets de construction." });
   return (
     <Suspense>
       <Auth {...props} />

@@ -178,18 +178,18 @@ export default function EmailSettings() {
           </CardHeader>
           <CardContent className="space-y-3">
             <Field label="Nom de l'expéditeur">
-              <Input value={form.senderName} onChange={(e) => set("senderName", e.target.value)} placeholder="BudgetBati" className={inputCls} />
+              <Input value={form.senderName} onChange={(e) => set("senderName", e.target.value)} placeholder="batibuild App" className={inputCls} />
             </Field>
             <Field label="Adresse e-mail de l'expéditeur" hint="Doit correspondre à un domaine autorisé sur votre serveur SMTP">
-              <Input value={form.senderEmail} onChange={(e) => set("senderEmail", e.target.value)} placeholder="contact@budgetbati.tn" className={inputCls} />
+              <Input value={form.senderEmail} onChange={(e) => set("senderEmail", e.target.value)} placeholder="contact@batibuild.app" className={inputCls} />
             </Field>
             <Field label="Adresse de réponse (Reply-To)" hint="Optionnel — adresse qui reçoit les réponses">
-              <Input value={form.replyTo} onChange={(e) => set("replyTo", e.target.value)} placeholder="support@budgetbati.tn" className={inputCls} />
+              <Input value={form.replyTo} onChange={(e) => set("replyTo", e.target.value)} placeholder="support@batibuild.app" className={inputCls} />
             </Field>
-            <Field label="Lien de connexion" hint="Variable {{LienConnexion}} — URL vers l'espace membre (ex: https://budgetbati.tn/login)">
+            <Field label="Lien de connexion" hint="Variable {{LienConnexion}} — URL vers l'espace membre (ex: https://batibuild.app/login)">
               <div className="relative">
                 <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-                <Input value={form.loginLink} onChange={(e) => set("loginLink", e.target.value)} placeholder="https://budgetbati.tn/login" className={inputCls + " pl-9"} />
+                <Input value={form.loginLink} onChange={(e) => set("loginLink", e.target.value)} placeholder="https://batibuild.app/login" className={inputCls + " pl-9"} />
               </div>
             </Field>
           </CardContent>
@@ -231,7 +231,7 @@ export default function EmailSettings() {
               <Field label="Nom d'utilisateur SMTP">
                 <div className="relative">
                   <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-                  <Input value={form.smtpUser} onChange={(e) => set("smtpUser", e.target.value)} placeholder="contact@budgetbati.tn" className={inputCls + " pl-9"} />
+                  <Input value={form.smtpUser} onChange={(e) => set("smtpUser", e.target.value)} placeholder="contact@batibuild.app" className={inputCls + " pl-9"} />
                 </div>
               </Field>
               <Field label="Mot de passe SMTP" hint="Chiffré avant stockage en base">
@@ -312,7 +312,7 @@ export default function EmailSettings() {
             <Field label="Logo de la plateforme (URL)" hint="Image affichée en en-tête des e-mails (PNG, max 180px de large)">
               <div className="relative">
                 <ImageUp className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-                <Input value={form.logoUrl} onChange={(e) => set("logoUrl", e.target.value)} placeholder="https://budgetbati.tn/logo.png" className={inputCls + " pl-9"} />
+                <Input value={form.logoUrl} onChange={(e) => set("logoUrl", e.target.value)} placeholder="https://batibuild.app/logo.png" className={inputCls + " pl-9"} />
               </div>
             </Field>
             <div className="grid grid-cols-2 gap-2">
@@ -345,7 +345,7 @@ export default function EmailSettings() {
                 <Textarea
                   value={form.signature}
                   onChange={(e) => set("signature", e.target.value)}
-                  placeholder={"L'équipe BudgetBati\ncontact@budgetbati.tn\nwww.budgetbati.tn"}
+                  placeholder={"L'équipe batibuild App\ncontact@batibuild.app\nwww.batibuild.app"}
                   className={inputCls + " pl-9 min-h-[80px] resize-y"}
                 />
               </div>

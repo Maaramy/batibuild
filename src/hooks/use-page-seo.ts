@@ -17,8 +17,8 @@ type PageSEOParams = {
  * @example
  * ```tsx
  * usePageSEO({
- *   title: "Mes Projets - BudgetBati",
- *   description: "Gérez vos projets de construction sur BudgetBati"
+ *   title: "Mes Projets - batibuild App",
+ *   description: "Gérez vos projets de construction sur batibuild App"
  * });
  * ```
  */
@@ -44,9 +44,9 @@ export function usePageSEO(params: PageSEOParams | null) {
       el.setAttribute("content", content);
     };
 
-    const title = params.title || seoConfig.siteName || "BudgetBati";
+    const title = params.title || seoConfig.siteName || "batibuild App";
     const description = params.description || seoConfig.siteDescription || "";
-    const ogTitle = params.ogTitle || params.title || seoConfig.ogTitle || seoConfig.siteName || "BudgetBati";
+    const ogTitle = params.ogTitle || params.title || seoConfig.ogTitle || seoConfig.siteName || "batibuild App";
     const ogDescription = params.ogDescription || params.description || seoConfig.ogDescription || seoConfig.siteDescription || "";
     const keywords = params.keywords || seoConfig.keywords || "";
 

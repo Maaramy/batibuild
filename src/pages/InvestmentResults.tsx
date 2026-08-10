@@ -40,7 +40,7 @@ import { ResultsView } from "@/components/investment/results-view";
 
 export default function InvestmentResults() {
   usePageSEO({
-    title: "Résultats de l'analyse immobilière - BudgetBati",
+    title: "Résultats de l'analyse immobilière - batibuild App",
     description: "Tableau de bord décisionnel de votre investissement immobilier en Tunisie : Return on Investment, flux de trésorerie, prévisions, scénarios, score IA et assistant investisseur.",
   });
   const navigate = useNavigate();

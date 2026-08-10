@@ -158,9 +158,11 @@ export default function AdminPanel() {
   const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
   const [limitForm, setLimitForm] = useState({
-    proPrice: 79, expertPrice: 320, supplierPrice: 120,
-    freeProjects: 3, proProjects: 10, expertProjects: 100,
-    freeDownloadLimit: 0, proDownloads: 10, expertDownloads: 100,
+    startPrice: 79, proPrice: 120, expertPrice: 320, supplierPrice: 120,
+    freeProjects: 1, proProjects: 5, expertProjects: 20,
+    freeInvestments: 1, proInvestments: 5, expertInvestments: 20,
+    freePlans: 1, proPlans: 5, expertPlans: 20,
+    freeDownloadLimit: 1, proDownloads: 5, expertDownloads: 20,
   });
   const [savingLimits, setSavingLimits] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
@@ -173,18 +175,25 @@ export default function AdminPanel() {
   useEffect(() => {
     if (planForm) {
       setLimitForm({
-        proPrice: planForm.proPrice ?? 79,
+        startPrice: planForm.startPrice ?? 79,
+        proPrice: planForm.proPrice ?? 120,
         expertPrice: planForm.expertPrice ?? 320,
-        freeProjects: planForm.freeProjectLimit ?? 3,
-        proProjects: planForm.proProjectLimit ?? 10,
-        expertProjects: planForm.expertProjectLimit ?? 100,
-        freeDownloadLimit: planForm.freeDownloadLimit ?? 0,
-        proDownloads: planForm.proDownloadLimit ?? 10,
-        expertDownloads: planForm.expertDownloadLimit ?? 100,
+        freeProjects: planForm.freeProjectLimit ?? 1,
+        proProjects: planForm.proProjectLimit ?? 5,
+        expertProjects: planForm.expertProjectLimit ?? 20,
+        freeInvestments: planForm.freeInvestmentLimit ?? 1,
+        proInvestments: planForm.proInvestmentLimit ?? 5,
+        expertInvestments: planForm.expertInvestmentLimit ?? 20,
+        freePlans: planForm.freePlanLimit ?? 1,
+        proPlans: planForm.proPlanLimit ?? 5,
+        expertPlans: planForm.expertPlanLimit ?? 20,
+        freeDownloadLimit: planForm.freeDownloadLimit ?? 1,
+        proDownloads: planForm.proDownloadLimit ?? 5,
+        expertDownloads: planForm.expertDownloadLimit ?? 20,
         supplierPrice: planForm.supplierPrice ?? 120,
       });
     }
-  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.freeDownloadLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit, planForm?.supplierPrice]);
+  }, [planForm?.startPrice, planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.freeInvestmentLimit, planForm?.proInvestmentLimit, planForm?.expertInvestmentLimit, planForm?.freePlanLimit, planForm?.proPlanLimit, planForm?.expertPlanLimit, planForm?.freeDownloadLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit, planForm?.supplierPrice]);
 
   // Sync payment form when config loads
   useEffect(() => {
@@ -374,7 +383,7 @@ export default function AdminPanel() {
               </div>
               <div className="min-w-0">
                 <h1 className="text-sm font-semibold truncate">Administration</h1>
-                <p className="text-[10px] text-muted-foreground/60 hidden sm:block">Panneau de gestion BudgetBati</p>
+                <p className="text-[10px] text-muted-foreground/60 hidden sm:block">Panneau de gestion batibuild App (v2)</p>
               </div>
             </div>
           </div>
@@ -517,7 +526,7 @@ export default function AdminPanel() {
                   <div className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-primary" />
                     <div>
-                      <h2 className="text-lg font-semibold">Gestion des fournisseurs</h2>
+                      <h2 className="text-lg font-semibold">Gestion des fournisseurs (v2)</h2>
                       <p className="text-xs text-muted-foreground">{allSuppliers.length} fournisseur(s)</p>
                     </div>
                   </div>
@@ -2155,7 +2164,7 @@ export default function AdminPanel() {
                     <div>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Revenus estimés</p>
                       <p className="text-xl sm:text-2xl font-bold mt-1">
-                        {new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(allSubsWithUsers.filter((s: any) => s.status === "active").length * (planForm?.proPrice ?? 79))}
+                        {new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(allSubsWithUsers.filter((s: any) => s.status === "active").length * (planForm?.proPrice ?? 120))}
                       </p>
                     </div>
                     <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 text-emerald-600 ring-1 ring-emerald-500/10 shrink-0">
@@ -2163,7 +2172,7 @@ export default function AdminPanel() {
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
-                    <span>{allSubsWithUsers.filter((s: any) => s.status === "active").length * (planForm?.proPrice ?? 79)} TND/mois</span>
+                    <span>{allSubsWithUsers.filter((s: any) => s.status === "active").length * (planForm?.proPrice ?? 120)} TND</span>
                     <span>•</span>
                     <span>{materialPrices.length} matériaux</span>
                   </div>
@@ -2306,7 +2315,7 @@ export default function AdminPanel() {
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
                 <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-sm">Abonnements & Revenus</CardTitle>
-                  <CardDescription className="text-[10px]">Pro: {planForm?.proPrice ?? 79} TND | Expert: {planForm?.expertPrice ?? 320} TND | Fournisseur: {planForm?.supplierPrice ?? 120} TND/mois</CardDescription>
+                  <CardDescription className="text-[10px]">Start: {planForm?.startPrice ?? 79} TND | Pro: {planForm?.proPrice ?? 120} TND | Expert: {planForm?.expertPrice ?? 320} TND | Fournisseur: {planForm?.supplierPrice ?? 120} TND</CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <div className="grid grid-cols-3 gap-2 mb-3">
@@ -3372,13 +3381,24 @@ export default function AdminPanel() {
             <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="text-base">Limites des forfaits</CardTitle>
-                <CardDescription className="text-xs">Configurer les limites de projets et téléchargements par forfait</CardDescription>
+                <CardDescription className="text-xs">
+                  Forfaits à paiement unique — prix (TND) et quotas par forfait : projets de construction, analyses d'investissement, plans d'architecture et téléchargements PDF. Quand les quotas sont épuisés, l'utilisateur rachète un forfait.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                  <div className="p-4 rounded-xl bg-muted/30 border border-border/30 space-y-3">
-                    <h3 className="text-sm font-semibold">Free</h3>
-                    <p className="text-xs text-muted-foreground">Forfait de base</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="p-4 rounded-xl bg-slate-500/5 border border-border/30 space-y-3">
+                    <h3 className="text-sm font-semibold">Start</h3>
+                    <p className="text-xs text-muted-foreground">Paiement unique · 1+1+1+1</p>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Prix (TND)</label>
+                      <Input
+                        type="number"
+                        value={limitForm.startPrice}
+                        onChange={(e) => setLimitForm({ ...limitForm, startPrice: parseFloat(e.target.value) })}
+                        className="h-8 w-24 text-sm"
+                      />
+                    </div>
                     <div>
                       <label className="text-xs text-muted-foreground">Projets max</label>
                       <Input
@@ -3389,7 +3409,25 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Téléchargements devis</label>
+                      <label className="text-xs text-muted-foreground">Investissements max</label>
+                      <Input
+                        type="number"
+                        value={limitForm.freeInvestments}
+                        onChange={(e) => setLimitForm({ ...limitForm, freeInvestments: parseInt(e.target.value) })}
+                        className="h-8 w-24 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Plans d'architecture max</label>
+                      <Input
+                        type="number"
+                        value={limitForm.freePlans}
+                        onChange={(e) => setLimitForm({ ...limitForm, freePlans: parseInt(e.target.value) })}
+                        className="h-8 w-24 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
                       <Input
                         type="number"
                         value={limitForm.freeDownloadLimit ?? 0}
@@ -3403,8 +3441,9 @@ export default function AdminPanel() {
                       <Crown className="h-4 w-4 text-blue-500" />
                       Pro
                     </h3>
+                    <p className="text-xs text-muted-foreground">Paiement unique · 5+5+5+5</p>
                     <div>
-                      <label className="text-xs text-muted-foreground">Prix (TND/mois)</label>
+                      <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <div className="flex items-center gap-2">
                         <Input
                           type="number"
@@ -3425,7 +3464,25 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Téléchargements devis</label>
+                      <label className="text-xs text-muted-foreground">Investissements max</label>
+                      <Input
+                        type="number"
+                        value={limitForm.proInvestments}
+                        onChange={(e) => setLimitForm({ ...limitForm, proInvestments: parseInt(e.target.value) })}
+                        className="h-8 w-24 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Plans d'architecture max</label>
+                      <Input
+                        type="number"
+                        value={limitForm.proPlans}
+                        onChange={(e) => setLimitForm({ ...limitForm, proPlans: parseInt(e.target.value) })}
+                        className="h-8 w-24 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
                       <Input
                         type="number"
                         value={limitForm.proDownloads}
@@ -3439,8 +3496,9 @@ export default function AdminPanel() {
                       <Crown className="h-4 w-4 text-emerald-500" />
                       Expert
                     </h3>
+                    <p className="text-xs text-muted-foreground">Paiement unique · 20+20+20+20</p>
                     <div>
-                      <label className="text-xs text-muted-foreground">Prix (TND/mois)</label>
+                      <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <div className="flex items-center gap-2">
                         <Input
                           type="number"
@@ -3461,7 +3519,25 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Téléchargements devis</label>
+                      <label className="text-xs text-muted-foreground">Investissements max</label>
+                      <Input
+                        type="number"
+                        value={limitForm.expertInvestments}
+                        onChange={(e) => setLimitForm({ ...limitForm, expertInvestments: parseInt(e.target.value) })}
+                        className="h-8 w-24 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Plans d'architecture max</label>
+                      <Input
+                        type="number"
+                        value={limitForm.expertPlans}
+                        onChange={(e) => setLimitForm({ ...limitForm, expertPlans: parseInt(e.target.value) })}
+                        className="h-8 w-24 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
                       <Input
                         type="number"
                         value={limitForm.expertDownloads}
@@ -3476,7 +3552,7 @@ export default function AdminPanel() {
                       Fournisseur
                     </h3>
                     <div>
-                      <label className="text-xs text-muted-foreground">Prix (TND/mois)</label>
+                      <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <div className="flex items-center gap-2">
                         <Input
                           type="number"
@@ -3492,7 +3568,15 @@ export default function AdminPanel() {
                       <p className="text-xs text-muted-foreground">N/A</p>
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Téléchargements devis</label>
+                      <label className="text-xs text-muted-foreground">Investissements max</label>
+                      <p className="text-xs text-muted-foreground">N/A</p>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Plans d'architecture max</label>
+                      <p className="text-xs text-muted-foreground">N/A</p>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
                       <p className="text-xs text-muted-foreground">N/A</p>
                     </div>
                   </div>
@@ -3510,20 +3594,26 @@ export default function AdminPanel() {
                       try {
                         await updatePlanPricing({
                           plan: "free",
-                          price: 0,
+                          price: limitForm.startPrice,
                           projectLimit: limitForm.freeProjects,
+                          investmentLimit: limitForm.freeInvestments,
+                          planLimit: limitForm.freePlans,
                           downloadLimit: limitForm.freeDownloadLimit,
                         } as any);
                         await updatePlanPricing({
                           plan: "pro",
                           price: limitForm.proPrice,
                           projectLimit: limitForm.proProjects,
+                          investmentLimit: limitForm.proInvestments,
+                          planLimit: limitForm.proPlans,
                           downloadLimit: limitForm.proDownloads,
                         } as any);
                         await updatePlanPricing({
                           plan: "expert",
                           price: limitForm.expertPrice,
                           projectLimit: limitForm.expertProjects,
+                          investmentLimit: limitForm.expertInvestments,
+                          planLimit: limitForm.expertPlans,
                           downloadLimit: limitForm.expertDownloads,
                         } as any);
                         await updatePlanPricing({
@@ -3583,7 +3673,7 @@ export default function AdminPanel() {
         {/* Footer */}
         <div className="mt-10 pt-6 border-t border-border/5 text-center">
           <p className="text-[10px] text-muted-foreground/40">
-            BudgetBati &copy; {new Date().getFullYear()} &mdash; Panneau d'administration v2.0
+            batibuild App &copy; {new Date().getFullYear()} &mdash; Panneau d'administration v2.0
           </p>
         </div>
     </main>

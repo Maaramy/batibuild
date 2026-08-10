@@ -59,7 +59,7 @@ export const sendEmailAction = internalAction({
           tls: args.smtpSecurity === "tls" ? { rejectUnauthorized: false } : undefined,
         });
         await transporter.sendMail({
-          from: `"${args.senderName || "BudgetBati"}" <${args.senderEmail}>`,
+          from: `"${args.senderName || "batibuild App"}" <${args.senderEmail}>`,
           to: args.to,
           replyTo: args.replyTo || undefined,
           cc: args.cc && args.cc.length ? args.cc : undefined,
@@ -145,11 +145,11 @@ export const adminTestSmtp = action({
       });
 
       await transporter.sendMail({
-        from: `"${args.senderName || "BudgetBati"}" <${args.senderEmail}>`,
+        from: `"${args.senderName || "batibuild App"}" <${args.senderEmail}>`,
         to: args.testEmail,
         replyTo: args.replyTo || undefined,
-        subject: "✅ Test de configuration e-mail — BudgetBati",
-        html: buildTestEmailHtml(args.senderName || "BudgetBati"),
+        subject: "✅ Test de configuration e-mail — batibuild App",
+        html: buildTestEmailHtml(args.senderName || "batibuild App"),
       });
 
       return {

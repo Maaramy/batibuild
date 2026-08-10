@@ -269,7 +269,7 @@ function Navbar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <HardHat className="h-4 w-4" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">BudgetBati</span>
+          <span className="text-lg font-semibold tracking-tight">batibuild App</span>
           <span className="hidden sm:inline-block ml-1 text-xs font-medium text-muted-foreground/60">Tunisia</span>
         </div>
 
@@ -635,7 +635,7 @@ function HowItWorksSection() {
                 <div className="flex-1 flex items-center justify-center">
                   <div className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-[10px] text-muted-foreground">
                     <HardHat className="h-3 w-3" />
-                    <span>app.budgetbati.tn / nouveau-projet</span>
+                    <span>app.batibuild.app / nouveau-projet</span>
                   </div>
                 </div>
               </div>
@@ -1082,7 +1082,7 @@ function InvestmentsSection() {
                 <div className="flex-1 flex items-center justify-center">
                   <div className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-[10px] text-muted-foreground">
                     <Landmark className="h-3 w-3" />
-                    <span>app.budgetbati.tn / analyse-investissement</span>
+                    <span>app.batibuild.app / analyse-investissement</span>
                   </div>
                 </div>
               </div>
@@ -1293,7 +1293,7 @@ function Footer() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <HardHat className="h-4 w-4" />
               </div>
-              <span className="text-base font-semibold">BudgetBati</span>
+              <span className="text-base font-semibold">batibuild App</span>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">
               Solution IA pour l'estimation des coûts de construction en Tunisie.
@@ -1337,7 +1337,7 @@ function Footer() {
 
 export default function Landing() {
   usePageSEO({
-    title: "BudgetBati - Estimation Construction par IA en Tunisie",
+    title: "batibuild App - Estimation Construction par IA en Tunisie",
     description: "Estimez vos projets de construction en Tunisie avec l'IA. Obtenez un devis complet avec prix actualisés du marché tunisien 2026.",
   });
   return (

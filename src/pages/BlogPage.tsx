@@ -34,11 +34,11 @@ export default function BlogPage() {
   useDirection();
   const seoConfig = useQuery(api.seo.getSeoConfigOrDefault);
   usePageSEO({
-    title: seoConfig?.blogTitle || "Blog BudgetBati — Construction & Rénovation en Tunisie",
+    title: seoConfig?.blogTitle || "Blog batibuild App — Construction & Rénovation en Tunisie",
     description:
       seoConfig?.blogDescription ||
       "Conseils, guides et actualités sur la construction et la rénovation en Tunisie.",
-    ogTitle: seoConfig?.blogTitle || "Blog BudgetBati",
+    ogTitle: seoConfig?.blogTitle || "Blog batibuild App",
     ogDescription: seoConfig?.blogDescription || "",
     keywords: "blog construction tunisie, guide rénovation, prix matériaux tunisie",
   });

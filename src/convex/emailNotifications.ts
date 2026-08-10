@@ -115,7 +115,7 @@ function renderTokens(text: string, vars: Record<string, string>): string {
       Montant: vars.montant || "",
       NuméroFacture: vars.numeroFacture || "",
       LienConnexion: vars.lienConnexion || "#",
-      NomPlateforme: vars.nomPlateforme || "BudgetBati",
+      NomPlateforme: vars.nomPlateforme || "batibuild App",
     };
     return lookup[key] !== undefined ? lookup[key] : m;
   });
@@ -261,8 +261,8 @@ export const processEmailEvent = internalMutation({
 
     // 4. Resolve vars
     const seo = await ctx.db.query("seoConfig").order("desc").first();
-    const platformName = vars.nomPlateforme || seo?.siteName || config.senderName || "BudgetBati";
-    const loginLink = vars.lienConnexion || config.loginLink || seo?.canonicalUrl || "https://budgetbati.tn";
+    const platformName = vars.nomPlateforme || seo?.siteName || config.senderName || "batibuild App";
+    const loginLink = vars.lienConnexion || config.loginLink || seo?.canonicalUrl || "https://batibuild.app";
 
     const resolvedVars: Record<string, string> = {
       nom: vars.nom || "",
@@ -324,7 +324,7 @@ export const processEmailEvent = internalMutation({
       to: args.to,
       subject,
       html: bodyHtml,
-      senderName: config.senderName || "BudgetBati",
+      senderName: config.senderName || "batibuild App",
       senderEmail: config.senderEmail,
       replyTo: config.replyTo || undefined,
       cc: adminCc,

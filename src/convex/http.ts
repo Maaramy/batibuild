@@ -14,7 +14,7 @@ http.route({
   handler: httpAction(async (ctx) => {
     // Get all pages from various sources
     const config = await ctx.runQuery(api.seo.getSeoConfigOrDefault);
-    const siteUrl = config?.canonicalUrl || "https://budgetbati.com";
+    const siteUrl = config?.canonicalUrl || "https://batibuild.app";
 
     const staticPages = [
       { path: "", priority: "1.0", changefreq: "weekly" },
@@ -90,7 +90,7 @@ http.route({
   handler: httpAction(async () => {
     const robots = `User-agent: *
 Allow: /
-Sitemap: https://budgetbati.com/sitemap.xml`;
+Sitemap: https://batibuild.app/sitemap.xml`;
     return new Response(robots, {
       status: 200,
       headers: {

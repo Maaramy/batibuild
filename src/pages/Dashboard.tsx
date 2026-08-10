@@ -347,7 +347,7 @@ function StatsCard({ icon: Icon, label, value, gradient, iconColor }: any) {
 // ============================================================================
 
 export default function Dashboard() {
-  usePageSEO({ title: "Tableau de bord - BudgetBati", description: "Gérez vos projets de construction et suivez vos estimations sur BudgetBati." });
+  usePageSEO({ title: "Tableau de bord - batibuild App", description: "Gérez vos projets de construction et suivez vos estimations sur batibuild App." });
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -790,7 +790,7 @@ export default function Dashboard() {
                   <p className="text-[10px] sm:text-xs text-amber-700/80 dark:text-amber-400/80 mt-0.5">
                     Vous avez utilisé <strong>{usagePercent}%</strong> de votre limite de <strong>{projectLimit} projets</strong>.
                     {userPlan === "free"
-                      ? " Passez à l'offre Pro pour créer jusqu'à 10 projets."
+                      ? " Passez à l'offre Pro pour créer jusqu'à 5 projets."
                       : " Contactez l'administrateur pour augmenter votre limite si nécessaire."
                     }
                   </p>
