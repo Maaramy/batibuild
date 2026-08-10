@@ -11,9 +11,6 @@ import type { PlanRequest, GeneratedPlan } from "@/convex/planEngine";
 // la variante (ou les 10) en conservant les autres contraintes.
 // ============================================================================
 
-// Types de bien à un seul niveau (rez-de-chaussée imposé)
-const SINGLE_LEVEL_TYPES = ["local_commercial", "entrepot", "bureau"];
-
 const COMMANDS: { key: string; label: string; hint: string }[] = [
   { key: "bedrooms", label: "Chambres", hint: "Ajouter / supprimer une chambre" },
   { key: "bathrooms", label: "Salles de bain", hint: "Ajouter une salle de bains" },
@@ -24,7 +21,6 @@ const COMMANDS: { key: string; label: string; hint: string }[] = [
   { key: "hasTerrasse", label: "Terrasse", hint: "Ajouter une terrasse" },
   { key: "hasPiscine", label: "Piscine", hint: "Ajouter une piscine" },
   { key: "hasJardin", label: "Jardin", hint: "Ajouter un jardin" },
-  { key: "floors", label: "Niveaux", hint: "Changer le nombre de niveaux" },
 ];
 
 export function PlanEditModal({
@@ -46,11 +42,10 @@ export function PlanEditModal({
   const [regenAll, setRegenAll] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // Rez-de-chaussée imposé pour les locaux d'activité
-  const singleLevel = SINGLE_LEVEL_TYPES.includes(req.bienType);
+  // Plans générés en R+0 (plain-pied) — le nombre de niveaux est fixé à 1.
   useEffect(() => {
-    if (singleLevel) setReq((r) => (r.floors !== 1 ? { ...r, floors: 1 } : r));
-  }, [singleLevel]);
+    setReq((r) => (r.floors !== 1 ? { ...r, floors: 1 } : r));
+  }, []);
 
   const set = <K extends keyof PlanRequest>(key: K, value: PlanRequest[K]) =>
     setReq((r) => ({ ...r, [key]: value }));
@@ -76,29 +71,10 @@ export function PlanEditModal({
 
         <div className="space-y-3">
           {/* Surfaces */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-[11px] font-semibold">Surface couverte (m²)</Label>
-              <Input type="number" inputMode="decimal" min={15} value={req.surfaceCouverte || ""} onChange={(e) => set("surfaceCouverte", parseFloat(e.target.value) || 0)} className="mt-1 h-10 sm:h-8 w-full text-xs" />
-            </div>
-            <div>
-              <Label className="text-[11px] font-semibold">Niveaux</Label>
-              <div className="flex gap-1 mt-1">
-                {[1, 2, 3].map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => !singleLevel && set("floors", f)}
-                    disabled={singleLevel && f !== 1}
-                    className={`flex-1 py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-md border text-[11px] font-semibold transition-all active:scale-[0.97] ${req.floors === f ? "border-primary bg-primary/10 text-primary" : "border-border/40"} ${singleLevel && f !== 1 ? "opacity-40 cursor-not-allowed" : ""}`}
-                  >
-                    R+{f - 1}
-                  </button>
-                ))}
-              </div>
-              {singleLevel && (
-                <p className="text-[9px] text-muted-foreground mt-1">Rez-de-chaussée uniquement pour ce type de bien.</p>
-              )}
-            </div>
+          <div>
+            <Label className="text-[11px] font-semibold">Surface couverte (m²)</Label>
+            <Input type="number" inputMode="decimal" min={15} value={req.surfaceCouverte || ""} onChange={(e) => set("surfaceCouverte", parseFloat(e.target.value) || 0)} className="mt-1 h-10 sm:h-8 w-full text-xs" />
+            <p className="text-[9px] text-muted-foreground mt-1">Plans générés en R+0 (plain-pied).</p>
           </div>
 
           {/* Commandes rapides */}

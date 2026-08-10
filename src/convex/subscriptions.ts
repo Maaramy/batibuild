@@ -78,30 +78,135 @@ export const getAllSubscriptionsWithUsers = query({
 });
 
 // ============================================================================
-// Download Limit Helpers
+// Quota helpers — forfaits à paiement unique (non mensuels)
 // ============================================================================
 
-/** Read download limits from paymentConfig, fallback to defaults */
-async function getDownloadLimits(ctx: any): Promise<{ pro: number; expert: number }> {
+/** Type de ressource soumise à quota. */
+export type QuotaKind = "projects" | "investments" | "plans" | "downloads";
+
+export interface PlanQuota {
+  projects: number;
+  investments: number;
+  plans: number;
+  downloads: number;
+}
+
+/** Quotas par défaut (Start 1 · Pro 5 · Expert 20). */
+export const DEFAULT_QUOTAS: Record<string, PlanQuota> = {
+  free: { projects: 1, investments: 1, plans: 1, downloads: 1 },
+  pro: { projects: 5, investments: 5, plans: 5, downloads: 5 },
+  expert: { projects: 20, investments: 20, plans: 20, downloads: 20 },
+};
+
+/** Lit les quotas par forfait depuis paymentConfig (fallback aux défauts). */
+export async function getPlanQuotaConfig(ctx: any): Promise<Record<string, PlanQuota>> {
   const config = await ctx.db
     .query("paymentConfig")
     .order("desc")
     .first();
   return {
-    pro: config?.proDownloadLimit ?? 10,
-    expert: config?.expertDownloadLimit ?? 100,
+    free: {
+      projects: config?.freeProjectLimit ?? DEFAULT_QUOTAS.free.projects,
+      investments: config?.freeInvestmentLimit ?? DEFAULT_QUOTAS.free.investments,
+      plans: config?.freePlanLimit ?? DEFAULT_QUOTAS.free.plans,
+      downloads: config?.freeDownloadLimit ?? DEFAULT_QUOTAS.free.downloads,
+    },
+    pro: {
+      projects: config?.proProjectLimit ?? DEFAULT_QUOTAS.pro.projects,
+      investments: config?.proInvestmentLimit ?? DEFAULT_QUOTAS.pro.investments,
+      plans: config?.proPlanLimit ?? DEFAULT_QUOTAS.pro.plans,
+      downloads: config?.proDownloadLimit ?? DEFAULT_QUOTAS.pro.downloads,
+    },
+    expert: {
+      projects: config?.expertProjectLimit ?? DEFAULT_QUOTAS.expert.projects,
+      investments: config?.expertInvestmentLimit ?? DEFAULT_QUOTAS.expert.investments,
+      plans: config?.expertPlanLimit ?? DEFAULT_QUOTAS.expert.plans,
+      downloads: config?.expertDownloadLimit ?? DEFAULT_QUOTAS.expert.downloads,
+    },
   };
 }
 
-/** Check if the current user can download a PDF */
+/** Abonnement actif de l'utilisateur (le plus récent). */
+async function getActiveSubscription(ctx: any, userId: any) {
+  const sub = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_user", (q: any) => q.eq("userId", userId))
+    .order("desc")
+    .first();
+  return sub && sub.status === "active" ? sub : null;
+}
+
+const KIND_TO_SUB_FIELD: Record<QuotaKind, string> = {
+  projects: "projectsUsed",
+  investments: "investmentsUsed",
+  plans: "plansUsed",
+  downloads: "monthlyDownloadCount",
+};
+
+async function countUserDocs(ctx: any, userId: any, kind: QuotaKind): Promise<number> {
+  if (kind === "projects") {
+    return (await ctx.db.query("projects").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect()).length;
+  }
+  if (kind === "investments") {
+    return (await ctx.db.query("investmentAnalyses").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect()).length;
+  }
+  if (kind === "plans") {
+    return (await ctx.db.query("architecturalPlans").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect()).length;
+  }
+  return 0;
+}
+
+/**
+ * Vérifie si l'utilisateur peut encore créer/télécharger un élément du type
+ * demandé. Les quotas sont comptés par abonnement (paiement unique) : quand
+ * le quota est épuisé, l'utilisateur doit racheter un forfait. Sans abonnement
+ * actif, on retombe sur l'offre de base (Start) comptée sur les documents.
+ */
+export async function checkQuota(
+  ctx: any,
+  user: any,
+  kind: QuotaKind,
+): Promise<{ allowed: boolean; limit: number; used: number; plan: string; reason: string }> {
+  const configs = await getPlanQuotaConfig(ctx);
+  const sub = await getActiveSubscription(ctx, user._id);
+  const plan = sub?.plan ?? "free";
+  const limit = configs[plan]?.[kind] ?? 1;
+
+  if (sub) {
+    const used = (sub as any)[KIND_TO_SUB_FIELD[kind]] ?? 0;
+    const allowed = used < limit;
+    return { allowed, limit, used, plan, reason: allowed ? "ok" : "limite_atteinte" };
+  }
+
+  const used = await countUserDocs(ctx, user._id, kind);
+  const allowed = used < limit;
+  return { allowed, limit, used, plan: "free", reason: allowed ? "ok" : "limite_atteinte" };
+}
+
+/** Incrémente le compteur de quota de l'abonnement actif (si présent). */
+export async function consumeQuota(ctx: any, user: any, kind: QuotaKind): Promise<void> {
+  const sub = await getActiveSubscription(ctx, user._id);
+  if (!sub) return;
+  const field = KIND_TO_SUB_FIELD[kind];
+  await ctx.db.patch(sub._id, {
+    [field]: ((sub as any)[field] ?? 0) + 1,
+    updatedAt: Date.now(),
+  });
+}
+
+// ============================================================================
+// Download Limit Helpers
+// ============================================================================
+
+/** Vérifie si l'utilisateur peut télécharger un PDF (toutes offres payantes). */
 export const checkDownloadAllowed = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
     if (!user) return { allowed: false, reason: "non_connecté" };
 
-    // Pro/Expert users get downloads per month
-    if (user.subscriptionPlan === "pro" || user.subscriptionPlan === "expert") {
+    // Offres payantes (Start, Pro, Expert) : téléchargements par abonnement
+    if (user.subscriptionPlan === "free" || user.subscriptionPlan === "pro" || user.subscriptionPlan === "expert") {
       const sub = await ctx.db
         .query("subscriptions")
         .withIndex("by_user", (q) => q.eq("userId", user._id))
@@ -112,8 +217,8 @@ export const checkDownloadAllowed = query({
         return { allowed: false, reason: "abonnement_inactif" };
       }
 
-      const limits = await getDownloadLimits(ctx);
-      const limit = user.subscriptionPlan === "expert" ? limits.expert : limits.pro;
+      const configs = await getPlanQuotaConfig(ctx);
+      const limit = configs[user.subscriptionPlan]?.downloads ?? 1;
       const used = sub.monthlyDownloadCount ?? 0;
       const remaining = limit - used;
 
@@ -126,18 +231,17 @@ export const checkDownloadAllowed = query({
       };
     }
 
-    // Free users cannot download PDFs
     return { allowed: false, reason: "offre_gratuite", remaining: 0, limit: 0, used: 0 };
   },
 });
 
-/** Consume one download (call after successful PDF generation) */
+/** Consomme un téléchargement (appeler après génération PDF réussie). */
 export const consumeDownload = mutation({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
-    if (!user || (user.subscriptionPlan !== "pro" && user.subscriptionPlan !== "expert")) {
-      throw new Error("Seuls les abonnés Pro et Expert peuvent télécharger des devis");
+    if (!user || (user.subscriptionPlan !== "free" && user.subscriptionPlan !== "pro" && user.subscriptionPlan !== "expert")) {
+      throw new Error("Seuls les abonnés Start, Pro et Expert peuvent télécharger des devis");
     }
 
     const sub = await ctx.db
@@ -150,8 +254,8 @@ export const consumeDownload = mutation({
       throw new Error("Abonnement inactif");
     }
 
-    const limits = await getDownloadLimits(ctx);
-    const limit = user.subscriptionPlan === "expert" ? limits.expert : limits.pro;
+    const configs = await getPlanQuotaConfig(ctx);
+    const limit = configs[user.subscriptionPlan]?.downloads ?? 1;
     const used = (sub.monthlyDownloadCount ?? 0) + 1;
     await ctx.db.patch(sub._id, {
       monthlyDownloadCount: used,
@@ -166,6 +270,10 @@ export const consumeDownload = mutation({
 // ============================================================================
 // Mutations
 // ============================================================================
+
+// Forfaits à paiement unique : validité longue (10 ans) — aucun renouvellement
+// mensuel. Quand les quotas sont épuisés, l'utilisateur rachète un forfait.
+const ONE_TIME_DURATION = 3650 * 24 * 60 * 60 * 1000; // 10 ans
 
 /** Create or update subscription */
 export const createSubscription = mutation({
@@ -182,14 +290,9 @@ export const createSubscription = mutation({
 
     const now = Date.now();
 
-    const limits = await getDownloadLimits(ctx);
-    const planConfig: Record<string, { duration: number; limit: number }> = {
-      free: { duration: 365 * 24 * 60 * 60 * 1000, limit: 0 },
-      pro: { duration: 30 * 24 * 60 * 60 * 1000, limit: limits.pro },
-      expert: { duration: 30 * 24 * 60 * 60 * 1000, limit: limits.expert },
-    };
-
-    const config = planConfig[args.plan] || planConfig.free;
+    const quotas = await getPlanQuotaConfig(ctx);
+    const downloadLimit = quotas[args.plan]?.downloads ?? 1;
+    const duration = ONE_TIME_DURATION;
 
     // Cancel existing active subscriptions
     const existing = await ctx.db
@@ -208,13 +311,13 @@ export const createSubscription = mutation({
       plan: args.plan,
       status: args.paymentMethod === "bank_transfer" ? "pending" : "active",
       startDate: now,
-      endDate: now + config.duration,
+      endDate: now + duration,
       paymentMethod: args.paymentMethod,
       paymentId: args.paymentId,
       amount: args.amount,
       currency: args.currency || "TND",
       monthlyDownloadCount: 0,
-      downloadLimit: config.limit,
+      downloadLimit,
       createdAt: now,
       updatedAt: now,
     });
@@ -223,7 +326,7 @@ export const createSubscription = mutation({
     if (args.paymentMethod !== "bank_transfer") {
       await ctx.db.patch(user._id, {
         subscriptionPlan: args.plan,
-        subscriptionEndDate: now + config.duration,
+        subscriptionEndDate: now + duration,
       });
 
       // Notify by email: activation (first subscription) or renewal (re-subscription)
@@ -237,7 +340,7 @@ export const createSubscription = mutation({
             ...splitName(user.name),
             typeAbonnement: planLabel(args.plan),
             dateActivation: formatDateFr(now),
-            dateExpiration: formatDateFr(now + config.duration),
+            dateExpiration: formatDateFr(now + duration),
             montant: args.amount ? `${args.amount} ${args.currency || "TND"}` : undefined,
             numeroFacture: `INV-${subscriptionId}`,
           },
@@ -394,7 +497,7 @@ export const adminApproveSubscription = mutation({
     if (sub.status !== "pending") throw new Error("Cet abonnement n'est pas en attente");
 
     const now = Date.now();
-    const planDuration = 30 * 24 * 60 * 60 * 1000; // 30 days
+    const planDuration = ONE_TIME_DURATION; // paiement unique (10 ans)
 
     // Update subscription to active
     await ctx.db.patch(args.subscriptionId, {

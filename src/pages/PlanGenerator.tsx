@@ -47,9 +47,6 @@ const STEPS = [
 ] as const;
 type StepKey = (typeof STEPS)[number]["key"];
 
-// Types de bien à un seul niveau (rez-de-chaussée imposé)
-const SINGLE_LEVEL_TYPES = ["local_commercial", "entrepot", "bureau"];
-
 // Légende des abréviations affichées sur les plans
 const PLAN_LEGEND: { abbr: string; label: string }[] = [
   { abbr: "S", label: "Salon" },
@@ -324,11 +321,11 @@ export default function PlanGenerator() {
   const [formStep, setFormStep] = useState<StepKey>("bien");
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
 
-  // Types à un seul niveau : rez-de-chaussée imposé
-  const singleLevel = SINGLE_LEVEL_TYPES.includes(req.bienType);
+  // Plans générés en R+0 (plain-pied) : le nombre de niveaux est supprimé du
+  // formulaire, la valeur reste forcée à 1 pour le moteur.
   useEffect(() => {
-    if (singleLevel) setReq((r) => (r.floors !== 1 ? { ...r, floors: 1 } : r));
-  }, [singleLevel]);
+    setReq((r) => (r.floors !== 1 ? { ...r, floors: 1 } : r));
+  }, []);
 
   const set = useCallback(<K extends keyof PlanRequest>(key: K, value: PlanRequest[K]) => {
     setReq((r) => ({ ...r, [key]: value }));
@@ -436,7 +433,7 @@ export default function PlanGenerator() {
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate">Générateur de plans architecturaux</p>
                 <p className="text-[10px] text-muted-foreground truncate">
-                  {bienTypeLabel(req.bienType)} · {Math.round(req.surfaceCouverte)} m² · {req.floors} niveau{req.floors > 1 ? "x" : ""}
+                  {bienTypeLabel(req.bienType)} · {Math.round(req.surfaceCouverte)} m² · R+0 (plain-pied)
                 </p>
               </div>
             </div>
@@ -663,7 +660,7 @@ export default function PlanGenerator() {
                         stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round"
                         strokeDasharray={2 * Math.PI * 8}
                         initial={{ strokeDashoffset: 2 * Math.PI * 8 }}
-                        animate={{ strokeDashoffset: 2 * Math.PI * 8 * (1 - 100 / 100) }}
+                        animate={{ strokeDashoffset: 2 * Math.PI * 8 * (1 - stepProgress(step) / 100) }}
                         transition={{ duration: 0.6 }}
                       />
                     </svg>
@@ -734,8 +731,8 @@ export default function PlanGenerator() {
                   {/* Étape 2 — Surfaces */}
                   {step === "surface" && (
                     <div>
-                      <h2 className="text-lg sm:text-xl font-bold mb-1">Surfaces & niveaux</h2>
-                      <p className="text-xs sm:text-sm text-muted-foreground mb-4">Le moteur vérifie la cohérence entre la surface totale et les pièces.</p>
+                      <h2 className="text-lg sm:text-xl font-bold mb-1">Surfaces</h2>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-4">Le moteur vérifie la cohérence entre la surface totale et les pièces. Les plans sont générés en R+0 (plain-pied).</p>
                       <div className="space-y-4">
                         <div className="grid sm:grid-cols-2 gap-4">
                           <div className="rounded-xl border border-border/40 p-4">
@@ -746,58 +743,32 @@ export default function PlanGenerator() {
                           <div className="rounded-xl border border-border/40 p-4">
                             <Label className="text-xs font-semibold flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-primary" /> Surface couverte (m²)</Label>
                             <Input type="number" inputMode="decimal" min={15} value={req.surfaceCouverte || ""} onChange={(e) => set("surfaceCouverte", parseFloat(e.target.value) || 0)} className="mt-1.5 h-11 sm:h-9 w-full text-sm" placeholder="ex : 150" />
-                            <p className="text-[10px] text-muted-foreground mt-1">Emprise construite totale (tous niveaux).</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">Emprise construite (R+0).</p>
                           </div>
                         </div>
-                        <div className="grid sm:grid-cols-2 gap-4">
-                          <div className="rounded-xl border border-border/40 p-4">
-                            <Label className="text-xs font-semibold flex items-center gap-1.5"><Layers className="h-3.5 w-3.5 text-primary" /> Nombre de niveaux</Label>
-                            <div className="flex items-center gap-2 mt-1.5">
-                              {[1, 2, 3].map((f) => (
-                                <button
-                                  key={f}
-                                  onClick={() => !singleLevel && set("floors", f)}
-                                  disabled={singleLevel && f !== 1}
-                                  className={cn(
-                                    "flex-1 py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-xs font-semibold transition-all active:scale-[0.97]",
-                                    req.floors === f ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
-                                    singleLevel && f !== 1 && "opacity-40 cursor-not-allowed",
-                                  )}
-                                >
-                                  R+{f - 1}
-                                </button>
-                              ))}
-                            </div>
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                              {singleLevel
-                                ? "Rez-de-chaussée uniquement pour ce type de bien (local commercial, entrepôt, bureau)."
-                                : "R+0 = plain-pied, R+1 = 2 niveaux…"}
-                            </p>
-                          </div>
-                          <div className="rounded-xl border border-border/40 p-4">
-                            <Label className="text-xs font-semibold flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-primary" /> Orientation & entrée</Label>
-                            <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-                              {(["nord", "est", "sud", "ouest"] as const).map((dir) => (
-                                <button
-                                  key={dir}
-                                  onClick={() => set("entreePosition", dir)}
-                                  className={cn(
-                                    "py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-[10px] font-medium capitalize transition-all active:scale-[0.97]",
-                                    req.entreePosition === dir ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
-                                  )}
-                                >
-                                  {dir}
-                                </button>
-                              ))}
+                        <div className="rounded-xl border border-border/40 p-4">
+                          <Label className="text-xs font-semibold flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-primary" /> Orientation & entrée</Label>
+                          <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+                            {(["nord", "est", "sud", "ouest"] as const).map((dir) => (
                               <button
-                                onClick={() => set("entreePosition", req.entreePosition === "sud" ? "ouest" : "sud")}
-                                className="py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border border-border/40 text-[10px] font-medium text-muted-foreground hover:border-primary/30 active:scale-[0.97]"
+                                key={dir}
+                                onClick={() => set("entreePosition", dir)}
+                                className={cn(
+                                  "py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-[10px] font-medium capitalize transition-all active:scale-[0.97]",
+                                  req.entreePosition === dir ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
+                                )}
                               >
-                                Auto
+                                {dir}
                               </button>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground mt-1">Position de l'entrée principale.</p>
+                            ))}
+                            <button
+                              onClick={() => set("entreePosition", req.entreePosition === "sud" ? "ouest" : "sud")}
+                              className="py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border border-border/40 text-[10px] font-medium text-muted-foreground hover:border-primary/30 active:scale-[0.97]"
+                            >
+                              Auto
+                            </button>
                           </div>
+                          <p className="text-[10px] text-muted-foreground mt-1">Position de l'entrée principale.</p>
                         </div>
                         <div className="rounded-xl border border-border/40 p-4">
                           <Label className="text-xs font-semibold flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-primary" /> Nombre de façades exposées</Label>
@@ -970,25 +941,33 @@ export default function PlanGenerator() {
   );
 }
 
+/** Progression du wizard en fonction de l'étape courante (0-100). */
+function stepProgress(s: StepKey): number {
+  const idx = STEPS.findIndex((x) => x.key === s);
+  return Math.min(Math.round(((idx + 1) / STEPS.length) * 100), 100);
+}
+
 /** Contenu du récapitulatif (partagé desktop / mobile). */
 function PlanSummaryContent({ req, step, sticky = false }: { req: PlanRequest; step: StepKey; sticky?: boolean }) {
-  const items: { label: string; value: string; icon: LucideIcon }[] = [
-    { label: "Type de bien", value: bienTypeLabel(req.bienType), icon: Home },
-    { label: "Surface totale", value: `${Math.round(req.surfaceTotale)} m²`, icon: Ruler },
-    { label: "Surface couverte", value: `${Math.round(req.surfaceCouverte)} m²`, icon: Building2 },
-    { label: "Niveaux", value: `${req.floors} niveau${req.floors > 1 ? "x" : ""}`, icon: Layers },
-    { label: "Composition", value: `${req.bedrooms} ch · ${req.bathrooms} sdb · ${req.wcs} wc`, icon: BedDouble },
-    { label: "Équipements", value: `${ROOM_TOGGLES.filter((t) => (req as any)[t.key]).length} pièce(s)`, icon: LayoutGrid },
-    { label: "Extérieurs", value: `${EXT_TOGGLES.filter((t) => (req as any)[t.key]).length} espace(s)`, icon: Trees },
-    { label: "Standing", value: STANDINGS.find((s) => s.value === req.standing)?.label ?? req.standing, icon: Crown },
-    { label: "Style", value: STYLE_LABELS[req.style] ?? req.style, icon: Palette },
+  const stepIdx = Math.max(0, STEPS.findIndex((s) => s.key === step));
+  const items: { label: string; value: string; icon: LucideIcon; step: StepKey }[] = [
+    { label: "Type de bien", value: bienTypeLabel(req.bienType), icon: Home, step: "bien" },
+    { label: "Surface totale", value: `${Math.round(req.surfaceTotale)} m²`, icon: Ruler, step: "surface" },
+    { label: "Surface couverte", value: `${Math.round(req.surfaceCouverte)} m²`, icon: Building2, step: "surface" },
+    { label: "Composition", value: `${req.bedrooms} ch · ${req.bathrooms} sdb · ${req.wcs} wc`, icon: BedDouble, step: "pieces" },
+    { label: "Équipements", value: `${ROOM_TOGGLES.filter((t) => (req as any)[t.key]).length} pièce(s)`, icon: LayoutGrid, step: "pieces" },
+    { label: "Extérieurs", value: `${EXT_TOGGLES.filter((t) => (req as any)[t.key]).length} espace(s)`, icon: Trees, step: "exterieur" },
+    { label: "Standing", value: STANDINGS.find((s) => s.value === req.standing)?.label ?? req.standing, icon: Crown, step: "style" },
+    { label: "Style", value: STYLE_LABELS[req.style] ?? req.style, icon: Palette, step: "style" },
   ];
 
-  const totalFields = 9;
-  const progress = Math.min(Math.round((items.length / totalFields) * 100), 100);
+  // Progression fonctionnelle : dépend de l'étape courante du wizard,
+  // pas du nombre d'items remplis (qui restait bloqué à 100 %).
+  const progress = stepProgress(step);
   const R = 16;
   const circumference = 2 * Math.PI * R;
   const offset = circumference * (1 - progress / 100);
+  const currentLabel = STEPS[stepIdx]?.label ?? "";
 
   const body = (
     <>
@@ -1016,38 +995,52 @@ function PlanSummaryContent({ req, step, sticky = false }: { req: PlanRequest; s
         </div>
         <div className="min-w-0">
           <p className="text-[10px] font-medium">
-            {progress < 30 && "💭 Commencez à remplir le formulaire"}
-            {progress >= 30 && progress < 60 && "🧠 Bonne progression !"}
-            {progress >= 60 && progress < 90 && "⚡ Presque complet !"}
-            {progress >= 90 && "✅ Prêt pour la génération"}
+            {progress < 40 && "💭 Commencez par choisir le type de bien"}
+            {progress >= 40 && progress < 60 && "🧠 Bonne progression !"}
+            {progress >= 60 && progress < 100 && "⚡ Presque complet !"}
+            {progress >= 100 && "✅ Prêt pour la génération"}
           </p>
           <p className="text-[9px] text-muted-foreground">
-            {step === "style" ? "Toutes les contraintes saisies" : "Informations saisies"}
+            Étape {Math.min(stepIdx + 1, STEPS.length)}/{STEPS.length} — {currentLabel}
           </p>
         </div>
       </div>
 
       <div className="space-y-1.5">
-        {items.map((item, i) => (
-          <motion.div
-            key={item.label}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
-            className="flex items-center gap-2 py-1.5 px-2 rounded-lg border border-border/20 bg-muted/20"
-          >
-            <item.icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[9px] text-muted-foreground leading-tight">{item.label}</p>
-              <p className="text-[10px] font-medium truncate leading-tight">{item.value}</p>
-            </div>
+        {items.map((item, i) => {
+          const itemStepIdx = STEPS.findIndex((s) => s.key === item.step);
+          const done = itemStepIdx < stepIdx;
+          const active = itemStepIdx === stepIdx;
+          return (
             <motion.div
-              className="h-1.5 w-1.5 rounded-full shrink-0 bg-primary"
-              animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
-              transition={{ repeat: Infinity, duration: 2, delay: i * 0.15, ease: "easeInOut" }}
-            />
-          </motion.div>
-        ))}
+              key={item.label}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              className={cn(
+                "flex items-center gap-2 py-1.5 px-2 rounded-lg border transition-colors duration-300",
+                done && "border-emerald-500/25 bg-emerald-500/5",
+                active && "border-primary/40 bg-primary/5 shadow-sm",
+                !done && !active && "border-border/20 bg-muted/20 opacity-50",
+              )}
+            >
+              <item.icon className={cn("h-3.5 w-3.5 shrink-0", done ? "text-emerald-600" : active ? "text-primary" : "text-muted-foreground")} />
+              <div className="min-w-0 flex-1">
+                <p className={cn("text-[9px] leading-tight", done ? "text-emerald-700/80" : active ? "text-primary" : "text-muted-foreground")}>{item.label}</p>
+                <p className={cn("text-[10px] font-medium truncate leading-tight", done ? "text-emerald-900" : "text-foreground")}>{item.value}</p>
+              </div>
+              {done ? (
+                <Check className="h-3 w-3 shrink-0 text-emerald-500" />
+              ) : active ? (
+                <motion.div
+                  className="h-1.5 w-1.5 rounded-full shrink-0 bg-primary"
+                  animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
+                  transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
+                />
+              ) : null}
+            </motion.div>
+          );
+        })}
       </div>
     </>
   );
@@ -1067,7 +1060,7 @@ function PlanSummaryContent({ req, step, sticky = false }: { req: PlanRequest; s
             </div>
             <div className="min-w-0">
               <h3 className="text-xs font-semibold">Récapitulatif</h3>
-              <p className="text-[9px] text-muted-foreground">{items.length}/{totalFields} champs</p>
+              <p className="text-[9px] text-muted-foreground">Étape {Math.min(stepIdx + 1, STEPS.length)}/{STEPS.length} · {currentLabel}</p>
             </div>
           </div>
           {body}

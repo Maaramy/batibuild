@@ -56,6 +56,7 @@ import {
   Percent,
   Gauge,
   Ruler,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -354,6 +355,10 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  // « Voir plus / Voir moins » — 3 éléments par défaut
+  const [showAllProjects, setShowAllProjects] = useState(false);
+  const [showAllInvestments, setShowAllInvestments] = useState(false);
+  const [showAllPlans, setShowAllPlans] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -372,10 +377,16 @@ export default function Dashboard() {
 
   // ── Project limit counter & 80% warning ──
   const userPlan = (user as any)?.subscriptionPlan ?? "free";
-  const projectLimit = userPlan === "free" ? planLimits.free : userPlan === "pro" ? planLimits.pro : planLimits.expert ?? 100;
+  const projectLimit = userPlan === "free" ? planLimits.free : userPlan === "pro" ? planLimits.pro : planLimits.expert ?? 20;
   const usedProjects = stats.totalProjects;
   const usagePercent = projectLimit !== Infinity ? Math.round((usedProjects / projectLimit) * 100) : 0;
   const isNearLimit = usagePercent >= 80 && projectLimit !== Infinity;
+
+  // ── Compteurs de progression investissements & plans (quotas par forfait) ──
+  const investLimit = userPlan === "free" ? (planLimits as any).freeInvestments ?? 1 : userPlan === "pro" ? (planLimits as any).proInvestments ?? 5 : (planLimits as any).expertInvestments ?? 20;
+  const planLimit = userPlan === "free" ? (planLimits as any).freePlans ?? 1 : userPlan === "pro" ? (planLimits as any).proPlans ?? 5 : (planLimits as any).expertPlans ?? 20;
+  const investUsagePct = investLimit ? Math.min(100, Math.round((analyses.length / investLimit) * 100)) : 0;
+  const planUsagePct = planLimit ? Math.min(100, Math.round((planHistory.length / planLimit) * 100)) : 0;
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
@@ -448,6 +459,11 @@ export default function Dashboard() {
   }).filter((p: any) =>
     searchQuery ? p.name.toLowerCase().includes(searchQuery.toLowerCase()) : true
   );
+
+  // ── Tranches affichées (3 par défaut + « Voir plus ») ──
+  const visibleProjects = showAllProjects ? filteredProjects : filteredProjects.slice(0, 3);
+  const visibleInvestments = showAllInvestments ? analyses : analyses.slice(0, 3);
+  const visiblePlans = showAllPlans ? planHistory : planHistory.slice(0, 3);
 
   const formatter = new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 });
 
@@ -675,14 +691,19 @@ export default function Dashboard() {
                         <p className="text-xs sm:text-sm font-medium">
                           {userPlan === "free" ? "Forfait Start" : userPlan === "expert" ? "Forfait Expert" : "Forfait Pro"}
                         </p>
-                        {userPlan === "expert" && (
-                          <Badge className="bg-amber-500/10 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">
-                            320 TND/mois
+                        {userPlan === "free" && (
+                          <Badge className="bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-400/30 text-[8px] px-1.5 py-0">
+                            79 TND
                           </Badge>
                         )}
                         {userPlan === "pro" && (
                           <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[8px] px-1.5 py-0">
-                            79 TND/mois
+                            120 TND
+                          </Badge>
+                        )}
+                        {userPlan === "expert" && (
+                          <Badge className="bg-amber-500/10 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">
+                            320 TND
                           </Badge>
                         )}
                       </div>
@@ -912,11 +933,21 @@ export default function Dashboard() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
-                    {filteredProjects.map((project: any) => (
-                      <ProjectCard key={project._id} project={project} />
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+                      {visibleProjects.map((project: any) => (
+                        <ProjectCard key={project._id} project={project} />
+                      ))}
+                    </div>
+                    {filteredProjects.length > 3 && (
+                      <div className="mt-3 text-center">
+                        <Button variant="outline" size="sm" className="h-9 gap-1 text-xs" onClick={() => setShowAllProjects((v) => !v)}>
+                          {showAllProjects ? "Voir moins" : `Voir plus (${filteredProjects.length})`}
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllProjects ? "rotate-180" : ""}`} />
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </CardContent>
@@ -951,6 +982,28 @@ export default function Dashboard() {
                 <MiniStat icon={Heart} label="Favoris" value={investStats.favorites} tone={{ bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400" }} />
               </div>
 
+              {/* Compteur de progression — quota investissements */}
+              <div className="mb-3 rounded-xl border border-border/40 bg-card/40 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <Gauge className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    Quota investissements utilisés
+                  </span>
+                  <span className={`font-bold tabular-nums ${investUsagePct >= 80 ? "text-amber-600" : "text-indigo-600 dark:text-indigo-400"}`}>
+                    {analyses.length}/{investLimit} · {investUsagePct}%
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${investUsagePct >= 80 ? "bg-gradient-to-r from-amber-400 to-orange-500" : "bg-gradient-to-r from-indigo-400 to-blue-500"}`}
+                    style={{ width: `${investUsagePct}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-[9px] text-muted-foreground">
+                  Forfaits à paiement unique — quotas épuisés ? Passez à une offre supérieure ou rachetez un forfait.
+                </p>
+              </div>
+
               {analyses.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-indigo-300/40 dark:border-indigo-800/30 bg-indigo-50/40 dark:bg-indigo-950/20 text-center py-6 sm:py-8 px-4">
                   <div className="mx-auto mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-indigo-500/10">
@@ -971,11 +1024,21 @@ export default function Dashboard() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
-                  {analyses.map((a: any) => (
-                    <InvestmentCard key={a._id} analysis={a} />
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+                    {visibleInvestments.map((a: any) => (
+                      <InvestmentCard key={a._id} analysis={a} />
+                    ))}
+                  </div>
+                  {analyses.length > 3 && (
+                    <div className="mt-3 text-center">
+                      <Button variant="outline" size="sm" className="h-9 gap-1 text-xs" onClick={() => setShowAllInvestments((v) => !v)}>
+                        {showAllInvestments ? "Voir moins" : `Voir plus (${analyses.length})`}
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllInvestments ? "rotate-180" : ""}`} />
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -1000,7 +1063,7 @@ export default function Dashboard() {
                       </Badge>
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                      10 propositions de Floor Plans 2D & 3D adaptées à votre bien, vos pièces et vos contraintes — téléchargeables en PNG, JPG et PDF.
+                      10 propositions de Floor Plans 2D & 3D adaptées à votre bien, vos pièces et vos contraintes — téléchargeables en PDF haute résolution.
                     </p>
                     <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                       {[
@@ -1067,14 +1130,37 @@ export default function Dashboard() {
                   <MiniStat icon={Gauge} label="Score IA moyen" value={planStats.avgScore ? `${planStats.avgScore.toFixed(0)}/100` : "—"} tone={{ bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" }} />
                   <MiniStat icon={Heart} label="Favoris" value={planStats.favorites} tone={{ bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400" }} />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
-                  {planHistory.slice(0, 6).map((p: any) => (
+
+                {/* Compteur de progression — quota plans architecturaux */}
+                <div className="mb-3 rounded-xl border border-border/40 bg-card/40 px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Gauge className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                      Quota plans architecturaux utilisés
+                    </span>
+                    <span className={`font-bold tabular-nums ${planUsagePct >= 80 ? "text-amber-600" : "text-violet-600 dark:text-violet-400"}`}>
+                      {planHistory.length}/{planLimit} · {planUsagePct}%
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${planUsagePct >= 80 ? "bg-gradient-to-r from-amber-400 to-orange-500" : "bg-gradient-to-r from-violet-400 to-indigo-500"}`}
+                      style={{ width: `${planUsagePct}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-[9px] text-muted-foreground">
+                    Forfaits à paiement unique — quotas épuisés ? Passez à une offre supérieure ou rachetez un forfait.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+                  {visiblePlans.map((p: any) => (
                     <button
                       key={p._id}
                       onClick={() => navigate(`/dashboard/plans/${p._id}`)}
                       className="group text-left cursor-pointer"
                     >
-                      <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-white dark:bg-slate-100/90 border border-border/30 group-hover:border-primary/40 transition-colors">
+                      <div className="relative aspect-square overflow-hidden rounded-xl bg-white dark:bg-slate-100/90 border border-border/30 group-hover:border-primary/40 transition-colors">
                         {p.preview ? (
                           <div className="absolute inset-0 flex items-center justify-center">
                             <FloorPlan2D plan={planPreviewToGeneratedPlan(p.preview, p.name)} compact showDimensions={false} showNorth={false} fit />
@@ -1093,6 +1179,14 @@ export default function Dashboard() {
                     </button>
                   ))}
                 </div>
+                {planHistory.length > 3 && (
+                  <div className="mt-3 text-center">
+                    <Button variant="outline" size="sm" className="h-9 gap-1 text-xs" onClick={() => setShowAllPlans((v) => !v)}>
+                      {showAllPlans ? "Voir moins" : `Voir plus (${planHistory.length})`}
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllPlans ? "rotate-180" : ""}`} />
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

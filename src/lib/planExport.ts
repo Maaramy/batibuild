@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import JSZip from "jszip";
-import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import type { GeneratedPlan } from "@/convex/planEngine";
 import type { PlanSheetData } from "./planSheet";
 import { formatTnd } from "./planSheet";
@@ -241,11 +241,18 @@ export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPl
   const img = canvas.toDataURL("image/png");
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  applyAutotablePlugin(doc as any);
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 12;
   let y = margin;
+  // jspdf-autotable v5 : autoTable(doc, options) retourne { finalY } — on capture
+  // la valeur au lieu de `doc.lastAutoTable` (API supprimée dans la v5).
+  let lastFinalY = margin;
+  const runTable = (opts: any) => {
+    const result = autoTable(doc, opts);
+    const finalY = (result as any)?.finalY ?? lastFinalY;
+    lastFinalY = finalY;
+  };
 
   const sectionTitle = (label: string, color: [number, number, number] = [109, 40, 217]) => {
     if (y > pageH - 30) {
@@ -317,7 +324,7 @@ export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPl
     }
     figureRows.push(row);
   }
-  (doc as any).autoTable({
+  runTable({
     startY: y,
     margin: { left: margin, right: margin },
     theme: "grid",
@@ -325,11 +332,11 @@ export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPl
     head: false,
     body: figureRows.map((r) => r.map((cell) => ({ content: cell, styles: { halign: "left" } }))),
   });
-  y = (doc as any).lastAutoTable.finalY + 6;
+  y = lastFinalY + 6;
 
   // ── Tableau des pièces ─────────────────────────────────────────────────
   sectionTitle(`Composition des pièces (${sheet.rooms.length})`);
-  (doc as any).autoTable({
+  runTable({
     startY: y,
     margin: { left: margin, right: margin },
     theme: "grid",
@@ -338,14 +345,14 @@ export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPl
     head: [["N°", "Pièce", "Niveau", "Surface"]],
     body: sheet.rooms.map((r, i) => [String(i + 1), r.name, r.levelLabel, `${r.area.toFixed(1)} m²`]),
   });
-  y = (doc as any).lastAutoTable.finalY + 4;
+  y = lastFinalY + 4;
   if (sheet.exteriorZones.length > 0) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(30, 41, 59);
     doc.text(`Zones extérieures (${sheet.exteriorZones.length})`, margin, y);
     y += 3;
-    (doc as any).autoTable({
+    runTable({
       startY: y,
       margin: { left: margin, right: margin },
       theme: "grid",
@@ -354,14 +361,14 @@ export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPl
       head: [["Zone", "Surface"]],
       body: sheet.exteriorZones.map((z) => [z.name, `${z.area.toFixed(1)} m²`]),
     });
-    y = (doc as any).lastAutoTable.finalY + 6;
+    y = lastFinalY + 6;
   } else {
     y += 2;
   }
 
   // ── Scores IA ──────────────────────────────────────────────────────────
   sectionTitle("Évaluation par l'intelligence artificielle");
-  (doc as any).autoTable({
+  runTable({
     startY: y,
     margin: { left: margin, right: margin },
     theme: "grid",
@@ -374,7 +381,7 @@ export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPl
       s.value >= 85 ? "Excellent" : s.value >= 70 ? "Très bon" : s.value >= 55 ? "Bon" : "À améliorer",
     ]),
   });
-  y = (doc as any).lastAutoTable.finalY + 6;
+  y = lastFinalY + 6;
 
   // ── Estimation de coût ─────────────────────────────────────────────────
   if (sheet.cost) {
@@ -394,7 +401,7 @@ export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPl
     doc.text(extra.join("   ·   "), margin, y + 5);
     y += 10;
     if (sheet.cost.breakdown.length > 0) {
-      (doc as any).autoTable({
+      runTable({
         startY: y,
         margin: { left: margin, right: margin },
         theme: "grid",
@@ -406,7 +413,7 @@ export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPl
         foot: [["Coût total (hors imprévus)", "", formatTnd(sheet.cost.breakdown.reduce((s, b) => s + b.estimatedCost, 0))]],
         footStyles: { fontStyle: "bold", fillColor: [241, 245, 249], textColor: [30, 41, 59] },
       });
-      y = (doc as any).lastAutoTable.finalY + 4;
+      y = lastFinalY + 4;
     }
     doc.setFontSize(7);
     doc.setTextColor(71, 85, 105);

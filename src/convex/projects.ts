@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { checkQuota, consumeQuota } from "./subscriptions";
 import {
   projectCategoryValidator,
   projectStatusValidator,
@@ -150,12 +151,12 @@ export const compareProjects = query({
 // ============================================================================
 
 const DEFAULT_PLAN_LIMITS = {
-  free: 3,
-  pro: 10,
-  expert: 100,
+  free: 1,
+  pro: 5,
+  expert: 20,
 };
 
-/** Get the current project plan limits (from paymentConfig or defaults) */
+/** Get the current plan limits (construction, investissement, plans, téléchargements) */
 export const getPlanLimits = query({
   handler: async (ctx) => {
     const config = await ctx.db
@@ -166,7 +167,15 @@ export const getPlanLimits = query({
     return {
       free: config?.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
       pro: config?.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
-      expert: DEFAULT_PLAN_LIMITS.expert,
+      expert: config?.expertProjectLimit ?? DEFAULT_PLAN_LIMITS.expert,
+      // Investissements
+      freeInvestments: config?.freeInvestmentLimit ?? DEFAULT_PLAN_LIMITS.free,
+      proInvestments: config?.proInvestmentLimit ?? DEFAULT_PLAN_LIMITS.pro,
+      expertInvestments: config?.expertInvestmentLimit ?? DEFAULT_PLAN_LIMITS.expert,
+      // Plans architecturaux
+      freePlans: config?.freePlanLimit ?? DEFAULT_PLAN_LIMITS.free,
+      proPlans: config?.proPlanLimit ?? DEFAULT_PLAN_LIMITS.pro,
+      expertPlans: config?.expertPlanLimit ?? DEFAULT_PLAN_LIMITS.expert,
       updatedAt: config?.updatedAt ?? null,
     };
   },
@@ -257,37 +266,14 @@ export const createProject = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
 
-    // ── Project limits by plan (from config or defaults) ──
-    const userPlan = user.subscriptionPlan ?? "free";
-    
-    // Read limits from paymentConfig, fall back to defaults
-    const config = await ctx.db
-      .query("paymentConfig")
-      .order("desc")
-      .first();
-    
-    const planLimits: Record<string, number> = {
-      free: config?.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
-      pro: config?.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
-      expert: DEFAULT_PLAN_LIMITS.expert,
-    };
-    
-    const limit = planLimits[userPlan] ?? Infinity;
-    if (limit !== Infinity) {
-      const existingProjects = await ctx.db
-        .query("projects")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .collect();
-      if (existingProjects.length >= limit) {
-        const planLabel = userPlan === "free" ? "Start" : "Pro";
-        const proLimit = planLimits.pro;
-        throw new Error(
-          `LIMITE_ATTEINTE:Vous avez atteint la limite de ${limit} projets offerte avec le forfait ${planLabel}. ` +
-          (userPlan === "free"
-            ? `Passez à l'offre Pro pour bénéficier de ${proLimit} projets.`
-            : "Contactez le support pour augmenter votre limite de projets.")
-        );
-      }
+    // ── Quota projets par forfait (paiement unique) ──
+    const quota = await checkQuota(ctx, user, "projects");
+    if (!quota.allowed) {
+      const planLabel = quota.plan === "free" ? "Start" : quota.plan === "pro" ? "Pro" : "Expert";
+      throw new Error(
+        `LIMITE_ATTEINTE:Vous avez atteint la limite de ${quota.limit} projet(s) de construction offerte avec le forfait ${planLabel}. ` +
+        `Forfaits à paiement unique : passez à une offre supérieure ou rachetez un forfait pour augmenter vos quotas.`
+      );
     }
 
     const now = Date.now();
@@ -310,6 +296,8 @@ export const createProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    await consumeQuota(ctx, user, "projects");
 
     return projectId;
   },

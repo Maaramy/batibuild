@@ -756,6 +756,10 @@ const schema = defineSchema(
       currency: v.optional(v.string()),
       monthlyDownloadCount: v.optional(v.number()),
       downloadLimit: v.optional(v.number()),
+      // Quotas consommés par type (forfaits à paiement unique)
+      projectsUsed: v.optional(v.number()),
+      investmentsUsed: v.optional(v.number()),
+      plansUsed: v.optional(v.number()),
       paymentProofStorageId: v.optional(v.id("_storage")),
       paymentProofUrl: v.optional(v.string()),
       paymentProofFileName: v.optional(v.string()),
@@ -883,11 +887,20 @@ const schema = defineSchema(
       supplierPrice: v.number(),
       expertPrice: v.optional(v.number()),
       currency: v.string(),
-      // Prices (Free is always 0)
+      // Prix de l'offre Start (paiement unique, remplace l'ancien forfait gratuit)
+      startPrice: v.optional(v.number()),
       // Project plan limits
       freeProjectLimit: v.optional(v.number()),
       proProjectLimit: v.optional(v.number()),
       expertProjectLimit: v.optional(v.number()),
+      // Investment analysis limits per plan
+      freeInvestmentLimit: v.optional(v.number()),
+      proInvestmentLimit: v.optional(v.number()),
+      expertInvestmentLimit: v.optional(v.number()),
+      // Architectural plan limits per plan
+      freePlanLimit: v.optional(v.number()),
+      proPlanLimit: v.optional(v.number()),
+      expertPlanLimit: v.optional(v.number()),
       // Download limits per plan
       freeDownloadLimit: v.optional(v.number()),
       proDownloadLimit: v.optional(v.number()),

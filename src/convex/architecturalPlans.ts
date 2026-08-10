@@ -6,6 +6,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { checkQuota, consumeQuota } from "./subscriptions";
 import { generatePlans, regenerateVariant } from "./planEngine";
 import type { PlanRequest, GeneratedPlan } from "./planEngine";
 
@@ -92,6 +93,17 @@ export const createPlan = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
+
+    // ── Quota plans architecturaux par forfait (paiement unique) ──
+    const quota = await checkQuota(ctx, user, "plans");
+    if (!quota.allowed) {
+      const planLabel = quota.plan === "free" ? "Start" : quota.plan === "pro" ? "Pro" : "Expert";
+      throw new Error(
+        `LIMITE_ATTEINTE:Vous avez atteint la limite de ${quota.limit} plan(s) d'architecture offerte avec le forfait ${planLabel}. ` +
+        `Forfaits à paiement unique : passez à une offre supérieure ou rachetez un forfait pour augmenter vos quotas.`
+      );
+    }
+
     const now = Date.now();
     const request = args.request as PlanRequest;
     const plans = (args.plans as GeneratedPlan[]) ?? generatePlans(request);
@@ -107,6 +119,9 @@ export const createPlan = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    await consumeQuota(ctx, user, "plans");
+
     return id;
   },
 });
