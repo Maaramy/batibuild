@@ -100,12 +100,13 @@ function ProjectCard({ project }: { project: any }) {
     studio: "Studio",
     duplex: "Duplex",
     immeuble: "Immeuble",
-    immeuble_residentiel: "Immeuble",
     local_commercial: "Local commercial",
     bureau: "Bureau",
     entrepot: "Entrepôt",
     residence_touristique: "Résidence touristique",
     projet_neuf: "Projet immobilier neuf",
+    // Libellés rétro-compatibles pour les anciens projets enregistrés
+    immeuble_residentiel: "Immeuble",
     piscine: "Piscine",
     jardin: "Jardin",
     garage: "Garage",
@@ -1003,7 +1004,7 @@ export default function Dashboard() {
                     </p>
                     <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                       {[
-                        { icon: Home, label: "12 types de biens" },
+                        { icon: Home, label: "11 types de biens" },
                         { icon: LayoutGrid, label: "10 plans par projet" },
                         { icon: Sparkles, label: "Scores IA & comparaison" },
                         { icon: Layers, label: "2D + 3D" },

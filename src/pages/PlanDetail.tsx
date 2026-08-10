@@ -17,21 +17,26 @@ import { usePageSEO } from "@/hooks/use-page-seo";
 
 const bimCategoryFor = (b: string): string => {
   const map: Record<string, string> = {
-    appartement: "appartement", villa: "villa", maison: "maison",
-    duplex: "maison", studio: "appartement", residence: "immeuble_residentiel",
-    immeuble: "immeuble_residentiel", bureau: "bureau",
-    local_commercial: "local_commercial", entrepot: "entrepot",
-    mixte: "immeuble_residentiel", autre: "maison",
+    maison: "maison", villa: "villa", appartement: "appartement",
+    studio: "appartement", duplex: "maison", immeuble: "immeuble_residentiel",
+    local_commercial: "local_commercial", bureau: "bureau",
+    entrepot: "entrepot", residence_touristique: "residence_touristique",
+    projet_neuf: "projet_neuf",
+    // Rétro-compatibilité (anciens plans enregistrés)
+    residence: "immeuble_residentiel", mixte: "immeuble_residentiel", autre: "maison",
   };
   return map[b] ?? "maison";
 };
 
 const investTypeFor = (b: string): string => {
   const map: Record<string, string> = {
-    appartement: "appartement", villa: "villa", maison: "maison",
-    duplex: "duplex", studio: "studio", residence: "residence_touristique",
-    immeuble: "immeuble", bureau: "bureau", local_commercial: "local_commercial",
-    entrepot: "entrepot", mixte: "immeuble", autre: "maison",
+    maison: "maison", villa: "villa", appartement: "appartement",
+    studio: "studio", duplex: "duplex", immeuble: "immeuble",
+    local_commercial: "local_commercial", bureau: "bureau",
+    entrepot: "entrepot", residence_touristique: "residence_touristique",
+    projet_neuf: "projet_neuf",
+    // Rétro-compatibilité (anciens plans enregistrés)
+    residence: "residence_touristique", mixte: "immeuble", autre: "maison",
   };
   return map[b] ?? "maison";
 };

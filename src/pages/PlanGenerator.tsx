@@ -17,7 +17,7 @@ import {
   Loader2, Download, FileArchive, RefreshCw, Save, Trophy,
   Ruler, MapPin, Palette, Check, ChevronRight, Crown, Gauge, PenLine,
   BedDouble, Bath, Armchair, Utensils, CookingPot, Car, Trees, Waves,
-  Shirt, Briefcase as BriefcaseIcon, Wrench, PencilRuler,
+  Shirt, Briefcase as BriefcaseIcon, Wrench, PencilRuler, HardHat,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -74,10 +74,10 @@ const DEFAULT_REQUEST: PlanRequest = {
 };
 
 const BIEN_ICONS: Record<string, LucideIcon> = {
-  appartement: Building2, villa: Landmark, maison: Home, duplex: Layers,
-  studio: DoorOpen, residence: Building, immeuble: Building2,
-  bureau: Briefcase, local_commercial: Store, entrepot: Warehouse,
-  mixte: Building2, autre: Box,
+  maison: Home, villa: Landmark, appartement: Building2, studio: DoorOpen,
+  duplex: Layers, immeuble: Building2, local_commercial: Store,
+  bureau: Briefcase, entrepot: Warehouse, residence_touristique: Building,
+  projet_neuf: HardHat,
 };
 
 const ROOM_TOGGLES = [
@@ -114,11 +114,11 @@ const STANDINGS = [
 /** Mapping bienType → catégorie moteur BIM pour l'estimation de coût. */
 function bimCategoryFor(bienType: string): string {
   const map: Record<string, string> = {
-    appartement: "appartement", villa: "villa", maison: "maison",
-    duplex: "duplex", studio: "studio", residence: "residence_touristique",
-    immeuble: "immeuble", bureau: "bureau",
-    local_commercial: "local_commercial", entrepot: "entrepot",
-    mixte: "immeuble", autre: "maison",
+    maison: "maison", villa: "villa", appartement: "appartement",
+    studio: "studio", duplex: "duplex", immeuble: "immeuble",
+    local_commercial: "local_commercial", bureau: "bureau",
+    entrepot: "entrepot", residence_touristique: "residence_touristique",
+    projet_neuf: "projet_neuf",
   };
   return map[bienType] ?? "maison";
 }
@@ -126,10 +126,11 @@ function bimCategoryFor(bienType: string): string {
 /** Mapping bienType → type de bien investissement (prefill rentabilité). */
 function investTypeFor(bienType: string): string {
   const map: Record<string, string> = {
-    appartement: "appartement", villa: "villa", maison: "maison",
-    duplex: "duplex", studio: "studio", residence: "residence_touristique",
-    immeuble: "immeuble", bureau: "bureau", local_commercial: "local_commercial",
-    entrepot: "entrepot", mixte: "immeuble", autre: "maison",
+    maison: "maison", villa: "villa", appartement: "appartement",
+    studio: "studio", duplex: "duplex", immeuble: "immeuble",
+    local_commercial: "local_commercial", bureau: "bureau",
+    entrepot: "entrepot", residence_touristique: "residence_touristique",
+    projet_neuf: "projet_neuf",
   };
   return map[bienType] ?? "maison";
 }

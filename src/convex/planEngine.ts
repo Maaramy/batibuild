@@ -880,23 +880,34 @@ export const STYLE_LABELS: Record<string, string> = {
   industriel: "Industriel", classique: "Classique",
 };
 
+// Types de bien synchronisés avec le formulaire « Nouveau projet » et le
+// module d'investissement (à l'exception de « Terrain constructible »).
 export const BIEN_TYPES = [
-  { value: "appartement", label: "Appartement" },
+  { value: "maison", label: "Maison" },
   { value: "villa", label: "Villa" },
-  { value: "maison", label: "Maison individuelle" },
-  { value: "duplex", label: "Duplex" },
+  { value: "appartement", label: "Appartement" },
   { value: "studio", label: "Studio" },
-  { value: "residence", label: "Résidence" },
+  { value: "duplex", label: "Duplex" },
   { value: "immeuble", label: "Immeuble résidentiel" },
-  { value: "bureau", label: "Bureau" },
   { value: "local_commercial", label: "Local commercial" },
+  { value: "bureau", label: "Bureau" },
   { value: "entrepot", label: "Entrepôt" },
-  { value: "mixte", label: "Projet mixte résidentiel & commercial" },
-  { value: "autre", label: "Autre projet" },
+  { value: "residence_touristique", label: "Résidence touristique" },
+  { value: "projet_neuf", label: "Projet immobilier neuf" },
 ] as const;
 
+// Libellés rétro-compatibles pour les plans déjà enregistrés avec les
+// anciennes valeurs (residence, mixte, autre).
+const LEGACY_BIEN_LABELS: Record<string, string> = {
+  residence: "Résidence",
+  mixte: "Projet mixte",
+  autre: "Projet",
+};
+
 export function bienTypeLabel(value: string): string {
-  return BIEN_TYPES.find((b) => b.value === value)?.label ?? value;
+  return BIEN_TYPES.find((b) => b.value === value)?.label
+    ?? LEGACY_BIEN_LABELS[value]
+    ?? value;
 }
 
 // ─── API publique ───────────────────────────────────────────────────────────

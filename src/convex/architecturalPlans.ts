@@ -269,10 +269,13 @@ export const regenerateOneVariant = mutation({
 
 function bienTypeFr(value: string): string {
   const map: Record<string, string> = {
-    appartement: "Appartement", villa: "Villa", maison: "Maison", duplex: "Duplex",
-    studio: "Studio", residence: "Résidence", immeuble: "Immeuble", bureau: "Bureau",
-    local_commercial: "Local commercial", entrepot: "Entrepôt", mixte: "Projet mixte",
-    autre: "Projet",
+    maison: "Maison", villa: "Villa", appartement: "Appartement",
+    studio: "Studio", duplex: "Duplex", immeuble: "Immeuble",
+    local_commercial: "Local commercial", bureau: "Bureau",
+    entrepot: "Entrepôt", residence_touristique: "Résidence touristique",
+    projet_neuf: "Projet immobilier neuf",
+    // Rétro-compatibilité (anciens plans enregistrés)
+    residence: "Résidence", mixte: "Projet mixte", autre: "Projet",
   };
   return map[value] ?? value;
 }
