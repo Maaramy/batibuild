@@ -95,11 +95,11 @@ export function PlanSheetModal({
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <Button size="sm" variant="secondary" className="h-8 text-xs gap-1 bg-white/15 hover:bg-white/25 text-white border-0" onClick={downloadJson} disabled={busy != null}>
+            <Button size="sm" variant="secondary" className="h-9 sm:h-8 text-xs gap-1 bg-white/15 hover:bg-white/25 text-white border-0" onClick={downloadJson} disabled={busy != null} aria-label="Télécharger la fiche en JSON">
               {busy === "json" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileJson className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">JSON</span>
             </Button>
-            <Button size="sm" className="h-8 text-xs gap-1" onClick={downloadPdf} disabled={busy != null}>
+            <Button size="sm" className="h-9 sm:h-8 text-xs gap-1" onClick={downloadPdf} disabled={busy != null} aria-label="Télécharger la fiche en PDF">
               {busy === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">PDF</span>
             </Button>
@@ -184,8 +184,8 @@ export function PlanSheetModal({
             <p className="text-xs font-bold mb-2 flex items-center gap-1.5">
               <DoorOpen className="h-3.5 w-3.5 text-violet-500" /> Composition des pièces ({sheet.rooms.length})
             </p>
-            <div className="rounded-xl border border-border/40 overflow-hidden">
-              <table className="w-full text-[11px]">
+            <div className="rounded-xl border border-border/40 overflow-x-auto">
+              <table className="w-full min-w-[440px] text-[11px]">
                 <thead>
                   <tr className="bg-muted/60 text-left text-[10px] text-muted-foreground uppercase tracking-wide">
                     <th className="px-3 py-2 font-semibold w-10">N°</th>
@@ -253,8 +253,8 @@ export function PlanSheetModal({
                     )}
                   </div>
                 </div>
-                <div className="rounded-xl border border-border/40 overflow-hidden">
-                  <table className="w-full text-[11px]">
+                <div className="rounded-xl border border-border/40 overflow-x-auto">
+                  <table className="w-full min-w-[360px] text-[11px]">
                     <thead>
                       <tr className="bg-muted/60 text-left text-[10px] text-muted-foreground uppercase tracking-wide">
                         <th className="px-3 py-2 font-semibold">Poste</th>
@@ -327,7 +327,7 @@ export function PlanSheetModal({
             <span className="text-[9px] text-muted-foreground flex items-center gap-1">
               <Printer className="h-3 w-3" /> Export PDF professionnel disponible
             </span>
-            <Button size="sm" className="h-8 text-xs gap-1" onClick={downloadPdf} disabled={busy != null}>
+            <Button size="sm" className="h-9 sm:h-8 text-xs gap-1" onClick={downloadPdf} disabled={busy != null}>
               {busy === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} Télécharger la fiche (PDF)
             </Button>
           </div>

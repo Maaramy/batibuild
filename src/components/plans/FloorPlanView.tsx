@@ -15,6 +15,41 @@ function roomCenter(r: PlacedRoom) {
   return { cx: r.x + r.w / 2, cy: r.y + r.h / 2 };
 }
 
+// ─── Abréviations des pièces ────────────────────────────────────────────────
+// Les plans utilisent des libellés courts (Ch, S, SDB…) pour optimiser l'image :
+// texte minimal → plan plus grand, plus net et lisible sur mobile.
+
+function roomNumSuffix(name: string): string {
+  const m = name.match(/(\d+)\s*$/);
+  return m ? ` ${m[1]}` : "";
+}
+
+export function abbreviateRoomName(name: string, type: string): string {
+  switch (type) {
+    case "salon": return "S";
+    case "salleAManger": return "SàM";
+    case "cuisine": return "Cui";
+    case "chambre": return `Ch${roomNumSuffix(name)}`;
+    case "master": return "Ch. prin.";
+    case "sdb": return `SDB${roomNumSuffix(name)}`;
+    case "wc": return `WC${roomNumSuffix(name)}`;
+    case "buanderie": return "Buan";
+    case "dressing": return "Dress";
+    case "bureau": return "Bur";
+    case "localTechnique": return "Loc. tech";
+    case "escalier": return "Esc";
+    case "circulation": return "Circ";
+    case "entree": return "Entrée";
+    case "garage": return "Gar.";
+    case "parking": return "Park.";
+    case "terrasse": return "Ter.";
+    case "balcon": return "Balc.";
+    case "jardin": return "Jard.";
+    case "piscine": return "Pisc.";
+    default: return name;
+  }
+}
+
 // ─── Cartouche / dimensionnement ────────────────────────────────────────────
 
 function Dimensions({ width, depth }: { width: number; depth: number }) {
@@ -86,10 +121,12 @@ function StairBlock({ x, y, w, h }: { x: number; y: number; w: number; h: number
 function RoomBlock({ room, isUpper, compact }: { room: PlacedRoom; isUpper?: boolean; compact?: boolean }) {
   const { cx, cy } = roomCenter(room);
   const fill = room.exterior ? `${roomColor(room.type)}55` : `${roomColor(room.type)}cc`;
-  // En mode compact (cartes), labels plus grands pour une lecture nette.
+  const label = abbreviateRoomName(room.name, room.type);
+  // Mode compact + police minimisée : les abréviations (Ch, S, SDB…) gardent le
+  // texte court, le plan occupe donc un maximum d'espace et reste très lisible.
   const fontSize = compact
-    ? Math.min(1.15, Math.max(0.45, Math.min(room.w, room.h) * 0.4))
-    : Math.max(0.32, Math.min(room.w, room.h) * 0.34);
+    ? Math.min(0.9, Math.max(0.4, Math.min(room.w, room.h) * 0.32))
+    : Math.max(0.3, Math.min(room.w, room.h) * 0.3);
   const stroke = room.exterior ? "#a8a29e" : "#475569";
   return (
     <g>
@@ -106,9 +143,9 @@ function RoomBlock({ room, isUpper, compact }: { room: PlacedRoom; isUpper?: boo
           fill="none" stroke="#a8a29e" strokeWidth={0.04} strokeDasharray="0.28 0.18"
         />
       )}
-      {/* Nom + surface */}
+      {/* Nom abrégé + surface */}
       <text x={cx} y={cy - (room.h >= 1.6 ? 0.12 : 0)} textAnchor="middle" fontSize={fontSize} fill="#1e293b" fontWeight={700} style={{ pointerEvents: "none" }}>
-        {room.name}
+        {label}
       </text>
       {room.h >= 1.8 && (
         <text x={cx} y={cy + fontSize + 0.12} textAnchor="middle" fontSize={fontSize * 0.82} fill="#475569" style={{ pointerEvents: "none" }}>
@@ -199,14 +236,14 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
         </pattern>
       </defs>
 
-      {/* Extérieurs (jardin, terrasse…) */}
+      {/* Extérieurs (jardin, terrasse…) — noms abrégés pour optimiser l'image */}
       {plan.rooms.filter((r) => r.exterior).map((r) => (
         <g key={r.id}>
           <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={`${roomColor(r.type)}33`} stroke="#a8a29e" strokeWidth={0.08} strokeDasharray="0.3 0.2" />
-          <text x={r.x + r.w / 2} y={r.y + r.h / 2} textAnchor="middle" fontSize={compact ? 0.55 : 0.42} fill="#57534e" fontWeight={600} style={{ pointerEvents: "none" }}>
-            {r.name}
+          <text x={r.x + r.w / 2} y={r.y + r.h / 2} textAnchor="middle" fontSize={compact ? 0.48 : 0.4} fill="#57534e" fontWeight={600} style={{ pointerEvents: "none" }}>
+            {abbreviateRoomName(r.name, r.type)}
           </text>
-          <text x={r.x + r.w / 2} y={r.y + r.h / 2 + 0.5} textAnchor="middle" fontSize={compact ? 0.44 : 0.34} fill="#78716c" style={{ pointerEvents: "none" }}>
+          <text x={r.x + r.w / 2} y={r.y + r.h / 2 + 0.46} textAnchor="middle" fontSize={compact ? 0.4 : 0.32} fill="#78716c" style={{ pointerEvents: "none" }}>
             {r.area.toFixed(1)} m²
           </text>
         </g>
@@ -354,7 +391,7 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
         return (
           <g key={`lbl-${r.id}`}>
             <text x={px} y={py} textAnchor="middle" fontSize={9} fill="#334155" fontWeight={700}>
-              {r.name}
+              {abbreviateRoomName(r.name, r.type)}
             </text>
             <text x={px} y={py + 11} textAnchor="middle" fontSize={8} fill="#64748b">
               {r.area.toFixed(1)} m²

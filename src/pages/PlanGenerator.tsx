@@ -149,16 +149,18 @@ function CountStepper({ label, value, onChange, min, max, icon: Icon }: { label:
       <div className="flex items-center gap-1.5 shrink-0">
         <button
           type="button"
-          className="flex h-7 w-7 items-center justify-center rounded-md border border-border/40 text-sm hover:bg-muted transition-colors disabled:opacity-40"
+          aria-label={`Réduire ${label}`}
+          className="flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-border/40 text-base hover:bg-muted transition-colors disabled:opacity-40 active:scale-95"
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
         >
           −
         </button>
-        <span className="w-7 text-center text-sm font-bold tabular-nums">{value}</span>
+        <span className="w-8 text-center text-sm font-bold tabular-nums">{value}</span>
         <button
           type="button"
-          className="flex h-7 w-7 items-center justify-center rounded-md border border-border/40 text-sm hover:bg-muted transition-colors disabled:opacity-40"
+          aria-label={`Augmenter ${label}`}
+          className="flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-border/40 text-base hover:bg-muted transition-colors disabled:opacity-40 active:scale-95"
           onClick={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
         >
@@ -175,7 +177,7 @@ function ToggleChip({ label, icon: Icon, checked, onChange }: { label: string; i
       type="button"
       onClick={() => onChange(!checked)}
       className={cn(
-        "flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 transition-all text-xs font-medium",
+        "flex items-center gap-2 px-3 py-3 sm:py-2.5 min-h-11 rounded-xl border-2 transition-all text-xs font-medium active:scale-[0.97]",
         checked ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:border-primary/30",
       )}
     >
@@ -337,20 +339,20 @@ export default function PlanGenerator() {
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={handleRegenerateAll} disabled={generating} title="10 nouvelles propositions">
+              <Button variant="outline" size="sm" className="h-9 sm:h-8 px-2 sm:px-3 text-xs gap-1" onClick={handleRegenerateAll} disabled={generating} title="10 nouvelles propositions" aria-label="Générer 10 nouvelles propositions">
                 {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                 <span className="hidden md:inline">10 nouvelles propositions</span>
               </Button>
-              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => setCompareOpen(true)}>
+              <Button variant="outline" size="sm" className="h-9 sm:h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => setCompareOpen(true)} aria-label="Comparer les plans">
                 <Trophy className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Comparer</span>
               </Button>
-              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={async () => {
+              <Button variant="outline" size="sm" className="h-9 sm:h-8 px-2 sm:px-3 text-xs gap-1" onClick={async () => {
                 try { await exportAllPlansZip(plans, `${bienTypeLabel(req.bienType)}-${req.surfaceCouverte}m2`); toast.success("Les 10 plans ont été téléchargés (ZIP)"); }
                 catch (err: any) { toast.error(err?.message || "Échec du ZIP"); }
-              }} title="Télécharger les 10 plans">
+              }} title="Télécharger les 10 plans" aria-label="Télécharger les 10 plans en ZIP">
                 <FileArchive className="h-3.5 w-3.5" /> <span className="hidden md:inline">Télécharger les 10</span>
               </Button>
-              <Button size="sm" className="h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => { setSaveOpen(true); setPlanName(""); }}>
+              <Button size="sm" className="h-9 sm:h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => { setSaveOpen(true); setPlanName(""); }} aria-label="Sauvegarder le plan">
                 <Save className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Sauvegarder</span>
               </Button>
             </div>
@@ -540,8 +542,8 @@ export default function PlanGenerator() {
 
         {/* Contenu */}
         <div>
-          {/* Stepper mobile */}
-          <div className="lg:hidden mb-4 flex gap-1 overflow-x-auto scrollbar-none pb-1">
+          {/* Stepper mobile — défilement horizontal sans scroll de page */}
+          <div className="lg:hidden mb-4 flex gap-1.5 overflow-x-auto scrollbar-none pb-1 -mx-3 px-3">
             {STEPS.map((st, i) => {
               const idx = STEPS.findIndex((s) => s.key === step);
               const done = i < idx;
@@ -551,7 +553,7 @@ export default function PlanGenerator() {
                   key={st.key}
                   onClick={() => (done || active) && setStep(st.key)}
                   className={cn(
-                    "shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium border",
+                    "shrink-0 flex items-center gap-1.5 px-3 py-2 min-h-10 rounded-lg text-[10px] font-medium border active:scale-[0.97]",
                     active ? "border-primary bg-primary/10 text-primary" : done ? "border-emerald-500/40 text-emerald-600" : "border-border/40 text-muted-foreground",
                   )}
                 >
@@ -607,12 +609,12 @@ export default function PlanGenerator() {
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="rounded-xl border border-border/40 p-4">
                         <Label className="text-xs font-semibold flex items-center gap-1.5"><Ruler className="h-3.5 w-3.5 text-primary" /> Surface totale disponible (m²)</Label>
-                        <Input type="number" min={20} value={req.surfaceTotale || ""} onChange={(e) => set("surfaceTotale", parseFloat(e.target.value) || 0)} className="mt-1.5 h-9 text-sm" placeholder="ex : 400" />
+                        <Input type="number" inputMode="decimal" min={20} value={req.surfaceTotale || ""} onChange={(e) => set("surfaceTotale", parseFloat(e.target.value) || 0)} className="mt-1.5 h-11 sm:h-9 w-full text-sm" placeholder="ex : 400" />
                         <p className="text-[10px] text-muted-foreground mt-1">Terrain ou plateau complet.</p>
                       </div>
                       <div className="rounded-xl border border-border/40 p-4">
                         <Label className="text-xs font-semibold flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-primary" /> Surface couverte (m²)</Label>
-                        <Input type="number" min={15} value={req.surfaceCouverte || ""} onChange={(e) => set("surfaceCouverte", parseFloat(e.target.value) || 0)} className="mt-1.5 h-9 text-sm" placeholder="ex : 150" />
+                        <Input type="number" inputMode="decimal" min={15} value={req.surfaceCouverte || ""} onChange={(e) => set("surfaceCouverte", parseFloat(e.target.value) || 0)} className="mt-1.5 h-11 sm:h-9 w-full text-sm" placeholder="ex : 150" />
                         <p className="text-[10px] text-muted-foreground mt-1">Emprise construite totale (tous niveaux).</p>
                       </div>
                     </div>
@@ -621,16 +623,16 @@ export default function PlanGenerator() {
                         <Label className="text-xs font-semibold flex items-center gap-1.5"><Layers className="h-3.5 w-3.5 text-primary" /> Nombre de niveaux</Label>
                         <div className="flex items-center gap-2 mt-1.5">
                           {[1, 2, 3].map((f) => (
-                            <button
-                              key={f}
-                              onClick={() => set("floors", f)}
-                              className={cn(
-                                "flex-1 py-2 rounded-lg border text-xs font-semibold transition-all",
-                                req.floors === f ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
-                              )}
-                            >
-                              R+{f - 1}
-                            </button>
+                        <button
+                          key={f}
+                          onClick={() => set("floors", f)}
+                          className={cn(
+                            "flex-1 py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-xs font-semibold transition-all active:scale-[0.97]",
+                            req.floors === f ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
+                          )}
+                        >
+                          R+{f - 1}
+                        </button>
                           ))}
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">R+0 = plain-pied, R+1 = 2 niveaux…</p>
@@ -643,7 +645,7 @@ export default function PlanGenerator() {
                               key={dir}
                               onClick={() => set("entreePosition", dir)}
                               className={cn(
-                                "py-1.5 rounded-lg border text-[10px] font-medium capitalize transition-all",
+                                "py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-[10px] font-medium capitalize transition-all active:scale-[0.97]",
                                 req.entreePosition === dir ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
                               )}
                             >
@@ -652,7 +654,7 @@ export default function PlanGenerator() {
                           ))}
                           <button
                             onClick={() => set("entreePosition", req.entreePosition === "sud" ? "ouest" : "sud")}
-                            className="py-1.5 rounded-lg border border-border/40 text-[10px] font-medium text-muted-foreground hover:border-primary/30"
+                            className="py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border border-border/40 text-[10px] font-medium text-muted-foreground hover:border-primary/30 active:scale-[0.97]"
                           >
                             Auto
                           </button>
@@ -668,7 +670,7 @@ export default function PlanGenerator() {
                             key={f}
                             onClick={() => set("facades", f)}
                             className={cn(
-                              "px-4 py-1.5 rounded-lg border text-xs font-semibold transition-all",
+                              "flex-1 px-4 py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-lg border text-xs font-semibold transition-all active:scale-[0.97]",
                               req.facades === f ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:border-primary/30",
                             )}
                           >
@@ -748,7 +750,7 @@ export default function PlanGenerator() {
                             key={s.value}
                             onClick={() => set("standing", s.value)}
                             className={cn(
-                              "flex items-center gap-2 p-3 rounded-xl border-2 text-left transition-all",
+                              "flex items-center gap-2 p-3 min-h-[60px] rounded-xl border-2 text-left transition-all active:scale-[0.98]",
                               req.standing === s.value ? "border-primary bg-primary/5" : "border-border/40 hover:border-primary/30",
                             )}
                           >
@@ -769,7 +771,7 @@ export default function PlanGenerator() {
                             key={st}
                             onClick={() => set("style", st as any)}
                             className={cn(
-                              "px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-all",
+                              "px-3.5 py-2.5 sm:py-1.5 min-h-11 sm:min-h-9 rounded-lg border text-[11px] font-medium transition-all active:scale-[0.97]",
                               req.style === st ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:border-primary/30",
                             )}
                           >
@@ -784,19 +786,19 @@ export default function PlanGenerator() {
                         value={req.exigences ?? ""}
                         onChange={(e) => set("exigences", e.target.value)}
                         placeholder="Décrivez librement vos besoins : double salon, salle de jeux, orientation du salon plein sud, cuisine fermée, etc."
-                        className="mt-1.5 min-h-[90px] text-xs"
+                        className="mt-1.5 min-h-[100px] text-xs w-full"
                       />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Navigation */}
-              <div className="flex items-center justify-between gap-3 mt-6">
+              {/* Navigation — barre sticky en bas sur mobile pour un accès tactile facile */}
+              <div className="sticky bottom-0 z-10 -mx-3 sm:mx-0 mt-6 flex items-center justify-between gap-3 border-t border-border/40 bg-background/95 backdrop-blur px-3 py-3 sm:static sm:mt-6 sm:border-0 sm:bg-transparent sm:backdrop-blur-none sm:p-0">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 text-xs gap-1"
+                  className="h-11 sm:h-9 flex-1 sm:flex-none text-xs gap-1"
                   onClick={() => {
                     const idx = STEPS.findIndex((st) => st.key === step);
                     if (idx > 0) setStep(STEPS[idx - 1].key);
@@ -807,7 +809,7 @@ export default function PlanGenerator() {
                 </Button>
                 <Button
                   size="sm"
-                  className="h-9 text-xs gap-1"
+                  className="h-11 sm:h-9 flex-1 sm:flex-none text-xs gap-1"
                   onClick={handleNext}
                   disabled={!canNext || generating}
                 >
@@ -875,26 +877,27 @@ function PlanCard({ plan, onView, onDownload, onEdit, onInvest }: {
         </button>
       </div>
 
-      {/* Actions */}
+      {/* Actions — zones tactiles généreuses sur mobile */}
       <CardContent className="p-3 mt-auto">
         <div className="flex items-center gap-1.5">
-          <Button size="sm" className="h-7 flex-1 text-[10px] gap-1" onClick={onView}>
+          <Button size="sm" className="h-10 sm:h-8 flex-1 text-[10px] sm:text-[11px] gap-1" onClick={onView}>
             <Sparkles className="h-3 w-3" /> Voir
           </Button>
-          <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]" onClick={onEdit} title="Modifier">
-            <PenLine className="h-3 w-3" />
+          <Button size="sm" variant="outline" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]" onClick={onEdit} title="Modifier" aria-label="Modifier ce plan">
+            <PenLine className="h-3.5 w-3.5" />
           </Button>
           <Button
             size="sm"
             variant="outline"
-            className="h-7 px-2 text-[10px]"
+            className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]"
             onClick={async () => { setDownloading(true); await onDownload(); setDownloading(false); }}
             disabled={downloading}
             title="Télécharger PNG"
+            aria-label="Télécharger le plan en PNG"
           >
-            {downloading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+            {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px] gap-1" onClick={onInvest} title="Analyse de rentabilité">
+          <Button size="sm" variant="ghost" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px] gap-1" onClick={onInvest} title="Analyse de rentabilité" aria-label="Lancer l'analyse de rentabilité">
             <TrendingIcon />
           </Button>
         </div>

@@ -288,11 +288,11 @@ function LibraryCard({ plan, onOpen, onRename, onDelete, onDuplicate, onFavorite
           <Clock className="h-3 w-3" /> {formatDate(plan.updatedAt)}
         </div>
         <div className="flex items-center gap-1.5">
-          <Button size="sm" className="h-7 flex-1 text-[10px] gap-1" onClick={() => onOpen(plan.selectedIndex - 1)}>
+          <Button size="sm" className="h-10 sm:h-8 flex-1 text-[10px] sm:text-[11px] gap-1" onClick={() => onOpen(plan.selectedIndex - 1)}>
             <Sparkles className="h-3 w-3" /> Ouvrir
           </Button>
           <Button
-            size="sm" variant="outline" className="h-7 px-2 text-[10px]" title="Télécharger" disabled={downloading || !preview}
+            size="sm" variant="outline" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]" title="Télécharger" aria-label="Télécharger le plan en PNG" disabled={downloading || !preview}
             onClick={async () => {
               if (!preview) return;
               setDownloading(true);
@@ -303,22 +303,22 @@ function LibraryCard({ plan, onOpen, onRename, onDelete, onDuplicate, onFavorite
               setDownloading(false);
             }}
           >
-            {downloading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+            {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px]" title="Historique des versions" onClick={onVersions}>
-            <History className="h-3 w-3" />
+          <Button size="sm" variant="ghost" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]" title="Historique des versions" aria-label="Historique des versions" onClick={onVersions}>
+            <History className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px]" title="Dupliquer" onClick={onDuplicate}>
-            <Copy className="h-3 w-3" />
+          <Button size="sm" variant="ghost" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]" title="Dupliquer" aria-label="Dupliquer ce plan" onClick={onDuplicate}>
+            <Copy className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px]" title="Favori" onClick={onFavorite}>
-            <Star className={cn("h-3 w-3", plan.favorite ? "fill-amber-400 text-amber-400" : "")} />
+          <Button size="sm" variant="ghost" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]" title="Favori" aria-label="Ajouter aux favoris" onClick={onFavorite}>
+            <Star className={cn("h-3.5 w-3.5", plan.favorite ? "fill-amber-400 text-amber-400" : "")} />
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px]" title="Renommer" onClick={onRename}>
-            <Pencil className="h-3 w-3" />
+          <Button size="sm" variant="ghost" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px]" title="Renommer" aria-label="Renommer ce plan" onClick={onRename}>
+            <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px] text-destructive" title="Supprimer" onClick={onDelete}>
-            <Trash2 className="h-3 w-3" />
+          <Button size="sm" variant="ghost" className="h-10 sm:h-8 w-10 sm:w-8 px-0 text-[10px] text-destructive" title="Supprimer" aria-label="Supprimer ce plan" onClick={onDelete}>
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </CardContent>

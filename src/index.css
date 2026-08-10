@@ -229,6 +229,34 @@ html {
 }
 
 /* ============================================================================
+   Mobile & touch refinements (formulaires et scrollers horizontaux)
+   ============================================================================ */
+
+/* Masquer la barre de défilement des scrollers horizontaux (stepper mobile, stats…) */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Éviter le zoom automatique iOS au focus d'un champ : taille de police ≥ 16px
+   sur mobile uniquement. Améliore l'usage tactile des champs numériques. */
+@media (max-width: 767px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="search"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* ============================================================================
    BudgetBati Auth Theme — Tunisian Construction Palette
    ============================================================================ */
 

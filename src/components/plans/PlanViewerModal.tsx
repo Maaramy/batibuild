@@ -48,6 +48,7 @@ export function PlanViewerModal({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef({ sx: 0, sy: 0, px: 0, py: 0 });
+  const swipeRef = useRef({ sx: 0, sy: 0, t: 0 });
   const [downloading, setDownloading] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -64,15 +65,31 @@ export function PlanViewerModal({
   const onPointerDown = (e: React.PointerEvent) => {
     setDragging(true);
     dragRef.current = { sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y };
+    swipeRef.current = { sx: e.clientX, sy: e.clientY, t: Date.now() };
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragging) return;
-    setPan({
-      x: dragRef.current.px + (e.clientX - dragRef.current.sx),
-      y: dragRef.current.py + (e.clientY - dragRef.current.sy),
-    });
+    // Déplacement panoramique uniquement quand le plan est zoomé
+    if (zoom > 1.01) {
+      setPan({
+        x: dragRef.current.px + (e.clientX - dragRef.current.sx),
+        y: dragRef.current.py + (e.clientY - dragRef.current.sy),
+      });
+    }
   };
-  const onPointerUp = () => setDragging(false);
+  const onPointerUp = (e: React.PointerEvent) => {
+    setDragging(false);
+    // Swipe horizontal → plan suivant / précédent (mobile & tactile)
+    if (Math.abs(zoom - 1) < 0.01 && plans.length > 1) {
+      const dx = e.clientX - swipeRef.current.sx;
+      const dy = e.clientY - swipeRef.current.sy;
+      const dt = Date.now() - swipeRef.current.t;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 600) {
+        onIndexChange((index + (dx < 0 ? 1 : -1) + plans.length) % plans.length);
+      }
+    }
+  };
+  const zoomIn = () => setZoom((z) => Math.min(5, z * 1.4));
 
   const download = async (format: "png" | "jpg") => {
     setDownloading(format);
@@ -113,7 +130,7 @@ export function PlanViewerModal({
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold truncate">
                 Plan {String(plan.index).padStart(2, "0")} — {plan.name}
               </p>
@@ -143,19 +160,19 @@ export function PlanViewerModal({
                 <RefreshCw className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Modifier</span>
               </Button>
             )}
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setSheetOpen(true)}>
-              <ClipboardList className="h-3.5 w-3.5" /> Fiche
+            <Button variant="outline" size="sm" className="h-9 sm:h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => setSheetOpen(true)} aria-label="Ouvrir la fiche descriptive">
+              <ClipboardList className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Fiche</span>
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={downloadPdf} disabled={downloading === "pdf"}>
-              {downloading === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} PDF
+            <Button variant="outline" size="sm" className="h-9 sm:h-8 px-2 sm:px-3 text-xs gap-1" onClick={downloadPdf} disabled={downloading === "pdf"} aria-label="Télécharger le plan en PDF">
+              {downloading === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} <span className="hidden sm:inline">PDF</span>
             </Button>
-            <Button size="sm" className="h-8 text-xs gap-1" onClick={() => download("png")} disabled={!!downloading}>
-              {downloading === "png" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} PNG
+            <Button size="sm" className="h-9 sm:h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => download("png")} disabled={!!downloading} aria-label="Télécharger le plan en PNG">
+              {downloading === "png" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} <span className="hidden sm:inline">PNG</span>
             </Button>
           </div>
         </div>
 
-        {/* Zone de visualisation avec zoom / pan */}
+        {/* Zone de visualisation — plan en mode compact (image maximale), zoom / pan / swipe */}
         <div
           className="relative flex-1 overflow-hidden bg-slate-50 dark:bg-slate-950/60"
           onWheel={handleWheel}
@@ -163,44 +180,48 @@ export function PlanViewerModal({
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerLeave={onPointerUp}
+          onDoubleClick={zoomIn}
+          title="Double-clic / double-tap pour zoomer"
           style={{ cursor: dragging ? "grabbing" : "grab", touchAction: "none" }}
         >
           <div
             className="absolute inset-0 flex items-center justify-center"
             style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}
           >
-            <div style={{ transform: `scale(${zoom})`, transformOrigin: "center", transition: dragging ? "none" : "transform 0.08s ease-out" }} className="max-w-[92%] max-h-[92%]">
-              <FloorPlanView plan={plan} mode={mode} showDimensions whiteBg />
+            <div style={{ transform: `scale(${zoom})`, transformOrigin: "center", transition: dragging ? "none" : "transform 0.08s ease-out" }} className="max-w-[94%] max-h-[94%]">
+              <FloorPlanView plan={plan} mode={mode} compact showDimensions={false} whiteBg />
             </div>
           </div>
 
-          {/* Contrôles zoom */}
-          <div className="absolute bottom-4 right-4 flex flex-col gap-1.5">
-            <Button variant="secondary" size="icon" className="h-8 w-8 shadow-md" onClick={() => setZoom((z) => Math.min(5, z * 1.3))}>
-              <ZoomIn className="h-4 w-4" />
+          {/* Contrôles zoom — grands pour le tactile */}
+          <div className="absolute bottom-4 right-3 sm:right-4 flex flex-col gap-1.5">
+            <Button variant="secondary" size="icon" className="h-11 w-11 sm:h-9 sm:w-9 shadow-md" onClick={zoomIn} aria-label="Zoom avant">
+              <ZoomIn className="h-4.5 w-4.5" />
             </Button>
-            <Button variant="secondary" size="icon" className="h-8 w-8 shadow-md" onClick={() => setZoom((z) => Math.max(0.5, z / 1.3))}>
-              <ZoomOut className="h-4 w-4" />
+            <Button variant="secondary" size="icon" className="h-11 w-11 sm:h-9 sm:w-9 shadow-md" onClick={() => setZoom((z) => Math.max(0.5, z / 1.3))} aria-label="Zoom arrière">
+              <ZoomOut className="h-4.5 w-4.5" />
             </Button>
-            <Button variant="secondary" size="icon" className="h-8 w-8 shadow-md" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>
-              <Maximize2 className="h-4 w-4" />
+            <Button variant="secondary" size="icon" className="h-11 w-11 sm:h-9 sm:w-9 shadow-md" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} aria-label="Réinitialiser le zoom">
+              <Maximize2 className="h-4.5 w-4.5" />
             </Button>
           </div>
 
-          {/* Navigation entre plans */}
+          {/* Navigation entre plans — grandes zones tactiles */}
           <Button
-            variant="secondary" size="icon" className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 shadow-md"
+            variant="secondary" size="icon" className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 h-11 w-11 sm:h-10 sm:w-10 shadow-md"
             onClick={() => onIndexChange((index - 2 + plans.length) % plans.length)}
             disabled={plans.length < 2}
+            aria-label="Plan précédent"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-5 w-5" />
           </Button>
           <Button
-            variant="secondary" size="icon" className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 shadow-md"
+            variant="secondary" size="icon" className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 h-11 w-11 sm:h-10 sm:w-10 shadow-md"
             onClick={() => onIndexChange(index % plans.length)}
             disabled={plans.length < 2}
+            aria-label="Plan suivant"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-5 w-5" />
           </Button>
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
             <Badge variant="secondary" className="shadow-md text-[10px]">
@@ -208,8 +229,8 @@ export function PlanViewerModal({
             </Badge>
           </div>
 
-          {/* Bandeau d'avertissement */}
-          <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-auto sm:max-w-xl sm:mx-auto flex items-start gap-2 rounded-lg border border-amber-300/60 bg-amber-50/95 dark:bg-amber-950/85 px-3 py-2 shadow-lg">
+          {/* Bandeau d'avertissement — positionné en haut pour ne pas masquer les contrôles sur mobile */}
+          <div className="absolute top-3 left-3 right-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:max-w-xl flex items-start gap-2 rounded-lg border border-amber-300/60 bg-amber-50/95 dark:bg-amber-950/85 px-3 py-2 shadow-lg">
             <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-[9px] sm:text-[10px] leading-snug text-amber-800 dark:text-amber-200">
               {DISCLAIMER}

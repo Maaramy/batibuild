@@ -55,7 +55,7 @@ export function PlanCompareModal({
               <button
                 key={key}
                 onClick={() => setSortBy(key)}
-                className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-medium transition-colors ${sortBy === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+                className={`px-3 py-2 min-h-10 rounded-md text-[10px] sm:text-xs font-medium transition-colors active:scale-[0.97] ${sortBy === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
               >
                 {label}
               </button>
@@ -110,7 +110,7 @@ export function PlanCompareModal({
                     <td className="px-3 py-2 tabular-nums">{p.stats.nbPieces}</td>
                     <td className="px-3 py-2 hidden md:table-cell tabular-nums">{p.stats.tauxUtilisation}%</td>
                     <td className="px-3 py-2">
-                      <Button size="sm" variant={isBest ? "default" : "outline"} className="h-7 text-[10px]" onClick={() => onSelect?.(p)}>
+                      <Button size="sm" variant={isBest ? "default" : "outline"} className="h-9 sm:h-8 text-[10px]" onClick={() => onSelect?.(p)}>
                         Voir
                       </Button>
                     </td>

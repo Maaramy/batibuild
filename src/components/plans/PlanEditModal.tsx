@@ -70,7 +70,7 @@ export function PlanEditModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-[11px] font-semibold">Surface couverte (m²)</Label>
-              <Input type="number" min={15} value={req.surfaceCouverte || ""} onChange={(e) => set("surfaceCouverte", parseFloat(e.target.value) || 0)} className="mt-1 h-8 text-xs" />
+              <Input type="number" inputMode="decimal" min={15} value={req.surfaceCouverte || ""} onChange={(e) => set("surfaceCouverte", parseFloat(e.target.value) || 0)} className="mt-1 h-10 sm:h-8 w-full text-xs" />
             </div>
             <div>
               <Label className="text-[11px] font-semibold">Niveaux</Label>
@@ -79,7 +79,7 @@ export function PlanEditModal({
                   <button
                     key={f}
                     onClick={() => set("floors", f)}
-                    className={`flex-1 py-1.5 rounded-md border text-[11px] font-semibold transition-all ${req.floors === f ? "border-primary bg-primary/10 text-primary" : "border-border/40"}`}
+                    className={`flex-1 py-2.5 sm:py-2 min-h-11 sm:min-h-10 rounded-md border text-[11px] font-semibold transition-all active:scale-[0.97] ${req.floors === f ? "border-primary bg-primary/10 text-primary" : "border-border/40"}`}
                   >
                     R+{f - 1}
                   </button>
@@ -106,17 +106,20 @@ export function PlanEditModal({
                     </div>
                     {isCount ? (
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <button type="button" className="flex h-6 w-6 items-center justify-center rounded border border-border/40 text-xs hover:bg-muted" onClick={() => set(c.key as any, Math.max(c.key === "wcs" ? 0 : 1, current - 1))}>−</button>
-                        <span className="w-6 text-center text-xs font-bold">{current}</span>
-                        <button type="button" className="flex h-6 w-6 items-center justify-center rounded border border-border/40 text-xs hover:bg-muted" onClick={() => set(c.key as any, Math.min(8, current + 1))}>+</button>
+                        <button type="button" aria-label={`Réduire ${c.label}`} className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-border/40 text-base hover:bg-muted active:scale-95" onClick={() => set(c.key as any, Math.max(c.key === "wcs" ? 0 : 1, current - 1))}>−</button>
+                        <span className="w-7 text-center text-xs font-bold">{current}</span>
+                        <button type="button" aria-label={`Augmenter ${c.label}`} className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-border/40 text-base hover:bg-muted active:scale-95" onClick={() => set(c.key as any, Math.min(8, current + 1))}>+</button>
                       </div>
                     ) : isToggle ? (
                       <button
                         type="button"
+                        aria-label={c.label}
                         onClick={() => set(c.key as any, !current)}
-                        className={`shrink-0 relative h-5 w-9 rounded-full transition-colors ${current ? "bg-primary" : "bg-muted"}`}
+                        className="shrink-0 -m-2 p-2"
                       >
-                        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${current ? "left-[18px]" : "left-0.5"}`} />
+                        <span className={`relative block h-5 w-9 rounded-full transition-colors ${current ? "bg-primary" : "bg-muted"}`}>
+                          <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${current ? "left-[18px]" : "left-0.5"}`} />
+                        </span>
                       </button>
                     ) : (
                       <span className="text-[10px] text-muted-foreground">—</span>
@@ -130,7 +133,7 @@ export function PlanEditModal({
           {/* Exigences */}
           <div>
             <Label className="text-[11px] font-semibold">Exigences supplémentaires</Label>
-            <Input value={req.exigences ?? ""} onChange={(e) => set("exigences", e.target.value)} placeholder="ex : déplacer la porte d'entrée, salon plein sud…" className="mt-1 h-8 text-xs" />
+            <Input value={req.exigences ?? ""} onChange={(e) => set("exigences", e.target.value)} placeholder="ex : déplacer la porte d'entrée, salon plein sud…" className="mt-1 h-10 sm:h-8 w-full text-xs" />
           </div>
 
           {/* Options de régénération */}
@@ -155,8 +158,8 @@ export function PlanEditModal({
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={onClose}>Annuler</Button>
-          <Button size="sm" className="h-8 text-xs gap-1" onClick={() => apply(regenAll)} disabled={busy}>
+          <Button variant="outline" size="sm" className="h-10 sm:h-8 text-xs" onClick={onClose}>Annuler</Button>
+          <Button size="sm" className="h-10 sm:h-8 text-xs gap-1" onClick={() => apply(regenAll)} disabled={busy}>
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
             {busy ? "Régénération…" : "Régénérer"}
           </Button>
