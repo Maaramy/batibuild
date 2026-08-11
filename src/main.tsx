@@ -35,6 +35,8 @@ const InvestmentAnalysis = lazy(() => import("./pages/InvestmentAnalysis.tsx"));
 const InvestmentResults = lazy(() => import("./pages/InvestmentResults.tsx"));
 const ShareInvestment = lazy(() => import("./pages/ShareInvestment.tsx"));
 const DemoInvestment = lazy(() => import("./pages/DemoInvestment.tsx"));
+const DemoProject = lazy(() => import("./pages/DemoProject.tsx"));
+const DemoPlan = lazy(() => import("./pages/DemoPlan.tsx"));
 const PlanGenerator = lazy(() => import("./pages/PlanGenerator.tsx"));
 const PlanLibrary = lazy(() => import("./pages/PlanLibrary.tsx"));
 const PlanDetail = lazy(() => import("./pages/PlanDetail.tsx"));
@@ -270,7 +272,9 @@ createRoot(document.getElementById("root")!).render(
                   }
                 />
                 <Route path="/contact" element={<ContactPage />} />
+                <Route path="/construction/demo" element={<DemoProject />} />
                 <Route path="/investments/demo" element={<DemoInvestment />} />
+                <Route path="/plans/demo" element={<DemoPlan />} />
                 <Route path="/share/investment/:token" element={<ShareInvestment />} />
                 <Route path="/blog" element={<BlogPage />} />
                 <Route path="/blog/:slug" element={<BlogPostPage />} />

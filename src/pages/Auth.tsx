@@ -19,7 +19,6 @@ import {
   Ruler,
   User,
   UserPlus,
-  UserX,
   LogIn,
   DraftingCompass,
   Shield,
@@ -397,14 +396,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsLoading(false);
   };
 
-  // -- Guest --
-  const handleGuestLogin = async () => {
-    setIsLoading(true); resetError();
-    try { await signIn("anonymous"); navigate(redirect); }
-    catch (err) { setError(err instanceof Error ? err.message : "Erreur inconnue"); }
-    setIsLoading(false);
-  };
-
   // -- Forgot: send email --
   const handleForgotEmail = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); setIsLoading(true); resetError();
@@ -584,11 +575,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <span className="bg-card/80 px-2 text-[10px] uppercase tracking-wide" style={{ color: "var(--foreground)", opacity: 0.4 }}>ou</span>
                     </div>
                   </div>
-                  <Button type="button" variant="outline" className="w-full h-10" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 15%, transparent)", color: "var(--foreground)" }}
-                    onClick={handleGuestLogin} disabled={isLoading}>
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />} Continuer en invité
-                  </Button>
-
                 </motion.div>
               ) : (
                 // -- REGISTER --

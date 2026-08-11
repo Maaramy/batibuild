@@ -69,6 +69,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
 
 // ============================================================================
@@ -342,15 +350,20 @@ function HeroSection() {
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 sm:py-20 w-full">
         <div className="mx-auto max-w-5xl text-center">
-          {/* Overline + badge */}
-          <motion.p
+          {/* Overline + badge IA (violet) */}
+          <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05, duration: 0.5 }}
-            className="label-overline mb-4"
+            className="mb-4 flex justify-center"
           >
-            Estimation de construction par IA — Tunisie 2026
-          </motion.p>
+            <span className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-1.5 text-[11px] sm:text-xs font-semibold text-violet-700 dark:text-violet-300 shadow-sm">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-sm">
+                <Sparkles className="h-3 w-3" />
+              </span>
+              Estimation de construction par IA — Tunisie 2026
+            </span>
+          </motion.div>
 
           {/* Title */}
           <motion.h1
@@ -398,6 +411,40 @@ function HeroSection() {
             >
               En savoir plus
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="lg" className="h-12 px-6 text-base w-full sm:w-auto gap-2">
+                  <Eye className="h-4 w-4" />
+                  Voir un exemple de résultats
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-72">
+                <DropdownMenuLabel>Exemples de résultats</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/construction/demo")} className="cursor-pointer gap-2">
+                  <HardHat className="h-4 w-4 text-emerald-600" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium">Projet de construction</p>
+                    <p className="text-[10px] text-muted-foreground">Devis détaillé & rapport IA</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/investments/demo")} className="cursor-pointer gap-2">
+                  <Landmark className="h-4 w-4 text-indigo-600" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium">Investissement immobilier</p>
+                    <p className="text-[10px] text-muted-foreground">Rentabilité, ROI & scénarios</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/plans/demo")} className="cursor-pointer gap-2">
+                  <Layers className="h-4 w-4 text-violet-600" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium">Plans architecturaux</p>
+                    <p className="text-[10px] text-muted-foreground">10 plans 2D & 3D générés par IA</p>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </motion.div>
 
           {/* Signature hero card : résultat en dégradé + watermark + chiffre clé */}
@@ -479,12 +526,13 @@ function HeroSection() {
 }
 
 function HowItWorksSection() {
+  const [mode, setMode] = useState<"construction" | "investissement" | "plans">("construction");
   const [activeStep, setActiveStep] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sectionRef = useRef(null);
 
-  const steps = [
+  const CONSTRUCTION_STEPS = [
     {
       step: "01",
       icon: Upload,
@@ -519,6 +567,85 @@ function HowItWorksSection() {
       textColor: "text-emerald-600 dark:text-emerald-400",
     },
   ] as const;
+
+  const INVEST_STEPS = [
+    {
+      step: "01",
+      icon: Home,
+      title: "Décrivez le bien",
+      shortTitle: "Bien",
+      desc: "Prix d'achat, loyer attendu, ville et quartier : l'IA connaît les prix du marché tunisien 2026.",
+      gradient: "from-indigo-500 to-blue-600",
+      bgGradient: "from-indigo-50/50 to-blue-50/50 dark:from-indigo-950/20 dark:to-blue-950/20",
+      border: "border-indigo-200/50 dark:border-indigo-800/30",
+      textColor: "text-indigo-600 dark:text-indigo-400",
+    },
+    {
+      step: "02",
+      icon: ChartBar,
+      title: "L'IA calcule la rentabilité",
+      shortTitle: "Rentabilité",
+      desc: "Rendement net, flux de trésorerie, score IA /100 et prévisions sur 10 ans.",
+      gradient: "from-blue-500 to-cyan-500",
+      bgGradient: "from-blue-50/50 to-cyan-50/50 dark:from-blue-950/20 dark:to-cyan-950/20",
+      border: "border-blue-200/50 dark:border-blue-800/30",
+      textColor: "text-blue-600 dark:text-blue-400",
+    },
+    {
+      step: "03",
+      icon: TrendingUp,
+      title: "Comparez et décidez",
+      shortTitle: "Décision",
+      desc: "Scénarios optimiste / prudent, meilleures zones et comparaison avec vos autres projets.",
+      gradient: "from-emerald-500 to-teal-500",
+      bgGradient: "from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20",
+      border: "border-emerald-200/50 dark:border-emerald-800/30",
+      textColor: "text-emerald-600 dark:text-emerald-400",
+    },
+  ] as const;
+
+  const PLANS_STEPS = [
+    {
+      step: "01",
+      icon: Ruler,
+      title: "Définissez vos contraintes",
+      shortTitle: "Contraintes",
+      desc: "Type de bien, surface, pièces souhaitées, style et standing — aucune compétence en dessin requise.",
+      gradient: "from-violet-500 to-purple-600",
+      bgGradient: "from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20",
+      border: "border-violet-200/50 dark:border-violet-800/30",
+      textColor: "text-violet-600 dark:text-violet-400",
+    },
+    {
+      step: "02",
+      icon: Layers,
+      title: "L'IA génère 10 plans",
+      shortTitle: "Génération",
+      desc: "Plans 2D et vues 3D, scores IA, détection des anomalies de conception et comparaison.",
+      gradient: "from-purple-500 to-fuchsia-500",
+      bgGradient: "from-purple-50/50 to-fuchsia-50/50 dark:from-purple-950/20 dark:to-fuchsia-950/20",
+      border: "border-purple-200/50 dark:border-purple-800/30",
+      textColor: "text-purple-600 dark:text-purple-400",
+    },
+    {
+      step: "03",
+      icon: Download,
+      title: "Téléchargez & exportez",
+      shortTitle: "Export",
+      desc: "Sauvegardez vos plans, comparez-les et téléchargez-les en PDF haute résolution.",
+      gradient: "from-emerald-500 to-teal-500",
+      bgGradient: "from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20",
+      border: "border-emerald-200/50 dark:border-emerald-800/30",
+      textColor: "text-emerald-600 dark:text-emerald-400",
+    },
+  ] as const;
+
+  const steps = mode === "construction" ? CONSTRUCTION_STEPS : mode === "investissement" ? INVEST_STEPS : PLANS_STEPS;
+
+  // Remet l'étape active au début quand on change de produit
+  useEffect(() => {
+    setActiveStep(0);
+  }, [mode]);
 
   // Auto-play
   useEffect(() => {
@@ -565,8 +692,36 @@ function HowItWorksSection() {
             <span className="gradient-text">3 étapes</span>
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Un processus simple et rapide pour estimer vos projets de construction en Tunisie.
+            {mode === "construction"
+              ? "Un processus simple et rapide pour estimer vos projets de construction en Tunisie."
+              : mode === "investissement"
+              ? "Analysez la rentabilité de vos investissements immobiliers en 3 étapes — marché tunisien 2026."
+              : "Générez des plans architecturaux professionnels adaptés à votre bien et à vos contraintes."}
           </p>
+
+          {/* Sélecteur de produit */}
+          <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-1 rounded-full border border-border/40 bg-muted/30 p-1">
+            {(
+              [
+                { id: "construction", label: "Construction", icon: HardHat },
+                { id: "investissement", label: "Investissement", icon: Landmark },
+                { id: "plans", label: "Plans", icon: Layers },
+              ] as const
+            ).map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setMode(p.id)}
+                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+                  mode === p.id
+                    ? "border border-border/50 bg-background text-foreground shadow-sm"
+                    : "border border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <p.icon className="h-3.5 w-3.5" />
+                {p.label}
+              </button>
+            ))}
+          </div>
         </motion.div>
 
         {/* Main demo area */}
@@ -642,9 +797,15 @@ function HowItWorksSection() {
 
               {/* Mock screen content */}
               <div className="p-4 sm:p-6">
-                {activeStep === 0 && <MockImportScreen />}
-                {activeStep === 1 && <MockAnalysisScreen />}
-                {activeStep === 2 && <MockReportScreen />}
+                {mode === "construction" && (
+                  <>
+                    {activeStep === 0 && <MockImportScreen />}
+                    {activeStep === 1 && <MockAnalysisScreen />}
+                    {activeStep === 2 && <MockReportScreen />}
+                  </>
+                )}
+                {mode === "investissement" && <MockInvestProcessPanel />}
+                {mode === "plans" && <MockPlansProcessPanel />}
               </div>
 
               {/* Step indicator overlay */}
@@ -671,15 +832,40 @@ function HowItWorksSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-12 text-center"
+          className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-3"
         >
           <Button
             size="lg"
             className="h-12 px-8 text-base gap-2"
-            onClick={() => navigate("/auth")}
+            onClick={() => navigate(
+              mode === "construction"
+                ? "/auth"
+                : mode === "investissement"
+                ? "/dashboard/investments"
+                : "/dashboard/plans/new"
+            )}
           >
-            Essayer gratuitement
+            {mode === "construction"
+              ? "Essayer gratuitement"
+              : mode === "investissement"
+              ? "Analyser un investissement"
+              : "Générer mes plans"}
             <ArrowRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-12 px-8 text-base gap-2"
+            onClick={() => navigate(
+              mode === "construction"
+                ? "/construction/demo"
+                : mode === "investissement"
+                ? "/investments/demo"
+                : "/plans/demo"
+            )}
+          >
+            <Eye className="h-4 w-4" />
+            Voir un exemple de résultats
           </Button>
         </motion.div>
       </div>
@@ -868,6 +1054,118 @@ function MockReportScreen() {
         <div className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-3 py-2 text-[10px] font-medium text-white shadow-sm">
           <FileText className="h-3.5 w-3.5" />
           Voir le rapport
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MockInvestProcessPanel() {
+  return (
+    <div className="space-y-4">
+      {/* Score + rentabilité */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-indigo-200/60 dark:border-indigo-800/40 bg-gradient-to-br from-indigo-500 to-blue-600 p-3.5 text-white shadow-lg shadow-indigo-500/20">
+          <p className="text-[9px] uppercase tracking-widest text-indigo-100/80">Score IA</p>
+          <p className="mt-1 text-2xl font-black">78<span className="text-xs font-semibold text-indigo-100">/100</span></p>
+          <p className="mt-0.5 text-[10px] text-indigo-100/80">Projet rentable</p>
+        </div>
+        <div className="rounded-xl border border-border/30 bg-background/70 p-3.5">
+          <p className="text-[9px] uppercase tracking-widest text-muted-foreground">Rendement net</p>
+          <p className="mt-1 text-2xl font-black text-emerald-600">7,4%</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">Flux annuel positif</p>
+        </div>
+      </div>
+
+      {/* Indicateurs */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "Budget", value: "185 000 TND" },
+          { label: "Loyer/mois", value: "1 350 TND" },
+          { label: "ROI 10 ans", value: "142%" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-lg border border-border/30 bg-background/60 px-2.5 py-2 text-center">
+            <p className="text-[9px] text-muted-foreground">{s.label}</p>
+            <p className="mt-0.5 text-xs font-bold tabular-nums">{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Barre de progression rentabilité */}
+      <div className="rounded-xl border border-border/30 bg-background/70 p-3">
+        <div className="mb-1.5 flex items-center justify-between text-[10px]">
+          <span className="font-medium text-muted-foreground">Flux de trésorerie cumulés</span>
+          <span className="font-bold text-indigo-600 dark:text-indigo-400">+ 96 500 TND</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <motion.div
+            initial={{ width: "0%" }}
+            animate={{ width: "68%" }}
+            transition={{ duration: 2, ease: "easeOut" }}
+            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-blue-500"
+          />
+        </div>
+        <div className="mt-1 flex justify-between text-[9px] text-muted-foreground">
+          <span>Année 1</span>
+          <span>Année 10</span>
+        </div>
+      </div>
+
+      {/* Scénarios */}
+      <div className="flex flex-wrap gap-1.5">
+        {["Optimiste +9,1%", "Prudent +5,2%", "Meilleure zone : La Marsa"].map((chip) => (
+          <span key={chip} className="rounded-full border border-indigo-500/25 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-300">
+            {chip}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MockPlansProcessPanel() {
+  return (
+    <div className="space-y-4">
+      {/* Mini plan 2D */}
+      <div className="rounded-xl border border-violet-200/60 dark:border-violet-800/40 bg-gradient-to-br from-violet-50/70 to-purple-50/50 dark:from-violet-950/25 dark:to-purple-950/20 p-3">
+        <div className="mb-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-violet-600" />
+            <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">Plan 02 — Optimisation maximale de l'espace</span>
+          </div>
+          <Badge className="border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300 text-[9px]">IA · 88/100</Badge>
+        </div>
+        <svg viewBox="0 0 120 90" className="h-auto w-full rounded-lg border border-border/30 bg-white/80 dark:bg-white/10">
+          <rect x="6" y="6" width="108" height="78" fill="none" stroke="#8b5cf6" strokeWidth="2" rx="3" />
+          <rect x="16" y="16" width="34" height="26" fill="#ede9fe" stroke="#a78bfa" strokeWidth="1" rx="2" />
+          <rect x="58" y="16" width="46" height="26" fill="#f5f3ff" stroke="#c4b5fd" strokeWidth="1" rx="2" />
+          <rect x="16" y="50" width="46" height="26" fill="#f5f3ff" stroke="#c4b5fd" strokeWidth="1" rx="2" />
+          <rect x="70" y="50" width="34" height="26" fill="#ede9fe" stroke="#a78bfa" strokeWidth="1" rx="2" />
+          <text x="33" y="30" textAnchor="middle" fontSize="6" fill="#6d28d9" fontWeight="700">Salon 32 m²</text>
+          <text x="81" y="30" textAnchor="middle" fontSize="6" fill="#6d28d9" fontWeight="700">Cuisine 14 m²</text>
+          <text x="39" y="64" textAnchor="middle" fontSize="6" fill="#6d28d9" fontWeight="700">Chambre 16 m²</text>
+          <text x="87" y="64" textAnchor="middle" fontSize="6" fill="#6d28d9" fontWeight="700">SDB 6 m²</text>
+        </svg>
+      </div>
+
+      {/* Chips fonctionnalités */}
+      <div className="flex flex-wrap gap-1.5">
+        {["10 plans 2D & 3D", "R+0 (plain-pied)", "Portes & fenêtres", "Détection d'anomalies"].map((chip) => (
+          <span key={chip} className="rounded-full border border-violet-500/25 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium text-violet-600 dark:text-violet-300">
+            {chip}
+          </span>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <div className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2 text-[10px] font-medium text-white shadow-sm">
+          <Sparkles className="h-3.5 w-3.5" />
+          Générer 10 nouveaux plans
+        </div>
+        <div className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border/30 bg-background/70 px-3 py-2 text-[10px] font-medium">
+          <Download className="h-3.5 w-3.5" />
+          PDF haute résolution
         </div>
       </div>
     </div>

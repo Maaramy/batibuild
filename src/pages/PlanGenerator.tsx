@@ -18,7 +18,7 @@ import {
   Ruler, MapPin, Palette, Check, ChevronRight, Crown, Gauge, PenLine,
   BedDouble, Bath, Armchair, Utensils, CookingPot, Car, Trees, Waves,
   Shirt, Briefcase as BriefcaseIcon, Wrench, PencilRuler, HardHat,
-  Info, ChevronDown, FileText, ClipboardList,
+  Info, ChevronDown, FileText, ClipboardList, LayoutDashboard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -464,6 +464,9 @@ export default function PlanGenerator() {
               </Button>
               <Button size="sm" className="h-9 sm:h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => { setSaveOpen(true); setPlanName(""); }} aria-label="Sauvegarder le plan">
                 <Save className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Sauvegarder</span>
+              </Button>
+              <Button variant="outline" size="sm" className="h-9 sm:h-8 px-2 sm:px-3 text-xs gap-1" onClick={() => navigate("/dashboard")} aria-label="Retour au tableau de bord">
+                <LayoutDashboard className="h-3.5 w-3.5" /> <span className="hidden md:inline">Tableau de bord</span>
               </Button>
             </div>
           </div>

@@ -492,6 +492,7 @@ export default function InvestmentAnalysis() {
     setForm(DEFAULT_FORM);
     setStep(1);
     toast("Formulaire réinitialisé", { description: "Saisissez les caractéristiques d'un nouveau bien." });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const scrollToForm = () => {

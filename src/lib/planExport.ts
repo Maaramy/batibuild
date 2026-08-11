@@ -205,41 +205,11 @@ export async function exportAllPlansZip(plans: GeneratedPlan[], projectName: str
 }
 
 /**
- * Rasterise le plan 2D vers un canvas PNG (helper interne pour les exports PDF).
- */
-async function rasterizePlan(plan: GeneratedPlan, scale = 2.5): Promise<HTMLCanvasElement> {
-  const mount = document.createElement("div");
-  mount.style.position = "fixed";
-  mount.style.left = "-10000px";
-  mount.style.top = "0";
-  document.body.appendChild(mount);
-
-  const { createRoot } = await import("react-dom/client");
-  const React = await import("react");
-  const root = createRoot(mount);
-  root.render(React.createElement(FloorPlan2D, { plan, showDimensions: true, whiteBg: true }));
-  await new Promise((r) => setTimeout(r, 60));
-  const svg = mount.querySelector("svg");
-  if (!svg) {
-    root.unmount();
-    document.body.removeChild(mount);
-    throw new Error("Rendu SVG introuvable");
-  }
-  const canvas = await svgToCanvas(svg, 2200);
-  root.unmount();
-  document.body.removeChild(mount);
-  return canvas;
-}
-
-/**
  * Export PDF de la fiche descriptive : cartouche, image du plan, chiffres clés,
  * tableau des pièces, scores IA, estimation de coût détaillée (6 postes),
  * points forts / faibles et avertissement légal.
  */
 export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPlan, filenameBase?: string): Promise<void> {
-  const canvas = await rasterizePlan(plan, 2.5);
-  const img = canvas.toDataURL("image/png");
-
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -286,32 +256,6 @@ export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPl
     `Orientation ${sheet.meta.orientation}  ·  ${sheet.meta.facades} façade(s)  ·  Généré le ${sheet.meta.generatedAt}`;
   doc.text(doc.splitTextToSize(metaLine, pageW - margin * 2), margin, 27);
   y = 40;
-
-  // ── Image du plan + description ────────────────────────────────────────
-  const availW = pageW - margin * 2;
-  const imgRatio = canvas.width / canvas.height;
-  let imgW = Math.min(availW, 92);
-  let imgH = imgW / imgRatio;
-  const maxImgH = 64;
-  if (imgH > maxImgH) { imgH = maxImgH; imgW = imgH * imgRatio; }
-  doc.addImage(img, "PNG", margin, y, imgW, imgH);
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.3);
-  doc.rect(margin, y, imgW, imgH);
-  // Description à droite de l'image (ou en dessous si pas assez de place)
-  const descX = margin + imgW + 6;
-  const descW = pageW - margin - descX;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(30, 41, 59);
-  doc.text("Description de la proposition", descX, y + 5);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(71, 85, 105);
-  const descLines = doc.splitTextToSize(sheet.description, descW);
-  const maxLines = Math.max(1, Math.floor((imgH - 10) / 3.4));
-  doc.text(descLines.slice(0, maxLines), descX, y + 9);
-  y += imgH + 8;
 
   // ── Chiffres clés ──────────────────────────────────────────────────────
   sectionTitle("Chiffres clés");
@@ -382,100 +326,6 @@ export async function exportPlanSheetPdf(sheet: PlanSheetData, plan: GeneratedPl
     ]),
   });
   y = lastFinalY + 6;
-
-  // ── Estimation de coût ─────────────────────────────────────────────────
-  if (sheet.cost) {
-    sectionTitle("Estimation du coût (marché tunisien)");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(22, 101, 52);
-    doc.text(`Coût total estimé : ${formatTnd(sheet.cost.totalCost)}`, margin, y);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(71, 85, 105);
-    const extra: string[] = [];
-    if (sheet.cost.costPerSquareMeter > 0) extra.push(`Prix moyen : ${formatTnd(sheet.cost.costPerSquareMeter)}/m²`);
-    if (sheet.cost.confidence != null) extra.push(`Indice de confiance : ${sheet.cost.confidence}%`);
-    if (sheet.cost.duration) extra.push(`Durée estimée : ${sheet.cost.duration}`);
-    if (sheet.cost.labor) extra.push(`Main-d'œuvre : ${sheet.cost.labor.totalWorkers} ouvriers`);
-    doc.text(extra.join("   ·   "), margin, y + 5);
-    y += 10;
-    if (sheet.cost.breakdown.length > 0) {
-      runTable({
-        startY: y,
-        margin: { left: margin, right: margin },
-        theme: "grid",
-        styles: { fontSize: 7, cellPadding: 1.6, textColor: [30, 41, 59], lineColor: [226, 232, 240], lineWidth: 0.15 },
-        headStyles: { fillColor: [22, 101, 52], textColor: [255, 255, 255], fontStyle: "bold" },
-        columnStyles: { 2: { halign: "right" }, 1: { halign: "right" } },
-        head: [["Poste", "%", "Montant estimé"]],
-        body: sheet.cost.breakdown.map((b) => [b.label, `${b.percentage}%`, formatTnd(b.estimatedCost)]),
-        foot: [["Coût total (hors imprévus)", "", formatTnd(sheet.cost.breakdown.reduce((s, b) => s + b.estimatedCost, 0))]],
-        footStyles: { fontStyle: "bold", fillColor: [241, 245, 249], textColor: [30, 41, 59] },
-      });
-      y = lastFinalY + 4;
-    }
-    doc.setFontSize(7);
-    doc.setTextColor(71, 85, 105);
-    doc.text(
-      `Scénarios budgétaires :  Économique ${formatTnd(sheet.cost.scenarios.economique)}   ·   Standard ${formatTnd(sheet.cost.scenarios.standard)}   ·   Premium ${formatTnd(sheet.cost.scenarios.premium)}`,
-      margin, y,
-    );
-    y += 8;
-  }
-
-  // ── Points forts / faibles ─────────────────────────────────────────────
-  sectionTitle("Points forts & points d'attention");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(22, 101, 52);
-  doc.text("Points forts", margin, y);
-  y += 3.5;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  doc.setTextColor(71, 85, 105);
-  for (const s of sheet.strengths) {
-    const lines = doc.splitTextToSize(`• ${s}`, pageW - margin * 2);
-    if (y + lines.length * 3.4 > pageH - 8) { doc.addPage(); y = margin; }
-    doc.text(lines, margin, y);
-    y += lines.length * 3.4;
-  }
-  y += 3;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(180, 83, 9);
-  doc.text("Points d'attention", margin, y);
-  y += 3.5;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  doc.setTextColor(71, 85, 105);
-  for (const w of sheet.weaknesses) {
-    const lines = doc.splitTextToSize(`• ${w}`, pageW - margin * 2);
-    if (y + lines.length * 3.4 > pageH - 8) { doc.addPage(); y = margin; }
-    doc.text(lines, margin, y);
-    y += lines.length * 3.4;
-  }
-
-  // ── Avertissement ──────────────────────────────────────────────────────
-  if (y > pageH - 26) { doc.addPage(); y = margin; }
-  y = Math.max(y, pageH - 22);
-  doc.setDrawColor(245, 158, 11);
-  doc.setLineWidth(0.4);
-  doc.rect(margin, y, pageW - margin * 2, 16);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.5);
-  doc.setTextColor(146, 64, 14);
-  doc.text("AVERTISSEMENT", margin + 3, y + 4.5);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(5.8);
-  doc.setTextColor(120, 113, 108);
-  doc.text(
-    doc.splitTextToSize(
-      "Plan généré automatiquement par Intelligence Artificielle à titre indicatif. Ce document ne constitue pas un plan ou devis architectural, administratif ou officiel. Il doit être vérifié, adapté et validé par un architecte ou un professionnel habilité avant toute réalisation, demande de permis ou utilisation administrative.",
-      pageW - margin * 2 - 6,
-    ),
-    margin + 3, y + 8,
-  );
 
   const base = filenameBase ?? `fiche-plan-${String(plan.index).padStart(2, "0")}-${sanitizeFilename(plan.name)}`;
   doc.save(`${base}.pdf`);
