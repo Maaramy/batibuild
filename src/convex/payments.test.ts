@@ -155,7 +155,7 @@ describe("getPlanPricing", () => {
     expect(result!.expertPrice).toBe(350);          // from config
     expect(result!.supplierPrice).toBe(120);         // fallback to default
     expect(result!.freeProjectLimit).toBe(1);        // fallback to default
-    expect(result!.proProjectLimit).toBe(10);        // fallback to default
+    expect(result!.proProjectLimit).toBe(5);         // fallback to default
   });
 });
 
@@ -318,8 +318,8 @@ describe("updatePlanPricing", () => {
     expect(result!.proPrice).toBe(99);
     // Project limit et download limit devraient avoir DEFAUT
     // Puisque update ne définit pas ces champs, ils prennent les defaults de création
-    // DEFAULT_PLAN_PRICING (forfait Pro) : proProjectLimit: 10
-    expect(result!.proProjectLimit).toBe(10);
+    // DEFAULT_PLAN_PRICING (forfait Pro) : proProjectLimit: 5
+    expect(result!.proProjectLimit).toBe(5);
   });
 });
 

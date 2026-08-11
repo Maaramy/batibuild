@@ -240,7 +240,7 @@ async function countUserDocs(ctx: any, userId: any, kind: QuotaKind): Promise<nu
 /**
  * Vérifie si l'utilisateur peut encore créer un élément du type demandé.
  * Les quotas sont comptés par abonnement (paiement unique) et par type
- * (construction / investissement). Les plans architecturaux sont illimités.
+ * (construction / investissement / plans).
  * Sans abonnement actif pour le type demandé, on retombe sur l'offre de
  * base (Start) comptée sur les documents.
  */

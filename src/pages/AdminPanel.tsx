@@ -172,7 +172,6 @@ export default function AdminPanel() {
   const [limitForm, setLimitForm] = useState({
     // Prix des forfaits (paiement unique — mêmes prix pour tous les types)
     constructionStartPrice: 79, constructionProPrice: 120, constructionExpertPrice: 320,
-    investmentStartPrice: 79, investmentProPrice: 120, investmentExpertPrice: 320,
     supplierPrice: 120,
     // Quotas par forfait : projets de construction / analyses / plans / PDF
     freeProjects: 1, proProjects: 5, expertProjects: 20,
@@ -194,9 +193,6 @@ export default function AdminPanel() {
         constructionStartPrice: planForm.startPrice ?? 79,
         constructionProPrice: planForm.proPrice ?? 120,
         constructionExpertPrice: planForm.expertPrice ?? 320,
-        investmentStartPrice: planForm.startPrice ?? 79,
-        investmentProPrice: planForm.proPrice ?? 120,
-        investmentExpertPrice: planForm.expertPrice ?? 320,
         freeProjects: planForm.freeProjectLimit ?? 1,
         proProjects: planForm.proProjectLimit ?? 5,
         expertProjects: planForm.expertProjectLimit ?? 20,
@@ -3775,29 +3771,26 @@ export default function AdminPanel() {
             </Card>
           </TabsContent>
 
-          {/* Plan Limits — forfaits par type (construction / investissement) */}
+          {/* Plan Limits — forfaits couvrant construction · investissement · plans */}
           <TabsContent value="limites">
             <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="text-base">Forfaits — prix et quotas</CardTitle>
                 <CardDescription className="text-xs">
-                  Forfaits à paiement unique, vendus indépendamment par type de projet. Construction : Start 40 · Pro 120 · Expert 320 TND.
-                  Investissement : Start 79 · Pro 120 · Expert 320 TND. Plans architecturaux : gratuits et illimités.
-                  Quand les quotas sont épuisés, l'utilisateur renouvelle son forfait ou passe à une offre supérieure.
+                  Forfaits à paiement unique — un seul forfait couvre les trois types de projets : construction,
+                  investissement et plans architecturaux. Start 79 · Pro 120 · Expert 320 TND, avec 1 / 5 / 20 projets,
+                  analyses, plans et téléchargements PDF. Quand les quotas sont épuisés, l'utilisateur renouvelle son
+                  forfait ou passe à une offre supérieure.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* ═══ Projets de construction ═══ */}
-                <div className="mb-2 flex items-center gap-2">
-                  <HardHat className="h-4 w-4 text-blue-600" />
-                  <h3 className="text-sm font-semibold">Projets de construction</h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                {/* ═══ Les 3 forfaits — un seul prix couvre construction · investissement · plans ═══ */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="p-4 rounded-xl bg-slate-500/5 border border-border/30 space-y-3">
                     <h3 className="text-sm font-semibold">Start</h3>
-                    <p className="text-xs text-muted-foreground">1 projet · 1 PDF</p>
+                    <p className="text-xs text-muted-foreground">1 projet · 1 analyse · 1 plan · 1 PDF</p>
                     <div>
-                      <label className="text-xs text-muted-foreground">Prix construction (TND)</label>
+                      <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <Input
                         type="number"
                         value={limitForm.constructionStartPrice}
@@ -3806,7 +3799,7 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Projets max</label>
+                      <label className="text-xs text-muted-foreground">Projets de construction max</label>
                       <Input
                         type="number"
                         value={limitForm.freeProjects}
@@ -3815,105 +3808,7 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
-                      <Input
-                        type="number"
-                        value={limitForm.freeDownloadLimit ?? 0}
-                        onChange={(e) => setLimitForm({ ...limitForm, freeDownloadLimit: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-200/20 space-y-3">
-                    <h3 className="text-sm font-semibold flex items-center gap-2">
-                      <Crown className="h-4 w-4 text-blue-500" />
-                      Pro
-                    </h3>
-                    <p className="text-xs text-muted-foreground">10 projets · 10 PDF</p>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Prix construction (TND)</label>
-                      <Input
-                        type="number"
-                        value={limitForm.constructionProPrice}
-                        onChange={(e) => setLimitForm({ ...limitForm, constructionProPrice: parseFloat(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Projets max</label>
-                      <Input
-                        type="number"
-                        value={limitForm.proProjects}
-                        onChange={(e) => setLimitForm({ ...limitForm, proProjects: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
-                      <Input
-                        type="number"
-                        value={limitForm.proDownloads}
-                        onChange={(e) => setLimitForm({ ...limitForm, proDownloads: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-200/20 space-y-3">
-                    <h3 className="text-sm font-semibold flex items-center gap-2">
-                      <Crown className="h-4 w-4 text-emerald-500" />
-                      Expert
-                    </h3>
-                    <p className="text-xs text-muted-foreground">30 projets · 30 PDF</p>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Prix construction (TND)</label>
-                      <Input
-                        type="number"
-                        value={limitForm.constructionExpertPrice}
-                        onChange={(e) => setLimitForm({ ...limitForm, constructionExpertPrice: parseFloat(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Projets max</label>
-                      <Input
-                        type="number"
-                        value={limitForm.expertProjects}
-                        onChange={(e) => setLimitForm({ ...limitForm, expertProjects: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
-                      <Input
-                        type="number"
-                        value={limitForm.expertDownloads}
-                        onChange={(e) => setLimitForm({ ...limitForm, expertDownloads: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ═══ Projets d'investissement ═══ */}
-                <div className="mb-2 flex items-center gap-2">
-                  <Landmark className="h-4 w-4 text-indigo-600" />
-                  <h3 className="text-sm font-semibold">Projets d'investissement</h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                  <div className="p-4 rounded-xl bg-slate-500/5 border border-border/30 space-y-3">
-                    <h3 className="text-sm font-semibold">Start</h3>
-                    <p className="text-xs text-muted-foreground">1 analyse · 1 PDF</p>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Prix investissement (TND)</label>
-                      <Input
-                        type="number"
-                        value={limitForm.investmentStartPrice}
-                        onChange={(e) => setLimitForm({ ...limitForm, investmentStartPrice: parseFloat(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Analyses max</label>
+                      <label className="text-xs text-muted-foreground">Analyses d'investissement max</label>
                       <Input
                         type="number"
                         value={limitForm.freeInvestments}
@@ -3922,6 +3817,15 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div>
+                      <label className="text-xs text-muted-foreground">Plans architecturaux max</label>
+                      <Input
+                        type="number"
+                        value={limitForm.freePlans}
+                        onChange={(e) => setLimitForm({ ...limitForm, freePlans: parseInt(e.target.value) })}
+                        className="h-8 w-28 text-sm"
+                      />
+                    </div>
+                    <div>
                       <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
                       <Input
                         type="number"
@@ -3936,22 +3840,40 @@ export default function AdminPanel() {
                       <Crown className="h-4 w-4 text-blue-500" />
                       Pro
                     </h3>
-                    <p className="text-xs text-muted-foreground">10 analyses · 10 PDF</p>
+                    <p className="text-xs text-muted-foreground">5 projets · 5 analyses · 5 plans · 5 PDF</p>
                     <div>
-                      <label className="text-xs text-muted-foreground">Prix investissement (TND)</label>
+                      <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <Input
                         type="number"
-                        value={limitForm.investmentProPrice}
-                        onChange={(e) => setLimitForm({ ...limitForm, investmentProPrice: parseFloat(e.target.value) })}
+                        value={limitForm.constructionProPrice}
+                        onChange={(e) => setLimitForm({ ...limitForm, constructionProPrice: parseFloat(e.target.value) })}
                         className="h-8 w-28 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Analyses max</label>
+                      <label className="text-xs text-muted-foreground">Projets de construction max</label>
+                      <Input
+                        type="number"
+                        value={limitForm.proProjects}
+                        onChange={(e) => setLimitForm({ ...limitForm, proProjects: parseInt(e.target.value) })}
+                        className="h-8 w-28 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Analyses d'investissement max</label>
                       <Input
                         type="number"
                         value={limitForm.proInvestments}
                         onChange={(e) => setLimitForm({ ...limitForm, proInvestments: parseInt(e.target.value) })}
+                        className="h-8 w-28 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Plans architecturaux max</label>
+                      <Input
+                        type="number"
+                        value={limitForm.proPlans}
+                        onChange={(e) => setLimitForm({ ...limitForm, proPlans: parseInt(e.target.value) })}
                         className="h-8 w-28 text-sm"
                       />
                     </div>
@@ -3970,22 +3892,40 @@ export default function AdminPanel() {
                       <Crown className="h-4 w-4 text-emerald-500" />
                       Expert
                     </h3>
-                    <p className="text-xs text-muted-foreground">30 analyses · 30 PDF</p>
+                    <p className="text-xs text-muted-foreground">20 projets · 20 analyses · 20 plans · 20 PDF</p>
                     <div>
-                      <label className="text-xs text-muted-foreground">Prix investissement (TND)</label>
+                      <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <Input
                         type="number"
-                        value={limitForm.investmentExpertPrice}
-                        onChange={(e) => setLimitForm({ ...limitForm, investmentExpertPrice: parseFloat(e.target.value) })}
+                        value={limitForm.constructionExpertPrice}
+                        onChange={(e) => setLimitForm({ ...limitForm, constructionExpertPrice: parseFloat(e.target.value) })}
                         className="h-8 w-28 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Analyses max</label>
+                      <label className="text-xs text-muted-foreground">Projets de construction max</label>
+                      <Input
+                        type="number"
+                        value={limitForm.expertProjects}
+                        onChange={(e) => setLimitForm({ ...limitForm, expertProjects: parseInt(e.target.value) })}
+                        className="h-8 w-28 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Analyses d'investissement max</label>
                       <Input
                         type="number"
                         value={limitForm.expertInvestments}
                         onChange={(e) => setLimitForm({ ...limitForm, expertInvestments: parseInt(e.target.value) })}
+                        className="h-8 w-28 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Plans architecturaux max</label>
+                      <Input
+                        type="number"
+                        value={limitForm.expertPlans}
+                        onChange={(e) => setLimitForm({ ...limitForm, expertPlans: parseInt(e.target.value) })}
                         className="h-8 w-28 text-sm"
                       />
                     </div>
@@ -3999,18 +3939,6 @@ export default function AdminPanel() {
                       />
                     </div>
                   </div>
-                </div>
-
-                {/* ═══ Plans architecturaux — gratuits & illimités ═══ */}
-                <div className="p-4 rounded-xl bg-violet-500/5 border border-violet-200/20 mb-6 flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <Sparkles className="h-4 w-4 text-violet-500" />
-                    <div>
-                      <h3 className="text-sm font-semibold">Plans architecturaux</h3>
-                      <p className="text-xs text-muted-foreground">Gratuit — quota illimité · téléchargements illimités</p>
-                    </div>
-                  </div>
-                  <Badge className="bg-violet-500/10 text-violet-700 border-violet-300/40">0 TND</Badge>
                 </div>
 
                 {/* ═══ Espace fournisseur ═══ */}
@@ -4043,41 +3971,30 @@ export default function AdminPanel() {
                     onClick={async () => {
                       setSavingLimits(true);
                       try {
-                        // Prix par type (construction / investissement)
-                        await updatePlanPricing({ plan: "free", type: "construction", price: limitForm.constructionStartPrice } as any);
-                        await updatePlanPricing({ plan: "pro", type: "construction", price: limitForm.constructionProPrice } as any);
-                        await updatePlanPricing({ plan: "expert", type: "construction", price: limitForm.constructionExpertPrice } as any);
-                        await updatePlanPricing({ plan: "free", type: "investment", price: limitForm.investmentStartPrice } as any);
-                        await updatePlanPricing({ plan: "pro", type: "investment", price: limitForm.investmentProPrice } as any);
-                        await updatePlanPricing({ plan: "expert", type: "investment", price: limitForm.investmentExpertPrice } as any);
-                        // Quotas projets de construction
+                        // Un seul prix par forfait couvre construction, investissement et plans
                         await updatePlanPricing({
                           plan: "free",
+                          price: limitForm.constructionStartPrice,
                           projectLimit: limitForm.freeProjects,
+                          investmentLimit: limitForm.freeInvestments,
+                          planLimit: limitForm.freePlans,
                           downloadLimit: limitForm.freeDownloadLimit,
                         } as any);
                         await updatePlanPricing({
                           plan: "pro",
+                          price: limitForm.constructionProPrice,
                           projectLimit: limitForm.proProjects,
+                          investmentLimit: limitForm.proInvestments,
+                          planLimit: limitForm.proPlans,
                           downloadLimit: limitForm.proDownloads,
                         } as any);
                         await updatePlanPricing({
                           plan: "expert",
+                          price: limitForm.constructionExpertPrice,
                           projectLimit: limitForm.expertProjects,
-                          downloadLimit: limitForm.expertDownloads,
-                        } as any);
-                        // Quotas analyses d'investissement
-                        await updatePlanPricing({
-                          plan: "free",
-                          investmentLimit: limitForm.freeInvestments,
-                        } as any);
-                        await updatePlanPricing({
-                          plan: "pro",
-                          investmentLimit: limitForm.proInvestments,
-                        } as any);
-                        await updatePlanPricing({
-                          plan: "expert",
                           investmentLimit: limitForm.expertInvestments,
+                          planLimit: limitForm.expertPlans,
+                          downloadLimit: limitForm.expertDownloads,
                         } as any);
                         // Espace fournisseur
                         await updatePlanPricing({

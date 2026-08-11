@@ -376,7 +376,7 @@ export default function Dashboard() {
   const quotas = useQuery(api.subscriptions.getMyQuotas); // OK
   const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowed, {});
 
-  // ── Quotas par type (construction · investissement · plans illimités) ──
+  // ── Quotas par type (construction · investissement · plans) ──
   const construction = quotas?.construction;
   const investment = quotas?.investment;
   const constructionPlan = construction?.plan ?? "free";
@@ -733,7 +733,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Quota rows — construction · investissement · plans illimités */}
+              {/* Quota rows — construction · investissement · plans */}
               <div className="mt-3 grid gap-2">
                 {/* Construction */}
                 <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
@@ -1283,20 +1283,24 @@ export default function Dashboard() {
                   <MiniStat icon={Heart} label="Favoris" value={planStats.favorites} tone={{ bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400" }} />
                 </div>
 
-                {/* Compteur — plans architecturaux (gratuits & illimités) */}
+                {/* Compteur — quota des plans architecturaux (mêmes quotas que les projets) */}
                 <div className="mb-3 rounded-xl border border-border/40 bg-card/40 px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <Gauge className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
                       Plans architecturaux
+                      {plansReached && <Badge className="bg-amber-500/15 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">Limite atteinte</Badge>}
                     </span>
-                    <span className="font-bold tabular-nums text-violet-600 dark:text-violet-400">
-                      {planHistory.length} généré{planHistory.length > 1 ? "s" : ""} · Illimité
+                    <span className={`font-bold tabular-nums ${isPlansNearLimit ? "text-amber-600 dark:text-amber-400" : "text-violet-600 dark:text-violet-400"}`}>
+                      {planUsed}/{planLimit} · {planUsagePct}%
                     </span>
                   </div>
-                  <p className="mt-1 text-[9px] text-muted-foreground">
-                    Forfait gratuit — quota et téléchargements illimités.
-                  </p>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${isPlansNearLimit ? "bg-gradient-to-r from-amber-400 to-orange-500" : "bg-gradient-to-r from-violet-400 to-purple-500"}`}
+                      style={{ width: `${planUsagePct}%` }}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
