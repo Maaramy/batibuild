@@ -475,7 +475,7 @@ export default function Dashboard() {
             <HardHat className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </div>
           <div>
-            <span className="text-sm sm:text-base font-semibold">BuildEase</span>
+            <span className="text-sm sm:text-base font-semibold">batibuild App</span>
             <p className="text-[9px] sm:text-[10px] text-muted-foreground">Tableau de bord</p>
           </div>
         </div>

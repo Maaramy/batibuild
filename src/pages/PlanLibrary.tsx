@@ -56,7 +56,7 @@ function formatDate(ts: number) {
 }
 
 export default function PlanLibrary() {
-  usePageSEO({ title: "Mes plans architecturaux — BuildEase", description: "Historique et gestion de vos plans architecturaux générés par IA." });
+  usePageSEO({ title: "Mes plans architecturaux — batibuild App", description: "Historique et gestion de vos plans architecturaux générés par IA." });
   const navigate = useNavigate();
   const plans = useQuery(api.architecturalPlans.getMyPlans) as PlanSummary[] | undefined;
   const [search, setSearch] = useState("");

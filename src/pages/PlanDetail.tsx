@@ -45,7 +45,7 @@ export default function PlanDetail() {
   const { id } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  usePageSEO({ title: "Plan architectural — BuildEase", description: "Consultation d'un plan architectural généré par IA." });
+  usePageSEO({ title: "Plan architectural — batibuild App", description: "Consultation d'un plan architectural généré par IA." });
 
   const doc = useQuery(api.architecturalPlans.getPlan, id ? { planId: id as any } : "skip") as any;
   const toggleFavorite = useMutation(api.architecturalPlans.toggleFavorite);

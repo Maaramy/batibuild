@@ -302,7 +302,7 @@ function ToggleChip({ label, icon: Icon, checked, onChange }: { label: string; i
 // ============================================================================
 
 export default function PlanGenerator() {
-  usePageSEO({ title: "Générateur de plans architecturaux — BuildEase", description: "Générez automatiquement 10 plans d'architecture par IA selon vos contraintes." });
+  usePageSEO({ title: "Générateur de plans architecturaux — batibuild App", description: "Générez automatiquement 10 plans d'architecture par IA selon vos contraintes." });
   const navigate = useNavigate();
   const savePlan = useMutation(api.architecturalPlans.createPlan);
 
@@ -388,7 +388,18 @@ export default function PlanGenerator() {
       setSaveOpen(false);
       toast.success("Plan sauvegardé dans « Mes plans architecturaux »");
     } catch (err: any) {
-      toast.error(err?.message || "Échec de la sauvegarde");
+      const msg = err?.message || err?.toString() || "Échec de la sauvegarde";
+      if (msg.includes("LIMITE_ATTEINTE")) {
+        toast.error(msg.replace("LIMITE_ATTEINTE:", ""), {
+          duration: 12000,
+          action: {
+            label: "Voir les forfaits",
+            onClick: () => navigate("/pricing"),
+          },
+        });
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSaving(false);
     }

@@ -452,7 +452,18 @@ export default function InvestmentAnalysis() {
       toast.success("Analyse générée avec succès");
       navigate(`/dashboard/investments/result/${id}`, { state: { run } });
     } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'analyse");
+      const msg = err?.message || err?.toString() || "Erreur lors de l'analyse";
+      if (msg.includes("LIMITE_ATTEINTE")) {
+        toast.error(msg.replace("LIMITE_ATTEINTE:", ""), {
+          duration: 12000,
+          action: {
+            label: "Voir les forfaits",
+            onClick: () => navigate("/pricing"),
+          },
+        });
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setRunning(false);
     }
