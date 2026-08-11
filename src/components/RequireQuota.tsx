@@ -9,10 +9,11 @@ import { Lock, LayoutDashboard, CreditCard, ArrowRight, RefreshCcw } from "lucid
 
 // ============================================================================
 // Bloque l'accès direct à une page de création quand le quota du forfait est
-// atteint. Les forfaits sont vendus par type (construction / investissement) :
-//   - construction  → quotas de l'abonnement « construction »
-//   - investissement → quotas de l'abonnement « investment »
-//   - plans architecturaux → gratuits et illimités (jamais bloqués)
+// atteint. Un seul forfait (paiement unique) couvre tous les types :
+//   - construction  → quotas de projets de construction
+//   - investissement → quotas d'analyses d'investissement
+//   - plans architecturaux → quotas de plans
+// Start 79 TND (1/1/1/1) · Pro 120 TND (5/5/5/5) · Expert 320 TND (20/20/20/20)
 // Quand le quota est épuisé, l'utilisateur renouvelle ses quotas ou passe à
 // une offre supérieure (voir la page forfaits).
 // ============================================================================
@@ -35,7 +36,7 @@ const PLAN_LABELS: Record<string, string> = {
 };
 
 const NEXT_PLAN: Record<string, string | null> = { free: "pro", pro: "expert", expert: null };
-const UNLIMITED = 1000000;
+const NEXT_LIMIT: Record<string, number | null> = { free: 5, pro: 20, expert: null };
 
 export function RequireQuota({ type, children }: { type: QuotaType; children: ReactNode }) {
   const navigate = useNavigate();
@@ -43,9 +44,6 @@ export function RequireQuota({ type, children }: { type: QuotaType; children: Re
   const quotas = useQuery(api.subscriptions.getMyQuotas);
 
   const meta = QUOTA_META[type];
-
-  // Plans architecturaux : gratuits et illimités — jamais bloqués.
-  if (type === "plans") return <>{children}</>;
 
   const loading = quotas === undefined;
 
@@ -63,7 +61,9 @@ export function RequireQuota({ type, children }: { type: QuotaType; children: Re
   const quota =
     type === "construction"
       ? quotas?.construction
-      : quotas?.investment;
+      : type === "investissement"
+      ? quotas?.investment
+      : quotas?.plans;
 
   const limit = quota?.limit ?? 1;
   const used = quota?.used ?? 0;
@@ -73,8 +73,7 @@ export function RequireQuota({ type, children }: { type: QuotaType; children: Re
   // ── Écran de blocage ──
   if (reached) {
     const nextPlan = NEXT_PLAN[plan] ?? null;
-    const nextLimit =
-      nextPlan === "pro" ? 10 : nextPlan === "expert" ? 30 : null;
+    const nextLimit = nextPlan ? NEXT_LIMIT[nextPlan] : null;
 
     return (
       <main className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
@@ -90,7 +89,7 @@ export function RequireQuota({ type, children }: { type: QuotaType; children: Re
                 Vous avez utilisé <strong className="text-foreground">{used}/{limit}</strong>{" "}
                 {used <= 1 ? meta.singular : meta.plural} inclus dans votre forfait{" "}
                 {PLAN_LABELS[plan] ?? plan}.
-                {nextPlan
+                {nextPlan && nextLimit
                   ? ` Renouvelez vos quotas ou passez à l'offre ${PLAN_LABELS[nextPlan]} pour créer jusqu'à ${nextLimit} ${meta.singular}s.`
                   : " Vous avez atteint le quota maximum du forfait Expert — renouvelez vos quotas pour continuer."}
               </p>
@@ -99,7 +98,7 @@ export function RequireQuota({ type, children }: { type: QuotaType; children: Re
                 <Button
                   size="lg"
                   className="w-full sm:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
-                  onClick={() => navigate(`/dashboard/pricing?type=${type === "construction" ? "construction" : "investment"}`)}
+                  onClick={() => navigate("/dashboard/pricing")}
                 >
                   <RefreshCcw className="h-4 w-4" />
                   Renouveler les quotas
@@ -110,7 +109,7 @@ export function RequireQuota({ type, children }: { type: QuotaType; children: Re
                     size="lg"
                     variant="outline"
                     className="w-full sm:w-auto gap-2"
-                    onClick={() => navigate(`/dashboard/pricing?type=${type === "construction" ? "construction" : "investment"}&plan=${nextPlan}`)}
+                    onClick={() => navigate(`/dashboard/pricing?plan=${nextPlan}`)}
                   >
                     <CreditCard className="h-4 w-4" />
                     Passer à {PLAN_LABELS[nextPlan]}

@@ -559,12 +559,12 @@ export default function ProjectDetail() {
                         Choisissez un forfait de construction pour débloquer les téléchargements PDF de vos devis.
                       </p>
                       <div className="text-xs text-muted-foreground/60 space-y-1 mb-4">
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Start 40 TND</strong> — 1 projet · 1 téléchargement PDF</p>
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Pro 120 TND</strong> — 10 projets · 10 téléchargements PDF</p>
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Expert 320 TND</strong> — 30 projets · 30 téléchargements PDF</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Start 79 TND</strong> — 1 projet · 1 analyse · 1 plan · 1 téléchargement PDF</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Pro 120 TND</strong> — 5 projets · 5 analyses · 5 plans · 5 téléchargements PDF</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Expert 320 TND</strong> — 20 projets · 20 analyses · 20 plans · 20 téléchargements PDF</p>
                         <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Paiement par virement bancaire ou D17</p>
                       </div>
-                      <Button className="w-full" onClick={() => { setShowUpgradeDialog(false); navigate("/dashboard/pricing?type=construction"); }}>
+                      <Button className="w-full" onClick={() => { setShowUpgradeDialog(false); navigate("/dashboard/pricing"); }}>
                         Voir les forfaits
                         <ChevronRight className="h-3.5 w-3.5 ml-1" />
                       </Button>

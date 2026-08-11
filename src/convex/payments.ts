@@ -5,10 +5,10 @@ import { getCurrentUser } from "./users";
 // Payment Configuration
 // ============================================================================
 
-// Forfaits à paiement unique (non mensuels), vendus par type de projet :
-//   Construction : Start 40 TND (1 projet · 1 PDF) | Pro 120 (10) | Expert 320 (30)
-//   Investissement : Start 79 TND (1 analyse · 1 PDF) | Pro 120 (10) | Expert 320 (30)
-//   Plans architecturaux : Gratuit — illimité.
+// Forfaits à paiement unique (non mensuels) — un seul forfait couvre tout :
+//   Start 79 TND  → 1 projet · 1 analyse · 1 plan · 1 PDF
+//   Pro 120 TND   → 5 projets · 5 analyses · 5 plans · 5 PDF
+//   Expert 320 TND → 20 projets · 20 analyses · 20 plans · 20 PDF
 const UNLIMITED = 1000000;
 const DEFAULT_PLAN_PRICING = {
   startPrice: 79,
@@ -16,25 +16,18 @@ const DEFAULT_PLAN_PRICING = {
   expertPrice: 320,
   supplierPrice: 120,
   currency: "TND",
-  // Prix par type de projet (forfaits indépendants)
-  constructionStartPrice: 40,
-  constructionProPrice: 120,
-  constructionExpertPrice: 320,
-  investmentStartPrice: 79,
-  investmentProPrice: 120,
-  investmentExpertPrice: 320,
   freeProjectLimit: 1,
-  proProjectLimit: 10,
-  expertProjectLimit: 30,
+  proProjectLimit: 5,
+  expertProjectLimit: 20,
   freeInvestmentLimit: 1,
-  proInvestmentLimit: 10,
-  expertInvestmentLimit: 30,
-  freePlanLimit: UNLIMITED,
-  proPlanLimit: UNLIMITED,
-  expertPlanLimit: UNLIMITED,
+  proInvestmentLimit: 5,
+  expertInvestmentLimit: 20,
+  freePlanLimit: 1,
+  proPlanLimit: 5,
+  expertPlanLimit: 20,
   freeDownloadLimit: 1,
-  proDownloadLimit: 10,
-  expertDownloadLimit: 30,
+  proDownloadLimit: 5,
+  expertDownloadLimit: 20,
   bankName: "",
   bankTitulaire: "",
   bankRib: "",
@@ -64,12 +57,6 @@ export const getPlanPricing = query({
       proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
       expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
       supplierPrice: config.supplierPrice ?? DEFAULT_PLAN_PRICING.supplierPrice,
-      constructionStartPrice: config.constructionStartPrice ?? DEFAULT_PLAN_PRICING.constructionStartPrice,
-      constructionProPrice: config.constructionProPrice ?? DEFAULT_PLAN_PRICING.constructionProPrice,
-      constructionExpertPrice: config.constructionExpertPrice ?? DEFAULT_PLAN_PRICING.constructionExpertPrice,
-      investmentStartPrice: config.investmentStartPrice ?? DEFAULT_PLAN_PRICING.investmentStartPrice,
-      investmentProPrice: config.investmentProPrice ?? DEFAULT_PLAN_PRICING.investmentProPrice,
-      investmentExpertPrice: config.investmentExpertPrice ?? DEFAULT_PLAN_PRICING.investmentExpertPrice,
       freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
@@ -95,7 +82,7 @@ export const updatePlanPricing = mutation({
     investmentLimit: v.optional(v.number()),
     planLimit: v.optional(v.number()),
     downloadLimit: v.optional(v.number()),
-    // Prix d'un type de projet spécifique (construction / investissement)
+    // Rétrocompatibilité : un prix unique par forfait couvre tous les types
     type: v.optional(v.union(v.literal("construction"), v.literal("investment"))),
   },
   handler: async (ctx, args) => {
@@ -112,16 +99,7 @@ export const updatePlanPricing = mutation({
     const patch: Record<string, any> = {};
     const plan = args.plan;
 
-    // Prix par type de projet (forfaits indépendants construction / investissement)
-    if (args.type === "construction") {
-      const key =
-        plan === "free" ? "constructionStartPrice" : plan === "expert" ? "constructionExpertPrice" : "constructionProPrice";
-      if (args.price !== undefined) patch[key] = args.price;
-    } else if (args.type === "investment") {
-      const key =
-        plan === "free" ? "investmentStartPrice" : plan === "expert" ? "investmentExpertPrice" : "investmentProPrice";
-      if (args.price !== undefined) patch[key] = args.price;
-    } else if (plan === "free") {
+    if (plan === "free") {
       if (args.price !== undefined) patch.startPrice = args.price;
       if (args.projectLimit !== undefined) patch.freeProjectLimit = args.projectLimit;
       if (args.investmentLimit !== undefined) patch.freeInvestmentLimit = args.investmentLimit;
@@ -141,8 +119,6 @@ export const updatePlanPricing = mutation({
       if (args.downloadLimit !== undefined) patch.expertDownloadLimit = args.downloadLimit;
     } else if (plan === "supplier") {
       if (args.price !== undefined) patch.supplierPrice = args.price;
-      if (args.projectLimit !== undefined) patch.supplierProjectLimit = args.projectLimit;
-      if (args.downloadLimit !== undefined) patch.supplierDownloadLimit = args.downloadLimit;
     }
 
     if (existingConfig) {
@@ -175,12 +151,6 @@ export const getPublicPricing = query({
       proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
       expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
       supplierPrice: config.supplierPrice ?? DEFAULT_PLAN_PRICING.supplierPrice,
-      constructionStartPrice: config.constructionStartPrice ?? DEFAULT_PLAN_PRICING.constructionStartPrice,
-      constructionProPrice: config.constructionProPrice ?? DEFAULT_PLAN_PRICING.constructionProPrice,
-      constructionExpertPrice: config.constructionExpertPrice ?? DEFAULT_PLAN_PRICING.constructionExpertPrice,
-      investmentStartPrice: config.investmentStartPrice ?? DEFAULT_PLAN_PRICING.investmentStartPrice,
-      investmentProPrice: config.investmentProPrice ?? DEFAULT_PLAN_PRICING.investmentProPrice,
-      investmentExpertPrice: config.investmentExpertPrice ?? DEFAULT_PLAN_PRICING.investmentExpertPrice,
       freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,

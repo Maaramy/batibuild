@@ -1,20 +1,19 @@
 {
   "pageTitle": "Tarifs - batibuild App",
   "title": "Nos offres",
-  "subtitle": "Forfaits à paiement unique, par type de projet — choisissez celui qui correspond à vos besoins",
+  "subtitle": "Forfaits à paiement unique — un seul forfait couvre vos projets de construction, vos analyses d'investissement et vos plans architecturaux",
   "monthly": "paiement unique",
   "popular": "Populaire",
   "mostPopular": "Le plus populaire",
   "freePlan": {
     "name": "Start",
-    "price": "40 / 79",
-    "priceNote": "Construction 40 TND · Investissement 79 TND",
+    "price": "79",
     "desc": "Pour un premier projet",
     "features": {
       "projects": "1 projet de construction (1 PDF)",
       "investments": "1 analyse d'investissement (1 PDF)",
-      "plans": "Plans architecturaux illimités",
-      "exports": "1 téléchargement PDF par type",
+      "plans": "1 plan architectural 2D / 3D (1 PDF)",
+      "exports": "1 téléchargement PDF",
       "support": "Support email",
       "materials": "Estimation IA aux prix tunisiens"
     }
@@ -24,10 +23,10 @@
     "price": "120",
     "desc": "Pour les professionnels de la construction",
     "features": {
-      "projects": "10 projets de construction (10 PDF)",
-      "investments": "10 analyses d'investissement (10 PDF)",
-      "plans": "Plans architecturaux illimités",
-      "exports": "10 téléchargements PDF par type",
+      "projects": "5 projets de construction (5 PDF)",
+      "investments": "5 analyses d'investissement (5 PDF)",
+      "plans": "5 plans architecturaux 2D / 3D (5 PDF)",
+      "exports": "5 téléchargements PDF",
       "support": "Support prioritaire",
       "materials": "Analyse IA avancée",
       "suppliers": "Comparaison de projets"
@@ -38,10 +37,10 @@
     "price": "320",
     "desc": "Pour les entreprises et grands projets",
     "features": {
-      "projects": "30 projets de construction (30 PDF)",
-      "investments": "30 analyses d'investissement (30 PDF)",
-      "plans": "Plans architecturaux illimités",
-      "exports": "30 téléchargements PDF par type",
+      "projects": "20 projets de construction (20 PDF)",
+      "investments": "20 analyses d'investissement (20 PDF)",
+      "plans": "20 plans architecturaux 2D / 3D (20 PDF)",
+      "exports": "20 téléchargements PDF",
       "support": "Support dédié 24/7",
       "materials": "Analyse IA avancée",
       "suppliers": "Fournisseurs vérifiés prioritaires",

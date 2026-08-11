@@ -28,7 +28,10 @@ export const getMySubscription = query({
 
 /**
  * Quotas de l'utilisateur par type (construction · investissement · plans).
- * Plans architecturaux : gratuits et illimités.
+ * Un seul forfait (paiement unique) couvre les trois types :
+ *   Start 79 TND  → 1 projet · 1 analyse · 1 plan · 1 PDF
+ *   Pro 120 TND   → 5 projets · 5 analyses · 5 plans · 5 PDF
+ *   Expert 320 TND → 20 projets · 20 analyses · 20 plans · 20 PDF
  */
 export const getMyQuotas = query({
   args: {},
@@ -38,54 +41,53 @@ export const getMyQuotas = query({
 
     const configs = await getPlanQuotaConfig(ctx);
 
-    const cSub = await getActiveSubscription(ctx, user._id, "construction");
-    const iSub = await getActiveSubscription(ctx, user._id, "investment");
+    const sub = await getActiveSubscription(ctx, user._id);
 
-    const cUsed = cSub
-      ? (cSub.projectsUsed ?? 0)
+    const cUsed = sub
+      ? (sub.projectsUsed ?? 0)
       : await countUserDocs(ctx, user._id, "projects");
-    const iUsed = iSub
-      ? (iSub.investmentsUsed ?? 0)
+    const iUsed = sub
+      ? (sub.investmentsUsed ?? 0)
       : await countUserDocs(ctx, user._id, "investments");
-    const pUsed = await countUserDocs(ctx, user._id, "plans");
+    const pUsed = sub
+      ? (sub.plansUsed ?? 0)
+      : await countUserDocs(ctx, user._id, "plans");
 
-    const cPlan = cSub?.plan ?? "free";
-    const iPlan = iSub?.plan ?? "free";
-    const cLimit = configs[cPlan].projects;
-    const iLimit = configs[iPlan].investments;
+    const plan = sub?.plan ?? "free";
+    const cLimit = configs[plan].projects;
+    const iLimit = configs[plan].investments;
+    const pLimit = configs[plan].plans;
+
+    const downloadsBase = {
+      used: sub ? (sub.monthlyDownloadCount ?? 0) : 0,
+      limit: sub ? configs[plan].downloads : 0,
+      allowed: !!sub,
+    };
 
     return {
       construction: {
         kind: "construction" as const,
-        plan: cPlan,
+        plan,
         used: cUsed,
         limit: cLimit,
         reached: cUsed >= cLimit,
-        downloads: {
-          used: cSub ? (cSub.monthlyDownloadCount ?? 0) : 0,
-          limit: cSub ? configs[cPlan].downloads : 0,
-          allowed: !!cSub,
-        },
+        downloads: downloadsBase,
       },
       investment: {
         kind: "investment" as const,
-        plan: iPlan,
+        plan,
         used: iUsed,
         limit: iLimit,
         reached: iUsed >= iLimit,
-        downloads: {
-          used: iSub ? (iSub.monthlyDownloadCount ?? 0) : 0,
-          limit: iSub ? configs[iPlan].downloads : 0,
-          allowed: !!iSub,
-        },
+        downloads: downloadsBase,
       },
       plans: {
         kind: "plans" as const,
-        plan: "free",
+        plan,
         used: pUsed,
-        limit: UNLIMITED,
-        reached: false,
-        downloads: { used: 0, limit: UNLIMITED, allowed: true },
+        limit: pLimit,
+        reached: pUsed >= pLimit,
+        downloads: downloadsBase,
       },
     };
   },
@@ -156,12 +158,12 @@ export interface PlanQuota {
   downloads: number;
 }
 
-/** Quotas par défaut (Start 1 · Pro 10 · Expert 30 — plans illimités). */
+/** Quotas par défaut (Start 79 TND 1/1/1/1 · Pro 120 TND 5/5/5/5 · Expert 320 TND 20/20/20/20). */
 export const UNLIMITED = 1000000;
 export const DEFAULT_QUOTAS: Record<string, PlanQuota> = {
-  free: { projects: 1, investments: 1, plans: UNLIMITED, downloads: 1 },
-  pro: { projects: 10, investments: 10, plans: UNLIMITED, downloads: 10 },
-  expert: { projects: 30, investments: 30, plans: UNLIMITED, downloads: 30 },
+  free: { projects: 1, investments: 1, plans: 1, downloads: 1 },
+  pro: { projects: 5, investments: 5, plans: 5, downloads: 5 },
+  expert: { projects: 20, investments: 20, plans: 20, downloads: 20 },
 };
 
 /** Lit les quotas par forfait depuis paymentConfig (fallback aux défauts). */
@@ -195,29 +197,24 @@ export async function getPlanQuotaConfig(ctx: any): Promise<Record<string, PlanQ
 type SubKind = "construction" | "investment";
 
 /**
- * Abonnement actif de l'utilisateur pour un type donné.
- * Les abonnements legacy (sans `kind`) couvrent la construction.
+ * Abonnement actif de l'utilisateur (un seul forfait couvre la construction,
+ * l'investissement et les plans architecturaux).
  */
-async function getActiveSubscription(ctx: any, userId: any, kind?: SubKind) {
+async function getActiveSubscription(ctx: any, userId: any, _kind?: SubKind) {
   const subs = await ctx.db
     .query("subscriptions")
     .withIndex("by_user", (q: any) => q.eq("userId", userId))
     .order("desc")
     .collect();
-  return (
-    subs.find(
-      (s: any) =>
-        s.status === "active" &&
-        (kind ? s.kind === kind || (kind === "construction" && !s.kind) : true),
-    ) ?? null
-  );
+  return subs.find((s: any) => s.status === "active") ?? null;
 }
 
-/** Type d'abonnement correspondant à un quota. */
+/** Type d'abonnement correspondant à un quota (tous couverts par le même forfait). */
 function subKindForQuota(kind: QuotaKind): SubKind | null {
   if (kind === "projects") return "construction";
   if (kind === "investments") return "investment";
-  return null; // plans → illimité
+  if (kind === "plans") return "construction";
+  return null;
 }
 
 const KIND_TO_SUB_FIELD: Record<QuotaKind, string> = {
@@ -252,11 +249,6 @@ export async function checkQuota(
   user: any,
   kind: QuotaKind,
 ): Promise<{ allowed: boolean; limit: number; used: number; plan: string; reason: string }> {
-  // Plans architecturaux : forfait gratuit — quota illimité.
-  if (kind === "plans") {
-    return { allowed: true, limit: UNLIMITED, used: 0, plan: "free", reason: "ok" };
-  }
-
   const configs = await getPlanQuotaConfig(ctx);
   const sub = await getActiveSubscription(ctx, user._id, subKindForQuota(kind) ?? undefined);
   const plan = sub?.plan ?? "free";
@@ -273,7 +265,7 @@ export async function checkQuota(
   return { allowed, limit, used, plan: "free", reason: allowed ? "ok" : "limite_atteinte" };
 }
 
-/** Incrémente le compteur de quota de l'abonnement actif du type (plans : no-op). */
+/** Incrémente le compteur de quota de l'abonnement actif. */
 export async function consumeQuota(ctx: any, user: any, kind: QuotaKind): Promise<void> {
   const subKind = subKindForQuota(kind);
   if (!subKind) return;
@@ -287,7 +279,7 @@ export async function consumeQuota(ctx: any, user: any, kind: QuotaKind): Promis
 }
 
 /**
- * Décrémente le compteur de quota de l'abonnement actif du type (plans : no-op).
+ * Décrémente le compteur de quota de l'abonnement actif.
  * Utilisé quand un administrateur supprime un document (projet, analyse,
  * plan) : le quota consommé est libéré pour l'utilisateur concerné.
  */
@@ -422,16 +414,15 @@ export const createSubscription = mutation({
     const downloadLimit = quotas[args.plan]?.downloads ?? 1;
     const duration = ONE_TIME_DURATION;
 
-    // Cancel existing active subscriptions of the same type only — un forfait
-    // construction ne remplace pas un forfait investissement et inversement.
+    // Un seul forfait actif à la fois : un nouvel achat remplace l'ancien
+    // (paiement unique — renouvellement des quotas).
     const existing = await ctx.db
       .query("subscriptions")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
 
     for (const sub of existing) {
-      const sameKind = sub.kind === kind || (kind === "construction" && !sub.kind);
-      if (sub.status === "active" && sameKind) {
+      if (sub.status === "active") {
         await ctx.db.patch(sub._id, { status: "canceled", updatedAt: now });
       }
     }

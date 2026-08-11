@@ -1,20 +1,19 @@
 {
   "pageTitle": "Pricing - batibuild App",
   "title": "Our plans",
-  "subtitle": "One-time payment plans, per project type — choose the one that fits your needs",
+  "subtitle": "One-time payment plans — a single plan covers your construction projects, investment analyses and architectural plans",
   "monthly": "one-time payment",
   "popular": "Popular",
   "mostPopular": "Most popular",
   "freePlan": {
     "name": "Start",
-    "price": "40 / 79",
-    "priceNote": "Construction 40 TND · Investment 79 TND",
+    "price": "79",
     "desc": "For a first project",
     "features": {
       "projects": "1 construction project (1 PDF)",
       "investments": "1 investment analysis (1 PDF)",
-      "plans": "Unlimited architectural plans",
-      "exports": "1 PDF download per type",
+      "plans": "1 architectural 2D / 3D plan (1 PDF)",
+      "exports": "1 PDF download",
       "support": "Email support",
       "materials": "AI estimation at Tunisian prices"
     }
@@ -24,10 +23,10 @@
     "price": "120",
     "desc": "For construction professionals",
     "features": {
-      "projects": "10 construction projects (10 PDF)",
-      "investments": "10 investment analyses (10 PDF)",
-      "plans": "Unlimited architectural plans",
-      "exports": "10 PDF downloads per type",
+      "projects": "5 construction projects (5 PDF)",
+      "investments": "5 investment analyses (5 PDF)",
+      "plans": "5 architectural 2D / 3D plans (5 PDF)",
+      "exports": "5 PDF downloads",
       "support": "Priority support",
       "materials": "Advanced AI analysis",
       "suppliers": "Project comparison"
@@ -38,10 +37,10 @@
     "price": "320",
     "desc": "For companies and large projects",
     "features": {
-      "projects": "30 construction projects (30 PDF)",
-      "investments": "30 investment analyses (30 PDF)",
-      "plans": "Unlimited architectural plans",
-      "exports": "30 PDF downloads per type",
+      "projects": "20 construction projects (20 PDF)",
+      "investments": "20 investment analyses (20 PDF)",
+      "plans": "20 architectural 2D / 3D plans (20 PDF)",
+      "exports": "20 PDF downloads",
       "support": "24/7 dedicated support",
       "materials": "Advanced AI analysis",
       "suppliers": "Priority verified suppliers",

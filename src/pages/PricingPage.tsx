@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useNavigate, useSearchParams } from "react-router";
-import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, FileText, Banknote, Copy, CheckCheck, Smartphone, Wallet, Landmark, UserRound, Upload, Image, X, Sparkles, Download, RefreshCcw } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Banknote, Copy, CheckCheck, Smartphone, Wallet, Landmark, UserRound, Upload, Image, X, Sparkles, RefreshCcw } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
@@ -26,34 +26,20 @@ const DEFAULT_PAYMENT = {
   supplierPrice: 120,
   expertPrice: 320,
   currency: "TND",
-  // Prix par type de projet — forfaits indépendants (paiement unique)
-  constructionStartPrice: 40,
-  constructionProPrice: 120,
-  constructionExpertPrice: 320,
-  investmentStartPrice: 79,
-  investmentProPrice: 120,
-  investmentExpertPrice: 320,
 };
 
-// Forfaits à paiement unique, vendus indépendamment par type de projet :
-//   Construction   : Start 40 TND (1 projet · 1 PDF) | Pro 120 (10) | Expert 320 (30)
-//   Investissement : Start 79 TND (1 analyse · 1 PDF) | Pro 120 (10) | Expert 320 (30)
-//   Plans architecturaux : Gratuit — illimité.
+// Forfaits à paiement unique — un seul forfait couvre tout :
+//   Start 79 TND  → 1 projet de construction · 1 analyse d'investissement · 1 plan architectural · 1 PDF
+//   Pro 120 TND   → 5 projets · 5 analyses · 5 plans · 5 PDF
+//   Expert 320 TND → 20 projets · 20 analyses · 20 plans · 20 PDF
 type PlanId = "free" | "pro" | "expert";
-type ForfaitType = "construction" | "investment";
 
 const PLAN_LABELS: Record<string, string> = { free: "Start", pro: "Pro", expert: "Expert" };
 
-const CONSTRUCTION_PLANS: { id: PlanId; quota: number; description: string; popular?: boolean }[] = [
-  { id: "free", quota: 1, description: "Pour démarrer un premier projet de construction" },
-  { id: "pro", quota: 10, description: "Pour les professionnels de la construction" },
-  { id: "expert", quota: 30, description: "Pour les entreprises et les grands projets", popular: true },
-];
-
-const INVESTMENT_PLANS: { id: PlanId; quota: number; description: string; popular?: boolean }[] = [
-  { id: "free", quota: 1, description: "Pour analyser une première opportunité" },
-  { id: "pro", quota: 10, description: "Pour les investisseurs actifs" },
-  { id: "expert", quota: 30, description: "Pour les promoteurs et les portefeuilles importants", popular: true },
+const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean }[] = [
+  { id: "free", quota: 1, description: "Pour démarrer avec un premier projet" },
+  { id: "pro", quota: 5, description: "Pour les professionnels et les investisseurs actifs" },
+  { id: "expert", quota: 20, description: "Pour les entreprises et les grands projets", popular: true },
 ];
 
 function PaymentField({
@@ -91,7 +77,7 @@ function PaymentField({
 }
 
 export default function PricingPage() {
-  usePageSEO({ title: "Abonnements - batibuild App", description: "Choisissez le forfait batibuild App adapté à vos besoins : Start, Pro ou Expert — paiement unique, par type de projet." });
+  usePageSEO({ title: "Abonnements - batibuild App", description: "Choisissez le forfait batibuild App adapté à vos besoins : Start, Pro ou Expert — paiement unique, sans abonnement mensuel." });
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const currentSubscription = useQuery(api.subscriptions.getMySubscription);
@@ -108,29 +94,20 @@ export default function PricingPage() {
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [searchParams] = useSearchParams();
-  const [selectedType, setSelectedType] = useState<ForfaitType>(() => {
-    const t = searchParams.get("type");
-    return t === "investment" ? "investment" : "construction";
-  });
   const [selectedPlan, setSelectedPlan] = useState<PlanId>(() => {
     const p = searchParams.get("plan");
     return p === "expert" ? "expert" : p === "pro" ? "pro" : "free";
   });
 
-  // Prix par type + forfait
-  const priceFor = (type: ForfaitType, plan: PlanId): number => {
+  // Prix par forfait
+  const priceFor = (plan: PlanId): number => {
     const c = paymentConfig as any;
-    if (type === "construction") {
-      if (plan === "free") return c?.constructionStartPrice ?? DEFAULT_PAYMENT.constructionStartPrice;
-      if (plan === "pro") return c?.constructionProPrice ?? DEFAULT_PAYMENT.constructionProPrice;
-      return c?.constructionExpertPrice ?? DEFAULT_PAYMENT.constructionExpertPrice;
-    }
-    if (plan === "free") return c?.investmentStartPrice ?? DEFAULT_PAYMENT.investmentStartPrice;
-    if (plan === "pro") return c?.investmentProPrice ?? DEFAULT_PAYMENT.investmentProPrice;
-    return c?.investmentExpertPrice ?? DEFAULT_PAYMENT.investmentExpertPrice;
+    if (plan === "free") return c?.startPrice ?? DEFAULT_PAYMENT.startPrice;
+    if (plan === "pro") return c?.proPrice ?? DEFAULT_PAYMENT.proPrice;
+    return c?.expertPrice ?? DEFAULT_PAYMENT.expertPrice;
   };
 
-  const currentPrice = priceFor(selectedType, selectedPlan);
+  const currentPrice = priceFor(selectedPlan);
   const currency = paymentConfig?.currency || DEFAULT_PAYMENT.currency;
 
   const BANK_INFO: Record<string, string> = paymentConfig ? {
@@ -166,21 +143,17 @@ export default function PricingPage() {
   const isPending = currentSubscription?.status === "pending";
   const construction = quotas?.construction;
   const investment = quotas?.investment;
-  const constructionPlan = construction?.plan ?? "free";
-  const investmentPlan = investment?.plan ?? "free";
+  const plans = quotas?.plans;
+  const currentPlan = construction?.plan ?? "free";
 
-  const isCurrentPlan = (type: ForfaitType, plan: PlanId) => {
-    const current = type === "construction" ? constructionPlan : investmentPlan;
-    return current === plan && !isPending;
-  };
+  const isCurrentPlan = (plan: PlanId) => currentPlan === plan && !isPending;
 
-  const handleSelectPlan = async (type: ForfaitType, planId: PlanId) => {
+  const handleSelectPlan = async (planId: PlanId) => {
     if (!isAuthenticated) {
       navigate("/auth");
       return;
     }
 
-    setSelectedType(type);
     setSelectedPlan(planId);
 
     // Scroll to payment method section smoothly
@@ -188,12 +161,11 @@ export default function PricingPage() {
       paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
 
-    const planAmount = priceFor(type, planId);
+    const planAmount = priceFor(planId);
 
-    // Forfaits à paiement unique — création de l'abonnement pour ce type
+    // Forfait à paiement unique — un seul abonnement couvre tous les types
     await createSubscription({
       plan: planId,
-      kind: type,
       paymentMethod: paymentMethod,
       amount: planAmount,
       currency: paymentConfig?.currency ?? DEFAULT_PAYMENT.currency,
@@ -277,7 +249,6 @@ export default function PricingPage() {
   };
 
   const renderPlanCard = (
-    type: ForfaitType,
     plan: PlanId,
     price: number,
     quota: number,
@@ -285,14 +256,12 @@ export default function PricingPage() {
     popular?: boolean,
     index = 0,
   ) => {
-    const isCurrent = isCurrentPlan(type, plan);
-    const reached = type === "construction"
-      ? (construction?.reached ?? false)
-      : (investment?.reached ?? false);
+    const isCurrent = isCurrentPlan(plan);
+    const reached = construction?.reached || investment?.reached || plans?.reached;
 
     return (
       <motion.div
-        key={`${type}-${plan}`}
+        key={plan}
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.1, duration: 0.5 }}
@@ -333,8 +302,19 @@ export default function PricingPage() {
           <li className="flex items-start gap-2 text-sm">
             <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <span>
-              {quota} {type === "construction" ? "projet" : "analyse"}
-              {quota > 1 ? "s" : ""} de {type === "construction" ? "construction" : "rentabilité immobilière"}
+              {quota} projet{quota > 1 ? "s" : ""} de construction
+            </span>
+          </li>
+          <li className="flex items-start gap-2 text-sm">
+            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <span>
+              {quota} analyse{quota > 1 ? "s" : ""} de rentabilité immobilière
+            </span>
+          </li>
+          <li className="flex items-start gap-2 text-sm">
+            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <span>
+              {quota} plan{quota > 1 ? "s" : ""} architectural{quota > 1 ? "x" : ""} 2D / 3D par IA
             </span>
           </li>
           <li className="flex items-start gap-2 text-sm">
@@ -345,16 +325,12 @@ export default function PricingPage() {
             <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <span>Estimation IA aux prix tunisiens</span>
           </li>
-          <li className="flex items-start gap-2 text-sm">
-            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <span>Plans architecturaux illimités inclus</span>
-          </li>
         </ul>
 
         <Button
           variant={popular && !isCurrent ? "default" : "outline"}
           className="w-full h-11 text-sm gap-1"
-          onClick={() => handleSelectPlan(type, plan)}
+          onClick={() => handleSelectPlan(plan)}
           disabled={(!reached && isCurrent) || (isPending && plan === currentSubscription?.plan)}
         >
           {isCurrent && !reached
@@ -390,92 +366,54 @@ export default function PricingPage() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
         <div className="text-center mb-8">
           <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Construction : {PLAN_LABELS[constructionPlan]} · Investissement : {PLAN_LABELS[investmentPlan]}
+            Forfait actuel : {PLAN_LABELS[currentPlan]}
             {isPending && " (En attente de validation)"}
           </Badge>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez vos forfaits</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre forfait</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
-            Paiement unique — aucune reconduction mensuelle. Les forfaits de construction et d'investissement sont
-            indépendants : quand vos quotas sont épuisés, vous renouvelez ou passez à une offre supérieure.
-            Les plans architecturaux sont gratuits et illimités.
+            Paiement unique — aucune reconduction mensuelle. Chaque forfait inclut des quotas de projets de
+            construction, d'analyses d'investissement et de plans architecturaux, ainsi que des téléchargements PDF.
+            Quand vos quotas sont épuisés, vous renouvelez ou passez à une offre supérieure.
           </p>
         </div>
 
-        {/* ═══ Projets de construction ═══ */}
-        <div className="mb-4 flex items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10">
-            <HardHat className="h-5 w-5 text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold leading-tight">Projets de construction</h2>
-            <p className="text-xs text-muted-foreground">Estimation du coût de vos projets de construction, aménagement et rénovation</p>
-          </div>
-        </div>
+        {/* ═══ Les 3 forfaits ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          {CONSTRUCTION_PLANS.map((p, i) =>
-            renderPlanCard("construction", p.id, priceFor("construction", p.id), p.quota, p.description, p.popular, i),
+          {PLANS.map((p, i) =>
+            renderPlanCard(p.id, priceFor(p.id), p.quota, p.description, p.popular, i),
           )}
         </div>
 
-        {/* ═══ Projets d'investissement ═══ */}
-        <div className="mb-4 flex items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10">
-            <Landmark className="h-5 w-5 text-indigo-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold leading-tight">Projets d'investissement</h2>
-            <p className="text-xs text-muted-foreground">Analyse de la rentabilité de vos investissements immobiliers</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          {INVESTMENT_PLANS.map((p, i) =>
-            renderPlanCard("investment", p.id, priceFor("investment", p.id), p.quota, p.description, p.popular, i),
-          )}
-        </div>
-
-        {/* ═══ Plans architecturaux — gratuit ═══ */}
-        <div className="mb-4 flex items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10">
-            <Sparkles className="h-5 w-5 text-violet-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold leading-tight">Plans architecturaux</h2>
-            <p className="text-xs text-muted-foreground">Générateur de plans 2D / 3D par IA</p>
-          </div>
-        </div>
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.5 }}
-          className="relative flex flex-col sm:flex-row sm:items-center gap-5 rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 via-background to-background p-6 sm:p-8 mb-10"
-        >
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-violet-500/10">
-            <Sparkles className="h-6 w-6 text-violet-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-bold">Gratuit</h3>
-              <Badge className="bg-violet-500/10 text-violet-700 border-violet-300/40">
-                <Download className="h-3 w-3 mr-1" /> Téléchargements illimités
-              </Badge>
-              <Badge className="bg-violet-500/10 text-violet-700 border-violet-300/40">
-                <FileText className="h-3 w-3 mr-1" /> PDF haute résolution
-              </Badge>
+        {/* ═══ Récapitulatif inclus dans chaque forfait ═══ */}
+        <div className="mb-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="flex items-start gap-3 rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10">
+              <HardHat className="h-4 w-4 text-blue-600" />
             </div>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              Générez autant de plans architecturaux que vous voulez — plans 2D et 3D cotés, meublés et optimisés par IA.
-              Aucun quota, aucune limite de téléchargement.
-            </p>
+            <div>
+              <p className="text-xs font-semibold">Projets de construction</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Estimation du coût de vos projets, aménagements et rénovations aux prix du marché tunisien.</p>
+            </div>
           </div>
-          <Button
-            size="lg"
-            className="shrink-0 gap-2 bg-violet-600 hover:bg-violet-700 text-white"
-            onClick={() => navigate("/dashboard/plans/new")}
-          >
-            Générer mes plans
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </motion.div>
+          <div className="flex items-start gap-3 rounded-2xl border border-indigo-500/15 bg-indigo-500/5 p-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10">
+              <Landmark className="h-4 w-4 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold">Projets d'investissement</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Analyse de la rentabilité immobilière avec rapport professionnel et export PDF.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10">
+              <Sparkles className="h-4 w-4 text-violet-600" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold">Plans architecturaux</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Générateur de plans 2D / 3D cotés et meublés par IA — export PDF haute résolution.</p>
+            </div>
+          </div>
+        </div>
 
         {/* ═══ Payment Method Section ═══ */}
         <motion.div
@@ -492,36 +430,9 @@ export default function PricingPage() {
             <div>
               <h2 className="text-base font-semibold leading-tight">Moyen de paiement</h2>
               <p className="text-[11px] text-muted-foreground">
-                {selectedType === "construction" ? "Projets de construction" : "Projets d'investissement"} ·{" "}
                 <strong>{PLAN_LABELS[selectedPlan]} · {currentPrice} {currency}</strong> (paiement unique)
               </p>
             </div>
-          </div>
-
-          {/* Type selector */}
-          <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
-            <button
-              onClick={() => setSelectedType("construction")}
-              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-                selectedType === "construction"
-                  ? "border-border/40 bg-background text-blue-600 shadow-sm"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <HardHat className="h-3.5 w-3.5" />
-              Construction
-            </button>
-            <button
-              onClick={() => setSelectedType("investment")}
-              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-                selectedType === "investment"
-                  ? "border-border/40 bg-background text-indigo-600 shadow-sm"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Landmark className="h-3.5 w-3.5" />
-              Investissement
-            </button>
           </div>
 
           {/* Forfait selector */}
@@ -537,7 +448,7 @@ export default function PricingPage() {
                 }`}
               >
                 {PLAN_LABELS[p]}
-                <span className="text-[9px] opacity-70">{priceFor(selectedType, p)}</span>
+                <span className="text-[9px] opacity-70">{priceFor(p)}</span>
               </button>
             ))}
           </div>
@@ -761,7 +672,7 @@ export default function PricingPage() {
             </div>
           )}
 
-          {(construction?.reached || investment?.reached) && (
+          {(construction?.reached || investment?.reached || plans?.reached) && (
             <div className="mt-4 px-4 py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
               <div className="flex items-start gap-2">
                 <RefreshCcw className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -772,6 +683,7 @@ export default function PricingPage() {
                   <p className="text-[10px] text-emerald-700/70 mt-0.5">
                     {construction?.reached && "Vos quotas de construction sont épuisés. "}
                     {investment?.reached && "Vos quotas d'investissement sont épuisés. "}
+                    {plans?.reached && "Vos quotas de plans architecturaux sont épuisés. "}
                     Renouvelez le même forfait ou passez à une offre supérieure — paiement unique, sans abonnement mensuel.
                   </p>
                 </div>

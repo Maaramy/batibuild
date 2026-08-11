@@ -170,16 +170,15 @@ export default function AdminPanel() {
   const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
   const [limitForm, setLimitForm] = useState({
-    // Prix par type de projet (forfaits indépendants — paiement unique)
-    constructionStartPrice: 40, constructionProPrice: 120, constructionExpertPrice: 320,
+    // Prix des forfaits (paiement unique — mêmes prix pour tous les types)
+    constructionStartPrice: 79, constructionProPrice: 120, constructionExpertPrice: 320,
     investmentStartPrice: 79, investmentProPrice: 120, investmentExpertPrice: 320,
     supplierPrice: 120,
-    // Quotas construction (projets + téléchargements PDF)
-    freeProjects: 1, proProjects: 10, expertProjects: 30,
-    // Quotas investissement (analyses + téléchargements PDF)
-    freeInvestments: 1, proInvestments: 10, expertInvestments: 30,
-    // Téléchargements PDF par forfait (mêmes quotas pour construction & investissement)
-    freeDownloadLimit: 1, proDownloads: 10, expertDownloads: 30,
+    // Quotas par forfait : projets de construction / analyses / plans / PDF
+    freeProjects: 1, proProjects: 5, expertProjects: 20,
+    freeInvestments: 1, proInvestments: 5, expertInvestments: 20,
+    freePlans: 1, proPlans: 5, expertPlans: 20,
+    freeDownloadLimit: 1, proDownloads: 5, expertDownloads: 20,
   });
   const [savingLimits, setSavingLimits] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
@@ -188,29 +187,32 @@ export default function AdminPanel() {
     d17MerchantName: "", d17Phone: "", d17Email: "", d17Notice: "",
   });
 
-  // Sync local form when config loads
+  // Sync local form when config loads (prix uniques par forfait, appliqués aux deux types)
   useEffect(() => {
     if (planForm) {
       setLimitForm({
-        constructionStartPrice: (planForm as any).constructionStartPrice ?? 40,
-        constructionProPrice: (planForm as any).constructionProPrice ?? 120,
-        constructionExpertPrice: (planForm as any).constructionExpertPrice ?? 320,
-        investmentStartPrice: (planForm as any).investmentStartPrice ?? 79,
-        investmentProPrice: (planForm as any).investmentProPrice ?? 120,
-        investmentExpertPrice: (planForm as any).investmentExpertPrice ?? 320,
+        constructionStartPrice: planForm.startPrice ?? 79,
+        constructionProPrice: planForm.proPrice ?? 120,
+        constructionExpertPrice: planForm.expertPrice ?? 320,
+        investmentStartPrice: planForm.startPrice ?? 79,
+        investmentProPrice: planForm.proPrice ?? 120,
+        investmentExpertPrice: planForm.expertPrice ?? 320,
         freeProjects: planForm.freeProjectLimit ?? 1,
-        proProjects: planForm.proProjectLimit ?? 10,
-        expertProjects: planForm.expertProjectLimit ?? 30,
+        proProjects: planForm.proProjectLimit ?? 5,
+        expertProjects: planForm.expertProjectLimit ?? 20,
         freeInvestments: planForm.freeInvestmentLimit ?? 1,
-        proInvestments: planForm.proInvestmentLimit ?? 10,
-        expertInvestments: planForm.expertInvestmentLimit ?? 30,
+        proInvestments: planForm.proInvestmentLimit ?? 5,
+        expertInvestments: planForm.expertInvestmentLimit ?? 20,
+        freePlans: planForm.freePlanLimit ?? 1,
+        proPlans: planForm.proPlanLimit ?? 5,
+        expertPlans: planForm.expertPlanLimit ?? 20,
         freeDownloadLimit: planForm.freeDownloadLimit ?? 1,
-        proDownloads: planForm.proDownloadLimit ?? 10,
-        expertDownloads: planForm.expertDownloadLimit ?? 30,
+        proDownloads: planForm.proDownloadLimit ?? 5,
+        expertDownloads: planForm.expertDownloadLimit ?? 20,
         supplierPrice: planForm.supplierPrice ?? 120,
       });
     }
-  }, [planForm?.startPrice, planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.freeInvestmentLimit, planForm?.proInvestmentLimit, planForm?.expertInvestmentLimit, planForm?.freePlanLimit, planForm?.proPlanLimit, planForm?.expertPlanLimit, planForm?.freeDownloadLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit, planForm?.supplierPrice, (planForm as any)?.constructionStartPrice, (planForm as any)?.constructionProPrice, (planForm as any)?.constructionExpertPrice, (planForm as any)?.investmentStartPrice, (planForm as any)?.investmentProPrice, (planForm as any)?.investmentExpertPrice]);
+  }, [planForm?.startPrice, planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.freeInvestmentLimit, planForm?.proInvestmentLimit, planForm?.expertInvestmentLimit, planForm?.freePlanLimit, planForm?.proPlanLimit, planForm?.expertPlanLimit, planForm?.freeDownloadLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit, planForm?.supplierPrice]);
 
   // Sync payment form when config loads
   useEffect(() => {
@@ -1199,7 +1201,7 @@ export default function AdminPanel() {
                             size="sm"
                             className="h-8 gap-1.5 text-xs shrink-0"
                             disabled={purgeRunning}
-                            title="Nettoyer les références mortes du stockage (reçus, fichiers, rapports)"
+                            title="Nettoyer les références xyz mortes du stockage (reçus, fichiers, rapports)"
                             onClick={async () => {
                               if (!window.confirm("Lancer le purge du stockage maintenant ?\n\nVérifie tous les fichiers référencés et nettoie les références mortes (reçus, fichiers de projets, rapports dont le fichier n'existe plus).")) return;
                               setPurgeRunning(true);

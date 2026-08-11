@@ -1251,7 +1251,7 @@ export default function NewProject() {
                 <Button
                   size="sm"
                   className="h-10 text-xs gap-2 w-full"
-                  onClick={() => { setLimitExceeded(null); navigate("/dashboard/pricing?type=construction"); }}
+                  onClick={() => { setLimitExceeded(null); navigate("/dashboard/pricing"); }}
                 >
                   <RefreshCcw className="h-4 w-4" />
                   Renouveler les quotas
@@ -1260,7 +1260,7 @@ export default function NewProject() {
                   variant="outline"
                   size="sm"
                   className="h-9 text-xs gap-2 w-full"
-                  onClick={() => { setLimitExceeded(null); navigate("/dashboard/pricing?type=construction&plan=pro"); }}
+                  onClick={() => { setLimitExceeded(null); navigate("/dashboard/pricing?plan=pro"); }}
                 >
                   <Crown className="h-4 w-4" />
                   Passer à l'offre Pro

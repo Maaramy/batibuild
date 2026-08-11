@@ -393,13 +393,15 @@ export default function Dashboard() {
   const investReached = investment?.reached ?? analyses.length >= investLimit;
   const isInvestNearLimit = investUsagePct >= 80;
 
-  // Plans architecturaux — gratuits et illimités
-  const planLimit = 1000000;
-  const planUsagePct = 0;
-  const plansReached = false;
-  const isPlansNearLimit = false;
+  // Plans architecturaux — quota par forfait (Start 1 · Pro 5 · Expert 20)
+  const planData = quotas?.plans;
+  const planUsed = planData?.used ?? planHistory.length;
+  const planLimit = planData?.limit ?? 1;
+  const planUsagePct = planLimit >= 1000000 ? 0 : Math.min(100, Math.round((planUsed / planLimit) * 100));
+  const plansReached = planData?.reached ?? planUsed >= planLimit;
+  const isPlansNearLimit = planUsagePct >= 80;
 
-  const anyNearLimit = isNearLimit || isInvestNearLimit;
+  const anyNearLimit = isNearLimit || isInvestNearLimit || isPlansNearLimit;
 
   // Téléchargements restants par type (forfaits construction / investissement)
   const constructionDownloads = construction?.downloads;
@@ -714,7 +716,7 @@ export default function Dashboard() {
                     <p className="text-[10px] sm:text-xs text-muted-foreground">
                       Construction : <span className="font-semibold text-foreground">{PLAN_LABELS[constructionPlan]}</span> ·
                       Investissement : <span className="font-semibold text-foreground">{PLAN_LABELS[investmentPlan]}</span> ·
-                      Plans : <span className="font-semibold text-violet-600 dark:text-violet-400">Illimités</span>
+                      Plans : <span className="font-semibold text-violet-600 dark:text-violet-400">{PLAN_LABELS[planData?.plan ?? "free"]}</span>
                     </p>
                   </div>
                 </div>
@@ -757,7 +759,7 @@ export default function Dashboard() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => navigate("/dashboard/pricing?type=construction")}
+                        onClick={() => navigate("/dashboard/pricing")}
                         className="h-6 gap-1 px-2 text-[9px] border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30"
                       >
                         <RefreshCcw className="h-3 w-3" />
@@ -790,7 +792,7 @@ export default function Dashboard() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => navigate("/dashboard/pricing?type=investment")}
+                        onClick={() => navigate("/dashboard/pricing")}
                         className="h-6 gap-1 px-2 text-[9px] border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30"
                       >
                         <RefreshCcw className="h-3 w-3" />
@@ -799,21 +801,38 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-                {/* Plans — gratuits & illimités */}
+                {/* Plans — quota par forfait */}
                 <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
                     <span className="flex items-center gap-1.5 text-muted-foreground flex-wrap">
                       <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
                       Plans architecturaux
-                      <Badge className="bg-violet-500/10 text-violet-700 border-violet-300/40 text-[8px] px-1.5 py-0">Gratuit</Badge>
+                      <Badge className="bg-violet-500/10 text-violet-700 border-violet-300/40 text-[8px] px-1.5 py-0">{PLAN_LABELS[planData?.plan ?? "free"]}</Badge>
+                      {plansReached && <Badge className="bg-amber-500/15 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">Limite atteinte</Badge>}
                     </span>
-                    <span className="font-bold tabular-nums text-violet-600 dark:text-violet-400">
-                      {planHistory.length} plan{planHistory.length > 1 ? "s" : ""} · Illimité
+                    <span className={`font-bold tabular-nums ${isPlansNearLimit ? "text-amber-600 dark:text-amber-400" : "text-violet-600 dark:text-violet-400"}`}>
+                      {planUsed}/{planLimit} · {planUsagePct}%
                     </span>
                   </div>
-                  <p className="mt-1 text-[9px] text-muted-foreground">
-                    Forfait gratuit — générez et téléchargez autant de plans architecturaux que vous voulez.
-                  </p>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${isPlansNearLimit ? "bg-gradient-to-r from-amber-400 to-orange-500" : "bg-gradient-to-r from-violet-400 to-purple-500"}`}
+                      style={{ width: `${planUsagePct}%` }}
+                    />
+                  </div>
+                  {plansReached && (
+                    <div className="mt-2 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate("/dashboard/pricing")}
+                        className="h-6 gap-1 px-2 text-[9px] border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                      >
+                        <RefreshCcw className="h-3 w-3" />
+                        Renouveler les quotas
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -854,7 +873,7 @@ export default function Dashboard() {
           </Card>
 
           {/* ── Quota warnings par type (presque atteinte / atteinte) ── */}
-          {(isNearLimit || isInvestNearLimit || projectsReached || investReached) && (
+          {(isNearLimit || isInvestNearLimit || isPlansNearLimit || projectsReached || investReached || plansReached) && (
             <div className="space-y-2.5">
               {[
                 {
@@ -881,6 +900,18 @@ export default function Dashboard() {
                     ? `Vous avez utilisé ${analyses.length}/${investLimit} analyses d'investissement de votre forfait ${PLAN_LABELS[investmentPlan]}.`
                     : `Vous avez utilisé ${investUsagePct}% de votre limite de ${investLimit} analyses d'investissement.`,
                 },
+                {
+                  show: isPlansNearLimit || plansReached,
+                  reached: plansReached,
+                  type: "plans",
+                  plan: planData?.plan ?? "free",
+                  title: plansReached
+                    ? "Limite de plans architecturaux atteinte"
+                    : "Limite de plans architecturaux presque atteinte",
+                  body: plansReached
+                    ? `Vous avez utilisé ${planUsed}/${planLimit} plans architecturaux de votre forfait ${PLAN_LABELS[planData?.plan ?? "free"]}.`
+                    : `Vous avez utilisé ${planUsagePct}% de votre limite de ${planLimit} plans architecturaux.`,
+                },
               ]
                 .filter((w) => w.show)
                 .map((w, i) => {
@@ -900,7 +931,7 @@ export default function Dashboard() {
                             <Button
                               size="sm"
                               className="h-7 gap-1 text-[10px] sm:text-xs bg-amber-500 hover:bg-amber-600 text-white border-0"
-                              onClick={() => navigate(`/dashboard/pricing?type=${w.type}`)}
+                              onClick={() => navigate("/dashboard/pricing")}
                             >
                               <RefreshCcw className="h-3 w-3" />
                               Renouveler les quotas
@@ -910,7 +941,7 @@ export default function Dashboard() {
                                 size="sm"
                                 variant="outline"
                                 className="h-7 text-[10px] sm:text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                                onClick={() => navigate(`/dashboard/pricing?type=${w.type}&plan=${nextPlan}`)}
+                                onClick={() => navigate(`/dashboard/pricing?plan=${nextPlan}`)}
                               >
                                 Passer à {PLAN_LABELS[nextPlan]}
                               </Button>
