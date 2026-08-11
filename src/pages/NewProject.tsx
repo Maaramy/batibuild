@@ -14,7 +14,7 @@ import { useNavigate } from "react-router";
 import {
   ArrowLeft, Upload, FileImage, FileText, Map, Pen, Ruler,
   Loader2, Check, X, Building2, ChevronRight, ChevronDown, HardHat, Image,
-  FileUp, MapPin, AlertCircle, Asterisk, Crown, AlertTriangle,
+  FileUp, MapPin, AlertCircle, Asterisk, Crown, AlertTriangle, RefreshCcw,
   CircleDot, CircleDashed, CircleCheck, Circle,
   Home, Building, Car, Sofa,
   BedDouble, LayoutGrid,
@@ -1251,7 +1251,16 @@ export default function NewProject() {
                 <Button
                   size="sm"
                   className="h-10 text-xs gap-2 w-full"
-                  onClick={() => { navigate("/pricing"); }}
+                  onClick={() => { setLimitExceeded(null); navigate("/dashboard/pricing?type=construction"); }}
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                  Renouveler les quotas
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 text-xs gap-2 w-full"
+                  onClick={() => { setLimitExceeded(null); navigate("/dashboard/pricing?type=construction&plan=pro"); }}
                 >
                   <Crown className="h-4 w-4" />
                   Passer à l'offre Pro

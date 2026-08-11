@@ -396,7 +396,7 @@ export default function PlanGenerator() {
           duration: 12000,
           action: {
             label: "Voir les forfaits",
-            onClick: () => navigate("/pricing"),
+            onClick: () => navigate("/dashboard/pricing"),
           },
         });
       } else {

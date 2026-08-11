@@ -355,9 +355,9 @@ export default function PricingPage() {
           variant={popular && !isCurrent ? "default" : "outline"}
           className="w-full h-11 text-sm gap-1"
           onClick={() => handleSelectPlan(type, plan)}
-          disabled={isCurrent || (isPending && plan === currentSubscription?.plan)}
+          disabled={(!reached && isCurrent) || (isPending && plan === currentSubscription?.plan)}
         >
-          {isCurrent
+          {isCurrent && !reached
             ? "Offre actuelle"
             : isPending && plan === currentSubscription?.plan
             ? "En attente..."

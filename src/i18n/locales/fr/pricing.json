@@ -1,19 +1,20 @@
 {
   "pageTitle": "Tarifs - batibuild App",
   "title": "Nos offres",
-  "subtitle": "Forfaits à paiement unique — choisissez celui qui correspond à vos besoins",
+  "subtitle": "Forfaits à paiement unique, par type de projet — choisissez celui qui correspond à vos besoins",
   "monthly": "paiement unique",
   "popular": "Populaire",
   "mostPopular": "Le plus populaire",
   "freePlan": {
     "name": "Start",
-    "price": "79",
+    "price": "40 / 79",
+    "priceNote": "Construction 40 TND · Investissement 79 TND",
     "desc": "Pour un premier projet",
     "features": {
-      "projects": "1 projet de construction",
-      "investments": "1 analyse d'investissement",
-      "plans": "1 plan d'architecture",
-      "exports": "1 téléchargement PDF",
+      "projects": "1 projet de construction (1 PDF)",
+      "investments": "1 analyse d'investissement (1 PDF)",
+      "plans": "Plans architecturaux illimités",
+      "exports": "1 téléchargement PDF par type",
       "support": "Support email",
       "materials": "Estimation IA aux prix tunisiens"
     }
@@ -23,10 +24,10 @@
     "price": "120",
     "desc": "Pour les professionnels de la construction",
     "features": {
-      "projects": "5 projets de construction",
-      "investments": "5 analyses d'investissement",
-      "plans": "5 plans d'architecture",
-      "exports": "5 téléchargements PDF",
+      "projects": "10 projets de construction (10 PDF)",
+      "investments": "10 analyses d'investissement (10 PDF)",
+      "plans": "Plans architecturaux illimités",
+      "exports": "10 téléchargements PDF par type",
       "support": "Support prioritaire",
       "materials": "Analyse IA avancée",
       "suppliers": "Comparaison de projets"
@@ -37,10 +38,10 @@
     "price": "320",
     "desc": "Pour les entreprises et grands projets",
     "features": {
-      "projects": "20 projets de construction",
-      "investments": "20 analyses d'investissement",
-      "plans": "20 plans d'architecture",
-      "exports": "20 téléchargements PDF",
+      "projects": "30 projets de construction (30 PDF)",
+      "investments": "30 analyses d'investissement (30 PDF)",
+      "plans": "Plans architecturaux illimités",
+      "exports": "30 téléchargements PDF par type",
       "support": "Support dédié 24/7",
       "materials": "Analyse IA avancée",
       "suppliers": "Fournisseurs vérifiés prioritaires",

@@ -544,9 +544,9 @@ export default function ProjectDetail() {
                 <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
                   <DialogContent className="sm:max-w-sm rounded-2xl">
                     <DialogHeader>
-                      <DialogTitle className="text-base">Offre Start</DialogTitle>
+                      <DialogTitle className="text-base">Forfait de construction requis</DialogTitle>
                       <DialogDescription className="text-xs">
-                        Le téléchargement de devis en PDF nécessite un forfait payant
+                        Le téléchargement de devis en PDF nécessite un forfait actif (paiement unique)
                       </DialogDescription>
                     </DialogHeader>
                     <div className="py-2 text-center">
@@ -556,20 +556,21 @@ export default function ProjectDetail() {
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
-                        Passez à l'offre <strong>Pro à 120 TND (paiement unique)</strong> pour télécharger vos devis en PDF.
+                        Choisissez un forfait de construction pour débloquer les téléchargements PDF de vos devis.
                       </p>
                       <div className="text-xs text-muted-foreground/60 space-y-1 mb-4">
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />{checkDownloadAllowed?.limit ?? 5} téléchargements de devis par forfait</p>
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />5 projets de construction</p>
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Paiement par virement bancaire</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Start 40 TND</strong> — 1 projet · 1 téléchargement PDF</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Pro 120 TND</strong> — 10 projets · 10 téléchargements PDF</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Expert 320 TND</strong> — 30 projets · 30 téléchargements PDF</p>
+                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Paiement par virement bancaire ou D17</p>
                       </div>
-                      <Button className="w-full" onClick={() => { setShowUpgradeDialog(false); navigate("/dashboard/pricing"); }}>
-                        Passer à Pro
+                      <Button className="w-full" onClick={() => { setShowUpgradeDialog(false); navigate("/dashboard/pricing?type=construction"); }}>
+                        Voir les forfaits
                         <ChevronRight className="h-3.5 w-3.5 ml-1" />
                       </Button>
                       <button onClick={() => setShowUpgradeDialog(false)}
                         className="mt-2 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors">
-                        Rester gratuit
+                        Annuler
                       </button>
                     </div>
                   </DialogContent>
