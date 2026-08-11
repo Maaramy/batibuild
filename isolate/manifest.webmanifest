@@ -1,6 +1,6 @@
 {
-  "name": "BudgetBati",
-  "short_name": "BudgetBati",
+  "name": "batibuild App",
+  "short_name": "batibuild",
   "description": "Estimation de construction par IA pour la Tunisie",
   "start_url": "/",
   "display": "standalone",
