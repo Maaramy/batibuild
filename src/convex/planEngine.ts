@@ -1361,16 +1361,29 @@ export function generateFurniture(plan: GeneratedPlan, req: PlanRequest, rng?: (
           const prefWalls: Wall[] = room.w >= room.h
             ? ["bottom", "top", "left", "right"]
             : ["left", "right", "bottom", "top"];
-          const counterWall = prefWalls.find((w) => w !== doorWall) ?? "bottom";
-          const along = counterWall === "top" || counterWall === "bottom" ? room.w : room.h;
-          const counterLen = Math.min(clamp(along - 0.9, 1.5, 4.4), Math.max(1.2, along - 0.6));
-          const counter = placeAgainstWall(room, counterWall, counterLen, 0.62, 0.25, doorObstacles, placed, rand, 0.25, windowObstacles);
+          const counterWallPref = prefWalls.find((w) => w !== doorWall) ?? "bottom";
+          // Plan de travail : essaie chaque mur (le préféré d'abord), avec des
+          // longueurs décroissantes, jusqu'à trouver un emplacement libre.
+          let counter: { rect: FRect; angle: number } | null = null;
+          for (const wl of [counterWallPref, ...WALLS_ALL.filter((x) => x !== counterWallPref)]) {
+            const al = wl === "top" || wl === "bottom" ? room.w : room.h;
+            const lens = [
+              Math.min(clamp(al - 0.9, 1.5, 4.4), Math.max(1.2, al - 0.6)),
+              Math.max(1.2, Math.min(clamp(al - 1.4, 1.2, 3.2), al - 0.8)),
+            ];
+            for (const cLen of lens) {
+              const c = placeAgainstWall(room, wl, cLen, 0.62, 0.25, doorObstacles, placed, rand, 0.25, windowObstacles);
+              if (c) { counter = c; break; }
+            }
+            if (counter) break;
+          }
           if (counter) { push(room, "plan_travail", "Plan de travail", counter.rect, counter.angle); placed.push(counter.rect); }
           if (counter) {
-            const base = counterWall === "bottom" || counterWall === "top" ? counter.x - room.x : counter.y - room.y;
+            const counterWall = wallOfRect(room, counter.rect.x, counter.rect.y, counter.rect.w, counter.rect.h);
+            const base = counterWall === "bottom" || counterWall === "top" ? counter.rect.x - room.x : counter.rect.y - room.y;
             const appObstacles = [...doorObstacles];
             const app = (w: number, d: number, t: number, kind: FurnitureKind, label: string) => {
-              const r = placeAgainstWall(room, counterWall, w, d, t, appObstacles, placed, rand, 0.3, [counter]);
+              const r = placeAgainstWall(room, counterWall, w, d, t, appObstacles, placed, rand, 0.3, [counter.rect]);
               if (r) { push(room, kind, label, r.rect, r.angle); placed.push(r.rect); }
             };
             app(0.55, 0.55, base + 0.18, "evier", "Évier");
@@ -1390,15 +1403,52 @@ export function generateFurniture(plan: GeneratedPlan, req: PlanRequest, rng?: (
           const cornerWalls: Wall[] = doorWall
             ? [oppositeWall(doorWall), ...perpendicularWalls(oppositeWall(doorWall))]
             : ["bottom", "top", "left", "right"];
-          const corners: { wall: Wall; rect: FRect }[] = cornerWalls.map((w, i) => {
-            const m = 0.25;
-            if (w === "bottom") return { wall: w, rect: { x: i % 2 === 0 ? room.x + m : room.x + room.w - m - 0.85, y: room.y + room.h - m - 0.85, w: 0.85, h: 0.85 } };
-            if (w === "top") return { wall: w, rect: { x: i % 2 === 0 ? room.x + m : room.x + room.w - m - 0.85, y: room.y + m, w: 0.85, h: 0.85 } };
-            if (w === "left") return { wall: w, rect: { x: room.x + m, y: i % 2 === 0 ? room.y + m : room.y + room.h - m - 0.85, w: 0.85, h: 0.85 } };
-            return { wall: w, rect: { x: room.x + room.w - m - 0.85, y: i % 2 === 0 ? room.y + m : room.y + room.h - m - 0.85, w: 0.85, h: 0.85 } };
-          });
-          const corner = corners.find((c) => !obstacles.some((o) => rectsOverlap(c.rect, o, 0.08)) && !placed.some((p) => rectsOverlap(c.rect, p, 0.1)));
-          if (corner) { push(room, "douche", "Douche", corner.rect, 0); placed.push(corner.rect); }
+          // Douche : coin libre si possible, sinon tailles réduites, sinon repli contre un mur
+          let douche: { rect: FRect; angle: number } | null = null;
+          for (const size of [0.85, 0.75, 0.65]) {
+            const corners: { wall: Wall; rect: FRect }[] = cornerWalls.map((w, i) => {
+              const m = 0.22;
+              if (w === "bottom") return { wall: w, rect: { x: i % 2 === 0 ? room.x + m : room.x + room.w - m - size, y: room.y + room.h - m - size, w: size, h: size } };
+              if (w === "top") return { wall: w, rect: { x: i % 2 === 0 ? room.x + m : room.x + room.w - m - size, y: room.y + m, w: size, h: size } };
+              if (w === "left") return { wall: w, rect: { x: room.x + m, y: i % 2 === 0 ? room.y + m : room.y + room.h - m - size, w: size, h: size } };
+              return { wall: w, rect: { x: room.x + room.w - m - size, y: i % 2 === 0 ? room.y + m : room.y + room.h - m - size, w: size, h: size } };
+            });
+            const corner = corners.find((c) =>
+              c.rect.w > 0 && c.rect.h > 0 &&
+              !obstacles.some((o) => rectsOverlap(c.rect, o, 0.08)) &&
+              !placed.some((p) => rectsOverlap(c.rect, p, 0.1)),
+            );
+            if (corner) { douche = { rect: corner.rect, angle: 0 }; break; }
+            if (size === 0.65) {
+              // Dernier recours (petites salles) : coin opposé à la porte, en
+              // évitant le battant mais pas toute la zone d'ouverture
+              const doorRects = doorsIn.map((d) => ({ x: d.x, y: d.y, w: d.w, h: d.h }));
+              const far: FRect[] = [
+                { x: room.x + room.w - 0.15 - 0.6, y: room.y + room.h - 0.15 - 0.6, w: 0.6, h: 0.6 },
+                { x: room.x + 0.15, y: room.y + room.h - 0.15 - 0.6, w: 0.6, h: 0.6 },
+                { x: room.x + room.w - 0.15 - 0.6, y: room.y + 0.15, w: 0.6, h: 0.6 },
+                { x: room.x + 0.15, y: room.y + 0.15, w: 0.6, h: 0.6 },
+              ];
+              douche = far
+                .filter((c) => c.x >= room.x - 0.01 && c.x + c.w <= room.x + room.w + 0.01 && c.y >= room.y - 0.01 && c.y + c.h <= room.y + room.h + 0.01)
+                .map((c) => ({ rect: c, angle: 0 }))
+                .find((c) =>
+                  !doorRects.some((dr) => rectsOverlap(c.rect, dr, 0.06)) &&
+                  !windowObstacles.some((o) => rectsOverlap(c.rect, o, 0.05)) &&
+                  !placed.some((p) => rectsOverlap(c.rect, p, 0.08)),
+                ) ?? null;
+            }
+            if (!douche) {
+              // Salle très étroite : douche contre un mur au milieu, en
+              // évitant le battant de la porte et les fenêtres
+              const doorRects = doorsIn.map((d) => ({ x: d.x, y: d.y, w: d.w, h: d.h }));
+              for (const wl of WALLS_ALL) {
+                const r = placeAgainstWall(room, wl, 0.6, 0.6, 0.3, [...doorRects, ...windowObstacles], placed, rand, 0.15, windowObstacles);
+                if (r) { douche = r; break; }
+              }
+            }
+          }
+          if (douche) { push(room, "douche", "Douche", douche.rect, douche.angle); placed.push(douche.rect); }
           const lavWall = wallNoWindow(doorWall ? perpendicularWalls(doorWall) : ["top", "left"]);
           const lav = aw(lavWall, 0.55, 0.5, 0.3, "lavabo", "Lavabo");
           if (lav) {
