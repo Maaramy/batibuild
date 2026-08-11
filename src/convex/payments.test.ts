@@ -71,11 +71,13 @@ describe("getPlanPricing", () => {
     expect(result!.expertPrice).toBe(320);
     expect(result!.supplierPrice).toBe(120);
     expect(result!.freeProjectLimit).toBe(1);
-    expect(result!.proProjectLimit).toBe(5);
-    expect(result!.expertProjectLimit).toBe(20);
+    expect(result!.proProjectLimit).toBe(10);
+    expect(result!.expertProjectLimit).toBe(30);
     expect(result!.freeDownloadLimit).toBe(1);
-    expect(result!.proDownloadLimit).toBe(5);
-    expect(result!.expertDownloadLimit).toBe(20);
+    expect(result!.proDownloadLimit).toBe(10);
+    expect(result!.expertDownloadLimit).toBe(30);
+    expect(result!.constructionStartPrice).toBe(40);
+    expect(result!.investmentStartPrice).toBe(79);
   });
 
   it("retourne les valeurs personnalisées depuis un paymentConfig existant", async () => {
@@ -148,7 +150,7 @@ describe("getPlanPricing", () => {
     expect(result!.expertPrice).toBe(350);          // from config
     expect(result!.supplierPrice).toBe(120);         // fallback to default
     expect(result!.freeProjectLimit).toBe(1);        // fallback to default
-    expect(result!.proProjectLimit).toBe(5);        // fallback to default
+    expect(result!.proProjectLimit).toBe(10);        // fallback to default
   });
 });
 
@@ -243,6 +245,34 @@ describe("updatePlanPricing", () => {
     expect(result!.supplierPrice).toBe(120);
   });
 
+  it("enregistre des prix indépendants par type de projet", async () => {
+    const adminId = await createTestUser(t, { role: "admin" });
+    const adminT = asAdmin(t, adminId);
+
+    await adminT.mutation(api.payments.updatePlanPricing, {
+      plan: "free",
+      type: "construction",
+      price: 40,
+    } as any);
+    await adminT.mutation(api.payments.updatePlanPricing, {
+      plan: "free",
+      type: "investment",
+      price: 79,
+    } as any);
+    await adminT.mutation(api.payments.updatePlanPricing, {
+      plan: "pro",
+      type: "construction",
+      price: 130,
+    } as any);
+
+    const result = await adminT.query(api.payments.getPlanPricing);
+    expect(result!.constructionStartPrice).toBe(40);
+    expect(result!.investmentStartPrice).toBe(79);
+    expect(result!.constructionProPrice).toBe(130);
+    // Le prix investissement Pro reste au défaut
+    expect(result!.investmentProPrice).toBe(120);
+  });
+
   it("met à jour une config existante sans perdre les autres champs", async () => {
     const adminId = await createTestUser(t, { role: "admin" });
     const adminT = asAdmin(t, adminId);
@@ -284,8 +314,8 @@ describe("updatePlanPricing", () => {
     expect(result!.proPrice).toBe(99);
     // Project limit et download limit devraient avoir DEFAUT
     // Puisque update ne définit pas ces champs, ils prennent les defaults de création
-    // DEFAULT_PLAN_PRICING (forfait Pro) : proProjectLimit: 5
-    expect(result!.proProjectLimit).toBe(5);
+    // DEFAULT_PLAN_PRICING (forfait Pro) : proProjectLimit: 10
+    expect(result!.proProjectLimit).toBe(10);
   });
 });
 

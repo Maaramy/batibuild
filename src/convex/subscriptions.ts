@@ -26,6 +26,71 @@ export const getMySubscription = query({
   },
 });
 
+/**
+ * Quotas de l'utilisateur par type (construction · investissement · plans).
+ * Plans architecturaux : gratuits et illimités.
+ */
+export const getMyQuotas = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+
+    const configs = await getPlanQuotaConfig(ctx);
+
+    const cSub = await getActiveSubscription(ctx, user._id, "construction");
+    const iSub = await getActiveSubscription(ctx, user._id, "investment");
+
+    const cUsed = cSub
+      ? (cSub.projectsUsed ?? 0)
+      : await countUserDocs(ctx, user._id, "projects");
+    const iUsed = iSub
+      ? (iSub.investmentsUsed ?? 0)
+      : await countUserDocs(ctx, user._id, "investments");
+    const pUsed = await countUserDocs(ctx, user._id, "plans");
+
+    const cPlan = cSub?.plan ?? "free";
+    const iPlan = iSub?.plan ?? "free";
+    const cLimit = configs[cPlan].projects;
+    const iLimit = configs[iPlan].investments;
+
+    return {
+      construction: {
+        kind: "construction" as const,
+        plan: cPlan,
+        used: cUsed,
+        limit: cLimit,
+        reached: cUsed >= cLimit,
+        downloads: {
+          used: cSub ? (cSub.monthlyDownloadCount ?? 0) : 0,
+          limit: cSub ? configs[cPlan].downloads : 0,
+          allowed: !!cSub,
+        },
+      },
+      investment: {
+        kind: "investment" as const,
+        plan: iPlan,
+        used: iUsed,
+        limit: iLimit,
+        reached: iUsed >= iLimit,
+        downloads: {
+          used: iSub ? (iSub.monthlyDownloadCount ?? 0) : 0,
+          limit: iSub ? configs[iPlan].downloads : 0,
+          allowed: !!iSub,
+        },
+      },
+      plans: {
+        kind: "plans" as const,
+        plan: "free",
+        used: pUsed,
+        limit: UNLIMITED,
+        reached: false,
+        downloads: { used: 0, limit: UNLIMITED, allowed: true },
+      },
+    };
+  },
+});
+
 /** Get all subscriptions (admin only, returns empty if not admin) */
 export const getAllSubscriptions = query({
   args: {},
@@ -91,11 +156,12 @@ export interface PlanQuota {
   downloads: number;
 }
 
-/** Quotas par défaut (Start 1 · Pro 5 · Expert 20). */
+/** Quotas par défaut (Start 1 · Pro 10 · Expert 30 — plans illimités). */
+export const UNLIMITED = 1000000;
 export const DEFAULT_QUOTAS: Record<string, PlanQuota> = {
-  free: { projects: 1, investments: 1, plans: 1, downloads: 1 },
-  pro: { projects: 5, investments: 5, plans: 5, downloads: 5 },
-  expert: { projects: 20, investments: 20, plans: 20, downloads: 20 },
+  free: { projects: 1, investments: 1, plans: UNLIMITED, downloads: 1 },
+  pro: { projects: 10, investments: 10, plans: UNLIMITED, downloads: 10 },
+  expert: { projects: 30, investments: 30, plans: UNLIMITED, downloads: 30 },
 };
 
 /** Lit les quotas par forfait depuis paymentConfig (fallback aux défauts). */
@@ -126,14 +192,32 @@ export async function getPlanQuotaConfig(ctx: any): Promise<Record<string, PlanQ
   };
 }
 
-/** Abonnement actif de l'utilisateur (le plus récent). */
-async function getActiveSubscription(ctx: any, userId: any) {
-  const sub = await ctx.db
+type SubKind = "construction" | "investment";
+
+/**
+ * Abonnement actif de l'utilisateur pour un type donné.
+ * Les abonnements legacy (sans `kind`) couvrent la construction.
+ */
+async function getActiveSubscription(ctx: any, userId: any, kind?: SubKind) {
+  const subs = await ctx.db
     .query("subscriptions")
     .withIndex("by_user", (q: any) => q.eq("userId", userId))
     .order("desc")
-    .first();
-  return sub && sub.status === "active" ? sub : null;
+    .collect();
+  return (
+    subs.find(
+      (s: any) =>
+        s.status === "active" &&
+        (kind ? s.kind === kind || (kind === "construction" && !s.kind) : true),
+    ) ?? null
+  );
+}
+
+/** Type d'abonnement correspondant à un quota. */
+function subKindForQuota(kind: QuotaKind): SubKind | null {
+  if (kind === "projects") return "construction";
+  if (kind === "investments") return "investment";
+  return null; // plans → illimité
 }
 
 const KIND_TO_SUB_FIELD: Record<QuotaKind, string> = {
@@ -157,18 +241,24 @@ async function countUserDocs(ctx: any, userId: any, kind: QuotaKind): Promise<nu
 }
 
 /**
- * Vérifie si l'utilisateur peut encore créer/télécharger un élément du type
- * demandé. Les quotas sont comptés par abonnement (paiement unique) : quand
- * le quota est épuisé, l'utilisateur doit racheter un forfait. Sans abonnement
- * actif, on retombe sur l'offre de base (Start) comptée sur les documents.
+ * Vérifie si l'utilisateur peut encore créer un élément du type demandé.
+ * Les quotas sont comptés par abonnement (paiement unique) et par type
+ * (construction / investissement). Les plans architecturaux sont illimités.
+ * Sans abonnement actif pour le type demandé, on retombe sur l'offre de
+ * base (Start) comptée sur les documents.
  */
 export async function checkQuota(
   ctx: any,
   user: any,
   kind: QuotaKind,
 ): Promise<{ allowed: boolean; limit: number; used: number; plan: string; reason: string }> {
+  // Plans architecturaux : forfait gratuit — quota illimité.
+  if (kind === "plans") {
+    return { allowed: true, limit: UNLIMITED, used: 0, plan: "free", reason: "ok" };
+  }
+
   const configs = await getPlanQuotaConfig(ctx);
-  const sub = await getActiveSubscription(ctx, user._id);
+  const sub = await getActiveSubscription(ctx, user._id, subKindForQuota(kind) ?? undefined);
   const plan = sub?.plan ?? "free";
   const limit = configs[plan]?.[kind] ?? 1;
 
@@ -183,9 +273,11 @@ export async function checkQuota(
   return { allowed, limit, used, plan: "free", reason: allowed ? "ok" : "limite_atteinte" };
 }
 
-/** Incrémente le compteur de quota de l'abonnement actif (si présent). */
+/** Incrémente le compteur de quota de l'abonnement actif du type (plans : no-op). */
 export async function consumeQuota(ctx: any, user: any, kind: QuotaKind): Promise<void> {
-  const sub = await getActiveSubscription(ctx, user._id);
+  const subKind = subKindForQuota(kind);
+  if (!subKind) return;
+  const sub = await getActiveSubscription(ctx, user._id, subKind);
   if (!sub) return;
   const field = KIND_TO_SUB_FIELD[kind];
   await ctx.db.patch(sub._id, {
@@ -195,12 +287,14 @@ export async function consumeQuota(ctx: any, user: any, kind: QuotaKind): Promis
 }
 
 /**
- * Décrémente le compteur de quota de l'abonnement actif (si présent).
+ * Décrémente le compteur de quota de l'abonnement actif du type (plans : no-op).
  * Utilisé quand un administrateur supprime un document (projet, analyse,
  * plan) : le quota consommé est libéré pour l'utilisateur concerné.
  */
 export async function releaseQuota(ctx: any, userId: any, kind: QuotaKind, count = 1): Promise<void> {
-  const sub = await getActiveSubscription(ctx, userId);
+  const subKind = subKindForQuota(kind);
+  if (!subKind) return;
+  const sub = await getActiveSubscription(ctx, userId, subKind);
   if (!sub) return;
   const field = KIND_TO_SUB_FIELD[kind];
   await ctx.db.patch(sub._id, {
@@ -213,71 +307,88 @@ export async function releaseQuota(ctx: any, userId: any, kind: QuotaKind, count
 // Download Limit Helpers
 // ============================================================================
 
-/** Vérifie si l'utilisateur peut télécharger un PDF (toutes offres payantes). */
+/** Vérifie si l'utilisateur peut télécharger un PDF de construction (rétrocompatible). */
 export const checkDownloadAllowed = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) return { allowed: false, reason: "non_connecté" };
-
-    // Offres payantes (Start, Pro, Expert) : téléchargements par abonnement
-    if (user.subscriptionPlan === "free" || user.subscriptionPlan === "pro" || user.subscriptionPlan === "expert") {
-      const sub = await ctx.db
-        .query("subscriptions")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .order("desc")
-        .first();
-
-      if (!sub || sub.status !== "active") {
-        return { allowed: false, reason: "abonnement_inactif" };
-      }
-
-      const configs = await getPlanQuotaConfig(ctx);
-      const limit = configs[user.subscriptionPlan]?.downloads ?? 1;
-      const used = sub.monthlyDownloadCount ?? 0;
-      const remaining = limit - used;
-
-      return {
-        allowed: remaining > 0,
-        reason: remaining > 0 ? "ok" : "limite_atteinte",
-        remaining,
-        limit,
-        used,
-      };
-    }
-
-    return { allowed: false, reason: "offre_gratuite", remaining: 0, limit: 0, used: 0 };
+    return checkDownloadAllowedForKind(ctx, "construction");
   },
 });
 
-/** Consomme un téléchargement (appeler après génération PDF réussie). */
+/** Consomme un téléchargement de construction (rétrocompatible). */
 export const consumeDownload = mutation({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user || (user.subscriptionPlan !== "free" && user.subscriptionPlan !== "pro" && user.subscriptionPlan !== "expert")) {
-      throw new Error("Seuls les abonnés Start, Pro et Expert peuvent télécharger des devis");
-    }
+    return consumeDownloadForKind(ctx, "construction");
+  },
+});
 
-    const sub = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .order("desc")
-      .first();
+async function checkDownloadAllowedForKind(ctx: any, kind: SubKind) {
+  const user = await getCurrentUser(ctx);
+  if (!user) return { allowed: false, reason: "non_connecté" };
 
-    if (!sub || sub.status !== "active") {
-      throw new Error("Abonnement inactif");
-    }
+  const sub = await getActiveSubscription(ctx, user._id, kind);
 
-    const configs = await getPlanQuotaConfig(ctx);
-    const limit = configs[user.subscriptionPlan]?.downloads ?? 1;
-    const used = (sub.monthlyDownloadCount ?? 0) + 1;
-    await ctx.db.patch(sub._id, {
-      monthlyDownloadCount: used,
-      updatedAt: Date.now(),
-    });
+  if (!sub || sub.status !== "active") {
+    return { allowed: false, reason: "abonnement_inactif", kind };
+  }
 
-    return { used, remaining: limit - used };
+  const configs = await getPlanQuotaConfig(ctx);
+  const limit = configs[sub.plan]?.downloads ?? 1;
+  const used = sub.monthlyDownloadCount ?? 0;
+  const remaining = limit - used;
+
+  return {
+    allowed: remaining > 0,
+    reason: remaining > 0 ? "ok" : "limite_atteinte",
+    remaining,
+    limit,
+    used,
+    plan: sub.plan,
+    kind,
+  };
+}
+
+async function consumeDownloadForKind(ctx: any, kind: SubKind) {
+  const user = await getCurrentUser(ctx);
+  if (!user) {
+    throw new Error("Vous devez être connecté pour télécharger");
+  }
+
+  const sub = await getActiveSubscription(ctx, user._id, kind);
+
+  if (!sub || sub.status !== "active") {
+    throw new Error("Aucun forfait actif pour ce type de document — renouvelez vos quotas");
+  }
+
+  const configs = await getPlanQuotaConfig(ctx);
+  const limit = configs[sub.plan]?.downloads ?? 1;
+  const used = (sub.monthlyDownloadCount ?? 0) + 1;
+  await ctx.db.patch(sub._id, {
+    monthlyDownloadCount: used,
+    updatedAt: Date.now(),
+  });
+
+  return { used, remaining: limit - used, kind };
+}
+
+/** Vérifie si l'utilisateur peut télécharger un PDF pour un type donné. */
+export const checkDownloadAllowedFor = query({
+  args: {
+    kind: v.union(v.literal("construction"), v.literal("investment")),
+  },
+  handler: async (ctx, args) => {
+    return checkDownloadAllowedForKind(ctx, args.kind);
+  },
+});
+
+/** Consomme un téléchargement pour un type donné. */
+export const consumeDownloadFor = mutation({
+  args: {
+    kind: v.union(v.literal("construction"), v.literal("investment")),
+  },
+  handler: async (ctx, args) => {
+    return consumeDownloadForKind(ctx, args.kind);
   },
 });
 
@@ -290,10 +401,11 @@ export const consumeDownload = mutation({
 // mensuel. Quand les quotas sont épuisés, l'utilisateur rachète un forfait.
 const ONE_TIME_DURATION = 3650 * 24 * 60 * 60 * 1000; // 10 ans
 
-/** Create or update subscription */
+/** Create or update subscription (paiement unique, par type de projet) */
 export const createSubscription = mutation({
   args: {
     plan: subscriptionPlanValidator,
+    kind: v.optional(v.union(v.literal("construction"), v.literal("investment"))),
     paymentMethod: v.optional(v.string()),
     paymentId: v.optional(v.string()),
     amount: v.optional(v.number()),
@@ -304,25 +416,29 @@ export const createSubscription = mutation({
     if (!user) throw new Error("Unauthorized");
 
     const now = Date.now();
+    const kind = args.kind ?? "construction"; // legacy : construction
 
     const quotas = await getPlanQuotaConfig(ctx);
     const downloadLimit = quotas[args.plan]?.downloads ?? 1;
     const duration = ONE_TIME_DURATION;
 
-    // Cancel existing active subscriptions
+    // Cancel existing active subscriptions of the same type only — un forfait
+    // construction ne remplace pas un forfait investissement et inversement.
     const existing = await ctx.db
       .query("subscriptions")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
 
     for (const sub of existing) {
-      if (sub.status === "active") {
+      const sameKind = sub.kind === kind || (kind === "construction" && !sub.kind);
+      if (sub.status === "active" && sameKind) {
         await ctx.db.patch(sub._id, { status: "canceled", updatedAt: now });
       }
     }
 
     const subscriptionId = await ctx.db.insert("subscriptions", {
       userId: user._id,
+      kind,
       plan: args.plan,
       status: args.paymentMethod === "bank_transfer" ? "pending" : "active",
       startDate: now,
@@ -337,7 +453,7 @@ export const createSubscription = mutation({
       updatedAt: now,
     });
 
-    // Update user's subscription plan (only if not pending)
+    // Update user's subscription plan (only if not pending) — dernière formule achetée
     if (args.paymentMethod !== "bank_transfer") {
       await ctx.db.patch(user._id, {
         subscriptionPlan: args.plan,
@@ -397,20 +513,22 @@ export const uploadPaymentProof = mutation({
   },
 });
 
-/** Cancel subscription */
+/** Cancel subscription (annule tous les abonnements actifs de l'utilisateur) */
 export const cancelSubscription = mutation({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
 
-    const activeSub = await ctx.db
+    const allSubs = await ctx.db
       .query("subscriptions")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .order("desc")
-      .first();
+      .collect();
 
-    if (activeSub && activeSub.status === "active") {
+    for (const activeSub of allSubs) {
+      if (activeSub.status !== "active") continue;
+
       await ctx.db.patch(activeSub._id, {
         status: "canceled",
         updatedAt: Date.now(),

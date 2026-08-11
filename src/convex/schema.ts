@@ -741,6 +741,9 @@ const schema = defineSchema(
     // Subscriptions & Payments
     subscriptions: defineTable({
       userId: v.id("users"),
+      // Type de quota couvert par cet abonnement (forfaits indépendants par type).
+      // Legacy (anciens abonnements) : valeur absente → couvre la construction.
+      kind: v.optional(v.union(v.literal("construction"), v.literal("investment"))),
       plan: subscriptionPlanValidator,
       status: v.union(
         v.literal("active"),
@@ -889,6 +892,13 @@ const schema = defineSchema(
       currency: v.string(),
       // Prix de l'offre Start (paiement unique, remplace l'ancien forfait gratuit)
       startPrice: v.optional(v.number()),
+      // Prix par type de projet — forfaits indépendants (construction / investissement)
+      constructionStartPrice: v.optional(v.number()),
+      constructionProPrice: v.optional(v.number()),
+      constructionExpertPrice: v.optional(v.number()),
+      investmentStartPrice: v.optional(v.number()),
+      investmentProPrice: v.optional(v.number()),
+      investmentExpertPrice: v.optional(v.number()),
       // Project plan limits
       freeProjectLimit: v.optional(v.number()),
       proProjectLimit: v.optional(v.number()),

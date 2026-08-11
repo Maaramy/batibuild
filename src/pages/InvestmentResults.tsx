@@ -71,6 +71,33 @@ export default function InvestmentResults() {
   const zones = useQuery(api.investments.getInvestmentZones) || [];
   const askAssistant = useAction(api.investmentAi.askInvestorAssistant);
   const toggleFavorite = useMutation(api.investments.toggleFavorite);
+  const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowedFor, { kind: "investment" });
+  const consumeDownload = useMutation(api.subscriptions.consumeDownloadFor);
+
+  // ── Téléchargement du rapport PDF (quota du forfait investissement) ──
+  const handlePdfDownload = async () => {
+    if (!run) return;
+    if (!downloadInfo) {
+      generatePdf(run);
+      return;
+    }
+    if (downloadInfo.allowed) {
+      generatePdf(run);
+      try {
+        await consumeDownload({ kind: "investment" });
+      } catch (e: any) {
+        toast.error(e.message || "Erreur lors de la consommation du téléchargement");
+      }
+    } else if (downloadInfo.reason === "limite_atteinte") {
+      toast.error(
+        `Vous avez atteint votre limite de ${downloadInfo.limit ?? 1} téléchargements pour le forfait investissement. Renouvelez vos quotas pour continuer.`,
+      );
+    } else {
+      toast.error(
+        "Vous devez avoir un forfait d'investissement actif pour télécharger le rapport PDF. L'export CSV reste gratuit.",
+      );
+    }
+  };
   const [favBusy, setFavBusy] = useState(false);
 
   const docData = doc as any;
@@ -283,7 +310,7 @@ export default function InvestmentResults() {
               size="sm"
               className="gap-1.5 h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
               disabled={!run}
-              onClick={() => run && generatePdf(run)}
+              onClick={handlePdfDownload}
             >
               <Download className="h-3.5 w-3.5" />
               Rapport PDF

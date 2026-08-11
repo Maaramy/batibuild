@@ -150,10 +150,13 @@ export const compareProjects = query({
 // Plan Limits (configurable via Admin)
 // ============================================================================
 
+// Forfaits à paiement unique par type : Start 1 · Pro 10 · Expert 30.
+// Plans architecturaux : gratuits et illimités.
 const DEFAULT_PLAN_LIMITS = {
   free: 1,
-  pro: 5,
-  expert: 20,
+  pro: 10,
+  expert: 30,
+  plansUnlimited: 1000000,
 };
 
 /** Get the current plan limits (construction, investissement, plans, téléchargements) */
@@ -172,10 +175,14 @@ export const getPlanLimits = query({
       freeInvestments: config?.freeInvestmentLimit ?? DEFAULT_PLAN_LIMITS.free,
       proInvestments: config?.proInvestmentLimit ?? DEFAULT_PLAN_LIMITS.pro,
       expertInvestments: config?.expertInvestmentLimit ?? DEFAULT_PLAN_LIMITS.expert,
-      // Plans architecturaux
-      freePlans: config?.freePlanLimit ?? DEFAULT_PLAN_LIMITS.free,
-      proPlans: config?.proPlanLimit ?? DEFAULT_PLAN_LIMITS.pro,
-      expertPlans: config?.expertPlanLimit ?? DEFAULT_PLAN_LIMITS.expert,
+      // Plans architecturaux (gratuits — illimités)
+      freePlans: config?.freePlanLimit ?? DEFAULT_PLAN_LIMITS.plansUnlimited,
+      proPlans: config?.proPlanLimit ?? DEFAULT_PLAN_LIMITS.plansUnlimited,
+      expertPlans: config?.expertPlanLimit ?? DEFAULT_PLAN_LIMITS.plansUnlimited,
+      // Téléchargements PDF (par type, mêmes quotas)
+      freeDownloads: config?.freeDownloadLimit ?? DEFAULT_PLAN_LIMITS.free,
+      proDownloads: config?.proDownloadLimit ?? DEFAULT_PLAN_LIMITS.pro,
+      expertDownloads: config?.expertDownloadLimit ?? DEFAULT_PLAN_LIMITS.expert,
       updatedAt: config?.updatedAt ?? null,
     };
   },

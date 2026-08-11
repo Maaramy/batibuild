@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useNavigate, useSearchParams } from "react-router";
-import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, FileText, Banknote, Copy, CheckCheck, Smartphone, Wallet, Landmark, UserRound, Upload, Image, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, FileText, Banknote, Copy, CheckCheck, Smartphone, Wallet, Landmark, UserRound, Upload, Image, X, Sparkles, Download, RefreshCcw } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
@@ -26,74 +26,34 @@ const DEFAULT_PAYMENT = {
   supplierPrice: 120,
   expertPrice: 320,
   currency: "TND",
+  // Prix par type de projet — forfaits indépendants (paiement unique)
+  constructionStartPrice: 40,
+  constructionProPrice: 120,
+  constructionExpertPrice: 320,
+  investmentStartPrice: 79,
+  investmentProPrice: 120,
+  investmentExpertPrice: 320,
 };
 
-// Forfaits à paiement unique (non mensuels) :
-//   Start  → 79 TND — 1 construction + 1 investissement + 1 plan + 1 PDF
-//   Pro    → 120 TND — 5 + 5 + 5 + 5 PDF
-//   Expert → 320 TND — 20 + 20 + 20 + 20 PDF
-// Quand les quotas sont épuisés, l'utilisateur rachète un forfait.
-const PLANS = [
-  {
-    id: "free",
-    name: "Start",
-    priceKey: "start",
-    period: "paiement unique",
-    description: "Pour démarrer un premier projet",
-    features: [
-      "1 projet de construction",
-      "1 analyse d'investissement",
-      "1 plan d'architecture",
-      "1 téléchargement PDF",
-      "Estimation IA aux prix tunisiens",
-      "Support email",
-    ],
-    gradient: "from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-800/30",
-    note: "Paiement unique — sans reconduction mensuelle",
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    priceKey: "pro",
-    period: "paiement unique",
-    description: "Pour les professionnels de la construction",
-    features: [
-      "5 projets de construction",
-      "5 analyses d'investissement",
-      "5 plans d'architecture",
-      "5 téléchargements PDF",
-      "Analyse IA avancée",
-      "Export PDF, Excel, CSV",
-      "Rapports détaillés",
-      "Comparaison de projets",
-      "Historique complet",
-      "Support prioritaire",
-    ],
-    gradient: "from-blue-500/10 to-violet-500/10 dark:from-blue-500/20 dark:to-violet-500/20",
-  },
-  {
-    id: "expert",
-    name: "Expert",
-    priceKey: "expert",
-    period: "paiement unique",
-    description: "Pour les entreprises et les grands projets",
-    features: [
-      "20 projets de construction",
-      "20 analyses d'investissement",
-      "20 plans d'architecture",
-      "20 téléchargements PDF",
-      "Analyse IA avancée",
-      "Export PDF, Excel, CSV",
-      "Rapports détaillés",
-      "Comparaison de projets",
-      "Historique complet",
-      "Support prioritaire",
-      "Accès API (bientôt)",
-      "Fournisseurs vérifiés prioritaires",
-    ],
-    popular: true,
-    gradient: "from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20",
-  },
+// Forfaits à paiement unique, vendus indépendamment par type de projet :
+//   Construction   : Start 40 TND (1 projet · 1 PDF) | Pro 120 (10) | Expert 320 (30)
+//   Investissement : Start 79 TND (1 analyse · 1 PDF) | Pro 120 (10) | Expert 320 (30)
+//   Plans architecturaux : Gratuit — illimité.
+type PlanId = "free" | "pro" | "expert";
+type ForfaitType = "construction" | "investment";
+
+const PLAN_LABELS: Record<string, string> = { free: "Start", pro: "Pro", expert: "Expert" };
+
+const CONSTRUCTION_PLANS: { id: PlanId; quota: number; description: string; popular?: boolean }[] = [
+  { id: "free", quota: 1, description: "Pour démarrer un premier projet de construction" },
+  { id: "pro", quota: 10, description: "Pour les professionnels de la construction" },
+  { id: "expert", quota: 30, description: "Pour les entreprises et les grands projets", popular: true },
+];
+
+const INVESTMENT_PLANS: { id: PlanId; quota: number; description: string; popular?: boolean }[] = [
+  { id: "free", quota: 1, description: "Pour analyser une première opportunité" },
+  { id: "pro", quota: 10, description: "Pour les investisseurs actifs" },
+  { id: "expert", quota: 30, description: "Pour les promoteurs et les portefeuilles importants", popular: true },
 ];
 
 function PaymentField({
@@ -131,37 +91,48 @@ function PaymentField({
 }
 
 export default function PricingPage() {
-  usePageSEO({ title: "Abonnements - batibuild App", description: "Choisissez le forfait batibuild App adapté à vos besoins : Start, Pro ou Expert — paiement unique." });
+  usePageSEO({ title: "Abonnements - batibuild App", description: "Choisissez le forfait batibuild App adapté à vos besoins : Start, Pro ou Expert — paiement unique, par type de projet." });
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const currentSubscription = useQuery(api.subscriptions.getMySubscription);
+  const quotas = useQuery(api.subscriptions.getMyQuotas);
   const createSubscription = useMutation(api.subscriptions.createSubscription);
-  const cancelSubscription = useMutation(api.subscriptions.cancelSubscription);
   const [copying, setCopying] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
   const paymentSectionRef = useRef<HTMLDivElement>(null);
   const paymentConfig = useQuery(api.payments.getPublicPricing);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const uploadPaymentProof = useMutation(api.subscriptions.uploadPaymentProof);
-  
+
   const [uploading, setUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [searchParams] = useSearchParams();
-  const [selectedPlan, setSelectedPlan] = useState<string>(() => {
-    const p = searchParams.get("plan");
-    return p === "expert" || p === "pro" || p === "free" || p === "start" ? p : "pro";
+  const [selectedType, setSelectedType] = useState<ForfaitType>(() => {
+    const t = searchParams.get("type");
+    return t === "investment" ? "investment" : "construction";
   });
-  
-  // Get the correct price based on selected plan
-  const getSelectedPrice = () => {
-    if (selectedPlan === "expert") return paymentConfig?.expertPrice ?? DEFAULT_PAYMENT.expertPrice ?? 320;
-    if (selectedPlan === "free" || selectedPlan === "start") return paymentConfig?.startPrice ?? DEFAULT_PAYMENT.startPrice ?? 79;
-    return paymentConfig?.proPrice ?? DEFAULT_PAYMENT.proPrice;
+  const [selectedPlan, setSelectedPlan] = useState<PlanId>(() => {
+    const p = searchParams.get("plan");
+    return p === "expert" ? "expert" : p === "pro" ? "pro" : "free";
+  });
+
+  // Prix par type + forfait
+  const priceFor = (type: ForfaitType, plan: PlanId): number => {
+    const c = paymentConfig as any;
+    if (type === "construction") {
+      if (plan === "free") return c?.constructionStartPrice ?? DEFAULT_PAYMENT.constructionStartPrice;
+      if (plan === "pro") return c?.constructionProPrice ?? DEFAULT_PAYMENT.constructionProPrice;
+      return c?.constructionExpertPrice ?? DEFAULT_PAYMENT.constructionExpertPrice;
+    }
+    if (plan === "free") return c?.investmentStartPrice ?? DEFAULT_PAYMENT.investmentStartPrice;
+    if (plan === "pro") return c?.investmentProPrice ?? DEFAULT_PAYMENT.investmentProPrice;
+    return c?.investmentExpertPrice ?? DEFAULT_PAYMENT.investmentExpertPrice;
   };
-  
-  // Build dynamic BANK_INFO and D17_INFO from config with correct price
-  const currentPrice = getSelectedPrice();
+
+  const currentPrice = priceFor(selectedType, selectedPlan);
+  const currency = paymentConfig?.currency || DEFAULT_PAYMENT.currency;
+
   const BANK_INFO: Record<string, string> = paymentConfig ? {
     bank: paymentConfig.bankName,
     titulaire: paymentConfig.bankTitulaire,
@@ -177,7 +148,7 @@ export default function PricingPage() {
     swift: DEFAULT_PAYMENT.bankSwift,
     montant: `${currentPrice} ${DEFAULT_PAYMENT.currency}`,
   };
-  
+
   const D17_INFO: Record<string, string> = paymentConfig ? {
     merchantName: paymentConfig.d17MerchantName,
     phone: paymentConfig.d17Phone,
@@ -191,27 +162,25 @@ export default function PricingPage() {
     montant: `${currentPrice} ${DEFAULT_PAYMENT.currency}`,
     notice: DEFAULT_PAYMENT.d17Notice,
   };
-  
-  const startPrice = paymentConfig?.startPrice || DEFAULT_PAYMENT.startPrice || 79;
-  const proPrice = paymentConfig?.proPrice || DEFAULT_PAYMENT.proPrice;
-  const expertPrice = paymentConfig?.expertPrice || DEFAULT_PAYMENT.expertPrice || 320;
-  const currency = paymentConfig?.currency || DEFAULT_PAYMENT.currency;
 
-  const currentPlan = user?.subscriptionPlan || "free";
-  const isSubscribed = currentPlan !== "free";
   const isPending = currentSubscription?.status === "pending";
-  const downloadLimit = currentSubscription?.downloadLimit ?? (currentSubscription?.plan === 'expert' ? 20 : currentSubscription?.plan === 'pro' ? 5 : 1);
-  const remainingDownloads = currentSubscription?.monthlyDownloadCount != null
-    ? downloadLimit - currentSubscription.monthlyDownloadCount
-    : null;
+  const construction = quotas?.construction;
+  const investment = quotas?.investment;
+  const constructionPlan = construction?.plan ?? "free";
+  const investmentPlan = investment?.plan ?? "free";
 
-  const handleSelectPlan = async (planId: string) => {
+  const isCurrentPlan = (type: ForfaitType, plan: PlanId) => {
+    const current = type === "construction" ? constructionPlan : investmentPlan;
+    return current === plan && !isPending;
+  };
+
+  const handleSelectPlan = async (type: ForfaitType, planId: PlanId) => {
     if (!isAuthenticated) {
       navigate("/auth");
       return;
     }
 
-    // Set selected plan for correct payment info display
+    setSelectedType(type);
     setSelectedPlan(planId);
 
     // Scroll to payment method section smoothly
@@ -219,16 +188,12 @@ export default function PricingPage() {
       paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
 
-    // Calculate the correct amount based on selected plan (paiement unique)
-    const planAmount = planId === "expert"
-      ? (paymentConfig?.expertPrice ?? DEFAULT_PAYMENT.expertPrice ?? 320)
-      : planId === "free" || planId === "start"
-      ? (paymentConfig?.startPrice ?? DEFAULT_PAYMENT.startPrice ?? 79)
-      : (paymentConfig?.proPrice ?? DEFAULT_PAYMENT.proPrice);
+    const planAmount = priceFor(type, planId);
 
-    // For paid plans, create subscription with virement bancaire
+    // Forfaits à paiement unique — création de l'abonnement pour ce type
     await createSubscription({
-      plan: planId as any,
+      plan: planId,
+      kind: type,
       paymentMethod: paymentMethod,
       amount: planAmount,
       currency: paymentConfig?.currency ?? DEFAULT_PAYMENT.currency,
@@ -311,10 +276,104 @@ export default function PricingPage() {
     }
   };
 
+  const renderPlanCard = (
+    type: ForfaitType,
+    plan: PlanId,
+    price: number,
+    quota: number,
+    description: string,
+    popular?: boolean,
+    index = 0,
+  ) => {
+    const isCurrent = isCurrentPlan(type, plan);
+    const reached = type === "construction"
+      ? (construction?.reached ?? false)
+      : (investment?.reached ?? false);
+
+    return (
+      <motion.div
+        key={`${type}-${plan}`}
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.1, duration: 0.5 }}
+        className={`relative flex flex-col rounded-2xl border p-6 transition-all duration-300 hover:shadow-xl ${
+          popular
+            ? "border-primary/30 bg-gradient-to-b from-primary/5 to-background shadow-lg shadow-primary/5"
+            : "border-border/50 bg-background/50 backdrop-blur-sm"
+        }`}
+      >
+        {popular && (
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+            <Badge className="bg-primary text-primary-foreground shadow-lg px-4 py-1">
+              <Star className="h-3 w-3 mr-1 fill-current" />
+              Populaire
+            </Badge>
+          </div>
+        )}
+
+        {isCurrent && (
+          <div className="absolute -top-3 right-4">
+            <Badge variant="secondary" className="px-3 py-0.5 text-xs">
+              Actuel
+            </Badge>
+          </div>
+        )}
+
+        <div className="mb-5">
+          <h3 className="text-lg font-semibold">{PLAN_LABELS[plan]}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        </div>
+
+        <div className="mb-5">
+          <span className="text-4xl font-bold">{price}</span>
+          <span className="ml-1 text-sm text-muted-foreground">TND · paiement unique</span>
+        </div>
+
+        <ul className="mb-8 space-y-3 flex-1">
+          <li className="flex items-start gap-2 text-sm">
+            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <span>
+              {quota} {type === "construction" ? "projet" : "analyse"}
+              {quota > 1 ? "s" : ""} de {type === "construction" ? "construction" : "rentabilité immobilière"}
+            </span>
+          </li>
+          <li className="flex items-start gap-2 text-sm">
+            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <span>{quota} téléchargement{quota > 1 ? "s" : ""} PDF</span>
+          </li>
+          <li className="flex items-start gap-2 text-sm">
+            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <span>Estimation IA aux prix tunisiens</span>
+          </li>
+          <li className="flex items-start gap-2 text-sm">
+            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <span>Plans architecturaux illimités inclus</span>
+          </li>
+        </ul>
+
+        <Button
+          variant={popular && !isCurrent ? "default" : "outline"}
+          className="w-full h-11 text-sm gap-1"
+          onClick={() => handleSelectPlan(type, plan)}
+          disabled={isCurrent || (isPending && plan === currentSubscription?.plan)}
+        >
+          {isCurrent
+            ? "Offre actuelle"
+            : isPending && plan === currentSubscription?.plan
+            ? "En attente..."
+            : reached
+            ? `Renouveler · ${PLAN_LABELS[plan]}`
+            : `Choisir ${PLAN_LABELS[plan]}`}
+          {!isCurrent && !isPending && <ChevronRight className="h-3.5 w-3.5" />}
+        </Button>
+      </motion.div>
+    );
+  };
+
   return (
     <main className="min-h-screen bg-background">
       <header className="border-b border-border/30 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 flex items-center h-14">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 flex items-center h-14">
           <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
             Retour
@@ -323,109 +382,100 @@ export default function PricingPage() {
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <HardHat className="h-3.5 w-3.5" />
             </div>
-            <span className="font-semibold text-sm">Abonnement</span>
+            <span className="font-semibold text-sm">Forfaits</span>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-10">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
         <div className="text-center mb-8">
           <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Offre actuelle : {currentPlan === "expert" ? "Expert" : currentPlan === "pro" ? "Pro" : "Start"}
+            Construction : {PLAN_LABELS[constructionPlan]} · Investissement : {PLAN_LABELS[investmentPlan]}
             {isPending && " (En attente de validation)"}
           </Badge>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre forfait</h1>
-          <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
-            Paiement unique — aucune reconduction mensuelle. Quand vos quotas sont épuisés, vous rachetez un forfait.
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez vos forfaits</h1>
+          <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
+            Paiement unique — aucune reconduction mensuelle. Les forfaits de construction et d'investissement sont
+            indépendants : quand vos quotas sont épuisés, vous renouvelez ou passez à une offre supérieure.
+            Les plans architecturaux sont gratuits et illimités.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-6 mb-10">
-          {PLANS.map((plan, index) => {
-            const isCurrentPlan = currentPlan === plan.id && !isPending;
-
-            return (
-              <motion.div
-                key={plan.id}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.5 }}
-                className={`relative flex flex-col rounded-2xl border p-6 lg:p-8 transition-all duration-300 hover:shadow-xl ${
-                  plan.popular
-                    ? "border-primary/30 bg-gradient-to-b from-primary/5 to-background shadow-lg shadow-primary/5 scale-[1.02]"
-                    : "border-border/50 bg-background/50 backdrop-blur-sm"
-                }`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-primary text-primary-foreground shadow-lg px-4 py-1">
-                      <Star className="h-3 w-3 mr-1 fill-current" />
-                      Populaire
-                    </Badge>
-                  </div>
-                )}
-
-                {isCurrentPlan && (
-                  <div className="absolute -top-3 right-4">
-                    <Badge variant="secondary" className="px-3 py-0.5 text-xs">
-                      Actuel
-                    </Badge>
-                  </div>
-                )}
-
-                {isPending && plan.id === currentSubscription?.plan && (
-                  <div className="absolute -top-3 right-4">
-                    <Badge variant="outline" className="px-3 py-0.5 text-xs border-amber-300 text-amber-600 bg-amber-50">
-                      En attente
-                    </Badge>
-                  </div>
-                )}
-
-                <div className="mb-5">
-                  <h3 className="text-lg font-semibold">{plan.name}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
-                </div>
-
-                <div className="mb-5">
-                  <span className="text-4xl font-bold">{plan.priceKey === "expert" ? expertPrice : plan.priceKey === "pro" ? proPrice : startPrice}</span>
-                  <span className="ml-1 text-sm text-muted-foreground">TND · {plan.period}</span>
-                </div>
-
-                {plan.note && (
-                  <div className="mb-4 px-3 py-2 rounded-lg bg-muted/30 border border-border/20">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <FileText className="h-3 w-3 text-amber-500 shrink-0" />
-                      {plan.note}
-                    </p>
-                  </div>
-                )}
-
-                <ul className="mb-8 space-y-3 flex-1">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2 text-sm">
-                      <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Button
-                  variant={plan.popular && !isCurrentPlan ? "default" : "outline"}
-                  className="w-full h-11 text-sm gap-1"
-                  onClick={() => handleSelectPlan(plan.id)}
-                  disabled={isCurrentPlan || (isPending && plan.id === currentSubscription?.plan)}
-                >
-                  {isCurrentPlan
-                    ? "Offre actuelle"
-                    : isPending && plan.id === currentSubscription?.plan
-                    ? "En attente..."
-                    : `Choisir ${plan.name}`}
-                  {!isCurrentPlan && !isPending && <ChevronRight className="h-3.5 w-3.5" />}
-                </Button>
-              </motion.div>
-            );
-          })}
+        {/* ═══ Projets de construction ═══ */}
+        <div className="mb-4 flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10">
+            <HardHat className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold leading-tight">Projets de construction</h2>
+            <p className="text-xs text-muted-foreground">Estimation du coût de vos projets de construction, aménagement et rénovation</p>
+          </div>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {CONSTRUCTION_PLANS.map((p, i) =>
+            renderPlanCard("construction", p.id, priceFor("construction", p.id), p.quota, p.description, p.popular, i),
+          )}
+        </div>
+
+        {/* ═══ Projets d'investissement ═══ */}
+        <div className="mb-4 flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10">
+            <Landmark className="h-5 w-5 text-indigo-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold leading-tight">Projets d'investissement</h2>
+            <p className="text-xs text-muted-foreground">Analyse de la rentabilité de vos investissements immobiliers</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {INVESTMENT_PLANS.map((p, i) =>
+            renderPlanCard("investment", p.id, priceFor("investment", p.id), p.quota, p.description, p.popular, i),
+          )}
+        </div>
+
+        {/* ═══ Plans architecturaux — gratuit ═══ */}
+        <div className="mb-4 flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10">
+            <Sparkles className="h-5 w-5 text-violet-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold leading-tight">Plans architecturaux</h2>
+            <p className="text-xs text-muted-foreground">Générateur de plans 2D / 3D par IA</p>
+          </div>
+        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="relative flex flex-col sm:flex-row sm:items-center gap-5 rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 via-background to-background p-6 sm:p-8 mb-10"
+        >
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-violet-500/10">
+            <Sparkles className="h-6 w-6 text-violet-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-lg font-bold">Gratuit</h3>
+              <Badge className="bg-violet-500/10 text-violet-700 border-violet-300/40">
+                <Download className="h-3 w-3 mr-1" /> Téléchargements illimités
+              </Badge>
+              <Badge className="bg-violet-500/10 text-violet-700 border-violet-300/40">
+                <FileText className="h-3 w-3 mr-1" /> PDF haute résolution
+              </Badge>
+            </div>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Générez autant de plans architecturaux que vous voulez — plans 2D et 3D cotés, meublés et optimisés par IA.
+              Aucun quota, aucune limite de téléchargement.
+            </p>
+          </div>
+          <Button
+            size="lg"
+            className="shrink-0 gap-2 bg-violet-600 hover:bg-violet-700 text-white"
+            onClick={() => navigate("/dashboard/plans/new")}
+          >
+            Générer mes plans
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </motion.div>
 
         {/* ═══ Payment Method Section ═══ */}
         <motion.div
@@ -442,9 +492,54 @@ export default function PricingPage() {
             <div>
               <h2 className="text-base font-semibold leading-tight">Moyen de paiement</h2>
               <p className="text-[11px] text-muted-foreground">
-                Forfait <strong>{selectedPlan === "expert" ? "Expert" : selectedPlan === "free" || selectedPlan === "start" ? "Start" : "Pro"} · {currentPrice} {currency} (paiement unique)</strong>
+                {selectedType === "construction" ? "Projets de construction" : "Projets d'investissement"} ·{" "}
+                <strong>{PLAN_LABELS[selectedPlan]} · {currentPrice} {currency}</strong> (paiement unique)
               </p>
             </div>
+          </div>
+
+          {/* Type selector */}
+          <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
+            <button
+              onClick={() => setSelectedType("construction")}
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
+                selectedType === "construction"
+                  ? "border-border/40 bg-background text-blue-600 shadow-sm"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <HardHat className="h-3.5 w-3.5" />
+              Construction
+            </button>
+            <button
+              onClick={() => setSelectedType("investment")}
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
+                selectedType === "investment"
+                  ? "border-border/40 bg-background text-indigo-600 shadow-sm"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Landmark className="h-3.5 w-3.5" />
+              Investissement
+            </button>
+          </div>
+
+          {/* Forfait selector */}
+          <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
+            {(["free", "pro", "expert"] as PlanId[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setSelectedPlan(p)}
+                className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-medium transition-all ${
+                  selectedPlan === p
+                    ? "border-border/40 bg-background text-primary shadow-sm"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {PLAN_LABELS[p]}
+                <span className="text-[9px] opacity-70">{priceFor(selectedType, p)}</span>
+              </button>
+            ))}
           </div>
 
           {/* Payment method selector — compact segmented control */}
@@ -491,7 +586,6 @@ export default function PricingPage() {
                   </span>
                 </div>
                 <div className="divide-y divide-border/30">
-                  {/* Titulaire bien visible */}
                   <div className="flex items-center justify-between gap-3 bg-primary/[0.04] px-4 py-3">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
@@ -545,7 +639,6 @@ export default function PricingPage() {
                   </span>
                 </div>
                 <div className="divide-y divide-border/30">
-                  {/* Bénéficiaire bien visible */}
                   <div className="flex items-center justify-between gap-3 bg-amber-500/[0.07] px-4 py-3">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/15">
@@ -590,25 +683,6 @@ export default function PricingPage() {
                 </ol>
               </div>
             </>
-          )}
-
-          {currentSubscription?.status === "active" && (
-            <div className="mt-4 px-4 py-3 sm:py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-1.5">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <Check className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
-                  <span className="text-xs sm:text-xs text-emerald-700 leading-relaxed">
-                    Forfait {currentSubscription?.plan === "expert" ? "Expert" : currentSubscription?.plan === "pro" ? "Pro" : "Start"} actif — paiement unique.
-                  </span>
-                </div>
-                <span className="text-xs sm:text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-full sm:rounded-md whitespace-nowrap">
-                  {remainingDownloads ?? downloadLimit} téléchargement{remainingDownloads && remainingDownloads > 1 ? "s" : ""} restant{remainingDownloads && remainingDownloads > 1 ? "s" : ""}
-                </span>
-              </div>
-              <p className="mt-2 text-[10px] text-emerald-700/70">
-                Quotas épuisés ? Vous pouvez racheter un forfait à tout moment — paiement unique, sans abonnement mensuel.
-              </p>
-            </div>
           )}
 
           {isPending && (
@@ -683,6 +757,24 @@ export default function PricingPage() {
                     )}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {(construction?.reached || investment?.reached) && (
+            <div className="mt-4 px-4 py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
+              <div className="flex items-start gap-2">
+                <RefreshCcw className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-emerald-700">
+                    Quotas épuisés ? Renouvelez votre forfait.
+                  </p>
+                  <p className="text-[10px] text-emerald-700/70 mt-0.5">
+                    {construction?.reached && "Vos quotas de construction sont épuisés. "}
+                    {investment?.reached && "Vos quotas d'investissement sont épuisés. "}
+                    Renouvelez le même forfait ou passez à une offre supérieure — paiement unique, sans abonnement mensuel.
+                  </p>
+                </div>
               </div>
             </div>
           )}

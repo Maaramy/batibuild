@@ -58,6 +58,7 @@ import {
   Ruler,
   ChevronDown,
   Lock,
+  RefreshCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -343,6 +344,8 @@ function StatsCard({ icon: Icon, label, value, gradient, iconColor }: any) {
   );
 }
 
+const PLAN_LABELS: Record<string, string> = { free: "Start", pro: "Pro", expert: "Expert" };
+
 // ============================================================================
 // Main Dashboard Component
 // ============================================================================
@@ -370,32 +373,43 @@ export default function Dashboard() {
     totalProjects: 0, completedProjects: 0, analyzingProjects: 0, draftProjects: 0,
     totalEstimatedCost: 0, averageCostPerProject: 0, recentProjects: [],
   };
-  const planLimits = useQuery(api.projects.getPlanLimits) || { free: 3, pro: 10, expert: 100 };
-  const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowed);
-  const remainingDownloads = downloadInfo?.remaining ?? 0;
-  const downloadLimit = downloadInfo?.limit ?? 0;
-  const isProAllowed = downloadInfo?.reason === "ok" || downloadInfo?.reason === "limite_atteinte";
+  const quotas = useQuery(api.subscriptions.getMyQuotas); // OK
+  const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowed, {});
 
-  // ── Quotas par type (projets · investissements · plans) ──
-  const userPlan = (user as any)?.subscriptionPlan ?? "free";
-  const projectLimit = userPlan === "free" ? planLimits.free : userPlan === "pro" ? planLimits.pro : planLimits.expert ?? 20;
+  // ── Quotas par type (construction · investissement · plans illimités) ──
+  const construction = quotas?.construction;
+  const investment = quotas?.investment;
+  const constructionPlan = construction?.plan ?? "free";
+  const investmentPlan = investment?.plan ?? "free";
+
   const usedProjects = stats.totalProjects;
-  const usagePercent = projectLimit !== Infinity ? Math.round((usedProjects / projectLimit) * 100) : 0;
-  const isNearLimit = usagePercent >= 80 && projectLimit !== Infinity;
+  const projectLimit = construction?.limit ?? 1;
+  const usagePercent = projectLimit >= 1000000 ? 0 : Math.round((usedProjects / projectLimit) * 100);
+  const isNearLimit = usagePercent >= 80 && projectLimit < 1000000;
+  const projectsReached = construction?.reached ?? usedProjects >= projectLimit;
 
-  // ── Compteurs de progression investissements & plans (quotas par forfait) ──
-  const investLimit = userPlan === "free" ? (planLimits as any).freeInvestments ?? 1 : userPlan === "pro" ? (planLimits as any).proInvestments ?? 5 : (planLimits as any).expertInvestments ?? 20;
-  const planLimit = userPlan === "free" ? (planLimits as any).freePlans ?? 1 : userPlan === "pro" ? (planLimits as any).proPlans ?? 5 : (planLimits as any).expertPlans ?? 20;
-  const investUsagePct = investLimit ? Math.min(100, Math.round((analyses.length / investLimit) * 100)) : 0;
-  const planUsagePct = planLimit ? Math.min(100, Math.round((planHistory.length / planLimit) * 100)) : 0;
-
-  // ── Limites atteintes → boutons de création désactivés ──
-  const projectsReached = usedProjects >= projectLimit;
-  const investReached = analyses.length >= investLimit;
-  const plansReached = planHistory.length >= planLimit;
+  const investLimit = investment?.limit ?? 1;
+  const investUsagePct = investLimit >= 1000000 ? 0 : Math.min(100, Math.round((analyses.length / investLimit) * 100));
+  const investReached = investment?.reached ?? analyses.length >= investLimit;
   const isInvestNearLimit = investUsagePct >= 80;
-  const isPlansNearLimit = planUsagePct >= 80;
-  const anyNearLimit = isNearLimit || isInvestNearLimit || isPlansNearLimit;
+
+  // Plans architecturaux — gratuits et illimités
+  const planLimit = 1000000;
+  const planUsagePct = 0;
+  const plansReached = false;
+  const isPlansNearLimit = false;
+
+  const anyNearLimit = isNearLimit || isInvestNearLimit;
+
+  // Téléchargements restants par type (forfaits construction / investissement)
+  const constructionDownloads = construction?.downloads;
+  const investmentDownloads = investment?.downloads;
+  const remainingDownloads = constructionDownloads ? Math.max(0, (constructionDownloads.limit ?? 0) - (constructionDownloads.used ?? 0)) : 0;
+  const downloadLimit = constructionDownloads?.limit ?? 0;
+  const isProAllowed = constructionDownloads?.allowed === true;
+  const remainingInvestDownloads = investmentDownloads ? Math.max(0, (investmentDownloads.limit ?? 0) - (investmentDownloads.used ?? 0)) : 0;
+  const investDownloadLimit = investmentDownloads?.limit ?? 0;
+  const isInvestDownloadAllowed = investmentDownloads?.allowed === true;
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
@@ -686,9 +700,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className={`flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg ${
-                    userPlan === "expert"
-                      ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400'
-                      : anyNearLimit
+                    anyNearLimit
                       ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400'
                       : 'bg-gradient-to-br from-primary/20 to-primary/10 text-primary'
                   }`}>
@@ -696,50 +708,38 @@ export default function Dashboard() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-xs sm:text-sm font-medium">
-                        {userPlan === "free" ? "Forfait Start" : userPlan === "expert" ? "Forfait Expert" : "Forfait Pro"}
-                      </p>
-                      {userPlan === "free" && (
-                        <Badge className="bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-400/30 text-[8px] px-1.5 py-0">79 TND</Badge>
-                      )}
-                      {userPlan === "pro" && (
-                        <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[8px] px-1.5 py-0">120 TND</Badge>
-                      )}
-                      {userPlan === "expert" && (
-                        <Badge className="bg-amber-500/10 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">320 TND</Badge>
-                      )}
-                      {anyNearLimit && (
-                        <Badge className="bg-amber-500/10 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">
-                          Quota presque atteint (test)
-                        </Badge>
-                      )}
+                      <p className="text-xs sm:text-sm font-medium">Vos quotas</p>
+                      <Badge className="bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-400/30 text-[8px] px-1.5 py-0">Paiement unique</Badge>
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground">
-                      Paiement unique — vos quotas ({projectLimit} projets · {investLimit} analyses · {planLimit} plans) se consument à chaque estimation.
+                      Construction : <span className="font-semibold text-foreground">{PLAN_LABELS[constructionPlan]}</span> ·
+                      Investissement : <span className="font-semibold text-foreground">{PLAN_LABELS[investmentPlan]}</span> ·
+                      Plans : <span className="font-semibold text-violet-600 dark:text-violet-400">Illimités</span>
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {userPlan !== "expert" && (
-                    <Button
-                      size="sm"
-                      onClick={() => navigate(`/dashboard/pricing?plan=${userPlan === "free" ? "pro" : "expert"}`)}
-                      className="h-7 gap-1 px-2.5 text-[10px] sm:text-xs bg-yellow-400 hover:bg-yellow-500 text-black border-0 shadow-sm"
-                    >
-                      {userPlan === "free" ? "Passez à Pro" : "Passez à Expert"}
-                      <ArrowUpRight className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate("/dashboard/pricing")}
+                    className="h-7 gap-1 px-2.5 text-[10px] sm:text-xs"
+                  >
+                    <CreditCard className="h-3 w-3" />
+                    Voir les forfaits
+                  </Button>
                 </div>
               </div>
 
-              {/* Quota rows — projets · investissements · plans */}
+              {/* Quota rows — construction · investissement · plans illimités */}
               <div className="mt-3 grid gap-2">
+                {/* Construction */}
                 <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-muted-foreground flex-wrap">
                       <HardHat className="h-3.5 w-3.5 text-primary" />
                       Projets de construction
+                      <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[8px] px-1.5 py-0">{PLAN_LABELS[constructionPlan]}</Badge>
                       {projectsReached && <Badge className="bg-amber-500/15 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">Limite atteinte</Badge>}
                     </span>
                     <span className={`font-bold tabular-nums ${isNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}>
@@ -752,12 +752,27 @@ export default function Dashboard() {
                       style={{ width: `${Math.min(usagePercent, 100)}%` }}
                     />
                   </div>
+                  {projectsReached && (
+                    <div className="mt-2 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate("/dashboard/pricing?type=construction")}
+                        className="h-6 gap-1 px-2 text-[9px] border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                      >
+                        <RefreshCcw className="h-3 w-3" />
+                        Renouveler les quotas
+                      </Button>
+                    </div>
+                  )}
                 </div>
+                {/* Investissement */}
                 <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-muted-foreground flex-wrap">
                       <Landmark className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                       Projets d'investissement
+                      <Badge className="bg-indigo-500/10 text-indigo-600 border-indigo-200/30 text-[8px] px-1.5 py-0">{PLAN_LABELS[investmentPlan]}</Badge>
                       {investReached && <Badge className="bg-amber-500/15 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">Limite atteinte</Badge>}
                     </span>
                     <span className={`font-bold tabular-nums ${isInvestNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
@@ -770,41 +785,68 @@ export default function Dashboard() {
                       style={{ width: `${investUsagePct}%` }}
                     />
                   </div>
+                  {investReached && (
+                    <div className="mt-2 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate("/dashboard/pricing?type=investment")}
+                        className="h-6 gap-1 px-2 text-[9px] border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                      >
+                        <RefreshCcw className="h-3 w-3" />
+                        Renouveler les quotas
+                      </Button>
+                    </div>
+                  )}
                 </div>
+                {/* Plans — gratuits & illimités */}
                 <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-muted-foreground flex-wrap">
                       <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
                       Plans architecturaux
-                      {plansReached && <Badge className="bg-amber-500/15 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">Limite atteinte</Badge>}
+                      <Badge className="bg-violet-500/10 text-violet-700 border-violet-300/40 text-[8px] px-1.5 py-0">Gratuit</Badge>
                     </span>
-                    <span className={`font-bold tabular-nums ${isPlansNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-violet-600 dark:text-violet-400'}`}>
-                      {planHistory.length}/{planLimit} · {planUsagePct}%
+                    <span className="font-bold tabular-nums text-violet-600 dark:text-violet-400">
+                      {planHistory.length} plan{planHistory.length > 1 ? "s" : ""} · Illimité
                     </span>
                   </div>
-                  <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${isPlansNearLimit ? 'bg-gradient-to-r from-amber-400 to-orange-500' : 'bg-gradient-to-r from-violet-400 to-indigo-500'}`}
-                      style={{ width: `${planUsagePct}%` }}
-                    />
-                  </div>
+                  <p className="mt-1 text-[9px] text-muted-foreground">
+                    Forfait gratuit — générez et téléchargez autant de plans architecturaux que vous voulez.
+                  </p>
                 </div>
               </div>
 
-              {/* Downloads info for Pro/Expert */}
-              {isProAllowed && downloadLimit > 0 && (
-                <div className="mt-2.5 pt-2.5 border-t border-border/20 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground">
-                    <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    <span>
-                      <span className={`font-semibold tabular-nums ${remainingDownloads === 0 ? 'text-amber-600' : ''}`}>{remainingDownloads}</span>
-                      <span className="text-muted-foreground/50"> / </span>
-                      <span className="tabular-nums">{downloadLimit}</span>
-                      {" "}téléchargements restants
-                    </span>
-                  </div>
-                  {remainingDownloads === 0 && (
-                    <span className="text-[9px] text-amber-600 font-medium">Épuisé</span>
+              {/* Downloads info par type */}
+              {(isProAllowed || isInvestDownloadAllowed) && (
+                <div className="mt-2.5 pt-2.5 border-t border-border/20 grid gap-1.5">
+                  {isProAllowed && downloadLimit > 0 && (
+                    <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                        PDF construction :
+                        <span className={`font-semibold tabular-nums ${remainingDownloads === 0 ? 'text-amber-600' : ''}`}>{remainingDownloads}</span>
+                        <span className="text-muted-foreground/50"> / </span>
+                        <span className="tabular-nums">{downloadLimit}</span>
+                      </span>
+                      {remainingDownloads === 0 && (
+                        <span className="text-[9px] text-amber-600 font-medium">Épuisé — renouvelez</span>
+                      )}
+                    </div>
+                  )}
+                  {isInvestDownloadAllowed && investDownloadLimit > 0 && (
+                    <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                        PDF investissement :
+                        <span className={`font-semibold tabular-nums ${remainingInvestDownloads === 0 ? 'text-amber-600' : ''}`}>{remainingInvestDownloads}</span>
+                        <span className="text-muted-foreground/50"> / </span>
+                        <span className="tabular-nums">{investDownloadLimit}</span>
+                      </span>
+                      {remainingInvestDownloads === 0 && (
+                        <span className="text-[9px] text-amber-600 font-medium">Épuisé — renouvelez</span>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -812,71 +854,73 @@ export default function Dashboard() {
           </Card>
 
           {/* ── Quota warnings par type (presque atteinte / atteinte) ── */}
-          {(isNearLimit || isInvestNearLimit || isPlansNearLimit) && (
+          {(isNearLimit || isInvestNearLimit || projectsReached || investReached) && (
             <div className="space-y-2.5">
               {[
                 {
-                  near: isNearLimit,
-                  title: "Limite de projets de construction presque atteinte",
-                  body: `Vous avez utilisé ${usagePercent}% de votre limite de ${projectLimit} projets.`,
-                  upgrade:
-                    userPlan === "free"
-                      ? "Passez à l'offre Pro pour créer jusqu'à 5 projets."
-                      : userPlan === "pro"
-                      ? "Passez à l'offre Expert pour créer jusqu'à 20 projets."
-                      : "Vous avez atteint le quota maximum du forfait Expert.",
+                  show: isNearLimit || projectsReached,
+                  reached: projectsReached,
+                  type: "construction",
+                  plan: constructionPlan,
+                  title: projectsReached
+                    ? "Limite de projets de construction atteinte"
+                    : "Limite de projets de construction presque atteinte",
+                  body: projectsReached
+                    ? `Vous avez utilisé ${usedProjects}/${projectLimit} projets de construction de votre forfait ${PLAN_LABELS[constructionPlan]}.`
+                    : `Vous avez utilisé ${usagePercent}% de votre limite de ${projectLimit} projets de construction.`,
                 },
                 {
-                  near: isInvestNearLimit,
-                  title: "Limite d'analyses d'investissement presque atteinte",
-                  body: `Vous avez utilisé ${investUsagePct}% de votre limite de ${investLimit} analyses.`,
-                  upgrade:
-                    userPlan === "free"
-                      ? "Passez à l'offre Pro pour réaliser jusqu'à 5 analyses."
-                      : userPlan === "pro"
-                      ? "Passez à l'offre Expert pour réaliser jusqu'à 20 analyses."
-                      : "Vous avez atteint le quota maximum du forfait Expert.",
-                },
-                {
-                  near: isPlansNearLimit,
-                  title: "Limite de plans architecturaux presque atteinte",
-                  body: `Vous avez utilisé ${planUsagePct}% de votre limite de ${planLimit} plans.`,
-                  upgrade:
-                    userPlan === "free"
-                      ? "Passez à l'offre Pro pour générer jusqu'à 5 plans."
-                      : userPlan === "pro"
-                      ? "Passez à l'offre Expert pour générer jusqu'à 20 plans."
-                      : "Vous avez atteint le quota maximum du forfait Expert.",
+                  show: isInvestNearLimit || investReached,
+                  reached: investReached,
+                  type: "investment",
+                  plan: investmentPlan,
+                  title: investReached
+                    ? "Limite d'analyses d'investissement atteinte"
+                    : "Limite d'analyses d'investissement presque atteinte",
+                  body: investReached
+                    ? `Vous avez utilisé ${analyses.length}/${investLimit} analyses d'investissement de votre forfait ${PLAN_LABELS[investmentPlan]}.`
+                    : `Vous avez utilisé ${investUsagePct}% de votre limite de ${investLimit} analyses d'investissement.`,
                 },
               ]
-                .filter((w) => w.near)
-                .map((w, i) => (
-                  <Card key={i} className="border border-amber-200/70 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-950/20 backdrop-blur-sm">
-                    <CardContent className="p-3 sm:p-4 flex items-start gap-2.5 sm:gap-3">
-                      <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 mt-0.5">
-                        <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm font-semibold text-amber-800 dark:text-amber-300">{w.title}</p>
-                        <p className="text-[10px] sm:text-xs text-amber-700/80 dark:text-amber-400/80 mt-0.5">
-                          {w.body} {w.upgrade}
-                        </p>
-                        {userPlan !== "expert" && (
-                          <div className="mt-1.5 flex gap-1.5">
+                .filter((w) => w.show)
+                .map((w, i) => {
+                  const nextPlan = w.plan === "free" ? "pro" : w.plan === "pro" ? "expert" : null;
+                  return (
+                    <Card key={i} className="border border-amber-200/70 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-950/20 backdrop-blur-sm">
+                      <CardContent className="p-3 sm:p-4 flex items-start gap-2.5 sm:gap-3">
+                        <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 mt-0.5">
+                          <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-semibold text-amber-800 dark:text-amber-300">{w.title}</p>
+                          <p className="text-[10px] sm:text-xs text-amber-700/80 dark:text-amber-400/80 mt-0.5">
+                            {w.body} {w.reached ? "Renouvelez vos quotas ou passez à une offre supérieure pour continuer." : "Pensez à renouveler ou à passer à une offre supérieure."}
+                          </p>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-7 text-[10px] sm:text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                              onClick={() => navigate(`/dashboard/pricing?plan=${userPlan === "free" ? "pro" : "expert"}`)}
+                              className="h-7 gap-1 text-[10px] sm:text-xs bg-amber-500 hover:bg-amber-600 text-white border-0"
+                              onClick={() => navigate(`/dashboard/pricing?type=${w.type}`)}
                             >
-                              Voir les offres
+                              <RefreshCcw className="h-3 w-3" />
+                              Renouveler les quotas
                             </Button>
+                            {nextPlan && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[10px] sm:text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                                onClick={() => navigate(`/dashboard/pricing?type=${w.type}&plan=${nextPlan}`)}
+                              >
+                                Passer à {PLAN_LABELS[nextPlan]}
+                              </Button>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
             </div>
           )}
 
@@ -1208,25 +1252,19 @@ export default function Dashboard() {
                   <MiniStat icon={Heart} label="Favoris" value={planStats.favorites} tone={{ bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400" }} />
                 </div>
 
-                {/* Compteur de progression — quota plans architecturaux */}
+                {/* Compteur — plans architecturaux (gratuits & illimités) */}
                 <div className="mb-3 rounded-xl border border-border/40 bg-card/40 px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <Gauge className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-                      Quota plans architecturaux utilisés
+                      Plans architecturaux
                     </span>
-                    <span className={`font-bold tabular-nums ${planUsagePct >= 80 ? "text-amber-600" : "text-violet-600 dark:text-violet-400"}`}>
-                      {planHistory.length}/{planLimit} · {planUsagePct}%
+                    <span className="font-bold tabular-nums text-violet-600 dark:text-violet-400">
+                      {planHistory.length} généré{planHistory.length > 1 ? "s" : ""} · Illimité
                     </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${planUsagePct >= 80 ? "bg-gradient-to-r from-amber-400 to-orange-500" : "bg-gradient-to-r from-violet-400 to-indigo-500"}`}
-                      style={{ width: `${planUsagePct}%` }}
-                    />
                   </div>
                   <p className="mt-1 text-[9px] text-muted-foreground">
-                    Forfaits à paiement unique — quotas épuisés ? Passez à une offre supérieure ou rachetez un forfait.
+                    Forfait gratuit — quota et téléchargements illimités.
                   </p>
                 </div>
 

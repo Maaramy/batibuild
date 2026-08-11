@@ -2,27 +2,30 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { Lock, LayoutDashboard, CreditCard, ArrowRight } from "lucide-react";
+import { Lock, LayoutDashboard, CreditCard, ArrowRight, RefreshCcw } from "lucide-react";
 
 // ============================================================================
-// Bloque l'accès direct à une page de création quand le quota du forfait
-// (projets construction / analyses investissement / plans architecturaux)
-// est atteint. Redirige vers les forfaits pour racheter une formule.
+// Bloque l'accès direct à une page de création quand le quota du forfait est
+// atteint. Les forfaits sont vendus par type (construction / investissement) :
+//   - construction  → quotas de l'abonnement « construction »
+//   - investissement → quotas de l'abonnement « investment »
+//   - plans architecturaux → gratuits et illimités (jamais bloqués)
+// Quand le quota est épuisé, l'utilisateur renouvelle ses quotas ou passe à
+// une offre supérieure (voir la page forfaits).
 // ============================================================================
 
 export type QuotaType = "construction" | "investissement" | "plans";
 
 const QUOTA_META: Record<
   QuotaType,
-  { label: string; singular: string; singularDemo: string; plural: string }
+  { label: string; singular: string; plural: string; icon?: typeof Lock }
 > = {
-  construction: { label: "projets de construction", singular: "projet", singularDemo: "projet", plural: "projets" },
-  investissement: { label: "analyses d'investissement", singular: "analyse", singularDemo: "analyse", plural: "analyses" },
-  plans: { label: "plans architecturaux", singular: "plan", singularDemo: "plan", plural: "plans" },
+  construction: { label: "projets de construction", singular: "projet", plural: "projets" },
+  investissement: { label: "analyses d'investissement", singular: "analyse", plural: "analyses" },
+  plans: { label: "plans architecturaux", singular: "plan", plural: "plans" },
 };
 
 const PLAN_LABELS: Record<string, string> = {
@@ -31,67 +34,47 @@ const PLAN_LABELS: Record<string, string> = {
   expert: "Expert",
 };
 
+const NEXT_PLAN: Record<string, string | null> = { free: "pro", pro: "expert", expert: null };
+const UNLIMITED = 1000000;
+
 export function RequireQuota({ type, children }: { type: QuotaType; children: ReactNode }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
 
-  const planLimits = useQuery(api.projects.getPlanLimits);
-  const stats = useQuery(api.projects.getProjectStats);
-  const analyses = useQuery(api.investments.listAnalyses);
-  const plans = useQuery(api.architecturalPlans.getMyPlans);
+  const quotas = useQuery(api.subscriptions.getMyQuotas);
 
   const meta = QUOTA_META[type];
-  const userPlan = (user as any)?.subscriptionPlan ?? "free";
 
-  const loading = planLimits === undefined || stats === undefined || analyses === undefined || plans === undefined;
+  // Plans architecturaux : gratuits et illimités — jamais bloqués.
+  if (type === "plans") return <>{children}</>;
 
-  // Limite du forfait pour ce type de quota
-  const limit =
+  const loading = quotas === undefined;
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex items-center gap-2.5 text-muted-foreground">
+          <Spinner className="h-5 w-5" />
+          <p className="text-sm font-medium">Vérification de votre quota…</p>
+        </div>
+      </main>
+    );
+  }
+
+  const quota =
     type === "construction"
-      ? userPlan === "free"
-        ? planLimits?.free ?? 1
-        : userPlan === "pro"
-        ? planLimits?.pro ?? 5
-        : planLimits?.expert ?? 20
-      : type === "investissement"
-      ? userPlan === "free"
-        ? planLimits?.freeInvestments ?? 1
-        : userPlan === "pro"
-        ? planLimits?.proInvestments ?? 5
-        : planLimits?.expertInvestments ?? 20
-      : userPlan === "free"
-      ? planLimits?.freePlans ?? 1
-      : userPlan === "pro"
-      ? planLimits?.proPlans ?? 5
-      : planLimits?.expertPlans ?? 20;
+      ? quotas?.construction
+      : quotas?.investment;
 
-  // Utilisation actuelle pour ce type de quota
-  const used =
-    type === "construction"
-      ? stats?.totalProjects ?? 0
-      : type === "investissement"
-      ? analyses?.length ?? 0
-      : plans?.length ?? 0;
-
-  const reached = used >= limit;
+  const limit = quota?.limit ?? 1;
+  const used = quota?.used ?? 0;
+  const plan = quota?.plan ?? "free";
+  const reached = (quota?.reached ?? false) || used >= limit;
 
   // ── Écran de blocage ──
-  if (!loading && reached) {
-    const nextPlan = userPlan === "free" ? "pro" : userPlan === "pro" ? "expert" : null;
+  if (reached) {
+    const nextPlan = NEXT_PLAN[plan] ?? null;
     const nextLimit =
-      nextPlan === "pro"
-        ? type === "construction"
-          ? planLimits?.pro ?? 5
-          : type === "investissement"
-          ? planLimits?.proInvestments ?? 5
-          : planLimits?.proPlans ?? 5
-        : nextPlan === "expert"
-        ? type === "construction"
-          ? planLimits?.expert ?? 20
-          : type === "investissement"
-          ? planLimits?.expertInvestments ?? 20
-          : planLimits?.expertPlans ?? 20
-        : 0;
+      nextPlan === "pro" ? 10 : nextPlan === "expert" ? 30 : null;
 
     return (
       <main className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
@@ -104,25 +87,33 @@ export function RequireQuota({ type, children }: { type: QuotaType; children: Re
               </div>
               <h1 className="mt-4 text-lg sm:text-xl font-bold">Limite de {meta.label} atteinte</h1>
               <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                Vous avez utilisé <strong className="text-foreground">{used}/{limit}</strong> {used <= 1 ? meta.singular : meta.plural}{" "}
-                inclus dans votre forfait {PLAN_LABELS[userPlan] ?? userPlan}.
+                Vous avez utilisé <strong className="text-foreground">{used}/{limit}</strong>{" "}
+                {used <= 1 ? meta.singular : meta.plural} inclus dans votre forfait{" "}
+                {PLAN_LABELS[plan] ?? plan}.
                 {nextPlan
-                  ? ` Passez à l'offre ${PLAN_LABELS[nextPlan]} pour créer jusqu'à ${nextLimit} ${meta.singularDemo}${nextLimit > 1 ? "s" : ""}.`
-                  : " Vous avez atteint le quota maximum du forfait Expert."}
+                  ? ` Renouvelez vos quotas ou passez à l'offre ${PLAN_LABELS[nextPlan]} pour créer jusqu'à ${nextLimit} ${meta.singular}s.`
+                  : " Vous avez atteint le quota maximum du forfait Expert — renouvelez vos quotas pour continuer."}
               </p>
 
               <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2.5">
-                {nextPlan ? (
-                  <Button size="lg" className="w-full sm:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => navigate("/dashboard/pricing")}>
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+                  onClick={() => navigate(`/dashboard/pricing?type=${type === "construction" ? "construction" : "investment"}`)}
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                  Renouveler les quotas
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                {nextPlan && (
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full sm:w-auto gap-2"
+                    onClick={() => navigate(`/dashboard/pricing?type=${type === "construction" ? "construction" : "investment"}&plan=${nextPlan}`)}
+                  >
                     <CreditCard className="h-4 w-4" />
-                    Voir les forfaits
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button size="lg" className="w-full sm:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => navigate("/dashboard/pricing")}>
-                    <CreditCard className="h-4 w-4" />
-                    Payer une nouvelle formule
-                    <ArrowRight className="h-4 w-4" />
+                    Passer à {PLAN_LABELS[nextPlan]}
                   </Button>
                 )}
                 <Button size="lg" variant="outline" className="w-full sm:w-auto gap-2" onClick={() => navigate("/dashboard")}>
@@ -136,18 +127,6 @@ export function RequireQuota({ type, children }: { type: QuotaType; children: Re
               </p>
             </div>
           </Card>
-        </div>
-      </main>
-    );
-  }
-
-  // ── Chargement ──
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex items-center gap-2.5 text-muted-foreground">
-          <Spinner className="h-5 w-5" />
-          <p className="text-sm font-medium">Vérification de votre quota…</p>
         </div>
       </main>
     );
