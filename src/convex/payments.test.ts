@@ -67,15 +67,15 @@ describe("getPlanPricing", () => {
     const result = await adminT.query(api.payments.getPlanPricing);
 
     expect(result).not.toBeNull();
-    expect(result!.proPrice).toBe(79);
+    expect(result!.proPrice).toBe(120);
     expect(result!.expertPrice).toBe(320);
     expect(result!.supplierPrice).toBe(120);
-    expect(result!.freeProjectLimit).toBe(3);
-    expect(result!.proProjectLimit).toBe(10);
-    expect(result!.expertProjectLimit).toBe(100);
-    expect(result!.freeDownloadLimit).toBe(0);
-    expect(result!.proDownloadLimit).toBe(10);
-    expect(result!.expertDownloadLimit).toBe(100);
+    expect(result!.freeProjectLimit).toBe(1);
+    expect(result!.proProjectLimit).toBe(5);
+    expect(result!.expertProjectLimit).toBe(20);
+    expect(result!.freeDownloadLimit).toBe(1);
+    expect(result!.proDownloadLimit).toBe(5);
+    expect(result!.expertDownloadLimit).toBe(20);
   });
 
   it("retourne les valeurs personnalisées depuis un paymentConfig existant", async () => {
@@ -147,8 +147,8 @@ describe("getPlanPricing", () => {
     expect(result!.proPrice).toBe(89);             // from config
     expect(result!.expertPrice).toBe(350);          // from config
     expect(result!.supplierPrice).toBe(120);         // fallback to default
-    expect(result!.freeProjectLimit).toBe(3);        // fallback to default
-    expect(result!.proProjectLimit).toBe(10);        // fallback to default
+    expect(result!.freeProjectLimit).toBe(1);        // fallback to default
+    expect(result!.proProjectLimit).toBe(5);        // fallback to default
   });
 });
 
@@ -284,8 +284,8 @@ describe("updatePlanPricing", () => {
     expect(result!.proPrice).toBe(99);
     // Project limit et download limit devraient avoir DEFAUT
     // Puisque update ne définit pas ces champs, ils prennent les defaults de création
-    // Mais comme on a insert avec DEFAULT_PLAN_PRICING qui a proProjectLimit: 10...
-    expect(result!.proProjectLimit).toBe(10);
+    // DEFAULT_PLAN_PRICING (forfait Pro) : proProjectLimit: 5
+    expect(result!.proProjectLimit).toBe(5);
   });
 });
 
@@ -431,7 +431,7 @@ describe("updatePaymentConfig", () => {
     });
 
     const config = await adminT.query(api.payments.getPaymentConfigAdmin);
-    expect(config!.proPrice).toBe(79);
+    expect(config!.proPrice).toBe(120);
     expect(config!.expertPrice).toBe(320);
     expect(config!.supplierPrice).toBe(120);
     expect(config!.currency).toBe("TND");

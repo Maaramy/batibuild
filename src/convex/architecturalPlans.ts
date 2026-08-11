@@ -6,7 +6,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { checkQuota, consumeQuota } from "./subscriptions";
+import { checkQuota, consumeQuota, releaseQuota } from "./subscriptions";
 import { generatePlans, regenerateVariant } from "./planEngine";
 import type { PlanRequest, GeneratedPlan } from "./planEngine";
 
@@ -149,6 +149,64 @@ export const deletePlan = mutation({
     if (!doc || doc.userId !== user._id) throw new Error("Plan introuvable");
     await ctx.db.delete(args.planId);
     return { success: true };
+  },
+});
+
+// ============================================================================
+// Administration — liste & suppression (les quotas sont libérés)
+// ============================================================================
+
+/** Tous les plans avec infos utilisateur (admin / modérateur). */
+export const getAllPlans = query({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) return [];
+    const docs = await ctx.db.query("architecturalPlans").order("desc").collect();
+    return await Promise.all(
+      docs.map(async (doc) => {
+        const u = await ctx.db.get(doc.userId);
+        return {
+          ...doc,
+          user: u
+            ? { _id: u._id, name: u.name, email: u.email, image: u.image }
+            : null,
+        };
+      }),
+    );
+  },
+});
+
+/** Suppression groupée (admin) — libère les quotas des propriétaires. */
+export const adminDeletePlans = mutation({
+  args: { planIds: v.array(v.id("architecturalPlans")) },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") throw new Error("Unauthorized");
+    let deleted = 0;
+    for (const id of args.planIds) {
+      const doc = await ctx.db.get(id);
+      if (doc) {
+        await ctx.db.delete(id);
+        try { await releaseQuota(ctx, doc.userId, "plans", 1); } catch { /* non bloquant */ }
+        deleted++;
+      }
+    }
+    return { deleted };
+  },
+});
+
+/** Suppression d'un seul plan (admin) — libère le quota du propriétaire. */
+export const adminDeletePlan = mutation({
+  args: { planId: v.id("architecturalPlans") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") throw new Error("Unauthorized");
+    const doc = await ctx.db.get(args.planId);
+    if (!doc) throw new Error("Plan introuvable");
+    await ctx.db.delete(args.planId);
+    try { await releaseQuota(ctx, doc.userId, "plans", 1); } catch { /* non bloquant */ }
+    return { deleted: 1 };
   },
 });
 

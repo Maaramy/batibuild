@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { checkQuota, consumeQuota } from "./subscriptions";
+import { checkQuota, consumeQuota, releaseQuota } from "./subscriptions";
 import {
   INVESTMENT_TYPE_META,
   INVESTMENT_TYPES,
@@ -781,6 +781,64 @@ export const deleteAnalysis = mutation({
     if (!doc || doc.userId !== user._id) throw new Error("Analyse introuvable");
     await ctx.db.delete(args.analysisId);
     return { success: true };
+  },
+});
+
+// ============================================================================
+// Administration — liste & suppression (les quotas sont libérés)
+// ============================================================================
+
+/** Toutes les analyses avec infos utilisateur (admin / modérateur). */
+export const getAllAnalyses = query({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) return [];
+    const docs = await ctx.db.query("investmentAnalyses").order("desc").collect();
+    return await Promise.all(
+      docs.map(async (doc) => {
+        const u = await ctx.db.get(doc.userId);
+        return {
+          ...doc,
+          user: u
+            ? { _id: u._id, name: u.name, email: u.email, image: u.image }
+            : null,
+        };
+      }),
+    );
+  },
+});
+
+/** Suppression groupée (admin) — libère les quotas des propriétaires. */
+export const adminDeleteAnalyses = mutation({
+  args: { analysisIds: v.array(v.id("investmentAnalyses")) },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") throw new Error("Unauthorized");
+    let deleted = 0;
+    for (const id of args.analysisIds) {
+      const doc = await ctx.db.get(id);
+      if (doc) {
+        await ctx.db.delete(id);
+        try { await releaseQuota(ctx, doc.userId, "investments", 1); } catch { /* non bloquant */ }
+        deleted++;
+      }
+    }
+    return { deleted };
+  },
+});
+
+/** Suppression d'une seule analyse (admin) — libère le quota du propriétaire. */
+export const adminDeleteAnalysis = mutation({
+  args: { analysisId: v.id("investmentAnalyses") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") throw new Error("Unauthorized");
+    const doc = await ctx.db.get(args.analysisId);
+    if (!doc) throw new Error("Analyse introuvable");
+    await ctx.db.delete(args.analysisId);
+    try { await releaseQuota(ctx, doc.userId, "investments", 1); } catch { /* non bloquant */ }
+    return { deleted: 1 };
   },
 });
 

@@ -57,7 +57,7 @@ const PLAN_LEGEND: { abbr: string; label: string }[] = [
   { abbr: "SDB", label: "Salle de bain" },
   { abbr: "WC", label: "WC" },
   { abbr: "Buan", label: "Buanderie" },
-  { abbr: "Dress", label: "Dressing" },
+  { abbr: "Séch", label: "Espace séchage" },
   { abbr: "Bur", label: "Bureau" },
   { abbr: "Loc. tech", label: "Local technique" },
   { abbr: "Esc", label: "Escalier" },
@@ -111,7 +111,7 @@ const ROOM_TOGGLES = [
   { key: "hasSalleAManger", label: "Salle à manger", icon: Utensils },
   { key: "hasCuisine", label: "Cuisine", icon: CookingPot },
   { key: "hasBuanderie", label: "Buanderie", icon: Wrench },
-  { key: "hasDressing", label: "Dressing", icon: Shirt },
+  { key: "hasDressing", label: "Espace séchage", icon: Shirt },
   { key: "hasBureau", label: "Bureau", icon: BriefcaseIcon },
   { key: "hasLocalTechnique", label: "Local technique", icon: PencilRuler },
 ] as const;

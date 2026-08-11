@@ -46,29 +46,30 @@ export default function DemoInvestment() {
     <main className="min-h-screen bg-background">
       {/* Public top bar */}
       <header className="border-b border-border/40 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3 px-3 sm:px-5 lg:px-6 py-3">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-2 px-3 sm:px-5 lg:px-6 py-3">
           <button
             onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-sm font-bold hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 text-xs sm:text-sm font-bold hover:opacity-80 transition-opacity min-w-0"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white">
               <Landmark className="h-4 w-4" />
             </span>
-            batibuild App
+            <span className="truncate">batibuild App</span>
           </button>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px]">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <Badge variant="outline" className="hidden sm:inline-flex gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px]">
               <FlaskConical className="h-3 w-3" />
               Exemple de démonstration
             </Badge>
             <Button
               size="sm"
-              className="gap-1.5 h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="gap-1.5 h-9 sm:h-8 px-2.5 sm:px-3 text-[10px] sm:text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
               onClick={() => navigate("/dashboard/investments")}
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              Analyser mon investissement
-              <ArrowRight className="h-3.5 w-3.5" />
+              <Sparkles className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden sm:inline">Analyser mon investissement</span>
+              <span className="sm:hidden">Analyser</span>
+              <ArrowRight className="h-3.5 w-3.5 shrink-0" />
             </Button>
           </div>
         </div>

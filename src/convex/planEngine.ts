@@ -344,7 +344,7 @@ function buildRoomReqs(req: PlanRequest, strategy: VariantStrategy): { rooms: Ro
 
   // Dressing rattaché à la suite parentale si premium
   if (req.hasDressing) {
-    services.push({ name: "Dressing", type: "dressing", area: AREA.dressing[sl], minArea: AREA.dressing.min, level: hasUpper ? 1 : 0 });
+    services.push({ name: "Espace séchage", type: "dressing", area: AREA.dressing[sl], minArea: AREA.dressing.min, level: hasUpper ? 1 : 0 });
   }
 
   // Ordre de placement selon la stratégie (sdb + wc regroupés avec la nuit)

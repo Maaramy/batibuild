@@ -194,6 +194,21 @@ export async function consumeQuota(ctx: any, user: any, kind: QuotaKind): Promis
   });
 }
 
+/**
+ * Décrémente le compteur de quota de l'abonnement actif (si présent).
+ * Utilisé quand un administrateur supprime un document (projet, analyse,
+ * plan) : le quota consommé est libéré pour l'utilisateur concerné.
+ */
+export async function releaseQuota(ctx: any, userId: any, kind: QuotaKind, count = 1): Promise<void> {
+  const sub = await getActiveSubscription(ctx, userId);
+  if (!sub) return;
+  const field = KIND_TO_SUB_FIELD[kind];
+  await ctx.db.patch(sub._id, {
+    [field]: Math.max(0, ((sub as any)[field] ?? 0) - count),
+    updatedAt: Date.now(),
+  });
+}
+
 // ============================================================================
 // Download Limit Helpers
 // ============================================================================

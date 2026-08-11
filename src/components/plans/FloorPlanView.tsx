@@ -3,29 +3,30 @@ import type { GeneratedPlan, PlacedRoom } from "@/convex/planEngine";
 import { roomColor } from "@/convex/planEngine";
 
 // ============================================================================
-// Rendu SVG professionnel d'un plan architectural (échelle métrique).
-// Design moderne : murs nets avec liseré, finitions douces, typographie
-// soignée (Inter), fond quadrillé léger « plan technique » en mode export.
+// Rendu SVG d'un plan architectural — style « plan d'architecte » classique :
+// fond blanc, murs extérieurs en double trait avec ouvertures (portes,
+// fenêtres), cloisons fines, pièces teintées, cotes sur les 4 côtés, boussole.
 // Le plan est rendu dans un repère métrique (1 unité = 1 mètre), puis mis à
 // l'échelle par viewBox. Exportable tel quel en PNG/JPG/PDF haute résolution.
 // ============================================================================
 
-const WALL_W = 0.18;   // épaisseur mur extérieur (m) — légèrement renforcée pour la netteté
-const WALL_I = 0.07;   // épaisseur cloison (m)
+const WALL_OUTER = 0.06;  // trait extérieur du mur double (m)
+const WALL_INNER = 0.055; // trait intérieur du mur double (m)
+const WALL_GAP = 0.1;     // écart entre les deux traits du mur double (m)
+const WALL_I = 0.08;      // épaisseur des cloisons intérieures (m)
 
-// Palette moderne du dessin
-const INK = "#0f172a";        // murs / textes principaux
-const INK_SOFT = "#64748b";   // secondaire
-const LINE = "#cbd5e1";       // lignes fines
-const ACCENT_BLUE = "#0ea5e9";
+// Encre du dessin (classique, noir bleuté)
+const INK = "#1f2937";
+const INK_SOFT = "#6b7280";
+const LINE = "#d1d5db";
+const ACCENT = "#0e7490";   // boussole / teinte technique
+const GLASS = "#bae6fd";    // fenêtres
 
 function roomCenter(r: PlacedRoom) {
   return { cx: r.x + r.w / 2, cy: r.y + r.h / 2 };
 }
 
 // ─── Abréviations des pièces ────────────────────────────────────────────────
-// Les plans utilisent des libellés courts (Ch, S, SDB…) pour optimiser l'image :
-// texte minimal → plan plus grand, plus net et lisible sur mobile.
 
 function roomNumSuffix(name: string): string {
   const m = name.match(/(\d+)\s*$/);
@@ -42,7 +43,7 @@ export function abbreviateRoomName(name: string, type: string): string {
     case "sdb": return `SDB${roomNumSuffix(name)}`;
     case "wc": return `WC${roomNumSuffix(name)}`;
     case "buanderie": return "Buan";
-    case "dressing": return "Dress";
+    case "dressing": return "Séch";
     case "bureau": return "Bur";
     case "localTechnique": return "Loc. tech";
     case "escalier": return "Esc";
@@ -58,26 +59,44 @@ export function abbreviateRoomName(name: string, type: string): string {
   }
 }
 
-// ─── Cartouche / dimensionnement ────────────────────────────────────────────
+// ─── Cotes sur les 4 côtés ──────────────────────────────────────────────────
 
 function Dimensions({ width, depth }: { width: number; depth: number }) {
-  const margin = 1.1;
+  const m = 1.05;
+  const tick = (x1: number, y1: number, x2: number, y2: number) => (
+    <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={INK_SOFT} strokeWidth={0.045} />
+  );
+  const label = (x: number, y: number, txt: string, rotate = 0) => (
+    <text
+      x={x} y={y} textAnchor="middle" fontSize={0.5} fill={INK} fontWeight={600}
+      transform={rotate ? `rotate(${rotate} ${x} ${y})` : undefined}
+      style={{ letterSpacing: "0.02em", fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+    >
+      {txt}
+    </text>
+  );
   return (
     <g>
-      {/* Cote largeur (bas) */}
-      <line x1={0} y1={depth + margin * 0.5} x2={width} y2={depth + margin * 0.5} stroke={INK_SOFT} strokeWidth={0.045} />
-      <line x1={0} y1={depth + margin * 0.2} x2={0} y2={depth + margin * 0.85} stroke={INK_SOFT} strokeWidth={0.045} />
-      <line x1={width} y1={depth + margin * 0.2} x2={width} y2={depth + margin * 0.85} stroke={INK_SOFT} strokeWidth={0.045} />
-      <text x={width / 2} y={depth + margin * 0.72} textAnchor="middle" fontSize={0.55} fill={INK_SOFT} fontWeight={600} style={{ letterSpacing: "0.03em" }}>
-        {width.toFixed(2)} m
-      </text>
-      {/* Cote profondeur (droite) */}
-      <line x1={width + margin * 0.5} y1={0} x2={width + margin * 0.5} y2={depth} stroke={INK_SOFT} strokeWidth={0.045} />
-      <line x1={width + margin * 0.2} y1={0} x2={width + margin * 0.85} y2={0} stroke={INK_SOFT} strokeWidth={0.045} />
-      <line x1={width + margin * 0.2} y1={depth} x2={width + margin * 0.85} y2={depth} stroke={INK_SOFT} strokeWidth={0.045} />
-      <text x={width + margin * 0.68} y={depth / 2} textAnchor="middle" fontSize={0.55} fill={INK_SOFT} fontWeight={600} transform={`rotate(90 ${width + margin * 0.68} ${depth / 2})`} style={{ letterSpacing: "0.03em" }}>
-        {depth.toFixed(2)} m
-      </text>
+      {/* ── Cote bas ── */}
+      <line x1={0} y1={depth + m * 0.45} x2={width} y2={depth + m * 0.45} stroke={INK_SOFT} strokeWidth={0.045} />
+      {tick(0, depth + m * 0.15, 0, depth + m * 0.8)}
+      {tick(width, depth + m * 0.15, width, depth + m * 0.8)}
+      {label(width / 2, depth + m * 0.72, `${width.toFixed(2)} m`)}
+      {/* ── Cote haut ── */}
+      <line x1={0} y1={-m * 0.45} x2={width} y2={-m * 0.45} stroke={INK_SOFT} strokeWidth={0.045} />
+      {tick(0, -m * 0.15, 0, -m * 0.8)}
+      {tick(width, -m * 0.15, width, -m * 0.8)}
+      {label(width / 2, -m * 0.72, `${width.toFixed(2)} m`)}
+      {/* ── Cote droite ── */}
+      <line x1={width + m * 0.45} y1={0} x2={width + m * 0.45} y2={depth} stroke={INK_SOFT} strokeWidth={0.045} />
+      {tick(width + m * 0.15, 0, width + m * 0.8, 0)}
+      {tick(width + m * 0.15, depth, width + m * 0.8, depth)}
+      {label(width + m * 0.7, depth / 2, `${depth.toFixed(2)} m`, 90)}
+      {/* ── Cote gauche ── */}
+      <line x1={-m * 0.45} y1={0} x2={-m * 0.45} y2={depth} stroke={INK_SOFT} strokeWidth={0.045} />
+      {tick(-m * 0.15, 0, -m * 0.8, 0)}
+      {tick(-m * 0.15, depth, -m * 0.8, depth)}
+      {label(-m * 0.7, depth / 2, `${depth.toFixed(2)} m`, 90)}
     </g>
   );
 }
@@ -85,9 +104,9 @@ function Dimensions({ width, depth }: { width: number; depth: number }) {
 function NorthArrow({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x},${y})`}>
-      <circle r={0.85} fill="#ffffff" fillOpacity={0.85} stroke={INK_SOFT} strokeWidth={0.07} />
-      <polygon points="0,-0.6 0.3,0.25 0,0.08 -0.3,0.25" fill={ACCENT_BLUE} />
-      <text y={-1.05} textAnchor="middle" fontSize={0.42} fill={ACCENT_BLUE} fontWeight={700}>N</text>
+      <circle r={0.75} fill="#ffffff" fillOpacity={0.9} stroke={INK_SOFT} strokeWidth={0.06} />
+      <polygon points="0,-0.52 0.26,0.22 0,0.06 -0.26,0.22" fill={ACCENT} />
+      <text y={-0.95} textAnchor="middle" fontSize={0.4} fill={ACCENT} fontWeight={700}>N</text>
     </g>
   );
 }
@@ -97,80 +116,67 @@ function NorthArrow({ x, y }: { x: number; y: number }) {
 function StairBlock({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
   const steps = Math.max(3, Math.floor((w + h) / 0.6));
   const lines: number[] = [];
-  for (let i = 1; i < steps; i++) {
-    lines.push(i / steps);
-  }
+  for (let i = 1; i < steps; i++) lines.push(i / steps);
   const slim = w / h > 1.6;
   return (
     <g>
-      <rect x={x} y={y} width={w} height={h} fill="#eef2ff" stroke="#6366f1" strokeWidth={0.08} rx={0.06} />
+      <rect x={x} y={y} width={w} height={h} fill="#eef2ff" stroke="#4338ca" strokeWidth={0.07} rx={0.05} />
       {lines.map((t, i) => (
         <line
           key={i}
           x1={x + t * w} y1={y}
           x2={x + t * w - (h * 0.6) * (w / h)} y2={y + h}
-          stroke="#818cf8" strokeWidth={0.06}
+          stroke="#6366f1" strokeWidth={0.05}
           style={{ display: slim ? undefined : "none" }}
         />
       ))}
-      <line x1={x} y1={y + h / 2} x2={x + w} y2={y + h / 2} stroke="#6366f1" strokeWidth={0.06} />
-      <line x1={x + w / 2} y1={y} x2={x + w / 2} y2={y + h} stroke="#6366f1" strokeWidth={0.06} />
-      <text x={x + w / 2} y={y + h / 2 + 0.12} textAnchor="middle" fontSize={Math.min(w, h) * 0.45} fill="#4338ca" fontWeight={700}>
+      <line x1={x} y1={y + h / 2} x2={x + w} y2={y + h / 2} stroke="#4338ca" strokeWidth={0.05} />
+      <line x1={x + w / 2} y1={y} x2={x + w / 2} y2={y + h} stroke="#4338ca" strokeWidth={0.05} />
+      <text x={x + w / 2} y={y + h / 2 + 0.12} textAnchor="middle" fontSize={Math.min(w, h) * 0.42} fill="#3730a3" fontWeight={700}>
         Esc
       </text>
     </g>
   );
 }
 
-// ─── Pièce (murs, étiquette, surface) — design moderne ─────────────────────
+// ─── Pièce (teinte douce + étiquette) ───────────────────────────────────────
 
 function RoomBlock({ room, isUpper, compact }: { room: PlacedRoom; isUpper?: boolean; compact?: boolean }) {
   const { cx, cy } = roomCenter(room);
   const base = roomColor(room.type);
-  const fill = room.exterior ? `${base}55` : `${base}b8`;
+  const fill = `${base}7a`;
   const label = abbreviateRoomName(room.name, room.type);
-  // Mode compact + police minimisée : les abréviations (Ch, S, SDB…) gardent le
-  // texte court, le plan occupe donc un maximum d'espace et reste très lisible.
   const fontSize = compact
-    ? Math.min(0.92, Math.max(0.42, Math.min(room.w, room.h) * 0.34))
-    : Math.max(0.32, Math.min(room.w, room.h) * 0.3);
+    ? Math.min(0.95, Math.max(0.4, Math.min(room.w, room.h) * 0.36))
+    : Math.max(0.3, Math.min(room.w, room.h) * 0.32);
   return (
     <g>
-      {/* Sol de la pièce */}
       <rect
         x={room.x} y={room.y} width={room.w} height={room.h}
         fill={fill}
-        stroke={room.exterior ? "#94a3b8" : INK}
-        strokeWidth={room.exterior ? 0.06 : WALL_I}
-        rx={0.06}
+        stroke={INK}
+        strokeWidth={room.exterior ? 0.05 : WALL_I}
+        rx={0.04}
       />
-      {/* Liseré intérieur clair (effet « découpe » moderne) */}
-      {!room.exterior && (
-        <rect
-          x={room.x + 0.09} y={room.y + 0.09} width={room.w - 0.18} height={room.h - 0.18}
-          fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={0.04} rx={0.04}
-        />
-      )}
       {room.exterior && (
         <rect
-          x={room.x + 0.1} y={room.y + 0.1} width={room.w - 0.2} height={room.h - 0.2}
-          fill="none" stroke="#94a3b8" strokeWidth={0.04} strokeDasharray="0.28 0.18"
+          x={room.x + 0.09} y={room.y + 0.09} width={room.w - 0.18} height={room.h - 0.18}
+          fill="none" stroke="#94a3b8" strokeWidth={0.04} strokeDasharray="0.26 0.16"
         />
       )}
-      {/* Nom abrégé + surface */}
       <text
-        x={cx} y={cy - (room.h >= 1.6 ? 0.1 : 0)}
+        x={cx} y={cy - (room.h >= 1.6 ? 0.08 : 0)}
         textAnchor="middle"
         fontSize={fontSize}
         fill={INK}
         fontWeight={700}
-        style={{ pointerEvents: "none", letterSpacing: "0.02em" }}
+        style={{ pointerEvents: "none", letterSpacing: "0.015em" }}
       >
         {label}
       </text>
       {room.h >= 1.8 && (
         <text
-          x={cx} y={cy + fontSize + 0.12}
+          x={cx} y={cy + fontSize + 0.14}
           textAnchor="middle"
           fontSize={fontSize * 0.8}
           fill={INK_SOFT}
@@ -181,45 +187,166 @@ function RoomBlock({ room, isUpper, compact }: { room: PlacedRoom; isUpper?: boo
         </text>
       )}
       {isUpper && (
-        <text x={room.x + 0.18} y={room.y + 0.42} fontSize={compact ? 0.45 : 0.34} fill="#7c3aed" fontWeight={700}>▲</text>
+        <text x={room.x + 0.16} y={room.y + 0.4} fontSize={compact ? 0.42 : 0.32} fill="#6d28d9" fontWeight={700}>▲</text>
       )}
     </g>
   );
 }
 
-// ─── Porte (avec sens d'ouverture) ──────────────────────────────────────────
+// ─── Porte (ouverture dans le mur + battant + arc) ─────────────────────────
 
 function DoorBlock({ x, y, w, h, angle, exterior }: { x: number; y: number; w: number; h: number; angle: number; exterior: boolean }) {
   const pivot = { x, y };
   const arcStart = { x: x + w, y };
   const arcEnd = { x, y: y + h };
-  const frame = exterior ? "#0d9488" : "#475569";
   return (
     <g>
-      <rect x={x} y={y} width={w} height={h} fill="#ffffff" stroke={frame} strokeWidth={exterior ? 0.09 : 0.07} rx={0.02} />
+      {/* Ouverture (découpe du mur) */}
+      <rect x={x} y={y} width={w} height={h} fill="#ffffff" stroke="none" />
       {/* Battant */}
       <line x1={pivot.x} y1={pivot.y} x2={arcStart.x} y2={arcStart.y} stroke={INK} strokeWidth={0.07} />
       {/* Arc d'ouverture */}
       <path
         d={`M ${arcStart.x} ${arcStart.y} A ${w} ${h} 0 0 1 ${arcEnd.x} ${arcEnd.y}`}
-        fill="none" stroke={exterior ? "#0d9488" : "#94a3b8"} strokeWidth={0.05} strokeDasharray="0.1 0.08"
+        fill="none" stroke={exterior ? ACCENT : "#94a3b8"} strokeWidth={0.05}
       />
-      <line x1={pivot.x} y1={pivot.y} x2={arcEnd.x} y2={arcEnd.y} stroke="#94a3b8" strokeWidth={0.05} />
-      {exterior && <circle cx={pivot.x} cy={pivot.y} r={0.09} fill="#0d9488" />}
+      {/* Ligne de fermeture */}
+      <line x1={pivot.x} y1={pivot.y} x2={arcEnd.x} y2={arcEnd.y} stroke="#9ca3af" strokeWidth={0.04} />
+      {exterior && <circle cx={pivot.x} cy={pivot.y} r={0.07} fill={ACCENT} />}
     </g>
   );
 }
 
-// ─── Fenêtre (double trait moderne) ─────────────────────────────────────────
+// ─── Fenêtre (double trait dans le mur) ─────────────────────────────────────
+// La fenêtre est centrée sur le mur (bande d'épaisseur 0.16 m) et s'étend sur
+// `w` mètres le long du mur. `vertical` = fenêtre sur un mur est/ouest.
 
 function WindowBlock({ x, y, w, vertical }: { x: number; y: number; w: number; vertical: boolean }) {
-  const wl = vertical ? 0.12 : w;
-  const hl = vertical ? w : 0.12;
+  const thick = 0.16; // épaisseur de la baie (perpendiculaire au mur)
+  const t = 0.05;
   return (
     <g>
-      <rect x={x} y={y} width={wl} height={hl} fill="#e0f2fe" stroke={ACCENT_BLUE} strokeWidth={0.07} rx={0.03} />
-      <line x1={x} y1={y + hl / 2} x2={x + wl} y2={y + hl / 2} stroke={ACCENT_BLUE} strokeWidth={0.05} />
-      <line x1={x + wl / 2} y1={y} x2={x + wl / 2} y2={y + hl} stroke="#bae6fd" strokeWidth={0.04} />
+      {/* Découpe blanche dans le mur */}
+      <rect x={x} y={y} width={vertical ? thick : w} height={vertical ? w : thick} fill="#ffffff" stroke="none" />
+      {vertical ? (
+        <>
+          <line x1={x + t} y1={y + 0.03} x2={x + t} y2={y + w - 0.03} stroke={ACCENT} strokeWidth={0.045} />
+          <line x1={x + thick - t} y1={y + 0.03} x2={x + thick - t} y2={y + w - 0.03} stroke={ACCENT} strokeWidth={0.045} />
+          <line x1={x + thick / 2} y1={y + 0.04} x2={x + thick / 2} y2={y + w - 0.04} stroke={GLASS} strokeWidth={0.06} />
+        </>
+      ) : (
+        <>
+          <line x1={x + 0.03} y1={y + t} x2={x + w - 0.03} y2={y + t} stroke={ACCENT} strokeWidth={0.045} />
+          <line x1={x + 0.03} y1={y + thick - t} x2={x + w - 0.03} y2={y + thick - t} stroke={ACCENT} strokeWidth={0.045} />
+          <line x1={x + 0.04} y1={y + thick / 2} x2={x + w - 0.04} y2={y + thick / 2} stroke={GLASS} strokeWidth={0.06} />
+        </>
+      )}
+    </g>
+  );
+}
+
+// ─── Murs extérieurs en double trait, coupés par les ouvertures ─────────────
+
+function ExteriorWalls({ width, depth, doors, windows }: {
+  width: number; depth: number;
+  doors: GeneratedPlan["doors"]; windows: GeneratedPlan["windows"];
+}) {
+  // Ouvertures par côté (intervalles le long du mur)
+  const cut = 0.08; // marge de découpe autour de chaque ouverture
+  const openings = {
+    top: [] as [number, number][],
+    bottom: [] as [number, number][],
+    left: [] as [number, number][],
+    right: [] as [number, number][],
+  };
+  for (const wn of windows) {
+    const span: [number, number] = wn.vertical
+      ? [wn.y - cut, wn.y + wn.w + cut]
+      : [wn.x - cut, wn.x + wn.w + cut];
+    // vertical → mur est/ouest ; sinon → mur nord/sud
+    if (wn.vertical) {
+      if (wn.x < -0.1) openings.left.push(span);
+      else openings.right.push(span);
+    } else {
+      if (wn.y < -0.1) openings.top.push(span);
+      else openings.bottom.push(span);
+    }
+  }
+  for (const d of doors) {
+    if (!d.exterior) continue;
+    // Porte extérieure sur le pourtour
+    if (Math.abs(d.y) < 0.4) openings.top.push([d.x - cut, d.x + d.w + cut]);
+    else if (Math.abs(d.y + d.h - depth) < 0.4) openings.bottom.push([d.x - cut, d.x + d.w + cut]);
+    else if (Math.abs(d.x) < 0.4) openings.left.push([d.y - cut, d.y + d.h + cut]);
+    else openings.right.push([d.y - cut, d.y + d.h + cut]);
+  }
+
+  const segments = (len: number, spans: [number, number][]): [number, number][] => {
+    const sorted = [...spans].sort((a, b) => a[0] - b[0]);
+    const segs: [number, number][] = [];
+    let cursor = 0;
+    for (const [a, b] of sorted) {
+      const s = Math.max(0, Math.min(len, a));
+      const e = Math.max(0, Math.min(len, b));
+      if (s > cursor) segs.push([cursor, s]);
+      cursor = Math.max(cursor, e);
+    }
+    if (cursor < len) segs.push([cursor, len]);
+    return segs.filter(([a, b]) => b - a > 0.02);
+  };
+
+  const topSegs = segments(width, openings.top);
+  const bottomSegs = segments(width, openings.bottom);
+  const leftSegs = segments(depth, openings.left);
+  const rightSegs = segments(depth, openings.right);
+
+  // Trait extérieur + trait intérieur du mur double
+  const double = (s: number, e: number, along: "x" | "y", at: number, gapDir: 1 | -1, outer: boolean) => {
+    const g = outer ? 0 : gapDir * WALL_GAP;
+    if (along === "x") {
+      return (
+        <g key={`${at}-${outer}-${s}-${e}`}>
+          <line x1={s} y1={at + g} x2={e} y2={at + g} stroke={INK} strokeWidth={outer ? WALL_OUTER : WALL_INNER} />
+        </g>
+      );
+    }
+    return (
+      <g key={`${at}-${outer}-${s}-${e}`}>
+        <line x1={at + g} y1={s} x2={at + g} y2={e} stroke={INK} strokeWidth={outer ? WALL_OUTER : WALL_INNER} />
+      </g>
+    );
+  };
+
+  return (
+    <g>
+      {/* Haut */}
+      {topSegs.map(([s, e]) => (
+        <g key={`t-${s}-${e}`}>
+          {double(s, e, "x", 0, 1, true)}
+          {double(s, e, "x", 0, 1, false)}
+        </g>
+      ))}
+      {/* Bas */}
+      {bottomSegs.map(([s, e]) => (
+        <g key={`b-${s}-${e}`}>
+          {double(s, e, "x", depth, -1, true)}
+          {double(s, e, "x", depth, -1, false)}
+        </g>
+      ))}
+      {/* Gauche */}
+      {leftSegs.map(([s, e]) => (
+        <g key={`l-${s}-${e}`}>
+          {double(s, e, "y", 0, 1, true)}
+          {double(s, e, "y", 0, 1, false)}
+        </g>
+      ))}
+      {/* Droite */}
+      {rightSegs.map(([s, e]) => (
+        <g key={`r-${s}-${e}`}>
+          {double(s, e, "y", width, -1, true)}
+          {double(s, e, "y", width, -1, false)}
+        </g>
+      ))}
     </g>
   );
 }
@@ -244,8 +371,8 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
 
   // En compact : cadre resserré → le plan occupe presque tout le SVG (plus grand, plus net).
   const viewBox = compact
-    ? `${-0.45} ${-0.45} ${maxW + 1.15} ${maxD + 1.15}`
-    : `${-0.6} ${-0.6} ${maxW + 4.2} ${maxD + 3.6}`;
+    ? `${-0.5} ${-0.5} ${maxW + 1.3} ${maxD + 1.3}`
+    : `${-1.9} ${-1.9} ${maxW + 5.6} ${maxD + 5.4}`;
 
   return (
     <svg
@@ -257,30 +384,30 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
       aria-label={`Plan architectural ${plan.name}`}
     >
       <defs>
-        {/* Quadrillage fin « plan technique » (exports / fiche) */}
+        {/* Quadrillage fin « papier millimétré » (exports / fiche) */}
         <pattern id={`grid-${plan.index}`} width="0.5" height="0.5" patternUnits="userSpaceOnUse">
           <path d="M 0.5 0 L 0 0 0 0.5" fill="none" stroke="#f1f5f9" strokeWidth="0.04" />
         </pattern>
       </defs>
 
       {whiteBg && (
-        <rect x={0} y={0} width={maxW} height={maxD} fill={`url(#grid-${plan.index})`} />
+        <rect x={-0.2} y={-0.2} width={maxW + 0.4} height={maxD + 0.4} fill={`url(#grid-${plan.index})`} />
       )}
 
-      {/* Extérieurs (jardin, terrasse…) — noms abrégés pour optimiser l'image */}
+      {/* Extérieurs (jardin, terrasse…) */}
       {plan.rooms.filter((r) => r.exterior).map((r) => (
         <g key={r.id}>
-          <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={`${roomColor(r.type)}2e`} stroke="#94a3b8" strokeWidth={0.08} strokeDasharray="0.3 0.2" rx={0.05} />
-          <text x={r.x + r.w / 2} y={r.y + r.h / 2} textAnchor="middle" fontSize={compact ? 0.48 : 0.4} fill="#57534e" fontWeight={600} style={{ pointerEvents: "none", letterSpacing: "0.02em" }}>
+          <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={`${roomColor(r.type)}2e`} stroke="#94a3b8" strokeWidth={0.07} strokeDasharray="0.3 0.2" rx={0.04} />
+          <text x={r.x + r.w / 2} y={r.y + r.h / 2} textAnchor="middle" fontSize={compact ? 0.5 : 0.4} fill="#57534e" fontWeight={600} style={{ pointerEvents: "none", letterSpacing: "0.02em" }}>
             {abbreviateRoomName(r.name, r.type)}
           </text>
-          <text x={r.x + r.w / 2} y={r.y + r.h / 2 + 0.46} textAnchor="middle" fontSize={compact ? 0.4 : 0.32} fill="#78716c" style={{ pointerEvents: "none" }}>
+          <text x={r.x + r.w / 2} y={r.y + r.h / 2 + 0.48} textAnchor="middle" fontSize={compact ? 0.42 : 0.34} fill="#78716c" style={{ pointerEvents: "none" }}>
             {r.area.toFixed(1)} m²
           </text>
         </g>
       ))}
 
-      {/* Sol des pièces + murs */}
+      {/* Sol des pièces + cloisons */}
       {plan.rooms.filter((r) => !r.exterior).map((r) => (
         <RoomBlock key={r.id} room={r} isUpper={r.level > 0} compact={compact} />
       ))}
@@ -290,19 +417,26 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
         <StairBlock key={i} x={s.x} y={s.y} w={s.w} h={s.h} />
       ))}
 
-      {/* Fenêtres */}
-      {windows.map((wn) => (
-        <WindowBlock key={wn.id} x={wn.x} y={wn.y} w={wn.w} vertical={wn.vertical} />
-      ))}
+      {/* Murs extérieurs (double trait avec ouvertures) */}
+      <ExteriorWalls width={plan.width} depth={plan.depth} doors={doors} windows={windows} />
+
+      {/* Fenêtres — recentrées sur le mur correspondant */}
+      {windows.map((wn) => {
+        const pos = { x: wn.x, y: wn.y };
+        if (wn.vertical) {
+          // mur ouest / est
+          pos.x = wn.x < 0 ? -0.05 : plan.width - 0.11;
+        } else {
+          // mur nord / sud
+          pos.y = wn.y < 0 ? -0.05 : plan.depth - 0.11;
+        }
+        return <WindowBlock key={wn.id} x={pos.x} y={pos.y} w={wn.w} vertical={wn.vertical} />;
+      })}
 
       {/* Portes */}
       {doors.map((d) => (
         <DoorBlock key={d.id} x={d.x} y={d.y} w={d.w} h={d.h} angle={d.angle} exterior={d.exterior} />
       ))}
-
-      {/* Murs extérieurs (trait double) — net et contrasté */}
-      <rect x={0} y={0} width={plan.width} height={plan.depth} fill="none" stroke={INK} strokeWidth={WALL_W} rx={0.03} />
-      <rect x={WALL_W / 2} y={WALL_W / 2} width={plan.width - WALL_W} height={plan.depth - WALL_W} fill="none" stroke="#ffffff" strokeOpacity={0.7} strokeWidth={0.03} />
 
       {/* Dimensions */}
       {showDimensions && <Dimensions width={plan.width} depth={plan.depth} />}
@@ -313,14 +447,14 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
       {/* Cartouche (non compact) */}
       {!compact && (
         <g>
-          <rect x={maxW - 8.6} y={maxD + 1.5} width={9} height={1.9} fill="#f8fafc" stroke={LINE} strokeWidth={0.05} rx={0.1} />
-          <text x={maxW - 8.1} y={maxD + 2.05} fontSize={0.48} fill={INK} fontWeight={800} style={{ letterSpacing: "0.01em" }}>
+          <rect x={maxW - 9.2} y={maxD + 1.9} width={9.6} height={2} fill="#f8fafc" stroke={LINE} strokeWidth={0.05} rx={0.1} />
+          <text x={maxW - 8.7} y={maxD + 2.45} fontSize={0.48} fill={INK} fontWeight={800} style={{ letterSpacing: "0.01em" }}>
             Plan {String(plan.index).padStart(2, "0")} — {plan.name}
           </text>
-          <text x={maxW - 8.1} y={maxD + 2.5} fontSize={0.38} fill={INK_SOFT}>
+          <text x={maxW - 8.7} y={maxD + 2.9} fontSize={0.38} fill={INK_SOFT}>
             Surface construite {plan.stats.construite.toFixed(0)} m² · {plan.levels} niveau{plan.levels > 1 ? "x" : ""} · Échelle 1:100
           </text>
-          <text x={maxW - 8.1} y={maxD + 2.9} fontSize={0.34} fill="#94a3b8">
+          <text x={maxW - 8.7} y={maxD + 3.3} fontSize={0.34} fill="#94a3b8">
             Plan généré automatiquement par IA — document non contractuel, à valider par un architecte.
           </text>
         </g>
