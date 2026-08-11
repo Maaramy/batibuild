@@ -1,6 +1,7 @@
 import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
+import { RequireQuota } from "@/components/RequireQuota";
 import { SEO } from "@/components/SEO";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
@@ -171,7 +172,9 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/new"
                   element={
                     <RequireAuth>
-                      <NewProject />
+                      <RequireQuota type="construction">
+                        <NewProject />
+                      </RequireQuota>
                     </RequireAuth>
                   }
                 />
@@ -235,7 +238,9 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/investments"
                   element={
                     <RequireAuth>
-                      <InvestmentAnalysis />
+                      <RequireQuota type="investissement">
+                        <InvestmentAnalysis />
+                      </RequireQuota>
                     </RequireAuth>
                   }
                 />
@@ -259,7 +264,9 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/plans/new"
                   element={
                     <RequireAuth>
-                      <PlanGenerator />
+                      <RequireQuota type="plans">
+                        <PlanGenerator />
+                      </RequireQuota>
                     </RequireAuth>
                   }
                 />
