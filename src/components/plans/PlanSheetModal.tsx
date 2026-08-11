@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   X, FileText, FileJson, Loader2, Printer, Download,
   Ruler, DoorOpen, Wind, Layers3, AlertTriangle, Sparkles,
-  ThumbsUp, ThumbsDown, Gauge, CircleDollarSign, Users, CalendarDays, Trees,
+  ThumbsUp, ThumbsDown, Gauge, CircleDollarSign, Users, CalendarDays, Trees, Landmark,
 } from "lucide-react";
 import type { GeneratedPlan, PlanRequest } from "@/convex/planEngine";
 import { FloorPlan2D } from "@/components/plans/FloorPlanView";
@@ -120,6 +120,11 @@ export function PlanSheetModal({
             <Badge variant="secondary" className="text-[9px]">Entrée {sheet.meta.entree}</Badge>
             {sheet.meta.orientation !== "—" && <Badge variant="secondary" className="text-[9px]">Orientation {sheet.meta.orientation}</Badge>}
             <Badge variant="secondary" className="text-[9px]">{sheet.meta.facades} façade(s)</Badge>
+            {plan.reference && (
+              <Badge variant="secondary" className="text-[9px] border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300">
+                <Landmark className="h-2.5 w-2.5" /> Référence : {plan.reference.name}
+              </Badge>
+            )}
             <span className="ml-auto text-[9px] text-muted-foreground">Généré le {sheet.meta.generatedAt}</span>
           </div>
 
@@ -178,6 +183,71 @@ export function PlanSheetModal({
               ))}
             </div>
           </div>
+
+          {/* Contrôle qualité & recommandations */}
+          {plan.quality && (
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <p className="text-xs font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-violet-500" /> Contrôle qualité & recommandations
+                </p>
+                <Badge
+                  className={cn(
+                    "border-0 text-[9px]",
+                    plan.quality.score >= 85 ? "bg-emerald-600/90 text-white" : plan.quality.score >= 60 ? "bg-amber-600/90 text-white" : "bg-red-600/90 text-white",
+                  )}
+                >
+                  {plan.quality.score}/100
+                </Badge>
+              </div>
+              {plan.quality.issues.length === 0 ? (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 px-3.5 py-3 flex items-center gap-2">
+                  <ThumbsUp className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
+                    Aucun défaut détecté : le plan respecte les règles fonctionnelles, de circulation et d'éclairage.
+                  </p>
+                </div>
+              ) : (
+                <ul className="space-y-1.5">
+                  {plan.quality.issues.map((issue) => (
+                    <li
+                      key={issue.id}
+                      className={cn(
+                        "rounded-lg border px-3 py-2",
+                        issue.severity === "error" && "border-red-500/30 bg-red-500/5",
+                        issue.severity === "warning" && "border-amber-500/30 bg-amber-500/5",
+                        issue.severity === "info" && "border-sky-500/30 bg-sky-500/5",
+                      )}
+                    >
+                      <div className="flex items-start gap-2">
+                        <Badge
+                          className={cn(
+                            "mt-0.5 shrink-0 border-0 text-[8px] uppercase",
+                            issue.severity === "error" && "bg-red-600/90 text-white",
+                            issue.severity === "warning" && "bg-amber-600/90 text-white",
+                            issue.severity === "info" && "bg-sky-600/90 text-white",
+                          )}
+                        >
+                          {issue.severity === "error" ? "Erreur" : issue.severity === "warning" ? "Alerte" : "Conseil"}
+                        </Badge>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-medium leading-snug">{issue.message}</p>
+                          <p className="text-[9px] text-muted-foreground leading-snug mt-0.5 flex items-start gap-1">
+                            <Sparkles className="h-2.5 w-2.5 shrink-0 mt-0.5 text-violet-500" />
+                            <span>Correction proposée : {issue.fix}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-2 text-[9px] text-muted-foreground flex items-center gap-1">
+                <Sparkles className="h-2.5 w-2.5 text-violet-500" />
+                Le bouton « Optimiser avec l'IA » du générateur applique automatiquement ces corrections.
+              </p>
+            </div>
+          )}
 
           {/* Pièces */}
           <div>

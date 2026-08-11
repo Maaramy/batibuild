@@ -23,7 +23,9 @@ import {
   Bath,
   LayoutGrid,
   PenTool,
+  ClipboardList,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useMemo, useState } from "react";
 
 // ============================================================================
@@ -156,6 +158,15 @@ export default function DemoPlan() {
                 </div>
                 <Badge className="bg-violet-600/90 text-white border-0 text-[9px] gap-0.5 shrink-0">
                   <Gauge className="h-2.5 w-2.5" /> {plan.scores.global}/100
+                </Badge>
+                <Badge
+                  className={cn(
+                    "border-0 text-[9px] gap-0.5 shrink-0",
+                    !plan.quality ? "bg-slate-500/80" : plan.quality.score >= 85 ? "bg-emerald-600/90" : plan.quality.score >= 60 ? "bg-amber-600/90" : "bg-red-600/90",
+                  )}
+                  title={`Contrôle qualité : ${plan.quality?.score ?? "—"}/100`}
+                >
+                  <ClipboardList className="h-2.5 w-2.5" /> Qualité {plan.quality ? plan.quality.score : "—"}
                 </Badge>
               </CardContent>
 

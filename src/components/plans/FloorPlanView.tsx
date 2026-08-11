@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import type { GeneratedPlan, PlacedRoom } from "@/convex/planEngine";
+import type { GeneratedPlan, PlacedRoom, FurnitureItem } from "@/convex/planEngine";
 import { roomColor } from "@/convex/planEngine";
 
 // ============================================================================
 // Rendu SVG d'un plan architectural — style « plan d'architecte » classique :
 // fond blanc, murs extérieurs en double trait avec ouvertures (portes,
-// fenêtres), cloisons fines, pièces teintées, cotes sur les 4 côtés, boussole.
+// fenêtres), cloisons fines, pièces teintées, MOBILIER & équipements dessinés,
+// cotes extérieures + dimensions intérieures, boussole, cartouche.
 // Le plan est rendu dans un repère métrique (1 unité = 1 mètre), puis mis à
 // l'échelle par viewBox. Exportable tel quel en PNG/JPG/PDF haute résolution.
 // ============================================================================
@@ -21,6 +22,10 @@ const INK_SOFT = "#6b7280";
 const LINE = "#d1d5db";
 const ACCENT = "#0e7490";   // boussole / teinte technique
 const GLASS = "#bae6fd";    // fenêtres
+
+// Couleurs du mobilier (professionnel, discret)
+const F_STROKE = "#64748b";
+const F_FILL = "#f1f5f9";
 
 function roomCenter(r: PlacedRoom) {
   return { cx: r.x + r.w / 2, cy: r.y + r.h / 2 };
@@ -61,14 +66,15 @@ export function abbreviateRoomName(name: string, type: string): string {
 
 // ─── Cotes sur les 4 côtés ──────────────────────────────────────────────────
 
-function Dimensions({ width, depth }: { width: number; depth: number }) {
-  const m = 1.05;
+function Dimensions({ width, depth, compact = false }: { width: number; depth: number; compact?: boolean }) {
+  const m = compact ? 0.55 : 1.05;
+  const fs = compact ? 0.34 : 0.5;
   const tick = (x1: number, y1: number, x2: number, y2: number) => (
     <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={INK_SOFT} strokeWidth={0.045} />
   );
   const label = (x: number, y: number, txt: string, rotate = 0) => (
     <text
-      x={x} y={y} textAnchor="middle" fontSize={0.5} fill={INK} fontWeight={600}
+      x={x} y={y} textAnchor="middle" fontSize={fs} fill={INK} fontWeight={600}
       transform={rotate ? `rotate(${rotate} ${x} ${y})` : undefined}
       style={{ letterSpacing: "0.02em", fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
     >
@@ -139,7 +145,7 @@ function StairBlock({ x, y, w, h }: { x: number; y: number; w: number; h: number
   );
 }
 
-// ─── Pièce (teinte douce + étiquette) ───────────────────────────────────────
+// ─── Pièce (teinte douce + étiquette + dimensions intérieures) ──────────────
 
 function RoomBlock({ room, isUpper, compact }: { room: PlacedRoom; isUpper?: boolean; compact?: boolean }) {
   const { cx, cy } = roomCenter(room);
@@ -186,6 +192,17 @@ function RoomBlock({ room, isUpper, compact }: { room: PlacedRoom; isUpper?: boo
           {room.area.toFixed(1)} m²
         </text>
       )}
+      {!compact && room.h >= 2.4 && (
+        <text
+          x={cx} y={cy + fontSize * 2 + 0.28}
+          textAnchor="middle"
+          fontSize={Math.max(0.26, fontSize * 0.62)}
+          fill={INK_SOFT}
+          style={{ pointerEvents: "none", fontVariantNumeric: "tabular-nums" }}
+        >
+          {room.w.toFixed(2)} × {room.h.toFixed(2)}
+        </text>
+      )}
       {isUpper && (
         <text x={room.x + 0.16} y={room.y + 0.4} fontSize={compact ? 0.42 : 0.32} fill="#6d28d9" fontWeight={700}>▲</text>
       )}
@@ -218,8 +235,6 @@ function DoorBlock({ x, y, w, h, angle, exterior }: { x: number; y: number; w: n
 }
 
 // ─── Fenêtre (double trait dans le mur) ─────────────────────────────────────
-// La fenêtre est centrée sur le mur (bande d'épaisseur 0.16 m) et s'étend sur
-// `w` mètres le long du mur. `vertical` = fenêtre sur un mur est/ouest.
 
 function WindowBlock({ x, y, w, vertical }: { x: number; y: number; w: number; vertical: boolean }) {
   const thick = 0.16; // épaisseur de la baie (perpendiculaire au mur)
@@ -245,13 +260,55 @@ function WindowBlock({ x, y, w, vertical }: { x: number; y: number; w: number; v
   );
 }
 
+// ─── Libellés de cotes : largeurs des portes et des fenêtres ───────────────
+
+function DoorWindowLabels({ plan }: { plan: GeneratedPlan }) {
+  const { width, depth } = plan;
+  const fs = 0.3;
+  const labels: { x: number; y: number; txt: string; rotate?: number }[] = [];
+  for (const d of plan.doors ?? []) {
+    const onTop = Math.abs(d.y) < 0.4;
+    const onBottom = Math.abs(d.y + d.h - depth) < 0.4;
+    const onLeft = Math.abs(d.x) < 0.4;
+    if (onTop) labels.push({ x: d.x + d.w / 2, y: d.y + 0.6, txt: `${d.w.toFixed(2)} m` });
+    else if (onBottom) labels.push({ x: d.x + d.w / 2, y: d.y - 0.32, txt: `${d.w.toFixed(2)} m` });
+    else if (onLeft) labels.push({ x: d.x + 0.62, y: d.y + d.h / 2 + 0.09, txt: `${d.h.toFixed(2)} m` });
+    else labels.push({ x: d.x - 0.32, y: d.y + d.h / 2 + 0.09, txt: `${d.h.toFixed(2)} m` });
+  }
+  for (const wn of plan.windows ?? []) {
+    if (wn.vertical) {
+      if (wn.x < 0.1) labels.push({ x: wn.x + 0.62, y: wn.y + wn.w / 2 + 0.09, txt: `${wn.w.toFixed(2)} m` });
+      else labels.push({ x: wn.x - 0.32, y: wn.y + wn.w / 2 + 0.09, txt: `${wn.w.toFixed(2)} m` });
+    } else {
+      if (wn.y < 0.1) labels.push({ x: wn.x + wn.w / 2, y: wn.y + 0.62, txt: `${wn.w.toFixed(2)} m` });
+      else labels.push({ x: wn.x + wn.w / 2, y: wn.y - 0.32, txt: `${wn.w.toFixed(2)} m` });
+    }
+  }
+  return (
+    <g>
+      {labels.map((l, i) => (
+        <text
+          key={i}
+          x={l.x} y={l.y}
+          textAnchor="middle"
+          fontSize={fs}
+          fill={INK_SOFT}
+          fontWeight={600}
+          style={{ pointerEvents: "none", fontVariantNumeric: "tabular-nums" }}
+        >
+          {l.txt}
+        </text>
+      ))}
+    </g>
+  );
+}
+
 // ─── Murs extérieurs en double trait, coupés par les ouvertures ─────────────
 
 function ExteriorWalls({ width, depth, doors, windows }: {
   width: number; depth: number;
   doors: GeneratedPlan["doors"]; windows: GeneratedPlan["windows"];
 }) {
-  // Ouvertures par côté (intervalles le long du mur)
   const cut = 0.08; // marge de découpe autour de chaque ouverture
   const openings = {
     top: [] as [number, number][],
@@ -263,7 +320,6 @@ function ExteriorWalls({ width, depth, doors, windows }: {
     const span: [number, number] = wn.vertical
       ? [wn.y - cut, wn.y + wn.w + cut]
       : [wn.x - cut, wn.x + wn.w + cut];
-    // vertical → mur est/ouest ; sinon → mur nord/sud
     if (wn.vertical) {
       if (wn.x < -0.1) openings.left.push(span);
       else openings.right.push(span);
@@ -274,7 +330,6 @@ function ExteriorWalls({ width, depth, doors, windows }: {
   }
   for (const d of doors) {
     if (!d.exterior) continue;
-    // Porte extérieure sur le pourtour
     if (Math.abs(d.y) < 0.4) openings.top.push([d.x - cut, d.x + d.w + cut]);
     else if (Math.abs(d.y + d.h - depth) < 0.4) openings.bottom.push([d.x - cut, d.x + d.w + cut]);
     else if (Math.abs(d.x) < 0.4) openings.left.push([d.y - cut, d.y + d.h + cut]);
@@ -300,7 +355,6 @@ function ExteriorWalls({ width, depth, doors, windows }: {
   const leftSegs = segments(depth, openings.left);
   const rightSegs = segments(depth, openings.right);
 
-  // Trait extérieur + trait intérieur du mur double
   const double = (s: number, e: number, along: "x" | "y", at: number, gapDir: 1 | -1, outer: boolean) => {
     const g = outer ? 0 : gapDir * WALL_GAP;
     if (along === "x") {
@@ -351,6 +405,232 @@ function ExteriorWalls({ width, depth, doors, windows }: {
   );
 }
 
+// ============================================================================
+// MOBILIER & ÉQUIPEMENTS — symboles 2D professionnels
+// ============================================================================
+
+function FurnitureSymbol({ f }: { f: FurnitureItem }) {
+  const { x, y, w, h, angle } = f;
+  const cx = x + w / 2, cy = y + h / 2;
+  const st = 0.04;
+  const th = st * 0.75;
+  const deg = ((angle * 180) / Math.PI).toFixed(1);
+  const rot = `rotate(${deg} ${cx.toFixed(3)} ${cy.toFixed(3)})`;
+  const rect = (ox: number, oy: number, ww: number, hh: number, extra: React.SVGProps<SVGRectElement> = {}) => (
+    <rect x={ox} y={oy} width={ww} height={hh} fill={F_FILL} stroke={F_STROKE} strokeWidth={st} rx={0.06} {...extra} />
+  );
+
+  let body: React.ReactNode = null;
+  switch (f.kind) {
+    case "lit":
+      body = (
+        <g>
+          {rect(x, y, w, h, { rx: 0.16 })}
+          <rect x={x + 0.1} y={y + 0.08} width={Math.min(0.55, w * 0.28)} height={h - 0.16} rx={0.1} fill="#e2e8f0" stroke={F_STROKE} strokeWidth={th} />
+          <rect x={x + 0.1 + Math.min(0.55, w * 0.28) + 0.05} y={y + 0.08} width={Math.min(0.55, w * 0.28)} height={h - 0.16} rx={0.1} fill="#e2e8f0" stroke={F_STROKE} strokeWidth={th} />
+          <line x1={x + 0.08} y1={y + h * 0.66} x2={x + w - 0.08} y2={y + h * 0.66} stroke={F_STROKE} strokeWidth={th} />
+        </g>
+      );
+      break;
+    case "table_chevet":
+      body = <g>{rect(x, y, w, h)}<rect x={x + 0.09} y={y + 0.09} width={w - 0.18} height={h - 0.18} fill="none" stroke={F_STROKE} strokeWidth={th} rx={0.04} /></g>;
+      break;
+    case "armoire":
+    case "penderie":
+      body = (
+        <g>
+          {rect(x, y, w, h)}
+          <line x1={x + w / 2} y1={y + 0.07} x2={x + w / 2} y2={y + h - 0.07} stroke={F_STROKE} strokeWidth={th} />
+          {f.kind === "penderie" && <circle cx={x + w * 0.25} cy={y + h * 0.3} r={0.07} fill="none" stroke={F_STROKE} strokeWidth={th} />}
+          {f.kind === "penderie" && <circle cx={x + w * 0.5} cy={y + h * 0.3} r={0.07} fill="none" stroke={F_STROKE} strokeWidth={th} />}
+        </g>
+      );
+      break;
+    case "etageres":
+      body = (
+        <g>
+          {rect(x, y, w, h)}
+          <line x1={x + 0.06} y1={y + h / 3} x2={x + w - 0.06} y2={y + h / 3} stroke={F_STROKE} strokeWidth={th} />
+          <line x1={x + 0.06} y1={y + (2 * h) / 3} x2={x + w - 0.06} y2={y + (2 * h) / 3} stroke={F_STROKE} strokeWidth={th} />
+        </g>
+      );
+      break;
+    case "plan_travail":
+      body = (
+        <g>
+          {rect(x, y, w, h, { fill: "#f8fafc" })}
+          <line x1={x} y1={y + h} x2={x + w} y2={y} stroke={F_STROKE} strokeWidth={th} />
+          <line x1={x + w * 0.25} y1={y + h} x2={x + w * 0.75} y2={y} stroke={F_STROKE} strokeWidth={th} />
+        </g>
+      );
+      break;
+    case "evier":
+      body = <g>{rect(x, y, w, h)}<circle cx={cx} cy={cy} r={Math.min(w, h) * 0.28} fill="#e0f2fe" stroke={F_STROKE} strokeWidth={th} /></g>;
+      break;
+    case "plaque":
+      body = (
+        <g>
+          {rect(x, y, w, h)}
+          {[[0.28, 0.3], [0.72, 0.3], [0.28, 0.7], [0.72, 0.7]].map(([fx, fy], i) => (
+            <circle key={i} cx={x + w * fx} cy={y + h * fy} r={0.07} fill="none" stroke={F_STROKE} strokeWidth={th} />
+          ))}
+        </g>
+      );
+      break;
+    case "four":
+      body = (
+        <g>
+          {rect(x, y, w, h)}
+          <rect x={x + 0.08} y={y + 0.12} width={w - 0.16} height={h * 0.55} fill="none" stroke={F_STROKE} strokeWidth={th} />
+          <line x1={x + w * 0.5} y1={y + 0.78 * h} x2={x + w * 0.62} y2={y + 0.78 * h} stroke={F_STROKE} strokeWidth={th} />
+        </g>
+      );
+      break;
+    case "frigo":
+      body = (
+        <g>
+          {rect(x, y, w, h)}
+          <line x1={x + w * 0.5} y1={y + 0.05} x2={x + w * 0.5} y2={y + h * 0.5} stroke={F_STROKE} strokeWidth={th} />
+          <line x1={x + w * 0.3} y1={y + h * 0.62} x2={x + w * 0.3} y2={y + h * 0.86} stroke={F_STROKE} strokeWidth={th} />
+        </g>
+      );
+      break;
+    case "ilot":
+      body = <g>{rect(x, y, w, h)}<rect x={x + 0.1} y={y + 0.1} width={w - 0.2} height={h - 0.2} fill="none" stroke={F_STROKE} strokeWidth={th} strokeDasharray="0.12 0.08" /></g>;
+      break;
+    case "douche":
+      body = (
+        <g>
+          {rect(x, y, w, h)}
+          <line x1={x} y1={y + h} x2={x + w} y2={y} stroke={F_STROKE} strokeWidth={th} />
+          <circle cx={cx} cy={cy} r={0.12} fill="#e0f2fe" stroke={F_STROKE} strokeWidth={th} />
+        </g>
+      );
+      break;
+    case "baignoire":
+      body = (
+        <g>
+          {rect(x, y, w, h, { rx: 0.3 })}
+          <rect x={x + 0.1} y={y + 0.08} width={w - 0.2} height={h - 0.16} rx={0.22} fill="none" stroke={F_STROKE} strokeWidth={th} />
+        </g>
+      );
+      break;
+    case "lavabo":
+      body = <g>{rect(x, y, w, h, { rx: 0.3 })}<rect x={x + 0.1} y={y + 0.12} width={w - 0.2} height={h - 0.24} rx={0.18} fill="#e0f2fe" stroke={F_STROKE} strokeWidth={th} /></g>;
+      break;
+    case "wc":
+      body = (
+        <g>
+          <rect x={x + w * 0.12} y={y} width={w * 0.76} height={h * 0.24} fill={F_FILL} stroke={F_STROKE} strokeWidth={st} rx={0.04} />
+          <rect x={x + w * 0.18} y={y + h * 0.24} width={w * 0.64} height={h * 0.7} fill="#e0f2fe" stroke={F_STROKE} strokeWidth={th} rx={0.16} />
+        </g>
+      );
+      break;
+    case "miroir":
+      body = <g><rect x={x} y={y} width={w} height={h} fill="#e0f2fe" stroke={F_STROKE} strokeWidth={th} rx={0.05} /><line x1={x + 0.06} y1={y + h - 0.06} x2={x + w - 0.06} y2={y + 0.06} stroke={F_STROKE} strokeWidth={th * 0.7} /></g>;
+      break;
+    case "canape":
+      body = (
+        <g>
+          {rect(x, y, w, h, { rx: 0.12 })}
+          <line x1={x + 0.06} y1={y + h * 0.28} x2={x + w - 0.06} y2={y + h * 0.28} stroke={F_STROKE} strokeWidth={th * 1.3} />
+          <rect x={x + 0.04} y={y + h * 0.28} width={0.18} height={h * 0.7} rx={0.05} fill="none" stroke={F_STROKE} strokeWidth={th} />
+          <rect x={x + w - 0.22} y={y + h * 0.28} width={0.18} height={h * 0.7} rx={0.05} fill="none" stroke={F_STROKE} strokeWidth={th} />
+        </g>
+      );
+      break;
+    case "fauteuil":
+      body = (
+        <g>
+          {rect(x, y, w, h, { rx: 0.1 })}
+          <line x1={x + 0.06} y1={y + h * 0.3} x2={x + w - 0.06} y2={y + h * 0.3} stroke={F_STROKE} strokeWidth={th * 1.3} />
+        </g>
+      );
+      break;
+    case "table_basse":
+      body = <g>{rect(x, y, w, h)}<rect x={x + 0.1} y={y + 0.1} width={w - 0.2} height={h - 0.2} fill="none" stroke={F_STROKE} strokeWidth={th} /></g>;
+      break;
+    case "meuble_tv":
+      body = (
+        <g>
+          {rect(x, y, w, h, { fill: "#f8fafc" })}
+          <line x1={x + w * 0.18} y1={y + h * 0.28} x2={x + w * 0.82} y2={y + h * 0.28} stroke={F_STROKE} strokeWidth={th * 1.4} />
+        </g>
+      );
+      break;
+    case "table":
+      body = <g>{rect(x, y, w, h)}<rect x={x + 0.1} y={y + 0.1} width={w - 0.2} height={h - 0.2} fill="none" stroke={F_STROKE} strokeWidth={th} /></g>;
+      break;
+    case "chaise":
+      body = (
+        <g>
+          {rect(x, y, w, h, { rx: 0.08 })}
+          <line x1={x + 0.05} y1={y + h * 0.28} x2={x + w - 0.05} y2={y + h * 0.28} stroke={F_STROKE} strokeWidth={th * 1.3} />
+        </g>
+      );
+      break;
+    case "bureau":
+      body = (
+        <g>
+          {rect(x, y, w, h)}
+          <rect x={x + 0.08} y={y + 0.1} width={w - 0.16} height={h * 0.28} fill="none" stroke={F_STROKE} strokeWidth={th} />
+        </g>
+      );
+      break;
+    case "bibliotheque":
+      body = (
+        <g>
+          {rect(x, y, w, h)}
+          <line x1={x + 0.06} y1={y + h / 3} x2={x + w - 0.06} y2={y + h / 3} stroke={F_STROKE} strokeWidth={th} />
+          <line x1={x + 0.06} y1={y + (2 * h) / 3} x2={x + w - 0.06} y2={y + (2 * h) / 3} stroke={F_STROKE} strokeWidth={th} />
+        </g>
+      );
+      break;
+    case "machine_laver":
+    case "seche_linge":
+      body = <g>{rect(x, y, w, h)}<circle cx={cx} cy={cy} r={Math.min(w, h) * 0.3} fill="none" stroke={F_STROKE} strokeWidth={th * 1.2} /></g>;
+      break;
+    case "voiture":
+      body = (
+        <g>
+          {rect(x, y, w, h, { rx: 0.28, fill: "#e2e8f0" })}
+          <line x1={x + w * 0.3} y1={y + 0.1} x2={x + w * 0.52} y2={y + 0.1} stroke={F_STROKE} strokeWidth={th * 1.4} />
+          <rect x={x + w * 0.16} y={y + h * 0.34} width={w * 0.2} height={h * 0.32} rx={0.04} fill="none" stroke={F_STROKE} strokeWidth={th} />
+          <rect x={x + w * 0.64} y={y + h * 0.34} width={w * 0.2} height={h * 0.32} rx={0.04} fill="none" stroke={F_STROKE} strokeWidth={th} />
+        </g>
+      );
+      break;
+    case "porte_garage":
+      body = (
+        <g>
+          <rect x={x} y={y} width={w} height={h} fill="#eef2ff" stroke={F_STROKE} strokeWidth={st} />
+          <line x1={x + w / 2} y1={y} x2={x + w / 2} y2={y + h} stroke={F_STROKE} strokeWidth={th * 1.4} />
+        </g>
+      );
+      break;
+    case "parasol":
+      body = <g><circle cx={cx} cy={cy} r={Math.min(w, h) / 2} fill="#fef9c3" stroke={F_STROKE} strokeWidth={th} /><circle cx={cx} cy={cy} r={0.05} fill={F_STROKE} /></g>;
+      break;
+    case "table_exterieur":
+      body = <g><circle cx={cx} cy={cy} r={Math.min(w, h) / 2} fill={F_FILL} stroke={F_STROKE} strokeWidth={st} /><circle cx={cx} cy={cy} r={Math.min(w, h) * 0.16} fill="none" stroke={F_STROKE} strokeWidth={th} /></g>;
+      break;
+    default:
+      body = rect(x, y, w, h);
+  }
+  return <g transform={rot}>{body}</g>;
+}
+
+function FurnitureLayer({ plan }: { plan: GeneratedPlan }) {
+  const items = plan.furniture ?? [];
+  return (
+    <g>
+      {items.map((f) => (
+        <FurnitureSymbol key={f.id} f={f} />
+      ))}
+    </g>
+  );
+}
+
 // ─── Vue 2D complète ────────────────────────────────────────────────────────
 
 export interface FloorPlanViewProps {
@@ -371,8 +651,11 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
 
   // En compact : cadre resserré → le plan occupe presque tout le SVG (plus grand, plus net).
   const viewBox = compact
-    ? `${-0.5} ${-0.5} ${maxW + 1.3} ${maxD + 1.3}`
+    ? `${-0.55} ${-0.55} ${maxW + 1.65} ${maxD + 1.65}`
     : `${-1.9} ${-1.9} ${maxW + 5.6} ${maxD + 5.4}`;
+
+  const quality = plan.quality;
+  const qualityColor = !quality ? INK_SOFT : quality.score >= 85 ? "#059669" : quality.score >= 60 ? "#d97706" : "#dc2626";
 
   return (
     <svg
@@ -424,10 +707,8 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
       {windows.map((wn) => {
         const pos = { x: wn.x, y: wn.y };
         if (wn.vertical) {
-          // mur ouest / est
           pos.x = wn.x < 0 ? -0.05 : plan.width - 0.11;
         } else {
-          // mur nord / sud
           pos.y = wn.y < 0 ? -0.05 : plan.depth - 0.11;
         }
         return <WindowBlock key={wn.id} x={pos.x} y={pos.y} w={wn.w} vertical={wn.vertical} />;
@@ -438,8 +719,14 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
         <DoorBlock key={d.id} x={d.x} y={d.y} w={d.w} h={d.h} angle={d.angle} exterior={d.exterior} />
       ))}
 
-      {/* Dimensions */}
-      {showDimensions && <Dimensions width={plan.width} depth={plan.depth} />}
+      {/* Mobilier & équipements */}
+      <FurnitureLayer plan={plan} />
+
+      {/* Largeurs des portes et fenêtres */}
+      {showDimensions && !compact && <DoorWindowLabels plan={plan} />}
+
+      {/* Dimensions extérieures */}
+      {showDimensions && <Dimensions width={plan.width} depth={plan.depth} compact={compact} />}
 
       {/* Boussole */}
       {showNorth && <NorthArrow x={plan.width - 1.1} y={plan.depth - 1.1} />}
@@ -447,15 +734,22 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
       {/* Cartouche (non compact) */}
       {!compact && (
         <g>
-          <rect x={maxW - 9.2} y={maxD + 1.9} width={9.6} height={2} fill="#f8fafc" stroke={LINE} strokeWidth={0.05} rx={0.1} />
+          <rect x={maxW - 9.2} y={maxD + 1.9} width={9.6} height={2.4} fill="#f8fafc" stroke={LINE} strokeWidth={0.05} rx={0.1} />
           <text x={maxW - 8.7} y={maxD + 2.45} fontSize={0.48} fill={INK} fontWeight={800} style={{ letterSpacing: "0.01em" }}>
             Plan {String(plan.index).padStart(2, "0")} — {plan.name}
           </text>
           <text x={maxW - 8.7} y={maxD + 2.9} fontSize={0.38} fill={INK_SOFT}>
             Surface construite {plan.stats.construite.toFixed(0)} m² · {plan.levels} niveau{plan.levels > 1 ? "x" : ""} · Échelle 1:100
           </text>
-          <text x={maxW - 8.7} y={maxD + 3.3} fontSize={0.34} fill="#94a3b8">
-            Plan généré automatiquement par IA — document non contractuel, à valider par un architecte.
+          <text x={maxW - 8.7} y={maxD + 3.35} fontSize={0.34} fill={INK_SOFT}>
+            RDC {plan.stats.construite.toFixed(0)} m² · Qualité IA {quality ? `${quality.score}/100` : "—"}
+          </text>
+          <text x={maxW - 8.7} y={maxD + 3.75} fontSize={0.32} fill="#94a3b8">
+            {plan.reference ? `Référence : ${plan.reference.name}` : "Plan généré automatiquement par IA"}
+          </text>
+          <circle cx={maxW - 2.15} cy={maxD + 2.1} r={0.3} fill="#ffffff" stroke={qualityColor} strokeWidth={0.07} />
+          <text x={maxW - 2.15} y={maxD + 2.19} textAnchor="middle" fontSize={0.34} fill={qualityColor} fontWeight={800}>
+            {quality ? quality.score : "—"}
           </text>
         </g>
       )}
@@ -464,7 +758,7 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
 }
 
 // ============================================================================
-// Vue 3D isométrique (extrusion simple des pièces)
+// Vue 3D isométrique (extrusion des pièces + mobilier)
 // ============================================================================
 
 function isoProject(x: number, y: number, z: number, ox: number, oy: number, scale: number) {
@@ -483,6 +777,47 @@ function isoPoly(pts: { x: number; y: number; z: number }[], ox: number, oy: num
     .join(" ");
 }
 
+// Hauteur d'extrusion du mobilier en 3D (m)
+const F_HEIGHT: Record<string, number> = {
+  lit: 0.5, table_chevet: 0.5, armoire: 1.9, penderie: 1.8, etageres: 1.6,
+  plan_travail: 0.9, evier: 0.9, plaque: 0.9, frigo: 1.8, four: 0.9, ilot: 0.9,
+  douche: 0.15, baignoire: 0.55, lavabo: 0.85, wc: 0.45, miroir: 0.6,
+  canape: 0.42, fauteuil: 0.42, table_basse: 0.42, meuble_tv: 0.5,
+  table: 0.75, chaise: 0.45, bureau: 0.75, bibliotheque: 1.8,
+  machine_laver: 0.85, seche_linge: 0.85, voiture: 1.4, porte_garage: 0,
+  parasol: 0, table_exterieur: 0.75,
+};
+
+function Furniture3D({ plan, ox, oy, scale }: { plan: GeneratedPlan; ox: number; oy: number; scale: number }) {
+  const items = (plan.furniture ?? []).filter((f) => f.level === 0 && (F_HEIGHT[f.kind] ?? 0) > 0.05);
+  return (
+    <g>
+      {items.map((f) => {
+        const h = F_HEIGHT[f.kind] ?? 0.5;
+        const pts = [
+          { x: f.x, y: f.y, z: 0 },
+          { x: f.x + f.w, y: f.y, z: 0 },
+          { x: f.x + f.w, y: f.y + f.h, z: 0 },
+          { x: f.x, y: f.y + f.h, z: 0 },
+        ];
+        const roof = pts.map((p) => ({ ...p, z: h }));
+        return (
+          <g key={f.id}>
+            <polygon
+              points={isoPoly([pts[2], pts[3], roof[3], roof[2]], ox, oy, scale)}
+              fill="#e2e8f0" stroke="#94a3b8" strokeWidth={0.6}
+            />
+            <polygon
+              points={isoPoly([roof[0], roof[1], roof[2], roof[3]], ox, oy, scale)}
+              fill="#cbd5e1" stroke="#94a3b8" strokeWidth={0.6}
+            />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
   const wallH = plan.scores && plan.scores.global > 80 ? 3.1 : 2.9;
   const margin = 2;
@@ -493,7 +828,6 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
   const oy = margin + (maxD + maxW) * scale * Math.sin(Math.PI / 6) - wallH * scale * 0.9;
 
   const interior = plan.rooms.filter((r) => !r.exterior && r.level === 0);
-  // Tri par profondeur (peintre) : dessin des pièces éloignées en premier
   const sorted = [...interior].sort((a, b) => (a.x + a.y) - (b.x + b.y));
 
   return (
@@ -530,17 +864,14 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
         const roof = pts.map((p) => ({ ...p, z: wallH }));
         return (
           <g key={r.id}>
-            {/* Face avant (sud-est) */}
             <polygon
               points={isoPoly([pts[2], pts[3], roof[3], roof[2]], ox, oy, scale)}
               fill={col} stroke="#94a3b8" strokeWidth={0.8}
             />
-            {/* Face gauche (sud-ouest) */}
             <polygon
               points={isoPoly([pts[3], pts[0], roof[0], roof[3]], ox, oy, scale)}
               fill="#00000014" stroke="#94a3b8" strokeWidth={0.8}
             />
-            {/* Toit */}
             <polygon
               points={isoPoly([roof[0], roof[1], roof[2], roof[3]], ox, oy, scale)}
               fill="#ffffffd9" stroke="#94a3b8" strokeWidth={0.8}
@@ -548,6 +879,9 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
           </g>
         );
       })}
+
+      {/* Mobilier 3D */}
+      <Furniture3D plan={plan} ox={ox} oy={oy} scale={scale} />
 
       {/* Étiquette au-dessus de chaque pièce */}
       {sorted.map((r) => {

@@ -30,6 +30,7 @@ import { FloorPlan2D } from "@/components/plans/FloorPlanView";
 import { PlanCompareModal } from "@/components/plans/PlanCompareModal";
 import { PlanEditModal } from "@/components/plans/PlanEditModal";
 import { PlanSheetModal } from "@/components/plans/PlanSheetModal";
+import { PlanOptimizeModal } from "@/components/plans/PlanOptimizeModal";
 import { exportPlanPdf, exportAllPlansZip } from "@/lib/planExport";
 import { usePageSEO } from "@/hooks/use-page-seo";
 
@@ -317,6 +318,7 @@ export default function PlanGenerator() {
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [planName, setPlanName] = useState("");
+  const [optimizeIndex, setOptimizeIndex] = useState<number | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
   const [formStep, setFormStep] = useState<StepKey>("bien");
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
@@ -487,6 +489,24 @@ export default function PlanGenerator() {
             )}
           </AnimatePresence>
 
+          {/* Référence architecturale (modèle Villa T10 type 1) */}
+          {plans[0]?.reference && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl border border-violet-500/25 bg-violet-500/5 dark:bg-violet-950/20 px-4 py-3"
+            >
+              <p className="text-[11px] sm:text-xs text-violet-800 dark:text-violet-200 flex items-start gap-2">
+                <Landmark className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">
+                  <span className="font-bold">Référence architecturale : {plans[0].reference.name}.</span>{" "}
+                  Organisation analysée à partir du modèle de référence et reproduite dans ces plans —
+                  {plans[0].reference.principles.slice(0, 4).join(" · ").toLowerCase()}.
+                </span>
+              </p>
+            </motion.div>
+          )}
+
           {/* Grille des 10 plans */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {plans.map((plan) => (
@@ -495,6 +515,7 @@ export default function PlanGenerator() {
                 plan={plan}
                 onFiche={() => setFicheIndex(plan.index - 1)}
                 onEdit={() => setEditIndex(plan.index - 1)}
+                onOptimize={() => setOptimizeIndex(plan.index - 1)}
                 onDownloadPdf={() => exportPlanPdf(plan).then(() => toast.success(`Plan ${plan.index} téléchargé (PDF haute résolution)`)).catch((e: any) => toast.error(e?.message || "Erreur"))}
               />
             ))}
@@ -523,6 +544,24 @@ export default function PlanGenerator() {
             bim={bim}
             open={ficheIndex != null}
             onClose={() => setFicheIndex(null)}
+          />
+        )}
+        {optimizeIndex != null && plans[optimizeIndex] && (
+          <PlanOptimizeModal
+            plan={plans[optimizeIndex]}
+            request={req}
+            open={optimizeIndex != null}
+            onClose={() => setOptimizeIndex(null)}
+            onApply={(optimized) => {
+              setPlans((prev) => {
+                if (!prev) return prev;
+                const next = [...prev];
+                next[optimizeIndex] = optimized;
+                return next;
+              });
+              setOptimizeIndex(null);
+              toast.success(`Plan ${String(optimized.index).padStart(2, "0")} optimisé par l'IA`);
+            }}
           />
         )}
         <PlanCompareModal
@@ -1090,12 +1129,15 @@ function PlanSummaryContent({ req, step, sticky = false }: { req: PlanRequest; s
 // Carte d'un plan dans la grille de résultats
 // ============================================================================
 
-function PlanCard({ plan, onFiche, onEdit, onDownloadPdf }: {
+function PlanCard({ plan, onFiche, onEdit, onOptimize, onDownloadPdf }: {
   plan: GeneratedPlan;
   onFiche: () => void;
   onEdit: () => void;
+  onOptimize: () => void;
   onDownloadPdf: () => void;
 }) {
+  const quality = plan.quality;
+  const qColor = !quality ? "bg-slate-500/80" : quality.score >= 85 ? "bg-emerald-600/90" : quality.score >= 60 ? "bg-amber-600/90" : "bg-red-600/90";
   const [downloading, setDownloading] = useState(false);
   return (
     <Card className="group flex flex-col overflow-hidden border border-border/40 hover:border-primary/30 transition-all hover:shadow-lg hover:shadow-primary/5 active:scale-[0.99]">
@@ -1114,6 +1156,9 @@ function PlanCard({ plan, onFiche, onEdit, onDownloadPdf }: {
           <Badge className="bg-violet-600/90 text-white border-0 text-[9px] gap-0.5">
             <Gauge className="h-2.5 w-2.5" /> {plan.scores.global}/100
           </Badge>
+          <Badge className={`${qColor} text-white border-0 text-[9px] gap-0.5`} title={`Contrôle qualité : ${quality?.score ?? "—"}/100`}>
+            <ClipboardList className="h-2.5 w-2.5" /> Qualité {quality ? `${quality.score}` : "—"}
+          </Badge>
           <Badge className="bg-slate-900/85 text-white border-0 text-[9px]">
             Plan {String(plan.index).padStart(2, "0")}
           </Badge>
@@ -1129,11 +1174,20 @@ function PlanCard({ plan, onFiche, onEdit, onDownloadPdf }: {
 
       {/* Opérations directement sur la carte : Modifier / Fiche technique / Télécharger (PDF net) */}
       <CardContent className="p-3 mt-auto">
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
           <Button size="sm" variant="outline" className="h-10 sm:h-8 text-[10px] sm:text-[11px] gap-1 px-1" onClick={onEdit} title="Modifier ce plan" aria-label={`Modifier le plan ${plan.index}`}>
             <PenLine className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Modifier</span>
           </Button>
-          <Button size="sm" className="h-10 sm:h-8 text-[10px] sm:text-[11px] gap-1 px-1" onClick={onFiche} title="Fiche technique" aria-label={`Fiche technique du plan ${plan.index}`}>
+          <Button
+            size="sm"
+            className="h-10 sm:h-8 text-[10px] sm:text-[11px] gap-1 px-1 bg-violet-600 hover:bg-violet-500 text-white"
+            onClick={onOptimize}
+            title="Optimiser automatiquement le plan avec l'IA"
+            aria-label={`Optimiser le plan ${plan.index} avec l'IA`}
+          >
+            <Sparkles className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Optimiser IA</span>
+          </Button>
+          <Button size="sm" variant="outline" className="h-10 sm:h-8 text-[10px] sm:text-[11px] gap-1 px-1" onClick={onFiche} title="Fiche technique" aria-label={`Fiche technique du plan ${plan.index}`}>
             <ClipboardList className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Fiche</span>
           </Button>
           <Button
