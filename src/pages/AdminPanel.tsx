@@ -3777,10 +3777,9 @@ export default function AdminPanel() {
               <CardHeader>
                 <CardTitle className="text-base">Forfaits — prix et quotas</CardTitle>
                 <CardDescription className="text-xs">
-                  Forfaits à paiement unique — un seul forfait couvre les trois types de projets : construction,
-                  investissement et plans architecturaux. Start 79 · Pro 120 · Expert 320 TND, avec 1 / 5 / 20 projets,
-                  analyses, plans et téléchargements PDF. Quand les quotas sont épuisés, l'utilisateur renouvelle son
-                  forfait ou passe à une offre supérieure.
+                  Forfaits à paiement unique — un seul forfait couvre la construction et l'investissement.
+                  Les plans architecturaux sont illimités pour tous les forfaits. Quand les quotas (construction /
+                  investissement) sont épuisés, l'utilisateur renouvelle son forfait ou passe à une offre supérieure.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -3788,7 +3787,7 @@ export default function AdminPanel() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="p-4 rounded-xl bg-slate-500/5 border border-border/30 space-y-3">
                     <h3 className="text-sm font-semibold">Start</h3>
-                    <p className="text-xs text-muted-foreground">1 projet · 1 analyse · 1 plan · 1 PDF</p>
+                    <p className="text-xs text-muted-foreground">1 projet · 1 analyse · 1 PDF · plans illimités</p>
                     <div>
                       <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <Input
@@ -3817,13 +3816,8 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Plans architecturaux max</label>
-                      <Input
-                        type="number"
-                        value={limitForm.freePlans}
-                        onChange={(e) => setLimitForm({ ...limitForm, freePlans: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
+                      <label className="text-xs text-muted-foreground">Plans architecturaux</label>
+                      <p className="text-sm font-semibold text-primary">Illimité</p>
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
@@ -3840,7 +3834,7 @@ export default function AdminPanel() {
                       <Crown className="h-4 w-4 text-blue-500" />
                       Pro
                     </h3>
-                    <p className="text-xs text-muted-foreground">5 projets · 5 analyses · 5 plans · 5 PDF</p>
+                    <p className="text-xs text-muted-foreground">5 projets · 5 analyses · 5 PDF · plans illimités</p>
                     <div>
                       <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <Input
@@ -3869,13 +3863,8 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Plans architecturaux max</label>
-                      <Input
-                        type="number"
-                        value={limitForm.proPlans}
-                        onChange={(e) => setLimitForm({ ...limitForm, proPlans: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
+                      <label className="text-xs text-muted-foreground">Plans architecturaux</label>
+                      <p className="text-sm font-semibold text-primary">Illimité</p>
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
@@ -3892,7 +3881,7 @@ export default function AdminPanel() {
                       <Crown className="h-4 w-4 text-emerald-500" />
                       Expert
                     </h3>
-                    <p className="text-xs text-muted-foreground">20 projets · 20 analyses · 20 plans · 20 PDF</p>
+                    <p className="text-xs text-muted-foreground">20 projets · 20 analyses · 20 PDF · plans illimités</p>
                     <div>
                       <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <Input
@@ -3921,13 +3910,8 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Plans architecturaux max</label>
-                      <Input
-                        type="number"
-                        value={limitForm.expertPlans}
-                        onChange={(e) => setLimitForm({ ...limitForm, expertPlans: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
+                      <label className="text-xs text-muted-foreground">Plans architecturaux</label>
+                      <p className="text-sm font-semibold text-primary">Illimité</p>
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground">Téléchargements PDF</label>

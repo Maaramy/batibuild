@@ -29,9 +29,10 @@ const DEFAULT_PAYMENT = {
 };
 
 // Forfaits à paiement unique — un seul forfait couvre tout :
-//   Start 79 TND  → 1 projet de construction · 1 analyse d'investissement · 1 plan architectural · 1 PDF
-//   Pro 120 TND   → 5 projets · 5 analyses · 5 plans · 5 PDF
-//   Expert 320 TND → 20 projets · 20 analyses · 20 plans · 20 PDF
+//   Start 79 TND  → 1 projet de construction · 1 analyse d'investissement · 1 PDF
+//   Pro 120 TND   → 5 projets · 5 analyses · 5 PDF
+//   Expert 320 TND → 20 projets · 20 analyses · 20 PDF
+//   Plans architecturaux : illimités pour tous les forfaits
 type PlanId = "free" | "pro" | "expert";
 
 const PLAN_LABELS: Record<string, string> = { free: "Start", pro: "Pro", expert: "Expert" };
@@ -314,7 +315,7 @@ export default function PricingPage() {
           <li className="flex items-start gap-2 text-sm">
             <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <span>
-              {quota} plan{quota > 1 ? "s" : ""} architectural{quota > 1 ? "x" : ""} 2D / 3D par IA
+              Plans architecturaux 2D / 3D par IA — illimités
             </span>
           </li>
           <li className="flex items-start gap-2 text-sm">
