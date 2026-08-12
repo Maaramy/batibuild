@@ -12,8 +12,7 @@ import { Lock, LayoutDashboard, CreditCard, ArrowRight, RefreshCcw } from "lucid
 // atteint. Un seul forfait (paiement unique) couvre tous les types :
 //   - construction  → quotas de projets de construction
 //   - investissement → quotas d'analyses d'investissement
-//   - plans architecturaux → quotas de plans
-// Start 79 TND (1/1/1/1) · Pro 120 TND (5/5/5/5) · Expert 320 TND (20/20/20/20)
+//   - plans architecturaux → illimités pour tous (jamais bloqués)
 // Quand le quota est épuisé, l'utilisateur renouvelle ses quotas ou passe à
 // une offre supérieure (voir la page forfaits).
 // ============================================================================
@@ -58,12 +57,15 @@ export function RequireQuota({ type, children }: { type: QuotaType; children: Re
     );
   }
 
+  // Plans architecturaux : quota illimité pour tous les forfaits.
+  if (type === "plans") {
+    return <>{children}</>;
+  }
+
   const quota =
     type === "construction"
       ? quotas?.construction
-      : type === "investissement"
-      ? quotas?.investment
-      : quotas?.plans;
+      : quotas?.investment;
 
   const limit = quota?.limit ?? 1;
   const used = quota?.used ?? 0;

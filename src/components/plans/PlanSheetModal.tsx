@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   X, FileText, FileJson, Loader2, Printer, Download,
   Ruler, DoorOpen, Wind, Layers3, AlertTriangle, Sparkles,
-  ThumbsUp, ThumbsDown, Gauge, CircleDollarSign, Users, CalendarDays, Trees, Landmark,
+  ThumbsUp, ThumbsDown, Gauge, CircleDollarSign, Users, CalendarDays, Trees,
 } from "lucide-react";
 import type { GeneratedPlan, PlanRequest } from "@/convex/planEngine";
 import { FloorPlan2D } from "@/components/plans/FloorPlanView";
@@ -120,11 +120,6 @@ export function PlanSheetModal({
             <Badge variant="secondary" className="text-[9px]">Entrée {sheet.meta.entree}</Badge>
             {sheet.meta.orientation !== "—" && <Badge variant="secondary" className="text-[9px]">Orientation {sheet.meta.orientation}</Badge>}
             <Badge variant="secondary" className="text-[9px]">{sheet.meta.facades} façade(s)</Badge>
-            {plan.reference && (
-              <Badge variant="secondary" className="text-[9px] border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300">
-                <Landmark className="h-2.5 w-2.5" /> Référence : {plan.reference.name}
-              </Badge>
-            )}
             <span className="ml-auto text-[9px] text-muted-foreground">Généré le {sheet.meta.generatedAt}</span>
           </div>
 

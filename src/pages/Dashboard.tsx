@@ -393,7 +393,7 @@ export default function Dashboard() {
   const investReached = investment?.reached ?? analyses.length >= investLimit;
   const isInvestNearLimit = investUsagePct >= 80;
 
-  // Plans architecturaux — quota par forfait (Start 1 · Pro 5 · Expert 20)
+  // Plans architecturaux — illimités pour tous les forfaits
   const planData = quotas?.plans;
   const planUsed = planData?.used ?? planHistory.length;
   const planLimit = planData?.limit ?? 1;
@@ -811,7 +811,7 @@ export default function Dashboard() {
                       {plansReached && <Badge className="bg-amber-500/15 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">Limite atteinte</Badge>}
                     </span>
                     <span className={`font-bold tabular-nums ${isPlansNearLimit ? "text-amber-600 dark:text-amber-400" : "text-violet-600 dark:text-violet-400"}`}>
-                      {planUsed}/{planLimit} · {planUsagePct}%
+                      {planLimit >= 1000000 ? `Illimité · ${planUsed} utilisé${planUsed > 1 ? "s" : ""}` : `${planUsed}/${planLimit} · ${planUsagePct}%`}
                     </span>
                   </div>
                   <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">

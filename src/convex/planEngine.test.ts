@@ -250,28 +250,24 @@ describe("contrôle qualité & optimisation IA", () => {
   });
 });
 
-describe("référence architecturale Villa T10", () => {
-  it("la première proposition est la stratégie Villa T10 avec sa référence", () => {
+describe("générateur de plans", () => {
+  it("produit 10 propositions sans référence architecturale externe", () => {
     const plans = generatePlans(BASE_REQUEST);
-    expect(plans[0].key).toBe("villa_t10");
-    expect(plans[0].reference?.name).toContain("Villa T10");
-    expect((plans[0].reference?.principles.length ?? 0)).toBeGreaterThan(3);
+    expect(plans).toHaveLength(10);
+    expect(plans.some((p) => p.key === "villa_t10")).toBe(false);
     for (const plan of plans) {
-      expect(plan.reference?.name).toBeDefined();
+      expect((plan as any).reference).toBeUndefined();
+      expect(plan.rooms.length).toBeGreaterThan(2);
     }
   });
 
-  it("la stratégie Villa T10 place un hall central qui dessert les pièces", () => {
-    const plan = generatePlans(BASE_REQUEST)[0];
-    const hall = plan.rooms.find((r) => r.type === "circulation");
-    expect(hall).toBeDefined();
-    expect(hall!.w).toBeGreaterThanOrEqual(1.7);
-    // Le hall central sépare deux zones : des pièces à gauche et à droite
-    const interior = plan.rooms.filter((r) => !r.exterior && r.id !== hall!.id);
-    const left = interior.filter((r) => r.x + r.w <= hall!.x + 0.05);
-    const right = interior.filter((r) => r.x >= hall!.x + hall!.w - 0.05);
-    expect(left.length).toBeGreaterThan(0);
-    expect(right.length).toBeGreaterThan(0);
+  it("chaque proposition a une stratégie distincte et des scores valides", () => {
+    const plans = generatePlans(BASE_REQUEST);
+    const keys = new Set(plans.map((p) => p.key));
+    expect(keys.size).toBe(10);
+    for (const plan of plans) {
+      expect(plan.scores.global).toBeGreaterThan(0);
+      expect(plan.scores.global).toBeLessThanOrEqual(100);
+    }
   });
 });
-

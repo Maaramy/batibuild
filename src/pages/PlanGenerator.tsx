@@ -489,24 +489,6 @@ export default function PlanGenerator() {
             )}
           </AnimatePresence>
 
-          {/* Référence architecturale (modèle Villa T10 type 1) */}
-          {plans[0]?.reference && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-xl border border-violet-500/25 bg-violet-500/5 dark:bg-violet-950/20 px-4 py-3"
-            >
-              <p className="text-[11px] sm:text-xs text-violet-800 dark:text-violet-200 flex items-start gap-2">
-                <Landmark className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span className="leading-relaxed">
-                  <span className="font-bold">Référence architecturale : {plans[0].reference.name}.</span>{" "}
-                  Organisation analysée à partir du modèle de référence et reproduite dans ces plans —
-                  {plans[0].reference.principles.slice(0, 4).join(" · ").toLowerCase()}.
-                </span>
-              </p>
-            </motion.div>
-          )}
-
           {/* Grille des 10 plans */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {plans.map((plan) => (

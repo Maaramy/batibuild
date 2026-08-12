@@ -68,7 +68,7 @@ export function abbreviateRoomName(name: string, type: string): string {
 
 function Dimensions({ width, depth, compact = false }: { width: number; depth: number; compact?: boolean }) {
   const m = compact ? 0.55 : 1.05;
-  const fs = compact ? 0.34 : 0.5;
+  const fs = compact ? 0.28 : 0.4;
   const tick = (x1: number, y1: number, x2: number, y2: number) => (
     <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={INK_SOFT} strokeWidth={0.045} />
   );
@@ -138,7 +138,7 @@ function StairBlock({ x, y, w, h }: { x: number; y: number; w: number; h: number
       ))}
       <line x1={x} y1={y + h / 2} x2={x + w} y2={y + h / 2} stroke="#4338ca" strokeWidth={0.05} />
       <line x1={x + w / 2} y1={y} x2={x + w / 2} y2={y + h} stroke="#4338ca" strokeWidth={0.05} />
-      <text x={x + w / 2} y={y + h / 2 + 0.12} textAnchor="middle" fontSize={Math.min(w, h) * 0.42} fill="#3730a3" fontWeight={700}>
+      <text x={x + w / 2} y={y + h / 2 + 0.12} textAnchor="middle" fontSize={Math.min(w, h) * 0.36} fill="#3730a3" fontWeight={700}>
         Esc
       </text>
     </g>
@@ -153,8 +153,8 @@ function RoomBlock({ room, isUpper, compact }: { room: PlacedRoom; isUpper?: boo
   const fill = `${base}7a`;
   const label = abbreviateRoomName(room.name, room.type);
   const fontSize = compact
-    ? Math.min(0.95, Math.max(0.4, Math.min(room.w, room.h) * 0.36))
-    : Math.max(0.3, Math.min(room.w, room.h) * 0.32);
+    ? Math.min(0.8, Math.max(0.34, Math.min(room.w, room.h) * 0.3))
+    : Math.max(0.24, Math.min(room.w, room.h) * 0.26);
   return (
     <g>
       <rect
@@ -184,7 +184,7 @@ function RoomBlock({ room, isUpper, compact }: { room: PlacedRoom; isUpper?: boo
         <text
           x={cx} y={cy + fontSize + 0.14}
           textAnchor="middle"
-          fontSize={fontSize * 0.8}
+          fontSize={fontSize * 0.72}
           fill={INK_SOFT}
           fontWeight={600}
           style={{ pointerEvents: "none" }}
@@ -196,7 +196,7 @@ function RoomBlock({ room, isUpper, compact }: { room: PlacedRoom; isUpper?: boo
         <text
           x={cx} y={cy + fontSize * 2 + 0.28}
           textAnchor="middle"
-          fontSize={Math.max(0.26, fontSize * 0.62)}
+          fontSize={Math.max(0.2, fontSize * 0.52)}
           fill={INK_SOFT}
           style={{ pointerEvents: "none", fontVariantNumeric: "tabular-nums" }}
         >
@@ -264,7 +264,7 @@ function WindowBlock({ x, y, w, vertical }: { x: number; y: number; w: number; v
 
 function DoorWindowLabels({ plan }: { plan: GeneratedPlan }) {
   const { width, depth } = plan;
-  const fs = 0.3;
+  const fs = 0.24;
   const labels: { x: number; y: number; txt: string; rotate?: number }[] = [];
   for (const d of plan.doors ?? []) {
     const onTop = Math.abs(d.y) < 0.4;
@@ -681,10 +681,10 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
       {plan.rooms.filter((r) => r.exterior).map((r) => (
         <g key={r.id}>
           <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={`${roomColor(r.type)}2e`} stroke="#94a3b8" strokeWidth={0.07} strokeDasharray="0.3 0.2" rx={0.04} />
-          <text x={r.x + r.w / 2} y={r.y + r.h / 2} textAnchor="middle" fontSize={compact ? 0.5 : 0.4} fill="#57534e" fontWeight={600} style={{ pointerEvents: "none", letterSpacing: "0.02em" }}>
+          <text x={r.x + r.w / 2} y={r.y + r.h / 2} textAnchor="middle" fontSize={compact ? 0.42 : 0.34} fill="#57534e" fontWeight={600} style={{ pointerEvents: "none", letterSpacing: "0.02em" }}>
             {abbreviateRoomName(r.name, r.type)}
           </text>
-          <text x={r.x + r.w / 2} y={r.y + r.h / 2 + 0.48} textAnchor="middle" fontSize={compact ? 0.42 : 0.34} fill="#78716c" style={{ pointerEvents: "none" }}>
+          <text x={r.x + r.w / 2} y={r.y + r.h / 2 + 0.48} textAnchor="middle" fontSize={compact ? 0.34 : 0.28} fill="#78716c" style={{ pointerEvents: "none" }}>
             {r.area.toFixed(1)} m²
           </text>
         </g>
@@ -745,7 +745,7 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
             RDC {plan.stats.construite.toFixed(0)} m² · Qualité IA {quality ? `${quality.score}/100` : "—"}
           </text>
           <text x={maxW - 8.7} y={maxD + 3.75} fontSize={0.32} fill="#94a3b8">
-            {plan.reference ? `Référence : ${plan.reference.name}` : "Plan généré automatiquement par IA"}
+            Plan généré automatiquement par IA
           </text>
           <circle cx={maxW - 2.15} cy={maxD + 2.1} r={0.3} fill="#ffffff" stroke={qualityColor} strokeWidth={0.07} />
           <text x={maxW - 2.15} y={maxD + 2.19} textAnchor="middle" fontSize={0.34} fill={qualityColor} fontWeight={800}>

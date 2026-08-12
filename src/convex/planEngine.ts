@@ -143,38 +143,11 @@ export interface GeneratedPlan {
     cuisineArea: number;
     chambresArea: number;
   };
-  // Référence architecturale analysée (modèle Villa T10 type 1)
-  reference?: PlanReference;
   // Mobilier & équipements positionnés (portes et fenêtres dégagées)
   furniture?: FurnitureItem[];
   // Contrôle qualité automatique (recommandations + corrections proposées)
   quality?: PlanQualityReport;
 }
-
-// ─── Référence architecturale (modèle Villa T10 type 1) ───────────────────
-// Le moteur utilise la villa basse « T10 type 1 » (plan de référence, ECS
-// Informatique) comme ADN architectural : hall central de distribution,
-// séjour en façade, chambres regroupées en zone nuit, cuisine et services en
-// fond de parcelle, pièces humides regroupées pour la plomberie.
-
-export interface PlanReference {
-  name: string;
-  url: string;
-  principles: string[];
-}
-
-export const VILLA_T10_REFERENCE: PlanReference = {
-  name: "Villa T10 (type 1) — villa basse",
-  url: "https://www.ecsinformatique.com/wp-content/uploads/2025/08/Villa-T10-type-1.jpg",
-  principles: [
-    "Hall central de distribution desservant toutes les pièces sans traversée",
-    "Séjour et salle à manger en façade, orientés vers l'entrée du terrain",
-    "Cuisine et arrière-services en fond de parcelle, adossées aux pièces humides",
-    "Chambres regroupées en zone nuit, à l'écart de l'espace de vie",
-    "Salles de bain et WC regroupés avec la cuisine pour mutualiser la plomberie",
-    "Plan compact et régulier, faible circulation, mobilier le long des murs",
-  ],
-};
 
 // ─── Mobilier & équipements ────────────────────────────────────────────────
 
@@ -288,8 +261,7 @@ interface VariantStrategy {
   // "jour_rdc" : salon/cuisine au RDC, chambres à l'étage
   // "tout_rdc" : tout au RDC (plain-pied)
   // "jour_nuit_cote" : jour/nuit séparés par zone (une colonne jour / une nuit)
-  // "hall_central" : hall central de distribution, jour d'un côté / nuit de l'autre
-  layout: "jour_rdc" | "tout_rdc" | "jour_nuit_cote" | "open_space" | "hall_central";
+  layout: "jour_rdc" | "tout_rdc" | "jour_nuit_cote" | "open_space";
   circulation: number;    // cible % circulation
   aspectFlip: boolean;    // inverser l'aspect (paysage/portrait)
   masterSuite: boolean;   // suite parentale (dressing + sdb attenante)
@@ -300,13 +272,6 @@ interface VariantStrategy {
 }
 
 const STRATEGIES: VariantStrategy[] = [
-  {
-    key: "villa_t10", name: "Villa T10 — hall central",
-    desc: "Reproduit l'organisation du modèle de référence T10 : hall central distribuant séjour en façade, cuisine et services en fond, chambres regroupées en zone nuit de l'autre côté.",
-    layout: "hall_central", circulation: 0.11, aspectFlip: false, masterSuite: true,
-    openPlan: false, lightSouth: true, corridor: true,
-    roomOrder: ["vie", "nuit", "services"],
-  },
   {
     key: "optimisation", name: "Optimisation maximale de l'espace",
     desc: "Surface utile maximale : circulation réduite, pièces aux dimensions proches des minima fonctionnels et enveloppe compacte.",
@@ -630,23 +595,6 @@ function generateVariant(req: PlanRequest, strategy: VariantStrategy, variantSee
       : { x: 0, y: 0, w: W - bandW, h: D };
   }
 
-  // Variante « hall central » (référence Villa T10) : la circulation passe au
-  // centre, les pièces de jour d'un côté, les pièces de nuit de l'autre.
-  let leftRect: Rect | null = null;
-  let rightRect: Rect | null = null;
-  if (strategy.layout === "hall_central") {
-    const hallW = Math.min(mainRect.w * 0.3, Math.max(1.7, mainRect.w * couloirPct * 1.8));
-    const sideW = Math.max(2.6, (mainRect.w - hallW) / 2);
-    leftRect = { x: mainRect.x, y: mainRect.y, w: sideW, h: mainRect.h };
-    rightRect = {
-      x: mainRect.x + sideW + hallW,
-      y: mainRect.y,
-      w: Math.max(2.6, mainRect.w - sideW - hallW),
-      h: mainRect.h,
-    };
-    circRect = { x: mainRect.x + sideW, y: mainRect.y, w: hallW, h: mainRect.h };
-  }
-
   // Pièces par niveau
   const level0Rooms = allRooms.filter((r) => r.level === 0 && !r.exterior);
   const upperRooms = allRooms.filter((r) => r.level === 1 && !r.exterior);
@@ -664,23 +612,7 @@ function generateVariant(req: PlanRequest, strategy: VariantStrategy, variantSee
   }
   const scaled0 = level0Rooms.map((r) => ({ ...r, area: Math.max(r.minArea, r.area * level0Scale) }));
 
-  if (leftRect && rightRect) {
-    // Hall central : jour à gauche, nuit à droite (comme la Villa T10)
-    const isDay = (r: RoomReq) => ["salon", "salleAManger", "cuisine", "buanderie", "localTechnique", "entree"].includes(r.type);
-    const day = scaled0.filter(isDay);
-    const night = scaled0.filter((r) => !isDay(r));
-    const placeHalf = (rooms: RoomReq[], rect: Rect) => {
-      if (rooms.length === 0) return;
-      const needed = rooms.reduce((s, r) => s + r.area, 0);
-      const scale = Math.min(1, rectArea(rect) / Math.max(1e-6, needed));
-      const sc = rooms.map((r) => ({ ...r, area: Math.max(r.minArea, r.area * scale) }));
-      ground.push(...guillotine(rect, sc, rng, 0));
-    };
-    placeHalf(day, leftRect);
-    placeHalf(night, rightRect);
-  } else {
-    ground.push(...guillotine(mainRect, scaled0, rng, 0));
-  }
+  ground.push(...guillotine(mainRect, scaled0, rng, 0));
 
   if (upperRooms.length > 0) {
     // Étage : même emprise, pièces de nuit
@@ -800,7 +732,6 @@ function generateVariant(req: PlanRequest, strategy: VariantStrategy, variantSee
     alerts: { incompatible: alerts.length > 0, messages: alerts },
     scores,
     stats,
-    reference: VILLA_T10_REFERENCE,
   };
   // Corrections automatiques (fenêtres recentrées, portes décalées,
   // mobilier réorganisé) puis contrôle qualité — chaque plan est livré
