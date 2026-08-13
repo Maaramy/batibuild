@@ -19,7 +19,7 @@ import {
   Home, Building, Car, Sofa,
   BedDouble, LayoutGrid,
   Bath, ChefHat, Briefcase, Store, Package,
-  DoorOpen, Layers, Palmtree, Toilet,
+  DoorOpen, Layers, Palmtree, Toilet, Waves,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -66,26 +66,39 @@ const PROJECT_CATEGORIES: { value: string; label: string; icon: LucideIcon }[] =
     icon: CATEGORY_ICONS[value] || Building2,
   }));
 
-// Types de bien éligibles à l'étape « Nombre de pièces »
+// Types de bien éligibles à l'étape « Composition intérieur »
 // (résidentiel : la composition du bien affine l'estimation)
+// local_commercial & entrepot : pas de composition de pièces (éliminée)
 const ROOM_ELIGIBLE_CATEGORIES = [
   "maison", "villa", "appartement", "studio", "duplex", "immeuble",
-  "residence_touristique", "projet_neuf",
+  "residence_touristique", "projet_neuf", "bureau",
 ];
 
 // Types de bien à un seul niveau (rez-de-chaussée imposé)
 const SINGLE_LEVEL_TYPES = ["local_commercial", "entrepot", "bureau"];
 
+// Champs de composition masqués selon le type de bien
+// (bureau : pas de cuisine, salon ni garage)
+const HIDDEN_ROOM_FIELDS: Record<string, string[]> = {
+  bureau: ["kitchens", "livingRooms", "garages"],
+};
+
+// Champs de composition réservés à certains types de bien (piscine : villa)
+const ROOM_ONLY_FOR: Record<string, string[]> = {
+  pools: ["villa"],
+};
+
 // Valeurs par défaut des pièces selon le type de bien sélectionné
-const ROOM_DEFAULTS: Record<string, { bedrooms: string; bathrooms: string; kitchens: string; livingRooms: string; garages: string; wcs: string }> = {
-  maison:               { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1" },
-  villa:                { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1" },
-  appartement:          { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1" },
-  studio:               { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "0", garages: "0", wcs: "0" },
-  duplex:               { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1" },
-  immeuble:             { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1" },
-  residence_touristique:{ bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2" },
-  projet_neuf:          { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2" },
+const ROOM_DEFAULTS: Record<string, { bedrooms: string; bathrooms: string; kitchens: string; livingRooms: string; garages: string; wcs: string; pools: string }> = {
+  maison:               { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
+  villa:                { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "1" },
+  appartement:          { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
+  studio:               { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
+  duplex:               { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "0" },
+  immeuble:             { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
+  residence_touristique:{ bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2", pools: "0" },
+  projet_neuf:          { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2", pools: "0" },
+  bureau:               { bedrooms: "2", bathrooms: "1", kitchens: "0", livingRooms: "0", garages: "0", wcs: "1", pools: "0" },
 };
 
 const IMPORT_METHODS = [
@@ -103,7 +116,7 @@ const STEPS = [
   { key: "method",    label: "Méthode d'import",  desc: "Choisissez comment importer" },
   { key: "upload",    label: "Fichiers",           desc: "Ajoutez vos documents" },
   { key: "form",      label: "Détails du projet",  desc: "Complétez les informations" },
-  { key: "rooms",     label: "Nombre de pièces",   desc: "Chambres, sdb, cuisine, salon, garages, WC" },
+  { key: "rooms",     label: "Composition intérieur",  desc: "Chambres, sdb, cuisine, salon, garages, WC" },
   { key: "analyzing", label: "Analyse IA",         desc: "Calcul de l'estimation" },
 ] as const;
 
@@ -313,6 +326,7 @@ function ProjectSummary({
     if (parseInt(livingRooms || "0") > 0) parts.push(`${livingRooms} salon${parseInt(livingRooms) > 1 ? "s" : ""}`);
     if (parseInt(garages || "0") > 0) parts.push(`${garages} garage${parseInt(garages) > 1 ? "s" : ""}`);
     if (parseInt(wcs || "0") > 0) parts.push(`${wcs} WC`);
+    if (selectedCategory === "villa" && parseInt(pools || "0") > 0) parts.push(`${pools} piscine${parseInt(pools) > 1 ? "s" : ""}`);
     if (parts.length > 0)
       items.push({ label: "Pièces", value: parts.join(" · "), icon: LayoutGrid });
   }
@@ -579,6 +593,7 @@ export default function NewProject() {
   const [livingRooms, setLivingRooms] = useState("1");
   const [garages, setGarages] = useState("0");
   const [wcs, setWcs] = useState("1");
+  const [pools, setPools] = useState("0");
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -644,6 +659,7 @@ export default function NewProject() {
       setLivingRooms(d.livingRooms);
       setGarages(d.garages);
       setWcs(d.wcs);
+      setPools(d.pools);
     }
     // Rez-de-chaussée imposé pour les locaux d'activité
     if (SINGLE_LEVEL_TYPES.includes(cat)) setFloors("1");
@@ -683,7 +699,8 @@ export default function NewProject() {
       const totalRooms =
         (parseInt(bedrooms || "0") || 0) + (parseInt(bathrooms || "0") || 0) +
         (parseInt(kitchens || "0") || 0) + (parseInt(livingRooms || "0") || 0) +
-        (parseInt(garages || "0") || 0) + (parseInt(wcs || "0") || 0);
+        (parseInt(garages || "0") || 0) + (parseInt(wcs || "0") || 0) +
+        (parseInt(pools || "0") || 0);
       if (totalRooms < 1) {
         setErrors((e) => ({ ...e, bedrooms: "Renseignez au moins une pièce" }));
         return;
@@ -717,6 +734,7 @@ export default function NewProject() {
         livingRooms: livingRooms ? parseInt(livingRooms) : undefined,
         garages: garages ? parseInt(garages) : undefined,
         wcs: wcs ? parseInt(wcs) : undefined,
+        pools: pools ? parseInt(pools) : undefined,
       });
 
       await simulateAnalysis({ projectId });
@@ -1120,7 +1138,7 @@ export default function NewProject() {
             transition={{ duration: 0.25, ease: "easeOut" }}
           >
             <div className="mb-6">
-              <h2 className="text-lg sm:text-xl font-bold">Nombre de pièces</h2>
+              <h2 className="text-lg sm:text-xl font-bold">Composition intérieur</h2>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 Composition du bien — {CATEGORY_LABEL[selectedCategory] || selectedCategory}
               </p>
@@ -1134,7 +1152,12 @@ export default function NewProject() {
                 { key: "livingRooms", label: "Salon(s)",      icon: Sofa,      value: livingRooms, set: setLivingRooms, min: 1, placeholder: "ex: 1" },
                 { key: "garages",   label: "Garage(s)",       icon: Car,       value: garages,     set: setGarages,     min: 0, placeholder: "ex: 1" },
                 { key: "wcs",       label: "WC",              icon: Toilet,    value: wcs,         set: setWcs,         min: 0, placeholder: "ex: 1" },
-              ].map((f) => (
+                { key: "pools",     label: "Piscine(s)",      icon: Waves,     value: pools,       set: setPools,       min: 0, placeholder: "ex: 1" },
+              ].filter((f) => {
+                if (HIDDEN_ROOM_FIELDS[selectedCategory]?.includes(f.key)) return false;
+                if (ROOM_ONLY_FOR[f.key] && !ROOM_ONLY_FOR[f.key].includes(selectedCategory)) return false;
+                return true;
+              }).map((f) => (
                 <div key={f.key} className="p-4 rounded-xl border border-border/40 bg-card/30">
                   <Label className="text-xs font-semibold flex items-center gap-1.5">
                     <f.icon className="h-3.5 w-3.5 text-primary" />
@@ -1167,6 +1190,7 @@ export default function NewProject() {
                 {parseInt(livingRooms || "0") > 0 && ` · ${parseInt(livingRooms)} salon${parseInt(livingRooms) > 1 ? "s" : ""}`}
                 {parseInt(garages || "0") > 0 && ` · ${parseInt(garages)} garage${parseInt(garages) > 1 ? "s" : ""}`}
                 {parseInt(wcs || "0") > 0 && ` · ${parseInt(wcs)} WC`}
+                {selectedCategory === "villa" && parseInt(pools || "0") > 0 && ` · ${parseInt(pools)} piscine${parseInt(pools) > 1 ? "s" : ""}`}
               </span>
             </div>
 

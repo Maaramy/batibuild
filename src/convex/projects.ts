@@ -261,6 +261,7 @@ export const createProject = mutation({
     livingRooms: v.optional(v.number()),
     garages: v.optional(v.number()),
     wcs: v.optional(v.number()),
+    pools: v.optional(v.number()),
     surfaceTotale: v.optional(v.number()),
     manualInput: v.optional(
       v.object({
@@ -300,6 +301,7 @@ export const createProject = mutation({
       livingRooms: args.livingRooms,
       garages: args.garages,
       wcs: args.wcs,
+      pools: args.pools,
       surfaceTotale: args.surfaceTotale,
       manualInput: args.manualInput,
       isFavorite: false,
@@ -736,6 +738,8 @@ export const simulateAnalysis = mutation({
       kitchens: project.kitchens,
       livingRooms: project.livingRooms,
       garages: project.garages,
+      wcs: project.wcs,
+      pools: project.pools,
     });
 
     // Generate AI provider recommendations
