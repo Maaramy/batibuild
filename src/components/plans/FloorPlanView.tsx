@@ -1011,10 +1011,17 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
     );
   }
 
-  const ground = rooms.filter((r) => r.level === 0);
+  // Niveaux présents dans le plan. Un plan dédié à un étage précis (req.level)
+  // ne contient que des pièces de ce niveau : on le pose au niveau du sol.
+  // Un bâtiment complet (R+1, R+2) empile les niveaux présents.
+  const levelsPresent = Array.from(new Set(rooms.map((r) => r.level))).sort((a, b) => a - b);
+  const baseLevel = levelsPresent[0] ?? 0;
+  const ground = rooms.filter((r) => r.level === baseLevel);
   const groundInt = ground.filter((r) => !r.exterior);
-  const upper = rooms.filter((r) => r.level === 1);
+  const upper = rooms.filter((r) => r.level === baseLevel + 1);
   const hasUpper = upper.length > 0;
+  const third = rooms.filter((r) => r.level === baseLevel + 2);
+  const hasThird = third.length > 0;
 
   // Façades du bâtiment (zone couverte) — plan des fenêtres/portes
   const planeW = Math.max(plan.width, ...groundInt.map((r) => r.x + r.w));
@@ -1023,18 +1030,25 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
   const maxW = Math.max(planeW, ...rooms.map((r) => r.x + r.w));
   const maxD = Math.max(planeD, ...rooms.map((r) => r.y + r.h));
 
-  // Zone couverte du RDC (dalle du bâtiment)
+  // Zone couverte du niveau de base (dalle du bâtiment)
   const gx0 = groundInt.length ? Math.min(...groundInt.map((r) => r.x)) : 0;
   const gy0 = groundInt.length ? Math.min(...groundInt.map((r) => r.y)) : 0;
   const gx1 = groundInt.length ? Math.max(...groundInt.map((r) => r.x + r.w)) : planeW;
   const gy1 = groundInt.length ? Math.max(...groundInt.map((r) => r.y + r.h)) : planeD;
 
-  // Niveau supérieur
+  // 1er étage
   const ux0 = hasUpper ? Math.min(...upper.map((r) => r.x)) : 0;
   const uy0 = hasUpper ? Math.min(...upper.map((r) => r.y)) : 0;
   const ux1 = hasUpper ? Math.max(...upper.map((r) => r.x + r.w)) : 0;
   const uy1 = hasUpper ? Math.max(...upper.map((r) => r.y + r.h)) : 0;
   const uBase = upperZ0 + slab;
+  // 2ème étage (R+2)
+  const thirdZ0 = uBase + wallH + gap;
+  const tBase = thirdZ0 + slab;
+  const tx0 = hasThird ? Math.min(...third.map((r) => r.x)) : 0;
+  const ty0 = hasThird ? Math.min(...third.map((r) => r.y)) : 0;
+  const tx1 = hasThird ? Math.max(...third.map((r) => r.x + r.w)) : 0;
+  const ty1 = hasThird ? Math.max(...third.map((r) => r.y + r.h)) : 0;
 
   const ox = 0;
   const oy = 0;
@@ -1043,6 +1057,7 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
   // Tri « arrière → avant » pour un rendu correct
   const sortedGround = [...ground].sort((a, b) => a.x + a.y - (b.x + b.y));
   const sortedUpper = [...upper].sort((a, b) => a.x + a.y - (b.x + b.y));
+  const sortedThird = [...third].sort((a, b) => a.x + a.y - (b.x + b.y));
 
   // — Bornes projetées : viewBox auto-ajusté (le plan occupe tout l'espace) —
   const bounds: { px: number; py: number }[] = [];
@@ -1059,15 +1074,25 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
   pushBox(gx0 + 1.6, gy0 - 1.6, 0, gx1 + 1.6, gy1 - 1.6, 0);  // ombre portée
   for (const r of rooms) pushBox(r.x, r.y, 0, r.x + r.w, r.y + r.h, roomH(r, wallH));
   if (hasUpper) {
-    pushBox(ux0, uy0, upperZ0, ux1, uy1, uBase);              // dalle supérieure
+    pushBox(ux0, uy0, upperZ0, ux1, uy1, uBase);              // dalle 1er étage
     for (const r of upper) pushBox(r.x, r.y, uBase, r.x + r.w, r.y + r.h, uBase + roomH(r, wallH));
+  }
+  if (hasThird) {
+    pushBox(tx0, ty0, thirdZ0, tx1, ty1, tBase);              // dalle 2ème étage
+    for (const r of third) pushBox(r.x, r.y, tBase, r.x + r.w, r.y + r.h, tBase + roomH(r, wallH));
   }
   for (const f of plan.furniture ?? []) {
     const h = F_HEIGHT[f.kind] ?? 0.5;
-    const zb = f.level === 1 && hasUpper ? uBase : 0;
+    const zb =
+      f.level === baseLevel + 1 && hasUpper ? uBase :
+      f.level === baseLevel + 2 && hasThird ? tBase : 0;
     pushBox(f.x, f.y, zb, f.x + f.w, f.y + f.h, zb + h);
   }
-  const labelZ = (r: PlacedRoom) => (r.level === 1 && hasUpper ? uBase : 0) + roomH(r, wallH) + 0.35;
+  const labelZ = (r: PlacedRoom) => {
+    if (r.level === baseLevel + 2 && hasThird) return tBase + roomH(r, wallH) + 0.35;
+    if (r.level === baseLevel + 1 && hasUpper) return uBase + roomH(r, wallH) + 0.35;
+    return roomH(r, wallH) + 0.35;
+  };
   for (const r of rooms) {
     if (LOW_WALL.has(r.type)) continue;
     const { px, py } = isoProject(r.x + r.w / 2, r.y + r.h / 2, labelZ(r), ox, oy, scale);
@@ -1150,34 +1175,48 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
         fill="#f1f5f9" stroke="#94a3b8" strokeWidth={1.2}
       />
 
-      {/* RDC : boîtes des pièces */}
+      {/* Niveau de base (RDC, ou étage précis d'un plan dédié) : boîtes des pièces */}
       {sortedGround.map((r) => <RoomBox3D key={r.id} room={r} baseZ={0} wallH={wallH} c={c} />)}
-      {/* RDC : fenêtres & porte d'entrée sur les façades visibles */}
-      <Openings3D plan={plan} baseZ={0} wallH={wallH} c={c} level={0} />
-      {/* RDC : toitures (ceinture de mur + toit) */}
+      {/* Niveau de base : fenêtres & porte d'entrée sur les façades visibles */}
+      <Openings3D plan={plan} baseZ={0} wallH={wallH} c={c} level={baseLevel} />
+      {/* Niveau de base : toitures (ceinture de mur + toit) */}
       {sortedGround.map((r) => <Roof3D key={`rf-${r.id}`} room={r} baseZ={0} wallH={wallH} c={c} />)}
 
-      {/* Niveau supérieur */}
+      {/* 1er étage */}
       {hasUpper && (
         <g>
-          {/* dalle supérieure flottante */}
+          {/* dalle du 1er étage flottante */}
           <polygon points={isoPoly([{ x: ux0, y: uy0, z: upperZ0 }, { x: ux1, y: uy0, z: upperZ0 }, { x: ux1, y: uy0, z: uBase }, { x: ux0, y: uy0, z: uBase }], ox, oy, scale)} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} />
           <polygon points={isoPoly([{ x: ux0, y: uy1, z: upperZ0 }, { x: ux1, y: uy1, z: upperZ0 }, { x: ux1, y: uy1, z: uBase }, { x: ux0, y: uy1, z: uBase }], ox, oy, scale)} fill="#cbd5e1" stroke="#94a3b8" strokeWidth={1} />
           <polygon points={isoPoly([{ x: ux0, y: uy0, z: uBase }, { x: ux1, y: uy0, z: uBase }, { x: ux1, y: uy1, z: uBase }, { x: ux0, y: uy1, z: uBase }], ox, oy, scale)} fill="#f1f5f9" stroke="#94a3b8" strokeWidth={1} />
           {sortedUpper.map((r) => <RoomBox3D key={r.id} room={r} baseZ={uBase} wallH={wallH} c={c} />)}
-          <Openings3D plan={plan} baseZ={uBase} wallH={wallH} c={c} level={1} />
+          <Openings3D plan={plan} baseZ={uBase} wallH={wallH} c={c} level={baseLevel + 1} />
           {sortedUpper.map((r) => <Roof3D key={`rf-${r.id}`} room={r} baseZ={uBase} wallH={wallH} c={c} />)}
         </g>
       )}
 
-      {/* Mobilier 3D (RDC puis niveau supérieur) */}
-      <Furniture3D plan={plan} ox={ox} oy={oy} scale={scale} level={0} zBase={0} />
-      {hasUpper && <Furniture3D plan={plan} ox={ox} oy={oy} scale={scale} level={1} zBase={uBase} />}
+      {/* 2ème étage (R+2) */}
+      {hasThird && (
+        <g>
+          {/* dalle du 2ème étage flottante */}
+          <polygon points={isoPoly([{ x: tx0, y: ty0, z: thirdZ0 }, { x: tx1, y: ty0, z: thirdZ0 }, { x: tx1, y: ty0, z: tBase }, { x: tx0, y: ty0, z: tBase }], ox, oy, scale)} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} />
+          <polygon points={isoPoly([{ x: tx0, y: ty1, z: thirdZ0 }, { x: tx1, y: ty1, z: thirdZ0 }, { x: tx1, y: ty1, z: tBase }, { x: tx0, y: ty1, z: tBase }], ox, oy, scale)} fill="#cbd5e1" stroke="#94a3b8" strokeWidth={1} />
+          <polygon points={isoPoly([{ x: tx0, y: ty0, z: tBase }, { x: tx1, y: ty0, z: tBase }, { x: tx1, y: ty1, z: tBase }, { x: tx0, y: ty1, z: tBase }], ox, oy, scale)} fill="#f1f5f9" stroke="#94a3b8" strokeWidth={1} />
+          {sortedThird.map((r) => <RoomBox3D key={r.id} room={r} baseZ={tBase} wallH={wallH} c={c} />)}
+          <Openings3D plan={plan} baseZ={tBase} wallH={wallH} c={c} level={baseLevel + 2} />
+          {sortedThird.map((r) => <Roof3D key={`rf-${r.id}`} room={r} baseZ={tBase} wallH={wallH} c={c} />)}
+        </g>
+      )}
+
+      {/* Mobilier 3D (niveau de base puis étages) */}
+      <Furniture3D plan={plan} ox={ox} oy={oy} scale={scale} level={baseLevel} zBase={0} />
+      {hasUpper && <Furniture3D plan={plan} ox={ox} oy={oy} scale={scale} level={baseLevel + 1} zBase={uBase} />}
+      {hasThird && <Furniture3D plan={plan} ox={ox} oy={oy} scale={scale} level={baseLevel + 2} zBase={tBase} />}
 
       {/* Étiquettes des pièces */}
       {rooms.map((r) => {
         if (LOW_WALL.has(r.type)) return null;
-        return <RoomLabel3D key={`lbl-${r.id}`} room={r} z={labelZ(r)} c={c} isUpper={r.level === 1 && hasUpper} />;
+        return <RoomLabel3D key={`lbl-${r.id}`} room={r} z={labelZ(r)} c={c} isUpper={(r.level === baseLevel + 1 && hasUpper) || (r.level === baseLevel + 2 && hasThird)} />;
       })}
     </svg>
   );

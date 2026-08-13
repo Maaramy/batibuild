@@ -779,6 +779,7 @@ function generateVariant(req: PlanRequest, strategy: VariantStrategy, variantSee
   // Pièces par niveau
   const level0Rooms = allRooms.filter((r) => r.level === 0 && !r.exterior);
   const upperRooms = allRooms.filter((r) => r.level === 1 && !r.exterior);
+  const level2Rooms = allRooms.filter((r) => r.level === 2 && !r.exterior);
   const onlyLevel = req.level; // niveau précis → un plan par étage
   const planLevel = onlyLevel ?? 0;
 
@@ -805,9 +806,14 @@ function generateVariant(req: PlanRequest, strategy: VariantStrategy, variantSee
   } else {
     ground.push(...scaleToRect(level0Rooms, mainRect, 0));
     if (upperRooms.length > 0) {
-      // Étage : même emprise, pièces de nuit
+      // Étage 1 : même emprise, pièces de nuit
       const upperRect: Rect = { x: 0, y: 0, w: W, h: D };
       upper.push(...scaleToRect(upperRooms, upperRect, 100));
+    }
+    if (level2Rooms.length > 0) {
+      // Étage 2 (R+2) : même emprise, dernière tranche de pièces
+      const thirdRect: Rect = { x: 0, y: 0, w: W, h: D };
+      upper.push(...scaleToRect(level2Rooms, thirdRect, 200));
     }
   }
 

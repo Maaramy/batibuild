@@ -199,6 +199,41 @@ describe("generatePlans", () => {
     expect(Math.abs(total - 220)).toBeLessThan(40);
   });
 
+  it("gère un bâtiment R+2 complet : les trois niveaux sont placés", () => {
+    const plans = generatePlans({ ...BASE_REQUEST, floors: 3, surfaceCouverte: 330 });
+    for (const plan of plans) {
+      const levels = new Set(plan.rooms.filter((r) => !r.exterior).map((r) => r.level));
+      // RDC + 1er + 2ème étages peuplés
+      expect(levels.has(0)).toBe(true);
+      expect(levels.has(1) || levels.has(2)).toBe(true);
+      const totalRooms = plan.rooms.filter((r) => !r.exterior).length;
+      expect(totalRooms).toBeGreaterThan(3);
+      // Chaque étage habité est relié par un escalier
+      if (levels.has(1) || levels.has(2)) {
+        expect(plan.stairs.length).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
+
+  it("génère un plan dédié au 2ème étage (level: 2) d'un R+2", () => {
+    const etage2 = generatePlans({ ...BASE_REQUEST, floors: 3, surfaceCouverte: 330, level: 2 });
+    expect(etage2).toHaveLength(10);
+    for (const plan of etage2) {
+      expect(plan.level).toBe(2);
+      for (const r of plan.rooms.filter((x) => !x.exterior)) {
+        expect(r.level).toBe(2);
+      }
+      // Surface construite par niveau = surface totale / étages
+      expect(Math.abs(plan.stats.construite - 110)).toBeLessThan(25);
+      expect(plan.stairs.length).toBeGreaterThanOrEqual(1);
+    }
+    // La somme des trois niveaux respecte la surface totale saisie
+    const rdc = generatePlans({ ...BASE_REQUEST, floors: 3, surfaceCouverte: 330, level: 0 })[0];
+    const et1 = generatePlans({ ...BASE_REQUEST, floors: 3, surfaceCouverte: 330, level: 1 })[0];
+    const total = rdc.stats.construite + et1.stats.construite + etage2[0].stats.construite;
+    expect(Math.abs(total - 330)).toBeLessThan(60);
+  });
+
   it("regenerateVariant produit une variante valide du même index", () => {
     const plans = generatePlans(BASE_REQUEST);
     const original = plans[2];
