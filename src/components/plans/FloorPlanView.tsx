@@ -60,8 +60,30 @@ export function abbreviateRoomName(name: string, type: string): string {
     case "balcon": return "Balc.";
     case "jardin": return "Jard.";
     case "piscine": return "Pisc.";
+    case "espaceVente": return "Vente";
+    case "salleResto": return "Resto";
+    case "caisse": return "Caisse";
+    case "reserve": return "Réserve";
+    case "openSpace": return "Open";
+    case "reunion": return "Réun.";
+    case "accueil": return "Acc.";
+    case "kitchenette": return "Kitch.";
+    case "hall": return "Hall";
+    case "atelier": return "Atel.";
+    case "salleClasse": return "Classe";
+    case "sallePriere": return "Prière";
+    case "ablution": return "Abl.";
+    case "repos": return "Repos";
     default: return name;
   }
+}
+
+/** Libellé d'un niveau (RDC, 1er étage, 2ème étage…). */
+export function levelLabel(level: number): string {
+  if (level <= 0) return "RDC";
+  if (level === 1) return "1er étage";
+  if (level === 2) return "2ème étage";
+  return `${level}ème étage`;
 }
 
 // ─── Cotes sur les 4 côtés ──────────────────────────────────────────────────
@@ -742,7 +764,7 @@ export function FloorPlan2D({ plan, showDimensions = true, showNorth = true, com
             Surface construite {plan.stats.construite.toFixed(0)} m² · {plan.levels} niveau{plan.levels > 1 ? "x" : ""} · Échelle 1:100
           </text>
           <text x={maxW - 8.7} y={maxD + 3.35} fontSize={0.34} fill={INK_SOFT}>
-            RDC {plan.stats.construite.toFixed(0)} m² · Qualité IA {quality ? `${quality.score}/100` : "—"}
+            {levelLabel(plan.level ?? 0)} · {plan.stats.construite.toFixed(0)} m² · Qualité IA {quality ? `${quality.score}/100` : "—"}
           </text>
           <text x={maxW - 8.7} y={maxD + 3.75} fontSize={0.32} fill="#94a3b8">
             Plan généré automatiquement par IA

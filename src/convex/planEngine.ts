@@ -43,6 +43,7 @@ export interface PlanRequest {
   style: StyleArchitectural;
   exigences?: string;        // exigences supplémentaires libres
   seed?: number;
+  level?: number;            // niveau à générer (0 = RDC) — undefined = bâtiment complet
 }
 
 export interface RoomReq {
@@ -120,7 +121,8 @@ export interface GeneratedPlan {
   // Données géométriques
   width: number;             // largeur hors-tout du bâtiment (m)
   depth: number;             // profondeur hors-tout (m)
-  levels: number;
+  levels: number;            // nombre total de niveaux du bâtiment
+  level?: number;            // niveau de ce plan (0 = RDC, 1 = Étage 1, …)
   rooms: PlacedRoom[];
   doors: Door[];
   windows: Window[];
@@ -215,6 +217,20 @@ const AREA = {
   localTech:    { eco: 3,  std: 4,  premium: 5,  min: 2 },
   escalier:     { eco: 4.5, std: 5.5, premium: 6.5, min: 3.5 },
   entree:       { eco: 3,  std: 4,  premium: 5.5, min: 2.5 },
+  espaceVente:  { eco: 55, std: 70, premium: 95, min: 30 },
+  salleResto:   { eco: 35, std: 50, premium: 70, min: 22 },
+  caisse:       { eco: 3.5, std: 4.5, premium: 6, min: 2.2 },
+  reserve:      { eco: 7,  std: 9,  premium: 13, min: 5 },
+  openSpace:    { eco: 16, std: 22, premium: 30, min: 11 },
+  reunion:      { eco: 9,  std: 12, premium: 15, min: 7 },
+  accueil:      { eco: 5,  std: 7,  premium: 9, min: 4 },
+  kitchenette:  { eco: 3.5, std: 4.5, premium: 6, min: 2.5 },
+  hall:         { eco: 60, std: 85, premium: 120, min: 35 },
+  atelier:      { eco: 25, std: 35, premium: 50, min: 18 },
+  salleClasse:  { eco: 28, std: 34, premium: 42, min: 20 },
+  sallePriere:  { eco: 45, std: 60, premium: 85, min: 28 },
+  ablution:     { eco: 4,  std: 5,  premium: 6.5, min: 3 },
+  repos:        { eco: 7,  std: 9,  premium: 12, min: 5 },
   couloirPct:   { eco: 0.09, std: 0.11, premium: 0.13 },
 } as const;
 
@@ -226,6 +242,11 @@ const ROOM_COLORS: Record<string, string> = {
   localTechnique: "#d1d5db", escalier: "#a5b4fc", entree: "#fef9c3",
   circulation: "#f8fafc", terrasse: "#d9f99d", balcon: "#d9f99d",
   garage: "#e7e5e4", parking: "#d6d3d1", jardin: "#bbf7d0", piscine: "#a5f3fc",
+  espaceVente: "#fef3c7", salleResto: "#fde68a", caisse: "#fecaca",
+  reserve: "#e5e7eb", openSpace: "#dbeafe", reunion: "#c7d2fe",
+  accueil: "#ede9fe", kitchenette: "#fecaca", hall: "#e7e5e4",
+  atelier: "#d6d3d1", salleClasse: "#bbf7d0", sallePriere: "#d9f99d",
+  ablution: "#cffafe", repos: "#e5e7eb",
   default: "#f1f5f9",
 };
 
@@ -350,86 +371,40 @@ function standLevel(s: Standing): "eco" | "std" | "premium" {
   return s === "economique" ? "eco" : s === "premium" ? "premium" : "std";
 }
 
-function buildRoomReqs(req: PlanRequest, strategy: VariantStrategy): { rooms: RoomReq[]; alerts: string[] } {
-  const sl = standLevel(req.standing);
-  const alerts: string[] = [];
-  const rooms: RoomReq[] = [];
+// ─── Programmes architecturaux adaptés au type de projet ───────────────────
+
+const RESIDENTIAL_TYPES = [
+  "maison", "villa", "appartement", "studio", "duplex", "immeuble",
+  "immeuble_residentiel", "maison_r+1", "residence_touristique", "projet_neuf",
+  "residence", "renovation_interieure", "renovation_exterieure",
+  "renovation_salle_de_bain", "renovation_cuisine", "renovation_facade", "hotel",
+];
+const OFFICE_TYPES = ["bureau"];
+const COMMERCIAL_TYPES = ["local_commercial", "restaurant", "cafe"];
+const INDUSTRIAL_TYPES = ["entrepot", "atelier", "usine", "depot", "serre_agricole", "ferme"];
+const INSTITUTIONAL_TYPES = ["ecole", "mosquee"];
+
+// Pièces qui absorbent la surface excédentaire quand le plateau est généreux
+const SURFACE_ABSORBERS = new Set(["salon", "hall", "espaceVente", "salleResto", "openSpace"]);
+
+/** Niveau d'une chambre selon sa position (étages gérés jusqu'à R+2). */
+function bedroomLevel(i: number, floors: number): number {
+  if (i === 0) return 0;
+  if (floors >= 3 && i >= 2) return 2;
+  return 1;
+}
+
+/** Vérification des contraintes de surface + absorption du surplus. */
+function applySurfaceConstraints(
+  req: PlanRequest,
+  strategy: VariantStrategy,
+  rooms: RoomReq[],
+  alerts: string[],
+): void {
   const floors = Math.max(1, Math.round(req.floors) || 1);
-  const hasUpper = floors > 1;
-  // Pièces de vie (RDC)
-  const vie: RoomReq[] = [];
-  if (req.hasSalon) vie.push({ name: "Salon", type: "salon", area: AREA.salon[sl], minArea: AREA.salon.min, level: 0 });
-  if (req.hasSalleAManger) vie.push({ name: "Salle à manger", type: "salleAManger", area: AREA.salleAManger[sl], minArea: AREA.salleAManger.min, level: 0 });
-  if (req.hasCuisine) vie.push({ name: "Cuisine", type: "cuisine", area: AREA.cuisine[sl], minArea: AREA.cuisine.min, level: 0 });
-  if (vie.length === 0) vie.push({ name: "Salon", type: "salon", area: AREA.salon[sl], minArea: AREA.salon.min, level: 0 });
-
-  // Chambres
-  const nbCh = Math.max(1, req.bedrooms || 1);
-  const chambres: RoomReq[] = [];
-  for (let i = 0; i < nbCh; i++) {
-    const master = i === 0 && strategy.masterSuite && nbCh >= 1;
-    const isUpper = hasUpper && i > 0;
-    chambres.push({
-      name: master ? "Chambre principale" : `Chambre ${i + 1}`,
-      type: master ? "master" : "chambre",
-      area: master ? AREA.master[sl] : AREA.chambre[sl],
-      minArea: AREA.chambre.min,
-      level: isUpper ? 1 : 0,
-    });
-  }
-
-  // Salles de bain & WC
-  const nbSdb = Math.max(1, req.bathrooms || 1);
-  const sdb: RoomReq[] = [];
-  for (let i = 0; i < nbSdb; i++) {
-    const upper = hasUpper && i > 0;
-    sdb.push({ name: `Salle de bain ${i + 1}`, type: "sdb", area: AREA.sdb[sl], minArea: AREA.sdb.min, level: upper ? 1 : 0 });
-  }
-  const wcs: RoomReq[] = [];
-  for (let i = 0; i < (req.wcs || 0); i++) {
-    wcs.push({ name: `WC ${i + 1}`, type: "wc", area: AREA.wc[sl], minArea: AREA.wc.min, level: 0 });
-  }
-
-  const services: RoomReq[] = [];
-  if (req.hasBuanderie) services.push({ name: "Buanderie", type: "buanderie", area: AREA.buanderie[sl], minArea: AREA.buanderie.min, level: 0 });
-  if (req.hasBureau) services.push({ name: "Bureau", type: "bureau", area: AREA.bureau[sl], minArea: AREA.bureau.min, level: hasUpper ? 1 : 0 });
-  if (req.hasLocalTechnique) services.push({ name: "Local technique", type: "localTechnique", area: AREA.localTech[sl], minArea: AREA.localTech.min, level: 0 });
-  if (hasUpper) services.push({ name: "Escalier", type: "escalier", area: AREA.escalier[sl], minArea: AREA.escalier.min, level: 0 });
-
-  // Dressing rattaché à la suite parentale si premium
-  if (req.hasDressing) {
-    services.push({ name: "Espace séchage", type: "dressing", area: AREA.dressing[sl], minArea: AREA.dressing.min, level: hasUpper ? 1 : 0 });
-  }
-
-  // Ordre de placement selon la stratégie (sdb + wc regroupés avec la nuit)
-  const orderMap: Record<string, RoomReq[]> = {
-    vie,
-    nuit: [...chambres, ...sdb, ...wcs],
-    services,
-  };
-  const ordered: RoomReq[] = [];
-  for (const grp of strategy.roomOrder) {
-    const g = orderMap[grp];
-    if (g) ordered.push(...g);
-  }
-
-  // Open space : fusionner salon + salle à manger + cuisine en un seul espace
-  let final = ordered;
-  if (strategy.openPlan) {
-    const names = new Set(["Salon", "Salle à manger", "Cuisine"]);
-    const merged = ordered.filter((r) => names.has(r.name));
-    const rest = ordered.filter((r) => !names.has(r.name));
-    const mergedArea = merged.reduce((s, r) => s + r.area, 0);
-    final = [
-      { name: "Espace de vie (open space)", type: "salon", area: mergedArea, minArea: AREA.salon.min + AREA.cuisine.min, level: 0 },
-      ...rest,
-    ];
-  }
-
-  // Vérification des contraintes de surface
   const coveredPerLevel = req.surfaceCouverte / floors;
   const couloirPct = strategy.circulation;
-  const interiorNeeded = final.filter((r) => !r.exterior).reduce((s, r) => s + r.area, 0);
+  const interiorNeeded = rooms.filter((r) => !r.exterior).reduce((s, r) => s + r.area, 0);
   const availableInterior = coveredPerLevel * (1 - couloirPct);
   if (interiorNeeded > availableInterior * 1.15) {
     alerts.push(
@@ -437,17 +412,223 @@ function buildRoomReqs(req: PlanRequest, strategy: VariantStrategy): { rooms: Ro
     );
     // Réduction proportionnelle aux minima
     const scale = Math.min(1, availableInterior / interiorNeeded);
-    for (const r of final) {
+    for (const r of rooms) {
       r.area = Math.max(r.minArea, r.area * scale);
     }
   } else if (availableInterior > interiorNeeded * 1.5) {
-    // Surface disponible généreuse : le salon absorbe le surplus
+    // Surface disponible généreuse : la pièce principale absorbe le surplus
     const surplus = availableInterior - interiorNeeded;
-    for (const r of final) {
-      if (r.type === "salon") r.area += surplus * 0.6;
+    const absorber = rooms.find((r) => SURFACE_ABSORBERS.has(r.type));
+    if (absorber) absorber.area += surplus * 0.6;
+  }
+}
+
+/**
+ * Construit la liste des pièces du programme adaptée au type de projet.
+ * `req.level` restreint la génération à un niveau précis (plan par étage).
+ */
+function buildRoomReqs(req: PlanRequest, strategy: VariantStrategy): { rooms: RoomReq[]; alerts: string[] } {
+  const sl = standLevel(req.standing);
+  const alerts: string[] = [];
+  const floors = Math.max(1, Math.round(req.floors) || 1);
+  const hasUpper = floors > 1;
+  const target = req.level; // undefined → bâtiment complet
+  const ordered: RoomReq[] = [];
+  const add = (name: string, type: string, area: number, minArea: number, level: number) => {
+    if (target === undefined || target === level) {
+      ordered.push({ name, type, area, minArea, level, exterior: false });
+    }
+  };
+
+  // ── Bureau : open space, réunions, réception ──
+  if (OFFICE_TYPES.includes(req.bienType)) {
+    add("Open space", "openSpace", AREA.openSpace[sl], AREA.openSpace.min, 0);
+    add("Salle de réunion", "reunion", AREA.reunion[sl], AREA.reunion.min, 0);
+    add("Accueil / Réception", "accueil", AREA.accueil[sl], AREA.accueil.min, 0);
+    add("Kitchenette", "kitchenette", AREA.kitchenette[sl], AREA.kitchenette.min, 0);
+    add("WC", "wc", AREA.wc[sl], AREA.wc.min, 0);
+    if (hasUpper) {
+      add("Open space 2", "openSpace", AREA.openSpace[sl], AREA.openSpace.min, 1);
+      add("Salle de réunion 2", "reunion", AREA.reunion[sl], AREA.reunion.min, 1);
+      add("Salle de repos", "repos", AREA.repos[sl], AREA.repos.min, 1);
+      add("WC", "wc", AREA.wc[sl], AREA.wc.min, 1);
+      add("Escalier", "escalier", AREA.escalier[sl], AREA.escalier.min, target ?? 0);
+    }
+    applySurfaceConstraints(req, strategy, ordered, alerts);
+    return { rooms: ordered, alerts };
+  }
+
+  // ── Local commercial / restaurant / café ──
+  if (COMMERCIAL_TYPES.includes(req.bienType)) {
+    const isResto = req.bienType === "restaurant" || req.bienType === "cafe";
+    if (isResto) {
+      add(req.bienType === "cafe" ? "Salle & terrasse couverte" : "Salle de restauration", "salleResto", AREA.salleResto[sl], AREA.salleResto.min, 0);
+      add("Cuisine professionnelle", "cuisine", AREA.cuisine[sl] + 2, AREA.cuisine.min, 0);
+    } else {
+      add("Espace de vente", "espaceVente", AREA.espaceVente[sl], AREA.espaceVente.min, 0);
+    }
+    add("Comptoir / Caisse", "caisse", AREA.caisse[sl], AREA.caisse.min, 0);
+    add("Réserve", "reserve", AREA.reserve[sl], AREA.reserve.min, 0);
+    add("Bureau de gestion", "bureau", AREA.bureau[sl], AREA.bureau.min, 0);
+    add("WC", "wc", AREA.wc[sl], AREA.wc.min, 0);
+    if (hasUpper) {
+      add("Réserve 2", "reserve", AREA.reserve[sl], AREA.reserve.min, 1);
+      add("Bureau 2", "bureau", AREA.bureau[sl], AREA.bureau.min, 1);
+      add("Salle de repos", "repos", AREA.repos[sl], AREA.repos.min, 1);
+      add("WC", "wc", AREA.wc[sl], AREA.wc.min, 1);
+      add("Escalier", "escalier", AREA.escalier[sl], AREA.escalier.min, target ?? 0);
+    }
+    applySurfaceConstraints(req, strategy, ordered, alerts);
+    return { rooms: ordered, alerts };
+  }
+
+  // ── Entrepôt / atelier / usine / dépôt / ferme / serre ──
+  if (INDUSTRIAL_TYPES.includes(req.bienType)) {
+    add("Hall de stockage", "hall", AREA.hall[sl], AREA.hall.min, 0);
+    if (req.bienType === "atelier" || req.bienType === "usine") {
+      add("Atelier", "atelier", AREA.atelier[sl], AREA.atelier.min, 0);
+    }
+    add("Bureau de gestion", "bureau", AREA.bureau[sl], AREA.bureau.min, 0);
+    add("WC", "wc", AREA.wc[sl], AREA.wc.min, 0);
+    add("Local technique", "localTechnique", AREA.localTech[sl], AREA.localTech.min, 0);
+    if (hasUpper) {
+      add("Bureau 2", "bureau", AREA.bureau[sl], AREA.bureau.min, 1);
+      add("Salle de repos", "repos", AREA.repos[sl], AREA.repos.min, 1);
+      add("WC", "wc", AREA.wc[sl], AREA.wc.min, 1);
+      add("Escalier", "escalier", AREA.escalier[sl], AREA.escalier.min, target ?? 0);
+    }
+    applySurfaceConstraints(req, strategy, ordered, alerts);
+    return { rooms: ordered, alerts };
+  }
+
+  // ── École / Mosquée ──
+  if (INSTITUTIONAL_TYPES.includes(req.bienType)) {
+    if (req.bienType === "ecole") {
+      add("Salle de classe", "salleClasse", AREA.salleClasse[sl], AREA.salleClasse.min, 0);
+      add("Salle de classe 2", "salleClasse", AREA.salleClasse[sl], AREA.salleClasse.min, 0);
+      add("Hall d'accueil", "accueil", AREA.accueil[sl], AREA.accueil.min, 0);
+      add("Bureau", "bureau", AREA.bureau[sl], AREA.bureau.min, 0);
+      add("WC", "wc", AREA.wc[sl], AREA.wc.min, 0);
+      if (hasUpper) {
+        add("Salle de classe 3", "salleClasse", AREA.salleClasse[sl], AREA.salleClasse.min, 1);
+        add("Bibliothèque", "dressing", AREA.dressing[sl], AREA.dressing.min, 1);
+        add("WC", "wc", AREA.wc[sl], AREA.wc.min, 1);
+        add("Escalier", "escalier", AREA.escalier[sl], AREA.escalier.min, target ?? 0);
+      }
+    } else {
+      add("Salle de prière", "sallePriere", AREA.sallePriere[sl], AREA.sallePriere.min, 0);
+      add("Salle d'ablution", "ablution", AREA.ablution[sl], AREA.ablution.min, 0);
+      add("Bureau de l'imam", "bureau", AREA.bureau[sl], AREA.bureau.min, 0);
+      add("WC", "wc", AREA.wc[sl], AREA.wc.min, 0);
+      if (hasUpper) {
+        add("Salle de prière 2", "sallePriere", AREA.sallePriere[sl], AREA.sallePriere.min, 1);
+        add("WC", "wc", AREA.wc[sl], AREA.wc.min, 1);
+        add("Escalier", "escalier", AREA.escalier[sl], AREA.escalier.min, target ?? 0);
+      }
+    }
+    applySurfaceConstraints(req, strategy, ordered, alerts);
+    return { rooms: ordered, alerts };
+  }
+
+  // ── Résidentiel (maison, villa, appartement…) : comportement historique ──
+  const vie: RoomReq[] = [];
+  const pushVie = (name: string, type: string, area: number, minArea: number, level: number) => {
+    if (target === undefined || target === level) vie.push({ name, type, area, minArea, level, exterior: false });
+  };
+  if (req.hasSalon) pushVie("Salon", "salon", AREA.salon[sl], AREA.salon.min, 0);
+  if (req.hasSalleAManger) pushVie("Salle à manger", "salleAManger", AREA.salleAManger[sl], AREA.salleAManger.min, 0);
+  if (req.hasCuisine) pushVie("Cuisine", "cuisine", AREA.cuisine[sl], AREA.cuisine.min, 0);
+  if (vie.length === 0) pushVie("Salon", "salon", AREA.salon[sl], AREA.salon.min, 0);
+
+  // Chambres
+  const nbCh = Math.max(1, req.bedrooms || 1);
+  const chambres: RoomReq[] = [];
+  for (let i = 0; i < nbCh; i++) {
+    const master = i === 0 && strategy.masterSuite && nbCh >= 1;
+    let lvl = target === undefined ? (hasUpper && i > 0 ? 1 : 0) : bedroomLevel(i, floors);
+    let keep = target === undefined || lvl === target;
+    // Un étage (R+1, R+2) doit contenir au moins une chambre, même si la demande est faible
+    if (target !== undefined && target > 0 && !keep && !chambres.some((c) => c.level === target)) {
+      keep = true;
+      lvl = target;
+    }
+    if (keep) {
+      chambres.push({
+        name: master ? "Chambre principale" : `Chambre ${i + 1}`,
+        type: master ? "master" : "chambre",
+        area: master ? AREA.master[sl] : AREA.chambre[sl],
+        minArea: AREA.chambre.min,
+        level: lvl,
+      });
     }
   }
 
+  // Salles de bain & WC
+  const nbSdb = Math.max(1, req.bathrooms || 1);
+  const sdb: RoomReq[] = [];
+  for (let i = 0; i < nbSdb; i++) {
+    let lvl = target === undefined ? (hasUpper && i > 0 ? 1 : 0) : (i === 0 ? 0 : floors >= 3 && i >= 2 ? 2 : 1);
+    let keep = target === undefined || lvl === target;
+    if (target !== undefined && target > 0 && !keep && !sdb.some((x) => x.level === target)) {
+      keep = true;
+      lvl = target;
+    }
+    if (keep) {
+      sdb.push({ name: `Salle de bain ${i + 1}`, type: "sdb", area: AREA.sdb[sl], minArea: AREA.sdb.min, level: lvl });
+    }
+  }
+  const wcs: RoomReq[] = [];
+  for (let i = 0; i < (req.wcs || 0); i++) {
+    if (target === undefined || target === 0) {
+      wcs.push({ name: `WC ${i + 1}`, type: "wc", area: AREA.wc[sl], minArea: AREA.wc.min, level: 0 });
+    }
+  }
+  // À l'étage, prévoir un WC de service
+  if (target !== undefined && target > 0) {
+    wcs.push({ name: "WC", type: "wc", area: AREA.wc[sl], minArea: AREA.wc.min, level: target });
+  }
+
+  const services: RoomReq[] = [];
+  const addService = (name: string, type: string, area: number, minArea: number, level: number) => {
+    if (target === undefined || target === level) {
+      services.push({ name, type, area, minArea, level, exterior: false });
+    }
+  };
+  if (req.hasBuanderie) addService("Buanderie", "buanderie", AREA.buanderie[sl], AREA.buanderie.min, 0);
+  if (req.hasBureau) addService("Bureau", "bureau", AREA.bureau[sl], AREA.bureau.min, hasUpper ? 1 : 0);
+  if (req.hasLocalTechnique) addService("Local technique", "localTechnique", AREA.localTech[sl], AREA.localTech.min, 0);
+  if (hasUpper) addService("Escalier", "escalier", AREA.escalier[sl], AREA.escalier.min, target ?? 0);
+  if (req.hasDressing) addService("Espace séchage", "dressing", AREA.dressing[sl], AREA.dressing.min, hasUpper ? 1 : 0);
+
+  // Ordre de placement selon la stratégie (sdb + wc regroupés avec la nuit)
+  const orderMap: Record<string, RoomReq[]> = {
+    vie,
+    nuit: [...chambres, ...sdb, ...wcs],
+    services,
+  };
+  const orderedList: RoomReq[] = [];
+  for (const grp of strategy.roomOrder) {
+    const g = orderMap[grp];
+    if (g) orderedList.push(...g);
+  }
+
+  // Open space : fusionner salon + salle à manger + cuisine en un seul espace
+  let final = orderedList;
+  if (strategy.openPlan) {
+    const names = new Set(["Salon", "Salle à manger", "Cuisine"]);
+    const merged = orderedList.filter((r) => names.has(r.name));
+    const rest = orderedList.filter((r) => !names.has(r.name));
+    if (merged.length > 0) {
+      const mergedArea = merged.reduce((s, r) => s + r.area, 0);
+      const mergedLevel = merged[0].level;
+      final = [
+        { name: "Espace de vie (open space)", type: "salon", area: mergedArea, minArea: AREA.salon.min + AREA.cuisine.min, level: mergedLevel },
+        ...rest,
+      ];
+    }
+  }
+
+  applySurfaceConstraints(req, strategy, final, alerts);
   return { rooms: final, alerts };
 }
 
@@ -598,36 +779,43 @@ function generateVariant(req: PlanRequest, strategy: VariantStrategy, variantSee
   // Pièces par niveau
   const level0Rooms = allRooms.filter((r) => r.level === 0 && !r.exterior);
   const upperRooms = allRooms.filter((r) => r.level === 1 && !r.exterior);
+  const onlyLevel = req.level; // niveau précis → un plan par étage
+  const planLevel = onlyLevel ?? 0;
 
-  // Si tout est sur le même niveau (plain-pied), on place tout dans mainRect.
+  // Si tout est sur le même niveau (plain-pied ou plan par étage),
+  // on place tout dans mainRect.
   const ground: PlacedRoom[] = [];
   const upper: PlacedRoom[] = [];
 
-  // Ajuster les surfaces aux contraintes réelles de mainRect
-  const mainArea = rectArea(mainRect);
-  const level0Needed = level0Rooms.reduce((s, r) => s + r.area, 0);
-  const level0Scale = Math.min(1, mainArea / Math.max(1e-6, level0Needed));
-  if (level0Scale < 0.8 && level0Needed > mainArea) {
-    alerts.push("Certaines pièces ont dû être redimensionnées pour tenir dans l'emprise du bâtiment.");
-  }
-  const scaled0 = level0Rooms.map((r) => ({ ...r, area: Math.max(r.minArea, r.area * level0Scale) }));
+  // Ajuster les surfaces aux contraintes réelles du rectangle cible
+  const scaleToRect = (rooms: RoomReq[], rect: Rect, depthTag: number): PlacedRoom[] => {
+    const needed = rooms.reduce((s, r) => s + r.area, 0);
+    const rectA = rectArea(rect);
+    const sc = Math.min(1, rectA / Math.max(1e-6, needed));
+    if (sc < 0.8 && needed > rectA) {
+      alerts.push("Certaines pièces ont dû être redimensionnées pour tenir dans l'emprise du bâtiment.");
+    }
+    const scaled = rooms.map((r) => ({ ...r, area: Math.max(r.minArea, r.area * sc) }));
+    return guillotine(rect, scaled, rng, depthTag);
+  };
 
-  ground.push(...guillotine(mainRect, scaled0, rng, 0));
-
-  if (upperRooms.length > 0) {
-    // Étage : même emprise, pièces de nuit
-    const upperRect: Rect = { x: 0, y: 0, w: W, h: D };
-    const upperNeeded = upperRooms.reduce((s, r) => s + r.area, 0);
-    const upperScale = Math.min(1, rectArea(upperRect) / Math.max(1e-6, upperNeeded));
-    const scaledU = upperRooms.map((r) => ({ ...r, area: Math.max(r.minArea, r.area * upperScale) }));
-    upper.push(...guillotine(upperRect, scaledU, rng, 100));
+  if (onlyLevel !== undefined) {
+    // Plan d'un niveau précis (RDC ou étage) : toute la surface pour ce niveau
+    ground.push(...scaleToRect(allRooms.filter((r) => !r.exterior), mainRect, 0));
+  } else {
+    ground.push(...scaleToRect(level0Rooms, mainRect, 0));
+    if (upperRooms.length > 0) {
+      // Étage : même emprise, pièces de nuit
+      const upperRect: Rect = { x: 0, y: 0, w: W, h: D };
+      upper.push(...scaleToRect(upperRooms, upperRect, 100));
+    }
   }
 
   // Circulation / entrée (pièce spéciale)
   const circ: PlacedRoom = {
     id: "circulation-0", name: "Entrée & circulation", type: "circulation",
     x: circRect.x, y: circRect.y, w: circRect.w, h: circRect.h,
-    area: round1(circRect.w * circRect.h), level: 0, exterior: false,
+    area: round1(circRect.w * circRect.h), level: planLevel, exterior: false,
     color: ROOM_COLORS.circulation,
   };
 
@@ -638,20 +826,23 @@ function generateVariant(req: PlanRequest, strategy: VariantStrategy, variantSee
     exteriorRooms.push({
       id: `${type}-ext-${exteriorRooms.length}`, name, type,
       x: extX, y: D + 0.5, w: snap(w), h: snap(h),
-      area: round1(w * h), level: 0, exterior: true, color: roomColor(type),
+      area: round1(w * h), level: planLevel, exterior: true, color: roomColor(type),
     });
     extX += snap(w) + 0.5;
   };
-  if (req.hasGarage) exteriorAdd("Garage", "garage", Math.max(3, W * 0.3), 5);
-  if (req.hasParking) exteriorAdd("Parking", "parking", 2.6, 5);
-  if (req.hasTerrasse) exteriorAdd("Terrasse", "terrasse", Math.max(4, W * 0.3), 3.5);
-  if (req.hasPiscine) exteriorAdd("Piscine", "piscine", 8, 4);
-  if (req.hasJardin) exteriorAdd("Jardin", "jardin", Math.max(6, W * 0.45), 4);
-  if (req.hasBalcon && floors > 1) {
+  const isGroundPlan = onlyLevel === undefined || onlyLevel === 0;
+  if (isGroundPlan) {
+    if (req.hasGarage) exteriorAdd("Garage", "garage", Math.max(3, W * 0.3), 5);
+    if (req.hasParking) exteriorAdd("Parking", "parking", 2.6, 5);
+    if (req.hasTerrasse) exteriorAdd("Terrasse", "terrasse", Math.max(4, W * 0.3), 3.5);
+    if (req.hasPiscine) exteriorAdd("Piscine", "piscine", 8, 4);
+    if (req.hasJardin) exteriorAdd("Jardin", "jardin", Math.max(6, W * 0.45), 4);
+  }
+  if (req.hasBalcon && floors > 1 && (onlyLevel === undefined || onlyLevel > 0)) {
     exteriorRooms.push({
       id: "balcon-ext", name: "Balcon", type: "balcon",
       x: 0.5, y: 0.5, w: 3.5, h: 1.8,
-      area: round1(3.5 * 1.8), level: 1, exterior: true, color: ROOM_COLORS.balcon,
+      area: round1(3.5 * 1.8), level: onlyLevel ?? 1, exterior: true, color: ROOM_COLORS.balcon,
     });
   }
 
@@ -683,7 +874,7 @@ function generateVariant(req: PlanRequest, strategy: VariantStrategy, variantSee
   const utile = coveredRooms.reduce((s, r) => s + r.area, 0);
   const circulation = circ.area + (stairRoom ? stairRoom.area : 0);
   const exterieure = exteriorRooms.reduce((s, r) => s + r.area, 0);
-  const builtArea = coveredPerLevel * floors;
+  const builtArea = onlyLevel !== undefined ? coveredPerLevel : coveredPerLevel * floors;
   const tauxUtilisation = builtArea > 0 ? Math.round((utile / builtArea) * 1000) / 10 : 0;
   const chambres = allPlaced.filter((r) => r.type === "chambre" || r.type === "master");
   const sdbList = allPlaced.filter((r) => r.type === "sdb");
@@ -725,6 +916,7 @@ function generateVariant(req: PlanRequest, strategy: VariantStrategy, variantSee
     width: snap(W),
     depth: snap(D),
     levels: floors,
+    level: planLevel,
     rooms: allPlaced,
     doors,
     windows,

@@ -138,6 +138,20 @@ const ROOM_LABELS: Record<string, string> = {
   balcon: "Balcon",
   jardin: "Jardin",
   piscine: "Piscine",
+  espaceVente: "Espace de vente",
+  salleResto: "Salle de restauration",
+  caisse: "Comptoir / Caisse",
+  reserve: "Réserve",
+  openSpace: "Open space",
+  reunion: "Salle de réunion",
+  accueil: "Accueil / Réception",
+  kitchenette: "Kitchenette",
+  hall: "Hall de stockage",
+  atelier: "Atelier",
+  salleClasse: "Salle de classe",
+  sallePriere: "Salle de prière",
+  ablution: "Salle d'ablution",
+  repos: "Salle de repos",
 };
 
 const LEVEL_LABELS: Record<number, string> = {
@@ -303,30 +317,56 @@ function roomDisplayName(room: { name: string; type: string }): string {
 // Section principale
 // ============================================================================
 
+// Plan par niveau : un onglet par étage (RDC, 1er, 2ème…) quand le projet a
+// plusieurs niveaux — chaque étage dispose de ses propres propositions, et le
+// moteur BIM est synchronisé (mêmes niveaux, même surface au m² par étage).
+const VARIANTS_PER_LEVEL = 3;
+
 export function ProjectFloorPlanSection({ project }: { project: ProjectPlanSource }) {
   const [seed, setSeed] = useState(2026);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [levelIdx, setLevelIdx] = useState(0);
   const [viewMode, setViewMode] = useState<"2d" | "3d">("2d");
   const [showChecks, setShowChecks] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   const request = useMemo(() => buildPlanRequest(project), [project]);
+  const floors = Math.max(1, Math.min(3, Math.round(project.floors ?? 1)));
+  const multiFloor = floors > 1;
 
-  // 10 variantes déterministes — triées par score global (meilleure en premier)
-  const plans = useMemo(() => {
-    if (!request) return [] as GeneratedPlan[];
-    const all = generatePlans({ ...request, seed });
-    return [...all].sort((a, b) => b.scores.global - a.scores.global);
-  }, [request, seed]);
+  // Variantes déterministes par niveau — triées par score global.
+  // Plain-pied : 10 propositions (comportement historique).
+  // Plusieurs niveaux : un groupe de propositions par étage (RDC, 1er, 2ème).
+  const levelGroups = useMemo(() => {
+    if (!request) return [] as { level: number; plans: GeneratedPlan[] }[];
+    if (!multiFloor) {
+      const all = generatePlans({ ...request, seed });
+      return [{ level: 0, plans: [...all].sort((a, b) => b.scores.global - a.scores.global) }];
+    }
+    return Array.from({ length: floors }, (_, l) => ({
+      level: l,
+      plans: generatePlans({ ...request, level: l, seed })
+        .sort((a, b) => b.scores.global - a.scores.global)
+        .slice(0, VARIANTS_PER_LEVEL),
+    }));
+  }, [request, seed, multiFloor, floors]);
 
-  const plan = plans[Math.min(selectedIdx, plans.length - 1)];
+  const group = levelGroups[Math.min(levelIdx, Math.max(0, levelGroups.length - 1))];
+  const plans = group?.plans ?? [];
+  const plan = plans[Math.min(selectedIdx, Math.max(0, plans.length - 1))];
   const checks = useMemo(() => (plan ? buildAutoChecks(plan) : []), [plan]);
   const quality = plan?.quality;
+  const perLevelSurface = floors > 0 ? Math.round((project.surface ?? 0) / floors) : 0;
 
   if (!request || plans.length === 0) {
     return null;
   }
+
+  const switchLevel = (l: number) => {
+    setLevelIdx(l);
+    setSelectedIdx(0);
+  };
 
   const handleRegenerate = () => {
     if (generating) return;
@@ -335,7 +375,11 @@ export function ProjectFloorPlanSection({ project }: { project: ProjectPlanSourc
       setSeed((s) => s + 1);
       setSelectedIdx(0);
       setGenerating(false);
-      toast.success("10 nouvelles propositions architecturales générées");
+      toast.success(
+        multiFloor
+          ? `${floors} niveaux régénérés (${VARIANTS_PER_LEVEL} propositions par étage)`
+          : "10 nouvelles propositions architecturales générées",
+      );
     }, 500);
   };
 
@@ -387,10 +431,10 @@ export function ProjectFloorPlanSection({ project }: { project: ProjectPlanSourc
           </div>
           <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 leading-snug break-words">
             Plans 2D générés automatiquement
-            <span className="hidden sm:inline"> à partir des caractéristiques du projet ({bienTypeLabel(project.category ?? "projet")} · {Math.round(project.surface ?? 0)} m² · {plan.levels} niveau{plan.levels > 1 ? "x" : ""})</span>
+            <span className="hidden sm:inline"> à partir des caractéristiques du projet ({bienTypeLabel(project.category ?? "projet")} · {Math.round(project.surface ?? 0)} m² · {floors} niveau{floors > 1 ? "x" : ""}{multiFloor ? ` · ${perLevelSurface} m²/étage` : ""})</span>
           </p>
           <p className="sm:hidden text-[9px] text-muted-foreground mt-0.5 truncate max-w-full">
-            {bienTypeLabel(project.category ?? "projet")} · {Math.round(project.surface ?? 0)} m² · {plan.levels} niveau{plan.levels > 1 ? "x" : ""}
+            {bienTypeLabel(project.category ?? "projet")} · {Math.round(project.surface ?? 0)} m² · {floors} niveau{floors > 1 ? "x" : ""}{multiFloor ? ` · ${perLevelSurface} m²/étage` : ""}
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -415,7 +459,7 @@ export function ProjectFloorPlanSection({ project }: { project: ProjectPlanSourc
             className="h-8 text-[11px] gap-1 px-2.5"
             onClick={handleRegenerate}
             disabled={generating}
-            title="Régénérer 10 nouvelles propositions"
+            title={multiFloor ? "Régénérer de nouvelles propositions par étage" : "Régénérer 10 nouvelles propositions"}
           >
             {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             <span className="hidden sm:inline">Régénérer</span>
@@ -435,11 +479,33 @@ export function ProjectFloorPlanSection({ project }: { project: ProjectPlanSourc
       </div>
 
       <div className="p-3 sm:p-4 space-y-3">
+        {/* ── Sélecteur d'étage (projet à plusieurs niveaux) ── */}
+        {multiFloor && (
+          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+            {levelGroups.map((g, i) => (
+              <button
+                key={g.level}
+                onClick={() => switchLevel(i)}
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-all",
+                  i === levelIdx
+                    ? "border-violet-600/70 bg-violet-600/10 text-violet-700 dark:text-violet-300 ring-1 ring-violet-600/30"
+                    : "border-border/40 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                )}
+              >
+                <Layers3 className="h-3.5 w-3.5" />
+                {LEVEL_LABELS[g.level] ?? `Étage ${g.level + 1}`}
+                <span className="text-[9px] font-medium opacity-70">{perLevelSurface} m²</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* ── Sélecteur de variantes ── */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
           {plans.map((p, i) => (
             <button
-              key={`${p.index}-${p.key}-${seed}`}
+              key={`${p.index}-${p.key}-${seed}-${p.level ?? 0}`}
               onClick={() => setSelectedIdx(i)}
               className={cn(
                 "relative shrink-0 w-[104px] rounded-lg border-2 transition-all active:scale-[0.98] overflow-hidden text-left",
@@ -447,13 +513,15 @@ export function ProjectFloorPlanSection({ project }: { project: ProjectPlanSourc
                   ? "border-violet-600/70 ring-1 ring-violet-600/30 shadow-sm"
                   : "border-border/40 hover:border-primary/40",
               )}
-              title={`${p.name} — score ${p.scores.global}/100`}
+              title={`${LEVEL_LABELS[p.level ?? 0] ?? ""} — ${p.name} · score ${p.scores.global}/100`}
             >
               <div className="aspect-square w-full bg-white dark:bg-slate-100/90">
                 <FloorPlan2D plan={p} compact showDimensions={false} fit />
               </div>
               <div className="px-1.5 py-1 flex items-center justify-between gap-1 bg-card/90">
-                <span className="text-[8px] font-semibold truncate">Plan {String(p.index).padStart(2, "0")}</span>
+                <span className="text-[8px] font-semibold truncate">
+                  {multiFloor ? `${LEVEL_LABELS[p.level ?? 0]} · Plan ${String(p.index).padStart(2, "0")}` : `Plan ${String(p.index).padStart(2, "0")}`}
+                </span>
                 <span className="text-[8px] font-bold text-violet-600 tabular-nums shrink-0">{p.scores.global}</span>
               </div>
               {i === selectedIdx && (
@@ -468,7 +536,9 @@ export function ProjectFloorPlanSection({ project }: { project: ProjectPlanSourc
         {/* ── Plan principal ── */}
         <div className="rounded-xl border border-border/40 bg-white dark:bg-slate-100/90 overflow-hidden">
           <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-border/40 bg-muted/20">
-            <Badge className="text-[9px] bg-violet-600/90 text-white border-0">Plan {String(plan.index).padStart(2, "0")}</Badge>
+            <Badge className="text-[9px] bg-violet-600/90 text-white border-0">
+              {multiFloor ? `${LEVEL_LABELS[plan.level ?? 0] ?? ""} · ` : ""}Plan {String(plan.index).padStart(2, "0")}
+            </Badge>
             <span className="text-[11px] font-semibold truncate">{plan.name}</span>
             <span className="ml-auto flex items-center gap-1 text-[9px] text-muted-foreground">
               <Ruler className="h-3 w-3" /> {plan.stats.construite.toFixed(0)} m² · {plan.width.toFixed(2)} × {plan.depth.toFixed(2)} m
@@ -480,7 +550,7 @@ export function ProjectFloorPlanSection({ project }: { project: ProjectPlanSourc
           <div className="p-2 sm:p-3">
             <AnimatePresence mode="wait">
               <motion.div
-                key={`${plan.index}-${plan.key}-${viewMode}-${seed}`}
+                key={`${plan.level ?? 0}-${plan.index}-${plan.key}-${viewMode}-${seed}`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}

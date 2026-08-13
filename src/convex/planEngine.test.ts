@@ -148,6 +148,57 @@ describe("generatePlans", () => {
     }
   });
 
+  it("adapte le programme au type de projet (entrepôt, bureau, local commercial)", () => {
+    const entrepot = generatePlans({ ...BASE_REQUEST, bienType: "entrepot", surfaceCouverte: 300, floors: 1 });
+    for (const plan of entrepot) {
+      expect(plan.rooms.some((r) => r.type === "hall")).toBe(true);
+      expect(plan.rooms.some((r) => r.type === "chambre" || r.type === "salon")).toBe(false);
+    }
+    const bureau = generatePlans({ ...BASE_REQUEST, bienType: "bureau", surfaceCouverte: 200, floors: 1 });
+    for (const plan of bureau) {
+      expect(plan.rooms.some((r) => r.type === "openSpace")).toBe(true);
+      expect(plan.rooms.some((r) => r.type === "reunion")).toBe(true);
+      expect(plan.rooms.some((r) => r.type === "chambre")).toBe(false);
+    }
+    const local = generatePlans({ ...BASE_REQUEST, bienType: "local_commercial", surfaceCouverte: 160, floors: 1 });
+    for (const plan of local) {
+      expect(plan.rooms.some((r) => r.type === "espaceVente")).toBe(true);
+      expect(plan.rooms.some((r) => r.type === "reserve")).toBe(true);
+    }
+    // Entrepôt sur deux niveaux : l'étage garde un programme cohérent (bureaux, sanitaires)
+    const entrepotEtage = generatePlans({ ...BASE_REQUEST, bienType: "entrepot", surfaceCouverte: 400, floors: 2, level: 1 });
+    for (const plan of entrepotEtage) {
+      expect(plan.level).toBe(1);
+      expect(plan.rooms.some((r) => r.type === "bureau" || r.type === "repos")).toBe(true);
+      expect(plan.rooms.some((r) => r.type === "chambre")).toBe(false);
+      expect(plan.stairs.length).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("génère un plan dédié par niveau quand req.level est fourni", () => {
+    const etage1 = generatePlans({ ...BASE_REQUEST, floors: 2, surfaceCouverte: 220, level: 1 });
+    expect(etage1).toHaveLength(10);
+    for (const plan of etage1) {
+      expect(plan.level).toBe(1);
+      // Toutes les pièces couvertes appartiennent au niveau demandé
+      for (const r of plan.rooms.filter((x) => !x.exterior)) {
+        expect(r.level).toBe(1);
+      }
+      // Surface construite par niveau = surface totale / étages
+      expect(Math.abs(plan.stats.construite - 110)).toBeLessThan(25);
+      // Un étage habitable est relié par un escalier
+      expect(plan.stairs.length).toBeGreaterThanOrEqual(1);
+    }
+    const rdc = generatePlans({ ...BASE_REQUEST, floors: 2, surfaceCouverte: 220, level: 0 });
+    for (const plan of rdc) {
+      expect(plan.level).toBe(0);
+      expect(plan.stairs.length).toBeGreaterThanOrEqual(1);
+    }
+    // La somme des plans par niveau respecte la surface totale saisie
+    const total = etage1[0].stats.construite + rdc[0].stats.construite;
+    expect(Math.abs(total - 220)).toBeLessThan(40);
+  });
+
   it("regenerateVariant produit une variante valide du même index", () => {
     const plans = generatePlans(BASE_REQUEST);
     const original = plans[2];
