@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   X, FileText, FileJson, Loader2, Printer, Download,
-  Ruler, DoorOpen, Wind, Layers3, AlertTriangle, Sparkles,
+  Ruler, DoorOpen, Layers3, AlertTriangle, Sparkles,
   ThumbsUp, ThumbsDown, Gauge, CircleDollarSign, Users, CalendarDays, Trees,
 } from "lucide-react";
 import type { GeneratedPlan, PlanRequest } from "@/convex/planEngine";
@@ -284,8 +284,6 @@ export function PlanSheetModal({
               </div>
             )}
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1"><DoorOpen className="h-3 w-3" /> {sheet.counts.doors} portes</span>
-              <span className="flex items-center gap-1"><Wind className="h-3 w-3" /> {sheet.counts.windows} fenêtres</span>
               <span className="flex items-center gap-1"><Layers3 className="h-3 w-3" /> {sheet.counts.stairs} escalier{sheet.counts.stairs > 1 ? "s" : ""}</span>
               <span className="flex items-center gap-1"><Ruler className="h-3 w-3" /> Emprise {sheet.dimensions.width} × {sheet.dimensions.depth} m</span>
             </div>
