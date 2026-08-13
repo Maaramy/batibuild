@@ -23,6 +23,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { runBIMEstimation } from "@/convex/bimEngine";
+import { ProjectFloorPlanSection, isPlanCapableCategory } from "@/components/plans/ProjectFloorPlanSection";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
@@ -1142,6 +1143,11 @@ export default function ProjectDetail() {
                 </div>
               </motion.div>
             </div>
+
+            {/* ═══ Plans architecturaux par IA ═══ */}
+            {isPlanCapableCategory(project.category) && (
+              <ProjectFloorPlanSection project={project} />
+            )}
 
             {/* ═══ Confidence + Anomalies ═══ */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
