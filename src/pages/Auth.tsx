@@ -340,6 +340,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     try {
       const fd = new FormData(e.currentTarget);
       await signIn("email-otp", fd);
+      if (tab === "register") {
+        const name = fd.get("name") as string;
+        if (name) pendingProfileRef.current = { name, phone: "" };
+      }
       setStep({ email: fd.get("email") as string });
     } catch { setError("Échec d'envoi du code."); }
     setIsLoading(false);
@@ -623,6 +627,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Entrez votre email pour recevoir un code</p>
                 </div>
                 <form onSubmit={handleEmailSubmit} className="space-y-4">
+                  {tab === "register" && (
+                    <FormField label="Nom complet" id="otp-name" name="name" placeholder="Votre nom" icon={User} disabled={isLoading} required autoComplete="name" />
+                  )}
                   <FormField label="Email" id="otp-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required />
                   {error && <ErrorBanner message={error} />}
                   {tab === "register" && (

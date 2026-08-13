@@ -636,7 +636,7 @@ export const adminApproveSubscription = mutation({
     });
 
     // Update user's plan (use the plan from the subscription, not hardcoded)
-    const planDisplayName = sub.plan === "expert" ? "Expert" : "Pro";
+    const planDisplayName = planLabel(sub.plan);
     await ctx.db.patch(sub.userId, {
       subscriptionPlan: sub.plan,
       subscriptionEndDate: now + planDuration,
@@ -848,7 +848,7 @@ export const markReceiptVerified = mutation({
     const sub = await ctx.db.get(args.subscriptionId);
     if (!sub) throw new Error("Abonnement introuvable");
 
-    const planDisplayName = sub.plan === "expert" ? "Expert" : sub.plan === "pro" ? "Pro" : sub.plan;
+    const planDisplayName = planLabel(sub.plan);
 
     await ctx.db.patch(args.subscriptionId, {
       paymentProofVerified: args.verified,

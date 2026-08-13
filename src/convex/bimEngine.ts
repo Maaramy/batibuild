@@ -616,6 +616,15 @@ function genMOItems(surface: number, floors: number, cat: string, targetBudget: 
   // Plus de pièces = plus de points électriques & sanitaires à poser
   const roomFactor = rooms?.total ? Math.min(1.4, Math.max(0.7, rooms.total / 6)) : 1;
   const saniFactor = rooms?.bathrooms ? Math.min(1.3, Math.max(0.8, ((rooms.bathrooms || 1) + (rooms.kitchens || 1)) / 3)) : 1;
+  // Chef de chantier & maçon qualifié regroupés sur une même ligne (encadrement + gros œuvre)
+  const maconQ = Math.round((tb / 15) * ih * 10) / 10;
+  const chefQ = Math.round((tb / 100) * ih * 10) / 10;
+  const groupedMaconChef = {
+    n: "Chef de chantier & Maçon qualifié",
+    q: Math.round((maconQ + chefQ) * 10) / 10,
+    u: "jours",
+    up: Math.round((maconQ * 80 + chefQ * 100) / (maconQ + chefQ)),
+  };
 
   let items: any[] = [];
   if (profile === "pool") {
@@ -648,44 +657,40 @@ function genMOItems(surface: number, floors: number, cat: string, targetBudget: 
     ];
   } else if (profile === "fence" || profile === "parking") {
     items = [
-      {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:80},
+      groupedMaconChef,
       {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:55},
       {n:"Électricien", q:Math.round(tb/60*ih*roomFactor*10)/10, u:"jours", up:75},
       {n:"Soudeur (portail / structures)", q:Math.round(tb/70*10)/10, u:"jours", up:80},
       {n:"Carreleur / paveur", q:Math.round(tb/45*ih*10)/10, u:"jours", up:80},
-      {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:100},
     ];
   } else if (profile === "industrial") {
     items = [
-      {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:80},
+      groupedMaconChef,
       {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:55},
       {n:"Électricien industriel", q:Math.round(tb/50*ih*roomFactor*10)/10, u:"jours", up:80},
       {n:"Soudeur / métallier", q:Math.round(tb/45*10)/10, u:"jours", up:85},
       {n:"Carreleur / solier", q:Math.round(tb/45*ih*10)/10, u:"jours", up:80},
       {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:65},
-      {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:100},
     ];
   } else if (profile === "commercial") {
     items = [
-      {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:80},
+      groupedMaconChef,
       {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:55},
       {n:"Électricien", q:Math.round(tb/55*ih*roomFactor*10)/10, u:"jours", up:75},
       {n:"Plombier", q:Math.round(tb/75*ih*saniFactor*10)/10, u:"jours", up:75},
       {n:"Faux plafonniste", q:Math.round(tb/50*10)/10, u:"jours", up:70},
       {n:"Carreleur", q:Math.round(tb/45*ih*10)/10, u:"jours", up:80},
       {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:65},
-      {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:100},
     ];
   } else {
     // Résidentiel / rénovation : corps de métiers classiques
     items = [
-      {n:"Maçon qualifié", q:Math.round(tb/15*ih*10)/10, u:"jours", up:80},
+      groupedMaconChef,
       {n:"Manœuvre", q:Math.round(tb/12*ih*10)/10, u:"jours", up:55},
       {n:"Électricien", q:Math.round(tb/60*ih*roomFactor*10)/10, u:"jours", up:75},
       {n:"Plombier", q:Math.round(tb/80*ih*saniFactor*10)/10, u:"jours", up:75},
       {n:"Carreleur", q:Math.round(tb/45*ih*10)/10, u:"jours", up:80},
       {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:65},
-      {n:"Chef de chantier", q:Math.round(tb/100*ih*10)/10, u:"jours", up:100},
     ];
   }
   const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);

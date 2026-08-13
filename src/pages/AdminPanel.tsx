@@ -3230,7 +3230,7 @@ export default function AdminPanel() {
                                 "text-muted-foreground"
                               )}
                             >
-                              <option value="free">Free</option>
+                              <option value="free">Start</option>
                               <option value="pro">Pro</option>
                               <option value="expert">Expert</option>
                               <option value="supplier">Fournisseur</option>

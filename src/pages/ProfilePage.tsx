@@ -12,10 +12,8 @@ import { useNavigate } from "react-router";
 import { useState, useRef } from "react";
 import {
   ArrowLeft,
-  CheckCheck,
   ChevronRight,
   Crown,
-  Database,
   Loader2,
   Save,
   Shield,
@@ -40,8 +38,6 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState(user?.phone || "");
   const [emailNotifs, setEmailNotifs] = useState(user?.emailNotifications ?? true);
   const [saving, setSaving] = useState(false);
-  const [seeding, setSeeding] = useState(false);
-  const [seedMessages, setSeedMessages] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -49,11 +45,10 @@ export default function ProfilePage() {
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const updateProfile = useMutation(api.users.updateProfile);
   const updateProfileImage = useMutation(api.users.updateProfileImage);
-  const makeMeAdmin = useMutation(api.users.makeMeAdmin);
-  const seedDemoData = useMutation(api.users.seedDemoData);
 
   const isAdmin = user?.role === "admin";
-  const isPro = user?.subscriptionPlan === "pro";
+  const isPaid = user?.subscriptionPlan === "pro" || user?.subscriptionPlan === "expert";
+  const planLabel = user?.subscriptionPlan === "expert" ? "Expert" : user?.subscriptionPlan === "pro" ? "Pro" : "Start";
 
   const handleUploadPhoto = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -91,29 +86,6 @@ export default function ProfilePage() {
       toast.error("Erreur lors de la mise à jour");
     }
     setSaving(false);
-  };
-
-  const handleMakeAdmin = async () => {
-    try {
-      await makeMeAdmin();
-      toast.success("✅ Vous êtes maintenant administrateur !");
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (err: any) {
-      toast.error(err.message || "Erreur");
-    }
-  };
-
-  const handleSeedData = async () => {
-    setSeeding(true);
-    setSeedMessages([]);
-    try {
-      const result = await seedDemoData();
-      setSeedMessages(result.messages);
-      toast.success("Données de démonstration générées !");
-    } catch (err: any) {
-      toast.error(err.message || "Erreur");
-    }
-    setSeeding(false);
   };
 
   return (
@@ -172,9 +144,9 @@ export default function ProfilePage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <CardTitle className="text-base">{user?.name || "Mon profil"}</CardTitle>
-                    {isPro && (
+                    {isPaid && (
                       <Badge className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px]">
-                        <Crown className="h-2.5 w-2.5" /> Pro
+                        <Crown className="h-2.5 w-2.5" /> {planLabel}
                       </Badge>
                     )}
                     {isAdmin && (
@@ -244,39 +216,7 @@ export default function ProfilePage() {
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {saving ? "Enregistrement..." : "Enregistrer"}
                 </Button>
-                {!isAdmin && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-10 gap-1.5 text-xs"
-                    onClick={handleMakeAdmin}
-                  >
-                    <Shield className="h-3.5 w-3.5" />
-                    Devenir admin (démo)
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-10 gap-1.5 text-xs text-muted-foreground"
-                  onClick={handleSeedData}
-                  disabled={seeding}
-                >
-                  {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
-                  Données démo
-                </Button>
               </div>
-
-              {seedMessages.length > 0 && (
-                <div className="rounded-xl border border-border/30 bg-muted/20 p-3 text-[10px] text-muted-foreground space-y-1">
-                  {seedMessages.map((m, i) => (
-                    <p key={i} className="flex items-center gap-1.5">
-                      <CheckCheck className="h-3 w-3 text-emerald-500 shrink-0" />
-                      {m}
-                    </p>
-                  ))}
-                </div>
-              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -300,13 +240,13 @@ export default function ProfilePage() {
             <CardContent className="p-5 sm:p-6 pt-2 space-y-2">
               <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/20 border border-border/20 transition-colors hover:border-amber-500/30">
                 <div className="flex items-center gap-2.5">
-                  <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", isPro ? "bg-amber-500/15 text-amber-600" : "bg-muted/40 text-muted-foreground/60")}>
+                  <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", isPaid ? "bg-amber-500/15 text-amber-600" : "bg-muted/40 text-muted-foreground/60")}>
                     <Crown className="h-3.5 w-3.5" />
                   </div>
                   <span className="text-xs font-medium">Abonnement</span>
                 </div>
-                <Badge variant={isPro ? "default" : "secondary"} className="text-[9px]">
-                  {isPro ? "Pro" : "Start"}
+                <Badge variant={isPaid ? "default" : "secondary"} className="text-[9px]">
+                  {planLabel}
                 </Badge>
               </div>
               <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/20 border border-border/20 transition-colors hover:border-primary/30">
@@ -344,9 +284,9 @@ export default function ProfilePage() {
                     <Sparkles className="h-3.5 w-3.5" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium">{isPro ? "Gérer mon abonnement" : "Passer à l'offre Pro"}</p>
+                    <p className="text-xs font-medium">{isPaid ? "Gérer mon abonnement" : "Passer à l'offre Pro"}</p>
                     <p className="text-[9px] text-muted-foreground/60">
-                      {isPro ? "Paiement unique · quotas par forfait" : "Export PDF, rapports détaillés"}
+                      {isPaid ? "Paiement unique · quotas par forfait" : "Export PDF, rapports détaillés"}
                     </p>
                   </div>
                 </div>
