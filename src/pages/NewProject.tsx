@@ -19,7 +19,7 @@ import {
   Home, Building, Car, Sofa,
   BedDouble, LayoutGrid,
   Bath, ChefHat, Briefcase, Store, Package,
-  DoorOpen, Layers, Palmtree,
+  DoorOpen, Layers, Palmtree, Toilet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -77,15 +77,15 @@ const ROOM_ELIGIBLE_CATEGORIES = [
 const SINGLE_LEVEL_TYPES = ["local_commercial", "entrepot", "bureau"];
 
 // Valeurs par défaut des pièces selon le type de bien sélectionné
-const ROOM_DEFAULTS: Record<string, { bedrooms: string; bathrooms: string; kitchens: string; livingRooms: string; garages: string }> = {
-  maison:               { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
-  villa:                { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1" },
-  appartement:          { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
-  studio:               { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "0", garages: "0" },
-  duplex:               { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1" },
-  immeuble:             { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0" },
-  residence_touristique:{ bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1" },
-  projet_neuf:          { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1" },
+const ROOM_DEFAULTS: Record<string, { bedrooms: string; bathrooms: string; kitchens: string; livingRooms: string; garages: string; wcs: string }> = {
+  maison:               { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1" },
+  villa:                { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1" },
+  appartement:          { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1" },
+  studio:               { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "0", garages: "0", wcs: "0" },
+  duplex:               { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1" },
+  immeuble:             { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1" },
+  residence_touristique:{ bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2" },
+  projet_neuf:          { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2" },
 };
 
 const IMPORT_METHODS = [
@@ -103,7 +103,7 @@ const STEPS = [
   { key: "method",    label: "Méthode d'import",  desc: "Choisissez comment importer" },
   { key: "upload",    label: "Fichiers",           desc: "Ajoutez vos documents" },
   { key: "form",      label: "Détails du projet",  desc: "Complétez les informations" },
-  { key: "rooms",     label: "Nombre de pièces",   desc: "Chambres, sdb, cuisine, salon, garages" },
+  { key: "rooms",     label: "Nombre de pièces",   desc: "Chambres, sdb, cuisine, salon, garages, WC" },
   { key: "analyzing", label: "Analyse IA",         desc: "Calcul de l'estimation" },
 ] as const;
 
@@ -251,12 +251,14 @@ function ProjectSummary({
   selectedCategory,
   region,
   surface,
+  surfaceTotale,
   floors,
   bedrooms,
   bathrooms,
   kitchens,
   livingRooms,
   garages,
+  wcs,
   roomEligible,
   importMethod,
   files,
@@ -269,12 +271,14 @@ function ProjectSummary({
   selectedCategory: string;
   region: string;
   surface: string;
+  surfaceTotale?: string;
   floors: string;
   bedrooms: string;
   bathrooms: string;
   kitchens: string;
   livingRooms: string;
   garages: string;
+  wcs?: string;
   roomEligible: boolean;
   importMethod: string;
   files: File[];
@@ -296,7 +300,9 @@ function ProjectSummary({
     items.push({ label: "Région", value: regionName, icon: MapPin });
   }
   if (surface && parseFloat(surface) > 0)
-    items.push({ label: "Surface", value: `${surface} m²`, icon: Ruler });
+    items.push({ label: "Surface couverte", value: `${surface} m²`, icon: Ruler });
+  if (surfaceTotale && parseFloat(surfaceTotale) > 0)
+    items.push({ label: "Surface totale", value: `${surfaceTotale} m²`, icon: Ruler });
   if (floors && floors !== "0" && floors !== "")
     items.push({ label: "Étages", value: `${floors} étage${parseInt(floors) > 1 ? "s" : ""}`, icon: Building2 });
   if (roomEligible) {
@@ -306,6 +312,7 @@ function ProjectSummary({
     if (parseInt(kitchens || "0") > 0) parts.push(`${kitchens} cuisine${parseInt(kitchens) > 1 ? "s" : ""}`);
     if (parseInt(livingRooms || "0") > 0) parts.push(`${livingRooms} salon${parseInt(livingRooms) > 1 ? "s" : ""}`);
     if (parseInt(garages || "0") > 0) parts.push(`${garages} garage${parseInt(garages) > 1 ? "s" : ""}`);
+    if (parseInt(wcs || "0") > 0) parts.push(`${wcs} WC`);
     if (parts.length > 0)
       items.push({ label: "Pièces", value: parts.join(" · "), icon: LayoutGrid });
   }
@@ -564,12 +571,14 @@ export default function NewProject() {
   const [description, setDescription] = useState("");
   const [region, setRegion] = useState("");
   const [surface, setSurface] = useState("");
+  const [surfaceTotale, setSurfaceTotale] = useState("");
   const [floors, setFloors] = useState("1");
   const [bedrooms, setBedrooms] = useState("2");
   const [bathrooms, setBathrooms] = useState("1");
   const [kitchens, setKitchens] = useState("1");
   const [livingRooms, setLivingRooms] = useState("1");
   const [garages, setGarages] = useState("0");
+  const [wcs, setWcs] = useState("1");
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -594,7 +603,8 @@ export default function NewProject() {
     if (!projectName.trim()) errs.name = "Le nom du projet est requis";
     if (!selectedCategory) errs.category = "Sélectionnez un type de projet";
     if (!region) errs.region = "La région est requise";
-    if (!surface || parseFloat(surface) <= 0) errs.surface = "La surface est requise";
+    if (!surface || parseFloat(surface) <= 0) errs.surface = "La surface couverte est requise";
+    if (!surfaceTotale || parseFloat(surfaceTotale) <= 0) errs.surfaceTotale = "La surface totale est requise";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -633,6 +643,7 @@ export default function NewProject() {
       setKitchens(d.kitchens);
       setLivingRooms(d.livingRooms);
       setGarages(d.garages);
+      setWcs(d.wcs);
     }
     // Rez-de-chaussée imposé pour les locaux d'activité
     if (SINGLE_LEVEL_TYPES.includes(cat)) setFloors("1");
@@ -672,7 +683,7 @@ export default function NewProject() {
       const totalRooms =
         (parseInt(bedrooms || "0") || 0) + (parseInt(bathrooms || "0") || 0) +
         (parseInt(kitchens || "0") || 0) + (parseInt(livingRooms || "0") || 0) +
-        (parseInt(garages || "0") || 0);
+        (parseInt(garages || "0") || 0) + (parseInt(wcs || "0") || 0);
       if (totalRooms < 1) {
         setErrors((e) => ({ ...e, bedrooms: "Renseignez au moins une pièce" }));
         return;
@@ -698,12 +709,14 @@ export default function NewProject() {
         description: description || undefined,
         region: region ? (region as any) : undefined,
         surface: surface ? parseFloat(surface) : undefined,
+        surfaceTotale: surfaceTotale ? parseFloat(surfaceTotale) : undefined,
         floors: floors ? parseInt(floors) : 1,
         bedrooms: bedrooms ? parseInt(bedrooms) : undefined,
         bathrooms: bathrooms ? parseInt(bathrooms) : undefined,
         kitchens: kitchens ? parseInt(kitchens) : undefined,
         livingRooms: livingRooms ? parseInt(livingRooms) : undefined,
         garages: garages ? parseInt(garages) : undefined,
+        wcs: wcs ? parseInt(wcs) : undefined,
       });
 
       await simulateAnalysis({ projectId });
@@ -1009,10 +1022,30 @@ export default function NewProject() {
                     </p>
                   )}
                 </div>
-              </div>
 
-              {/* Étages + Description */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+                  <Label htmlFor="surfaceTotale" className="text-xs sm:text-sm font-semibold">
+                    Surface totale du terrain (m²) <span className="text-primary">*</span>
+                  </Label>
+                  <div className="mt-1.5 relative">
+                    <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="surfaceTotale"
+                      type="number"
+                      value={surfaceTotale}
+                      onChange={(e) => { setSurfaceTotale(e.target.value); setErrors((e) => ({...e, surfaceTotale: ''})); }}
+                      placeholder="ex: 400"
+                      min="1"
+                      className="pl-9 h-9 sm:h-10 text-xs sm:text-sm"
+                    />
+                  </div>
+                  {errors.surfaceTotale && (
+                    <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />{errors.surfaceTotale}
+                    </p>
+                  )}
+                </div>
+
                 <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                   <Label htmlFor="floors" className="text-xs sm:text-sm font-semibold">
                     Nombre d'étages
@@ -1037,10 +1070,12 @@ export default function NewProject() {
                     </p>
                   )}
                 </div>
-                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30 sm:col-span-2">
-                  <Label htmlFor="description" className="text-xs sm:text-sm font-semibold">
-                    Description
-                  </Label>
+              </div>
+
+              <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+                <Label htmlFor="description" className="text-xs sm:text-sm font-semibold">
+                  Description
+                </Label>
                   <Textarea
                     id="description"
                     value={description}
@@ -1049,7 +1084,6 @@ export default function NewProject() {
                     className="mt-1.5 min-h-[60px] text-xs sm:text-sm"
                   />
                 </div>
-              </div>
             </div>
 
             <div className="flex justify-between gap-3 mt-6">
@@ -1099,6 +1133,7 @@ export default function NewProject() {
                 { key: "kitchens",  label: "Cuisine(s)",      icon: ChefHat,   value: kitchens,    set: setKitchens,    min: 1, placeholder: "ex: 1" },
                 { key: "livingRooms", label: "Salon(s)",      icon: Sofa,      value: livingRooms, set: setLivingRooms, min: 1, placeholder: "ex: 1" },
                 { key: "garages",   label: "Garage(s)",       icon: Car,       value: garages,     set: setGarages,     min: 0, placeholder: "ex: 1" },
+                { key: "wcs",       label: "WC",              icon: Toilet,    value: wcs,         set: setWcs,         min: 0, placeholder: "ex: 1" },
               ].map((f) => (
                 <div key={f.key} className="p-4 rounded-xl border border-border/40 bg-card/30">
                   <Label className="text-xs font-semibold flex items-center gap-1.5">
@@ -1131,6 +1166,7 @@ export default function NewProject() {
                 {parseInt(kitchens || "0") > 0 && ` · ${parseInt(kitchens)} cuisine${parseInt(kitchens) > 1 ? "s" : ""}`}
                 {parseInt(livingRooms || "0") > 0 && ` · ${parseInt(livingRooms)} salon${parseInt(livingRooms) > 1 ? "s" : ""}`}
                 {parseInt(garages || "0") > 0 && ` · ${parseInt(garages)} garage${parseInt(garages) > 1 ? "s" : ""}`}
+                {parseInt(wcs || "0") > 0 && ` · ${parseInt(wcs)} WC`}
               </span>
             </div>
 

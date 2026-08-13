@@ -55,12 +55,14 @@ export function isPlanCapableCategory(category?: string): boolean {
 export interface ProjectPlanSource {
   category?: string;
   surface?: number;
+  surfaceTotale?: number;
   floors?: number;
   bedrooms?: number;
   bathrooms?: number;
   kitchens?: number;
   livingRooms?: number;
   garages?: number;
+  wcs?: number;
   description?: string;
 }
 
@@ -79,14 +81,16 @@ export function buildPlanRequest(project: ProjectPlanSource): PlanRequest | null
   const bathrooms = Math.max(1, Math.min(6, roundInt(project.bathrooms ?? (floors > 1 ? 2 : 1))));
   return {
     bienType: project.category ?? "maison",
-    // La surface du terrain n'est pas saisie dans le formulaire de devis :
-    // elle est estimée à partir de la surface couverte (emprise + reculs).
-    surfaceTotale: roundInt(surface * 2.4 + 80),
+    // Surface totale du terrain : saisie par l'utilisateur (champ obligatoire)
+    // ou estimée à partir de la surface couverte (emprise + reculs).
+    surfaceTotale: project.surfaceTotale && project.surfaceTotale > 0
+      ? roundInt(project.surfaceTotale)
+      : roundInt(surface * 2.4 + 80),
     surfaceCouverte: roundInt(surface),
     floors,
     bedrooms,
     bathrooms,
-    wcs: 1,
+    wcs: Math.max(0, Math.min(6, roundInt(project.wcs ?? 1))),
     hasSalon: (project.livingRooms ?? 1) > 0,
     hasSalleAManger: true,
     hasCuisine: (project.kitchens ?? 1) > 0,
@@ -537,8 +541,6 @@ export function ProjectFloorPlanSection({ project }: { project: ProjectPlanSourc
               </div>
             )}
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1"><DoorOpen className="h-3 w-3" /> {plan.doors.length} portes</span>
-              <span className="flex items-center gap-1"><Wind className="h-3 w-3" /> {plan.windows.length} fenêtres</span>
               <span className="flex items-center gap-1"><Layers3 className="h-3 w-3" /> {plan.stairs.length} escalier{plan.stairs.length > 1 ? "s" : ""}</span>
               <span className="flex items-center gap-1"><Maximize2 className="h-3 w-3" /> Emprise {plan.width.toFixed(2)} × {plan.depth.toFixed(2)} m</span>
             </div>

@@ -387,6 +387,9 @@ const schema = defineSchema(
       kitchens: v.optional(v.number()),
       livingRooms: v.optional(v.number()),
       garages: v.optional(v.number()),
+      wcs: v.optional(v.number()),
+      // Surface totale du terrain (m2)
+      surfaceTotale: v.optional(v.number()),
       
       // AI Analysis results
       aiAnalysis: v.optional(

@@ -443,7 +443,8 @@ export default function ProjectDetail() {
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate max-w-[160px] sm:max-w-xs">{project.name}</p>
               <p className="text-[10px] text-muted-foreground truncate">
-                {project.surface ? `${project.surface}m²` : "Surface couverte —"}
+                {project.surface ? `${project.surface}m² couv.` : "Surface couverte —"}
+                {project.surfaceTotale ? ` · ${project.surfaceTotale}m² totale` : ""}
                 {project.region ? ` • ${REGION_LABELS[project.region] ?? project.region}` : ""}
                 {projectCounter && (
                   <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/5 text-primary border border-primary/10 text-[8px] font-medium">
@@ -1640,6 +1641,7 @@ export default function ProjectDetail() {
                   { label: "Catégorie", value: ai.category, icon: Building2 },
                   { label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", icon: MapPin },
                   { label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", icon: Ruler },
+                  { label: "Surface totale", value: project.surfaceTotale ? `${project.surfaceTotale} m²` : "Non définie", icon: Ruler },
                   { label: "Étages", value: String(project.floors ?? 1), icon: Building2 },
                   {
                     label: "Pièces",
@@ -1649,6 +1651,7 @@ export default function ProjectDetail() {
                       project.kitchens ? `${project.kitchens} cuis.` : "",
                       project.livingRooms ? `${project.livingRooms} salon` : "",
                       project.garages ? `${project.garages} gar.` : "",
+                      project.wcs ? `${project.wcs} WC` : "",
                     ].filter(Boolean).join(" · ") || "Non définie",
                     icon: LayoutGrid,
                   },

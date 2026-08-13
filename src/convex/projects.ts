@@ -260,6 +260,8 @@ export const createProject = mutation({
     kitchens: v.optional(v.number()),
     livingRooms: v.optional(v.number()),
     garages: v.optional(v.number()),
+    wcs: v.optional(v.number()),
+    surfaceTotale: v.optional(v.number()),
     manualInput: v.optional(
       v.object({
         surface: v.optional(v.number()),
@@ -297,6 +299,8 @@ export const createProject = mutation({
       kitchens: args.kitchens,
       livingRooms: args.livingRooms,
       garages: args.garages,
+      wcs: args.wcs,
+      surfaceTotale: args.surfaceTotale,
       manualInput: args.manualInput,
       isFavorite: false,
       createdAt: now,
