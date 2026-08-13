@@ -380,12 +380,12 @@ export function ProjectFloorPlanSection({ project }: { project: ProjectPlanSourc
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <h3 className="text-sm font-semibold">Générateur de plans architecturaux IA</h3>
-            <Badge className="text-[8px] bg-violet-100 text-violet-700 border-violet-200 gap-0.5">
+            <h3 className="text-[13px] sm:text-sm font-semibold leading-snug break-words">Générateur de plans architecturaux IA</h3>
+            <Badge className="text-[8px] bg-violet-100 text-violet-700 border-violet-200 gap-0.5 shrink-0">
               <Sparkles className="h-2.5 w-2.5" /> Floor Plan
             </Badge>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
+          <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 leading-snug break-words">
             Plans 2D générés automatiquement à partir des caractéristiques du projet ({bienTypeLabel(project.category ?? "projet")} · {Math.round(project.surface ?? 0)} m² · {plan.levels} niveau{plan.levels > 1 ? "x" : ""})
           </p>
         </div>

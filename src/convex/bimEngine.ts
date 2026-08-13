@@ -1117,6 +1117,8 @@ export interface RoomCounts {
   kitchens?: number;
   livingRooms?: number;
   garages?: number;
+  wcs?: number;
+  pools?: number;
 }
 
 export function runBIMEstimation(
@@ -1163,7 +1165,9 @@ export function runBIMEstimation(
   const kitchens = rooms?.kitchens ?? 1;
   const livingRooms = rooms?.livingRooms ?? Math.max(1, Math.round(tb / 75));
   const garages = rooms?.garages ?? 0;
-  const totalRooms = bedrooms + bathrooms + kitchens + livingRooms + garages;
+  const wcs = rooms?.wcs ?? Math.max(1, Math.round(tb / 90));
+  const pools = rooms?.pools ?? 0;
+  const totalRooms = bedrooms + bathrooms + kitchens + livingRooms + garages + wcs + pools;
   // Référence : ~1 pièce pour 28 m² (logement tunisien type)
   const stdRooms = Math.max(3, Math.round(tb / 28));
   // Plus de pièces pour la même surface = plus de cloisons, portes & équipements
@@ -1186,7 +1190,7 @@ export function runBIMEstimation(
   categoryBudgets.main_oeuvre = Math.max(1, categoryBudgets.main_oeuvre - (sum - finalTotal));
 
   // Generate itemized lists per category
-  const roomInfo = { bedrooms, bathrooms, kitchens, livingRooms, garages, total: totalRooms };
+  const roomInfo = { bedrooms, bathrooms, kitchens, livingRooms, garages, wcs, pools, total: totalRooms };
   const genMap: Record<string, (s: number, f: number, c: string, b: number, r: typeof roomInfo) => any[]> = {
     gros_oeuvre: (s, f, c, b, r) => genGOItems(s, f, c, b, wallFactor),
     second_oeuvre: genSOItems,

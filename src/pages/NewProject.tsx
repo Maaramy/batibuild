@@ -272,6 +272,7 @@ function ProjectSummary({
   livingRooms,
   garages,
   wcs,
+  pools,
   roomEligible,
   importMethod,
   files,
@@ -292,6 +293,7 @@ function ProjectSummary({
   livingRooms: string;
   garages: string;
   wcs?: string;
+  pools?: string;
   roomEligible: boolean;
   importMethod: string;
   files: File[];
@@ -326,7 +328,7 @@ function ProjectSummary({
     if (parseInt(livingRooms || "0") > 0) parts.push(`${livingRooms} salon${parseInt(livingRooms) > 1 ? "s" : ""}`);
     if (parseInt(garages || "0") > 0) parts.push(`${garages} garage${parseInt(garages) > 1 ? "s" : ""}`);
     if (parseInt(wcs || "0") > 0) parts.push(`${wcs} WC`);
-    if (selectedCategory === "villa" && parseInt(pools || "0") > 0) parts.push(`${pools} piscine${parseInt(pools) > 1 ? "s" : ""}`);
+    if (selectedCategory === "villa" && parseInt(pools || "0") > 0) parts.push(`${pools} piscine${parseInt(pools || "0") > 1 ? "s" : ""}`);
     if (parts.length > 0)
       items.push({ label: "Pièces", value: parts.join(" · "), icon: LayoutGrid });
   }
@@ -1412,12 +1414,15 @@ export default function NewProject() {
                 selectedCategory={selectedCategory}
                 region={region}
                 surface={surface}
+                surfaceTotale={surfaceTotale}
                 floors={floors}
                 bedrooms={bedrooms}
                 bathrooms={bathrooms}
                 kitchens={kitchens}
                 livingRooms={livingRooms}
                 garages={garages}
+                wcs={wcs}
+                pools={pools}
                 roomEligible={roomEligible}
                 importMethod={importMethod}
                 files={files}
@@ -1444,12 +1449,15 @@ export default function NewProject() {
                 selectedCategory={selectedCategory}
                 region={region}
                 surface={surface}
+                surfaceTotale={surfaceTotale}
                 floors={floors}
                 bedrooms={bedrooms}
                 bathrooms={bathrooms}
                 kitchens={kitchens}
                 livingRooms={livingRooms}
                 garages={garages}
+                wcs={wcs}
+                pools={pools}
                 roomEligible={roomEligible}
                 importMethod={importMethod}
                 files={files}

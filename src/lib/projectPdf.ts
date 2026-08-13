@@ -198,6 +198,8 @@ export async function generateProjectPdf({
       project.kitchens ? `${project.kitchens} cuisine${project.kitchens > 1 ? "s" : ""}` : "",
       project.livingRooms ? `${project.livingRooms} salon${project.livingRooms > 1 ? "s" : ""}` : "",
       project.garages ? `${project.garages} garage${project.garages > 1 ? "s" : ""}` : "",
+      project.wcs ? `${project.wcs} WC` : "",
+      project.pools && project.category === "villa" ? `${project.pools} piscine${project.pools > 1 ? "s" : ""}` : "",
     ].filter(Boolean);
     const hasRooms = roomParts.length > 0;
     const boxH = hasRooms ? 24 : 16;
