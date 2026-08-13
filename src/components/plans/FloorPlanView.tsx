@@ -842,9 +842,9 @@ function Furniture3D({ plan, ox, oy, scale, level, zBase }: {
         const r3 = { ...p3, z: zBase + h };
         return (
           <g key={f.id}>
-            <polygon points={isoPoly([p2, p3, r3, r2], ox, oy, scale)} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={0.8} />
-            <polygon points={isoPoly([p3, p0, r0, r3], ox, oy, scale)} fill="#cbd5e1" stroke="#94a3b8" strokeWidth={0.8} />
-            <polygon points={isoPoly([r0, r1, r2, r3], ox, oy, scale)} fill="#f1f5f9" stroke="#94a3b8" strokeWidth={0.8} />
+            <polygon points={isoPoly([p2, p3, r3, r2], ox, oy, scale)} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1.2} />
+            <polygon points={isoPoly([p3, p0, r0, r3], ox, oy, scale)} fill="#cbd5e1" stroke="#94a3b8" strokeWidth={1.2} />
+            <polygon points={isoPoly([r0, r1, r2, r3], ox, oy, scale)} fill="#f1f5f9" stroke="#94a3b8" strokeWidth={1.2} />
           </g>
         );
       })}
@@ -868,9 +868,9 @@ function RoomBox3D({ room, baseZ, wallH, c }: { room: PlacedRoom; baseZ: number;
   return (
     <g>
       {/* face avant-droite */}
-      <polygon points={isoPoly([p2, p3, r3, r2], c.ox, c.oy, c.scale)} fill={room.color} stroke="#64748b" strokeWidth={0.9} />
+      <polygon points={isoPoly([p2, p3, r3, r2], c.ox, c.oy, c.scale)} fill={room.color} stroke="#64748b" strokeWidth={1.4} />
       {/* face avant-gauche (ombragée) */}
-      <polygon points={isoPoly([p3, p0, r0, r3], c.ox, c.oy, c.scale)} fill="rgba(15,23,42,0.15)" stroke="#64748b" strokeWidth={0.9} />
+      <polygon points={isoPoly([p3, p0, r0, r3], c.ox, c.oy, c.scale)} fill="rgba(15,23,42,0.15)" stroke="#64748b" strokeWidth={1.4} />
     </g>
   );
 }
@@ -899,7 +899,7 @@ function Roof3D({ room, baseZ, wallH, c }: { room: PlacedRoom; baseZ: number; wa
           { x: room.x + room.w - 0.11, y: room.y + room.h - 0.11, z },
           { x: room.x + 0.11, y: room.y + room.h - 0.11, z },
         ], c.ox, c.oy, c.scale)}
-        fill="#ffffff" fillOpacity={0.94} stroke="#cbd5e1" strokeWidth={0.7}
+        fill="#ffffff" fillOpacity={0.94} stroke="#cbd5e1" strokeWidth={1.1}
       />
     </g>
   );
@@ -928,9 +928,9 @@ function Openings3D({ plan, baseZ, wallH, c, level }: {
         const face: FaceKey = isEast ? "fx" : "fy";
         return (
           <g key={w.id}>
-            <polygon points={facePoly(face, t0, t1, zA, zB, c)} fill={DARK3D} stroke="#334155" strokeWidth={0.6} />
-            <polygon points={facePoly(face, t0 + 0.07, t1 - 0.07, zA + 0.08, zB - 0.08, c)} fill={GLASS3D} stroke="#0e7490" strokeWidth={0.35} />
-            <polygon points={facePoly(face, t0 + 0.03, t1 - 0.03, zA + 0.03, zB - 0.03, c)} fill="none" stroke="#0e7490" strokeWidth={0.28} />
+            <polygon points={facePoly(face, t0, t1, zA, zB, c)} fill={DARK3D} stroke="#334155" strokeWidth={0.9} />
+            <polygon points={facePoly(face, t0 + 0.07, t1 - 0.07, zA + 0.08, zB - 0.08, c)} fill={GLASS3D} stroke="#0e7490" strokeWidth={0.55} />
+            <polygon points={facePoly(face, t0 + 0.03, t1 - 0.03, zA + 0.03, zB - 0.03, c)} fill="none" stroke="#0e7490" strokeWidth={0.45} />
           </g>
         );
       })}
@@ -945,9 +945,9 @@ function Openings3D({ plan, baseZ, wallH, c, level }: {
         const face: FaceKey = isEast ? "fx" : "fy";
         return (
           <g key={d.id}>
-            <polygon points={facePoly(face, t0 - 0.05, t1 + 0.05, zA - 0.03, zB + 0.06, c)} fill={DARK3D} stroke="#1e293b" strokeWidth={0.6} />
-            <polygon points={facePoly(face, t0, t1, zA, zB, c)} fill="#b45309" stroke="#78350f" strokeWidth={0.4} />
-            <polygon points={facePoly(face, t0 + 0.06, t1 - 0.06, zA + 0.06, zB - 0.06, c)} fill="none" stroke="#f59e0b" strokeWidth={0.25} />
+            <polygon points={facePoly(face, t0 - 0.05, t1 + 0.05, zA - 0.03, zB + 0.06, c)} fill={DARK3D} stroke="#1e293b" strokeWidth={0.9} />
+            <polygon points={facePoly(face, t0, t1, zA, zB, c)} fill="#b45309" stroke="#78350f" strokeWidth={0.6} />
+            <polygon points={facePoly(face, t0 + 0.06, t1 - 0.06, zA + 0.06, zB - 0.06, c)} fill="none" stroke="#f59e0b" strokeWidth={0.4} />
           </g>
         );
       })}
@@ -961,14 +961,14 @@ function RoomLabel3D({ room, z, c, isUpper }: { room: PlacedRoom; z: number; c: 
   const { px, py } = isoProject(room.x + room.w / 2, room.y + room.h / 2, z, c.ox, c.oy, c.scale);
   const abbr = abbreviateRoomName(room.name, room.type);
   const text = isUpper ? `▲ ${abbr}` : abbr;
-  const w = Math.max(40, text.length * 6.6 + 16);
+  const w = Math.max(46, text.length * 7.6 + 18);
   return (
     <g transform={`translate(${px.toFixed(1)},${py.toFixed(1)})`}>
-      <rect x={-w / 2} y={-11} width={w} height={22} rx={5} fill="#ffffff" stroke="#cbd5e1" strokeWidth={0.9} />
-      <text x={0} y={1.5} textAnchor="middle" fontSize={11} fontWeight={700} fill={isUpper ? "#6d28d9" : "#0f172a"} style={{ letterSpacing: "0.02em" }}>
+      <rect x={-w / 2} y={-13} width={w} height={26} rx={6} fill="#ffffff" stroke="#cbd5e1" strokeWidth={1.1} />
+      <text x={0} y={1.5} textAnchor="middle" fontSize={13} fontWeight={700} fill={isUpper ? "#6d28d9" : "#0f172a"} style={{ letterSpacing: "0.02em" }}>
         {text}
       </text>
-      <text x={0} y={12.5} textAnchor="middle" fontSize={8.5} fontWeight={600} fill="#475569">
+      <text x={0} y={15.5} textAnchor="middle" fontSize={10} fontWeight={600} fill="#475569">
         {room.area.toFixed(1)} m²
       </text>
     </g>
@@ -1033,7 +1033,7 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
     );
   };
   pushBox(-1.5, -1.5, 0, maxW + 1.8, maxD + 1.8, 0);          // sol
-  pushBox(gx0, gy0, 0, gx1 + 0.5, gy1 + 0.5, 0);              // dalle du bâtiment
+  pushBox(gx0, gy0, 0, gx1 + 0.5, gy1 + 0.5, 0.15);           // dalle du bâtiment (+ plinthe)
   pushBox(gx0 + 1.6, gy0 - 1.6, 0, gx1 + 1.6, gy1 - 1.6, 0);  // ombre portée
   for (const r of rooms) pushBox(r.x, r.y, 0, r.x + r.w, r.y + r.h, roomH(r, wallH));
   if (hasUpper) {
@@ -1049,10 +1049,10 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
   for (const r of rooms) {
     if (LOW_WALL.has(r.type)) continue;
     const { px, py } = isoProject(r.x + r.w / 2, r.y + r.h / 2, labelZ(r), ox, oy, scale);
-    bounds.push({ px: px - 34, py: py - 13 }, { px: px + 34, py: py - 13 }, { px: px - 34, py: py + 13 }, { px: px + 34, py: py + 13 });
+    bounds.push({ px: px - 40, py: py - 16 }, { px: px + 40, py: py - 16 }, { px: px - 40, py: py + 16 }, { px: px + 40, py: py + 16 });
   }
 
-  const pad = 34;
+  const pad = 40;
   const minX = Math.min(...bounds.map((p) => p.px)) - pad;
   const minY = Math.min(...bounds.map((p) => p.py)) - pad;
   const maxX = Math.max(...bounds.map((p) => p.px)) + pad;
@@ -1062,11 +1062,19 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
   return (
     <svg
       viewBox={viewBox}
-      className="w-full h-auto"
+      className="w-full h-full"
+      preserveAspectRatio="xMidYMid meet"
       style={{ background: "transparent", fontFamily: "'Inter', sans-serif" }}
       role="img"
       aria-label={`Vue 3D du plan ${plan.name}`}
     >
+      <defs>
+        {/* Quadrillage fin « papier millimétré » du sol */}
+        <pattern id={`grid3d-${plan.index}-${plan.key}`} width="0.5" height="0.5" patternUnits="userSpaceOnUse">
+          <path d="M 0.5 0 L 0 0 0 0.5" fill="none" stroke="#e2e8f0" strokeWidth="0.04" />
+        </pattern>
+      </defs>
+
       {/* Ombre portée (lumière depuis la gauche) */}
       <polygon
         points={isoPoly([
@@ -1078,7 +1086,7 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
         fill="rgba(15,23,42,0.08)" stroke="none"
       />
 
-      {/* Sol */}
+      {/* Sol (quadrillé) */}
       <polygon
         points={isoPoly([
           { x: -1.5, y: -1.5, z: 0 },
@@ -1086,18 +1094,38 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
           { x: maxW + 1.8, y: maxD + 1.8, z: 0 },
           { x: -1.5, y: maxD + 1.8, z: 0 },
         ], ox, oy, scale)}
-        fill="#f8fafc" stroke="#e2e8f0" strokeWidth={1}
+        fill={`url(#grid3d-${plan.index}-${plan.key})`} stroke="#e2e8f0" strokeWidth={1.2}
+      />
+
+      {/* Plinthe de la dalle du bâtiment (faces visibles) */}
+      <polygon
+        points={isoPoly([
+          { x: gx1 + 0.5, y: gy0, z: 0 },
+          { x: gx1 + 0.5, y: gy1 + 0.5, z: 0 },
+          { x: gx1 + 0.5, y: gy1 + 0.5, z: 0.15 },
+          { x: gx1 + 0.5, y: gy0, z: 0.15 },
+        ], ox, oy, scale)}
+        fill="#cbd5e1" stroke="#94a3b8" strokeWidth={1}
+      />
+      <polygon
+        points={isoPoly([
+          { x: gx0, y: gy1 + 0.5, z: 0 },
+          { x: gx1 + 0.5, y: gy1 + 0.5, z: 0 },
+          { x: gx1 + 0.5, y: gy1 + 0.5, z: 0.15 },
+          { x: gx0, y: gy1 + 0.5, z: 0.15 },
+        ], ox, oy, scale)}
+        fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1}
       />
 
       {/* Dalle du bâtiment */}
       <polygon
         points={isoPoly([
-          { x: gx0, y: gy0, z: 0 },
-          { x: gx1 + 0.5, y: gy0, z: 0 },
-          { x: gx1 + 0.5, y: gy1 + 0.5, z: 0 },
-          { x: gx0, y: gy1 + 0.5, z: 0 },
+          { x: gx0, y: gy0, z: 0.15 },
+          { x: gx1 + 0.5, y: gy0, z: 0.15 },
+          { x: gx1 + 0.5, y: gy1 + 0.5, z: 0.15 },
+          { x: gx0, y: gy1 + 0.5, z: 0.15 },
         ], ox, oy, scale)}
-        fill="#f1f5f9" stroke="#cbd5e1" strokeWidth={1}
+        fill="#f1f5f9" stroke="#94a3b8" strokeWidth={1.2}
       />
 
       {/* RDC : boîtes des pièces */}
@@ -1111,9 +1139,9 @@ export function FloorPlan3D({ plan }: { plan: GeneratedPlan }) {
       {hasUpper && (
         <g>
           {/* dalle supérieure flottante */}
-          <polygon points={isoPoly([{ x: ux0, y: uy0, z: upperZ0 }, { x: ux1, y: uy0, z: upperZ0 }, { x: ux1, y: uy0, z: uBase }, { x: ux0, y: uy0, z: uBase }], ox, oy, scale)} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={0.7} />
-          <polygon points={isoPoly([{ x: ux0, y: uy1, z: upperZ0 }, { x: ux1, y: uy1, z: upperZ0 }, { x: ux1, y: uy1, z: uBase }, { x: ux0, y: uy1, z: uBase }], ox, oy, scale)} fill="#cbd5e1" stroke="#94a3b8" strokeWidth={0.7} />
-          <polygon points={isoPoly([{ x: ux0, y: uy0, z: uBase }, { x: ux1, y: uy0, z: uBase }, { x: ux1, y: uy1, z: uBase }, { x: ux0, y: uy1, z: uBase }], ox, oy, scale)} fill="#f1f5f9" stroke="#94a3b8" strokeWidth={0.7} />
+          <polygon points={isoPoly([{ x: ux0, y: uy0, z: upperZ0 }, { x: ux1, y: uy0, z: upperZ0 }, { x: ux1, y: uy0, z: uBase }, { x: ux0, y: uy0, z: uBase }], ox, oy, scale)} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} />
+          <polygon points={isoPoly([{ x: ux0, y: uy1, z: upperZ0 }, { x: ux1, y: uy1, z: upperZ0 }, { x: ux1, y: uy1, z: uBase }, { x: ux0, y: uy1, z: uBase }], ox, oy, scale)} fill="#cbd5e1" stroke="#94a3b8" strokeWidth={1} />
+          <polygon points={isoPoly([{ x: ux0, y: uy0, z: uBase }, { x: ux1, y: uy0, z: uBase }, { x: ux1, y: uy1, z: uBase }, { x: ux0, y: uy1, z: uBase }], ox, oy, scale)} fill="#f1f5f9" stroke="#94a3b8" strokeWidth={1} />
           {sortedUpper.map((r) => <RoomBox3D key={r.id} room={r} baseZ={uBase} wallH={wallH} c={c} />)}
           <Openings3D plan={plan} baseZ={uBase} wallH={wallH} c={c} level={1} />
           {sortedUpper.map((r) => <Roof3D key={`rf-${r.id}`} room={r} baseZ={uBase} wallH={wallH} c={c} />)}

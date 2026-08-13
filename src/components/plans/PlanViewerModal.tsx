@@ -175,7 +175,7 @@ export function PlanViewerModal({
             className="absolute inset-0 flex items-center justify-center"
             style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}
           >
-            <div style={{ transform: `scale(${zoom})`, transformOrigin: "center", transition: dragging ? "none" : "transform 0.08s ease-out" }} className="max-w-[94%] max-h-[94%]">
+            <div style={{ transform: `scale(${zoom})`, transformOrigin: "center", transition: dragging ? "none" : "transform 0.08s ease-out" }} className="w-full h-full max-w-[94%] max-h-[94%] flex items-center justify-center">
               <FloorPlanView plan={plan} mode={mode} compact showDimensions whiteBg />
             </div>
           </div>
