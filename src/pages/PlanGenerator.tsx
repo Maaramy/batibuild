@@ -18,7 +18,7 @@ import {
   Ruler, MapPin, Palette, Check, ChevronRight, Crown, Gauge, PenLine,
   BedDouble, Bath, Armchair, Utensils, CookingPot, Car, Trees, Waves,
   Shirt, Briefcase as BriefcaseIcon, Wrench, PencilRuler, HardHat,
-  Info, ChevronDown, FileText, ClipboardList, LayoutDashboard,
+  Info, ChevronDown, FileText, ClipboardList, LayoutDashboard, Mail,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -526,6 +526,9 @@ export default function PlanGenerator() {
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70">Pour plus d'informations Contactez :</p>
               <p className="text-sm font-semibold mt-0.5">Marzougui Riadh</p>
               <p className="text-[11px] text-muted-foreground">Architecte (Expert Conseiller)</p>
+              <a href="mailto:Riadh.marzougui@batibuild.app" className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 mt-0.5">
+                <Mail className="h-3 w-3" /> Riadh.marzougui@batibuild.app
+              </a>
             </div>
           </div>
         </div>

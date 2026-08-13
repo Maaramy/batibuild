@@ -1676,6 +1676,9 @@ export default function ProjectDetail() {
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70">Pour plus d'informations contactez :</p>
                   <p className="text-sm font-semibold mt-0.5">Maatougui Seifeddine</p>
                   <p className="text-[11px] text-muted-foreground">Consultant &amp; Directeur régional (SAFI)</p>
+                  <a href="mailto:Maatougui.Seifeddine@batibuild.app" className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 mt-0.5">
+                    <Mail className="h-3 w-3" /> Maatougui.Seifeddine@batibuild.app
+                  </a>
                 </div>
               </div>
             </motion.div>
