@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { generatePlans, type PlanRequest } from "@/convex/planEngine";
-import { FloorPlan2D } from "./FloorPlanView";
+import { FloorPlan2D, FloorPlan3D } from "./FloorPlanView";
 
 const REQ: PlanRequest = {
   bienType: "maison",
@@ -57,5 +57,28 @@ describe("FloorPlan2D", () => {
     expect(html).toContain("<svg");
     expect(html).toContain("m</text>");
     expect(html).not.toMatch(/NaN/);
+  });
+});
+
+describe("FloorPlan3D", () => {
+  it("renders a valid enlarged SVG with walls, roofs, furniture and labels for every plan", () => {
+    const plans = generatePlans(REQ);
+    expect(plans.length).toBeGreaterThan(0);
+    for (const plan of plans) {
+      const html = renderToStaticMarkup(<FloorPlan3D plan={plan} />);
+      expect(html).toContain("<svg");
+      expect(html).toContain("aria-label=\"Vue 3D du plan");
+      expect(html).not.toMatch(/NaN/);
+      expect(html).toContain("m²");
+      expect(html).toContain("polygon");
+      expect(html).toContain("viewBox=\"-"); // bornes auto-ajustées (origine hors écran)
+    }
+  });
+
+  it("renders a multi-level plan with the upper floor slab", () => {
+    const plans = generatePlans({ ...REQ, floors: 2, hasBalcon: true });
+    const html = renderToStaticMarkup(<FloorPlan3D plan={plans[0]} />);
+    expect(html).not.toMatch(/NaN/);
+    expect(html).toContain("▲");
   });
 });
