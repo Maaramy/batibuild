@@ -516,6 +516,18 @@ export default function PlanGenerator() {
 
           {/* Légende des abréviations */}
           <PlanLegend />
+
+          {/* Contact */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-border/40 bg-card/60 px-4 sm:px-5 py-4 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <HardHat className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70">Pour plus d'informations Contactez :</p>
+              <p className="text-sm font-semibold mt-0.5">Marzougui Riadh</p>
+              <p className="text-[11px] text-muted-foreground">Architecte (Expert Conseiller)</p>
+            </div>
+          </div>
         </div>
 
         {/* Modales */}
