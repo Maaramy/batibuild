@@ -386,7 +386,11 @@ export function ProjectFloorPlanSection({ project }: { project: ProjectPlanSourc
             </Badge>
           </div>
           <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 leading-snug break-words">
-            Plans 2D générés automatiquement à partir des caractéristiques du projet ({bienTypeLabel(project.category ?? "projet")} · {Math.round(project.surface ?? 0)} m² · {plan.levels} niveau{plan.levels > 1 ? "x" : ""})
+            Plans 2D générés automatiquement
+            <span className="hidden sm:inline"> à partir des caractéristiques du projet ({bienTypeLabel(project.category ?? "projet")} · {Math.round(project.surface ?? 0)} m² · {plan.levels} niveau{plan.levels > 1 ? "x" : ""})</span>
+          </p>
+          <p className="sm:hidden text-[9px] text-muted-foreground mt-0.5 truncate max-w-full">
+            {bienTypeLabel(project.category ?? "projet")} · {Math.round(project.surface ?? 0)} m² · {plan.levels} niveau{plan.levels > 1 ? "x" : ""}
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">

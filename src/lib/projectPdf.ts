@@ -97,6 +97,18 @@ export async function generateProjectPdf({
     onProgress(2);
     await new Promise((r) => setTimeout(r, 400));
 
+    // Main-d'œuvre : quantité réelle d'ouvriers — jamais de N/A dans le devis
+    const laborWorkers =
+      typeof ai?.laborEstimate?.totalWorkers === "number" && ai.laborEstimate.totalWorkers > 0
+        ? Math.round(ai.laborEstimate.totalWorkers)
+        : (() => {
+            const laborCost =
+              ai?.laborEstimate?.estimatedCost ??
+              ce?.breakdown?.find((b: any) => b.category === "main_oeuvre")?.estimatedCost ??
+              0;
+            return laborCost > 0 ? Math.max(1, Math.round(laborCost / 55 / 22)) : 0;
+          })();
+
     // ── Build PDF programmatically (no html2canvas, no oklch!) ──
     const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
     const pw = doc.internal.pageSize.getWidth();
@@ -202,7 +214,8 @@ export async function generateProjectPdf({
       project.pools && project.category === "villa" ? `${project.pools} piscine${project.pools > 1 ? "s" : ""}` : "",
     ].filter(Boolean);
     const hasRooms = roomParts.length > 0;
-    const boxH = hasRooms ? 24 : 16;
+    const hasLabor = laborWorkers > 0;
+    const boxH = hasRooms || hasLabor ? 24 : 16;
 
     doc.setFillColor(C.bgLight[0], C.bgLight[1], C.bgLight[2]);
     doc.rect(ml, y, cw, boxH, "F");
@@ -218,10 +231,10 @@ export async function generateProjectPdf({
     doc.setFont("helvetica", "normal");
     doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
     const infoRow = [
-      `Catégorie: ${ai.category || "N/A"}`,
+      `Catégorie: ${ai.category || "Non définie"}`,
       `Région: ${regionName}`,
-      `Surface couverte: ${project.surface ? `${project.surface} m²` : "N/A"}`,
-      `Durée: ${ai.estimatedDuration || "N/A"}`,
+      `Surface couverte: ${project.surface ? `${project.surface} m²` : "Non définie"}`,
+      `Durée: ${ai.estimatedDuration || "Non définie"}`,
     ];
     let xInfo = ml + 3;
     infoRow.forEach((item) => {
@@ -229,11 +242,12 @@ export async function generateProjectPdf({
       xInfo += doc.getTextWidth(item) + 10;
     });
 
-    if (hasRooms) {
+    if (hasRooms || hasLabor) {
       doc.setFontSize(6.5);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
-      doc.text(`Pièces: ${roomParts.join(" · ")}`, ml + 3, y + 16.5);
+      if (hasRooms) doc.text(`Pièces: ${roomParts.join(" · ")}`, ml + 3, y + 16.5);
+      if (hasLabor) doc.text(`Main d'œuvre: ${laborWorkers} ouvriers`, ml + 3, y + (hasRooms ? 21 : 16.5));
     }
 
     y += boxH + 5;

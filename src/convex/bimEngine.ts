@@ -617,14 +617,13 @@ function genMOItems(surface: number, floors: number, cat: string, targetBudget: 
   const roomFactor = rooms?.total ? Math.min(1.4, Math.max(0.7, rooms.total / 6)) : 1;
   const saniFactor = rooms?.bathrooms ? Math.min(1.3, Math.max(0.8, ((rooms.bathrooms || 1) + (rooms.kitchens || 1)) / 3)) : 1;
   // Chef de chantier & maçon qualifié regroupés sur une même ligne (encadrement + gros œuvre)
-  const maconQ = Math.round((tb / 15) * ih * 10) / 10;
-  const chefQ = Math.round((tb / 100) * ih * 10) / 10;
-  const groupedMaconChef = {
+  const groupMaconChef = (maconQ: number, chefQ: number) => ({
     n: "Chef de chantier & Maçon qualifié",
     q: Math.round((maconQ + chefQ) * 10) / 10,
     u: "jours",
     up: Math.round((maconQ * 80 + chefQ * 100) / (maconQ + chefQ)),
-  };
+  });
+  const groupedMaconChef = groupMaconChef((tb / 15) * ih, (tb / 100) * ih);
 
   let items: any[] = [];
   if (profile === "pool") {
@@ -640,20 +639,18 @@ function genMOItems(surface: number, floors: number, cat: string, targetBudget: 
     ];
   } else if (profile === "garden") {
     items = [
+      groupMaconChef(tb / 40, tb / 150),
       {n:"Jardinier paysagiste", q:Math.round(tb/25*10)/10, u:"jours", up:65},
       {n:"Terrassier", q:Math.round(tb/30*10)/10, u:"jours", up:55},
-      {n:"Maçon (dalles & bordures)", q:Math.round(tb/40*10)/10, u:"jours", up:80},
       {n:"Électricien (arrosage & éclairage)", q:Math.round(tb/80*10)/10, u:"jours", up:75},
       {n:"Plombier (réseau arrosage)", q:Math.round(tb/70*10)/10, u:"jours", up:75},
-      {n:"Chef de chantier", q:Math.round(tb/150*10)/10, u:"jours", up:100},
     ];
   } else if (profile === "solar") {
     items = [
+      groupMaconChef(tb / 60, tb / 90),
       {n:"Électricien photovoltaïque", q:Math.round(tb/18*10)/10, u:"jours", up:85},
       {n:"Manœuvre", q:Math.round(tb/25*10)/10, u:"jours", up:55},
       {n:"Monteur charpente/supports", q:Math.round(tb/22*10)/10, u:"jours", up:70},
-      {n:"Maçon (fondations massifs)", q:Math.round(tb/60*10)/10, u:"jours", up:80},
-      {n:"Chef de chantier", q:Math.round(tb/90*10)/10, u:"jours", up:100},
     ];
   } else if (profile === "fence" || profile === "parking") {
     items = [
