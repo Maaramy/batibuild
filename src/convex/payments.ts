@@ -22,9 +22,6 @@ const DEFAULT_PLAN_PRICING = {
   freeInvestmentLimit: 1,
   proInvestmentLimit: 5,
   expertInvestmentLimit: 20,
-  freePlanLimit: 1,
-  proPlanLimit: 5,
-  expertPlanLimit: 20,
   freeDownloadLimit: 1,
   proDownloadLimit: 5,
   expertDownloadLimit: 20,
@@ -63,9 +60,6 @@ export const getPlanPricing = query({
       freeInvestmentLimit: config.freeInvestmentLimit ?? DEFAULT_PLAN_PRICING.freeInvestmentLimit,
       proInvestmentLimit: config.proInvestmentLimit ?? DEFAULT_PLAN_PRICING.proInvestmentLimit,
       expertInvestmentLimit: config.expertInvestmentLimit ?? DEFAULT_PLAN_PRICING.expertInvestmentLimit,
-      freePlanLimit: config.freePlanLimit ?? DEFAULT_PLAN_PRICING.freePlanLimit,
-      proPlanLimit: config.proPlanLimit ?? DEFAULT_PLAN_PRICING.proPlanLimit,
-      expertPlanLimit: config.expertPlanLimit ?? DEFAULT_PLAN_PRICING.expertPlanLimit,
       freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
@@ -80,7 +74,6 @@ export const updatePlanPricing = mutation({
     price: v.optional(v.number()),
     projectLimit: v.optional(v.number()),
     investmentLimit: v.optional(v.number()),
-    planLimit: v.optional(v.number()),
     downloadLimit: v.optional(v.number()),
     // Rétrocompatibilité : un prix unique par forfait couvre tous les types
     type: v.optional(v.union(v.literal("construction"), v.literal("investment"))),
@@ -103,19 +96,16 @@ export const updatePlanPricing = mutation({
       if (args.price !== undefined) patch.startPrice = args.price;
       if (args.projectLimit !== undefined) patch.freeProjectLimit = args.projectLimit;
       if (args.investmentLimit !== undefined) patch.freeInvestmentLimit = args.investmentLimit;
-      if (args.planLimit !== undefined) patch.freePlanLimit = args.planLimit;
       if (args.downloadLimit !== undefined) patch.freeDownloadLimit = args.downloadLimit;
     } else if (plan === "pro") {
       if (args.price !== undefined) patch.proPrice = args.price;
       if (args.projectLimit !== undefined) patch.proProjectLimit = args.projectLimit;
       if (args.investmentLimit !== undefined) patch.proInvestmentLimit = args.investmentLimit;
-      if (args.planLimit !== undefined) patch.proPlanLimit = args.planLimit;
       if (args.downloadLimit !== undefined) patch.proDownloadLimit = args.downloadLimit;
     } else if (plan === "expert") {
       if (args.price !== undefined) patch.expertPrice = args.price;
       if (args.projectLimit !== undefined) patch.expertProjectLimit = args.projectLimit;
       if (args.investmentLimit !== undefined) patch.expertInvestmentLimit = args.investmentLimit;
-      if (args.planLimit !== undefined) patch.expertPlanLimit = args.planLimit;
       if (args.downloadLimit !== undefined) patch.expertDownloadLimit = args.downloadLimit;
     } else if (plan === "supplier") {
       if (args.price !== undefined) patch.supplierPrice = args.price;
@@ -157,9 +147,6 @@ export const getPublicPricing = query({
       freeInvestmentLimit: config.freeInvestmentLimit ?? DEFAULT_PLAN_PRICING.freeInvestmentLimit,
       proInvestmentLimit: config.proInvestmentLimit ?? DEFAULT_PLAN_PRICING.proInvestmentLimit,
       expertInvestmentLimit: config.expertInvestmentLimit ?? DEFAULT_PLAN_PRICING.expertInvestmentLimit,
-      freePlanLimit: config.freePlanLimit ?? DEFAULT_PLAN_PRICING.freePlanLimit,
-      proPlanLimit: config.proPlanLimit ?? DEFAULT_PLAN_PRICING.proPlanLimit,
-      expertPlanLimit: config.expertPlanLimit ?? DEFAULT_PLAN_PRICING.expertPlanLimit,
       freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,

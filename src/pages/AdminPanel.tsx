@@ -98,7 +98,6 @@ export default function AdminPanel() {
 
   const allProjects = useQuery(api.projects.getAllProjects) || [];
   const allAnalyses = useQuery(api.investments.getAllAnalyses) || [];
-  const allPlans = useQuery(api.architecturalPlans.getAllPlans) || [];
   const materialPrices = useQuery(api.materials.getMaterialPrices, {}) || [];
 
   // New material form
@@ -118,11 +117,8 @@ export default function AdminPanel() {
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const [batchDeletingProjects, setBatchDeletingProjects] = useState(false);
   const [investmentSearch, setInvestmentSearch] = useState("");
-  const [planSearch, setPlanSearch] = useState("");
   const [selectedAnalysisIds, setSelectedAnalysisIds] = useState<Set<string>>(new Set());
-  const [selectedPlanIds, setSelectedPlanIds] = useState<Set<string>>(new Set());
   const [batchDeletingAnalyses, setBatchDeletingAnalyses] = useState(false);
-  const [batchDeletingPlans, setBatchDeletingPlans] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [selectedRecuIds, setSelectedRecuIds] = useState<Set<string>>(new Set());
@@ -147,8 +143,6 @@ export default function AdminPanel() {
   const batchDeleteProjects = useMutation(api.projects.adminBatchDeleteProjects);
   const batchDeleteAnalyses = useMutation(api.investments.adminDeleteAnalyses);
   const deleteAnalysisMutation = useMutation(api.investments.adminDeleteAnalysis);
-  const batchDeletePlans = useMutation(api.architecturalPlans.adminDeletePlans);
-  const deletePlanMutation = useMutation(api.architecturalPlans.adminDeletePlan);
   const batchDeleteSubscriptions = useMutation(api.subscriptions.adminBatchDeleteSubscriptions);
   const adminDeleteSupplierProfile = useMutation(api.supplierProfiles.adminDeleteProfile);
   const adminToggleSupplierVisibility = useMutation(api.supplierProfiles.adminToggleVisibility);
@@ -173,10 +167,9 @@ export default function AdminPanel() {
     // Prix des forfaits (paiement unique — mêmes prix pour tous les types)
     constructionStartPrice: 79, constructionProPrice: 120, constructionExpertPrice: 320,
     supplierPrice: 120,
-    // Quotas par forfait : projets de construction / analyses / plans / PDF
+    // Quotas par forfait : projets de construction / analyses / PDF
     freeProjects: 1, proProjects: 5, expertProjects: 20,
     freeInvestments: 1, proInvestments: 5, expertInvestments: 20,
-    freePlans: 1, proPlans: 5, expertPlans: 20,
     freeDownloadLimit: 1, proDownloads: 5, expertDownloads: 20,
   });
   const [savingLimits, setSavingLimits] = useState(false);
@@ -199,16 +192,13 @@ export default function AdminPanel() {
         freeInvestments: planForm.freeInvestmentLimit ?? 1,
         proInvestments: planForm.proInvestmentLimit ?? 5,
         expertInvestments: planForm.expertInvestmentLimit ?? 20,
-        freePlans: planForm.freePlanLimit ?? 1,
-        proPlans: planForm.proPlanLimit ?? 5,
-        expertPlans: planForm.expertPlanLimit ?? 20,
         freeDownloadLimit: planForm.freeDownloadLimit ?? 1,
         proDownloads: planForm.proDownloadLimit ?? 5,
         expertDownloads: planForm.expertDownloadLimit ?? 20,
         supplierPrice: planForm.supplierPrice ?? 120,
       });
     }
-  }, [planForm?.startPrice, planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.freeInvestmentLimit, planForm?.proInvestmentLimit, planForm?.expertInvestmentLimit, planForm?.freePlanLimit, planForm?.proPlanLimit, planForm?.expertPlanLimit, planForm?.freeDownloadLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit, planForm?.supplierPrice]);
+  }, [planForm?.startPrice, planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.freeInvestmentLimit, planForm?.proInvestmentLimit, planForm?.expertInvestmentLimit, planForm?.freeDownloadLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit, planForm?.supplierPrice]);
 
   // Sync payment form when config loads
   useEffect(() => {
@@ -438,12 +428,6 @@ export default function AdminPanel() {
               <TabsTrigger value="investments" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Landmark className="h-3.5 w-3.5" />
                 <span>Investissements</span>
-              </TabsTrigger>
-              )}
-              {canSee("projects") && (
-              <TabsTrigger value="plans" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
-                <FileText className="h-3.5 w-3.5" />
-                <span>Plans</span>
               </TabsTrigger>
               )}
               {canSee("materials") && (
@@ -2912,186 +2896,6 @@ export default function AdminPanel() {
             </div>
           </TabsContent>
 
-          {/* Plans Management */}
-          <TabsContent value="plans">
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-semibold">Gestion des plans architecturaux</h2>
-                  <p className="text-xs text-muted-foreground">{allPlans.length} plan(s) · les quotas des propriétaires sont libérés à la suppression</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {selectedPlanIds.size > 0 && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="h-8 text-xs shrink-0"
-                      onClick={async () => {
-                        if (!window.confirm("Supprimer " + selectedPlanIds.size + " plan(s) ? Cette action est irréversible.")) return;
-                        setBatchDeletingPlans(true);
-                        try {
-                          await batchDeletePlans({ planIds: Array.from(selectedPlanIds) as any });
-                          toast.success(selectedPlanIds.size + " plan(s) supprimé(s)");
-                          setSelectedPlanIds(new Set());
-                        } catch (err: any) {
-                          toast.error(err.message || "Erreur");
-                        } finally {
-                          setBatchDeletingPlans(false);
-                        }
-                      }}
-                      disabled={batchDeletingPlans}
-                    >
-                      {batchDeletingPlans ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 mr-1" />
-                      )}
-                      Supprimer ({selectedPlanIds.size})
-                    </Button>
-                  )}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Rechercher un plan..."
-                      value={planSearch}
-                      onChange={(e) => setPlanSearch(e.target.value)}
-                      className="h-9 w-40 sm:w-56 pl-9 text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
-                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs w-8">
-                        <input
-                          type="checkbox"
-                          checked={allPlans.length > 0 && selectedPlanIds.size === allPlans.filter((p: any) =>
-                            planSearch
-                              ? (p.name || "").toLowerCase().includes(planSearch.toLowerCase()) ||
-                                (p.bienType || "").toLowerCase().includes(planSearch.toLowerCase())
-                              : true
-                          ).length}
-                          onChange={() => {
-                            const filtered = allPlans.filter((p: any) =>
-                              planSearch
-                                ? (p.name || "").toLowerCase().includes(planSearch.toLowerCase()) ||
-                                  (p.bienType || "").toLowerCase().includes(planSearch.toLowerCase())
-                                : true
-                            );
-                            if (selectedPlanIds.size === filtered.length) {
-                              setSelectedPlanIds(new Set());
-                            } else {
-                              setSelectedPlanIds(new Set(filtered.map((p: any) => p._id)));
-                            }
-                          }}
-                          className="rounded"
-                        />
-                      </th>
-                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Plan</th>
-                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs hidden sm:table-cell">Utilisateur</th>
-                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Type de bien</th>
-                      <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Variantes</th>
-                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Surface</th>
-                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Date</th>
-                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allPlans
-                      .filter((p: any) =>
-                        planSearch
-                          ? (p.name || "").toLowerCase().includes(planSearch.toLowerCase()) ||
-                            (p.bienType || "").toLowerCase().includes(planSearch.toLowerCase())
-                          : true
-                      )
-                      .map((plan: any) => (
-                      <tr key={plan._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150 group">
-                        <td className="py-2.5 px-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedPlanIds.has(plan._id)}
-                            onChange={() => {
-                              const next = new Set(selectedPlanIds);
-                              if (next.has(plan._id)) next.delete(plan._id);
-                              else next.add(plan._id);
-                              setSelectedPlanIds(next);
-                            }}
-                            className="rounded"
-                          />
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <p className="font-medium text-xs">{plan.name || "Plan sans nom"}</p>
-                          <p className="text-[9px] text-muted-foreground">{plan.bienType || "—"} · {plan.plans?.length ?? 0} variantes</p>
-                        </td>
-                        <td className="py-2.5 px-2 hidden sm:table-cell">
-                          <div className="flex items-center gap-1.5">
-                            <Avatar className="h-6 w-6 shrink-0 border border-border/30">
-                              <AvatarImage src={plan.user?.image || ""} />
-                              <AvatarFallback className="bg-primary/10 text-primary text-[8px] font-bold">
-                                {plan.user?.name?.charAt(0)?.toUpperCase() || "?"}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-xs truncate max-w-[100px]">{plan.user?.name || "—"}</span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <Badge variant="outline" className="text-[9px] font-normal">{plan.bienType || "—"}</Badge>
-                        </td>
-                        <td className="py-2.5 px-2 text-center text-xs font-medium">
-                          {plan.plans?.length ?? 0}
-                        </td>
-                        <td className="py-2.5 px-2 text-right font-mono text-xs font-medium">
-                          {plan.plans?.[plan.selectedIndex ?? 0]?.stats?.construite
-                            ? `${plan.plans[plan.selectedIndex ?? 0].stats.construite.toFixed(0)} m²`
-                            : "—"}
-                        </td>
-                        <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
-                          {new Date(plan.createdAt).toLocaleDateString("fr-FR")}
-                        </td>
-                        <td className="py-2.5 px-2 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/dashboard/plans/${plan._id}`)}
-                              className="p-1.5 rounded-md hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
-                              title="Voir le plan"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (!window.confirm("Supprimer le plan \"" + (plan.name || "Sans nom") + "\" ?")) return;
-                                try {
-                                  await deletePlanMutation({ planId: plan._id });
-                                  toast.success("Plan supprimé");
-                                } catch (err: any) {
-                                  toast.error(err.message || "Erreur");
-                                }
-                              }}
-                              className="p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                              title="Supprimer"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {allPlans.filter((p: any) => planSearch ? (p.name || "").toLowerCase().includes(planSearch.toLowerCase()) || (p.bienType || "").toLowerCase().includes(planSearch.toLowerCase()) : true).length === 0 && (
-                      <tr>
-                        <td colSpan={8} className="text-center py-8 text-xs text-muted-foreground">Aucun plan trouvé</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </TabsContent>
-
           {/* Users Management */}
           <TabsContent value="users">
             <div className="space-y-4">
@@ -3771,23 +3575,23 @@ export default function AdminPanel() {
             </Card>
           </TabsContent>
 
-          {/* Plan Limits — forfaits couvrant construction · investissement · plans */}
+          {/* Plan Limits — forfaits couvrant construction · investissement */}
           <TabsContent value="limites">
             <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="text-base">Forfaits — prix et quotas</CardTitle>
                 <CardDescription className="text-xs">
                   Forfaits à paiement unique — un seul forfait couvre la construction et l'investissement.
-                  Les plans architecturaux sont illimités pour tous les forfaits. Quand les quotas (construction /
-                  investissement) sont épuisés, l'utilisateur renouvelle son forfait ou passe à une offre supérieure.
+                  Quand les quotas (construction / investissement) sont épuisés, l'utilisateur renouvelle son forfait
+                  ou passe à une offre supérieure.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* ═══ Les 3 forfaits — un seul prix couvre construction · investissement · plans ═══ */}
+                {/* Les 3 forfaits : un seul prix couvre construction et investissement */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="p-4 rounded-xl bg-slate-500/5 border border-border/30 space-y-3">
                     <h3 className="text-sm font-semibold">Start</h3>
-                    <p className="text-xs text-muted-foreground">1 projet · 1 analyse · 1 PDF · plans illimités</p>
+                    <p className="text-xs text-muted-foreground">1 projet · 1 analyse · 1 PDF</p>
                     <div>
                       <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <Input
@@ -3816,10 +3620,6 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Plans architecturaux</label>
-                      <p className="text-sm font-semibold text-primary">Illimité</p>
-                    </div>
-                    <div>
                       <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
                       <Input
                         type="number"
@@ -3834,7 +3634,7 @@ export default function AdminPanel() {
                       <Crown className="h-4 w-4 text-blue-500" />
                       Pro
                     </h3>
-                    <p className="text-xs text-muted-foreground">5 projets · 5 analyses · 5 PDF · plans illimités</p>
+                    <p className="text-xs text-muted-foreground">5 projets · 5 analyses · 5 PDF</p>
                     <div>
                       <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <Input
@@ -3863,10 +3663,6 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Plans architecturaux</label>
-                      <p className="text-sm font-semibold text-primary">Illimité</p>
-                    </div>
-                    <div>
                       <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
                       <Input
                         type="number"
@@ -3881,7 +3677,7 @@ export default function AdminPanel() {
                       <Crown className="h-4 w-4 text-emerald-500" />
                       Expert
                     </h3>
-                    <p className="text-xs text-muted-foreground">20 projets · 20 analyses · 20 PDF · plans illimités</p>
+                    <p className="text-xs text-muted-foreground">20 projets · 20 analyses · 20 PDF</p>
                     <div>
                       <label className="text-xs text-muted-foreground">Prix (TND)</label>
                       <Input
@@ -3908,10 +3704,6 @@ export default function AdminPanel() {
                         onChange={(e) => setLimitForm({ ...limitForm, expertInvestments: parseInt(e.target.value) })}
                         className="h-8 w-28 text-sm"
                       />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Plans architecturaux</label>
-                      <p className="text-sm font-semibold text-primary">Illimité</p>
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
@@ -3955,13 +3747,12 @@ export default function AdminPanel() {
                     onClick={async () => {
                       setSavingLimits(true);
                       try {
-                        // Un seul prix par forfait couvre construction, investissement et plans
+                        // Un seul prix par forfait couvre construction et investissement
                         await updatePlanPricing({
                           plan: "free",
                           price: limitForm.constructionStartPrice,
                           projectLimit: limitForm.freeProjects,
                           investmentLimit: limitForm.freeInvestments,
-                          planLimit: limitForm.freePlans,
                           downloadLimit: limitForm.freeDownloadLimit,
                         } as any);
                         await updatePlanPricing({
@@ -3969,7 +3760,6 @@ export default function AdminPanel() {
                           price: limitForm.constructionProPrice,
                           projectLimit: limitForm.proProjects,
                           investmentLimit: limitForm.proInvestments,
-                          planLimit: limitForm.proPlans,
                           downloadLimit: limitForm.proDownloads,
                         } as any);
                         await updatePlanPricing({
@@ -3977,7 +3767,6 @@ export default function AdminPanel() {
                           price: limitForm.constructionExpertPrice,
                           projectLimit: limitForm.expertProjects,
                           investmentLimit: limitForm.expertInvestments,
-                          planLimit: limitForm.expertPlans,
                           downloadLimit: limitForm.expertDownloads,
                         } as any);
                         // Espace fournisseur

@@ -37,10 +37,6 @@ const InvestmentResults = lazy(() => import("./pages/InvestmentResults.tsx"));
 const ShareInvestment = lazy(() => import("./pages/ShareInvestment.tsx"));
 const DemoInvestment = lazy(() => import("./pages/DemoInvestment.tsx"));
 const DemoProject = lazy(() => import("./pages/DemoProject.tsx"));
-const DemoPlan = lazy(() => import("./pages/DemoPlan.tsx"));
-const PlanGenerator = lazy(() => import("./pages/PlanGenerator.tsx"));
-const PlanLibrary = lazy(() => import("./pages/PlanLibrary.tsx"));
-const PlanDetail = lazy(() => import("./pages/PlanDetail.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"),);
 
 // Simple loading fallback for route transitions
@@ -252,36 +248,9 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
-                <Route
-                  path="/dashboard/plans"
-                  element={
-                    <RequireAuth>
-                      <PlanLibrary />
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  path="/dashboard/plans/new"
-                  element={
-                    <RequireAuth>
-                      <RequireQuota type="plans">
-                        <PlanGenerator />
-                      </RequireQuota>
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  path="/dashboard/plans/:id"
-                  element={
-                    <RequireAuth>
-                      <PlanDetail />
-                    </RequireAuth>
-                  }
-                />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/construction/demo" element={<DemoProject />} />
                 <Route path="/investments/demo" element={<DemoInvestment />} />
-                <Route path="/plans/demo" element={<DemoPlan />} />
                 <Route path="/share/investment/:token" element={<ShareInvestment />} />
                 <Route path="/blog" element={<BlogPage />} />
                 <Route path="/blog/:slug" element={<BlogPostPage />} />

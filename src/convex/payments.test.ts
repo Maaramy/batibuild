@@ -77,9 +77,6 @@ describe("getPlanPricing", () => {
     expect(result!.freeInvestmentLimit).toBe(1);
     expect(result!.proInvestmentLimit).toBe(5);
     expect(result!.expertInvestmentLimit).toBe(20);
-    expect(result!.freePlanLimit).toBe(1);
-    expect(result!.proPlanLimit).toBe(5);
-    expect(result!.expertPlanLimit).toBe(20);
     expect(result!.freeDownloadLimit).toBe(1);
     expect(result!.proDownloadLimit).toBe(5);
     expect(result!.expertDownloadLimit).toBe(20);
@@ -264,7 +261,6 @@ describe("updatePlanPricing", () => {
       price: 130,
       projectLimit: 6,
       investmentLimit: 6,
-      planLimit: 6,
       downloadLimit: 6,
     });
 
@@ -273,7 +269,6 @@ describe("updatePlanPricing", () => {
     expect(result!.proPrice).toBe(130);
     expect(result!.proProjectLimit).toBe(6);
     expect(result!.proInvestmentLimit).toBe(6);
-    expect(result!.proPlanLimit).toBe(6);
     expect(result!.proDownloadLimit).toBe(6);
   });
 

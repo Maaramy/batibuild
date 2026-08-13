@@ -436,13 +436,6 @@ function HeroSection() {
                     <p className="text-[10px] text-muted-foreground">Rentabilité, ROI & scénarios</p>
                   </div>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/plans/demo")} className="cursor-pointer gap-2">
-                  <Layers className="h-4 w-4 text-violet-600" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium">Plans architecturaux</p>
-                    <p className="text-[10px] text-muted-foreground">10 plans 2D & 3D générés par IA</p>
-                  </div>
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </motion.div>
@@ -526,7 +519,7 @@ function HeroSection() {
 }
 
 function HowItWorksSection() {
-  const [mode, setMode] = useState<"construction" | "investissement" | "plans">("construction");
+  const [mode, setMode] = useState<"construction" | "investissement">("construction");
   const [activeStep, setActiveStep] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -604,43 +597,7 @@ function HowItWorksSection() {
     },
   ] as const;
 
-  const PLANS_STEPS = [
-    {
-      step: "01",
-      icon: Ruler,
-      title: "Définissez vos contraintes",
-      shortTitle: "Contraintes",
-      desc: "Type de bien, surface, pièces souhaitées, style et standing — aucune compétence en dessin requise.",
-      gradient: "from-violet-500 to-purple-600",
-      bgGradient: "from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20",
-      border: "border-violet-200/50 dark:border-violet-800/30",
-      textColor: "text-violet-600 dark:text-violet-400",
-    },
-    {
-      step: "02",
-      icon: Layers,
-      title: "L'IA génère 10 plans",
-      shortTitle: "Génération",
-      desc: "Plans 2D et vues 3D, scores IA, détection des anomalies de conception et comparaison.",
-      gradient: "from-purple-500 to-fuchsia-500",
-      bgGradient: "from-purple-50/50 to-fuchsia-50/50 dark:from-purple-950/20 dark:to-fuchsia-950/20",
-      border: "border-purple-200/50 dark:border-purple-800/30",
-      textColor: "text-purple-600 dark:text-purple-400",
-    },
-    {
-      step: "03",
-      icon: Download,
-      title: "Téléchargez & exportez",
-      shortTitle: "Export",
-      desc: "Sauvegardez vos plans, comparez-les et téléchargez-les en PDF haute résolution.",
-      gradient: "from-emerald-500 to-teal-500",
-      bgGradient: "from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20",
-      border: "border-emerald-200/50 dark:border-emerald-800/30",
-      textColor: "text-emerald-600 dark:text-emerald-400",
-    },
-  ] as const;
-
-  const steps = mode === "construction" ? CONSTRUCTION_STEPS : mode === "investissement" ? INVEST_STEPS : PLANS_STEPS;
+  const steps = mode === "construction" ? CONSTRUCTION_STEPS : INVEST_STEPS;
 
   // Remet l'étape active au début quand on change de produit
   useEffect(() => {
@@ -694,9 +651,7 @@ function HowItWorksSection() {
           <p className="mt-4 text-muted-foreground">
             {mode === "construction"
               ? "Un processus simple et rapide pour estimer vos projets de construction en Tunisie."
-              : mode === "investissement"
-              ? "Analysez la rentabilité de vos investissements immobiliers en 3 étapes — marché tunisien 2026."
-              : "Générez des plans architecturaux professionnels adaptés à votre bien et à vos contraintes."}
+              : "Analysez la rentabilité de vos investissements immobiliers en 3 étapes — marché tunisien 2026."}
           </p>
 
           {/* Sélecteur de produit */}
@@ -705,7 +660,6 @@ function HowItWorksSection() {
               [
                 { id: "construction", label: "Construction", icon: HardHat },
                 { id: "investissement", label: "Investissement", icon: Landmark },
-                { id: "plans", label: "Plans", icon: Layers },
               ] as const
             ).map((p) => (
               <button
@@ -805,7 +759,6 @@ function HowItWorksSection() {
                   </>
                 )}
                 {mode === "investissement" && <MockInvestProcessPanel />}
-                {mode === "plans" && <MockPlansProcessPanel />}
               </div>
 
               {/* Step indicator overlay */}
@@ -838,18 +791,10 @@ function HowItWorksSection() {
             size="lg"
             className="h-12 px-8 text-base gap-2"
             onClick={() => navigate(
-              mode === "construction"
-                ? "/auth"
-                : mode === "investissement"
-                ? "/dashboard/investments"
-                : "/dashboard/plans/new"
+              mode === "construction" ? "/auth" : "/dashboard/investments"
             )}
           >
-            {mode === "construction"
-              ? "Essayer gratuitement"
-              : mode === "investissement"
-              ? "Analyser un investissement"
-              : "Générer mes plans"}
+            {mode === "construction" ? "Essayer gratuitement" : "Analyser un investissement"}
             <ArrowRight className="h-4 w-4" />
           </Button>
           <Button
@@ -857,11 +802,7 @@ function HowItWorksSection() {
             size="lg"
             className="h-12 px-8 text-base gap-2"
             onClick={() => navigate(
-              mode === "construction"
-                ? "/construction/demo"
-                : mode === "investissement"
-                ? "/investments/demo"
-                : "/plans/demo"
+              mode === "construction" ? "/construction/demo" : "/investments/demo"
             )}
           >
             <Eye className="h-4 w-4" />
@@ -1118,55 +1059,6 @@ function MockInvestProcessPanel() {
             {chip}
           </span>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function MockPlansProcessPanel() {
-  return (
-    <div className="space-y-4">
-      {/* Mini plan 2D */}
-      <div className="rounded-xl border border-violet-200/60 dark:border-violet-800/40 bg-gradient-to-br from-violet-50/70 to-purple-50/50 dark:from-violet-950/25 dark:to-purple-950/20 p-3">
-        <div className="mb-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-violet-600" />
-            <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">Plan 02 — Optimisation maximale de l'espace</span>
-          </div>
-          <Badge className="border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300 text-[9px]">IA · 88/100</Badge>
-        </div>
-        <svg viewBox="0 0 120 90" className="h-auto w-full rounded-lg border border-border/30 bg-white/80 dark:bg-white/10">
-          <rect x="6" y="6" width="108" height="78" fill="none" stroke="#8b5cf6" strokeWidth="2" rx="3" />
-          <rect x="16" y="16" width="34" height="26" fill="#ede9fe" stroke="#a78bfa" strokeWidth="1" rx="2" />
-          <rect x="58" y="16" width="46" height="26" fill="#f5f3ff" stroke="#c4b5fd" strokeWidth="1" rx="2" />
-          <rect x="16" y="50" width="46" height="26" fill="#f5f3ff" stroke="#c4b5fd" strokeWidth="1" rx="2" />
-          <rect x="70" y="50" width="34" height="26" fill="#ede9fe" stroke="#a78bfa" strokeWidth="1" rx="2" />
-          <text x="33" y="30" textAnchor="middle" fontSize="6" fill="#6d28d9" fontWeight="700">Salon 32 m²</text>
-          <text x="81" y="30" textAnchor="middle" fontSize="6" fill="#6d28d9" fontWeight="700">Cuisine 14 m²</text>
-          <text x="39" y="64" textAnchor="middle" fontSize="6" fill="#6d28d9" fontWeight="700">Chambre 16 m²</text>
-          <text x="87" y="64" textAnchor="middle" fontSize="6" fill="#6d28d9" fontWeight="700">SDB 6 m²</text>
-        </svg>
-      </div>
-
-      {/* Chips fonctionnalités */}
-      <div className="flex flex-wrap gap-1.5">
-        {["10 plans 2D & 3D", "R+0 (plain-pied)", "Portes & fenêtres", "Détection d'anomalies"].map((chip) => (
-          <span key={chip} className="rounded-full border border-violet-500/25 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium text-violet-600 dark:text-violet-300">
-            {chip}
-          </span>
-        ))}
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        <div className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2 text-[10px] font-medium text-white shadow-sm">
-          <Sparkles className="h-3.5 w-3.5" />
-          Générer 10 nouveaux plans
-        </div>
-        <div className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border/30 bg-background/70 px-3 py-2 text-[10px] font-medium">
-          <Download className="h-3.5 w-3.5" />
-          PDF haute résolution
-        </div>
       </div>
     </div>
   );

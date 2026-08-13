@@ -144,7 +144,6 @@ export default function PricingPage() {
   const isPending = currentSubscription?.status === "pending";
   const construction = quotas?.construction;
   const investment = quotas?.investment;
-  const plans = quotas?.plans;
   const currentPlan = construction?.plan ?? "free";
 
   const isCurrentPlan = (plan: PlanId) => currentPlan === plan && !isPending;
@@ -258,7 +257,7 @@ export default function PricingPage() {
     index = 0,
   ) => {
     const isCurrent = isCurrentPlan(plan);
-    const reached = construction?.reached || investment?.reached || plans?.reached;
+    const reached = construction?.reached || investment?.reached;
 
     return (
       <motion.div
@@ -373,8 +372,8 @@ export default function PricingPage() {
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre forfait</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
             Paiement unique — aucune reconduction mensuelle. Chaque forfait inclut des quotas de projets de
-            construction, d'analyses d'investissement et de plans architecturaux, ainsi que des téléchargements PDF.
-            Quand vos quotas sont épuisés, vous renouvelez ou passez à une offre supérieure.
+            construction et d'analyses d'investissement, ainsi que des téléchargements PDF. Les plans architecturaux
+            générés par IA sont illimités. Quand vos quotas sont épuisés, vous renouvelez ou passez à une offre supérieure.
           </p>
         </div>
 
@@ -411,7 +410,7 @@ export default function PricingPage() {
             </div>
             <div>
               <p className="text-xs font-semibold">Plans architecturaux</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Générateur de plans 2D / 3D cotés et meublés par IA — export PDF haute résolution.</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Plans 2D / 3D générés par IA dans chaque projet de construction — export PDF haute résolution.</p>
             </div>
           </div>
         </div>
@@ -673,7 +672,7 @@ export default function PricingPage() {
             </div>
           )}
 
-          {(construction?.reached || investment?.reached || plans?.reached) && (
+          {(construction?.reached || investment?.reached) && (
             <div className="mt-4 px-4 py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
               <div className="flex items-start gap-2">
                 <RefreshCcw className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -684,7 +683,6 @@ export default function PricingPage() {
                   <p className="text-[10px] text-emerald-700/70 mt-0.5">
                     {construction?.reached && "Vos quotas de construction sont épuisés. "}
                     {investment?.reached && "Vos quotas d'investissement sont épuisés. "}
-                    {plans?.reached && "Vos quotas de plans architecturaux sont épuisés. "}
                     Renouvelez le même forfait ou passez à une offre supérieure — paiement unique, sans abonnement mensuel.
                   </p>
                 </div>

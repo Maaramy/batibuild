@@ -40,22 +40,16 @@ import {
   Loader2,
   Menu,
   X,
-  Home,
   Shield,
   Store,
   User,
   AlertTriangle,
   Landmark,
   Wallet,
-  Layers,
-  LayoutGrid,
   Sparkles,
-  Box,
-  History,
   MapPin,
   Percent,
   Gauge,
-  Ruler,
   ChevronDown,
   Lock,
   RefreshCcw,
@@ -67,9 +61,6 @@ import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useTheme } from "next-themes";
 import { usePageSEO } from "@/hooks/use-page-seo";
-import { FloorPlan2D } from "@/components/plans/FloorPlanView";
-import { planPreviewToGeneratedPlan } from "@/lib/planPreview";
-import { bienTypeLabel } from "@/convex/planEngine";
 import { TYPE_META, fmtTND, fmtPct } from "@/components/investment/shared";
 import { REGION_LABELS } from "@/convex/investmentTypes";
 
@@ -362,12 +353,10 @@ export default function Dashboard() {
   // « Voir plus / Voir moins » — 3 éléments par défaut
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [showAllInvestments, setShowAllInvestments] = useState(false);
-  const [showAllPlans, setShowAllPlans] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
   const projects = useQuery(api.projects.getUserProjects, {}) || [];
-  const planHistory = useQuery(api.architecturalPlans.getMyPlans) || [];
   const analyses = useQuery(api.investments.listAnalyses) || [];
   const stats = useQuery(api.projects.getProjectStats) || {
     totalProjects: 0, completedProjects: 0, analyzingProjects: 0, draftProjects: 0,
@@ -376,7 +365,7 @@ export default function Dashboard() {
   const quotas = useQuery(api.subscriptions.getMyQuotas); // OK
   const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowed, {});
 
-  // ── Quotas par type (construction · investissement · plans) ──
+  // ── Quotas par type (construction · investissement) ──
   const construction = quotas?.construction;
   const investment = quotas?.investment;
   const constructionPlan = construction?.plan ?? "free";
@@ -393,15 +382,7 @@ export default function Dashboard() {
   const investReached = investment?.reached ?? analyses.length >= investLimit;
   const isInvestNearLimit = investUsagePct >= 80;
 
-  // Plans architecturaux — illimités pour tous les forfaits
-  const planData = quotas?.plans;
-  const planUsed = planData?.used ?? planHistory.length;
-  const planLimit = planData?.limit ?? 1;
-  const planUsagePct = planLimit >= 1000000 ? 0 : Math.min(100, Math.round((planUsed / planLimit) * 100));
-  const plansReached = planData?.reached ?? planUsed >= planLimit;
-  const isPlansNearLimit = planUsagePct >= 80;
-
-  const anyNearLimit = isNearLimit || isInvestNearLimit || isPlansNearLimit;
+  const anyNearLimit = isNearLimit || isInvestNearLimit;
 
   // Téléchargements restants par type (forfaits construction / investissement)
   const constructionDownloads = construction?.downloads;
@@ -454,27 +435,6 @@ export default function Dashboard() {
     };
   }, [analyses]);
 
-  // ── Statistiques des plans architecturaux générés ──
-  const planStats = useMemo(() => {
-    let totalArea = 0;
-    let scoreSum = 0;
-    let scoreCount = 0;
-    let favorites = 0;
-    (planHistory as any[]).forEach((p) => {
-      if (typeof p.preview?.stats?.construite === "number") totalArea += p.preview.stats.construite;
-      if (typeof p.preview?.scores?.global === "number") {
-        scoreSum += p.preview.scores.global;
-        scoreCount++;
-      }
-      if (p.favorite) favorites++;
-    });
-    return {
-      totalArea,
-      avgScore: scoreCount ? scoreSum / scoreCount : 0,
-      favorites,
-    };
-  }, [planHistory]);
-
   const filteredProjects = projects.filter((p: any) => {
     if (activeTab === "favorites") return p.isFavorite;
     if (activeTab === "completed") return p.status === "completed";
@@ -488,7 +448,6 @@ export default function Dashboard() {
   // ── Tranches affichées (3 par défaut + « Voir plus ») ──
   const visibleProjects = showAllProjects ? filteredProjects : filteredProjects.slice(0, 3);
   const visibleInvestments = showAllInvestments ? analyses : analyses.slice(0, 3);
-  const visiblePlans = showAllPlans ? planHistory : planHistory.slice(0, 3);
 
   const formatter = new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 });
 
@@ -514,7 +473,6 @@ export default function Dashboard() {
           { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
           { icon: Store, label: "Espace fournisseur", onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
           { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
-          { icon: Sparkles, label: "Plans architecturaux IA", onClick: () => { navigate("/dashboard/plans"); setMobileSidebarOpen(false); } },
           { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
           ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
         ].map((item) => (
@@ -715,8 +673,7 @@ export default function Dashboard() {
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground">
                       Construction : <span className="font-semibold text-foreground">{PLAN_LABELS[constructionPlan]}</span> ·
-                      Investissement : <span className="font-semibold text-foreground">{PLAN_LABELS[investmentPlan]}</span> ·
-                      Plans : <span className="font-semibold text-violet-600 dark:text-violet-400">{PLAN_LABELS[planData?.plan ?? "free"]}</span>
+                      Investissement : <span className="font-semibold text-foreground">{PLAN_LABELS[investmentPlan]}</span>
                     </p>
                   </div>
                 </div>
@@ -733,7 +690,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Quota rows — construction · investissement · plans */}
+              {/* Quota rows — construction · investissement */}
               <div className="mt-3 grid gap-2">
                 {/* Construction */}
                 <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
@@ -801,39 +758,6 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-                {/* Plans — quota par forfait */}
-                <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
-                    <span className="flex items-center gap-1.5 text-muted-foreground flex-wrap">
-                      <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-                      Plans architecturaux
-                      <Badge className="bg-violet-500/10 text-violet-700 border-violet-300/40 text-[8px] px-1.5 py-0">{PLAN_LABELS[planData?.plan ?? "free"]}</Badge>
-                      {plansReached && <Badge className="bg-amber-500/15 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">Limite atteinte</Badge>}
-                    </span>
-                    <span className={`font-bold tabular-nums ${isPlansNearLimit ? "text-amber-600 dark:text-amber-400" : "text-violet-600 dark:text-violet-400"}`}>
-                      {planLimit >= 1000000 ? `Illimité · ${planUsed} utilisé${planUsed > 1 ? "s" : ""}` : `${planUsed}/${planLimit} · ${planUsagePct}%`}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${isPlansNearLimit ? "bg-gradient-to-r from-amber-400 to-orange-500" : "bg-gradient-to-r from-violet-400 to-purple-500"}`}
-                      style={{ width: `${planUsagePct}%` }}
-                    />
-                  </div>
-                  {plansReached && (
-                    <div className="mt-2 flex justify-end">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => navigate("/dashboard/pricing")}
-                        className="h-6 gap-1 px-2 text-[9px] border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                      >
-                        <RefreshCcw className="h-3 w-3" />
-                        Renouveler les quotas
-                      </Button>
-                    </div>
-                  )}
-                </div>
               </div>
 
               {/* Downloads info par type */}
@@ -873,7 +797,7 @@ export default function Dashboard() {
           </Card>
 
           {/* ── Quota warnings par type (presque atteinte / atteinte) ── */}
-          {(isNearLimit || isInvestNearLimit || isPlansNearLimit || projectsReached || investReached || plansReached) && (
+          {(isNearLimit || isInvestNearLimit || projectsReached || investReached) && (
             <div className="space-y-2.5">
               {[
                 {
@@ -899,18 +823,6 @@ export default function Dashboard() {
                   body: investReached
                     ? `Vous avez utilisé ${analyses.length}/${investLimit} analyses d'investissement de votre forfait ${PLAN_LABELS[investmentPlan]}.`
                     : `Vous avez utilisé ${investUsagePct}% de votre limite de ${investLimit} analyses d'investissement.`,
-                },
-                {
-                  show: isPlansNearLimit || plansReached,
-                  reached: plansReached,
-                  type: "plans",
-                  plan: planData?.plan ?? "free",
-                  title: plansReached
-                    ? "Limite de plans architecturaux atteinte"
-                    : "Limite de plans architecturaux presque atteinte",
-                  body: plansReached
-                    ? `Vous avez utilisé ${planUsed}/${planLimit} plans architecturaux de votre forfait ${PLAN_LABELS[planData?.plan ?? "free"]}.`
-                    : `Vous avez utilisé ${planUsagePct}% de votre limite de ${planLimit} plans architecturaux.`,
                 },
               ]
                 .filter((w) => w.show)
@@ -1192,154 +1104,6 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
-
-          {/* ── Générateur de plans architecturaux par IA (CTA sous l'investissement) ── */}
-          <Card
-            className="group relative border border-border/40 bg-white dark:bg-card overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-xl hover:shadow-violet-500/10 active:scale-[0.99]"
-            onClick={() => navigate("/dashboard/plans")}
-          >
-            <CardContent className="relative p-4 sm:p-6">
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
-                  <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-lg shadow-violet-500/30 group-hover:scale-105 group-hover:-rotate-3 transition-transform">
-                    <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm sm:text-base lg:text-lg font-bold">Générateur de plans architecturaux par Intelligence Artificielle.</p>
-                      <Badge className="gap-1 border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300 text-[9px]">
-                        <Sparkles className="h-3 w-3" />
-                        IA
-                      </Badge>
-                    </div>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                      10 propositions de Floor Plans 2D & 3D adaptées à votre bien, vos pièces et vos contraintes — téléchargeables en PDF haute résolution.
-                    </p>
-                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                      {[
-                        { icon: Home, label: "11 types de biens" },
-                        { icon: LayoutGrid, label: "10 plans par projet" },
-                        { icon: Sparkles, label: "Scores IA & comparaison" },
-                        { icon: Layers, label: "2D + 3D" },
-                      ].map((chip) => (
-                        <span key={chip.label} className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-violet-600 dark:text-violet-300">
-                          <chip.icon className="h-3 w-3" />
-                          {chip.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/20 pt-3">
-                  <span className="text-[10px] sm:text-xs text-muted-foreground">
-                    <span className="font-semibold text-violet-600 dark:text-violet-300">Génération instantanée</span> — aucun fichier à importer.
-                  </span>
-                  <Button
-                    size="sm"
-                    onClick={(e) => { e.stopPropagation(); navigate("/dashboard/plans/new"); }}
-                    className="h-8 shrink-0 gap-1.5 px-3.5 text-xs font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/25 hover:from-violet-500 hover:to-indigo-500 hover:shadow-violet-600/40 transition-all active:scale-[0.97]"
-                    disabled={plansReached}
-                    title={plansReached ? "Quota de plans architecturaux atteint" : undefined}
-                  >
-                    {plansReached ? <Lock className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
-                    {plansReached ? "Limite atteinte" : "Générer mes plans"}
-                    {!plansReached && <ArrowUpRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ── Historique des plans architecturaux (dashboard) ── */}
-          {planHistory.length > 0 && (
-            <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
-              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 text-white">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <CardTitle className="text-sm sm:text-base lg:text-lg">Mes plans architecturaux</CardTitle>
-                    <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
-                      {planHistory.length} plan{planHistory.length > 1 ? "s" : ""} généré{planHistory.length > 1 ? "s" : ""} par IA
-                    </CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button variant="outline" size="sm" className="h-8 gap-1 text-xs sm:text-sm" onClick={() => navigate("/dashboard/plans")}>
-                    <History className="h-3.5 w-3.5" /> Voir tout
-                  </Button>
-                  <Button size="sm" className="h-8 gap-1 text-xs sm:text-sm" onClick={() => navigate("/dashboard/plans/new")} disabled={plansReached} title={plansReached ? "Quota de plans architecturaux atteint" : undefined}>
-                    {plansReached ? <Lock className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />} {plansReached ? "Limite atteinte" : "Nouveau"}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-4 lg:p-5 pt-0">
-                {/* Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                  <MiniStat icon={Sparkles} label="Plans générés" value={planHistory.length} tone={{ bg: "bg-violet-500/10", text: "text-violet-600 dark:text-violet-400" }} />
-                  <MiniStat icon={Ruler} label="Surface générée" value={`${Math.round(planStats.totalArea)} m²`} tone={{ bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400" }} />
-                  <MiniStat icon={Gauge} label="Score IA moyen" value={planStats.avgScore ? `${planStats.avgScore.toFixed(0)}/100` : "—"} tone={{ bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" }} />
-                  <MiniStat icon={Heart} label="Favoris" value={planStats.favorites} tone={{ bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400" }} />
-                </div>
-
-                {/* Compteur — quota des plans architecturaux (mêmes quotas que les projets) */}
-                <div className="mb-3 rounded-xl border border-border/40 bg-card/40 px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <Gauge className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-                      Plans architecturaux
-                      {plansReached && <Badge className="bg-amber-500/15 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">Limite atteinte</Badge>}
-                    </span>
-                    <span className={`font-bold tabular-nums ${isPlansNearLimit ? "text-amber-600 dark:text-amber-400" : "text-violet-600 dark:text-violet-400"}`}>
-                      {planUsed}/{planLimit} · {planUsagePct}%
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${isPlansNearLimit ? "bg-gradient-to-r from-amber-400 to-orange-500" : "bg-gradient-to-r from-violet-400 to-purple-500"}`}
-                      style={{ width: `${planUsagePct}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
-                  {visiblePlans.map((p: any) => (
-                    <button
-                      key={p._id}
-                      onClick={() => navigate(`/dashboard/plans/${p._id}`)}
-                      className="group text-left cursor-pointer"
-                    >
-                      <div className="relative aspect-square overflow-hidden rounded-xl bg-white dark:bg-slate-100/90 border border-border/30 group-hover:border-primary/40 transition-colors">
-                        {p.preview ? (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <FloorPlan2D plan={planPreviewToGeneratedPlan(p.preview, p.name)} compact showDimensions={false} showNorth={false} fit />
-                          </div>
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                            <Box className="h-6 w-6" />
-                          </div>
-                        )}
-                        {p.favorite && <Star className="absolute top-1.5 right-1.5 h-3 w-3 fill-amber-400 text-amber-400" />}
-                      </div>
-                      <p className="text-[10px] sm:text-xs font-semibold truncate mt-1.5 group-hover:text-primary transition-colors">{p.name}</p>
-                      <p className="text-[9px] sm:text-[10px] text-muted-foreground truncate">
-                        {bienTypeLabel(p.bienType)} · {new Date(p.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-                {planHistory.length > 3 && (
-                  <div className="mt-3 text-center">
-                    <Button variant="outline" size="sm" className="h-9 gap-1 text-xs" onClick={() => setShowAllPlans((v) => !v)}>
-                      {showAllPlans ? "Voir moins" : `Voir plus (${planHistory.length})`}
-                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllPlans ? "rotate-180" : ""}`} />
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
 
           {/* Quick actions - horizontal scroll on mobile */}
           <div className="overflow-x-auto scrollbar-none -mx-3 sm:mx-0 px-3 sm:px-0">
