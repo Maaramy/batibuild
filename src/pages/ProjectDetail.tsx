@@ -202,6 +202,7 @@ export default function ProjectDetail() {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
   const [showAllProviders, setShowAllProviders] = useState(false);
+  const [showPlans, setShowPlans] = useState(false);
   
   // Fetch supplier profile when one is selected
   const selectedProfileId = selectedSupplierId?.startsWith('registered_') 
@@ -1159,7 +1160,38 @@ export default function ProjectDetail() {
 
             {/* ═══ Plans architecturaux par IA ═══ */}
             {isPlanCapableCategory(project.category) && (
-              <ProjectFloorPlanSection project={project} />
+              <motion.div variants={fadeUp} custom={4} className="space-y-3">
+                {showPlans ? (
+                  <>
+                    <ProjectFloorPlanSection project={project} />
+                    <button
+                      onClick={() => setShowPlans(false)}
+                      className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/60 py-2.5 text-[11px] font-medium text-muted-foreground hover:bg-muted/30 hover:text-foreground transition-colors"
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                      Masquer les plans architecturaux
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setShowPlans(true)}
+                    className="group w-full rounded-xl border border-dashed border-violet-500/30 bg-gradient-to-br from-violet-500/[0.06] via-background to-background p-4 sm:p-5 text-left transition-all hover:border-violet-500/50 hover:from-violet-500/[0.1] active:scale-[0.99]"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600/10 text-violet-600 group-hover:bg-violet-600/15 transition-colors">
+                        <LayoutGrid className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold leading-snug break-words">Générer les plans architecturaux IA</p>
+                        <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                          Plans 2D/3D automatiques adaptés au type de projet — étages, composition des pièces, vérifications qualité et export PDF.
+                        </p>
+                      </div>
+                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-y-0.5" />
+                    </div>
+                  </button>
+                )}
+              </motion.div>
             )}
 
             {/* ═══ Confidence + Anomalies ═══ */}
