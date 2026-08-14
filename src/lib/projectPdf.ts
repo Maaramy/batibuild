@@ -97,17 +97,8 @@ export async function generateProjectPdf({
     onProgress(2);
     await new Promise((r) => setTimeout(r, 400));
 
-    // Main-d'œuvre : quantité réelle d'ouvriers — jamais de N/A dans le devis
-    const laborWorkers =
-      typeof ai?.laborEstimate?.totalWorkers === "number" && ai.laborEstimate.totalWorkers > 0
-        ? Math.round(ai.laborEstimate.totalWorkers)
-        : (() => {
-            const laborCost =
-              ai?.laborEstimate?.estimatedCost ??
-              ce?.breakdown?.find((b: any) => b.category === "main_oeuvre")?.estimatedCost ??
-              0;
-            return laborCost > 0 ? Math.max(1, Math.round(laborCost / 55 / 22)) : 0;
-          })();
+    // Main-d'œuvre : quantité non communiquée dans le devis (N/A)
+    const hasLabor = true;
 
     // ── Build PDF programmatically (no html2canvas, no oklch!) ──
     const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
@@ -214,7 +205,6 @@ export async function generateProjectPdf({
       project.pools && project.category === "villa" ? `${project.pools} piscine${project.pools > 1 ? "s" : ""}` : "",
     ].filter(Boolean);
     const hasRooms = roomParts.length > 0;
-    const hasLabor = laborWorkers > 0;
     const boxH = hasRooms || hasLabor ? 24 : 16;
 
     doc.setFillColor(C.bgLight[0], C.bgLight[1], C.bgLight[2]);
@@ -247,7 +237,7 @@ export async function generateProjectPdf({
       doc.setFont("helvetica", "normal");
       doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
       if (hasRooms) doc.text(`Pièces: ${roomParts.join(" · ")}`, ml + 3, y + 16.5);
-      if (hasLabor) doc.text(`Main d'œuvre: ${laborWorkers} ouvriers`, ml + 3, y + (hasRooms ? 21 : 16.5));
+      if (hasLabor) doc.text("Main d'œuvre: N/A", ml + 3, y + (hasRooms ? 21 : 16.5));
     }
 
     y += boxH + 5;

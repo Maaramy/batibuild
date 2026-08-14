@@ -401,17 +401,7 @@ export default function ProjectDetail() {
     return sel?.costPerM2 || ce?.costPerSquareMeter || 0;
   }, [scenarios, selectedScenario, ce?.costPerSquareMeter]);
 
-  // Main-d'œuvre : quantité réelle d'ouvriers — jamais de N/A / « ? »
-  const laborWorkers = useMemo(() => {
-    const w = ai?.laborEstimate?.totalWorkers;
-    if (typeof w === "number" && w > 0) return Math.round(w);
-    // Repli : dérive la main-d'œuvre depuis le budget « main_oeuvre » (coût / 55 TND·jour / 22 j·ouvrier)
-    const laborCost =
-      ai?.laborEstimate?.estimatedCost ??
-      ce?.breakdown?.find((b: any) => b.category === "main_oeuvre")?.estimatedCost ??
-      0;
-    return laborCost > 0 ? Math.max(1, Math.round(laborCost / 55 / 22)) : 0;
-  }, [ai, ce]);
+  // Main-d'œuvre : quantité non affichée (N/A) sur la page de résultat.
 
   const totalItems = useMemo(
     () => scaledBreakdown?.reduce((s: number, b: any) => s + (b.items?.length || 0), 0) ?? 0,
@@ -895,7 +885,7 @@ export default function ProjectDetail() {
               {[
                 { icon: Building2, label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", color: "from-blue-500/10 to-blue-500/5 text-blue-600" },
                 { icon: Globe, label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", color: "from-rose-500/10 to-rose-500/5 text-rose-600" },
-                { icon: Users, label: "Main-d'œuvre", value: laborWorkers > 0 ? `${laborWorkers} ouvriers` : "Non estimée", color: "from-emerald-500/10 to-emerald-500/5 text-emerald-600" },
+                { icon: Users, label: "Main-d'œuvre", value: "N/A", color: "from-emerald-500/10 to-emerald-500/5 text-emerald-600" },
                 { icon: Clock, label: "Durée estimée", value: ai.estimatedDuration ?? "Non estimée", color: "from-amber-500/10 to-amber-500/5 text-amber-600" },
               ].map((s, i) => (
                 <div key={i} className="flex items-center gap-2.5 p-3 rounded-xl bg-gradient-to-br from-background to-muted/20 border border-border/30 shadow-xs">

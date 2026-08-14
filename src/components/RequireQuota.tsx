@@ -88,8 +88,8 @@ export function RequireQuota({ type, children }: { type: QuotaType; children: Re
               </div>
               <h1 className="mt-4 text-lg sm:text-xl font-bold">Limite de {meta.label} atteinte</h1>
               <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                Vous avez utilisé <strong className="text-foreground">{used}/{limit}</strong>{" "}
-                {used <= 1 ? meta.singular : meta.plural} inclus dans votre forfait{" "}
+                Vous avez utilisé <strong className="text-foreground">{Math.min(used, limit)}/{limit}</strong>{" "}
+                {Math.min(used, limit) <= 1 ? meta.singular : meta.plural} inclus dans votre forfait{" "}
                 {PLAN_LABELS[plan] ?? plan}.
                 {nextPlan && nextLimit
                   ? ` Renouvelez vos quotas ou passez à l'offre ${PLAN_LABELS[nextPlan]} pour créer jusqu'à ${nextLimit} ${meta.singular}s.`

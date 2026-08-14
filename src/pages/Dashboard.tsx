@@ -373,9 +373,11 @@ export default function Dashboard() {
 
   const usedProjects = stats.totalProjects;
   const projectLimit = construction?.limit ?? 1;
-  const usagePercent = projectLimit >= 1000000 ? 0 : Math.round((usedProjects / projectLimit) * 100);
+  // Affichage plafonné au quota du forfait : 1/1 (et non 2/1) quand la limite est dépassée.
+  const displayUsedProjects = Math.min(usedProjects, projectLimit);
+  const usagePercent = projectLimit >= 1000000 ? 0 : Math.min(100, Math.round((usedProjects / projectLimit) * 100));
   const isNearLimit = usagePercent >= 80 && projectLimit < 1000000;
-  const projectsReached = construction?.reached ?? usedProjects >= projectLimit;
+  const projectsReached = (construction?.reached ?? false) || usedProjects >= projectLimit;
 
   const investLimit = investment?.limit ?? 1;
   const investUsagePct = investLimit >= 1000000 ? 0 : Math.min(100, Math.round((analyses.length / investLimit) * 100));
@@ -702,14 +704,8 @@ export default function Dashboard() {
                       {projectsReached && <Badge className="bg-amber-500/15 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">Limite atteinte</Badge>}
                     </span>
                     <span className={`font-bold tabular-nums ${isNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}>
-                      {usedProjects}/{projectLimit} · {usagePercent}%
+                      {displayUsedProjects}/{projectLimit} · {usagePercent}%
                     </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${isNearLimit ? 'bg-gradient-to-r from-amber-400 to-orange-500' : 'bg-gradient-to-r from-primary/60 to-primary'}`}
-                      style={{ width: `${Math.min(usagePercent, 100)}%` }}
-                    />
                   </div>
                   {projectsReached && (
                     <div className="mt-2 flex justify-end">
@@ -737,12 +733,6 @@ export default function Dashboard() {
                     <span className={`font-bold tabular-nums ${isInvestNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
                       {analyses.length}/{investLimit} · {investUsagePct}%
                     </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${isInvestNearLimit ? 'bg-gradient-to-r from-amber-400 to-orange-500' : 'bg-gradient-to-r from-indigo-400 to-blue-500'}`}
-                      style={{ width: `${investUsagePct}%` }}
-                    />
                   </div>
                   {investReached && (
                     <div className="mt-2 flex justify-end">
@@ -809,7 +799,7 @@ export default function Dashboard() {
                     ? "Limite de projets de construction atteinte"
                     : "Limite de projets de construction presque atteinte",
                   body: projectsReached
-                    ? `Vous avez utilisé ${usedProjects}/${projectLimit} projets de construction de votre forfait ${PLAN_LABELS[constructionPlan]}.`
+                    ? `Vous avez utilisé ${displayUsedProjects}/${projectLimit} projets de construction de votre forfait ${PLAN_LABELS[constructionPlan]}.`
                     : `Vous avez utilisé ${usagePercent}% de votre limite de ${projectLimit} projets de construction.`,
                 },
                 {
