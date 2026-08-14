@@ -461,8 +461,8 @@ export default function ProjectDetail() {
           </div>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => navigate(`/dashboard/copilot?project=${project._id}`)}
-              title="Ouvrir le Construction AI Copilot avec le contexte de ce projet"
+              onClick={() => document.getElementById("copilot-panel")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              title="Ouvrir le Construction AI Copilot ciblé sur ce projet"
               className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary/50 active:scale-95"
             >
               <Bot className="h-3.5 w-3.5" />
@@ -718,8 +718,8 @@ export default function ProjectDetail() {
                       }}
                       style={{ width: exportProgress > 5 ? "6%" : "0%" }}
                     />
-                  )}
-                </div>
+        )}
+      </div>
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] text-muted-foreground/60 tabular-nums">
                     {exportProgress}%
@@ -758,10 +758,9 @@ export default function ProjectDetail() {
                   ? ""
                   : "Veuillez patienter pendant la génération..."}
               </p>
-            </div>
+            </div>            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
+        )}
 
       <div className="max-w-5xl mx-auto px-4 py-4 sm:py-6 space-y-4">
 {/* ── Pending Banner ─────────────────────────────────────────── */}
@@ -827,8 +826,8 @@ export default function ProjectDetail() {
                         {roomsImpact.diffPct >= 0 ? "+" : ""}{roomsImpact.diffPct}%
                       </span>
                     </Badge>
-                  )}
-                </div>
+        )}
+      </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
                   <div className="min-w-0">

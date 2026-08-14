@@ -5,11 +5,13 @@ import { RequireQuota } from "@/components/RequireQuota";
 import { SEO } from "@/components/SEO";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { ConvexReactClient } from "convex/react";
+import { ConvexReactClient, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Bot } from "lucide-react";
 import { ThemeProvider } from "next-themes";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router";
+import { BrowserRouter, Route, Routes, useLocation, useParams } from "react-router";
 import "./index.css";
 
 // i18n
@@ -38,6 +40,7 @@ const ShareInvestment = lazy(() => import("./pages/ShareInvestment.tsx"));
 const DemoInvestment = lazy(() => import("./pages/DemoInvestment.tsx"));
 const DemoProject = lazy(() => import("./pages/DemoProject.tsx"));
 const AICopilot = lazy(() => import("./pages/AICopilot.tsx"));
+const CopilotChatPanel = lazy(() => import("@/components/copilot/CopilotChatPanel"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"),);
 
 // Simple loading fallback for route transitions
@@ -109,6 +112,34 @@ const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 
 
+/** Page résultat d'estimation de construction + Construction AI Copilot ciblé
+ *  sur le projet affiché (le copilote est verrouillé sur ce projet). */
+function ProjectDetailWithCopilot() {
+  const { id } = useParams();
+  const project = useQuery(api.projects.getProject, { projectId: id as any });
+  return (
+    <>
+      <ProjectDetail />
+      {project && (
+        <div id="copilot-panel" className="mx-auto max-w-5xl px-4 pb-12 scroll-mt-16">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-600 text-primary-foreground">
+              <Bot className="h-4.5 w-4.5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base font-bold tracking-tight">Construction AI Copilot</h2>
+              <p className="text-[11px] text-muted-foreground truncate">
+                Assistant ciblé sur « {project.name} » — questions, calculs, matériaux, chantier et optimisation du budget
+              </p>
+            </div>
+          </div>
+          <CopilotChatPanel projectId={project._id} projectName={project.name} />
+        </div>
+      )}
+    </>
+  );
+}
+
 function RouteSyncer() {
   const location = useLocation();
   useEffect(() => {
@@ -179,7 +210,7 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/project/:id"
                   element={
                     <RequireAuth>
-                      <ProjectDetail />
+                      <ProjectDetailWithCopilot />
                     </RequireAuth>
                   }
                 />
