@@ -146,7 +146,7 @@ describe("runBIMEstimation — quantitatif cohérent par type de projet", () => 
 
   it("maison : garde fenêtres alu, portes et tuiles (profil résidentiel)", () => {
     const names = soItems("maison");
-    expect(names.some((n) => n.includes("Fenêtre coulissante alu"))).toBe(true);
+    expect(names.some((n) => n.includes("Fenêtre aluminium"))).toBe(true);
     expect(names.some((n) => n.includes("Porte intérieure"))).toBe(true);
     expect(names.some((n) => n.includes("Tuile canal"))).toBe(true);
   });
@@ -171,7 +171,7 @@ describe("runBIMEstimation — quantitatif cohérent par type de projet", () => 
   it("bureau (commercial) : vitrine au lieu de fenêtres résidentielles", () => {
     const names = soItems("bureau");
     expect(names.some((n) => n.includes("Vitrine"))).toBe(true);
-    expect(names.some((n) => n.includes("Fenêtre coulissante alu"))).toBe(false);
+    expect(names.some((n) => n.includes("Fenêtre aluminium"))).toBe(false);
   });
 
   it("solaire : pas de tuiles, mais équipements photovoltaïques", () => {
@@ -200,7 +200,7 @@ describe("runBIMEstimation — quantitatif cohérent par type de projet", () => 
 
   it("immeuble : profil résidentiel (menuiseries et tuiles)", () => {
     const names = soItems("immeuble");
-    expect(names.some((n) => n.includes("Fenêtre coulissante alu"))).toBe(true);
+    expect(names.some((n) => n.includes("Fenêtre aluminium"))).toBe(true);
     expect(names.some((n) => n.includes("Porte intérieure"))).toBe(true);
   });
 
@@ -212,7 +212,7 @@ describe("runBIMEstimation — quantitatif cohérent par type de projet", () => 
   it("appartement et studio : profil résidentiel", () => {
     for (const cat of ["appartement", "studio"]) {
       const names = soItems(cat);
-      expect(names.some((n) => n.includes("Fenêtre coulissante alu"))).toBe(true);
+      expect(names.some((n) => n.includes("Fenêtre aluminium"))).toBe(true);
     }
   });
 
