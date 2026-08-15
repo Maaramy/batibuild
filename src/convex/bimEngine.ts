@@ -125,11 +125,17 @@ export const P_CATEGORY_MAP: Record<string, string> = {
 // conservent leurs prix internes de référence P.
 // ============================================================================
 
-/** Normalise un libellé pour la comparaison (minuscules, sans accents, sans ponctuation). */
+/**
+ * Normalise un libellé pour la comparaison (minuscules, sans accents, sans
+ * ponctuation). Les symboles × et x des dimensions (ex. « 16×50 » vs « 16x50 »)
+ * sont unifiés pour que les postes BIM et les références du catalogue 2026
+ * correspondent quelle que soit la saisie.
+ */
 const normKey = (s: string) =>
   s
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/×/g, "x")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 
@@ -196,11 +202,17 @@ const BIM_TO_CATALOG: Record<string, { name: string; qtyFactor?: number }> = {
   "Tuyau PVC Ø100 évacuation": { name: "Tube PVC évacuation Ø110 (ml)" },
   "Câble électrique 2.5mm²": { name: "Câble électrique 3×2.5 mm² (rouleau 100 m)", qtyFactor: 1 / 100 },
   "Câble électrique 2.5mm² (rouleau 100m)": { name: "Câble électrique 3×2.5 mm² (rouleau 100 m)", qtyFactor: 1 / 100 },
+  "Câble solaire DC 6mm²": { name: "Câble solaire 6 mm² (ml)" },
   "Disjoncteur divisionnaire 20A": { name: "Disjoncteur modulaire 16 A" },
   "Prise de courant 2P+T encastrée": { name: "Prise de courant 2P+T" },
   "Luminaire LED haute baie 150W": { name: "Projecteur LED haute baie 150 W" },
   "WC complet avec réservoir": { name: "WC à l'anglaise complet" },
+  "WC public + lave-mains": { name: "WC à l'anglaise complet" },
   "Lavabo vasque + robinetterie": { name: "Lavabo céramique" },
+  "Vitrine aluminium + porte coulissante": { name: "Baie coulissante alu 2 vantaux" },
+  "Porte sectionnelle industrielle 3x3": { name: "Porte garage sectionnelle 2.5×2.1" },
+  "Étanchéité toiture bac acier": { name: "Étanchéité liquide bitumeuse" },
+  "Peinture antirouille supports": { name: "Antirouille métal (L)" },
   "Climatisation split 12000 BTU": { name: "Climatiseur split 12000 BTU" },
   "Motorisation portail coulissant 600kg": { name: "Motorisation portail 600 kg" },
   "Éclairage LED extérieur sur poteaux": { name: "Éclairage jardin sur poteaux" },

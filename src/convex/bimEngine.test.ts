@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { runBIMEstimation, type RoomCounts } from "./bimEngine";
+import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 
 // ════════════════════════════════════════════════════════════════════════
 // Tests d'impact du nombre de pièces sur le moteur BIM
@@ -168,9 +169,9 @@ describe("runBIMEstimation — quantitatif cohérent par type de projet", () => 
     expect(names.some((n) => n.includes("Portail"))).toBe(true);
   });
 
-  it("bureau (commercial) : vitrine au lieu de fenêtres résidentielles", () => {
+  it("bureau (commercial) : baie coulissante (vitrine) au lieu de fenêtres résidentielles", () => {
     const names = soItems("bureau");
-    expect(names.some((n) => n.includes("Vitrine"))).toBe(true);
+    expect(names.some((n) => n.includes("Baie coulissante"))).toBe(true);
     expect(names.some((n) => n.includes("Fenêtre aluminium"))).toBe(false);
   });
 
@@ -204,9 +205,9 @@ describe("runBIMEstimation — quantitatif cohérent par type de projet", () => 
     expect(names.some((n) => n.includes("Porte intérieure"))).toBe(true);
   });
 
-  it("résidence touristique : profil hôtelier (vitrine)", () => {
+  it("résidence touristique : profil hôtelier (baie coulissante)", () => {
     const names = soItems("residence_touristique");
-    expect(names.some((n) => n.includes("Vitrine"))).toBe(true);
+    expect(names.some((n) => n.includes("Baie coulissante"))).toBe(true);
   });
 
   it("appartement et studio : profil résidentiel", () => {
@@ -222,5 +223,99 @@ describe("runBIMEstimation — quantitatif cohérent par type de projet", () => 
       expect(res.costEstimate.totalCost).toBeGreaterThan(0);
       expect(res.costEstimate.breakdown.length).toBe(6);
     }
+  });
+});
+
+describe("runBIMEstimation — quantitatif détaillé aligné sur le catalogue 2026", () => {
+  const catalogNames = new Set(TUNISIA_2026_CATALOG.map((m) => m.name));
+
+  const item = (res: ReturnType<typeof runBIMEstimation>, category: string, namePart: string) => {
+    const b = getBreakdown(res, category);
+    return findItem(b, namePart);
+  };
+
+  it("gros œuvre : les libellés, unités et prix unitaires suivent le catalogue 2026", () => {
+    const res = runBIMEstimation("maison", 150, 1, "tunis", "standard");
+
+    const hourdis = item(res, "gros_oeuvre", "Hourdis");
+    expect(hourdis.name).toBe("Hourdis 16×50");
+    expect(hourdis.unit).toBe("pièce");
+    expect(hourdis.unitPrice).toBe(1.7);
+
+    const cement = item(res, "gros_oeuvre", "Ciment CPJ 42.5");
+    expect(cement.name).toBe("Ciment CPJ 42.5 (sac 50 kg)");
+    expect(cement.unit).toBe("sac");
+    expect(cement.unitPrice).toBe(16.5);
+
+    const steel = item(res, "gros_oeuvre", "Acier à béton T12");
+    expect(steel.name).toBe("Acier à béton T12 (tonne)");
+    expect(steel.unit).toBe("tonne");
+    expect(steel.unitPrice).toBe(3850);
+  });
+
+  it("second œuvre : fenêtres, carrelage et portes utilisent les références catalogue", () => {
+    const res = runBIMEstimation("maison", 150, 1, "tunis", "standard");
+
+    const fenetre = item(res, "second_oeuvre", "Fenêtre");
+    expect(fenetre.name).toBe("Fenêtre aluminium 90×120");
+    expect(fenetre.unit).toBe("pièce");
+
+    const carrelage = item(res, "second_oeuvre", "Carrelage");
+    expect(carrelage.name).toBe("Carrelage sol 40×40 (m²)");
+    expect(carrelage.unit).toBe("m²");
+    expect(carrelage.unitPrice).toBe(22);
+  });
+
+  it("équipements : sanitaires et électricité résolus vers le catalogue", () => {
+    const res = runBIMEstimation("maison", 150, 1, "tunis", "standard");
+
+    const douche = item(res, "equipements", "Receveur de douche");
+    expect(douche.name).toBe("Receveur de douche 90×90");
+    expect(douche.unit).toBe("pièce");
+    expect(douche.unitPrice).toBe(200);
+
+    const cable = item(res, "equipements", "Câble électrique");
+    expect(cable.name).toBe("Câble électrique 3×2.5 mm² (rouleau 100 m)");
+    expect(cable.unit).toBe("rouleau");
+  });
+
+  it("clôture : la brique pleine 22×11×7 est alignée sur le catalogue", () => {
+    const res = runBIMEstimation("cloture", 100, 1, "tunis", "standard");
+    const brique = item(res, "gros_oeuvre", "Brique pleine");
+    expect(brique.name).toBe("Brique pleine 22×11×7");
+    expect(brique.unit).toBe("pièce");
+    expect(brique.unitPrice).toBe(0.55);
+  });
+
+  it("entrepôt : la porte sectionnelle industrielle est alignée sur le catalogue", () => {
+    const res = runBIMEstimation("entrepot", 300, 1, "tunis", "standard");
+    const porte = item(res, "second_oeuvre", "Porte garage sectionnelle");
+    expect(porte.name).toBe("Porte garage sectionnelle 2.5×2.1");
+    expect(porte.unit).toBe("pièce");
+    expect(porte.unitPrice).toBe(1300);
+  });
+
+  it("bureau : la vitrine est mappée vers la baie coulissante alu du catalogue", () => {
+    const res = runBIMEstimation("bureau", 150, 1, "tunis", "standard");
+    const vitrine = item(res, "second_oeuvre", "Baie coulissante");
+    expect(vitrine.name).toBe("Baie coulissante alu 2 vantaux");
+    expect(vitrine.unit).toBe("pièce");
+  });
+
+  it("maison : tous les postes matériaux (gros œuvre, second œuvre, équipements) existent dans le catalogue 2026", () => {
+    const res = runBIMEstimation("maison", 150, 1, "tunis", "standard");
+    for (const category of ["gros_oeuvre", "second_oeuvre", "equipements"]) {
+      const b = getBreakdown(res, category);
+      for (const i of b.items ?? []) {
+        expect(catalogNames.has(i.name), `${i.name} doit exister dans le catalogue 2026`).toBe(true);
+      }
+    }
+  });
+
+  it("les postes de main-d'œuvre conservent leurs libellés internes (hors catalogue)", () => {
+    const res = runBIMEstimation("maison", 150, 1, "tunis", "standard");
+    const mo = getBreakdown(res, "main_oeuvre");
+    expect(mo.items?.some((i: any) => i.name === "Chef de chantier & Maçon qualifié")).toBe(true);
+    expect(mo.items?.some((i: any) => i.name === "Manœuvre")).toBe(true);
   });
 });

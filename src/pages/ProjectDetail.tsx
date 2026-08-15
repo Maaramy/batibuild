@@ -190,6 +190,7 @@ export default function ProjectDetail() {
   ];
 
   const [analyzing, setAnalyzing] = useState(false);
+  const [refreshingQuantitatif, setRefreshingQuantitatif] = useState(false);
   const [openCat, setOpenCat] = useState<string>("__all_expanded");
   const [selectedScenario, setSelectedScenario] = useState<string>("standard");
   const [exporting, setExporting] = useState(false);
@@ -322,6 +323,23 @@ export default function ProjectDetail() {
       toast.error(gated ? "Réservé aux forfaits Pro et Expert" : msg);
     } finally {
       setPredictiveLoading(false);
+    }
+  };
+
+  // ── Recalculer le « Quantitatif détaillé » avec le catalogue officiel 2026 ──
+  // Le moteur BIM résout chaque poste matériau vers le catalogue (nom, unité,
+  // prix unitaire). Cette action relance l'analyse pour que les projets déjà
+  // estimés reprennent les libellés/prix de la dernière liste des prix.
+  const refreshQuantitatif = async () => {
+    if (!project || refreshingQuantitatif) return;
+    setRefreshingQuantitatif(true);
+    try {
+      await simulateAnalysis({ projectId: project._id });
+      toast.success("Quantitatif mis à jour selon le catalogue 2026");
+    } catch (err: any) {
+      toast.error(err?.message || "Erreur lors de la mise à jour du quantitatif");
+    } finally {
+      setRefreshingQuantitatif(false);
     }
   };
 
@@ -1006,6 +1024,17 @@ export default function ProjectDetail() {
                     <Badge variant="secondary" className="text-[9px]">{totalItems} postes</Badge>
                   </div>
                   <div className="flex items-center gap-1">
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Mettre à jour le quantitatif selon le catalogue 2026"
+                      title="Mettre à jour le quantitatif selon le catalogue 2026"
+                      onClick={(e) => { e.stopPropagation(); refreshQuantitatif(); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); refreshQuantitatif(); } }}
+                      className={cn("flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors cursor-pointer", refreshingQuantitatif ? "opacity-60" : "hover:bg-muted/30 hover:text-primary")}
+                    >
+                      {refreshingQuantitatif ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    </span>
                     {openCat !== "" && (
                       <span onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === "__all_expanded" ? "__all" : "__all_expanded"); }}
                         className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/30 text-muted-foreground transition-colors"
