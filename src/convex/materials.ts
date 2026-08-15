@@ -257,6 +257,54 @@ export const seedMaterialPrices = mutation({
   },
 });
 
+/**
+ * Réinitialise complètement la base des prix : supprime toutes les références
+ * (et leur historique), puis charge le catalogue officiel 2026 (admin only).
+ * À utiliser après une refonte du catalogue — les anciennes références legacy
+ * (main d'œuvre, transport, engins…) ne sont pas conservées.
+ */
+export const resetMaterialPrices = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || user.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    // 1. Supprimer les références existantes + leur historique de prix
+    const existing = await ctx.db.query("materialPrices").collect();
+    for (const m of existing) {
+      const history = await ctx.db
+        .query("priceHistory")
+        .withIndex("by_material", (q) => q.eq("materialPriceId", m._id))
+        .collect();
+      for (const h of history) await ctx.db.delete(h._id);
+      await ctx.db.delete(m._id);
+    }
+
+    // 2. Charger le catalogue officiel 2026
+    const now = Date.now();
+    let seeded = 0;
+    for (const item of TUNISIA_2026_CATALOG) {
+      await ctx.db.insert("materialPrices", {
+        category: item.category as any,
+        name: item.name,
+        unit: item.unit,
+        unitPrice: item.unitPrice,
+        currency: "TND",
+        lastUpdated: now,
+        updatedBy: user._id,
+        subcategory: item.subcategory,
+        priceQuality: item.quality,
+        confidenceIndex: item.confidence,
+      });
+      seeded++;
+    }
+
+    return { deleted: existing.length, seeded, total: TUNISIA_2026_CATALOG.length };
+  },
+});
+
 /** Monthly automatic price update with realistic fluctuations */
 export const updateAllMaterialPrices = internalMutation({
   args: {},

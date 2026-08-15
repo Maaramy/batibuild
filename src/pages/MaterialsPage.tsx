@@ -2,6 +2,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useAuth } from "@/hooks/use-auth";
@@ -82,8 +93,10 @@ export default function MaterialsPage() {
   const materialPrices = useQuery(api.materials.getMaterialPrices, {}) || [];
   const categoryStats = useQuery(api.materials.getMaterialCategories) || [];
   const refreshPrices = useMutation(api.materials.refreshMaterialPrices);
+  const resetPrices = useMutation(api.materials.resetMaterialPrices);
 
   const isAdmin = user?.role === "admin";
+  const [resetting, setResetting] = useState(false);
 
   const handleRefreshPrices = async () => {
     if (!isAdmin) return;
@@ -95,6 +108,18 @@ export default function MaterialsPage() {
       toast.error(err.message || "Erreur lors de la mise à jour");
     }
     setRefreshing(false);
+  };
+
+  const handleResetCatalog = async () => {
+    if (!isAdmin) return;
+    setResetting(true);
+    try {
+      const result = await resetPrices();
+      toast.success(`Catalogue 2026 chargé : ${result.seeded} références (${result.deleted} anciennes supprimées)`);
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la réinitialisation");
+    }
+    setResetting(false);
   };
 
   const statsByCategory = useMemo(() => {
@@ -181,16 +206,47 @@ export default function MaterialsPage() {
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-xs border-emerald-200/60 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300"
-                disabled={refreshing}
-                onClick={handleRefreshPrices}
-              >
-                {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                Mise à jour
-              </Button>
+              <>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                      disabled={resetting}
+                    >
+                      {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
+                      Charger le catalogue 2026
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Réinitialiser la base des prix ?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Cette action supprime toutes les références existantes (et leur historique de prix),
+                        puis charge le catalogue officiel 2026 ({fmtInt(SHEET_STATS.refs)} références consolidées).
+                        Les anciennes références (main-d'œuvre, transport, engins…) seront remplacées. Cette action est irréversible.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleResetCatalog} disabled={resetting}>
+                        {resetting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                        Oui, charger le catalogue
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs border-emerald-200/60 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300"
+                  disabled={refreshing}
+                  onClick={handleRefreshPrices}
+                >
+                  {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Mise à jour
+                </Button>
+              </>
             )}
           </div>
         </div>
