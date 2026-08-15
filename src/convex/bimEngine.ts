@@ -221,18 +221,43 @@ const BIM_TO_CATALOG: Record<string, { name: string; qtyFactor?: number }> = {
 /**
  * Résout un poste BIM vers sa référence officielle 2026 (nom, unité, prix,
  * facteur de conversion de quantité) lorsqu'un équivalent catalogue existe.
+ * Si livePrices est fourni (prix en direct depuis la base materialPrices),
+ * le prix unitaire (et l'unité) du catalogue est remplacé par la valeur en
+ * base — les modifications de prix faites dans le panneau admin se reflètent
+ * ainsi automatiquement dans les nouvelles estimations.
  */
-function resolveCatalogItem(bimName: string) {
+function resolveCatalogItem(bimName: string, livePrices?: LivePriceMap) {
   const alias = BIM_TO_CATALOG[bimName];
   const catName = alias?.name ?? bimName;
   const item = CATALOG_BY_NAME.get(normKey(catName));
   if (!item) return undefined;
+  const live = livePrices?.get(normKey(item.name));
   return {
     name: item.name,
-    unit: item.unit,
-    unitPrice: item.unitPrice,
+    unit: live?.unit ?? item.unit,
+    unitPrice: live?.unitPrice ?? item.unitPrice,
     qtyFactor: alias?.qtyFactor ?? 1,
   };
+}
+
+/** Prix en direct (base materialPrices) indexés par libellé normalisé. */
+export type LivePriceMap = Map<string, { unit: string; unitPrice: number }>;
+
+/**
+ * Construit l'index des prix en direct depuis les lignes materialPrices
+ * de la base. Le prix unitaire de la base écrase celui du catalogue statique.
+ */
+export function buildLivePriceMap(
+  rows: { name: string; unit: string; unitPrice: number }[],
+): LivePriceMap {
+  const map: LivePriceMap = new Map();
+  for (const row of rows) {
+    const key = normKey(row.name);
+    if (row.unitPrice > 0 && !map.has(key)) {
+      map.set(key, { unit: row.unit, unitPrice: row.unitPrice });
+    }
+  }
+  return map;
 }
 
 type RawBimItem = { n: string; q: number; u: string; up: number };
@@ -242,10 +267,11 @@ type RawBimItem = { n: string; q: number; u: string; up: number };
  * (libellé, unité et prix unitaire alignés sur le catalogue officiel 2026),
  * puis met les montants à l'échelle pour coller au budget de la catégorie.
  * scaleQty = true recalcule aussi les quantités (gros œuvre / second œuvre).
+ * livePrices (optionnel) : prix en direct depuis la base materialPrices.
  */
-function finalizeItems(items: RawBimItem[], targetBudget: number, scaleQty = false) {
+function finalizeItems(items: RawBimItem[], targetBudget: number, scaleQty = false, livePrices?: LivePriceMap) {
   const resolved = items.map((i) => {
-    const cat = resolveCatalogItem(i.n);
+    const cat = resolveCatalogItem(i.n, livePrices);
     const qty = Math.round(i.q * (cat?.qtyFactor ?? 1) * 100) / 100 || 1;
     const up = cat?.unitPrice ?? i.up;
     return {
@@ -594,7 +620,7 @@ function catProfile(cat: string): string {
   return "residential";
 }
 
-function genGOItems(surface: number, floors: number, cat: string, targetBudget: number, wallFactor = 1) {
+function genGOItems(surface: number, floors: number, cat: string, targetBudget: number, wallFactor = 1, livePrices?: LivePriceMap) {
   const tb = surface * (floors || 1);
   const profile = catProfile(cat);
   const isSmall = ["cloture","mur_de_separation","trottoir","pergola","terrasse","garage"].includes(cat);
@@ -707,10 +733,10 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Parpaing creux 20cm", q:Math.round(tb*12*dW), u:"unités", up:P.bricks.parpaing_20},
     ];
   }
-  return finalizeItems(items, targetBudget, true);
+  return finalizeItems(items, targetBudget, true, livePrices);
 }
 
-function genSOItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { total?: number }) {
+function genSOItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { total?: number }, livePrices?: LivePriceMap) {
   const tb = surface * (floors || 1);
   const profile = catProfile(cat);
   const isRenov = cat.startsWith("renovation");
