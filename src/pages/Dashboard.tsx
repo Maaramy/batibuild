@@ -53,8 +53,6 @@ import {
   ChevronDown,
   Lock,
   RefreshCcw,
-  Bot,
-  MessageSquareMore,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -477,7 +475,6 @@ export default function Dashboard() {
           { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
           { icon: Store, label: "Espace fournisseur", onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
           { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
-          { icon: Bot, label: "Copilote IA Construction", onClick: () => { navigate("/dashboard/copilot"); setMobileSidebarOpen(false); } },
           { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
           ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
         ].map((item) => (
@@ -605,49 +602,6 @@ export default function Dashboard() {
             <StatsCard icon={BarChart3} label="Moyenne" value={formatter.format(stats.averageCostPerProject)}
               gradient="from-amber-500/20 to-orange-500/20" iconColor="text-amber-600 dark:text-amber-400" />
           </div>
-
-          {/* ── Construction AI Copilot ── */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-          >
-            <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-background to-emerald-500/[0.06]">
-              <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
-              <div className="absolute -bottom-20 -left-10 h-44 w-44 rounded-full bg-emerald-500/10 blur-3xl" />
-              <div className="relative p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3.5">
-                <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-600 text-primary-foreground shadow-soft">
-                  <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm sm:text-base font-bold tracking-tight">Construction AI Copilot</p>
-                    <Badge className="bg-violet-100 text-violet-700 border-violet-200/60 text-[9px] px-1.5 py-0">
-                      <Sparkles className="h-2.5 w-2.5" /> PREMIUM
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-                    Votre conseiller technique IA : comprend votre projet, calcule, compare les matériaux, analyse les documents et anticipe les risques de chantier.
-                  </p>
-                  <div className="hidden sm:flex flex-wrap gap-1.5 mt-2">
-                    {["Contexte projet", "Mémoire", "Calculs béton/ciment", "Comparateur matériaux", "Rapports IA", "Sources & fiabilité"].map((f) => (
-                      <span key={f} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/[0.06] text-primary border border-primary/15">{f}</span>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    size="sm"
-                    className="h-9 gap-1.5 text-xs"
-                    onClick={() => navigate("/dashboard/copilot")}
-                  >
-                    <MessageSquareMore className="h-3.5 w-3.5" />
-                    Ouvrir le copilote
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </motion.div>
 
           {/* ── Évolution des coûts (Recharts) ── */}
           {costSeries.length >= 2 && (

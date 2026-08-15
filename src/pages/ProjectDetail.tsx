@@ -33,7 +33,7 @@ import {
   Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
   Percent, ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
-  LockKeyhole, RefreshCw, BedDouble, LayoutGrid, Bot,
+  LockKeyhole, RefreshCw, BedDouble, LayoutGrid,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -460,15 +460,6 @@ export default function ProjectDetail() {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => document.getElementById("copilot-panel")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              title="Ouvrir le Construction AI Copilot ciblé sur ce projet"
-              className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary/50 active:scale-95"
-            >
-              <Bot className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Copilote IA</span>
-              <span className="sm:hidden">IA</span>
-            </button>
             {done && (
               <>
                 {investmentTypeForProject(project.category) && ce && (
