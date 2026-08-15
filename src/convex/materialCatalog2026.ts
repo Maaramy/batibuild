@@ -455,7 +455,7 @@ export const TUNISIA_2026_CATALOG: CatalogItem[] = [
   { category: "materiaux_durables_biosources", name: "Bois certifié FSC (m³)", unit: "m³", unitPrice: 900, quality: ESTIMATED, confidence: 0.55 },
   { category: "materiaux_durables_biosources", name: "Liège expansé (m²)", unit: "m²", unitPrice: 45, quality: ESTIMATED, confidence: 0.55 },
   { category: "materiaux_durables_biosources", name: "Isolant fibre de bois (m²)", unit: "m²", unitPrice: 35, quality: ESTIMATED, confidence: 0.55 },
-  { category: "materiaux_durables_biosources", name: "Peinture écologique (L)", unit: "L", unitPrice: 45, quality: ESTIMATED, confidence: 0.55 },
+  { category: "materiaux_durables_biosources", name: "Peinture écologique biosourcée (L)", unit: "L", unitPrice: 45, quality: ESTIMATED, confidence: 0.55 },
   { category: "materiaux_durables_biosources", name: "Enduit terre (sac 25 kg)", unit: "sac", unitPrice: 20, quality: ESTIMATED, confidence: 0.5 },
 
   // ── Équipements (plomberie, sanitaire, électricité) ───────────────────────

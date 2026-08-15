@@ -26,6 +26,17 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   ArrowRight,
   BarChart3,
@@ -79,6 +90,7 @@ import {
   Receipt,
   Landmark,
   Newspaper,
+  Database,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -111,6 +123,7 @@ export default function AdminPanel() {
   });
   const [editingMaterial, setEditingMaterial] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
+  const [resettingCatalog, setResettingCatalog] = useState(false);
   const [userSearch, setUserSearch] = useState("");
   const [subSearch, setSubSearch] = useState("");
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
@@ -220,6 +233,7 @@ export default function AdminPanel() {
   const createMaterial = useMutation(api.materials.createMaterialPrice);
   const updateMaterial = useMutation(api.materials.updateMaterialPrice);
   const deleteMaterial = useMutation(api.materials.deleteMaterialPrice);
+  const resetMaterialPrices = useMutation(api.materials.resetMaterialPrices);
 
   // Handle user deletion
   useEffect(() => {
@@ -309,6 +323,18 @@ export default function AdminPanel() {
       </main>
     );
   }
+
+  const handleResetCatalog = async () => {
+    if (!isAdmin) return;
+    setResettingCatalog(true);
+    try {
+      const result = await resetMaterialPrices();
+      toast.success(`Catalogue 2026 chargé : ${result.seeded} références (${result.deleted} anciennes supprimées)`);
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la réinitialisation du catalogue");
+    }
+    setResettingCatalog(false);
+  };
 
   const handleCreateMaterial = async () => {
     if (!newMaterial.name || !newMaterial.unit || !newMaterial.unitPrice) return;
@@ -419,6 +445,39 @@ export default function AdminPanel() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {isAdmin && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 h-8 shrink-0 border-amber-300/60 text-amber-700 hover:bg-amber-50 hover:border-amber-400"
+                    disabled={resettingCatalog}
+                  >
+                    {resettingCatalog ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
+                    <span className="hidden lg:inline">Charger le catalogue 2026</span>
+                    <span className="lg:hidden">Catalogue</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Réinitialiser la base des prix ?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Cette action supprime toutes les références existantes (et leur historique de prix),
+                      puis charge le catalogue officiel 2026 consolidé (491 références).
+                      Les anciennes références (main-d'œuvre, transport, engins…) seront remplacées. Cette action est irréversible.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleResetCatalog} disabled={resettingCatalog}>
+                      {resettingCatalog ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                      Oui, charger le catalogue
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
             <span className="hidden sm:flex items-center gap-1.5 text-[10px] text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-full border border-border/20">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
               {allUsers.length} utilisateurs
