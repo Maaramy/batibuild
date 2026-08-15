@@ -426,6 +426,28 @@ export default function ProjectDetail() {
     [scaledBreakdown],
   );
 
+  // ── Meilleur fournisseur (prix minimum) par désignation du quantitatif ──
+  // Résolu en direct depuis les offres fournisseurs (materialOffers) : le nom
+  // du fournisseur le moins cher est affiché pour chaque poste matériau.
+  const quantitatifNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of ce?.breakdown ?? []) {
+      for (const it of b.items ?? []) {
+        if (it.name) set.add(it.name);
+      }
+    }
+    return Array.from(set);
+  }, [ce?.breakdown]);
+  const cheapestSuppliers = useQuery(
+    api.marketData.getCheapestSuppliers,
+    quantitatifNames.length ? { names: quantitatifNames } : "skip",
+  );
+  const supplierByItem = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const s of cheapestSuppliers ?? []) map[s.name] = s;
+    return map;
+  }, [cheapestSuppliers]);
+
   const { rMult, impactPct, baseCost, diff } = useMemo(() => {
     const r = project?.region ? (REGION_MULTIPLIER[project.region] ?? 1) : 1;
     const i = Math.round((r - 1) * 100);
@@ -1057,13 +1079,14 @@ export default function ProjectDetail() {
                               <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Qté</th>
                               <th className="text-right py-2.5 px-3 font-medium text-muted-foreground hidden sm:table-cell">P.U.</th>
                               <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Total</th>
+                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground hidden lg:table-cell">Fournisseur (meilleur prix)</th>
                             </tr>
                           </thead>
                           <tbody>
                             {scaledBreakdown.filter((b: any) => b.items?.length).map((cat: any) => (
                               <Fragment key={cat.label}>
                                 <tr className="border-b border-border/5 bg-muted/10">
-                                  <td colSpan={4} className="py-2 px-3">
+                                  <td colSpan={5} className="py-2 px-3">
                                     <button onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === cat.label ? "__all" : cat.label); }}
                                       className="flex items-center gap-1.5 w-full text-left">
                                       <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[cat.category] ?? "#888" }} />
@@ -1083,6 +1106,34 @@ export default function ProjectDetail() {
                                     <td className="text-right py-2 px-3 font-mono text-muted-foreground">{cat.category === "main_oeuvre" ? "N/A" : `${item.quantity} ${item.unit}`}</td>
                                     <td className="text-right py-2 px-3 text-muted-foreground font-mono hidden sm:table-cell">{fmt(item.unitPrice)}</td>
                                     <td className="text-right py-2 px-3 font-semibold font-mono">{fmt(item.totalPrice)}</td>
+                                    <td className="py-2 px-3 hidden lg:table-cell">
+                                      {(() => {
+                                        const sup = supplierByItem.get(item.name);
+                                        if (!sup) {
+                                          return <span className="text-muted-foreground/40">—</span>;
+                                        }
+                                        const cheaper = sup.minPrice < item.unitPrice;
+                                        return (
+                                          <div
+                                            className="flex items-center justify-end gap-1.5"
+                                            title={`${sup.supplier}${sup.governorate ? ` · ${sup.governorate}` : ""} · prix min ${sup.minPrice.toFixed(2)} TND${sup.unit ? "/" + sup.unit : ""}`}
+                                          >
+                                            <span className="text-[10px] font-medium text-foreground/80 truncate max-w-[120px]">{sup.supplier}</span>
+                                            <span
+                                              className={cn(
+                                                "text-[9px] font-semibold tabular-nums shrink-0 rounded px-1 py-px",
+                                                cheaper
+                                                  ? "text-emerald-600 bg-emerald-500/10 border border-emerald-500/20"
+                                                  : "text-muted-foreground/70",
+                                              )}
+                                              title={cheaper ? `Meilleur que le P.U. estimé (${fmt(item.unitPrice)})` : ""}
+                                            >
+                                              {fmt(sup.minPrice)}
+                                            </span>
+                                          </div>
+                                        );
+                                      })()}
+                                    </td>
                                   </motion.tr>
                                 ))}
                               </Fragment>

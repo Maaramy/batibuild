@@ -504,3 +504,110 @@ export const getSupplierComparison = query({
       .sort((a, b) => a.minPrice - b.minPrice);
   },
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MEILLEUR FOURNISSEUR PAR DÉSIGNATION (Quantitatif détaillé)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Normalise un libellé pour la comparaison (minuscules, sans accents, sans ponctuation). */
+const normOffer = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/×/g, "x")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+/** Mots-clés significatifs (≥ 3 caractères) d'un libellé, pour le repli approximatif. */
+const offerTokens = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3);
+
+/**
+ * Meilleure offre (fournisseur au prix minimum le plus bas, fiabilité en cas
+ * d'égalité) pour chaque désignation du « Quantitatif détaillé ».
+ *
+ * La correspondance est faite par libellé normalisé, avec repli sur la
+ * sous-chaîne puis sur le recouvrement de mots-clés significatifs, pour
+ * aligner les postes BIM (ex. « Treillis soudé ST25 (panneau) ») sur les
+ * offres marché (ex. « Treillis soudé ST 25 »). Les désignations sans offre
+ * recensée renvoient null (affichées « — » côté client).
+ */
+export const getCheapestSuppliers = query({
+  args: { names: v.array(v.string()) },
+  handler: async (ctx, { names }) => {
+    if (names.length === 0) return [];
+    const offers = await ctx.db.query("materialOffers").collect();
+    if (offers.length === 0) return [];
+
+    const byKey = new Map<string, any[]>();
+    for (const o of offers) {
+      const key = normOffer(o.name);
+      if (!key) continue;
+      const list = byKey.get(key) || [];
+      list.push(o);
+      byKey.set(key, list);
+    }
+
+    const bestOf = (list: any[]) =>
+      list.reduce((best, o) =>
+        o.minPrice < best.minPrice ||
+        (o.minPrice === best.minPrice && (o.reliabilityIndex || 0) > (best.reliabilityIndex || 0))
+          ? o
+          : best,
+      );
+
+    const results: (any | null)[] = [];
+    for (const name of names) {
+      const key = normOffer(name);
+      const exact = byKey.get(key);
+      let best = exact ? bestOf(exact) : undefined;
+
+      // Repli 1 : sous-chaîne (l'un contient l'autre) sur libellés suffisamment longs
+      if (!best && key.length >= 10) {
+        for (const [ok, list] of byKey) {
+          if (ok.length >= 8 && (key.includes(ok) || ok.includes(key))) {
+            best = bestOf(list);
+            break;
+          }
+        }
+      }
+
+      // Repli 2 : recouvrement de mots-clés significatifs (≥ 2 termes communs)
+      if (!best) {
+        const itemTokens = offerTokens(name);
+        if (itemTokens.length >= 2) {
+          let bestScore = 0;
+          for (const [ok, list] of byKey) {
+            const score = itemTokens.filter((t) => ok.includes(t)).length;
+            if (score >= 2 && score > bestScore) {
+              bestScore = score;
+              best = bestOf(list);
+            }
+          }
+        }
+      }
+
+      results.push(
+        best
+          ? {
+              name,
+              supplier: best.supplier,
+              sourceType: best.sourceType,
+              minPrice: best.minPrice,
+              avgPrice: best.avgPrice,
+              unit: best.unit,
+              governorate: best.governorate,
+              reliabilityIndex: best.reliabilityIndex,
+              availability: best.availability,
+            }
+          : null,
+      );
+    }
+    return results.filter(Boolean);
+  },
+});
