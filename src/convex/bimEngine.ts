@@ -1,3 +1,5 @@
+import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
+
 // ============================================================================
 // PROFESSIONAL BIM COST ESTIMATION ENGINE
 // Tunisia 2026 - Market-Based Pricing (Top-Down)
@@ -113,6 +115,145 @@ export const P_CATEGORY_MAP: Record<string, string> = {
   hvac: "cvc_chauffage_ventilation",
   solar: "energies_renouvelables",
 };
+
+// ============================================================================
+// LIEN MOTEUR BIM ↔ CATALOGUE OFFICIEL 2026
+// Les libellés, unités et prix unitaires des postes du « Quantitatif détaillé »
+// sont résolus depuis TUNISIA_2026_CATALOG (source unique partagée avec la
+// page « Prix des matériaux » et la base de données materialPrices). Les postes
+// sans équivalent catalogue (main-d'œuvre, transport, engins, études…)
+// conservent leurs prix internes de référence P.
+// ============================================================================
+
+/** Normalise un libellé pour la comparaison (minuscules, sans accents, sans ponctuation). */
+const normKey = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+/** Index du catalogue officiel 2026 par libellé normalisé. */
+const CATALOG_BY_NAME = new Map<string, (typeof TUNISIA_2026_CATALOG)[number]>();
+for (const item of TUNISIA_2026_CATALOG) {
+  CATALOG_BY_NAME.set(normKey(item.name), item);
+}
+
+/**
+ * Correspondance postes BIM → références officielles 2026 pour les libellés qui
+ * ne correspondent pas exactement (même matériau, formulation différente).
+ * qtyFactor convertit la quantité BIM dans l'unité de vente du catalogue
+ * (ex. tonnes → barres de 12 m, m² de treillis → panneau, ml de câble → rouleau).
+ */
+const BIM_TO_CATALOG: Record<string, { name: string; qtyFactor?: number }> = {
+  // Terrassement et gros œuvre
+  "Terrassement & excavation piscine": { name: "Terrassement mécanique" },
+  "Béton armé coque C25/30": { name: "Béton prêt à l'emploi 350 kg/m³" },
+  "Béton de dalle industrielle C25/30": { name: "Béton prêt à l'emploi 350 kg/m³" },
+  "Béton de fondation linéaire": { name: "Béton prêt à l'emploi 250 kg/m³" },
+  "Béton de fondation massifs": { name: "Béton prêt à l'emploi 250 kg/m³" },
+  "Acier à béton T12": { name: "Acier à béton T12 (tonne)" },
+  "Acier à béton T10": { name: "Fer à béton HA T10 (barre 12 m)", qtyFactor: 135 },
+  "Treillis soudé ST25": { name: "Treillis soudé ST25 (panneau)", qtyFactor: 1 / 6 },
+  "Bois de coffrage": { name: "Bois de coffrage (m³)" },
+  "Ciment CPJ 42.5 (Sac 50kg)": { name: "Ciment CPJ 42.5 (sac 50 kg)" },
+  "Ciment CPJ 32.5 (Maçonnerie)": { name: "Ciment CPJ 32.5 (sac 50 kg)" },
+  "Gravier 15/25mm": { name: "Gravier concassé 15/25" },
+  "Poteau préfabriqué béton": { name: "Poteau béton préfabriqué" },
+  "Terre végétale amendée": { name: "Terre végétale (apport)" },
+  "Gravier concassé (drainage)": { name: "Gravier concassé 8/15" },
+  "Graves non traitées (couche de forme)": { name: "Tout-venant 0/31.5" },
+  // Second œuvre
+  "Bordure béton 50x20": { name: "Bordure béton préfabriquée" },
+  "Bordures béton T2": { name: "Bordure béton préfabriquée" },
+  "Carrelage anti-dérapant (plage)": { name: "Carrelage extérieur antidérapant (m²)" },
+  "Dalle grès cérame antidérapante 40x40": { name: "Carrelage extérieur antidérapant (m²)" },
+  "Portail métallique à deux vantaux": { name: "Portail alu battant 2 vantaux" },
+  "Étanchéité liquide bitumeuse (tête de mur)": { name: "Étanchéité liquide bitumeuse" },
+  "Bardage métallique prélaqué": { name: "Bac acier nervuré (m²)" },
+  "Enrobé bitumineux 5cm": { name: "Enrobé bitumineux (m²)" },
+  "Carrelage sol grès cérame 60x60": { name: "Carrelage grès cérame 60×60 (m²)" },
+  "Carrelage sol grès cérame 40x40": { name: "Carrelage sol 40×40 (m²)" },
+  "Carrelage mural faïence 20x30": { name: "Faïence 20×30 (m²)" },
+  "Plinthe céramique 8x30": { name: "Plinthe céramique (ml)" },
+  "Peinture intérieure mate lessivable": { name: "Peinture intérieure mate (L)" },
+  "Peinture intérieure mate": { name: "Peinture intérieure mate (L)" },
+  "Peinture extérieure acrylique": { name: "Peinture extérieure acrylique (L)" },
+  "Enduit de lissage prêt à gâcher": { name: "Enduit de lissage (kg)" },
+  "Porte intérieure en bois pleine": { name: "Porte intérieure bois pleine" },
+  "Porte d'entrée métallique blindée": { name: "Porte d'entrée métallique" },
+  "Fenêtre coulissante alu simple vitrage": { name: "Fenêtre aluminium 90×120" },
+  "Tuile canal rouge": { name: "Tuile canal rouge (m²)" },
+  "Panneau de placoplâtre BA13": { name: "Plaque placoplâtre BA13 (m²)" },
+  "Corniche en plâtre": { name: "Corniche en plâtre (ml)" },
+  "Faux plafond dalles 60x60": { name: "Faux plafond dalles 60×60 (m²)" },
+  "Pavé autobloquant 6cm": { name: "Pavé autobloquant (m²)" },
+  // Équipements
+  "Panneau photovoltaïque 450Wc monocristallin": { name: "Panneau photovoltaïque 450 Wc" },
+  "Onduleur central": { name: "Onduleur central 5 kW" },
+  "Goutte-à-goutte + tuyau PER": { name: "Tube PER Ø16 (ml)" },
+  "Tuyau PER Ø16": { name: "Tube PER Ø16 (ml)" },
+  "Tuyau PVC Ø100 évacuation": { name: "Tube PVC évacuation Ø110 (ml)" },
+  "Câble électrique 2.5mm²": { name: "Câble électrique 3×2.5 mm² (rouleau 100 m)", qtyFactor: 1 / 100 },
+  "Câble électrique 2.5mm² (rouleau 100m)": { name: "Câble électrique 3×2.5 mm² (rouleau 100 m)", qtyFactor: 1 / 100 },
+  "Disjoncteur divisionnaire 20A": { name: "Disjoncteur modulaire 16 A" },
+  "Prise de courant 2P+T encastrée": { name: "Prise de courant 2P+T" },
+  "Luminaire LED haute baie 150W": { name: "Projecteur LED haute baie 150 W" },
+  "WC complet avec réservoir": { name: "WC à l'anglaise complet" },
+  "Lavabo vasque + robinetterie": { name: "Lavabo céramique" },
+  "Climatisation split 12000 BTU": { name: "Climatiseur split 12000 BTU" },
+  "Motorisation portail coulissant 600kg": { name: "Motorisation portail 600 kg" },
+  "Éclairage LED extérieur sur poteaux": { name: "Éclairage jardin sur poteaux" },
+};
+
+/**
+ * Résout un poste BIM vers sa référence officielle 2026 (nom, unité, prix,
+ * facteur de conversion de quantité) lorsqu'un équivalent catalogue existe.
+ */
+function resolveCatalogItem(bimName: string) {
+  const alias = BIM_TO_CATALOG[bimName];
+  const catName = alias?.name ?? bimName;
+  const item = CATALOG_BY_NAME.get(normKey(catName));
+  if (!item) return undefined;
+  return {
+    name: item.name,
+    unit: item.unit,
+    unitPrice: item.unitPrice,
+    qtyFactor: alias?.qtyFactor ?? 1,
+  };
+}
+
+type RawBimItem = { n: string; q: number; u: string; up: number };
+
+/**
+ * Convertit les postes bruts d'un générateur en lignes « Quantitatif détaillé »
+ * (libellé, unité et prix unitaire alignés sur le catalogue officiel 2026),
+ * puis met les montants à l'échelle pour coller au budget de la catégorie.
+ * scaleQty = true recalcule aussi les quantités (gros œuvre / second œuvre).
+ */
+function finalizeItems(items: RawBimItem[], targetBudget: number, scaleQty = false) {
+  const resolved = items.map((i) => {
+    const cat = resolveCatalogItem(i.n);
+    const qty = Math.round(i.q * (cat?.qtyFactor ?? 1) * 100) / 100 || 1;
+    const up = cat?.unitPrice ?? i.up;
+    return {
+      name: cat?.name ?? i.n,
+      unit: cat?.unit ?? i.u,
+      unitPrice: up,
+      quantity: qty,
+      rawTotal: Math.round(qty * up),
+    };
+  });
+  const rawTotal = resolved.reduce((s, i) => s + i.rawTotal, 0);
+  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
+  return resolved.map((i) => ({
+    name: i.name,
+    unit: i.unit,
+    unitPrice: i.unitPrice,
+    quantity: scaleQty ? Math.round(i.quantity * scale * 10) / 10 || 1 : i.quantity,
+    totalPrice: Math.round(i.rawTotal * scale),
+  }));
+}
 
 /** Correspondance des anciennes catégories (legacy) vers les catégories officielles 2026. */
 export const LEGACY_MATERIAL_CATEGORY_MAP: Record<string, string> = {
@@ -554,12 +695,7 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Parpaing creux 20cm", q:Math.round(tb*12*dW), u:"unités", up:P.bricks.parpaing_20},
     ];
   }
-  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
-  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
-  return items.map(i => ({
-    name:i.n, quantity:Math.round(i.q*scale*10)/10 || 1, unit:i.u,
-    unitPrice:i.up, totalPrice:Math.round(Math.round(i.q*i.up)*scale)
-  }));
+  return finalizeItems(items, targetBudget, true);
 }
 
 function genSOItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { total?: number }) {
@@ -659,12 +795,7 @@ function genSOItems(surface: number, floors: number, cat: string, targetBudget: 
       items.push({n:"Corniche en plâtre", q:Math.round(tb*0.2), u:"ml", up:8});
     }
   }
-  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
-  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
-  return items.map(i => ({
-    name:i.n, quantity:Math.round(i.q*scale*10)/10 || 1, unit:i.u,
-    unitPrice:i.up, totalPrice:Math.round(Math.round(i.q*i.up)*scale)
-  }));
+  return finalizeItems(items, targetBudget, true);
 }
 
 function genEQItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { bathrooms?: number; kitchens?: number; total?: number }) {
@@ -738,12 +869,7 @@ function genEQItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Interrupteur va-et-vient", q:Math.max(3,doorC*1.5), u:"unités", up:7},
       {n:"Luminaire LED plafonnier", q:Math.max(2,doorC*2), u:"unités", up:30});
   }
-  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
-  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
-  return items.map(i => ({
-    name:i.n, quantity:i.q, unit:i.u,
-    unitPrice:i.up, totalPrice:Math.round(Math.round(i.q*i.up)*scale)
-  }));
+  return finalizeItems(items, targetBudget, false);
 }
 
 function genMOItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { total?: number; bathrooms?: number; kitchens?: number }) {
@@ -827,12 +953,7 @@ function genMOItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Peintre en bâtiment", q:Math.round(tb/60*ih*10)/10, u:"jours", up:65},
     ];
   }
-  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
-  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
-  return items.map(i => ({
-    name:i.n, quantity:i.q, unit:i.u,
-    unitPrice:i.up, totalPrice:Math.round(Math.round(i.q*i.up)*scale)
-  }));
+  return finalizeItems(items, targetBudget, false);
 }
 
 function genTRItems(surface: number, floors: number, targetBudget: number, cat = "maison") {
@@ -855,12 +976,7 @@ function genTRItems(surface: number, floors: number, targetBudget: number, cat =
       {n:"Évacuation gravats (benne 8m³)", q:Math.max(1,Math.round(tb/60)), u:"bennes", up:200},
     ];
   }
-  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
-  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
-  return items.map(i => ({
-    name:i.n, quantity:i.q, unit:i.u,
-    unitPrice:i.up, totalPrice:Math.round(Math.round(i.q*i.up)*scale)
-  }));
+  return finalizeItems(items, targetBudget, false);
 }
 
 function genEIItems(totalBudget: number, targetBudget: number) {
@@ -872,12 +988,7 @@ function genEIItems(totalBudget: number, targetBudget: number) {
     {n:"Raccordement eau potable (SONEDE)", q:1, u:"forfait", up:1000},
     {n:"Raccordement électricité (STEG)", q:1, u:"forfait", up:1200},
   ];
-  const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
-  const scale = rawTotal > 0 ? targetBudget / rawTotal : 1;
-  return items.map(i => ({
-    name:i.n, quantity:i.q, unit:i.u,
-    unitPrice:i.up, totalPrice:Math.round((i.q*i.up)*scale)
-  }));
+  return finalizeItems(items, targetBudget, false);
 }
 
 function estimateDuration(s: number, fl: number, cat: string, roomsFactor = 1): string {
