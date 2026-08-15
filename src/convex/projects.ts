@@ -705,7 +705,12 @@ export const updatePredictiveInsights = mutation({
 // BIM Engine (professional cost estimation)
 // ============================================================================
 
-import { runBIMEstimation, generateProviderRecommendations } from "./bimEngine";
+import {
+  runBIMEstimation,
+  generateProviderRecommendations,
+  buildLivePriceMap,
+  withLivePrices,
+} from "./bimEngine";
 import { findMatchingSuppliers } from "./suppliers";
 
 // ============================================================================
@@ -728,15 +733,26 @@ export const simulateAnalysis = mutation({
     const region = project.region ?? "tunis";
     const finishLevel = (project as any).finish_level || "standard";
 
-    const result = runBIMEstimation(category, surface, floors, region, finishLevel, {
-      bedrooms: project.bedrooms,
-      bathrooms: project.bathrooms,
-      kitchens: project.kitchens,
-      livingRooms: project.livingRooms,
-      garages: project.garages,
-      wcs: project.wcs,
-      pools: project.pools,
-    });
+    // Prix en direct depuis la base materialPrices (catalogue officiel 2026) :
+    // les libellés, unités et prix unitaires du « Quantitatif détaillé » sont
+    // résolus vers la base ; toute modification de prix faite dans le panneau
+    // admin se reflète automatiquement dans les nouvelles estimations.
+    const liveRows = await ctx.db.query("materialPrices").collect();
+    const livePrices = buildLivePriceMap(
+      liveRows.map((m) => ({ name: m.name, unit: m.unit, unitPrice: m.unitPrice })),
+    );
+
+    const result = withLivePrices(livePrices, () =>
+      runBIMEstimation(category, surface, floors, region, finishLevel, {
+        bedrooms: project.bedrooms,
+        bathrooms: project.bathrooms,
+        kitchens: project.kitchens,
+        livingRooms: project.livingRooms,
+        garages: project.garages,
+        wcs: project.wcs,
+        pools: project.pools,
+      }),
+    );
 
     // Generate AI provider recommendations
     const recommendations = generateProviderRecommendations(

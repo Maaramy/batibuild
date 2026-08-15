@@ -299,6 +299,176 @@ export const TUNISIA_2026_CATALOG: CatalogItem[] = [
   { category: "peintures_enduits_finitions", name: "Papier peint (rouleau)", unit: "rouleau", unitPrice: 25, quality: ESTIMATED, confidence: 0.55 },
   { category: "peintures_enduits_finitions", name: "Peinture glycérophtalique (L)", unit: "L", unitPrice: 38, quality: ESTIMATED, confidence: 0.55 },
 
+  // ── Compléments catalogue 2026 (couverture consolidée) ─────────────────────
+  // Références ajoutées pour compléter la couverture par catégorie (prix
+  // indicatifs du marché tunisien 2026).
+
+  // Terrassement et granulats
+  { category: "terrassement_granulats", name: "Décapage terre végétale (m²)", unit: "m²", unitPrice: 4, quality: ESTIMATED, confidence: 0.5, subcategory: "Terrassement" },
+  { category: "terrassement_granulats", name: "Purge et remplacement de sol (m³)", unit: "m³", unitPrice: 45, quality: ESTIMATED, confidence: 0.55 },
+
+  // Liants, ciments et mortiers
+  { category: "liants_ciments_mortiers", name: "Mortier colle granit (sac 25 kg)", unit: "sac", unitPrice: 24, quality: ESTIMATED, confidence: 0.55 },
+  { category: "liants_ciments_mortiers", name: "Joint hydrofuge piscine (sac 25 kg)", unit: "sac", unitPrice: 20, quality: ESTIMATED, confidence: 0.5 },
+
+  // Bétons et préfabrication
+  { category: "betons_prefabrication", name: "Dalle préfabriquée pleine (m²)", unit: "m²", unitPrice: 60, quality: ESTIMATED, confidence: 0.5 },
+  { category: "betons_prefabrication", name: "Poteau béton armé coulé en place (ml)", unit: "ml", unitPrice: 45, quality: ESTIMATED, confidence: 0.5 },
+  { category: "betons_prefabrication", name: "Chape maigre 5 cm (m²)", unit: "m²", unitPrice: 12, quality: ESTIMATED, confidence: 0.55 },
+
+  // Acier et métaux de structure
+  { category: "acier_metaux_structure", name: "Fer à béton HA T20 (barre 12 m)", unit: "barre", unitPrice: 82, quality: ESTIMATED, confidence: 0.65, subcategory: "Barres HA" },
+  { category: "acier_metaux_structure", name: "Acier à béton T8 (tonne)", unit: "tonne", unitPrice: 3950, quality: ESTIMATED, confidence: 0.6, subcategory: "Tonne" },
+  { category: "acier_metaux_structure", name: "Caillebotis acier galvanisé (m²)", unit: "m²", unitPrice: 85, quality: ESTIMATED, confidence: 0.55 },
+
+  // Maçonnerie et éléments de plancher
+  { category: "maconnerie_plancher", name: "Brique creuse 20 cm", unit: "pièce", unitPrice: 0.85, quality: ESTIMATED, confidence: 0.6, subcategory: "Briques creuses" },
+  { category: "maconnerie_plancher", name: "Parpaing creux 10 cm", unit: "pièce", unitPrice: 0.9, quality: ESTIMATED, confidence: 0.55, subcategory: "Parpaings" },
+  { category: "maconnerie_plancher", name: "Claustra béton décoratif", unit: "pièce", unitPrice: 8, quality: ESTIMATED, confidence: 0.5 },
+
+  // Bois, panneaux et coffrage
+  { category: "bois_panneaux_coffrage", name: "Bastain 50×70 (ml)", unit: "ml", unitPrice: 5, quality: ESTIMATED, confidence: 0.55, subcategory: "Bois de coffrage" },
+  { category: "bois_panneaux_coffrage", name: "Planche de rive bois (ml)", unit: "ml", unitPrice: 8, quality: ESTIMATED, confidence: 0.55 },
+  { category: "bois_panneaux_coffrage", name: "Tabouret de coffrage", unit: "pièce", unitPrice: 30, quality: ESTIMATED, confidence: 0.5 },
+
+  // Étanchéité et protection
+  { category: "etancheite_protection", name: "Bande de relevé bitumineuse (ml)", unit: "ml", unitPrice: 8, quality: ESTIMATED, confidence: 0.55 },
+  { category: "etancheite_protection", name: "Peinture bitumeuse de protection (L)", unit: "L", unitPrice: 12, quality: ESTIMATED, confidence: 0.5 },
+
+  // Isolation thermique et acoustique
+  { category: "isolation_thermique", name: "Panneau PSE 6 cm (m²)", unit: "m²", unitPrice: 12, quality: ESTIMATED, confidence: 0.6 },
+  { category: "isolation_thermique", name: "Isolation phonique sous chape (m²)", unit: "m²", unitPrice: 15, quality: ESTIMATED, confidence: 0.55 },
+  { category: "isolation_thermique", name: "Isolation toiture terrasse (m²)", unit: "m²", unitPrice: 20, quality: ESTIMATED, confidence: 0.55 },
+
+  // Cloisons, plâtre et plafonds
+  { category: "cloisons_platre_plafonds", name: "Ossature métallique plafond (m²)", unit: "m²", unitPrice: 15, quality: ESTIMATED, confidence: 0.55 },
+  { category: "cloisons_platre_plafonds", name: "Enduit de rebouchage (sac 5 kg)", unit: "sac", unitPrice: 8, quality: ESTIMATED, confidence: 0.55 },
+
+  // Toitures, bardages et façades
+  { category: "toitures_bardages_facades", name: "Arêtier (ml)", unit: "ml", unitPrice: 8, quality: ESTIMATED, confidence: 0.5 },
+  { category: "toitures_bardages_facades", name: "Chéneau zinc (ml)", unit: "ml", unitPrice: 45, quality: ESTIMATED, confidence: 0.5 },
+  { category: "toitures_bardages_facades", name: "Enduit monocouche façade (m²)", unit: "m²", unitPrice: 30, quality: ESTIMATED, confidence: 0.55 },
+
+  // Revêtements de sols et murs
+  { category: "revetements_sols_murs", name: "Carrelage 60×60 effet marbre (m²)", unit: "m²", unitPrice: 45, quality: OBSERVED, confidence: 0.8, subcategory: "Grès cérame" },
+  { category: "revetements_sols_murs", name: "Carrelage extérieur 45×45 antidérapant (m²)", unit: "m²", unitPrice: 30, quality: ESTIMATED, confidence: 0.6 },
+  { category: "revetements_sols_murs", name: "Dalle pierre reconstituée (m²)", unit: "m²", unitPrice: 40, quality: ESTIMATED, confidence: 0.55 },
+  { category: "revetements_sols_murs", name: "Sol sportif PVC (m²)", unit: "m²", unitPrice: 40, quality: ESTIMATED, confidence: 0.5 },
+
+  // Peintures, enduits et finitions
+  { category: "peintures_enduits_finitions", name: "Peinture plafond blanc mat (L)", unit: "L", unitPrice: 18, quality: OBSERVED, confidence: 0.8 },
+  { category: "peintures_enduits_finitions", name: "Peinture anti-UV terrasse (L)", unit: "L", unitPrice: 42, quality: ESTIMATED, confidence: 0.55 },
+  { category: "peintures_enduits_finitions", name: "Enduit taloché fin (sac 25 kg)", unit: "sac", unitPrice: 24, quality: ESTIMATED, confidence: 0.55 },
+  { category: "peintures_enduits_finitions", name: "Impression isolante (L)", unit: "L", unitPrice: 20, quality: ESTIMATED, confidence: 0.55 },
+  { category: "peintures_enduits_finitions", name: "Peinture effet béton (L)", unit: "L", unitPrice: 36, quality: ESTIMATED, confidence: 0.5 },
+
+  // Menuiseries
+  { category: "menuiseries", name: "Porte intérieure laquée (H.204)", unit: "pièce", unitPrice: 420, quality: OBSERVED, confidence: 0.8, subcategory: "Portes intérieures" },
+  { category: "menuiseries", name: "Porte d'entrée en bois massif", unit: "pièce", unitPrice: 900, quality: ESTIMATED, confidence: 0.6 },
+  { category: "menuiseries", name: "Fenêtre alu oscillo-battant 120×120", unit: "pièce", unitPrice: 620, quality: ESTIMATED, confidence: 0.6, subcategory: "Fenêtres alu" },
+  { category: "menuiseries", name: "Store banne (m²)", unit: "m²", unitPrice: 180, quality: ESTIMATED, confidence: 0.5 },
+  { category: "menuiseries", name: "Claustra alu décoratif (m²)", unit: "m²", unitPrice: 150, quality: ESTIMATED, confidence: 0.5 },
+
+  // Vitrage et produits verriers
+  { category: "vitrage_verriers", name: "Verre imprimé (m²)", unit: "m²", unitPrice: 40, quality: ESTIMATED, confidence: 0.55 },
+  { category: "vitrage_verriers", name: "Double vitrage acoustique (m²)", unit: "m²", unitPrice: 95, quality: ESTIMATED, confidence: 0.55 },
+  { category: "vitrage_verriers", name: "Vitrine vitrée alu (m²)", unit: "m²", unitPrice: 180, quality: ESTIMATED, confidence: 0.5 },
+  { category: "vitrage_verriers", name: "Verre armé (m²)", unit: "m²", unitPrice: 55, quality: ESTIMATED, confidence: 0.55 },
+
+  // Chimie de construction
+  { category: "chimie_construction", name: "Résine d'injection fissures (cartouche)", unit: "cartouche", unitPrice: 55, quality: ESTIMATED, confidence: 0.55 },
+  { category: "chimie_construction", name: "Mortier de réparation (sac 25 kg)", unit: "sac", unitPrice: 32, quality: ESTIMATED, confidence: 0.55 },
+  { category: "chimie_construction", name: "Primaire béton (L)", unit: "L", unitPrice: 16, quality: ESTIMATED, confidence: 0.55 },
+  { category: "chimie_construction", name: "Hydrofuge de façade (L)", unit: "L", unitPrice: 25, quality: ESTIMATED, confidence: 0.55 },
+  { category: "chimie_construction", name: "Nettoyant béton (L)", unit: "L", unitPrice: 15, quality: ESTIMATED, confidence: 0.5 },
+  { category: "chimie_construction", name: "Décapant ciment (L)", unit: "L", unitPrice: 18, quality: ESTIMATED, confidence: 0.5 },
+  { category: "chimie_construction", name: "Anti-fissure de façade (L)", unit: "L", unitPrice: 20, quality: ESTIMATED, confidence: 0.5 },
+  { category: "chimie_construction", name: "Coulis de scellement (sac 25 kg)", unit: "sac", unitPrice: 28, quality: ESTIMATED, confidence: 0.5 },
+  { category: "chimie_construction", name: "Injecteur de résine (jeu)", unit: "jeu", unitPrice: 25, quality: ESTIMATED, confidence: 0.5 },
+  { category: "chimie_construction", name: "Mastic acrylique (cartouche)", unit: "cartouche", unitPrice: 10, quality: ESTIMATED, confidence: 0.5 },
+  { category: "chimie_construction", name: "Colle époxy marbre (kg)", unit: "kg", unitPrice: 18, quality: ESTIMATED, confidence: 0.5 },
+  { category: "chimie_construction", name: "Ragréage sol (sac 25 kg)", unit: "sac", unitPrice: 30, quality: ESTIMATED, confidence: 0.55 },
+
+  // Quincaillerie et fixations
+  { category: "quincaillerie_fixations", name: "Serrures à encastrer (jeu)", unit: "jeu", unitPrice: 60, quality: OBSERVED, confidence: 0.8 },
+  { category: "quincaillerie_fixations", name: "Poignée de fenêtre", unit: "pièce", unitPrice: 12, quality: ESTIMATED, confidence: 0.55 },
+  { category: "quincaillerie_fixations", name: "Crémone deux points", unit: "pièce", unitPrice: 45, quality: ESTIMATED, confidence: 0.5 },
+  { category: "quincaillerie_fixations", name: "Espagnolette", unit: "pièce", unitPrice: 30, quality: ESTIMATED, confidence: 0.5 },
+  { category: "quincaillerie_fixations", name: "Butée de porte magnétique", unit: "pièce", unitPrice: 8, quality: ESTIMATED, confidence: 0.5 },
+  { category: "quincaillerie_fixations", name: "Cache-bornes (boîte)", unit: "boîte", unitPrice: 15, quality: ESTIMATED, confidence: 0.5 },
+  { category: "quincaillerie_fixations", name: "Rails de tiroir (paire)", unit: "paire", unitPrice: 20, quality: ESTIMATED, confidence: 0.5 },
+  { category: "quincaillerie_fixations", name: "Tambour de serrure à cylindre", unit: "pièce", unitPrice: 40, quality: ESTIMATED, confidence: 0.55 },
+
+  // Éclairage
+  { category: "eclairage", name: "Spot LED sur rail", unit: "pièce", unitPrice: 35, quality: ESTIMATED, confidence: 0.6, subcategory: "Éclairage LED" },
+  { category: "eclairage", name: "Plafonnier LED design", unit: "pièce", unitPrice: 85, quality: ESTIMATED, confidence: 0.55 },
+  { category: "eclairage", name: "Ampoule LED GU10", unit: "pièce", unitPrice: 5, quality: PUBLISHED, confidence: 0.7 },
+  { category: "eclairage", name: "Réglette LED étanche 150 cm", unit: "pièce", unitPrice: 45, quality: ESTIMATED, confidence: 0.55 },
+  { category: "eclairage", name: "Luminaire de jardin solaire", unit: "pièce", unitPrice: 35, quality: ESTIMATED, confidence: 0.5 },
+  { category: "eclairage", name: "Borne lumineuse extérieure", unit: "pièce", unitPrice: 55, quality: ESTIMATED, confidence: 0.5 },
+  { category: "eclairage", name: "Hublot LED étanche", unit: "pièce", unitPrice: 30, quality: ESTIMATED, confidence: 0.5 },
+  { category: "eclairage", name: "Variateur d'éclairage", unit: "pièce", unitPrice: 40, quality: ESTIMATED, confidence: 0.55 },
+
+  // CVC, chauffage et ventilation
+  { category: "cvc_chauffage_ventilation", name: "Climatiseur mono split 9000 BTU", unit: "pièce", unitPrice: 1050, quality: ESTIMATED, confidence: 0.6, subcategory: "Climatisation" },
+  { category: "cvc_chauffage_ventilation", name: "Climatiseur multi-split 3 unités", unit: "pièce", unitPrice: 5200, quality: ESTIMATED, confidence: 0.5 },
+  { category: "cvc_chauffage_ventilation", name: "Chauffe-eau instantané gaz", unit: "pièce", unitPrice: 850, quality: ESTIMATED, confidence: 0.55 },
+  { category: "cvc_chauffage_ventilation", name: "Ventiloconvecteur (fan coil)", unit: "pièce", unitPrice: 900, quality: ESTIMATED, confidence: 0.5 },
+  { category: "cvc_chauffage_ventilation", name: "Déshumidificateur", unit: "pièce", unitPrice: 350, quality: ESTIMATED, confidence: 0.5 },
+  { category: "cvc_chauffage_ventilation", name: "Cheminée / insert bois", unit: "pièce", unitPrice: 1500, quality: ESTIMATED, confidence: 0.5 },
+  { category: "cvc_chauffage_ventilation", name: "Gaine rigide galvanisée (ml)", unit: "ml", unitPrice: 18, quality: ESTIMATED, confidence: 0.5 },
+
+  // Sécurité incendie et sûreté
+  { category: "securite_incendie_surete", name: "Extincteur CO2 5 kg", unit: "pièce", unitPrice: 150, quality: ESTIMATED, confidence: 0.6 },
+  { category: "securite_incendie_surete", name: "Extincteur poudre 9 kg", unit: "pièce", unitPrice: 120, quality: ESTIMATED, confidence: 0.6 },
+  { category: "securite_incendie_surete", name: "Boîtier d'alarme incendie", unit: "pièce", unitPrice: 180, quality: ESTIMATED, confidence: 0.55 },
+  { category: "securite_incendie_surete", name: "Bouton d'arrêt d'urgence", unit: "pièce", unitPrice: 45, quality: ESTIMATED, confidence: 0.55 },
+  { category: "securite_incendie_surete", name: "Caméra dôme IP", unit: "pièce", unitPrice: 450, quality: ESTIMATED, confidence: 0.55 },
+  { category: "securite_incendie_surete", name: "Enregistreur NVR 16 voies", unit: "pièce", unitPrice: 900, quality: ESTIMATED, confidence: 0.5 },
+  { category: "securite_incendie_surete", name: "Vidéophone avec badge", unit: "pièce", unitPrice: 250, quality: ESTIMATED, confidence: 0.55 },
+
+  // Voirie, réseaux divers et drainage
+  { category: "voirie_reseaux_drainage", name: "Enrobé drainant (m²)", unit: "m²", unitPrice: 55, quality: ESTIMATED, confidence: 0.5 },
+  { category: "voirie_reseaux_drainage", name: "Enduit superficiel d'usure (m²)", unit: "m²", unitPrice: 12, quality: ESTIMATED, confidence: 0.5 },
+  { category: "voirie_reseaux_drainage", name: "Accotement grave concassée (m³)", unit: "m³", unitPrice: 40, quality: ESTIMATED, confidence: 0.5 },
+  { category: "voirie_reseaux_drainage", name: "Regard de branchement Ø40", unit: "pièce", unitPrice: 120, quality: ESTIMATED, confidence: 0.5 },
+  { category: "voirie_reseaux_drainage", name: "Chambre de tirage télécom", unit: "pièce", unitPrice: 200, quality: ESTIMATED, confidence: 0.45 },
+  { category: "voirie_reseaux_drainage", name: "Signalisation verticale (panneau)", unit: "panneau", unitPrice: 120, quality: ESTIMATED, confidence: 0.5 },
+
+  // Aménagements extérieurs
+  { category: "amenagements_exterieurs", name: "Clôture grillage soudé (ml)", unit: "ml", unitPrice: 18, quality: ESTIMATED, confidence: 0.55, subcategory: "Clôtures" },
+  { category: "amenagements_exterieurs", name: "Clôture PVC (ml)", unit: "ml", unitPrice: 60, quality: ESTIMATED, confidence: 0.55 },
+  { category: "amenagements_exterieurs", name: "Portillon piéton métallique", unit: "pièce", unitPrice: 350, quality: ESTIMATED, confidence: 0.55 },
+  { category: "amenagements_exterieurs", name: "Carport en bois (m²)", unit: "m²", unitPrice: 180, quality: ESTIMATED, confidence: 0.5 },
+  { category: "amenagements_exterieurs", name: "Kiosque / tonnelle (m²)", unit: "m²", unitPrice: 250, quality: ESTIMATED, confidence: 0.5 },
+  { category: "amenagements_exterieurs", name: "Terrasse en bois exotique (m²)", unit: "m²", unitPrice: 140, quality: ESTIMATED, confidence: 0.55 },
+  { category: "amenagements_exterieurs", name: "Gazon en plaques (m²)", unit: "m²", unitPrice: 14, quality: OBSERVED, confidence: 0.8, subcategory: "Gazon" },
+  { category: "amenagements_exterieurs", name: "Pergola bois (m²)", unit: "m²", unitPrice: 180, quality: ESTIMATED, confidence: 0.55 },
+
+  // Matériaux durables et biosourcés
+  { category: "materiaux_durables_biosources", name: "Brique de terre crue (adobe)", unit: "pièce", unitPrice: 1.2, quality: ESTIMATED, confidence: 0.5 },
+  { category: "materiaux_durables_biosources", name: "Bambou de construction (ml)", unit: "ml", unitPrice: 25, quality: ESTIMATED, confidence: 0.45 },
+  { category: "materiaux_durables_biosources", name: "Isolant ouate de cellulose (m²)", unit: "m²", unitPrice: 28, quality: ESTIMATED, confidence: 0.5 },
+  { category: "materiaux_durables_biosources", name: "Isolant laine de mouton (m²)", unit: "m²", unitPrice: 40, quality: ESTIMATED, confidence: 0.5 },
+  { category: "materiaux_durables_biosources", name: "Peinture à la chaux (L)", unit: "L", unitPrice: 15, quality: ESTIMATED, confidence: 0.5 },
+  { category: "materiaux_durables_biosources", name: "Enduit chaux-chanvre (sac 25 kg)", unit: "sac", unitPrice: 30, quality: ESTIMATED, confidence: 0.5 },
+  { category: "materiaux_durables_biosources", name: "Bardeaux bois toiture (m²)", unit: "m²", unitPrice: 50, quality: ESTIMATED, confidence: 0.5 },
+
+  // Équipements (plomberie, sanitaire, électricité)
+  { category: "equipements", name: "Tube PVC évacuation Ø40 (ml)", unit: "ml", unitPrice: 5, quality: ESTIMATED, confidence: 0.6, subcategory: "Tubes PVC" },
+  { category: "equipements", name: "Tube acier galvanisé Ø1″ (ml)", unit: "ml", unitPrice: 12, quality: ESTIMATED, confidence: 0.55 },
+  { category: "equipements", name: "Flexible d'alimentation", unit: "pièce", unitPrice: 15, quality: ESTIMATED, confidence: 0.55, subcategory: "Robinetterie" },
+  { category: "equipements", name: "Vanne d'arrêt laiton Ø3/4", unit: "pièce", unitPrice: 25, quality: ESTIMATED, confidence: 0.55 },
+  { category: "equipements", name: "Siphon de sol", unit: "pièce", unitPrice: 20, quality: ESTIMATED, confidence: 0.55 },
+  { category: "equipements", name: "Robinets de jardin", unit: "pièce", unitPrice: 30, quality: ESTIMATED, confidence: 0.55 },
+  { category: "equipements", name: "Câble électrique 4 mm² (ml)", unit: "ml", unitPrice: 2.8, quality: ESTIMATED, confidence: 0.6, subcategory: "Câblage" },
+  { category: "equipements", name: "Câble électrique 6 mm² (ml)", unit: "ml", unitPrice: 4.5, quality: ESTIMATED, confidence: 0.6 },
+  { category: "equipements", name: "Interrupteur différentiel 40 A", unit: "pièce", unitPrice: 90, quality: PUBLISHED, confidence: 0.7, subcategory: "Protection" },
+  { category: "equipements", name: "Lave-mains céramique", unit: "pièce", unitPrice: 80, quality: ESTIMATED, confidence: 0.6, subcategory: "Sanitaire" },
+  { category: "equipements", name: "Mitigeur de cuisine", unit: "pièce", unitPrice: 95, quality: OBSERVED, confidence: 0.8, subcategory: "Robinetterie" },
+  { category: "equipements", name: "Pompe surpresseur 1.5 CV", unit: "pièce", unitPrice: 450, quality: ESTIMATED, confidence: 0.55 },
+  { category: "equipements", name: "Vase d'expansion", unit: "pièce", unitPrice: 120, quality: ESTIMATED, confidence: 0.5 },
+
   // ── Menuiseries ────────────────────────────────────────────────────────────
   { category: "menuiseries", name: "Porte intérieure en bois (H.204)", unit: "pièce", unitPrice: 220, quality: OBSERVED, confidence: 0.85, subcategory: "Portes intérieures" },
   { category: "menuiseries", name: "Porte intérieure bois pleine", unit: "pièce", unitPrice: 320, quality: ESTIMATED, confidence: 0.7 },

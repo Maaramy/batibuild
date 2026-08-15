@@ -33,20 +33,19 @@ import {
 } from "@/convex/bimEngine";
 
 // ── Références consolidées (feuille Excel « Base de données des matériaux – Tunisie 2026 », v. 14/08/2026) ──
+// refs / observed / published / estimated / withPrice sont calculés EN DIRECT
+// depuis la base materialPrices (« prix en direct ») : toute référence chargée
+// ou prix modifié dans le panneau admin est reflété immédiatement. Seuls la
+// version de la feuille et le nombre de fournisseurs recensés restent statiques.
 const SHEET_STATS = {
-  refs: 491,
-  observed: 114,
   suppliers: 88,
-  withPrice: 100,
-  published: 14,
-  estimated: 377,
   version: "14 août 2026",
 };
 
 const QUALITY_ROWS = [
-  { status: "Observé en ligne", count: SHEET_STATS.observed, icon: Eye, color: "text-emerald-600 bg-emerald-500/10" },
-  { status: "Publication 2026", count: SHEET_STATS.published, icon: FileText, color: "text-sky-600 bg-sky-500/10" },
-  { status: "Estimation indicative", count: SHEET_STATS.estimated, icon: BadgeCheck, color: "text-amber-600 bg-amber-500/10" },
+  { status: "Observé en ligne", quality: "observé_en_ligne" as const, icon: Eye, color: "text-emerald-600 bg-emerald-500/10" },
+  { status: "Publication 2026", quality: "publication_2026" as const, icon: FileText, color: "text-sky-600 bg-sky-500/10" },
+  { status: "Estimation indicative", quality: "estimation_indicative" as const, icon: BadgeCheck, color: "text-amber-600 bg-amber-500/10" },
 ];
 
 const USAGE_NOTES = [
@@ -92,6 +91,27 @@ export default function MaterialsPage() {
 
   const materialPrices = useQuery(api.materials.getMaterialPrices, {}) || [];
   const categoryStats = useQuery(api.materials.getMaterialCategories) || [];
+
+  // Prix en direct : statistiques consolidées calculées depuis la base
+  const liveStats = useMemo(() => {
+    const byQuality: Record<string, number> = {};
+    for (const m of materialPrices) {
+      if (m.priceQuality) {
+        byQuality[m.priceQuality] = (byQuality[m.priceQuality] ?? 0) + 1;
+      }
+    }
+    const refs = materialPrices.length;
+    return {
+      refs,
+      observed: byQuality["observé_en_ligne"] ?? 0,
+      published: byQuality["publication_2026"] ?? 0,
+      estimated: byQuality["estimation_indicative"] ?? 0,
+      withPrice: refs > 0 ? 100 : 0,
+      "observé_en_ligne": byQuality["observé_en_ligne"] ?? 0,
+      "publication_2026": byQuality["publication_2026"] ?? 0,
+      "estimation_indicative": byQuality["estimation_indicative"] ?? 0,
+    };
+  }, [materialPrices]);
   const refreshPrices = useMutation(api.materials.refreshMaterialPrices);
   const resetPrices = useMutation(api.materials.resetMaterialPrices);
 
@@ -223,7 +243,7 @@ export default function MaterialsPage() {
                       <AlertDialogTitle>Réinitialiser la base des prix ?</AlertDialogTitle>
                       <AlertDialogDescription>
                         Cette action supprime toutes les références existantes (et leur historique de prix),
-                        puis charge le catalogue officiel 2026 ({fmtInt(SHEET_STATS.refs)} références consolidées).
+                        puis charge le catalogue officiel 2026 ({fmtInt(liveStats.refs)} références consolidées).
                         Les anciennes références (main-d'œuvre, transport, engins…) seront remplacées. Cette action est irréversible.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -277,16 +297,16 @@ export default function MaterialsPage() {
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Badge className="gap-1.5 border-emerald-400/30 bg-white/10 text-emerald-50 py-1.5 px-3">
-                <Package className="h-3 w-3" /> {fmtInt(SHEET_STATS.refs)} références matériaux
+                <Package className="h-3 w-3" /> {fmtInt(liveStats.refs)} références matériaux
               </Badge>
               <Badge className="gap-1.5 border-emerald-400/30 bg-white/10 text-emerald-50 py-1.5 px-3">
-                <Eye className="h-3 w-3" /> {fmtInt(SHEET_STATS.observed)} prix observés
+                <Eye className="h-3 w-3" /> {fmtInt(liveStats.observed)} prix observés
               </Badge>
               <Badge className="gap-1.5 border-emerald-400/30 bg-white/10 text-emerald-50 py-1.5 px-3">
                 <Truck className="h-3 w-3" /> {fmtInt(SHEET_STATS.suppliers)} fournisseurs recensés
               </Badge>
               <Badge className="gap-1.5 border-emerald-400/30 bg-white/10 text-emerald-50 py-1.5 px-3">
-                <CheckCircle2 className="h-3 w-3" /> {SHEET_STATS.withPrice}% références avec prix
+                <CheckCircle2 className="h-3 w-3" /> {liveStats.withPrice}% références avec prix
               </Badge>
             </div>
           </div>
@@ -295,10 +315,10 @@ export default function MaterialsPage() {
         {/* ── Statistiques consolidées ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           {[
-            { icon: Package, label: "Références matériaux", value: fmtInt(SHEET_STATS.refs), hint: "Base consolidée", color: "from-blue-500/10 to-blue-500/5 text-blue-600" },
-            { icon: Eye, label: "Prix observés", value: fmtInt(SHEET_STATS.observed), hint: "Relevés en ligne", color: "from-emerald-500/10 to-emerald-500/5 text-emerald-600" },
+            { icon: Package, label: "Références matériaux", value: fmtInt(liveStats.refs), hint: "Base consolidée", color: "from-blue-500/10 to-blue-500/5 text-blue-600" },
+            { icon: Eye, label: "Prix observés", value: fmtInt(liveStats.observed), hint: "Relevés en ligne", color: "from-emerald-500/10 to-emerald-500/5 text-emerald-600" },
             { icon: Truck, label: "Fournisseurs recensés", value: fmtInt(SHEET_STATS.suppliers), hint: "Fabricants & distributeurs", color: "from-violet-500/10 to-violet-500/5 text-violet-600" },
-            { icon: CheckCircle2, label: "Références avec prix", value: `${SHEET_STATS.withPrice}%`, hint: "Couverture totale", color: "from-amber-500/10 to-amber-500/5 text-amber-600" },
+            { icon: CheckCircle2, label: "Références avec prix", value: `${liveStats.withPrice}%`, hint: "Couverture totale", color: "from-amber-500/10 to-amber-500/5 text-amber-600" },
           ].map((s, i) => (
             <div key={i} className="flex items-center gap-2.5 p-3 sm:p-4 rounded-xl bg-gradient-to-br from-background to-muted/20 border border-border/30">
               <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br", s.color)}>
@@ -323,7 +343,7 @@ export default function MaterialsPage() {
                 </div>
                 <div>
                   <CardTitle className="text-sm font-semibold">Qualité du prix</CardTitle>
-                  <CardDescription className="text-[10px]">Niveau de confiance des {fmtInt(SHEET_STATS.refs)} références</CardDescription>
+                  <CardDescription className="text-[10px]">Niveau de confiance des {fmtInt(liveStats.refs)} références</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -336,12 +356,12 @@ export default function MaterialsPage() {
                     </div>
                     <span className="text-xs font-medium truncate">{row.status}</span>
                   </div>
-                  <span className="text-sm font-extrabold tabular-nums">{fmtInt(row.count)}</span>
+                  <span className="text-sm font-extrabold tabular-nums">{fmtInt(liveStats[row.quality] ?? 0)}</span>
                 </div>
               ))}
               <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 px-3.5 py-2.5">
                 <span className="text-xs font-semibold">Total des références</span>
-                <span className="text-sm font-extrabold tabular-nums">{fmtInt(SHEET_STATS.refs)}</span>
+                <span className="text-sm font-extrabold tabular-nums">{fmtInt(liveStats.refs)}</span>
               </div>
               <p className="flex items-start gap-1.5 text-[10px] text-muted-foreground pt-1">
                 <Info className="h-3 w-3 mt-0.5 shrink-0" />

@@ -59,32 +59,75 @@ export const P = {
 // de construction – Tunisie 2026 », version du 14 août 2026)
 // refs = références recensées · observed = prix observés en ligne ·
 // confident = références à confiance élevée · avgPrice = prix moyen TTC (TND)
+// Les compteurs (refs / observed / confident / avgPrice) sont DÉRIVÉS du
+// catalogue officiel (TUNISIA_2026_CATALOG) : toute référence ajoutée dans le
+// catalogue est automatiquement reflétée ici et sur la page des prix.
 // ============================================================================
-export const MATERIAL_CATEGORY_2026 = [
-  { slug: "terrassement_granulats", label: "Terrassement et granulats", refs: 17, observed: 0, confident: 0, avgPrice: 45.324 },
-  { slug: "liants_ciments_mortiers", label: "Liants, ciments et mortiers", refs: 19, observed: 5, confident: 2, avgPrice: 54.266 },
-  { slug: "betons_prefabrication", label: "Bétons et préfabrication", refs: 22, observed: 3, confident: 3, avgPrice: 123.387 },
-  { slug: "acier_metaux_structure", label: "Acier et métaux de structure", refs: 26, observed: 8, confident: 2, avgPrice: 152.906 },
-  { slug: "maconnerie_plancher", label: "Maçonnerie et éléments de plancher", refs: 21, observed: 5, confident: 0, avgPrice: 5.573 },
-  { slug: "bois_panneaux_coffrage", label: "Bois, panneaux et coffrage", refs: 24, observed: 9, confident: 9, avgPrice: 388.384 },
-  { slug: "etancheite_protection", label: "Étanchéité et protection", refs: 20, observed: 7, confident: 7, avgPrice: 76.809 },
-  { slug: "isolation_thermique", label: "Isolation thermique et acoustique", refs: 18, observed: 3, confident: 3, avgPrice: 32.306 },
-  { slug: "cloisons_platre_plafonds", label: "Cloisons, plâtre et plafonds", refs: 21, observed: 4, confident: 4, avgPrice: 43.126 },
-  { slug: "toitures_bardages_facades", label: "Toitures, bardages et façades", refs: 15, observed: 1, confident: 1, avgPrice: 72.81 },
-  { slug: "revetements_sols_murs", label: "Revêtements de sols et murs", refs: 29, observed: 9, confident: 8, avgPrice: 59.292 },
-  { slug: "peintures_enduits_finitions", label: "Peintures, enduits et finitions", refs: 24, observed: 7, confident: 7, avgPrice: 90.334 },
-  { slug: "menuiseries", label: "Menuiseries", refs: 23, observed: 6, confident: 0, avgPrice: 1018.893 },
-  { slug: "vitrage_verriers", label: "Vitrage et produits verriers", refs: 11, observed: 1, confident: 1, avgPrice: 113.25 },
-  { slug: "chimie_construction", label: "Chimie de construction", refs: 1, observed: 1, confident: 1, avgPrice: 260.438 },
-  { slug: "quincaillerie_fixations", label: "Quincaillerie et fixations", refs: 14, observed: 2, confident: 2, avgPrice: 33.335 },
-  { slug: "eclairage", label: "Éclairage", refs: 14, observed: 3, confident: 2, avgPrice: 70.599 },
-  { slug: "cvc_chauffage_ventilation", label: "CVC, chauffage et ventilation", refs: 16, observed: 4, confident: 2, avgPrice: 1762.162 },
-  { slug: "energies_renouvelables", label: "Énergies renouvelables", refs: 15, observed: 3, confident: 0, avgPrice: 1970.164 },
-  { slug: "securite_incendie_surete", label: "Sécurité incendie et sûreté", refs: 11, observed: 1, confident: 1, avgPrice: 463.479 },
-  { slug: "voirie_reseaux_drainage", label: "Voirie, réseaux divers et drainage", refs: 13, observed: 0, confident: 0, avgPrice: 138.5 },
-  { slug: "amenagements_exterieurs", label: "Aménagements extérieurs", refs: 11, observed: 0, confident: 0, avgPrice: 847.045 },
-  { slug: "materiaux_durables_biosources", label: "Matériaux durables et biosourcés", refs: 8, observed: 0, confident: 0, avgPrice: 443.438 },
+const MATERIAL_CATEGORY_DEFS = [
+  { slug: "terrassement_granulats", label: "Terrassement et granulats" },
+  { slug: "liants_ciments_mortiers", label: "Liants, ciments et mortiers" },
+  { slug: "betons_prefabrication", label: "Bétons et préfabrication" },
+  { slug: "acier_metaux_structure", label: "Acier et métaux de structure" },
+  { slug: "maconnerie_plancher", label: "Maçonnerie et éléments de plancher" },
+  { slug: "bois_panneaux_coffrage", label: "Bois, panneaux et coffrage" },
+  { slug: "etancheite_protection", label: "Étanchéité et protection" },
+  { slug: "isolation_thermique", label: "Isolation thermique et acoustique" },
+  { slug: "cloisons_platre_plafonds", label: "Cloisons, plâtre et plafonds" },
+  { slug: "toitures_bardages_facades", label: "Toitures, bardages et façades" },
+  { slug: "revetements_sols_murs", label: "Revêtements de sols et murs" },
+  { slug: "peintures_enduits_finitions", label: "Peintures, enduits et finitions" },
+  { slug: "menuiseries", label: "Menuiseries" },
+  { slug: "vitrage_verriers", label: "Vitrage et produits verriers" },
+  { slug: "chimie_construction", label: "Chimie de construction" },
+  { slug: "quincaillerie_fixations", label: "Quincaillerie et fixations" },
+  { slug: "eclairage", label: "Éclairage" },
+  { slug: "cvc_chauffage_ventilation", label: "CVC, chauffage et ventilation" },
+  { slug: "energies_renouvelables", label: "Énergies renouvelables" },
+  { slug: "securite_incendie_surete", label: "Sécurité incendie et sûreté" },
+  { slug: "voirie_reseaux_drainage", label: "Voirie, réseaux divers et drainage" },
+  { slug: "amenagements_exterieurs", label: "Aménagements extérieurs" },
+  { slug: "materiaux_durables_biosources", label: "Matériaux durables et biosourcés" },
 ] as const;
+
+function deriveCategoryStats() {
+  const acc = new Map<
+    string,
+    { refs: number; observed: number; confident: number; totalPrice: number }
+  >();
+  for (const item of TUNISIA_2026_CATALOG) {
+    const cur = acc.get(item.category) || {
+      refs: 0,
+      observed: 0,
+      confident: 0,
+      totalPrice: 0,
+    };
+    cur.refs += 1;
+    if (item.quality === "observé_en_ligne") cur.observed += 1;
+    if ((item.confidence ?? 0) >= 0.8) cur.confident += 1;
+    cur.totalPrice += item.unitPrice;
+    acc.set(item.category, cur);
+  }
+  return acc;
+}
+
+const CATEGORY_STATS = deriveCategoryStats();
+
+export const MATERIAL_CATEGORY_2026 = MATERIAL_CATEGORY_DEFS.map((c) => {
+  const s = CATEGORY_STATS.get(c.slug) || {
+    refs: 0,
+    observed: 0,
+    confident: 0,
+    totalPrice: 0,
+  };
+  return {
+    slug: c.slug,
+    label: c.label,
+    refs: s.refs,
+    observed: s.observed,
+    confident: s.confident,
+    avgPrice: s.refs > 0 ? Math.round((s.totalPrice / s.refs) * 1000) / 1000 : 0,
+  };
+});
 
 /** Libellé d'une catégorie officielle 2026 (slug → label français). */
 export const MATERIAL_CATEGORY_LABELS: Record<string, string> =
@@ -196,6 +239,7 @@ const BIM_TO_CATALOG: Record<string, { name: string; qtyFactor?: number }> = {
   "Pavé autobloquant 6cm": { name: "Pavé autobloquant (m²)" },
   // Équipements
   "Panneau photovoltaïque 450Wc monocristallin": { name: "Panneau photovoltaïque 450 Wc" },
+  "Gazon en plaques": { name: "Gazon en plaques (m²)" },
   "Onduleur central": { name: "Onduleur central 5 kW" },
   "Goutte-à-goutte + tuyau PER": { name: "Tube PER Ø16 (ml)" },
   "Tuyau PER Ø16": { name: "Tube PER Ø16 (ml)" },
@@ -260,6 +304,30 @@ export function buildLivePriceMap(
   return map;
 }
 
+// ============================================================================
+// CONTEXTE « PRIX EN DIRECT » PAR REQUÊTE
+// Le moteur BIM résout les prix des postes matériaux depuis la base de données
+// materialPrices (prix en direct) lorsqu'un index est fourni pour la requête en
+// cours. Le contexte est porté par un état module (restauré après l'exécution)
+// pour que les générateurs (gros œuvre, second œuvre, équipements) et
+// finalizeItems y accèdent sans changer leur signature.
+// ============================================================================
+let LIVE_PRICES: LivePriceMap | undefined;
+
+/**
+ * Exécute fn avec l'index des prix en direct de la base (par requête).
+ * Le contexte précédent est restauré quoi qu'il arrive (try/finally).
+ */
+export function withLivePrices<T>(map: LivePriceMap | undefined, fn: () => T): T {
+  const prev = LIVE_PRICES;
+  LIVE_PRICES = map;
+  try {
+    return fn();
+  } finally {
+    LIVE_PRICES = prev;
+  }
+}
+
 type RawBimItem = { n: string; q: number; u: string; up: number };
 
 /**
@@ -270,8 +338,10 @@ type RawBimItem = { n: string; q: number; u: string; up: number };
  * livePrices (optionnel) : prix en direct depuis la base materialPrices.
  */
 function finalizeItems(items: RawBimItem[], targetBudget: number, scaleQty = false, livePrices?: LivePriceMap) {
+  // Prix en direct : priorité à l'argument explicite, sinon au contexte de la requête.
+  const lp = livePrices ?? LIVE_PRICES;
   const resolved = items.map((i) => {
-    const cat = resolveCatalogItem(i.n, livePrices);
+    const cat = resolveCatalogItem(i.n, lp);
     const qty = Math.round(i.q * (cat?.qtyFactor ?? 1) * 100) / 100 || 1;
     const up = cat?.unitPrice ?? i.up;
     return {
