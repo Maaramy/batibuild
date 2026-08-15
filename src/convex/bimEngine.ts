@@ -25,7 +25,7 @@ export const P = {
   // Acier et métaux de structure
   steel: { t6_m: 0.95, t8_m: 1.4, t10_m: 2.1, t12_ton: 3850, t14_ton: 3950, treillis_m2: 15 },
   // Maçonnerie et éléments de plancher
-  bricks: { hollow_10: 1.05, hollow_15: 1.4, hourdis_16: 1.7, noot_6: 0.45, parpaing_15: 1.3, parpaing_20: 1.85 },
+  bricks: { hollow_10: 0.48, hollow_15: 0.65, hourdis_16: 1.7, noot_6: 0.45, parpaing_15: 1.1, parpaing_20: 1.3, pleine_22x11x7: 0.55 },
   // Bois, panneaux et coffrage
   wood: { formwork_m3: 720, framing_m3: 820, chevron_m: 12 },
   // Étanchéité et protection
@@ -453,9 +453,9 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
   if (profile === "pool") {
     // Piscine : pas de maçonnerie de logement → excavation + coque béton armé
     items = [
-      {n:"Terrassement & excavation piscine", q:Math.round(tb*0.8*10)/10, u:"m³", up:18},
-      {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.1*10)/10, u:"m³", up:85},
-      {n:"Béton armé coque C25/30", q:Math.round(tb*0.35*10)/10, u:"m³", up:140},
+      {n:"Terrassement & excavation piscine", q:Math.round(tb*0.8*10)/10, u:"m³", up:25},
+      {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.1*10)/10, u:"m³", up:90},
+      {n:"Béton armé coque C25/30", q:Math.round(tb*0.35*10)/10, u:"m³", up:265},
       {n:"Acier à béton T12", q:Math.round(tb*0.018*100)/100, u:"tonnes", up:P.steel.t12_ton},
       {n:"Treillis soudé ST25", q:Math.round(tb*0.15), u:"m²", up:P.steel.treillis_m2},
       {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*1.5), u:"sacs", up:P.cement.bag42_5},
@@ -470,7 +470,7 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Terre végétale amendée", q:Math.round(tb*0.2*10)/10, u:"m³", up:35},
       {n:"Gravier concassé (drainage)", q:Math.round(tb*0.12*10)/10, u:"m³", up:28},
       {n:"Sable de construction 0/4", q:Math.round(tb*0.1*10)/10, u:"m³", up:P.sand.construction},
-      {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.06*10)/10, u:"m³", up:85},
+      {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.06*10)/10, u:"m³", up:90},
       {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*0.8), u:"sacs", up:P.cement.bag42_5},
       {n:"Parpaing creux 20cm", q:Math.round(tb*4), u:"unités", up:P.bricks.parpaing_20},
       {n:"Fouilles en rigole", q:Math.round(tb*0.08), u:"m³", up:18},
@@ -478,19 +478,19 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
   } else if (profile === "fence") {
     // Clôture / mur : fondations linéaires + parpaings + poteaux
     items = [
-      {n:"Béton de fondation linéaire", q:Math.round(tb*0.12*10)/10, u:"m³", up:95},
+      {n:"Béton de fondation linéaire", q:Math.round(tb*0.12*10)/10, u:"m³", up:210},
       {n:"Acier à béton T10", q:Math.round(tb*0.008*100)/100, u:"tonnes", up:P.steel.t12_ton},
       {n:"Parpaing creux 20cm", q:Math.round(tb*10*dW), u:"unités", up:P.bricks.parpaing_20},
-      {n:"Brique pleine 22x11x7", q:Math.round(tb*18*dW), u:"unités", up:P.bricks.hollow_10},
+      {n:"Brique pleine 22x11x7", q:Math.round(tb*18*dW), u:"unités", up:P.bricks.pleine_22x11x7},
       {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*1.2), u:"sacs", up:P.cement.bag42_5},
       {n:"Sable de construction 0/4", q:Math.round(tb*0.15*10)/10, u:"m³", up:P.sand.construction},
-      {n:"Poteau préfabriqué béton", q:Math.max(4,Math.round(tb/4)), u:"unités", up:35},
+      {n:"Poteau préfabriqué béton", q:Math.max(4,Math.round(tb/4)), u:"unités", up:120},
       {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
     ];
   } else if (profile === "solar") {
     // Solaire : pas de maçonnerie → fondations massifs + supports + câbles
     items = [
-      {n:"Béton de fondation massifs", q:Math.round(tb*0.08*10)/10, u:"m³", up:95},
+      {n:"Béton de fondation massifs", q:Math.round(tb*0.08*10)/10, u:"m³", up:210},
       {n:"Acier à béton T10", q:Math.round(tb*0.005*100)/100, u:"tonnes", up:P.steel.t12_ton},
       {n:"Support aluminium fixation panneaux", q:Math.round(tb*0.4), u:"m²", up:45},
       {n:"Câble solaire DC 6mm²", q:Math.round(tb*1.2), u:"ml", up:3},
@@ -501,7 +501,7 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
   } else if (profile === "industrial") {
     // Industriel : dalle industrielle + charpente, pas de cloisons fines
     items = [
-      {n:"Béton de dalle industrielle C25/30", q:Math.round(tb*0.22*10)/10, u:"m³", up:130},
+      {n:"Béton de dalle industrielle C25/30", q:Math.round(tb*0.22*10)/10, u:"m³", up:265},
       {n:"Acier à béton T12", q:Math.round(tb*0.014*100)/100, u:"tonnes", up:P.steel.t12_ton},
       {n:"Treillis soudé ST25", q:Math.round(tb*0.15), u:"m²", up:P.steel.treillis_m2},
       {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*1.5), u:"sacs", up:P.cement.bag42_5},
@@ -514,8 +514,8 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
   } else if (profile === "parking") {
     // Parking / route : pas de bâtiment → couche de forme + béton
     items = [
-      {n:"Graves non traitées (couche de forme)", q:Math.round(tb*0.2*10)/10, u:"m³", up:28},
-      {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.08*10)/10, u:"m³", up:85},
+      {n:"Graves non traitées (couche de forme)", q:Math.round(tb*0.2*10)/10, u:"m³", up:35},
+      {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.08*10)/10, u:"m³", up:90},
       {n:"Acier à béton T12", q:Math.round(tb*0.008*100)/100, u:"tonnes", up:P.steel.t12_ton},
       {n:"Treillis soudé ST25", q:Math.round(tb*0.1), u:"m²", up:P.steel.treillis_m2},
       {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*1.0), u:"sacs", up:P.cement.bag42_5},
@@ -578,7 +578,7 @@ function genSOItems(surface: number, floors: number, cat: string, targetBudget: 
     items = [
       {n:"Revêtement liner PVC armé", q:Math.round(tb*1.05), u:"m²", up:85},
       {n:"Margelles piscine granito 60x40", q:Math.round(tb*0.3), u:"ml", up:40},
-      {n:"Carrelage anti-dérapant (plage)", q:Math.round(tb*0.4), u:"m²", up:55},
+      {n:"Carrelage anti-dérapant (plage)", q:Math.round(tb*0.4), u:"m²", up:32},
       {n:"Étanchéité enduit piscine hydrofuge", q:Math.round(tb*1.2), u:"m²", up:18},
       {n:"Peinture piscine (bassin)", q:Math.round(tb*0.6), u:"litres", up:22},
       {n:"Escalier inox + main courante", q:1, u:"unité", up:380},
@@ -588,26 +588,26 @@ function genSOItems(surface: number, floors: number, cat: string, targetBudget: 
     // Jardin / paysager : pas de menuiserie → pavés, gazon, bordures
     items = [
       {n:"Gazon en plaques", q:Math.round(tb*0.55), u:"m²", up:14},
-      {n:"Pavé autobloquant 6cm", q:Math.round(tb*0.3), u:"m²", up:38},
+      {n:"Pavé autobloquant 6cm", q:Math.round(tb*0.3), u:"m²", up:32},
       {n:"Gravier décoratif 10/20", q:Math.round(tb*0.12), u:"m³", up:45},
-      {n:"Bordure béton 50x20", q:Math.round(tb*0.15), u:"ml", up:15},
+      {n:"Bordure béton 50x20", q:Math.round(tb*0.15), u:"ml", up:9},
       {n:"Terre végétale amendée", q:Math.round(tb*0.08*10)/10, u:"m³", up:35},
-      {n:"Dalle grès cérame antidérapante 40x40", q:Math.round(tb*0.18), u:"m²", up:45},
+      {n:"Dalle grès cérame antidérapante 40x40", q:Math.round(tb*0.18), u:"m²", up:32},
     ];
   } else if (profile === "fence") {
     // Clôture / mur : pas de fenêtres → enduit, crépi, portail
     items = [
       {n:"Enduit de façade ciment", q:Math.round(tb*1.1), u:"m²", up:12},
-      {n:"Peinture extérieure acrylique", q:Math.round(tb*0.3), u:"litres", up:25},
+      {n:"Peinture extérieure acrylique", q:Math.round(tb*0.3), u:"litres", up:26},
       {n:"Crénelage + chaperon béton", q:Math.round(tb*0.2), u:"ml", up:18},
       {n:"Portail métallique à deux vantaux", q:Math.max(1,Math.round(tb/10)), u:"unités", up:850},
-      {n:"Étanchéité liquide bitumeuse (tête de mur)", q:Math.round(tb*0.15), u:"m²", up:15},
+      {n:"Étanchéité liquide bitumeuse (tête de mur)", q:Math.round(tb*0.15), u:"m²", up:22},
     ];
   } else if (profile === "solar") {
     // Solaire : pas de finitions intérieures → étanchéité + chemins de câbles
     items = [
-      {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.3), u:"m²", up:15},
-      {n:"Peinture antirouille supports", q:Math.round(tb*0.1), u:"litres", up:28},
+      {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.3), u:"m²", up:22},
+      {n:"Peinture antirouille supports", q:Math.round(tb*0.1), u:"litres", up:18},
       {n:"Chemin de câbles galvanisé", q:Math.round(tb*0.2), u:"ml", up:18},
       {n:"Goulotte PVC 40x60", q:Math.round(tb*0.15), u:"ml", up:8},
     ];
@@ -618,41 +618,41 @@ function genSOItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Porte sectionnelle industrielle 3x3", q:Math.max(1,Math.round(tb/250)), u:"unités", up:1800},
       {n:"Étanchéité toiture bac acier", q:Math.round(tb*0.6), u:"m²", up:20},
       {n:"Bardage métallique prélaqué", q:Math.round(tb*0.35), u:"m²", up:45},
-      {n:"Peinture intérieure mate", q:Math.round(tb*0.2), u:"litres", up:20},
+      {n:"Peinture intérieure mate", q:Math.round(tb*0.2), u:"litres", up:22},
     ];
   } else if (profile === "parking") {
     // Parking / route : pas de bâtiment → enrobé, marquage, bordures
     items = [
       {n:"Enrobé bitumineux 5cm", q:Math.round(tb*0.85), u:"m²", up:45},
-      {n:"Bordures béton T2", q:Math.round(tb*0.1), u:"ml", up:15},
+      {n:"Bordures béton T2", q:Math.round(tb*0.1), u:"ml", up:9},
       {n:"Peinture marquage au sol", q:Math.round(tb*0.04), u:"litres", up:18},
-      {n:"Caniveau béton préfabriqué", q:Math.round(tb*0.06), u:"ml", up:40},
+      {n:"Caniveau béton préfabriqué", q:Math.round(tb*0.06), u:"ml", up:25},
     ];
   } else if (profile === "commercial") {
     // Commercial / bureau / resto : vitrine au lieu de fenêtres résidentielles
     items = [
-      {n:"Carrelage sol grès cérame 60x60", q:Math.round(tb*0.7), u:"m²", up:45},
-      {n:"Peinture intérieure mate lessivable", q:paintL, u:"litres", up:20},
+      {n:"Carrelage sol grès cérame 60x60", q:Math.round(tb*0.7), u:"m²", up:26},
+      {n:"Peinture intérieure mate lessivable", q:paintL, u:"litres", up:22},
       {n:"Vitrine aluminium + porte coulissante", q:Math.max(1,Math.round(tb/40)), u:"unités", up:1400},
       {n:"Faux plafond dalles 60x60", q:Math.round(tb*0.5), u:"m²", up:25},
       {n:"Enduit de lissage prêt à gâcher", q:Math.round(tb*2.0), u:"kg", up:1.2},
-      {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.25), u:"m²", up:15},
+      {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.25), u:"m²", up:22},
     ];
   } else {
     // Résidentiel / rénovation : finitions classiques tunisiennes
     items = [
-      {n:"Carrelage sol grès cérame 40x40", q:tileQty, u:"m²", up:30},
-      {n:"Carrelage mural faïence 20x30", q:Math.round(tileQty*0.25), u:"m²", up:25},
-      {n:"Peinture intérieure mate lessivable", q:paintL, u:"litres", up:20},
-      {n:"Peinture extérieure acrylique", q:Math.round(paintL*0.2), u:"litres", up:25},
+      {n:"Carrelage sol grès cérame 40x40", q:tileQty, u:"m²", up:22},
+      {n:"Carrelage mural faïence 20x30", q:Math.round(tileQty*0.25), u:"m²", up:18},
+      {n:"Peinture intérieure mate lessivable", q:paintL, u:"litres", up:22},
+      {n:"Peinture extérieure acrylique", q:Math.round(paintL*0.2), u:"litres", up:26},
       {n:"Enduit de lissage prêt à gâcher", q:Math.round(tb*2.0), u:"kg", up:1.2},
-      {n:"Plinthe céramique 8x30", q:Math.round(tb*0.35), u:"ml", up:7},
-      {n:"Porte intérieure en bois pleine", q:Math.max(1,doorC), u:"unités", up:300},
-      {n:"Porte d'entrée métallique blindée", q:1, u:"unité", up:450},
-      {n:"Fenêtre coulissante alu simple vitrage", q:Math.max(2,winC), u:"unités", up:380},
-      {n:"Grille de protection métallique", q:Math.max(2,winC), u:"unités", up:180},
-      {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.25), u:"m²", up:15},
-      {n:"Tuile canal rouge", q:Math.round(tb*0.65), u:"m²", up:12},
+      {n:"Plinthe céramique 8x30", q:Math.round(tb*0.35), u:"ml", up:8},
+      {n:"Porte intérieure en bois pleine", q:Math.max(1,doorC), u:"unités", up:320},
+      {n:"Porte d'entrée métallique blindée", q:1, u:"unité", up:550},
+      {n:"Fenêtre coulissante alu simple vitrage", q:Math.max(2,winC), u:"unités", up:310},
+      {n:"Grille de protection métallique", q:Math.max(2,winC), u:"unités", up:220},
+      {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.25), u:"m²", up:22},
+      {n:"Tuile canal rouge", q:Math.round(tb*0.65), u:"m²", up:19},
     ];
     if (isRenov) {
       items.push({n:"Panneau de placoplâtre BA13", q:Math.round(tb*0.15), u:"m²", up:20});
@@ -695,7 +695,7 @@ function genEQItems(surface: number, floors: number, cat: string, targetBudget: 
     // Jardin / paysager : arrosage automatique + éclairage extérieur, pas de sanitaires
     items.push(
       {n:"Programmateur d'arrosage automatique", q:1, u:"unité", up:180},
-      {n:"Goutte-à-goutte + tuyau PER", q:Math.round(tb*0.4), u:"ml", up:3},
+      {n:"Goutte-à-goutte + tuyau PER", q:Math.round(tb*0.4), u:"ml", up:4},
       {n:"Turbine d'arrosage", q:Math.max(2,Math.round(tb/25)), u:"unités", up:35},
       {n:"Projecteur LED extérieur étanche", q:Math.max(2,Math.round(tb/30)), u:"unités", up:80},
       {n:"Câble électrique 2.5mm²", q:Math.round(tb*0.5), u:"ml", up:1.5},
@@ -717,25 +717,25 @@ function genEQItems(surface: number, floors: number, cat: string, targetBudget: 
   } else if (profile === "commercial") {
     // Commercial / bureau / resto : clim + éclairage pro, sanitaires réduits
     items.push(
-      {n:"Climatisation split 12000 BTU", q:Math.max(1,Math.round(tb/40)), u:"unités", up:1100},
+      {n:"Climatisation split 12000 BTU", q:Math.max(1,Math.round(tb/40)), u:"unités", up:1350},
       {n:"Luminaire LED encastré 60x60", q:Math.max(2,Math.round(tb/6)), u:"unités", up:45},
       {n:"WC public + lave-mains", q:Math.max(1,Math.round(tb/80)), u:"unités", up:350},
       {n:"Câble électrique 2.5mm²", q:Math.round(tb*1.5), u:"ml", up:1.5},
-      {n:"Disjoncteur divisionnaire 20A", q:Math.max(2,Math.round(tb/60)), u:"unités", up:35});
+      {n:"Disjoncteur divisionnaire 20A", q:Math.max(2,Math.round(tb/60)), u:"unités", up:12});
   } else {
     // Résidentiel / rénovation : sanitaires + électricité domestique
     items.push(
-      {n:"WC complet avec réservoir", q:bathrooms, u:"unités", up:250},
+      {n:"WC complet avec réservoir", q:bathrooms, u:"unités", up:240},
       {n:"Lavabo vasque + robinetterie", q:saniC, u:"unités", up:140},
       {n:"Chauffe-eau électrique 80L", q:Math.max(1,Math.round(bathrooms*0.6)), u:"unités", up:400},
       {n:"Receveur de douche 90x90", q:bathrooms, u:"unités", up:200},
       {n:"Tuyau PER Ø16", q:Math.round(tb*0.5), u:"ml", up:4},
-      {n:"Tuyau PVC Ø100 évacuation", q:Math.round(tb*0.05), u:"ml", up:10},
+      {n:"Tuyau PVC Ø100 évacuation", q:Math.round(tb*0.05), u:"ml", up:15},
       {n:"Câble électrique 2.5mm² (rouleau 100m)", q:Math.round(tb*2), u:"ml", up:1.5},
-      {n:"Disjoncteur divisionnaire 20A", q:Math.max(2,Math.round((rooms?.total ?? doorC)*0.5)), u:"unités", up:35},
+      {n:"Disjoncteur divisionnaire 20A", q:Math.max(2,Math.round((rooms?.total ?? doorC)*0.5)), u:"unités", up:12},
       {n:"Tableau électrique 13 modules", q:1, u:"unité", up:150},
-      {n:"Prise de courant 2P+T encastrée", q:Math.max(4,doorC*2), u:"unités", up:6},
-      {n:"Interrupteur va-et-vient", q:Math.max(3,doorC*1.5), u:"unités", up:5},
+      {n:"Prise de courant 2P+T encastrée", q:Math.max(4,doorC*2), u:"unités", up:9},
+      {n:"Interrupteur va-et-vient", q:Math.max(3,doorC*1.5), u:"unités", up:7},
       {n:"Luminaire LED plafonnier", q:Math.max(2,doorC*2), u:"unités", up:30});
   }
   const rawTotal = items.reduce((s,i) => s + Math.round(i.q*i.up), 0);
