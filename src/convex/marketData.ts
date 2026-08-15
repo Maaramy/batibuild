@@ -53,59 +53,59 @@ type CatalogItem = {
 
 export const MARKET_CATALOG: CatalogItem[] = [
   // Ciment
-  { name: "Ciment CPJ 42.5 (sac 50kg)", category: "ciment", subcategory: "Ciment en sac", unit: "sac", basePrice: 16.5, brand: "Carthage Cement", manufacturer: "Carthage Cement" },
-  { name: "Ciment CPJ 42.5 (vrac)", category: "ciment", subcategory: "Ciment en vrac", unit: "tonne", basePrice: 320, brand: "Ciments de Bizerte", manufacturer: "Les Ciments de Bizerte" },
-  { name: "Ciment blanc (sac 40kg)", category: "ciment", subcategory: "Ciment blanc", unit: "sac", basePrice: 38, brand: "Ciments de Bizerte", manufacturer: "Les Ciments de Bizerte" },
+  { name: "Ciment CPJ 42.5 (sac 50kg)", category: "liants_ciments_mortiers", subcategory: "Ciment en sac", unit: "sac", basePrice: 16.5, brand: "Carthage Cement", manufacturer: "Carthage Cement" },
+  { name: "Ciment CPJ 42.5 (vrac)", category: "liants_ciments_mortiers", subcategory: "Ciment en vrac", unit: "tonne", basePrice: 320, brand: "Ciments de Bizerte", manufacturer: "Les Ciments de Bizerte" },
+  { name: "Ciment blanc (sac 40kg)", category: "liants_ciments_mortiers", subcategory: "Ciment blanc", unit: "sac", basePrice: 38, brand: "Ciments de Bizerte", manufacturer: "Les Ciments de Bizerte" },
   // Fer à béton
-  { name: "Fer à béton HA 8mm", category: "fer_a_beton", subcategory: "Barres HA", unit: "barre", basePrice: 13.5, brand: "El Fouledh", manufacturer: "El Fouledh" },
-  { name: "Fer à béton HA 10mm", category: "fer_a_beton", subcategory: "Barres HA", unit: "barre", basePrice: 20.5, brand: "El Fouledh", manufacturer: "El Fouledh" },
-  { name: "Fer à béton HA 12mm", category: "fer_a_beton", subcategory: "Barres HA", unit: "barre", basePrice: 29.5, brand: "El Fouledh", manufacturer: "El Fouledh" },
-  { name: "Treillis soudé ST 25", category: "fer_a_beton", subcategory: "Treillis soudé", unit: "panneau", basePrice: 45, brand: "El Fouledh", manufacturer: "El Fouledh" },
+  { name: "Fer à béton HA 8mm", category: "acier_metaux_structure", subcategory: "Barres HA", unit: "barre", basePrice: 13.5, brand: "El Fouledh", manufacturer: "El Fouledh" },
+  { name: "Fer à béton HA 10mm", category: "acier_metaux_structure", subcategory: "Barres HA", unit: "barre", basePrice: 20.5, brand: "El Fouledh", manufacturer: "El Fouledh" },
+  { name: "Fer à béton HA 12mm", category: "acier_metaux_structure", subcategory: "Barres HA", unit: "barre", basePrice: 29.5, brand: "El Fouledh", manufacturer: "El Fouledh" },
+  { name: "Treillis soudé ST 25", category: "acier_metaux_structure", subcategory: "Treillis soudé", unit: "panneau", basePrice: 45, brand: "El Fouledh", manufacturer: "El Fouledh" },
   // Briques & blocs
-  { name: "Brique creuse 10 cm", category: "briques", subcategory: "Briques creuses", unit: "pièce", basePrice: 0.48, brand: "COMAF", manufacturer: "COMAF" },
-  { name: "Brique creuse 15 cm", category: "briques", subcategory: "Briques creuses", unit: "pièce", basePrice: 0.65, brand: "COMAF", manufacturer: "COMAF" },
-  { name: "Bloc béton 20x20x40", category: "blocs", subcategory: "Blocs en béton", unit: "pièce", basePrice: 1.15, brand: "COBAM Group", manufacturer: "COBAM Group" },
-  { name: "Bloc hourdis 16x20x50", category: "blocs", subcategory: "Hourdis", unit: "pièce", basePrice: 1.9, brand: "COBAM Group", manufacturer: "COBAM Group" },
+  { name: "Brique creuse 10 cm", category: "maconnerie_plancher", subcategory: "Briques creuses", unit: "pièce", basePrice: 0.48, brand: "COMAF", manufacturer: "COMAF" },
+  { name: "Brique creuse 15 cm", category: "maconnerie_plancher", subcategory: "Briques creuses", unit: "pièce", basePrice: 0.65, brand: "COMAF", manufacturer: "COMAF" },
+  { name: "Bloc béton 20x20x40", category: "maconnerie_plancher", subcategory: "Blocs en béton", unit: "pièce", basePrice: 1.15, brand: "COBAM Group", manufacturer: "COBAM Group" },
+  { name: "Bloc hourdis 16x20x50", category: "maconnerie_plancher", subcategory: "Hourdis", unit: "pièce", basePrice: 1.9, brand: "COBAM Group", manufacturer: "COBAM Group" },
   // Granulats
-  { name: "Sable de construction (m³)", category: "sable", subcategory: "Sable", unit: "m³", basePrice: 55, brand: "COBAM Group", manufacturer: "COBAM Group" },
-  { name: "Gravier concassé (m³)", category: "gravier", subcategory: "Gravier", unit: "m³", basePrice: 62, brand: "COBAM Group", manufacturer: "COBAM Group" },
+  { name: "Sable de construction (m³)", category: "terrassement_granulats", subcategory: "Sable", unit: "m³", basePrice: 55, brand: "COBAM Group", manufacturer: "COBAM Group" },
+  { name: "Gravier concassé (m³)", category: "terrassement_granulats", subcategory: "Gravier", unit: "m³", basePrice: 62, brand: "COBAM Group", manufacturer: "COBAM Group" },
   // Bois & coffrage
-  { name: "Chevron sapin 63x75x400", category: "bois", subcategory: "Bois de coffrage", unit: "pièce", basePrice: 14, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
-  { name: "Panneau coffrage 18mm", category: "coffrage", subcategory: "Panneaux", unit: "pièce", basePrice: 42, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
+  { name: "Chevron sapin 63x75x400", category: "bois_panneaux_coffrage", subcategory: "Bois de coffrage", unit: "pièce", basePrice: 14, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
+  { name: "Panneau coffrage 18mm", category: "bois_panneaux_coffrage", subcategory: "Panneaux", unit: "pièce", basePrice: 42, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
   // Isolation & étanchéité
-  { name: "Laine de verre (rouleau 30m²)", category: "isolation", subcategory: "Isolation thermique", unit: "rouleau", basePrice: 89, brand: "Knauf Tunisie", manufacturer: "Knauf Tunisie" },
-  { name: "Membrane bitumineuse (rouleau 10m)", category: "etancheite", subcategory: "Étanchéité toiture", unit: "rouleau", basePrice: 58, brand: "SOTEMAIL", manufacturer: "SOTEMAIL" },
+  { name: "Laine de verre (rouleau 30m²)", category: "isolation_thermique", subcategory: "Isolation thermique", unit: "rouleau", basePrice: 89, brand: "Knauf Tunisie", manufacturer: "Knauf Tunisie" },
+  { name: "Membrane bitumineuse (rouleau 10m)", category: "etancheite_protection", subcategory: "Étanchéité toiture", unit: "rouleau", basePrice: 58, brand: "SOTEMAIL", manufacturer: "SOTEMAIL" },
   // Carrelage & revêtements
-  { name: "Carrelage grès cérame 60x60", category: "carrelage", subcategory: "Grès cérame", unit: "m²", basePrice: 26, brand: "SOPAL", manufacturer: "SOPAL" },
-  { name: "Faïence murale 25x40", category: "faience", subcategory: "Faïence", unit: "m²", basePrice: 19, brand: "SOPAL", manufacturer: "SOPAL" },
-  { name: "Marbre importé (m²)", category: "marbre", subcategory: "Marbre", unit: "m²", basePrice: 120, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
-  { name: "Pierre naturelle (m²)", category: "pierre_naturelle", subcategory: "Pierre", unit: "m²", basePrice: 85, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
+  { name: "Carrelage grès cérame 60x60", category: "revetements_sols_murs", subcategory: "Grès cérame", unit: "m²", basePrice: 26, brand: "SOPAL", manufacturer: "SOPAL" },
+  { name: "Faïence murale 25x40", category: "revetements_sols_murs", subcategory: "Faïence", unit: "m²", basePrice: 19, brand: "SOPAL", manufacturer: "SOPAL" },
+  { name: "Marbre importé (m²)", category: "revetements_sols_murs", subcategory: "Marbre", unit: "m²", basePrice: 120, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
+  { name: "Pierre naturelle (m²)", category: "revetements_sols_murs", subcategory: "Pierre", unit: "m²", basePrice: 85, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
   // Peinture
-  { name: "Peinture acrylique blanche (pot 15L)", category: "peinture", subcategory: "Peinture intérieure", unit: "pot", basePrice: 68, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
+  { name: "Peinture acrylique blanche (pot 15L)", category: "peintures_enduits_finitions", subcategory: "Peinture intérieure", unit: "pot", basePrice: 68, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
   // Plomberie & sanitaire
-  { name: "Tube PVC évacuation Ø100 (3m)", category: "plomberie", subcategory: "Tubes PVC", unit: "pièce", basePrice: 12.5, brand: "CONAP", manufacturer: "CONAP" },
-  { name: "Robinetterie mitigeur salle de bain", category: "plomberie", subcategory: "Robinetterie", unit: "pièce", basePrice: 65, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
-  { name: "WC à l'anglaise complet", category: "sanitaire", subcategory: "Sanitaire", unit: "pièce", basePrice: 240, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
-  { name: "Lavabo céramique", category: "sanitaire", subcategory: "Sanitaire", unit: "pièce", basePrice: 95, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
+  { name: "Tube PVC évacuation Ø100 (3m)", category: "equipements", subcategory: "Tubes PVC", unit: "pièce", basePrice: 12.5, brand: "CONAP", manufacturer: "CONAP" },
+  { name: "Robinetterie mitigeur salle de bain", category: "equipements", subcategory: "Robinetterie", unit: "pièce", basePrice: 65, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
+  { name: "WC à l'anglaise complet", category: "equipements", subcategory: "Sanitaire", unit: "pièce", basePrice: 240, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
+  { name: "Lavabo céramique", category: "equipements", subcategory: "Sanitaire", unit: "pièce", basePrice: 95, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
   // Électricité & éclairage
-  { name: "Câble électrique 3x2.5mm² (100m)", category: "electricite", subcategory: "Câblage", unit: "rouleau", basePrice: 89, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
-  { name: "Disjoncteur modulaire 16A", category: "electricite", subcategory: "Protection", unit: "pièce", basePrice: 12, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
+  { name: "Câble électrique 3x2.5mm² (100m)", category: "equipements", subcategory: "Câblage", unit: "rouleau", basePrice: 89, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
+  { name: "Disjoncteur modulaire 16A", category: "equipements", subcategory: "Protection", unit: "pièce", basePrice: 12, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
   { name: "Spot LED encastrable 9W", category: "eclairage", subcategory: "Éclairage LED", unit: "pièce", basePrice: 8.5, brand: "eBonus Market", manufacturer: "eBonus Market" },
   // Menuiserie
-  { name: "Porte intérieure en bois (H.204)", category: "portes", subcategory: "Portes intérieures", unit: "pièce", basePrice: 220, brand: "CGC Tunisie", manufacturer: "CGC Tunisie" },
-  { name: "Fenêtre aluminium 90x120", category: "menuiserie_aluminium", subcategory: "Fenêtres alu", unit: "pièce", basePrice: 310, brand: "CGC Tunisie", manufacturer: "CGC Tunisie" },
-  { name: "Fenêtre PVC double vitrage 90x120", category: "menuiserie_pvc", subcategory: "Fenêtres PVC", unit: "pièce", basePrice: 380, brand: "CGC Tunisie", manufacturer: "CGC Tunisie" },
+  { name: "Porte intérieure en bois (H.204)", category: "menuiseries", subcategory: "Portes intérieures", unit: "pièce", basePrice: 220, brand: "CGC Tunisie", manufacturer: "CGC Tunisie" },
+  { name: "Fenêtre aluminium 90x120", category: "menuiseries", subcategory: "Fenêtres alu", unit: "pièce", basePrice: 310, brand: "CGC Tunisie", manufacturer: "CGC Tunisie" },
+  { name: "Fenêtre PVC double vitrage 90x120", category: "menuiseries", subcategory: "Fenêtres PVC", unit: "pièce", basePrice: 380, brand: "CGC Tunisie", manufacturer: "CGC Tunisie" },
   // Climatisation / chauffage
-  { name: "Climatiseur split 12000 BTU", category: "climatisation", subcategory: "Climatisation", unit: "pièce", basePrice: 1350, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
-  { name: "Chauffe-eau électrique 100L", category: "chauffage", subcategory: "Chauffage ECS", unit: "pièce", basePrice: 480, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
+  { name: "Climatiseur split 12000 BTU", category: "cvc_chauffage_ventilation", subcategory: "Climatisation", unit: "pièce", basePrice: 1350, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
+  { name: "Chauffe-eau électrique 100L", category: "cvc_chauffage_ventilation", subcategory: "Chauffage ECS", unit: "pièce", basePrice: 480, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
   // Quincaillerie / outillage
-  { name: "Peinture à l'huile (pot 5L)", category: "quincaillerie", subcategory: "Quincaillerie", unit: "pot", basePrice: 55, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
-  { name: "Bétonnière 350L", category: "outillage", subcategory: "Outillage", unit: "pièce", basePrice: 1900, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
+  { name: "Peinture à l'huile (pot 5L)", category: "quincaillerie_fixations", subcategory: "Quincaillerie", unit: "pot", basePrice: 55, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
+  { name: "Bétonnière 350L", category: "quincaillerie_fixations", subcategory: "Outillage", unit: "pièce", basePrice: 1900, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
   // Aménagement extérieur / piscine / jardin
-  { name: "Clôture béton préfabriquée (m)", category: "amenagement_exterieur", subcategory: "Clôtures", unit: "mètre", basePrice: 95, brand: "COBAM Group", manufacturer: "COBAM Group" },
-  { name: "Pavé autobloquant (m²)", category: "amenagement_exterieur", subcategory: "Pavés", unit: "m²", basePrice: 32, brand: "SOPAL", manufacturer: "SOPAL" },
-  { name: "Revêtement piscine mosaïque (m²)", category: "piscines", subcategory: "Revêtement", unit: "m²", basePrice: 55, brand: "SOPAL", manufacturer: "SOPAL" },
-  { name: "Gazon synthétique (m²)", category: "jardins", subcategory: "Gazon", unit: "m²", basePrice: 18, brand: "eBonus Market", manufacturer: "eBonus Market" },
+  { name: "Clôture béton préfabriquée (m)", category: "amenagements_exterieurs", subcategory: "Clôtures", unit: "mètre", basePrice: 95, brand: "COBAM Group", manufacturer: "COBAM Group" },
+  { name: "Pavé autobloquant (m²)", category: "amenagements_exterieurs", subcategory: "Pavés", unit: "m²", basePrice: 32, brand: "SOPAL", manufacturer: "SOPAL" },
+  { name: "Revêtement piscine mosaïque (m²)", category: "amenagements_exterieurs", subcategory: "Revêtement", unit: "m²", basePrice: 55, brand: "SOPAL", manufacturer: "SOPAL" },
+  { name: "Gazon synthétique (m²)", category: "amenagements_exterieurs", subcategory: "Gazon", unit: "m²", basePrice: 18, brand: "eBonus Market", manufacturer: "eBonus Market" },
 ];
 
 // ── Helpers ──

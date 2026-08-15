@@ -1,9 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { materialCategoryValidator } from "./schema";
-import { P } from "./bimEngine";
-import { internalMutation } from "./_generated/server";
+import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 
 // ============================================================================
 // Queries
@@ -25,28 +24,33 @@ export const getMaterialPrices = query({
   },
 });
 
-/** Get all material categories with summary */
+/** Get all material categories with summary (count, avg price, quality stats) */
 export const getMaterialCategories = query({
   args: {},
   handler: async (ctx) => {
     const materials = await ctx.db.query("materialPrices").collect();
     const categories = new Map<
       string,
-      { count: number; totalValue: number }
+      { count: number; totalValue: number; observed: number; confident: number }
     >();
     for (const m of materials) {
       const existing = categories.get(m.category) || {
         count: 0,
         totalValue: 0,
+        observed: 0,
+        confident: 0,
       };
       categories.set(m.category, {
         count: existing.count + 1,
         totalValue: existing.totalValue + m.unitPrice,
+        observed: existing.observed + (m.priceQuality === "observé_en_ligne" ? 1 : 0),
+        confident: existing.confident + ((m.confidenceIndex ?? 0) >= 0.8 ? 1 : 0),
       });
     }
     return Array.from(categories.entries()).map(([category, data]) => ({
       category,
       ...data,
+      avgPrice: data.count > 0 ? Math.round((data.totalValue / data.count) * 1000) / 1000 : 0,
     }));
   },
 });
@@ -89,6 +93,14 @@ export const createMaterialPrice = mutation({
     currency: v.string(),
     region: v.optional(v.string()),
     notes: v.optional(v.string()),
+    priceQuality: v.optional(
+      v.union(
+        v.literal("observé_en_ligne"),
+        v.literal("publication_2026"),
+        v.literal("estimation_indicative"),
+      ),
+    ),
+    confidenceIndex: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -96,7 +108,17 @@ export const createMaterialPrice = mutation({
       throw new Error("Unauthorized: Admin access required");
     }
     const id = await ctx.db.insert("materialPrices", {
-      ...args,
+      category: args.category,
+      name: args.name,
+      nameAr: args.nameAr,
+      nameFr: args.nameFr,
+      unit: args.unit,
+      unitPrice: args.unitPrice,
+      currency: args.currency,
+      region: args.region,
+      notes: args.notes,
+      priceQuality: args.priceQuality,
+      confidenceIndex: args.confidenceIndex,
       lastUpdated: Date.now(),
       updatedBy: user._id,
     });
@@ -115,6 +137,14 @@ export const updateMaterialPrice = mutation({
     unit: v.optional(v.string()),
     region: v.optional(v.string()),
     notes: v.optional(v.string()),
+    priceQuality: v.optional(
+      v.union(
+        v.literal("observé_en_ligne"),
+        v.literal("publication_2026"),
+        v.literal("estimation_indicative"),
+      ),
+    ),
+    confidenceIndex: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -143,6 +173,8 @@ export const updateMaterialPrice = mutation({
       ...(args.unit !== undefined && { unit: args.unit }),
       ...(args.region !== undefined && { region: args.region }),
       ...(args.notes !== undefined && { notes: args.notes }),
+      ...(args.priceQuality !== undefined && { priceQuality: args.priceQuality }),
+      ...(args.confidenceIndex !== undefined && { confidenceIndex: args.confidenceIndex }),
       lastUpdated: Date.now(),
       updatedBy: user._id,
     });
@@ -166,7 +198,10 @@ export const deleteMaterialPrice = mutation({
 // Seed & Monthly Price Updates
 // ============================================================================
 
-/** Seed initial material prices from the BIM engine (Tunisia 2026) */
+/**
+ * Seed the official 2026 material catalog (Tunisia).
+ * Idempotent : les matériaux déjà présents sont simplement mis à jour.
+ */
 export const seedMaterialPrices = mutation({
   args: {},
   handler: async (ctx) => {
@@ -175,144 +210,50 @@ export const seedMaterialPrices = mutation({
       throw new Error("Unauthorized: Admin access required");
     }
 
-    const existing = await ctx.db.query("materialPrices").first();
-    if (existing) {
-      throw new Error("Prices already seeded. Use updateAllMaterialPrices to refresh.");
-    }
-
-    const materials: {
-      category: string; name: string; unit: string; unitPrice: number;
-    }[] = [];
-
-    // Extract from BIM engine P constant
-    for (const [key, val] of Object.entries(P)) {
-      if (typeof val === "object" && val !== null) {
-        if (key === "cement") {
-          materials.push(
-            { category: "ciment", name: "Ciment CPJ 42.5 (Sac 50kg)", unit: "sacs", unitPrice: (val as any).bag42_5 },
-            { category: "ciment", name: "Ciment CPJ 32.5 (Sac 50kg)", unit: "sacs", unitPrice: (val as any).bag32_5 },
-          );
-        } else if (key === "sand") {
-          materials.push(
-            { category: "sable", name: "Sable de construction 0/4", unit: "m³", unitPrice: (val as any).construction },
-            { category: "sable", name: "Sable fin", unit: "m³", unitPrice: (val as any).fine },
-          );
-        } else if (key === "gravel") {
-          materials.push(
-            { category: "gravier", name: "Gravier 15/25mm", unit: "m³", unitPrice: (val as any)["15_25mm"] },
-            { category: "gravier", name: "Gravier 8/15mm", unit: "m³", unitPrice: (val as any)["8_15mm"] },
-          );
-        } else if (key === "bricks") {
-          materials.push(
-            { category: "briques", name: "Brique creuse 10cm", unit: "unités", unitPrice: (val as any).hollow_10 },
-            { category: "briques", name: "Brique creuse 15cm", unit: "unités", unitPrice: (val as any).hollow_15 },
-            { category: "briques", name: "Hourdis 16x50", unit: "unités", unitPrice: (val as any).hourdis_16 },
-            { category: "parpaings", name: "Parpaing creux 15cm", unit: "unités", unitPrice: (val as any).parpaing_15 },
-            { category: "parpaings", name: "Parpaing creux 20cm", unit: "unités", unitPrice: (val as any).parpaing_20 },
-          );
-        } else if (key === "concrete") {
-          materials.push(
-            { category: "beton", name: "Béton prêt 250 kg/m³", unit: "m³", unitPrice: (val as any).ready_mix_250 },
-            { category: "beton", name: "Béton prêt 300 kg/m³", unit: "m³", unitPrice: (val as any).ready_mix_300 },
-            { category: "beton", name: "Béton prêt 350 kg/m³", unit: "m³", unitPrice: (val as any).ready_mix_350 },
-          );
-        } else if (key === "steel") {
-          materials.push(
-            { category: "acier", name: "Acier T6 (barre)", unit: "m", unitPrice: (val as any).t6_m },
-            { category: "acier", name: "Acier T8 (barre)", unit: "m", unitPrice: (val as any).t8_m },
-            { category: "acier", name: "Acier T10 (barre)", unit: "m", unitPrice: (val as any).t10_m },
-            { category: "acier", name: "Acier T12 (tonne)", unit: "tonnes", unitPrice: (val as any).t12_ton },
-          );
-        } else if (key === "tiles") {
-          materials.push(
-            { category: "carrelage", name: "Carrelage sol grès cérame", unit: "m²", unitPrice: (val as any).floor_m2 },
-            { category: "carrelage", name: "Carrelage mural faïence", unit: "m²", unitPrice: (val as any).wall_m2 },
-            { category: "marbre", name: "Marbre", unit: "m²", unitPrice: (val as any).marble_m2 },
-            { category: "carrelage", name: "Plinthe céramique", unit: "ml", unitPrice: (val as any).plinthe_ml },
-          );
-        } else if (key === "paint") {
-          materials.push(
-            { category: "peinture", name: "Peinture intérieure mate", unit: "litres", unitPrice: (val as any).interior_l },
-            { category: "peinture", name: "Peinture extérieure acrylique", unit: "litres", unitPrice: (val as any).exterior_l },
-          );
-        } else if (key === "plumbing") {
-          materials.push(
-            { category: "plomberie", name: "Tuyau PVC Ø110", unit: "ml", unitPrice: (val as any).pvc_110 },
-            { category: "plomberie", name: "Tuyau PVC Ø50", unit: "ml", unitPrice: (val as any).pvc_50 },
-            { category: "plomberie", name: "Chauffe-eau électrique 80L", unit: "unités", unitPrice: (val as any).geyser },
-            { category: "plomberie", name: "WC complet avec réservoir", unit: "unités", unitPrice: (val as any).wc },
-          );
-        } else if (key === "electrical") {
-          materials.push(
-            { category: "electricite", name: "Câble électrique 2.5mm²", unit: "ml", unitPrice: (val as any).cable_2_5_m },
-            { category: "electricite", name: "Disjoncteur 20A", unit: "unités", unitPrice: (val as any).breaker },
-            { category: "electricite", name: "Tableau électrique 13 modules", unit: "unités", unitPrice: (val as any).panel },
-            { category: "electricite", name: "Luminaire LED plafonnier", unit: "unités", unitPrice: (val as any).led_light },
-          );
-        } else if (key === "doors") {
-          materials.push(
-            { category: "portes", name: "Porte intérieure en bois", unit: "unités", unitPrice: (val as any).simple },
-            { category: "portes", name: "Porte d'entrée métallique", unit: "unités", unitPrice: (val as any).metal },
-          );
-        } else if (key === "windows") {
-          materials.push(
-            { category: "fenetres", name: "Fenêtre alu simple vitrage", unit: "unités", unitPrice: (val as any).alu_simple },
-            { category: "fenetres", name: "Grille de protection métallique", unit: "unités", unitPrice: (val as any).iron_grille },
-          );
-        } else if (key === "roofing") {
-          materials.push(
-            { category: "toiture", name: "Tuile canal rouge", unit: "m²", unitPrice: (val as any).tile_m2 },
-            { category: "etancheite", name: "Étanchéité liquide bitumeuse", unit: "m²", unitPrice: (val as any).waterproof_m2 },
-            { category: "isolation", name: "Isolation thermique", unit: "m²", unitPrice: (val as any).insulation_m2 },
-          );
-        } else if (key === "labor") {
-          materials.push(
-            { category: "main_oeuvre", name: "Maçon qualifié (jour)", unit: "jours", unitPrice: (val as any).mason_day },
-            { category: "main_oeuvre", name: "Manœuvre (jour)", unit: "jours", unitPrice: (val as any).worker_day },
-            { category: "main_oeuvre", name: "Électricien (jour)", unit: "jours", unitPrice: (val as any).electrician_day },
-            { category: "main_oeuvre", name: "Plombier (jour)", unit: "jours", unitPrice: (val as any).plumber_day },
-          );
-        } else if (key === "transport") {
-          materials.push(
-            { category: "transport", name: "Transport benne 10t (voyage)", unit: "voyages", unitPrice: (val as any).truck_trip },
-            { category: "transport", name: "Bétonnière portée (m³)", unit: "m³", unitPrice: (val as any).mixer_m3 },
-          );
-        } else if (key === "equipment") {
-          materials.push(
-            { category: "location_engins", name: "Pelle mécanique (jour)", unit: "jours", unitPrice: (val as any).excavator_day },
-            { category: "location_engins", name: "Compacteur (jour)", unit: "jours", unitPrice: (val as any).compactor_day },
-            { category: "location_engins", name: "Bétonnière électrique (jour)", unit: "jours", unitPrice: (val as any).mixer_day },
-          );
-        }
-      }
-    }
-
-    // Add additional materials
-    materials.push(
-      { category: "bois", name: "Bois de coffrage", unit: "m³", unitPrice: 650 },
-      { category: "bois", name: "Bois de charpente", unit: "m³", unitPrice: 750 },
-      { category: "revetements", name: "Enduit de lissage", unit: "kg", unitPrice: 1.2 },
-      { category: "revetements", name: "Placoplâtre BA13", unit: "m²", unitPrice: 20 },
-      { category: "fondations", name: "Fouilles en rigole", unit: "m³", unitPrice: 18 },
-      { category: "terrassement", name: "Terrassement mécanique", unit: "m³", unitPrice: 25 },
-      { category: "finition", name: "Corniche en plâtre", unit: "ml", unitPrice: 8 },
-      { category: "divers", name: "Treillis soudé ST25", unit: "m²", unitPrice: 12 },
-    );
-
+    const existing = await ctx.db.query("materialPrices").collect();
+    const byName = new Map(existing.map((m) => [m.name, m]));
     const now = Date.now();
-    for (const m of materials) {
+    let created = 0;
+    let updated = 0;
+
+    for (const item of TUNISIA_2026_CATALOG) {
+      const current = byName.get(item.name);
+      if (current) {
+        // Mise à jour silencieuse (catégorie officielle + prix + qualité)
+        if (
+          current.category !== item.category ||
+          current.unitPrice !== item.unitPrice ||
+          current.priceQuality !== item.quality
+        ) {
+          await ctx.db.patch(current._id, {
+            category: item.category as any,
+            unitPrice: item.unitPrice,
+            priceQuality: item.quality,
+            confidenceIndex: item.confidence,
+            subcategory: item.subcategory,
+            lastUpdated: now,
+            updatedBy: user._id,
+          });
+          updated++;
+        }
+        continue;
+      }
       await ctx.db.insert("materialPrices", {
-        category: m.category as any,
-        name: m.name,
-        unit: m.unit,
-        unitPrice: m.unitPrice,
+        category: item.category as any,
+        name: item.name,
+        unit: item.unit,
+        unitPrice: item.unitPrice,
         currency: "TND",
         lastUpdated: now,
         updatedBy: user._id,
+        subcategory: item.subcategory,
+        priceQuality: item.quality,
+        confidenceIndex: item.confidence,
       });
+      created++;
     }
 
-    return { count: materials.length };
+    return { count: created, updated, total: TUNISIA_2026_CATALOG.length };
   },
 });
 
@@ -337,7 +278,12 @@ export const updateAllMaterialPrices = internalMutation({
 
     for (const m of materials) {
       // Each material has its own random fluctuation around the base inflation
-      const volatility = m.category === "acier" || m.category === "ciment" ? 0.015 : 0.01;
+      const volatile =
+        m.category === "acier_metaux_structure" ||
+        m.category === "liants_ciments_mortiers" ||
+        m.category === "acier" ||
+        m.category === "ciment";
+      const volatility = volatile ? 0.015 : 0.01;
       const change = baseInflation + (Math.random() - 0.5) * volatility;
       const newPrice = Math.round(m.unitPrice * (1 + change) * 1000) / 1000;
 
@@ -384,7 +330,12 @@ export const refreshMaterialPrices = mutation({
     const baseInflation = 0.001 + Math.random() * 0.004;
 
     for (const m of materials) {
-      const volatility = m.category === "acier" || m.category === "ciment" ? 0.02 : 0.012;
+      const volatile =
+        m.category === "acier_metaux_structure" ||
+        m.category === "liants_ciments_mortiers" ||
+        m.category === "acier" ||
+        m.category === "ciment";
+      const volatility = volatile ? 0.02 : 0.012;
       const change = baseInflation + (Math.random() - 0.5) * volatility;
       const newPrice = Math.round(m.unitPrice * (1 + change) * 1000) / 1000;
 

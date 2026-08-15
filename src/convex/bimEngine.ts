@@ -10,27 +10,164 @@
 // - 3 budget scenarios based on quality level
 // ============================================================================
 
-// Tunisian 2026 Market Prices (TND/m²) - Standard finish, Tunisia average
+// Tunisian 2026 Market Prices (TND) - Unit prices for material items.
+// The keys are the internal price references used by the itemized generators;
+// they are mapped to the official 2026 material categories (MATERIAL_CATEGORY_2026)
+// via P_CATEGORY_MAP so the price database and the BIM engine stay aligned.
 export const P = {
-  // Unit prices for material items (used for itemized lists only)
-  cement: { bag42_5: 15, bag32_5: 12.5 },
-  sand: { construction: 25, fine: 22, remblai: 18 },
-  gravel: { "15_25mm": 38, "8_15mm": 35 },
-  bricks: { hollow_10: 1.0, hollow_15: 1.4, hourdis_16: 1.6, noot_6: 0.40, parpaing_15: 1.3, parpaing_20: 1.8 },
-  concrete: { ready_mix_250: 200, ready_mix_300: 230, ready_mix_350: 260 },
-  steel: { t6_m: 0.9, t8_m: 1.3, t10_m: 2.0, t12_ton: 3700, t14_ton: 3800, treillis_m2: 14 },
-  wood: { formwork_m3: 700, framing_m3: 800, chevron_m: 10 },
-  paint: { interior_l: 25, exterior_l: 30, primer_l: 18 },
-  tiles: { floor_m2: 38, wall_m2: 30, marble_m2: 90, granite_m2: 130, ext_m2: 48, plinthe_ml: 9 },
-  plumbing: { pvc_110: 14, pvc_50: 7, copper_m: 20, geyser: 500, wc: 300, lavabo: 170, douche: 380, evier: 250 },
-  electrical: { cable_1_5_m: 1.4, cable_2_5_m: 2.2, cable_6_m: 4.5, breaker: 50, panel: 200, led_light: 40, socket: 9, switch: 7 },
-  doors: { simple: 380, double: 700, metal: 550, garage: 1300, sliding: 850 },
-  windows: { alu_simple: 480, alu_double: 680, pvc: 580, iron_grille: 220, roller_shutter: 380 },
-  roofing: { tile_m2: 18, steel_sheet_m2: 28, waterproof_m2: 20, insulation_m2: 25 },
+  // Terrassement et granulats
+  sand: { construction: 45, fine: 40, remblai: 28 },
+  gravel: { "15_25mm": 52, "8_15mm": 48 },
+  // Liants, ciments et mortiers
+  cement: { bag42_5: 16.5, bag32_5: 14 },
+  // Bétons et préfabrication
+  concrete: { ready_mix_250: 210, ready_mix_300: 235, ready_mix_350: 265 },
+  // Acier et métaux de structure
+  steel: { t6_m: 0.95, t8_m: 1.4, t10_m: 2.1, t12_ton: 3850, t14_ton: 3950, treillis_m2: 15 },
+  // Maçonnerie et éléments de plancher
+  bricks: { hollow_10: 1.05, hollow_15: 1.4, hourdis_16: 1.7, noot_6: 0.45, parpaing_15: 1.3, parpaing_20: 1.85 },
+  // Bois, panneaux et coffrage
+  wood: { formwork_m3: 720, framing_m3: 820, chevron_m: 12 },
+  // Étanchéité et protection
+  roofing: { tile_m2: 19, steel_sheet_m2: 29, waterproof_m2: 22, insulation_m2: 26 },
+  // Isolation thermique et acoustique
+  insulation: { laine_m2: 4, polyst_m2: 9, xps_m2: 16 },
+  // Revêtements de sols et murs
+  tiles: { floor_m2: 30, wall_m2: 25, marble_m2: 120, granite_m2: 135, ext_m2: 34, plinthe_ml: 8 },
+  // Peintures, enduits et finitions
+  paint: { interior_l: 22, exterior_l: 26, primer_l: 18 },
+  // Menuiseries
+  doors: { simple: 280, double: 520, metal: 550, garage: 1300, sliding: 850 },
+  windows: { alu_simple: 330, alu_double: 480, pvc: 420, iron_grille: 220, roller_shutter: 380 },
+  // Vitrage et produits verriers
+  glass: { clear_m2: 28, double_m2: 68, tempered_m2: 115 },
+  // Équipements (plomberie, sanitaire, électricité, CVC)
+  plumbing: { pvc_110: 15, pvc_50: 7, copper_m: 22, geyser: 480, wc: 280, lavabo: 160, douche: 360, evier: 240 },
+  electrical: { cable_1_5_m: 1.5, cable_2_5_m: 2.4, cable_6_m: 4.8, breaker: 52, panel: 210, led_light: 38, socket: 9, switch: 7 },
+  hvac: { split_12000: 1350, split_18000: 1800, vmc: 350 },
+  solar: { panel_450w: 550, onduleur: 2500, batterie_10kwh: 3200 },
+  // Main-d'œuvre, transport et engins (services — utilisés par les macro-postes)
   labor: { worker_day: 65, mason_day: 80, electrician_day: 75, plumber_day: 75, painter_day: 65, tiler_day: 80 },
-  transport: { truck_trip: 170, mixer_m3: 28, benne: 200 },
-  equipment: { excavator_day: 280, compactor_day: 200, mixer_day: 90 },
+  transport: { truck_trip: 175, mixer_m3: 30, benne: 200 },
+  equipment: { excavator_day: 290, compactor_day: 210, mixer_day: 95 },
 };
+
+// ============================================================================
+// OFFICIAL 2026 MATERIAL CATEGORIES (source : « Base de données des matériaux
+// de construction – Tunisie 2026 », version du 14 août 2026)
+// refs = références recensées · observed = prix observés en ligne ·
+// confident = références à confiance élevée · avgPrice = prix moyen TTC (TND)
+// ============================================================================
+export const MATERIAL_CATEGORY_2026 = [
+  { slug: "terrassement_granulats", label: "Terrassement et granulats", refs: 17, observed: 0, confident: 0, avgPrice: 45.324 },
+  { slug: "liants_ciments_mortiers", label: "Liants, ciments et mortiers", refs: 19, observed: 5, confident: 2, avgPrice: 54.266 },
+  { slug: "betons_prefabrication", label: "Bétons et préfabrication", refs: 22, observed: 3, confident: 3, avgPrice: 123.387 },
+  { slug: "acier_metaux_structure", label: "Acier et métaux de structure", refs: 26, observed: 8, confident: 2, avgPrice: 152.906 },
+  { slug: "maconnerie_plancher", label: "Maçonnerie et éléments de plancher", refs: 21, observed: 5, confident: 0, avgPrice: 5.573 },
+  { slug: "bois_panneaux_coffrage", label: "Bois, panneaux et coffrage", refs: 24, observed: 9, confident: 9, avgPrice: 388.384 },
+  { slug: "etancheite_protection", label: "Étanchéité et protection", refs: 20, observed: 7, confident: 7, avgPrice: 76.809 },
+  { slug: "isolation_thermique", label: "Isolation thermique et acoustique", refs: 18, observed: 3, confident: 3, avgPrice: 32.306 },
+  { slug: "cloisons_platre_plafonds", label: "Cloisons, plâtre et plafonds", refs: 21, observed: 4, confident: 4, avgPrice: 43.126 },
+  { slug: "toitures_bardages_facades", label: "Toitures, bardages et façades", refs: 15, observed: 1, confident: 1, avgPrice: 72.81 },
+  { slug: "revetements_sols_murs", label: "Revêtements de sols et murs", refs: 29, observed: 9, confident: 8, avgPrice: 59.292 },
+  { slug: "peintures_enduits_finitions", label: "Peintures, enduits et finitions", refs: 24, observed: 7, confident: 7, avgPrice: 90.334 },
+  { slug: "menuiseries", label: "Menuiseries", refs: 23, observed: 6, confident: 0, avgPrice: 1018.893 },
+  { slug: "vitrage_verriers", label: "Vitrage et produits verriers", refs: 11, observed: 1, confident: 1, avgPrice: 113.25 },
+  { slug: "chimie_construction", label: "Chimie de construction", refs: 1, observed: 1, confident: 1, avgPrice: 260.438 },
+  { slug: "quincaillerie_fixations", label: "Quincaillerie et fixations", refs: 14, observed: 2, confident: 2, avgPrice: 33.335 },
+  { slug: "eclairage", label: "Éclairage", refs: 14, observed: 3, confident: 2, avgPrice: 70.599 },
+  { slug: "cvc_chauffage_ventilation", label: "CVC, chauffage et ventilation", refs: 16, observed: 4, confident: 2, avgPrice: 1762.162 },
+  { slug: "energies_renouvelables", label: "Énergies renouvelables", refs: 15, observed: 3, confident: 0, avgPrice: 1970.164 },
+  { slug: "securite_incendie_surete", label: "Sécurité incendie et sûreté", refs: 11, observed: 1, confident: 1, avgPrice: 463.479 },
+  { slug: "voirie_reseaux_drainage", label: "Voirie, réseaux divers et drainage", refs: 13, observed: 0, confident: 0, avgPrice: 138.5 },
+  { slug: "amenagements_exterieurs", label: "Aménagements extérieurs", refs: 11, observed: 0, confident: 0, avgPrice: 847.045 },
+  { slug: "materiaux_durables_biosources", label: "Matériaux durables et biosourcés", refs: 8, observed: 0, confident: 0, avgPrice: 443.438 },
+] as const;
+
+/** Libellé d'une catégorie officielle 2026 (slug → label français). */
+export const MATERIAL_CATEGORY_LABELS: Record<string, string> =
+  Object.fromEntries(MATERIAL_CATEGORY_2026.map((c) => [c.slug, c.label]));
+
+/** Métadonnées officielles 2026 par slug. */
+export const MATERIAL_CATEGORY_META: Record<string, (typeof MATERIAL_CATEGORY_2026)[number]> =
+  Object.fromEntries(MATERIAL_CATEGORY_2026.map((c) => [c.slug, c]));
+
+/** Slug officiel d'un groupe de prix interne P (pour le regroupement UI). */
+export const P_CATEGORY_MAP: Record<string, string> = {
+  sand: "terrassement_granulats",
+  gravel: "terrassement_granulats",
+  cement: "liants_ciments_mortiers",
+  concrete: "betons_prefabrication",
+  steel: "acier_metaux_structure",
+  bricks: "maconnerie_plancher",
+  wood: "bois_panneaux_coffrage",
+  roofing: "etancheite_protection",
+  insulation: "isolation_thermique",
+  tiles: "revetements_sols_murs",
+  paint: "peintures_enduits_finitions",
+  doors: "menuiseries",
+  windows: "menuiseries",
+  glass: "vitrage_verriers",
+  plumbing: "equipements",
+  electrical: "equipements",
+  hvac: "cvc_chauffage_ventilation",
+  solar: "energies_renouvelables",
+};
+
+/** Correspondance des anciennes catégories (legacy) vers les catégories officielles 2026. */
+export const LEGACY_MATERIAL_CATEGORY_MAP: Record<string, string> = {
+  ciment: "liants_ciments_mortiers",
+  sable: "terrassement_granulats",
+  gravier: "terrassement_granulats",
+  granulats: "terrassement_granulats",
+  briques: "maconnerie_plancher",
+  parpaings: "maconnerie_plancher",
+  blocs: "maconnerie_plancher",
+  beton: "betons_prefabrication",
+  acier: "acier_metaux_structure",
+  fer_a_beton: "acier_metaux_structure",
+  bois: "bois_panneaux_coffrage",
+  coffrage: "bois_panneaux_coffrage",
+  etancheite: "etancheite_protection",
+  isolation: "isolation_thermique",
+  cloisons: "cloisons_platre_plafonds",
+  toiture: "toitures_bardages_facades",
+  revetements: "revetements_sols_murs",
+  peinture: "peintures_enduits_finitions",
+  carrelage: "revetements_sols_murs",
+  faience: "revetements_sols_murs",
+  marbre: "revetements_sols_murs",
+  pierre_naturelle: "revetements_sols_murs",
+  menuiserie_aluminium: "menuiseries",
+  menuiserie_pvc: "menuiseries",
+  portes: "menuiseries",
+  fenetres: "menuiseries",
+  cuisines: "menuiseries",
+  dressings: "menuiseries",
+  quincaillerie: "quincaillerie_fixations",
+  outillage: "quincaillerie_fixations",
+  eclairage: "eclairage",
+  climatisation: "cvc_chauffage_ventilation",
+  chauffage: "cvc_chauffage_ventilation",
+  plomberie: "equipements",
+  sanitaire: "equipements",
+  electricite: "equipements",
+  amenagement_exterieur: "amenagements_exterieurs",
+  piscines: "amenagements_exterieurs",
+  jardins: "amenagements_exterieurs",
+  location_engins: "equipements",
+  terrassement: "terrassement_granulats",
+  fondations: "terrassement_granulats",
+  finition: "peintures_enduits_finitions",
+  divers: "quincaillerie_fixations",
+};
+
+/** Normalise n'importe quelle catégorie (nouvelle ou legacy) vers le slug officiel 2026. */
+export function normalizeMaterialCategory(category: string): string {
+  return MATERIAL_CATEGORY_LABELS[category]
+    ? category
+    : LEGACY_MATERIAL_CATEGORY_MAP[category] || category;
+}
 
 export const MACRO_LABELS: Record<string, string> = {
   gros_oeuvre: "Gros œuvre",

@@ -99,7 +99,12 @@ export const refreshBIMData = mutation({
 
       for (const m of materials) {
         const volatility =
-          m.category === "acier" || m.category === "ciment" ? 0.015 : 0.01;
+          m.category === "acier_metaux_structure" ||
+          m.category === "liants_ciments_mortiers" ||
+          m.category === "acier" ||
+          m.category === "ciment"
+            ? 0.015
+            : 0.01;
         const change = baseInflation + (Math.random() - 0.5) * volatility;
         const newPrice = Math.round(m.unitPrice * (1 + change) * 1000) / 1000;
 
@@ -260,7 +265,13 @@ export const refreshBIMDataMonthly = internalMutation({
       const baseInflation = 0.002 + Math.random() * 0.003;
 
       for (const m of materials) {
-        const volatility = m.category === "acier" || m.category === "ciment" ? 0.015 : 0.01;
+        const volatility =
+          m.category === "acier_metaux_structure" ||
+          m.category === "liants_ciments_mortiers" ||
+          m.category === "acier" ||
+          m.category === "ciment"
+            ? 0.015
+            : 0.01;
         const change = baseInflation + (Math.random() - 0.5) * volatility;
         const newPrice = Math.round(m.unitPrice * (1 + change) * 1000) / 1000;
 

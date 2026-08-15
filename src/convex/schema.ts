@@ -145,14 +145,38 @@ export type ProjectStatus = Infer<typeof projectStatusValidator>;
 // ============================================================================
 
 export const MATERIAL_CATEGORIES = [
-  // BIM Macro-categories
+  // BIM Macro-categories (postes de coût de l'estimation)
   "gros_oeuvre",
   "second_oeuvre",
   "equipements",
   "main_oeuvre",
   "transport",
   "etudes_imprevus",
-  // Traditional material categories
+  // ── Catégories officielles 2026 (Base de données des matériaux – Tunisie 2026) ──
+  "terrassement_granulats",
+  "liants_ciments_mortiers",
+  "betons_prefabrication",
+  "acier_metaux_structure",
+  "maconnerie_plancher",
+  "bois_panneaux_coffrage",
+  "etancheite_protection",
+  "isolation_thermique",
+  "cloisons_platre_plafonds",
+  "toitures_bardages_facades",
+  "revetements_sols_murs",
+  "peintures_enduits_finitions",
+  "menuiseries",
+  "vitrage_verriers",
+  "chimie_construction",
+  "quincaillerie_fixations",
+  "eclairage",
+  "cvc_chauffage_ventilation",
+  "energies_renouvelables",
+  "securite_incendie_surete",
+  "voirie_reseaux_drainage",
+  "amenagements_exterieurs",
+  "materiaux_durables_biosources",
+  // ── Catégories legacy (compatibilité des données existantes) ──
   "ciment",
   "sable",
   "gravier",
@@ -639,6 +663,15 @@ const schema = defineSchema(
       ),
       reliabilityIndex: v.optional(v.number()),
       sourceRef: v.optional(v.string()),
+      // ── Qualité du prix (Base 2026) ──
+      priceQuality: v.optional(
+        v.union(
+          v.literal("observé_en_ligne"),
+          v.literal("publication_2026"),
+          v.literal("estimation_indicative"),
+        ),
+      ),
+      confidenceIndex: v.optional(v.number()),
     })
       .index("by_category", ["category"])
       .index("by_name", ["name"]),

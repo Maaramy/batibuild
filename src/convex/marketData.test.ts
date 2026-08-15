@@ -155,11 +155,11 @@ describe("Analytics queries", () => {
 
   it("getBestOffers filtre par catégorie", async () => {
     const offers = await t.query(api.marketData.getBestOffers, {
-      category: "ciment",
+      category: "liants_ciments_mortiers",
       limit: 10,
     });
     expect(offers.length).toBeGreaterThan(0);
-    for (const o of offers) expect(o.category).toBe("ciment");
+    for (const o of offers) expect(o.category).toBe("liants_ciments_mortiers");
   });
 
   it("getGovernoratePrices retourne la moyenne nationale et les extrêmes", async () => {
