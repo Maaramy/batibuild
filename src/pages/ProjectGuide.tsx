@@ -322,7 +322,6 @@ export default function ProjectGuide() {
   const toggleItem = useMutation(api.roadmap.togglePhaseItem);
   const updateTask = useMutation(api.roadmap.updatePlanningTask);
   const setScenario = useMutation(api.roadmap.setBudgetScenario);
-  const updateAllocation = useMutation(api.roadmap.updateBudgetAllocation);
   const addExpense = useMutation(api.roadmap.addControlExpense);
   const deleteExpense = useMutation(api.roadmap.deleteControlExpense);
   const addIssue = useMutation(api.roadmap.addControlIssue);
@@ -808,7 +807,7 @@ export default function ProjectGuide() {
               <CardHeader className="p-3 sm:p-4 pb-2">
                 <CardTitle className="text-sm">Répartition du budget — {activeScenario.label}</CardTitle>
                 <CardDescription className="text-[10px]">
-                  Ajustez les pourcentages en temps réel : les autres postes sont recalculés automatiquement.
+                  Répartition fixée par l'IA — lecture seule. Changez de scénario pour comparer les allocations.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-3 sm:p-4 space-y-2">
@@ -822,14 +821,9 @@ export default function ProjectGuide() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={row.pct}
-                        onChange={(e) => roadmapId && updateAllocation({ roadmapId, rowKey: row.key, pct: Number(e.target.value) }).catch(() => {})}
-                        className="flex-1 h-1.5 cursor-pointer accent-cyan-600"
-                      />
+                      <div className="h-1.5 flex-1 rounded-full bg-muted/60 overflow-hidden">
+                        <div className="h-full rounded-full bg-cyan-500/70" style={{ width: `${row.pct}%` }} />
+                      </div>
                     </div>
                   </div>
                 ))}

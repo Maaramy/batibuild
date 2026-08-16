@@ -594,6 +594,95 @@ export default function Dashboard() {
         </header>
 
         <div className="p-3 sm:p-5 lg:p-6 xl:p-8 space-y-3 sm:space-y-4 lg:space-y-6">
+          {/* Quick actions - horizontal scroll on mobile */}
+          <div className="overflow-x-auto scrollbar-none -mx-3 sm:mx-0 px-3 sm:px-0">
+            <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 min-w-max sm:min-w-0">
+              <Card className={`border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 active:scale-[0.98] shrink-0 w-[160px] sm:w-auto ${projectsReached ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                onClick={() => { if (!projectsReached) navigate("/dashboard/new"); }}>
+                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    {projectsReached ? <Lock className="h-4 w-4 sm:h-5 sm:w-5" /> : <Plus className="h-4 w-4 sm:h-5 sm:w-5" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium truncate">{projectsReached ? "Limite atteinte" : "Nouveau projet"}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Estimation</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+                onClick={() => navigate("/dashboard/investments")}>
+                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                    <Landmark className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium truncate">Nouveau investissement</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Analyse immobilière</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+                onClick={() => navigate("/dashboard/materials")}>
+                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium truncate">Prix</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Matériaux 2026</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+                onClick={() => navigate("/dashboard/pricing")}>
+                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium truncate">Abonnement</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Offres</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto">
+                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                    <Download className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium truncate">Rapports</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Export</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+                onClick={() => navigate("/dashboard/ai-materials")}>
+                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                    <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium truncate">Assistant IA</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Choix des matériaux</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+                onClick={() => navigate("/dashboard/guide")}>
+                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                    <Rocket className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium truncate">Guide A-Z</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Projet de A à Z</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
             <StatsCard icon={HardHat} label="Projets constr." value={stats.totalProjects}
@@ -1097,82 +1186,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Quick actions - horizontal scroll on mobile */}
-          <div className="overflow-x-auto scrollbar-none -mx-3 sm:mx-0 px-3 sm:px-0">
-            <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 min-w-max sm:min-w-0">
-              <Card className={`border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 active:scale-[0.98] shrink-0 w-[160px] sm:w-auto ${projectsReached ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                onClick={() => { if (!projectsReached) navigate("/dashboard/new"); }}>
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    {projectsReached ? <Lock className="h-4 w-4 sm:h-5 sm:w-5" /> : <Plus className="h-4 w-4 sm:h-5 sm:w-5" />}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">{projectsReached ? "Limite atteinte" : "Nouveau projet"}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Estimation</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
-                onClick={() => navigate("/dashboard/materials")}>
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Prix</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Matériaux 2026</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
-                onClick={() => navigate("/dashboard/pricing")}>
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Abonnement</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Offres</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto">
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
-                    <Download className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Rapports</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Export</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
-                onClick={() => navigate("/dashboard/ai-materials")}>
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
-                    <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Assistant IA</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Choix des matériaux</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
-                onClick={() => navigate("/dashboard/guide")}>
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-                    <Rocket className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Guide A-Z</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Projet de A à Z</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
         </div>
       </div>
 

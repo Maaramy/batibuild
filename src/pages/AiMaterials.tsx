@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation, useAction } from "convex/react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -90,6 +90,8 @@ export default function AiMaterials() {
     description: "Assistant intelligent de choix des matériaux de construction par IA : recommandation comparative, prix du marché tunisien 2026, fournisseurs, optimisation du budget.",
   });
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const paramProject = params.get("project");
   const { user } = useAuth();
   const projects = useQuery(api.projects.getUserProjects, {}) || [];
   const catStats = useQuery(api.aiMaterials.getCopilotCategories) || [];
@@ -103,7 +105,7 @@ export default function AiMaterials() {
   const askMaterialsAssistant = useAction(api.aiMaterialsActions.askMaterialsAssistant);
 
   // ── Formulaire ──
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(paramProject || "");
   const [manualMode, setManualMode] = useState(false);
   const [form, setForm] = useState({
     surface: 120,
