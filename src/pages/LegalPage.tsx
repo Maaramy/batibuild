@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/logo.svg";
+import { LogoMark } from "@/components/Logo";
 import {
   ArrowLeft,
   ArrowRight,
@@ -242,7 +242,7 @@ export default function LegalPage({ kind = "terms" }: { kind?: LegalKind }) {
         <div className="flex items-center justify-between mb-8">
           <Link to="/">
             <div className="flex items-center gap-2">
-              <img src={logo} alt="batibuild App" width={34} height={34} className="rounded-lg" />
+              <LogoMark className="h-9 w-9 rounded-lg" />
               <span className="font-bold text-base" style={{ color: "var(--foreground)" }}>batibuild App</span>
             </div>
           </Link>

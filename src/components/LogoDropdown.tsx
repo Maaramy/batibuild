@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import logo from "@/assets/logo.svg";
+import { LogoMark } from "@/components/Logo";
 import { useAuth } from "@/hooks/use-auth";
 import { Home, LogOut } from "lucide-react";
 import { useNavigate } from "react-router";
@@ -34,13 +34,7 @@ export function LogoDropdown() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="h-10 w-10">
-          <img
-            src={logo}
-            alt="Logo"
-            width={32}
-            height={32}
-            className="rounded-lg"
-          />
+          <LogoMark size="sm" className="h-9 w-9 rounded-lg" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">

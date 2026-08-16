@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useAuth } from "@/hooks/use-auth";
-import logo from "@/assets/logo.svg";
+import { LogoMark } from "@/components/Logo";
 import {
   ArrowRight,
   Building2,
@@ -237,7 +237,7 @@ function LeftPanel() {
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, damping: 15 }}
             className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-8 mx-auto"
             style={{ background: "color-mix(in srgb, white 12%, transparent)", backdropFilter: "blur(8px)" }}>
-            <img src={logo} alt="batibuild App" width={56} height={56} className="rounded-xl brightness-0 invert" />
+            <LogoMark size="lg" className="h-14 w-14 rounded-xl" />
           </motion.div>
         </Link>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
@@ -274,7 +274,7 @@ function MobileLogo() {
     <div className="lg:hidden flex justify-center pt-6 pb-2">
       <Link to="/">
         <div className="flex items-center gap-2">
-          <img src={logo} alt="batibuild App" width={36} height={36} className="rounded-lg" />
+          <LogoMark className="h-9 w-9 rounded-lg" />
           <span className="font-bold text-lg" style={{ color: "var(--foreground)" }}>batibuild App</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "color-mix(in srgb, var(--auth-accent) 12%, transparent)", color: "var(--auth-accent)" }}>Tunisie</span>
         </div>
@@ -442,7 +442,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         <div className="relative z-10 w-full max-w-sm mx-auto">
           <AuthCard topBar>
             <div className="flex justify-center mb-6">
-              <Link to="/"><img src={logo} alt="batibuild App" width={48} height={48} className="rounded-xl" style={{ boxShadow: "0 0 0 2px color-mix(in srgb, var(--auth-primary) 20%, transparent)" }} /></Link>
+              <Link to="/"><LogoMark className="h-12 w-12 rounded-xl" /></Link>
             </div>
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4 mx-auto" style={{ background: "color-mix(in srgb, var(--auth-accent) 12%, transparent)" }}>

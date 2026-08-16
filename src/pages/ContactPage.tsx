@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { Mail, MapPin, Building2, HardHat, ArrowLeft } from "lucide-react";
+import { Mail, MapPin, Building2, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router";
+import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { usePageSEO } from "@/hooks/use-page-seo";
 
@@ -20,12 +21,7 @@ export default function ContactPage() {
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <HardHat className="h-3.5 w-3.5" />
-              </div>
-              <span className="text-sm font-semibold">batibuild App</span>
-            </div>
+            <Logo size="sm" wordmarkClassName="text-sm" />
           </div>
         </div>
       </header>

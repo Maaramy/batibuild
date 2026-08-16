@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
+import { drawBatiLogo } from "./pdfLogo";
 
 applyAutotablePlugin(jsPDF);
 
@@ -63,8 +64,8 @@ export function generateMaterialReportPdf(input: {
   let y = ml;
 
   const C = {
-    primary: [37, 99, 235] as [number, number, number],
-    primaryLight: [219, 234, 254] as [number, number, number],
+    primary: [5, 150, 105] as [number, number, number],
+    primaryLight: [209, 250, 229] as [number, number, number],
     text: [31, 41, 55] as [number, number, number],
     textSecondary: [107, 114, 128] as [number, number, number],
     textLight: [156, 163, 175] as [number, number, number],
@@ -117,16 +118,8 @@ export function generateMaterialReportPdf(input: {
   doc.setFillColor(16, 185, 129);
   doc.rect(0, 24, pw, 2, "F");
 
-  // Logo (building)
-  doc.setFillColor(255, 255, 255);
-  const lx = ml + 1;
-  const ly = 5.5;
-  doc.triangle(lx + 5.5, ly, lx, ly + 5.5, lx + 11, ly + 5.5, "F");
-  doc.rect(lx + 1, ly + 5.5, 9, 8.5, "F");
-  doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
-  doc.rect(lx + 4, ly + 9, 3.5, 5, "F");
-  doc.rect(lx + 2.3, ly + 7, 1.8, 1.8, "F");
-  doc.rect(lx + 6.9, ly + 7, 1.8, 1.8, "F");
+  // Logo officiel (casque blanc, carré vert)
+  drawBatiLogo(doc, ml + 1, 5.5, 13);
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(15);

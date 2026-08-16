@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
+import { LogoMark } from "@/components/Logo";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import {
@@ -458,9 +459,7 @@ export default function Dashboard() {
     <>
       <div className="p-4 sm:p-5 border-b border-border/30">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <HardHat className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </div>
+          <LogoMark className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg" />
           <div>
             <span className="text-sm sm:text-base font-semibold">batibuild App</span>
             <p className="text-[9px] sm:text-[10px] text-muted-foreground">Tableau de bord</p>

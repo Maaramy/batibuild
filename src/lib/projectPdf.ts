@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 import { toast } from "sonner";
+import { drawBatiLogo } from "./pdfLogo";
 
 applyAutotablePlugin(jsPDF);
 
@@ -118,8 +119,8 @@ export async function generateProjectPdf({
 
     // Colors (all hex — no oklch!)
     const C = {
-      primary: [30, 64, 175] as [number, number, number],
-      primaryLight: [219, 234, 254] as [number, number, number],
+      primary: [5, 150, 105] as [number, number, number],
+      primaryLight: [209, 250, 229] as [number, number, number],
       text: [31, 41, 55] as [number, number, number],
       textSecondary: [107, 114, 128] as [number, number, number],
       textLight: [156, 163, 175] as [number, number, number],
@@ -144,33 +145,16 @@ export async function generateProjectPdf({
 
     // ═══ HEADER BAR ════════════════════════════════════════════════
     // Top accent line
-    doc.setFillColor(59, 130, 246);
+    doc.setFillColor(4, 120, 87);
     doc.rect(0, 0, pw, 2.5, "F");
     // Main header background
     doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
     doc.rect(0, 2.5, pw, 20, "F");
 
-    // ── Draw batibuild App logo (vector building icon) ──
+    // ── Draw batibuild App logo (casque blanc, carré vert) ──
     const logoX = ml;
     const logoY = 5;
-    const logoScale = 0.9;
-
-    // Roof
-    doc.setFillColor(255, 255, 255);
-    doc.triangle(
-      logoX + 6 * logoScale, logoY,
-      logoX, logoY + 6 * logoScale,
-      logoX + 12 * logoScale, logoY + 6 * logoScale,
-      "F",
-    );
-    // Building body
-    doc.rect(logoX + 1 * logoScale, logoY + 6 * logoScale, 10 * logoScale, 9 * logoScale, "F");
-    // Door
-    doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
-    doc.rect(logoX + 4 * logoScale, logoY + 10 * logoScale, 4 * logoScale, 5 * logoScale, "F");
-    // Windows
-    doc.rect(logoX + 2.5 * logoScale, logoY + 7.5 * logoScale, 2 * logoScale, 2 * logoScale, "F");
-    doc.rect(logoX + 7.5 * logoScale, logoY + 7.5 * logoScale, 2 * logoScale, 2 * logoScale, "F");
+    drawBatiLogo(doc, logoX, logoY, 13);
 
     // ── Title next to logo ──
     const titleX = ml + 17;

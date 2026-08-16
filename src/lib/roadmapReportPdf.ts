@@ -5,6 +5,7 @@
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 import type { Roadmap } from "@/convex/roadmapEngine";
+import { drawBatiLogo } from "./pdfLogo";
 
 applyAutotablePlugin(jsPDF);
 
@@ -30,13 +31,24 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 14;
-  const cyan: [number, number, number] = [8, 145, 178];
+  const emerald: [number, number, number] = [5, 150, 105];
   const slate: [number, number, number] = [51, 65, 85];
 
-  let y = 16;
-  doc.setFillColor(...cyan);
+  doc.setFillColor(...emerald);
   doc.rect(0, 0, pageWidth, 6, "F");
 
+  // Logo officiel + wordmark
+  drawBatiLogo(doc, margin, 9, 14);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(...slate);
+  doc.text("batibuild App", margin + 18, 16);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(120, 130, 140);
+  doc.text("Guide construction A-Z · Tunisie 2026", margin + 18, 21);
+
+  let y = 30;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(...slate);
@@ -57,7 +69,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   // ── Synthèse ──
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(...cyan);
+  doc.setTextColor(...emerald);
   doc.text("1. Synthèse du projet", margin, y);
   y += 2;
   const summaryRows: [string, string][] = [
@@ -76,7 +88,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
     head: [["Indicateur", "Valeur"]],
     body: summaryRows,
     theme: "grid",
-    headStyles: { fillColor: cyan as any, fontSize: 9 },
+    headStyles: { fillColor: emerald as any, fontSize: 9 },
     styles: { fontSize: 9, cellPadding: 2.5 },
     columnStyles: { 0: { fontStyle: "bold" } },
   });
@@ -85,7 +97,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   // ── Phases ──
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(...cyan);
+  doc.setTextColor(...emerald);
   doc.text("2. Parcours par phases (A-Z)", margin, y);
   y += 2;
   const phaseRows = roadmap.phases.map((p) => [
@@ -100,7 +112,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
     head: [["Phase", "Intitulé", "Avancement", "Statut"]],
     body: phaseRows,
     theme: "grid",
-    headStyles: { fillColor: cyan as any, fontSize: 9 },
+    headStyles: { fillColor: emerald as any, fontSize: 9 },
     styles: { fontSize: 9, cellPadding: 2.5 },
     columnStyles: { 1: { cellWidth: 90 } },
   });
@@ -109,7 +121,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   // ── Démarches administratives ──
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(...cyan);
+  doc.setTextColor(...emerald);
   doc.text("3. Démarches administratives (Tunisie — indicatif)", margin, y);
   y += 2;
   const adminRows = roadmap.adminSteps.map((a) => [
@@ -126,7 +138,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
     head: [["#", "Démarche", "Organisme", "Délai", "Frais", "État"]],
     body: adminRows,
     theme: "grid",
-    headStyles: { fillColor: cyan as any, fontSize: 9 },
+    headStyles: { fillColor: emerald as any, fontSize: 9 },
     styles: { fontSize: 8.5, cellPadding: 2 },
     columnStyles: { 1: { cellWidth: 55 }, 2: { cellWidth: 55 } },
   });
@@ -135,7 +147,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   // ── Budget ──
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(...cyan);
+  doc.setTextColor(...emerald);
   const activeScenario = roadmap.budget.scenarios.find((s) => s.key === roadmap.budget.selected) ?? roadmap.budget.scenarios[1];
   doc.text(`4. Budget — scénario ${activeScenario.label} (${fmtTnd(activeScenario.totalCost)})`, margin, y);
   y += 2;
@@ -146,7 +158,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
     head: [["Poste", "Répartition", "Montant"]],
     body: budgetRows,
     theme: "grid",
-    headStyles: { fillColor: cyan as any, fontSize: 9 },
+    headStyles: { fillColor: emerald as any, fontSize: 9 },
     styles: { fontSize: 9, cellPadding: 2.5 },
     columnStyles: { 0: { cellWidth: 100 } },
   });
@@ -155,7 +167,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   // ── Planning ──
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(...cyan);
+  doc.setTextColor(...emerald);
   doc.text("5. Planning des travaux", margin, y);
   y += 2;
   const planRows = roadmap.planning.map((t) => [
@@ -172,7 +184,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
     head: [["Tâche", "Durée", "Jalons", "Responsable", "Coût", "État"]],
     body: planRows,
     theme: "grid",
-    headStyles: { fillColor: cyan as any, fontSize: 9 },
+    headStyles: { fillColor: emerald as any, fontSize: 9 },
     styles: { fontSize: 8.5, cellPadding: 2 },
     columnStyles: { 0: { cellWidth: 55 } },
   });
@@ -181,7 +193,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   // ── Vérification (omissions) ──
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(...cyan);
+  doc.setTextColor(...emerald);
   doc.text("6. Vérification du projet", margin, y);
   y += 2;
   const omRows = [
@@ -195,7 +207,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
     head: [["État", "Élément"]],
     body: omRows,
     theme: "grid",
-    headStyles: { fillColor: cyan as any, fontSize: 9 },
+    headStyles: { fillColor: emerald as any, fontSize: 9 },
     styles: { fontSize: 9, cellPadding: 2.5 },
     columnStyles: { 0: { cellWidth: 35 } },
   });
@@ -208,7 +220,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(...cyan);
+  doc.setTextColor(...emerald);
   doc.text("7. IA prédictive", margin, y);
   y += 2;
   doc.setFont("helvetica", "normal");
@@ -232,7 +244,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(...cyan);
+  doc.setTextColor(...emerald);
   const risk = roadmap.control.risk;
   doc.text(`8. Diagnostic IA du chantier — niveau de risque : ${risk?.level ?? "—"} (${risk?.score ?? 0}/100)`, margin, y);
   y += 2;
@@ -255,7 +267,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
       head: [["Sévérité", "Anomalie", "Détail", "Recommandation"]],
       body: riskRows,
       theme: "grid",
-      headStyles: { fillColor: cyan as any, fontSize: 9 },
+      headStyles: { fillColor: emerald as any, fontSize: 9 },
       styles: { fontSize: 8, cellPadding: 2 },
       columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 45 }, 2: { cellWidth: 55 } },
     });
@@ -265,7 +277,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   // ── Prochaines étapes ──
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(...cyan);
+  doc.setTextColor(...emerald);
   doc.text("9. Prochaines actions", margin, y);
   y += 2;
   doc.setFont("helvetica", "normal");

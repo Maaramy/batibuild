@@ -65,6 +65,7 @@ import {
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -310,10 +311,7 @@ function Navbar() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <HardHat className="h-4 w-4" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight">batibuild App</span>
+          <Logo />
           <span className="hidden sm:inline-block ml-1 text-xs font-medium text-muted-foreground/60">Tunisia</span>
         </div>
 
@@ -447,19 +445,14 @@ function HeroSection() {
           </motion.div>
 
           {/* Description */}
-          <motion.div
+          <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.28, duration: 0.5 }}
-            className="mt-6 flex items-center justify-center gap-3 mx-auto max-w-2xl"
+            className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed"
           >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/15 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 shadow-sm">
-              <Sparkles className="h-4 w-4" />
-            </span>
-            <p className="text-base sm:text-lg text-muted-foreground leading-relaxed text-left">
-              Analysez vos projets, optimisez vos coûts, choisissez vos matériaux et prenez de meilleures décisions immobilières grâce à l'IA.
-            </p>
-          </motion.div>
+            Analysez vos projets, optimisez vos coûts, choisissez vos matériaux et prenez de meilleures décisions immobilières grâce à l'IA.
+          </motion.p>
 
           {/* CTA */}
           <motion.div
@@ -1268,12 +1261,7 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <HardHat className="h-4 w-4" />
-              </div>
-              <span className="text-base font-semibold">batibuild App</span>
-            </div>
+            <Logo size="sm" className="mb-4" wordmarkClassName="text-base" />
             <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">
               Plateforme IA complète : estimation de construction, assistant de choix des matériaux, guide A-Z, investissement immobilier et fournisseurs — prix actualisés du marché tunisien.
             </p>
