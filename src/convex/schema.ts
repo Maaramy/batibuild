@@ -1127,6 +1127,19 @@ const schema = defineSchema(
       .index("by_user_project", ["userId", "projectId"])
       .index("by_created", ["createdAt"]),
 
+    // Guide Construction A-Z — feuilles de route IA par projet
+    projectRoadmaps: defineTable({
+      userId: v.id("users"),
+      projectId: v.id("projects"),
+      input: v.any(),
+      results: v.any(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_project", ["projectId"])
+      .index("by_user_project", ["userId", "projectId"]),
+
   },
   {
     schemaValidation: false,

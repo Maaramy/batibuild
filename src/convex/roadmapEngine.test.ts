@@ -1,0 +1,173 @@
+import { describe, it, expect } from "vitest";
+import {
+  generateRoadmap,
+  buildPlanning,
+  estimateDurationDays,
+  computeProgress,
+  buildOmissions,
+  fmtTnd,
+  fmtDays,
+  type RoadmapProjectInput,
+  type StepStatus,
+} from "./roadmapEngine";
+import { TUNISIA_ADMIN_STEPS, CONSTRUCTION_STEPS } from "./roadmapData";
+
+// ── Projet complet type (résultat d'estimation) ──
+function fullProject(): RoadmapProjectInput {
+  return {
+    _id: "proj_1",
+    name: "Villa test à Nabeul",
+    category: "villa",
+    region: "nabeul",
+    surface: 180,
+    surfaceTotale: 600,
+    floors: 2,
+    bedrooms: 4,
+    files: [{ name: "photo.jpg", type: "image/jpeg" }],
+    aiAnalysis: { confidence: 0.82, estimatedDuration: "6 mois" },
+    costEstimate: {
+      totalCost: 320000,
+      costPerSquareMeter: 1778,
+      contingencyBuffer: 16000,
+      contingencyPercentage: 5,
+      breakdown: [
+        { category: "gros_oeuvre", label: "Gros œuvre", estimatedCost: 128000, percentage: 40, items: [{ name: "Béton dosé", quantity: 120, unit: "m³", unitPrice: 380, totalPrice: 45600 }] },
+        { category: "second_oeuvre", label: "Second œuvre & matériaux", estimatedCost: 96000, percentage: 30, items: [] },
+      ],
+      budgetScenarios: {
+        economique: { totalCost: 272000, costPerM2: 1511, label: "Économique", multiplier: 0.85 },
+        standard: { totalCost: 320000, costPerM2: 1778, label: "Standard", multiplier: 1 },
+        premium: { totalCost: 416000, costPerM2: 2311, label: "Premium", multiplier: 1.3 },
+      },
+    },
+    providerRecommendations: { providers: [{ type: "entreprise_generale", label: "Entreprise générale", priority: "essentiel" }] },
+  };
+}
+
+const minimalProject = (): RoadmapProjectInput => ({
+  _id: "proj_2",
+  name: "Projet minimal",
+  category: "maison",
+});
+
+describe("generateRoadmap", () => {
+  it("génère les 10 phases, 15 démarches et 18 étapes de construction", () => {
+    const r = generateRoadmap(fullProject());
+    expect(r.phases).toHaveLength(10);
+    expect(r.adminSteps).toHaveLength(TUNISIA_ADMIN_STEPS.length);
+    expect(r.construction).toHaveLength(CONSTRUCTION_STEPS.length);
+    expect(r.budget.scenarios).toHaveLength(3);
+    expect(r.documents.length).toBeGreaterThanOrEqual(12);
+  });
+
+  it("ordonne les scénarios budgétaires : économique < standard < premium", () => {
+    const r = generateRoadmap(fullProject());
+    const [eco, std, pre] = r.budget.scenarios;
+    expect(eco.totalCost).toBeLessThan(std.totalCost);
+    expect(std.totalCost).toBeLessThan(pre.totalCost);
+    expect(eco.costPerM2).toBeLessThan(pre.costPerM2);
+  });
+
+  it("importe les informations du projet (surface, région, catégorie)", () => {
+    const r = generateRoadmap(fullProject());
+    expect(r.project.surface).toBe(180);
+    expect(r.project.surfaceTotale).toBe(600);
+    expect(r.project.regionLabel).toBe("Nabeul");
+    expect(r.project.categoryLabel).toBe("Villa");
+    const terrain = r.phases.find((p) => p.id === "phase_01")!;
+    const situation = terrain.items.find((i) => i.id === "situation");
+    const surface = terrain.items.find((i) => i.id === "surface");
+    expect(situation?.status).toBe("done");
+    expect(surface?.status).toBe("done");
+    expect(r.progress).toBeGreaterThan(0);
+  });
+
+  it("fonctionne avec un projet minimal (fallbacks)", () => {
+    const r = generateRoadmap(minimalProject());
+    expect(r.budget.totalCost).toBeGreaterThan(0);
+    expect(r.planning.length).toBeGreaterThan(0);
+    expect(r.omissions.red.length).toBeGreaterThan(0);
+    expect(r.summary.plannedDurationDays).toBeGreaterThan(0);
+  });
+
+  it("prévoit un budget par poste dont la somme ≈ 100 %", () => {
+    const r = generateRoadmap(fullProject());
+    for (const s of r.budget.scenarios) {
+      const total = s.rows.reduce((a, row) => a + row.pct, 0);
+      expect(total).toBeGreaterThanOrEqual(98);
+      expect(total).toBeLessThanOrEqual(102);
+    }
+  });
+});
+
+describe("buildPlanning / estimateDurationDays", () => {
+  it("enchaîne les tâches sans chevauchement et avec dépendances", () => {
+    const tasks = buildPlanning(320000, 180, 2);
+    expect(tasks.length).toBe(CONSTRUCTION_STEPS.length);
+    for (let i = 1; i < tasks.length; i++) {
+      expect(tasks[i].startDay).toBe(tasks[i - 1].endDay);
+      expect(tasks[i].dependencies).toContain(tasks[i - 1].id);
+    }
+    expect(tasks[0].startDay).toBe(0);
+    const total = tasks.reduce((a, t) => a + t.durationDays, 0);
+    expect(tasks[tasks.length - 1].endDay).toBe(total);
+  });
+
+  it("estime une durée raisonnable selon la surface", () => {
+    const d1 = estimateDurationDays(200000, 100, 1);
+    const d2 = estimateDurationDays(800000, 300, 3);
+    expect(d1).toBeGreaterThanOrEqual(60);
+    expect(d2).toBeGreaterThan(d1);
+  });
+});
+
+describe("computeProgress", () => {
+  it("retourne un pourcentage entre 0 et 100 et 100 quand tout est terminé", () => {
+    const r = generateRoadmap(fullProject());
+    expect(r.progress).toBeGreaterThanOrEqual(0);
+    expect(r.progress).toBeLessThanOrEqual(100);
+
+    const done = r.phases.map((p) => ({ ...p, items: p.items.map((i) => ({ ...i, status: "done" as StepStatus })), progress: 100, status: "done" as const }));
+    const tasksDone = r.planning.map((t) => ({ ...t, progress: 100, status: "done" as const }));
+    const constructionDone = r.construction.map((c) => ({ ...c, status: "done" as StepStatus }));
+    const adminDone = r.adminSteps.map((a) => ({ ...a, status: "done" as StepStatus }));
+    expect(computeProgress(done as any, tasksDone, constructionDone, adminDone)).toBe(100);
+  });
+});
+
+describe("buildOmissions", () => {
+  it("signale les éléments complets pour un projet riche", () => {
+    const r = generateRoadmap(fullProject());
+    expect(r.omissions.green.length).toBeGreaterThanOrEqual(3);
+    expect(r.omissions.priorityActions.length).toBeGreaterThan(0);
+  });
+
+  it("signale les éléments manquants pour un projet minimal", () => {
+    const r = generateRoadmap(minimalProject());
+    expect(r.omissions.red.some((x) => x.includes("Surface construite manquante"))).toBe(true);
+    expect(r.omissions.red.some((x) => x.includes("Estimation de coût absente"))).toBe(true);
+    expect(r.omissions.orange.some((x) => x.includes("Localisation non renseignée"))).toBe(true);
+  });
+});
+
+describe("IA prédictive", () => {
+  it("produit des prévisions avec confiance et hypothèses", () => {
+    const r = generateRoadmap(fullProject());
+    expect(r.predictions.finalCost.estimate).toBeGreaterThan(0);
+    expect(r.predictions.finalCost.confidence).toBeGreaterThanOrEqual(0);
+    expect(r.predictions.finalCost.confidence).toBeLessThanOrEqual(100);
+    expect(r.predictions.finalCost.assumptions.length).toBeGreaterThan(0);
+    expect(r.predictions.costEvolution.length).toBe(25); // aujourd'hui + 24 mois
+    expect(["faible", "modéré", "élevé"]).toContain(r.predictions.budgetOverrun.value);
+    expect(["faible", "modéré", "élevé"]).toContain(r.predictions.delay.value);
+  });
+});
+
+describe("formatage", () => {
+  it("formate les montants en TND et les durées", () => {
+    expect(fmtTnd(320000)).toContain("320");
+    expect(fmtTnd(320000)).toContain("TND");
+    expect(fmtDays(45)).toBe("2 mois");
+    expect(fmtDays(10)).toBe("10 jours");
+  });
+});

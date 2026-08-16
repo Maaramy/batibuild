@@ -32,7 +32,7 @@ import {
   Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
   Percent, ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
-  LockKeyhole, RefreshCw, BedDouble, LayoutGrid,
+  LockKeyhole, RefreshCw, BedDouble, LayoutGrid, Rocket,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -525,6 +525,14 @@ export default function ProjectDetail() {
                   <span className="hidden sm:inline">                      Télécharger le devis
 </span>
                   <span className="sm:hidden">PDF</span>
+                </button>
+                <button
+                  onClick={() => navigate(`/dashboard/guide?project=${project._id}`)}
+                  title="🚀 Démarrer mon projet de construction avec IA : feuille de route complète de A à Z"
+                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-500/50 active:scale-95"
+                >
+                  <Rocket className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Guide A-Z</span>
                 </button>
 
                 {/* Scenario picker modal */}
