@@ -447,15 +447,19 @@ function HeroSection() {
           </motion.div>
 
           {/* Description */}
-          <motion.p
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.28, duration: 0.5 }}
-            className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed"
+            className="mt-6 flex items-center justify-center gap-3 mx-auto max-w-2xl"
           >
-            Importez une photo, un plan ou des dimensions. L'intelligence artificielle analyse,
-            calcule et génère un devis complet basé sur les prix actualisés du marché tunisien.
-          </motion.p>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/15 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 shadow-sm">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <p className="text-base sm:text-lg text-muted-foreground leading-relaxed text-left">
+              Analysez vos projets, optimisez vos coûts, choisissez vos matériaux et prenez de meilleures décisions immobilières grâce à l'IA.
+            </p>
+          </motion.div>
 
           {/* CTA */}
           <motion.div
