@@ -91,7 +91,7 @@ export default function AiMaterials() {
   });
   const navigate = useNavigate();
   const { user } = useAuth();
-  const projects = useQuery(api.projects.getUserProjects) || [];
+  const projects = useQuery(api.projects.getUserProjects, {}) || [];
   const catStats = useQuery(api.aiMaterials.getCopilotCategories) || [];
   const analyses = useQuery(api.aiMaterials.getCopilotAnalyses) || [];
   const saveAnalysis = useMutation(api.aiMaterials.saveCopilotAnalysis);

@@ -473,6 +473,7 @@ export default function Dashboard() {
           { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
           { icon: BarChart3, label: "Comparer", onClick: () => setMobileSidebarOpen(false) },
           { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
+          { icon: Sparkles, label: "Assistant Matériaux IA", onClick: () => { navigate("/dashboard/ai-materials"); setMobileSidebarOpen(false); } },
           { icon: Store, label: "Espace fournisseur", onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
           { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
           { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
@@ -833,8 +834,7 @@ export default function Dashboard() {
                             <Button
                               size="sm"
                               className="h-7 gap-1 text-[10px] sm:text-xs bg-amber-500 hover:bg-amber-600 text-white border-0"
-                              onClick={() => navigate("/dashboard/pricing")}
-                            >
+                              onClick={() => navigate("/dashboard/pricing")}>
                               <RefreshCcw className="h-3 w-3" />
                               Renouveler les quotas
                             </Button>
@@ -1142,6 +1142,18 @@ export default function Dashboard() {
                   <div className="min-w-0">
                     <p className="text-xs sm:text-sm font-medium truncate">Rapports</p>
                     <p className="text-[10px] text-muted-foreground truncate">Export</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+                onClick={() => navigate("/dashboard/ai-materials")}>
+                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                    <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-medium truncate">Assistant IA</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Choix des matériaux</p>
                   </div>
                 </CardContent>
               </Card>
