@@ -804,7 +804,7 @@ export default function ProjectGuide() {
                 </button>
               ))}
             </div>
-            <BudgetAllocation roadmap={roadmap} roadmapId={roadmapId} />
+            <BudgetAllocation roadmap={roadmap} />
           </TabsContent>
 
           {/* ── Planning ── */}

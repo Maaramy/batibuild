@@ -321,6 +321,7 @@ function Navbar() {
           <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a>
           <a href="/dashboard/ai-materials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Matériaux IA</a>
           <a href="/dashboard/guide" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Guide A-Z</a>
+          <a href="/dashboard/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Tarifs</a>
           <a href="#investments" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Investissement</a>
           <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Avis</a>
           <a href="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</a>
@@ -365,6 +366,7 @@ function Navbar() {
             <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Fonctionnalités</a>
             <a href="/dashboard/ai-materials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Assistant Matériaux IA</a>
             <a href="/dashboard/guide" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Guide Construction A-Z</a>
+            <a href="/dashboard/pricing" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Tarifs & abonnements</a>
             <a href="#investments" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Investissement</a>
             <a href="#testimonials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Avis</a>
             <div className="flex gap-2 pt-2 border-t border-border/50">
@@ -1238,6 +1240,8 @@ function Footer() {
               <li><a href="/dashboard/guide" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Guide Construction A-Z</a></li>
               <li><a href="/dashboard/investments" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Investissement immobilier</a></li>
               <li><a href="/dashboard/materials" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Prix des matériaux</a></li>
+              <li><a href="/dashboard/pricing" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Tarifs & abonnements</a></li>
+              <li><a href="/blog" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Blog</a></li>
             </ul>
           </div>
           <div>
