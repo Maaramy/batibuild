@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { runBIMEstimation } from "@/convex/bimEngine";
-import { formatTnd } from "@/lib/planSheet";
+import { formatTnd } from "@/lib/utils";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useNavigate } from "react-router";
 import {

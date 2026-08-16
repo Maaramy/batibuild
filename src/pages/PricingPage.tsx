@@ -32,7 +32,6 @@ const DEFAULT_PAYMENT = {
 //   Start 79 TND  → 1 projet de construction · 1 analyse d'investissement · 1 PDF
 //   Pro 120 TND   → 5 projets · 5 analyses · 5 PDF
 //   Expert 320 TND → 20 projets · 20 analyses · 20 PDF
-//   Plans architecturaux : illimités pour tous les forfaits
 type PlanId = "free" | "pro" | "expert";
 
 const PLAN_LABELS: Record<string, string> = { free: "Start", pro: "Pro", expert: "Expert" };
@@ -313,12 +312,6 @@ export default function PricingPage() {
           </li>
           <li className="flex items-start gap-2 text-sm">
             <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <span>
-              Plans architecturaux 2D / 3D par IA — illimités
-            </span>
-          </li>
-          <li className="flex items-start gap-2 text-sm">
-            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <span>{quota} téléchargement{quota > 1 ? "s" : ""} PDF</span>
           </li>
           <li className="flex items-start gap-2 text-sm">
@@ -372,8 +365,8 @@ export default function PricingPage() {
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre forfait</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
             Paiement unique — aucune reconduction mensuelle. Chaque forfait inclut des quotas de projets de
-            construction et d'analyses d'investissement, ainsi que des téléchargements PDF. Les plans architecturaux
-            générés par IA sont illimités. Quand vos quotas sont épuisés, vous renouvelez ou passez à une offre supérieure.
+            construction et d'analyses d'investissement, ainsi que des téléchargements PDF. Quand vos quotas sont
+            épuisés, vous renouvelez ou passez à une offre supérieure.
           </p>
         </div>
 
@@ -409,8 +402,8 @@ export default function PricingPage() {
               <Sparkles className="h-4 w-4 text-violet-600" />
             </div>
             <div>
-              <p className="text-xs font-semibold">Plans architecturaux</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Plans 2D / 3D générés par IA dans chaque projet de construction — export PDF haute résolution.</p>
+              <p className="text-xs font-semibold">Assistant matériaux IA</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Recommandations comparées (économique · équilibré · premium) avec fournisseurs au meilleur prix.</p>
             </div>
           </div>
         </div>

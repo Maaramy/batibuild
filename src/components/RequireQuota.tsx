@@ -12,12 +12,11 @@ import { Lock, LayoutDashboard, CreditCard, ArrowRight, RefreshCcw } from "lucid
 // atteint. Un seul forfait (paiement unique) couvre tous les types :
 //   - construction  → quotas de projets de construction
 //   - investissement → quotas d'analyses d'investissement
-//   - plans architecturaux → illimités pour tous (jamais bloqués)
 // Quand le quota est épuisé, l'utilisateur renouvelle ses quotas ou passe à
 // une offre supérieure (voir la page forfaits).
 // ============================================================================
 
-export type QuotaType = "construction" | "investissement" | "plans";
+export type QuotaType = "construction" | "investissement";
 
 const QUOTA_META: Record<
   QuotaType,
@@ -25,7 +24,6 @@ const QUOTA_META: Record<
 > = {
   construction: { label: "projets de construction", singular: "projet", plural: "projets" },
   investissement: { label: "analyses d'investissement", singular: "analyse", plural: "analyses" },
-  plans: { label: "plans architecturaux", singular: "plan", plural: "plans" },
 };
 
 const PLAN_LABELS: Record<string, string> = {
@@ -55,11 +53,6 @@ export function RequireQuota({ type, children }: { type: QuotaType; children: Re
         </div>
       </main>
     );
-  }
-
-  // Plans architecturaux : quota illimité pour tous les forfaits.
-  if (type === "plans") {
-    return <>{children}</>;
   }
 
   const quota =
