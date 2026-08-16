@@ -205,3 +205,83 @@ describe("Analytics queries", () => {
     }
   });
 });
+
+describe("getCheapestSuppliers (Quantitatif détaillé)", () => {
+  let t: ReturnType<typeof convexTest>;
+  let adminT: any;
+
+  beforeEach(async () => {
+    t = convexTest(schema, modules);
+    const adminId = await createUser(t, "admin", "admin@test.com");
+    adminT = t.withIdentity({ subject: adminId });
+    await adminT.mutation(api.marketData.seedMarketData, {});
+  });
+
+  it("retourne le fournisseur au prix minimum pour une désignation exacte", async () => {
+    const product = await t.run(async (ctx) =>
+      ctx.db.query("materialPrices").first(),
+    );
+    expect(product).not.toBeNull();
+    const offers = await t.query(api.marketData.getSupplierComparison, {
+      productId: product!._id,
+    });
+    expect(offers.length).toBeGreaterThan(0);
+    const cheapest = offers[0];
+
+    const res = await t.query(api.marketData.getCheapestSuppliers, {
+      names: [product!.name],
+    });
+    expect(res).toHaveLength(1);
+    expect(res[0].supplier).toBe(cheapest.supplier);
+    expect(res[0].minPrice).toBe(cheapest.minPrice);
+    expect(res[0].unit).toBe(product!.unit);
+  });
+
+  it("résout chaque désignation demandée et ignore celles sans offre", async () => {
+    const res = await t.query(api.marketData.getCheapestSuppliers, {
+      names: [
+        "Ciment CPJ 42.5 (sac 50kg)",
+        "Fer à béton HA 12mm",
+        "Poste fantaisie 999999",
+      ],
+    });
+    expect(res).toHaveLength(2);
+    const byName = new Map(res.map((r: any) => [r.name, r]));
+    expect(byName.get("Ciment CPJ 42.5 (sac 50kg)")?.supplier).toBeTruthy();
+    expect(byName.get("Fer à béton HA 12mm")?.minPrice).toBeGreaterThan(0);
+  });
+
+  it("repli sous-chaîne : aligne « Treillis soudé ST25 (panneau) » sur l'offre marché", async () => {
+    const res = await t.query(api.marketData.getCheapestSuppliers, {
+      names: ["Treillis soudé ST25 (panneau)"],
+    });
+    expect(res).toHaveLength(1);
+    expect(res[0].minPrice).toBeGreaterThan(0);
+    expect(res[0].supplier).toBeTruthy();
+    expect(res[0].name).toBe("Treillis soudé ST25 (panneau)");
+  });
+
+  it("repli mots-clés : « Carrelage grès cérame 60x60 » → offre grès cérame", async () => {
+    const res = await t.query(api.marketData.getCheapestSuppliers, {
+      names: ["Carrelage grès cérame 60x60 (m²)"],
+    });
+    expect(res).toHaveLength(1);
+    expect(res[0].minPrice).toBeGreaterThan(0);
+  });
+
+  it("distingue les tailles proches (brique 10 cm vs 15 cm)", async () => {
+    const res = await t.query(api.marketData.getCheapestSuppliers, {
+      names: ["Brique creuse 10 cm", "Brique creuse 15 cm"],
+    });
+    expect(res).toHaveLength(2);
+    const byName = new Map(res.map((r: any) => [r.name, r]));
+    const p10 = byName.get("Brique creuse 10 cm");
+    const p15 = byName.get("Brique creuse 15 cm");
+    expect(p10.minPrice).toBeLessThan(p15.minPrice);
+  });
+
+  it("liste vide en entrée → liste vide en sortie", async () => {
+    const res = await t.query(api.marketData.getCheapestSuppliers, { names: [] });
+    expect(res).toEqual([]);
+  });
+});

@@ -1108,7 +1108,7 @@ export default function ProjectDetail() {
                                     <td className="text-right py-2 px-3 font-semibold font-mono">{fmt(item.totalPrice)}</td>
                                     <td className="py-2 px-3 hidden lg:table-cell">
                                       {(() => {
-                                        const sup = supplierByItem.get(item.name);
+                                        const sup = supplierByItem[item.name];
                                         if (!sup) {
                                           return <span className="text-muted-foreground/40">—</span>;
                                         }
