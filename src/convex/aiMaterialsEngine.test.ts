@@ -105,6 +105,45 @@ describe("recommendForProject", () => {
     expect(res.cost.max).toBeGreaterThanOrEqual(res.cost.total);
     expect(res.recommendation.materialName).toBeTruthy();
     expect(res.recommendation.explanation).toContain("marché tunisien");
+    // Meilleur fournisseur renseigné pour les catégories disposant d'offres
+    for (const cat of res.categories) {
+      const hasOffers = cat.solutions.some((s) => s.suppliers.length > 0);
+      if (hasOffers) {
+        expect(cat.bestSupplier).not.toBeNull();
+        expect(cat.bestSupplier!.name.length).toBeGreaterThan(0);
+        expect(cat.bestSupplier!.price).toBeGreaterThan(0);
+      } else {
+        expect(cat.bestSupplier).toBeNull();
+      }
+    }
+  });
+
+  it("bestSupplier : null sans offre, et = offre la moins chère de la solution recommandée sinon", () => {
+    // Catégorie sans offre → pas de fournisseur
+    const noOffers = recommendForProject({
+      context: ctx,
+      categories: ["ciment"],
+      materials: mats,
+      offers: [],
+    });
+    const cim = noOffers.categories.find((c) => c.categoryId === "ciment")!;
+    expect(cim.bestSupplier).toBeNull();
+
+    // Avec offres → le meilleur fournisseur est l'offre la moins chère (fiabilité max en cas d'égalité)
+    const withOffers = recommendForProject({
+      context: ctx,
+      categories: ["isolation_thermique"],
+      materials: mats,
+      offers,
+    });
+    const isol = withOffers.categories.find((c) => c.categoryId === "isolation_thermique")!;
+    expect(isol.bestSupplier).not.toBeNull();
+    if (isol.bestSupplier) {
+      const allPrices = isol.solutions.flatMap((s) => s.suppliers.map((x) => x.price));
+      expect(allPrices.length).toBeGreaterThan(0);
+      expect(isol.bestSupplier.price).toBe(Math.min(...allPrices));
+      expect(isol.bestSupplier.name.length).toBeGreaterThan(0);
+    }
   });
 
   it("la solution économique est moins chère que la premium, et les deux sont distinctes", () => {

@@ -209,6 +209,16 @@ export function generateMaterialReportPdf(input: {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(C.text[0], C.text[1], C.text[2]);
     doc.text(`${cat.label} — ${cat.candidatesCount} matériaux analysés`, ml, y);
+    if (cat.bestSupplier) {
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+      doc.text(
+        `Meilleur fournisseur : ${stripEmojis(cat.bestSupplier.name)} — dès ${cat.bestSupplier.price.toFixed(2)} TND${cat.bestSupplier.governorate ? ` (${cat.bestSupplier.governorate})` : ""}`,
+        ml,
+        y + 3,
+      );
+      y += 3;
+    }
     y += 3;
 
     for (const s of cat.solutions) {

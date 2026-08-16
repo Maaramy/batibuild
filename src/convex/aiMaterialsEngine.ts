@@ -566,6 +566,15 @@ export type Solution = {
   suppliers: { name: string; price: number; unit: string; governorate?: string; reliabilityIndex?: number; availability?: string }[];
 };
 
+export type BestSupplier = {
+  name: string;
+  price: number; // TND (prix minimum constaté)
+  unit: string;
+  governorate?: string;
+  reliabilityIndex?: number;
+  availability?: string;
+};
+
 export type CategoryResult = {
   categoryId: string;
   label: string;
@@ -574,6 +583,8 @@ export type CategoryResult = {
   coverage: boolean; // true si au moins une offre/prix recensé
   solutions: Solution[];
   bestValue: Profile; // meilleur rapport qualité/prix
+  /** Meilleur fournisseur de la catégorie : offre la moins chère (fiabilité en cas d'égalité) pour la solution recommandée. */
+  bestSupplier: BestSupplier | null;
 };
 
 export type CostSummary = {
@@ -780,6 +791,23 @@ export function recommendForProject(input: {
     const eco = solutions.find((s) => s.profile === "economique");
     const bestValue = eq ? "equilibre" : eco ? "economique" : solutions[0].profile;
 
+    // Ligne de coût : on retient la solution recommandée (équilibrée par défaut)
+    const line = solutions.find((s) => s.profile === "equilibre") || solutions[0];
+    // Meilleur fournisseur de la catégorie : offre la moins chère constatée parmi
+    // les 3 solutions (fiabilité la plus élevée en cas d'égalité de prix).
+    let bestSupplier: BestSupplier | null = null;
+    for (const s of solutions) {
+      for (const sup of s.suppliers) {
+        if (
+          !bestSupplier ||
+          sup.price < bestSupplier.price ||
+          (sup.price === bestSupplier.price && (sup.reliabilityIndex ?? 0) > (bestSupplier.reliabilityIndex ?? 0))
+        ) {
+          bestSupplier = sup;
+        }
+      }
+    }
+
     categories.push({
       categoryId: cat.id,
       label: cat.label,
@@ -788,10 +816,9 @@ export function recommendForProject(input: {
       coverage: solutions.some((s) => s.suppliers.length > 0),
       solutions,
       bestValue,
+      bestSupplier,
     });
 
-    // Ligne de coût : on retient la solution recommandée (équilibrée par défaut)
-    const line = solutions.find((s) => s.profile === "equilibre") || solutions[0];
     costLines.push({
       label: cat.label,
       material: line.material.materialCost,

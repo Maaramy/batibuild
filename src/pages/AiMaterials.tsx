@@ -17,7 +17,7 @@ import {
   PiggyBank, Zap, Scale, Check, Trash2, Clock, MapPin, Ruler, Layers,
   TrendingDown, TrendingUp, Minus, Wand2, Gauge, CalendarDays, ShieldCheck,
   RefreshCw, ChevronDown, ChevronUp, BadgeCheck, Crown, CircleDollarSign,
-  CircleDot, Building2, Info, SlidersHorizontal,
+  CircleDot, Building2, Info, SlidersHorizontal, Trophy,
 } from "lucide-react";
 import {
   COPILOT_CATEGORIES,
@@ -807,10 +807,16 @@ export default function AiMaterials() {
                               <CardDescription className="text-[10px]">{cat.candidatesCount} matériaux analysés dans la base</CardDescription>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <Badge variant="outline" className="text-[9px] gap-1">
                               <CircleDot className="h-2.5 w-2.5 text-emerald-600" /> Meilleur rapport qualité/prix : {PROFILE_META[cat.bestValue]?.label}
                             </Badge>
+                            {cat.bestSupplier ? (
+                              <Badge variant="outline" className="text-[9px] gap-1 border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400">
+                                <Trophy className="h-2.5 w-2.5" /> Meilleur fournisseur : {cat.bestSupplier.name} — dès {fmtTnd(cat.bestSupplier.price)}
+                                {cat.bestSupplier.governorate ? ` · ${cat.bestSupplier.governorate}` : ""}
+                              </Badge>
+                            ) : null}
                           </div>
                         </div>
                       </CardHeader>
