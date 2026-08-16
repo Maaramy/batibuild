@@ -24,6 +24,14 @@ export const getMaterialPrices = query({
   },
 });
 
+/** Get all supplier offers (used by AI actions via runQuery — actions have no ctx.db). */
+export const getMaterialOffers = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("materialOffers").collect();
+  },
+});
+
 /** Get all material categories with summary (count, avg price, quality stats) */
 export const getMaterialCategories = query({
   args: {},

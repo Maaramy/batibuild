@@ -30,10 +30,11 @@ const stripFences = (t: string) =>
   t.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
 
 async function loadMarketData(ctx: any) {
+  // NOTE : les actions n'ont PAS accès à ctx.db — on passe par des queries publiques.
   const [materials, offers, suppliers] = await Promise.all([
     ctx.runQuery(api.materials.getMaterialPrices, {}).catch(() => []),
-    ctx.db.query("materialOffers").collect(),
-    ctx.db.query("supplierProfiles").collect(),
+    ctx.runQuery(api.materials.getMaterialOffers, {}).catch(() => []),
+    ctx.runQuery(api.supplierProfiles.getActiveSuppliers, {}).catch(() => []),
   ]);
   return {
     materials: asArray(materials).map((m) => ({
