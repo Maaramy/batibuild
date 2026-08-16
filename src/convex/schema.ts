@@ -1115,6 +1115,18 @@ const schema = defineSchema(
       .index("by_created", ["createdAt"])
       .index("by_share_token", ["shareToken"]),
 
+    // AI Materials Copilot — analyses enregistrées (Assistant de choix des matériaux)
+    aiMaterialAnalyses: defineTable({
+      userId: v.id("users"),
+      projectId: v.optional(v.id("projects")),
+      input: v.any(),
+      results: v.any(),
+      createdAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_project", ["userId", "projectId"])
+      .index("by_created", ["createdAt"]),
+
   },
   {
     schemaValidation: false,
