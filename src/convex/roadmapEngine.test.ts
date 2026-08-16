@@ -5,9 +5,11 @@ import {
   estimateDurationDays,
   computeProgress,
   buildOmissions,
+  buildSiteRiskAnalysis,
   fmtTnd,
   fmtDays,
   type RoadmapProjectInput,
+  type SiteControlData,
   type StepStatus,
 } from "./roadmapEngine";
 import { TUNISIA_ADMIN_STEPS, CONSTRUCTION_STEPS } from "./roadmapData";
@@ -150,6 +152,67 @@ describe("buildOmissions", () => {
   });
 });
 
+describe("buildSiteRiskAnalysis (Diagnostic IA du chantier)", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = 1_800_000_000_000;
+  const startDate = now - 40 * DAY; // chantier démarré il y a 40 jours
+
+  it("détecte dépassement budgétaire, problème critique et retard", () => {
+    const r = generateRoadmap(fullProject());
+    const control: SiteControlData = {
+      photos: [],
+      issues: [{ id: "i1", title: "Fissure sur voile", severity: "critical", description: "", status: "ouvert", createdAt: now }],
+      observations: [],
+      expenses: [{ id: "e1", label: "Béton", amount: r.budget.totalCost + 50_000, category: "Gros œuvre", date: now }],
+    };
+    const analysis = buildSiteRiskAnalysis(r.budget, r.planning, r.construction, control, r.progress, {
+      now,
+      startDate,
+      plannedDurationDays: r.summary.plannedDurationDays,
+    });
+    expect(analysis.anomalies.some((a) => a.id === "budget_depasse" && a.severity === "critical")).toBe(true);
+    expect(analysis.anomalies.some((a) => a.id === "probleme_critique" && a.severity === "critical")).toBe(true);
+    expect(analysis.anomalies.some((a) => a.id === "retard_chantier")).toBe(true);
+    expect(analysis.score).toBeGreaterThanOrEqual(28);
+    expect(["faible", "modéré", "élevé"]).toContain(analysis.level);
+    expect(analysis.summary.length).toBeGreaterThan(0);
+    expect(analysis.updatedAt).toBe(now);
+  });
+
+  it("signale un chantier sain : aucune anomalie critique, points forts présents", () => {
+    const r = generateRoadmap(fullProject());
+    const control: SiteControlData = {
+      photos: [{ id: "p1", caption: "Fondations", addedAt: now }],
+      issues: [{ id: "i1", title: "Joint à reprendre", severity: "warning", description: "", status: "résolu", createdAt: now }],
+      observations: [{ id: "o1", text: "Béton conforme", createdAt: now }],
+      expenses: [{ id: "e1", label: "Fondations", amount: 20_000, category: "Gros œuvre", date: now }],
+    };
+    const analysis = buildSiteRiskAnalysis(r.budget, r.planning, r.construction, control, r.progress, {
+      now: startDate, // pas de temps écoulé → pas de retard
+      startDate,
+      plannedDurationDays: r.summary.plannedDurationDays,
+    });
+    expect(analysis.anomalies.filter((a) => a.severity === "critical")).toHaveLength(0);
+    expect(analysis.strengths.length).toBeGreaterThan(0);
+    expect(analysis.level).toBe("faible");
+  });
+
+  it("guide l'utilisateur quand le suivi est encore vierge", () => {
+    const r = generateRoadmap(minimalProject());
+    // Aucun temps écoulé depuis le démarrage → aucune anomalie de délai
+    const analysis = buildSiteRiskAnalysis(r.budget, r.planning, r.construction, { photos: [], issues: [], observations: [], expenses: [] }, r.progress, { now: startDate, startDate });
+    expect(analysis.anomalies.some((a) => a.id === "suivi_vierge" && a.severity === "info")).toBe(true);
+    expect(analysis.score).toBeLessThan(25);
+  });
+
+  it("intègre le diagnostic dans la feuille de route générée", () => {
+    const r = generateRoadmap(fullProject());
+    expect(r.control.risk).toBeDefined();
+    expect(r.control.risk.score).toBeGreaterThanOrEqual(0);
+    expect(r.control.risk.score).toBeLessThanOrEqual(100);
+  });
+});
+
 describe("IA prédictive", () => {
   it("produit des prévisions avec confiance et hypothèses", () => {
     const r = generateRoadmap(fullProject());
@@ -166,7 +229,8 @@ describe("IA prédictive", () => {
 describe("formatage", () => {
   it("formate les montants en TND et les durées", () => {
     expect(fmtTnd(320000)).toContain("320");
-    expect(fmtTnd(320000)).toContain("TND");
+    // L'ICU du runtime rend le dinar tunisien « TND » ou « DT » selon l'environnement
+    expect(fmtTnd(320000)).toMatch(/TND|DT/);
     expect(fmtDays(45)).toBe("2 mois");
     expect(fmtDays(10)).toBe("10 jours");
   });

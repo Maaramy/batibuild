@@ -13,6 +13,7 @@ import {
   buildSummary,
   buildNextSteps,
   buildOmissions,
+  buildSiteRiskAnalysis,
   phaseProgress,
   phaseStatus,
   fmtTnd,
@@ -184,7 +185,17 @@ function derive(r: Roadmap, input: RoadmapProjectInput): Roadmap {
   const omissions = buildOmissions(input, r.adminSteps, r.construction);
   const nextSteps = buildNextSteps(phases, r.adminSteps, r.planning, omissions);
 
-  return { ...r, phases, budget, progress, summary, omissions, nextSteps };
+  // Diagnostic IA du chantier — recomputé à chaque mise à jour du suivi
+  const control = {
+    ...r.control,
+    risk: buildSiteRiskAnalysis(budget, r.planning, r.construction, r.control, progress, {
+      now: Date.now(),
+      startDate: summary.startDate,
+      plannedDurationDays: summary.plannedDurationDays,
+    }),
+  };
+
+  return { ...r, phases, budget, progress, summary, omissions, nextSteps, control };
 }
 
 function assertOwner(doc: { userId: string }, user: { _id: string; role?: string | null }) {

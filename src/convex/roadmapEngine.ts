@@ -148,11 +148,35 @@ export interface RoadmapDocument {
   generatedAt?: number;
 }
 
-export interface RoadmapControl {
+// ─── Diagnostic IA du chantier (Phase 09 — détection des anomalies) ──────────
+
+export interface SiteAnomaly {
+  id: string;
+  type: "budget" | "qualite" | "delai" | "documentation" | "suivi";
+  severity: "info" | "warning" | "critical";
+  title: string;
+  detail: string;
+  recommendation: string;
+}
+
+export interface SiteRiskAnalysis {
+  score: number; // 0-100 (plus élevé = plus risqué)
+  level: "faible" | "modéré" | "élevé";
+  anomalies: SiteAnomaly[];
+  strengths: string[];
+  summary: string;
+  updatedAt: number;
+}
+
+export interface SiteControlData {
   photos: ControlPhoto[];
   issues: ControlIssue[];
   observations: ControlObservation[];
   expenses: ControlExpense[];
+}
+
+export interface RoadmapControl extends SiteControlData {
+  risk: SiteRiskAnalysis;
 }
 
 export interface RoadmapSummary {
@@ -392,6 +416,14 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
 
   const nextSteps = buildNextSteps(phases, adminSteps, planning, omissions);
 
+  // Diagnostic IA du chantier (Phase 09) — état initial
+  const initialControl: SiteControlData = { photos: [], issues: [], observations: [], expenses: [] };
+  const risk = buildSiteRiskAnalysis(budget, planning, construction, initialControl, progress, {
+    now: generatedAt,
+    startDate: summary.startDate,
+    plannedDurationDays: summary.plannedDurationDays,
+  });
+
   return {
     version: 1,
     country: "tunisie",
@@ -419,7 +451,7 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
     omissions,
     predictions,
     documents: DOCUMENT_TYPES.map((d) => ({ id: d.id, title: d.title, description: d.description })),
-    control: { photos: [], issues: [], observations: [], expenses: [] },
+    control: { ...initialControl, risk },
     nextSteps,
     companyCriteria: COMPANY_CRITERIA,
     disclaimer:
@@ -465,12 +497,14 @@ function buildAllocationRows(ce: RoadmapProjectInput["costEstimate"], totalCost:
 
   // Normaliser les pourcentages pour que la somme ≈ 100 %
   const sum = rows.reduce((acc, r) => acc + r.pct, 0);
-  if (sum > 0 && sum !== 100) {
+  if (sum > 0 && sum !== 100 && rows.length > 0) {
     let diff = 100 - sum;
-    for (let i = rows.length - 1; i >= 0 && diff !== 0; i--) {
+    let i = rows.length - 1;
+    while (diff !== 0) {
       const step = diff > 0 ? 1 : -1;
       rows[i] = { ...rows[i], pct: rows[i].pct + step };
       diff -= step;
+      i = (i - 1 + rows.length) % rows.length;
     }
   }
   return rows;
@@ -843,6 +877,220 @@ export function buildPredictions(
   ];
 
   return { budgetOverrun, delay, costEvolution, finalCost: { estimate: finalEstimate, confidence: finalConfidence, assumptions } };
+}
+
+// ─── Diagnostic IA du chantier (Phase 09) ────────────────────────────────────
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SEV_ORDER: Record<SiteAnomaly["severity"], number> = { info: 0, warning: 1, critical: 2 };
+
+/** Catégorie de dépense (saisie) → poste budgétaire (Phase 05). */
+const EXPENSE_CATEGORY_KEY: Record<string, string> = {
+  "Gros œuvre": "gros_oeuvre",
+  "Second œuvre": "second_oeuvre",
+  Matériaux: "second_oeuvre",
+  "Main-d'œuvre": "main_oeuvre",
+  Équipements: "equipements",
+  Transport: "transport",
+  "Études & permis": "etudes_imprevus",
+  Imprévus: "imprevus",
+};
+
+/**
+ * Analyse en temps réel des données de contrôle du chantier (dépenses, problèmes,
+ * photos, planning) et détection des anomalies / risques potentiels.
+ * Pure et déterministe : recomputée à chaque mutation de suivi.
+ */
+export function buildSiteRiskAnalysis(
+  budget: Roadmap["budget"],
+  planning: PlanningTask[],
+  construction: ConstructionStep[],
+  control: SiteControlData,
+  progress: number,
+  opts: { now?: number; startDate?: number; plannedDurationDays?: number } = {},
+): SiteRiskAnalysis {
+  const now = opts.now ?? Date.now();
+  const anomalies: SiteAnomaly[] = [];
+  const strengths: string[] = [];
+  const total = budget.totalCost;
+  const consumed = control.expenses.reduce((acc, e) => acc + e.amount, 0);
+  const active = budget.scenarios.find((s) => s.key === budget.selected) ?? budget.scenarios[1];
+
+  // ── 1. Budget global ──
+  if (consumed > 0 && total > 0) {
+    const pct = Math.round((consumed / total) * 100);
+    if (consumed > total) {
+      anomalies.push({
+        id: "budget_depasse",
+        type: "budget",
+        severity: "critical",
+        title: "Dépassement du budget prévu",
+        detail: `Dépenses consommées : ${fmtTnd(consumed)} pour un budget prévu de ${fmtTnd(total)} (${pct} %).`,
+        recommendation: "Geler les dépenses non essentielles, renégocier les postes les plus lourds et revoir le scénario de budget retenu.",
+      });
+    } else if (consumed > total * 0.8 && progress < 85) {
+      anomalies.push({
+        id: "budget_alerte",
+        type: "budget",
+        severity: "warning",
+        title: "Budget consommé à plus de 80 %",
+        detail: `${pct} % du budget est consommé alors que l'avancement global est de ${progress} %.`,
+        recommendation: "Auditer les dépenses restantes et verrouiller les devis des lots à venir.",
+      });
+    }
+    // Dérive consommation vs avancement
+    if (progress > 0) {
+      const expected = total * (progress / 100);
+      if (consumed > expected * 1.25) {
+        anomalies.push({
+          id: "consommation_avancement",
+          type: "budget",
+          severity: "warning",
+          title: "La consommation dépasse l'avancement",
+          detail: `Avancement de ${progress} % pour une consommation de ${pct} % du budget (écart > 25 %).`,
+          recommendation: "Comparer les dépenses réalisées au planning et vérifier que les lots ne sont pas facturés avant exécution.",
+        });
+      }
+    }
+  }
+
+  // ── 2. Postes budgétaires dépassés ──
+  const byCategory = new Map<string, number>();
+  for (const e of control.expenses) byCategory.set(e.category, (byCategory.get(e.category) ?? 0) + e.amount);
+  const rowByKey = new Map(active.rows.map((r) => [r.key, r]));
+  let catCount = 0;
+  for (const [cat, amount] of byCategory) {
+    const key = EXPENSE_CATEGORY_KEY[cat];
+    const row = key ? rowByKey.get(key) : undefined;
+    if (row && amount > row.amount && catCount < 3) {
+      catCount++;
+      anomalies.push({
+        id: `categorie_${key}`,
+        type: "budget",
+        severity: "warning",
+        title: `Poste « ${cat} » dépassé`,
+        detail: `${fmtTnd(amount)} consommés pour ${fmtTnd(row.amount)} alloués (${Math.round((amount / Math.max(row.amount, 1)) * 100)} %).`,
+        recommendation: `Réaffecter la marge pour imprévus ou réduire le poste « ${row.label} ».`,
+      });
+    }
+  }
+
+  // ── 3. Problèmes signalés non résolus ──
+  const openIssues = control.issues.filter((i) => i.status !== "résolu");
+  const criticalOpen = openIssues.filter((i) => i.severity === "critical");
+  const warningOpen = openIssues.filter((i) => i.severity === "warning");
+  const infoOpen = openIssues.filter((i) => i.severity === "info");
+  if (criticalOpen.length > 0) {
+    anomalies.push({
+      id: "probleme_critique",
+      type: "qualite",
+      severity: "critical",
+      title: `${criticalOpen.length} problème(s) critique(s) non résolu(s)`,
+      detail: criticalOpen.map((c) => c.title).join(" · "),
+      recommendation: "Stopper le lot concerné, faire expertiser (bureau de contrôle) et lever la réserve avant de poursuivre.",
+    });
+  }
+  if (warningOpen.length > 0) {
+    anomalies.push({
+      id: "probleme_alerte",
+      type: "qualite",
+      severity: "warning",
+      title: `${warningOpen.length} avertissement(s) en attente`,
+      detail: warningOpen.map((w) => w.title).join(" · "),
+      recommendation: "Planifier la levée des avertissements avant le démarrage du lot suivant.",
+    });
+  }
+  if (infoOpen.length > 2) {
+    anomalies.push({
+      id: "probleme_suivi",
+      type: "qualite",
+      severity: "info",
+      title: `${infoOpen.length} points de suivi ouverts`,
+      detail: "Plusieurs points de suivi s'accumulent sans décision.",
+      recommendation: "Clôturer les points d'information rapidement pour garder un journal lisible.",
+    });
+  }
+  if (control.issues.length > 0 && openIssues.length === 0) strengths.push("Tous les problèmes signalés ont été résolus.");
+
+  // ── 4. Retard estimé (prévu vs réalisé) ──
+  const plannedDays = opts.plannedDurationDays ?? planning.reduce((acc, t) => acc + t.durationDays, 0);
+  if (opts.startDate && plannedDays > 0) {
+    const elapsedDays = Math.max(0, (now - opts.startDate) / DAY_MS);
+    const expectedElapsed = plannedDays * (progress / 100);
+    const delayDays = Math.round(elapsedDays - expectedElapsed);
+    if (delayDays > 30) {
+      anomalies.push({
+        id: "retard_chantier",
+        type: "delai",
+        severity: "critical",
+        title: `Retard estimé de ${delayDays} jours`,
+        detail: `Depuis le démarrage (${new Date(opts.startDate).toLocaleDateString("fr-FR")}), l'avancement devrait être de ${Math.round((elapsedDays / plannedDays) * 100)} % du planning ; il est de ${progress} %.`,
+        recommendation: "Replanifier avec l'entreprise, renforcer les équipes sur le chemin critique et contractualiser des pénalités de retard.",
+      });
+    } else if (delayDays > 7) {
+      anomalies.push({
+        id: "retard_chantier",
+        type: "delai",
+        severity: "warning",
+        title: `Retard estimé de ${delayDays} jours`,
+        detail: "Le retard reste modéré mais risque de s'amplifier sur les lots suivants.",
+        recommendation: "Identifier les tâches en glissement et ajuster le planning avant qu'elles ne bloquent le chemin critique.",
+      });
+    } else if (delayDays <= 0 && progress > 0) {
+      strengths.push("Planning respecté — aucun retard estimé à ce jour.");
+    }
+  }
+
+  // ── 5. Traçabilité (photos) ──
+  const doneSteps = construction.filter((c) => c.status === "done").length;
+  if (doneSteps > 0 && control.photos.length === 0) {
+    anomalies.push({
+      id: "tracabilite",
+      type: "documentation",
+      severity: "warning",
+      title: "Chantier non documenté en photos",
+      detail: `${doneSteps} étape(s) terminée(s) sans aucune photo archivée.`,
+      recommendation: "Photographier systématiquement chaque étape (preuve pour l'assurance décennale et la levée des réserves).",
+    });
+  } else if (control.photos.length > 0) {
+    strengths.push(`${control.photos.length} photo(s) archivée(s) pour la traçabilité du chantier.`);
+  }
+
+  // ── 6. Suivi encore vierge ──
+  const hasControlData =
+    control.expenses.length > 0 || control.issues.length > 0 || control.observations.length > 0 || control.photos.length > 0;
+  if (!hasControlData) {
+    anomalies.push({
+      id: "suivi_vierge",
+      type: "suivi",
+      severity: "info",
+      title: "Le suivi du chantier n'a pas démarré",
+      detail: "Aucune dépense, photo, observation ou problème enregistré pour l'instant.",
+      recommendation: "Enregistrez dès maintenant les dépenses et les photos de chaque étape pour activer le diagnostic IA.",
+    });
+  }
+
+  // ── 7. Points forts ──
+  if (consumed > 0 && total > 0 && consumed <= total * 0.8 && progress >= 50) {
+    strengths.push("Budget maîtrisé : consommation sous 80 % du budget avec plus de 50 % d'avancement.");
+  }
+
+  // ── Score global ──
+  const score = Math.min(
+    100,
+    anomalies.reduce((acc, a) => acc + (a.severity === "critical" ? 28 : a.severity === "warning" ? 12 : 4), 0),
+  );
+  const level: SiteRiskAnalysis["level"] = score < 25 ? "faible" : score < 50 ? "modéré" : "élevé";
+  const top = [...anomalies].sort((a, b) => SEV_ORDER[b.severity] - SEV_ORDER[a.severity])[0];
+  const summary = !top
+    ? "Aucune anomalie détectée : le suivi du chantier est sain. Continuez à documenter chaque étape."
+    : top.severity === "critical"
+      ? `Action requise : ${top.title}.`
+      : top.severity === "warning"
+        ? `Point de vigilance : ${top.title}.`
+        : `À surveiller : ${top.title}.`;
+
+  return { score, level, anomalies, strengths, summary, updatedAt: now };
 }
 
 // ─── Synthèse / progrès / prochaines étapes ──────────────────────────────────

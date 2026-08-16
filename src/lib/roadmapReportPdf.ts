@@ -225,11 +225,48 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   doc.text(predLines, margin, y);
   y += predLines.length * 4.5 + 6;
 
+  // ── Diagnostic IA du chantier ──
+  if (y > 230) {
+    doc.addPage();
+    y = 16;
+  }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...cyan);
+  const risk = roadmap.control.risk;
+  doc.text(`8. Diagnostic IA du chantier — niveau de risque : ${risk?.level ?? "—"} (${risk?.score ?? 0}/100)`, margin, y);
+  y += 2;
+  const riskRows = (risk?.anomalies ?? []).map((a) => [
+    a.severity === "critical" ? "Critique" : a.severity === "warning" ? "Alerte" : "Info",
+    stripEmojis(a.title),
+    stripEmojis(a.detail),
+    stripEmojis(a.recommendation),
+  ]);
+  if (riskRows.length === 0) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...slate);
+    doc.text("Aucune anomalie détectée — le suivi du chantier est sain.", margin, y);
+    y += 6;
+  } else {
+    (doc as any).autoTable({
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [["Sévérité", "Anomalie", "Détail", "Recommandation"]],
+      body: riskRows,
+      theme: "grid",
+      headStyles: { fillColor: cyan as any, fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 45 }, 2: { cellWidth: 55 } },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+  }
+
   // ── Prochaines étapes ──
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(...cyan);
-  doc.text("8. Prochaines actions", margin, y);
+  doc.text("9. Prochaines actions", margin, y);
   y += 2;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);

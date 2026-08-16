@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import SiteDiagnostic from "@/components/SiteDiagnostic";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
@@ -927,6 +928,7 @@ export default function ProjectGuide() {
 
           {/* ── Contrôle ── */}
           <TabsContent value="controle" className="space-y-3">
+            <SiteDiagnostic roadmap={roadmap} />
             <div className="grid md:grid-cols-2 gap-3">
               {/* Photos */}
               <Card className="border-border/40 bg-background/50">
