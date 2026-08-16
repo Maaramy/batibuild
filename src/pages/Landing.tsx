@@ -389,6 +389,7 @@ function HeroSection() {
       <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.06] via-transparent to-background" />
       <div className="absolute top-1/4 -left-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
       <div className="absolute top-1/3 -right-32 w-80 h-80 bg-sky-400/10 rounded-full blur-3xl" />
+      <div className="absolute top-2/3 left-1/2 -translate-x-1/2 w-[560px] h-40 bg-violet-500/5 rounded-full blur-3xl" />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 sm:py-20 w-full">
         <div className="mx-auto max-w-5xl text-center">
@@ -412,18 +413,44 @@ function HeroSection() {
             initial={{ opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ delay: 0.15, duration: 0.55, ease: "easeOut" }}
-            className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.05]"
+            className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.08] max-w-4xl mx-auto"
           >
-            Estimez vos projets de{" "}
-            <span className="gradient-text">construction</span>{" "}
-            en Tunisie avec l'IA
+            Votre <span className="gradient-text">copilote IA</span> pour
+            construire, rénover et investir.
           </motion.h1>
+
+          {/* Tagline : Estimez. Optimisez. Construisez. Investissez. */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22, duration: 0.5 }}
+            className="mt-7 flex flex-wrap items-center justify-center gap-x-3 gap-y-2"
+          >
+            {[
+              { icon: Calculator, label: "Estimez", color: "text-emerald-600 dark:text-emerald-400" },
+              { icon: Sparkles, label: "Optimisez", color: "text-violet-600 dark:text-violet-400" },
+              { icon: HardHat, label: "Construisez", color: "text-sky-600 dark:text-sky-400" },
+              { icon: TrendingUp, label: "Investissez", color: "text-indigo-600 dark:text-indigo-400" },
+            ].map((item, i) => (
+              <span
+                key={item.label}
+                className="inline-flex items-center gap-1.5 text-base sm:text-lg font-black tracking-tight"
+              >
+                <span className={`inline-flex items-center gap-1.5 ${item.color}`}>
+                  <item.icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+                  {item.label}
+                </span>
+                <span className="text-muted-foreground/40">.</span>
+              </span>
+            ))}
+            <span className="sr-only">Estimez. Optimisez. Construisez. Investissez.</span>
+          </motion.div>
 
           {/* Description */}
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.5 }}
+            transition={{ delay: 0.28, duration: 0.5 }}
             className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed"
           >
             Importez une photo, un plan ou des dimensions. L'intelligence artificielle analyse,
@@ -495,8 +522,8 @@ function HeroSection() {
             <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-6">
               <div className="min-w-0">
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 backdrop-blur-sm">
-                  <MapPin className="h-3.5 w-3.5 text-emerald-100" />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">Marché tunisien</span>
+                  <Sparkles className="h-3.5 w-3.5 text-emerald-100" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">Copilote IA · Marché tunisien</span>
                 </div>
                 <p className="mt-4 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/80">
                   Devis moyen — maison R+1 · 150 m² · standard
@@ -519,7 +546,22 @@ function HeroSection() {
               </div>
             </div>
 
-            <div className="relative mt-6 flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/10">
+            {/* Copilote flow */}
+            <div className="relative mt-6 flex flex-wrap items-center gap-2">
+              {["Estimer", "Optimiser", "Construire", "Investir"].map((stepLabel, i) => (
+                <span
+                  key={stepLabel}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-semibold text-white/90 border border-white/10 backdrop-blur-sm"
+                >
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[9px] font-black">
+                    {i + 1}
+                  </span>
+                  {stepLabel}
+                </span>
+              ))}
+            </div>
+
+            <div className="relative mt-3 flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/10">
               <Sparkles className="h-4 w-4 text-emerald-100 shrink-0" />
               <p className="text-[11px] text-emerald-50/90 leading-snug">
                 Rapport complet : liste des matériaux, quantités, main-d'œuvre, planning et recommandations — export PDF / Excel / CSV.
@@ -713,7 +755,7 @@ function HowItWorksSection() {
           transition={{ duration: 0.5 }}
           className="mx-auto max-w-2xl text-center mb-16"
         >
-          <p className="label-overline mb-3">Process</p>
+          <p className="label-overline mb-3">Copilote IA</p>
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
             De l'import au rapport en{" "}
             <span className="gradient-text">3 étapes</span>
@@ -892,12 +934,12 @@ function FeaturesSection() {
     <section id="features" ref={ref} className="relative py-24 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="label-overline mb-3">Fonctionnalités</p>
+          <p className="label-overline mb-3">Votre copilote IA</p>
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-            Toute la plateforme de votre projet, de A à Z
+            Un copilote IA à chaque étape, de l'estimation à l'investissement
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Estimation, matériaux, guide de construction, investissement et fournisseurs : l'IA accompagne chaque étape sur le marché tunisien.
+            Estimation, matériaux, guide de construction, rénovation, investissement et fournisseurs : l'IA accompagne chaque étape sur le marché tunisien.
           </p>
         </div>
 
@@ -1187,10 +1229,10 @@ function CTASection() {
               <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">Prêt à commencer ?</span>
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white mb-4">
-              Estimez votre premier projet gratuitement
+              Estimez. Optimisez. Construisez. Investissez.
             </h2>
             <p className="text-emerald-100/80 max-w-lg mx-auto mb-8">
-              Rejoignez les professionnels tunisiens qui utilisent l'IA pour optimiser leurs estimations de construction.
+              Commencez gratuitement : importez une photo, un plan ou des dimensions et recevez votre devis IA en quelques minutes.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
@@ -1273,8 +1315,8 @@ function Footer() {
 
 export default function Landing() {
   usePageSEO({
-    title: "batibuild App - Plateforme IA de Construction en Tunisie",
-    description: "Estimation de construction par IA, assistant de choix des matériaux, guide de construction A-Z, analyse d'investissement immobilier et annuaire fournisseurs — prix actualisés du marché tunisien 2026.",
+    title: "batibuild App - Votre copilote IA pour construire, rénover et investir",
+    description: "Estimez. Optimisez. Construisez. Investissez. Estimation de construction par IA, assistant de choix des matériaux, guide de construction A-Z, analyse d'investissement immobilier et fournisseurs — prix actualisés du marché tunisien 2026.",
   });
   return (
     <motion.div
