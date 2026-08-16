@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import SiteDiagnostic from "@/components/SiteDiagnostic";
+import BudgetAllocation from "@/components/BudgetAllocation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
@@ -803,36 +804,7 @@ export default function ProjectGuide() {
                 </button>
               ))}
             </div>
-            <Card className="border-border/40 bg-background/50">
-              <CardHeader className="p-3 sm:p-4 pb-2">
-                <CardTitle className="text-sm">Répartition du budget — {activeScenario.label}</CardTitle>
-                <CardDescription className="text-[10px]">
-                  Répartition fixée par l'IA — lecture seule. Changez de scénario pour comparer les allocations.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-4 space-y-2">
-                {activeScenario.rows.map((row) => (
-                  <div key={row.key} className="rounded-lg border border-border/30 bg-muted/10 p-2.5">
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <p className="text-xs font-medium truncate">{row.label}</p>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[11px] font-semibold tabular-nums text-foreground/70">{fmtTnd(row.amount)}</span>
-                        <span className="text-[10px] font-bold tabular-nums text-cyan-600 w-10 text-right">{row.pct}%</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 flex-1 rounded-full bg-muted/60 overflow-hidden">
-                        <div className="h-full rounded-full bg-cyan-500/70" style={{ width: `${row.pct}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between rounded-lg bg-muted/20 px-3 py-2 text-xs">
-                  <span className="font-medium text-muted-foreground">Total {activeScenario.label}</span>
-                  <span className="font-bold tabular-nums">{fmtTnd(activeScenario.totalCost)}</span>
-                </div>
-              </CardContent>
-            </Card>
+            <BudgetAllocation roadmap={roadmap} roadmapId={roadmapId} />
           </TabsContent>
 
           {/* ── Planning ── */}

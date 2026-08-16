@@ -16,6 +16,7 @@ import {
   buildSiteRiskAnalysis,
   phaseProgress,
   phaseStatus,
+  rebalanceBudgetRows,
   fmtTnd,
   type Roadmap,
   type RoadmapProjectInput,
@@ -317,26 +318,10 @@ export const updateBudgetAllocation = mutation({
     const scenarioIdx = r.budget.scenarios.findIndex((s) => s.key === r.budget.selected);
     const scenarios = [...r.budget.scenarios];
     const sc = scenarios[scenarioIdx];
-    const rows = sc.rows.map((row) => (row.key === args.rowKey ? { ...row, pct: Math.max(0, Math.min(100, Math.round(args.pct))) } : row));
-
-    const others = rows.filter((row) => row.key !== args.rowKey);
-    const targetRow = rows.find((row) => row.key === args.rowKey);
-    const otherSum = others.reduce((a, o) => a + o.pct, 0);
-    if (targetRow && otherSum > 0) {
-      const scale = Math.max(0, 100 - targetRow.pct) / otherSum;
-      const normalized = others.map((o) => ({ ...o, pct: Math.round(o.pct * scale) }));
-      // Corrige l'arrondi sur le dernier poste
-      const normSum = normalized.reduce((a, o) => a + o.pct, 0);
-      const diff = 100 - targetRow.pct - normSum;
-      if (diff !== 0 && normalized.length > 0) normalized[normalized.length - 1] = { ...normalized[normalized.length - 1], pct: normalized[normalized.length - 1].pct + diff };
-      const merged = [targetRow, ...normalized];
-      scenarios[scenarioIdx] = {
-        ...sc,
-        rows: merged.map((row) => ({ ...row, amount: Math.round((sc.totalCost * row.pct) / 100) })),
-      };
-    } else if (targetRow) {
-      scenarios[scenarioIdx] = { ...sc, rows };
-    }
+    scenarios[scenarioIdx] = {
+      ...sc,
+      rows: rebalanceBudgetRows(sc.rows, args.rowKey, args.pct, sc.totalCost),
+    };
 
     const derived = derive({ ...r, budget: { ...r.budget, scenarios } }, input);
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });

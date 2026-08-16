@@ -6,6 +6,7 @@ import {
   computeProgress,
   buildOmissions,
   buildSiteRiskAnalysis,
+  rebalanceBudgetRows,
   fmtTnd,
   fmtDays,
   type RoadmapProjectInput,
@@ -99,6 +100,47 @@ describe("generateRoadmap", () => {
       expect(total).toBeGreaterThanOrEqual(98);
       expect(total).toBeLessThanOrEqual(102);
     }
+  });
+});
+
+describe("rebalanceBudgetRows (répartition modifiable en temps réel)", () => {
+  it("renormalise les autres postes pour conserver 100 %", () => {
+    const r = generateRoadmap(fullProject());
+    const sc = r.budget.scenarios.find((s) => s.key === "standard")!;
+    const rows = rebalanceBudgetRows(sc.rows, sc.rows[0].key, 50, sc.totalCost);
+    expect(rows.find((row) => row.key === sc.rows[0].key)?.pct).toBe(50);
+    expect(rows.reduce((a, row) => a + row.pct, 0)).toBe(100);
+    expect(rows.reduce((a, row) => a + row.amount, 0)).toBe(sc.totalCost);
+  });
+
+  it("préserve l'ordre des postes et recalcule les montants", () => {
+    const r = generateRoadmap(fullProject());
+    const sc = r.budget.scenarios.find((s) => s.key === "premium")!;
+    const keys = sc.rows.map((row) => row.key);
+    const rows = rebalanceBudgetRows(sc.rows, keys[keys.length - 1], 15, sc.totalCost);
+    expect(rows.map((row) => row.key)).toEqual(keys);
+    expect(rows[keys.length - 1].pct).toBe(15);
+    expect(rows[keys.length - 1].amount).toBe(Math.round((sc.totalCost * 15) / 100));
+    expect(Math.abs(rows.reduce((a, row) => a + row.amount, 0) - sc.totalCost)).toBeLessThanOrEqual(2);
+  });
+
+  it("gère les extrêmes (0 % et 100 %)", () => {
+    const r = generateRoadmap(fullProject());
+    const sc = r.budget.scenarios[0];
+    const keys = sc.rows.map((row) => row.key);
+    const a = rebalanceBudgetRows(sc.rows, keys[0], 100, sc.totalCost);
+    expect(a.find((row) => row.key === keys[0])?.pct).toBe(100);
+    expect(a.filter((row) => row.key !== keys[0]).every((row) => row.pct === 0)).toBe(true);
+    const b = rebalanceBudgetRows(sc.rows, keys[0], 0, sc.totalCost);
+    expect(b.find((row) => row.key === keys[0])?.pct).toBe(0);
+    expect(b.reduce((acc, row) => acc + row.pct, 0)).toBe(100);
+  });
+
+  it("retourne les lignes inchangées pour un poste inconnu ou un total nul", () => {
+    const r = generateRoadmap(fullProject());
+    const sc = r.budget.scenarios[1];
+    expect(rebalanceBudgetRows(sc.rows, "inconnu", 50, sc.totalCost)).toEqual(sc.rows);
+    expect(rebalanceBudgetRows(sc.rows, sc.rows[0].key, 50, 0)).toEqual(sc.rows);
   });
 });
 

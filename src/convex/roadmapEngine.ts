@@ -510,6 +510,45 @@ function buildAllocationRows(ce: RoadmapProjectInput["costEstimate"], totalCost:
   return rows;
 }
 
+/**
+ * Ajuste en temps réel le pourcentage d'un poste budgétaire : les autres postes
+ * sont renormalisés pour que la somme reste ≈ 100 %, l'ordre d'origine est
+ * conservé et les montants sont recalculés depuis le total du scénario.
+ * Pure et déterministe (Phase 05 — répartition modifiable).
+ */
+export function rebalanceBudgetRows(rows: BudgetRow[], targetKey: string, pct: number, totalCost: number): BudgetRow[] {
+  const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+  const target = rows.find((r) => r.key === targetKey);
+  if (!target || totalCost <= 0) return rows;
+
+  const others = rows.filter((r) => r.key !== targetKey);
+  const otherSum = others.reduce((a, o) => a + o.pct, 0);
+  const nextPct = new Map<string, number>([[targetKey, clamped]]);
+
+  if (otherSum > 0) {
+    const scale = Math.max(0, 100 - clamped) / otherSum;
+    const normalized = others.map((o) => ({ key: o.key, pct: Math.round(o.pct * scale) }));
+    // Répartit l'arrondi restant un point à la fois sur les autres postes
+    let diff = 100 - clamped - normalized.reduce((a, o) => a + o.pct, 0);
+    let i = normalized.length - 1;
+    while (diff !== 0 && normalized.length > 0) {
+      const step = diff > 0 ? 1 : -1;
+      const next = normalized[i].pct + step;
+      if (next >= 0) normalized[i] = { ...normalized[i], pct: next };
+      diff -= step;
+      i = (i - 1 + normalized.length) % normalized.length;
+    }
+    for (const o of normalized) nextPct.set(o.key, o.pct);
+  } else {
+    for (const o of others) nextPct.set(o.key, 0);
+  }
+
+  return rows.map((r) => {
+    const p = nextPct.get(r.key) ?? r.pct;
+    return { ...r, pct: p, amount: Math.round((totalCost * p) / 100) };
+  });
+}
+
 // ─── Planning (Phase 07) ─────────────────────────────────────────────────────
 
 const RESPONSIBLES = ["Entreprise générale", "Maçon", "Coffreur/Ferrailleur", "Charpentier", "Étancheur", "Plâtrier", "Menuisier", "Électricien", "Plombier", "Carreleur", "Peintre", "Paysagiste"];
