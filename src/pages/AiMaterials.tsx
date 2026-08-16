@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
@@ -13,7 +12,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import {
-  ArrowLeft, Sparkles, HardHat, Loader2, FileDown, Store, MessageSquare,
+  ArrowLeft, Sparkles, HardHat, Loader2, FileDown, Store,
   PiggyBank, Zap, Scale, Check, Trash2, Clock, MapPin, Ruler, Layers,
   TrendingDown, TrendingUp, Minus, Wand2, Gauge, CalendarDays, ShieldCheck,
   RefreshCw, ChevronDown, ChevronUp, BadgeCheck, Crown, CircleDollarSign,
@@ -23,7 +22,6 @@ import {
   COPILOT_CATEGORIES,
   STANDING_LEVELS,
   BUDGET_MODES,
-  buildAssistantContext,
   MaterialScores,
   RecommendResult,
   ProjectContext,
@@ -99,10 +97,8 @@ export default function AiMaterials() {
   const saveAnalysis = useMutation(api.aiMaterials.saveCopilotAnalysis);
   const deleteAnalysis = useMutation(api.aiMaterials.deleteCopilotAnalysis);
   const recommendMaterials = useAction(api.aiMaterialsActions.recommendMaterials);
-  const compareCopilotMaterials = useAction(api.aiMaterialsActions.compareCopilotMaterials);
   const optimizeCopilotBudget = useAction(api.aiMaterialsActions.optimizeCopilotBudget);
   const improveCopilotPerformance = useAction(api.aiMaterialsActions.improveCopilotPerformance);
-  const askMaterialsAssistant = useAction(api.aiMaterialsActions.askMaterialsAssistant);
 
   // ── Formulaire ──
   const [projectId, setProjectId] = useState(paramProject || "");
@@ -132,21 +128,9 @@ export default function AiMaterials() {
   const [result, setResult] = useState<RecommendResult | null>(null);
   const [optimization, setOptimization] = useState<any>(null);
   const [performance, setPerformance] = useState<any>(null);
-  const [comparison, setComparison] = useState<any>(null);
-  const [compSel, setCompSel] = useState<string[]>([]);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [budgetInput, setBudgetInput] = useState(0);
   const [savedId, setSavedId] = useState<string | null>(null);
-
-  // ── Chat ──
-  const [chat, setChat] = useState<{ role: "user" | "assistant"; content: string }[]>([
-    {
-      role: "assistant",
-      content:
-        "Bonjour ! Je suis votre Assistant Matériaux IA 🏗️. Posez-moi vos questions sur les matériaux, les prix tunisiens 2026, l'isolation, les fournisseurs ou le budget de votre projet.",
-    },
-  ]);
-  const [chatInput, setChatInput] = useState("");
 
   const projectCtx = useMemo<ProjectContext>(() => {
     const proj = projects.find((p: any) => p._id === projectId) as any;
@@ -192,7 +176,6 @@ export default function AiMaterials() {
     setResult(null);
     setOptimization(null);
     setPerformance(null);
-    setComparison(null);
     try {
       const res = await recommendMaterials({
         projectId: manualMode ? undefined : (projectId as any),
@@ -202,8 +185,6 @@ export default function AiMaterials() {
       });
       setResult(res);
       setBudgetInput(Math.max(1000, Math.round(res.cost.total * 0.85)));
-      // Comparateur multi-matériaux : réinitialiser la sélection
-      setCompSel([]);
       // Sauvegarde automatique de l'analyse
       try {
         const id = await saveAnalysis({
@@ -248,47 +229,12 @@ export default function AiMaterials() {
     setBusy((b) => ({ ...b, performance: false }));
   };
 
-  const runCompare = async () => {
-    if (compSel.length < 2) return toast.error("Sélectionnez entre 2 et 5 matériaux à comparer.");
-    setBusy((b) => ({ ...b, compare: true }));
-    try {
-      const res = await compareCopilotMaterials({ ids: compSel });
-      setComparison(res);
-      toast.success("Comparaison générée.");
-    } catch (err: any) {
-      toast.error(err.message || "Erreur");
-    }
-    setBusy((b) => ({ ...b, compare: false }));
-  };
-
-  const sendChat = async () => {
-    const q = chatInput.trim();
-    if (!q || busy.chat) return;
-    setChat((c) => [...c, { role: "user", content: q }]);
-    setChatInput("");
-    setBusy((b) => ({ ...b, chat: true }));
-    try {
-      const projectText = buildAssistantContext(null, projectCtx);
-      const analysisText = result ? buildAssistantContext(result, projectCtx) : "";
-      const res = await askMaterialsAssistant({
-        question: q,
-        projectContext: projectText,
-        analysisContext: analysisText,
-      });
-      setChat((c) => [...c, { role: "assistant", content: res.answer }]);
-    } catch (err: any) {
-      setChat((c) => [...c, { role: "assistant", content: "Désolé, une erreur est survenue. Réessayez." }]);
-    }
-    setBusy((b) => ({ ...b, chat: false }));
-  };
-
   const loadAnalysis = (doc: any) => {
     const res = doc.results?.recommend;
     if (!res) return toast.error("Analyse sans recommandation enregistrée.");
     setResult(res);
     setOptimization(doc.results?.optimization || null);
     setPerformance(doc.results?.performance || null);
-    setComparison(doc.results?.comparison || null);
     if (doc.input?.categories) setSelectedCats(doc.input.categories);
     if (doc.input?.context) {
       const c = doc.input.context;
@@ -306,7 +252,7 @@ export default function AiMaterials() {
   const handlePdf = () => {
     if (!result) return;
     try {
-      generateMaterialReportPdf({ result, optimization: optimization || undefined, performance: performance || undefined, comparison: comparison || undefined });
+      generateMaterialReportPdf({ result, optimization: optimization || undefined, performance: performance || undefined });
       toast.success("Rapport PDF généré.");
     } catch (err: any) {
       toast.error("Erreur PDF : " + err.message);
@@ -1035,171 +981,7 @@ export default function AiMaterials() {
                   )}
                 </CardContent>
               </Card>
-            </div>
-
-            {/* Comparateur multi-matériaux */}
-            <Card className="border border-border/40 overflow-hidden rounded-xl">
-              <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
-                    <Scale className="h-3.5 w-3.5" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-semibold">Comparer ces matériaux avec l'IA</CardTitle>
-                    <CardDescription className="text-[10px]">Sélectionnez jusqu'à 5 matériaux pour une comparaison technique et financière détaillée</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-6 space-y-3">
-                {catalog ? (
-                  <>
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
-                      {catalog.materials.map((m) => {
-                        const active = compSel.includes(m._id);
-                        const disabled = !active && compSel.length >= 5;
-                        return (
-                          <button key={m._id}
-                            onClick={() => setCompSel(active ? compSel.filter((x) => x !== m._id) : compSel.length < 5 ? [...compSel, m._id] : compSel)}
-                            className={cn(
-                              "flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all cursor-pointer",
-                              active ? "border-violet-500/60 bg-violet-500/5" : disabled ? "opacity-40 cursor-not-allowed" : "border-border/40 hover:border-border hover:bg-muted/30",
-                            )}
-                          >
-                            <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[9px]",
-                              active ? "bg-violet-500 border-violet-500 text-white" : "border-border")}>
-                              {active && <Check className="h-2.5 w-2.5" />}
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block text-[11px] font-medium truncate">{m.name}</span>
-                              <span className="block text-[9px] text-muted-foreground">{fmtTnd(m.unitPrice)}/{m.unit}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground">{compSel.length}/5 sélectionné(s)</span>
-                      <div className="ml-auto">
-                        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" disabled={busy.compare || compSel.length < 2} onClick={runCompare}>
-                          {busy.compare ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scale className="h-3.5 w-3.5" />}
-                          Comparer avec l'IA
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground">Lancez d'abord une analyse pour charger les matériaux des catégories sélectionnées.</p>
-                )}
-                {comparison && (
-                  <div className="space-y-3">
-                    {comparison.narrative && (
-                      <p className="rounded-xl border border-violet-500/30 bg-violet-500/5 px-3.5 py-2.5 text-[11px] text-muted-foreground leading-relaxed">{comparison.narrative}</p>
-                    )}
-                    <div className="overflow-x-auto rounded-xl border border-border/30">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-border/10 bg-muted/20">
-                            <th className="text-left py-2 px-3 font-medium text-muted-foreground">Critère</th>
-                            {comparison.materials.map((m: any) => (
-                              <th key={m.id} className="py-2 px-3 text-right font-semibold max-w-[140px]">{m.name}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b border-border/5">
-                            <td className="py-1.5 px-3 text-muted-foreground">Prix moyen</td>
-                            {comparison.materials.map((m: any) => (
-                              <td key={m.id} className="py-1.5 px-3 text-right font-semibold tabular-nums">{m.band.avg.toFixed(2)} TND{m.unit ? "/" + m.unit : ""}</td>
-                            ))}
-                          </tr>
-                          <tr className="border-b border-border/5">
-                            <td className="py-1.5 px-3 text-muted-foreground">Fourchette</td>
-                            {comparison.materials.map((m: any) => (
-                              <td key={m.id} className="py-1.5 px-3 text-right text-[10px] tabular-nums text-muted-foreground">{m.band.min.toFixed(2)} – {m.band.max.toFixed(2)}</td>
-                            ))}
-                          </tr>
-                          {CRITERIA.map((c) => (
-                            <tr key={c.key} className="border-b border-border/5">
-                              <td className="py-1.5 px-3 text-muted-foreground">{c.label}</td>
-                              {comparison.materials.map((m: any) => (
-                                <td key={m.id} className={cn("py-1.5 px-3 text-right font-semibold tabular-nums", scoreColor(m.scores[c.key]))}>{m.scores[c.key]}</td>
-                              ))}
-                            </tr>
-                          ))}
-                          <tr>
-                            <td className="py-2 px-3 font-bold">Note globale</td>
-                            {comparison.materials.map((m: any) => (
-                              <td key={m.id} className={cn("py-2 px-3 text-right font-black tabular-nums", scoreColor(m.scores.noteGlobale))}>{m.scores.noteGlobale}</td>
-                            ))}
-                          </tr>
-                          {comparison.materials.map((m: any) => m.lifetime || m.technical?.length || m.financial?.length ? null : null)}
-                        </tbody>
-                      </table>
-                    </div>
-                    {comparison.recommendation?.name && (
-                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3.5 py-2.5">
-                        <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                          <Sparkles className="h-3 w-3" /> Recommandation : {comparison.recommendation.name}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{comparison.recommendation.reason}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Chat assistant */}
-            <Card className="border border-border/40 overflow-hidden rounded-xl">
-              <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                    <MessageSquare className="h-3.5 w-3.5" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-semibold">Demandez conseil à votre Assistant Matériaux IA</CardTitle>
-                    <CardDescription className="text-[10px]">Questions en langage naturel, réponses fondées sur le catalogue 2026 et votre projet</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-5">
-                <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1 mb-3">
-                  {chat.map((m, i) => (
-                    <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
-                      <div className={cn(
-                        "max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-line",
-                        m.role === "user"
-                          ? "bg-emerald-600 text-white"
-                          : "bg-muted/40 border border-border/40 text-foreground",
-                      )}>
-                        {m.content}
-                      </div>
-                    </div>
-                  ))}
-                  {busy.chat && (
-                    <div className="flex justify-start">
-                      <div className="rounded-xl border border-border/40 bg-muted/40 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Réflexion...
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Textarea
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
-                    placeholder="Ex. Quel isolant choisir pour une villa à Tunis ? / Quel matériau avec un budget de 50 000 DT ?"
-                    className="min-h-[44px] max-h-28 text-sm rounded-lg"
-                    rows={2}
-                  />
-                  <Button size="icon" className="h-[44px] w-[44px] shrink-0" disabled={busy.chat || !chatInput.trim()} onClick={sendChat}>
-                    {busy.chat ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </>
+            </div>          </>
         )}
 
         {/* Historique */}

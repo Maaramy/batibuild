@@ -78,6 +78,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
+import {
+  MockImportScreen,
+  MockAnalysisScreen,
+  MockReportScreen,
+  MockInvestProcessPanel,
+  MockInvestmentScreen,
+} from "@/components/LandingMockScreens";
 
 // ============================================================================
 // Constants
@@ -90,6 +97,7 @@ const FEATURES = [
     desc: "Importez des photos, plans PDF, images satellite ou croquis dessinés à la main en un clic.",
     gradient: "from-blue-500/20 to-cyan-500/20",
     iconColor: "text-blue-600 dark:text-blue-400",
+    to: "/dashboard/new",
   },
   {
     icon: Cpu,
@@ -97,34 +105,63 @@ const FEATURES = [
     desc: "L'IA reconnaît le type de projet, détecte les dimensions et identifie les matériaux nécessaires.",
     gradient: "from-emerald-500/20 to-teal-500/20",
     iconColor: "text-emerald-600 dark:text-emerald-400",
+    to: "/dashboard/new",
   },
   {
     icon: TrendingUp,
     title: "Estimation Précise",
-    desc: "Calcul automatique des coûts basé sur les prix actualisés du marché tunisien.",
+    desc: "Calcul automatique des coûts basé sur les prix actualisés du marché tunisien 2026.",
     gradient: "from-emerald-500/20 to-teal-500/20",
     iconColor: "text-emerald-600 dark:text-emerald-400",
+    to: "/dashboard",
+  },
+  {
+    icon: Sparkles,
+    title: "Assistant Matériaux IA",
+    desc: "Recommandation comparative des matériaux, fournisseurs au meilleur prix, optimisation du budget et performance énergétique.",
+    gradient: "from-violet-500/20 to-purple-500/20",
+    iconColor: "text-violet-600 dark:text-violet-400",
+    to: "/dashboard/ai-materials",
+  },
+  {
+    icon: ClipboardList,
+    title: "Guide Construction A-Z",
+    desc: "Feuille de route de 10 phases : démarches tunisiennes, budget à 3 scénarios, planning Gantt, contrôle du chantier et diagnostic IA.",
+    gradient: "from-sky-500/20 to-blue-500/20",
+    iconColor: "text-sky-600 dark:text-sky-400",
+    to: "/dashboard/guide",
+  },
+  {
+    icon: ChartBar,
+    title: "Analyse d'Investissement",
+    desc: "Rentabilité nette, flux de trésorerie, ROI à 1/5/10 ans, score IA /100 et scénarios de simulation immobilière.",
+    gradient: "from-indigo-500/20 to-blue-500/20",
+    iconColor: "text-indigo-600 dark:text-indigo-400",
+    to: "/dashboard/investments",
+  },
+  {
+    icon: Store,
+    title: "Espace Fournisseur",
+    desc: "Annuaire des entrepreneurs, architectes, ingénieurs et fournisseurs : profils vérifiés, spécialités et recommandations ciblées.",
+    gradient: "from-amber-500/20 to-orange-500/20",
+    iconColor: "text-amber-600 dark:text-amber-400",
+    to: "/dashboard/supplier",
+  },
+  {
+    icon: Table2,
+    title: "Prix des Matériaux Tunisie",
+    desc: "Base de données actualisée 2026 avec historique des prix, mise à jour par l'administration.",
+    gradient: "from-teal-500/20 to-cyan-500/20",
+    iconColor: "text-teal-600 dark:text-teal-400",
+    to: "/dashboard/materials",
   },
   {
     icon: FileText,
-    title: "Rapports Professionnels",
-    desc: "Générez des rapports détaillés en PDF, Excel ou CSV avec répartition complète des coûts.",
-    gradient: "from-amber-500/20 to-orange-500/20",
-    iconColor: "text-amber-600 dark:text-amber-400",
-  },
-  {
-    icon: Ruler,
-    title: "40+ Types de Projets",
-    desc: "Maisons, villas, piscines, immeubles, rénovations et bien plus encore.",
-    gradient: "from-sky-500/20 to-blue-500/20",
-    iconColor: "text-sky-600 dark:text-sky-400",
-  },
-  {
-    icon: Layers,
-    title: "Gestion des Matériaux",
-    desc: "Base de données des prix des matériaux actualisée avec historique des changements.",
-    gradient: "from-teal-500/20 to-cyan-500/20",
-    iconColor: "text-teal-600 dark:text-teal-400",
+    title: "Rapports & Exports",
+    desc: "Rapports professionnels détaillés en PDF, Excel ou CSV avec répartition complète des coûts.",
+    gradient: "from-rose-500/20 to-orange-500/20",
+    iconColor: "text-rose-600 dark:text-rose-400",
+    to: "/dashboard",
   },
 ];
 
@@ -228,7 +265,6 @@ const INVESTMENT_POINTS = [
   },
 ];
 
-const MOCK_FORECAST_BARS = [18, 26, 34, 42, 51, 60, 70, 81, 92, 100];
 
 // ============================================================================
 // Components
@@ -283,6 +319,8 @@ function Navbar() {
 
         <nav className="hidden md:flex items-center gap-8">
           <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a>
+          <a href="/dashboard/ai-materials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Matériaux IA</a>
+          <a href="/dashboard/guide" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Guide A-Z</a>
           <a href="#investments" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Investissement</a>
           <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Avis</a>
           <a href="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</a>
@@ -325,6 +363,8 @@ function Navbar() {
         >
           <div className="px-4 py-4 space-y-3">
             <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Fonctionnalités</a>
+            <a href="/dashboard/ai-materials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Assistant Matériaux IA</a>
+            <a href="/dashboard/guide" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Guide Construction A-Z</a>
             <a href="#investments" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Investissement</a>
             <a href="#testimonials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Avis</a>
             <div className="flex gap-2 pt-2 border-t border-border/50">
@@ -361,7 +401,7 @@ function HeroSection() {
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-sm">
                 <Sparkles className="h-3 w-3" />
               </span>
-              Estimation de construction par IA — Tunisie 2026
+              Plateforme IA de construction & d'investissement — Tunisie 2026
             </span>
           </motion.div>
 
@@ -506,10 +546,37 @@ function HeroSection() {
                   {i === 0 && <Check className="h-3 w-3" />}
                   {cat}
                 </span>
-              ))}
-              <span className="inline-flex items-center rounded-full border-2 border-dashed border-border/70 px-3.5 py-1.5 text-[11px] font-semibold text-muted-foreground">
+              ))}              <span className="inline-flex items-center rounded-full border-2 border-dashed border-border/70 px-3.5 py-1.5 text-[11px] font-semibold text-muted-foreground">
                 +3 autres
               </span>
+            </div>
+          </motion.div>
+
+          {/* Modules plateforme */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.65, duration: 0.5 }}
+            className="mt-6"
+          >
+            <p className="label-overline mb-4">Toute la plateforme</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {[
+                { label: "Assistant Matériaux IA", icon: Sparkles, to: "/dashboard/ai-materials" },
+                { label: "Guide Construction A-Z", icon: ClipboardList, to: "/dashboard/guide" },
+                { label: "Investissement immobilier", icon: ChartBar, to: "/dashboard/investments" },
+                { label: "Espace fournisseur", icon: Store, to: "/dashboard/supplier" },
+                { label: "Prix des matériaux", icon: Table2, to: "/dashboard/materials" },
+              ].map((mod) => (
+                <button
+                  key={mod.label}
+                  onClick={() => navigate(mod.to)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/[0.04] px-3.5 py-1.5 text-[11px] font-semibold text-foreground/80 hover:border-primary/50 hover:text-foreground hover:bg-primary/[0.08] transition-all cursor-pointer"
+                >
+                  <mod.icon className="h-3 w-3 text-primary" />
+                  {mod.label}
+                </button>
+              ))}
             </div>
           </motion.div>
         </div>
@@ -517,6 +584,7 @@ function HeroSection() {
     </section>
   );
 }
+
 
 function HowItWorksSection() {
   const [mode, setMode] = useState<"construction" | "investissement">("construction");
@@ -814,258 +882,9 @@ function HowItWorksSection() {
   );
 }
 
-/* ── Mock Screens ── */
-
-function MockImportScreen() {
-  return (
-    <div className="space-y-4">
-      {/* Project type selector */}
-      <div className="flex gap-2 flex-wrap">
-        {["Maison", "Villa", "Appartement", "Piscine"].map((t) => (
-          <div
-            key={t}
-            className={`rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-all ${
-              t === "Maison"
-                ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700/50 dark:bg-blue-950/30 dark:text-blue-300"
-                : "border-border/40 text-muted-foreground hover:border-border/70"
-            }`}
-          >
-            {t}
-          </div>
-        ))}
-      </div>
-
-      {/* Main input area */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Upload zone */}
-        <div className="rounded-xl border-2 border-dashed border-blue-200/60 dark:border-blue-800/40 bg-blue-50/40 dark:bg-blue-950/20 p-4 text-center">
-          <Upload className="h-6 w-6 mx-auto mb-2 text-blue-500" />
-          <div className="text-xs font-medium text-foreground mb-1">Importez vos documents</div>
-          <div className="text-[10px] text-muted-foreground">Photo, plan PDF, image satellite</div>
-          <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-3 py-1 text-[10px] text-blue-600">
-            <Check className="h-3 w-3" />
-            Plan_maison.pdf
-          </div>
-        </div>
-
-        {/* Manual input */}
-        <div className="space-y-2">
-          <div className="rounded-lg border border-border/30 p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-[11px] font-medium">Région</span>
-            </div>
-            <div className="rounded-md border border-border/30 bg-background px-3 py-2 text-xs text-foreground">
-              Tunis
-            </div>
-          </div>
-          <div className="rounded-lg border border-border/30 p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Ruler className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-[11px] font-medium">Surface (m²)</span>
-            </div>
-            <div className="rounded-md border border-border/30 bg-background px-3 py-2 text-xs text-foreground">
-              150
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Submit button */}
-      <div className="flex justify-end">
-        <div className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-xs font-medium text-white shadow-sm">
-          <Cpu className="h-3.5 w-3.5" />
-          Analyser mon projet
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MockAnalysisScreen() {
-  return (
-    <div className="space-y-4">
-      {/* Analysis progress */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
-          <Loader2 className="h-4 w-4 animate-spin text-violet-600" />
-        </div>
-        <div className="flex-1">
-          <div className="text-xs font-semibold">Analyse en cours...</div>
-          <div className="text-[10px] text-muted-foreground">Reconnaissance du projet par l'IA</div>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-        <motion.div
-          initial={{ width: "0%" }}
-          animate={{ width: "100%" }}
-          transition={{ duration: 3, ease: "easeInOut" }}
-          className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500"
-        />
-      </div>
-
-      {/* Detection results appearing */}
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          { label: "Type de projet", value: "Maison R+1", icon: Building2, done: true },
-          { label: "Surface détectée", value: "150 m²", icon: Ruler, done: true },
-          { label: "Matériaux", value: "24 identifiés", icon: Layers, done: true },
-          { label: "Qualité", value: "Standard", icon: Sparkles, done: true },
-        ].map((item) => (
-          <motion.div
-            key={item.label}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-lg border border-violet-200/40 dark:border-violet-800/30 bg-background/60 p-2.5"
-          >
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-0.5">
-              <item.icon className="h-3 w-3 text-violet-500" />
-              {item.label}
-            </div>
-            <div className="text-xs font-semibold">{item.value}</div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* IA badge */}
-      <div className="flex items-center gap-2 rounded-lg bg-violet-500/5 border border-violet-200/40 dark:border-violet-800/30 px-3 py-2">
-        <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-        <span className="text-[10px] text-muted-foreground">
-          IA : <span className="font-medium text-foreground">Projet détecté avec 92% de confiance</span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function MockReportScreen() {
-  return (
-    <div className="space-y-4">
-      {/* Total card */}
-      <div className="rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-200/50 dark:border-emerald-800/30 p-4 text-center">
-        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Coût total estimé</div>
-        <div className="text-2xl sm:text-3xl font-bold gradient-text mt-0.5">253 590 TND</div>
-        <div className="text-[10px] text-muted-foreground">Marché tunisien 2026 • Prix TTC</div>
-      </div>
-
-      {/* Breakdown */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Gros œuvre", pct: 38, color: "bg-blue-500" },
-          { label: "Second œuvre", pct: 29, color: "bg-violet-500" },
-          { label: "Équipements", pct: 15, color: "bg-emerald-500" },
-        ].map((cat) => (
-          <div key={cat.label} className="rounded-lg border border-border/20 bg-background/40 p-2 text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <div className={`h-2 w-2 rounded-full ${cat.color}`} />
-              <span className="text-[10px] text-muted-foreground">{cat.pct}%</span>
-            </div>
-            <div className="text-[9px] font-medium truncate">{cat.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Scenarios */}
-      <div className="flex gap-2">
-        {[
-          { label: "Économique", value: "163 590 TND", active: false },
-          { label: "Standard", value: "253 590 TND", active: true },
-          { label: "Premium", value: "398 475 TND", active: false },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className={`flex-1 rounded-lg border p-2 text-center transition-all ${
-              s.active ? "border-primary bg-primary/5" : "border-border/20 bg-background/40 opacity-70"
-            }`}
-          >
-            <div className="text-[9px] text-muted-foreground">{s.label}</div>
-            <div className={`text-[10px] font-semibold ${s.active ? "text-primary" : ""}`}>{s.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        <div className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border/30 bg-background/40 px-3 py-2 text-[10px] text-muted-foreground">
-          <Download className="h-3.5 w-3.5" />
-          Télécharger PDF
-        </div>
-        <div className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-3 py-2 text-[10px] font-medium text-white shadow-sm">
-          <FileText className="h-3.5 w-3.5" />
-          Voir le rapport
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MockInvestProcessPanel() {
-  return (
-    <div className="space-y-4">
-      {/* Score + rentabilité */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-indigo-200/60 dark:border-indigo-800/40 bg-gradient-to-br from-indigo-500 to-blue-600 p-3.5 text-white shadow-lg shadow-indigo-500/20">
-          <p className="text-[9px] uppercase tracking-widest text-indigo-100/80">Score IA</p>
-          <p className="mt-1 text-2xl font-black">78<span className="text-xs font-semibold text-indigo-100">/100</span></p>
-          <p className="mt-0.5 text-[10px] text-indigo-100/80">Projet rentable</p>
-        </div>
-        <div className="rounded-xl border border-border/30 bg-background/70 p-3.5">
-          <p className="text-[9px] uppercase tracking-widest text-muted-foreground">Rendement net</p>
-          <p className="mt-1 text-2xl font-black text-emerald-600">7,4%</p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">Flux annuel positif</p>
-        </div>
-      </div>
-
-      {/* Indicateurs */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Budget", value: "185 000 TND" },
-          { label: "Loyer/mois", value: "1 350 TND" },
-          { label: "ROI 10 ans", value: "142%" },
-        ].map((s) => (
-          <div key={s.label} className="rounded-lg border border-border/30 bg-background/60 px-2.5 py-2 text-center">
-            <p className="text-[9px] text-muted-foreground">{s.label}</p>
-            <p className="mt-0.5 text-xs font-bold tabular-nums">{s.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Barre de progression rentabilité */}
-      <div className="rounded-xl border border-border/30 bg-background/70 p-3">
-        <div className="mb-1.5 flex items-center justify-between text-[10px]">
-          <span className="font-medium text-muted-foreground">Flux de trésorerie cumulés</span>
-          <span className="font-bold text-indigo-600 dark:text-indigo-400">+ 96 500 TND</span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-muted">
-          <motion.div
-            initial={{ width: "0%" }}
-            animate={{ width: "68%" }}
-            transition={{ duration: 2, ease: "easeOut" }}
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-blue-500"
-          />
-        </div>
-        <div className="mt-1 flex justify-between text-[9px] text-muted-foreground">
-          <span>Année 1</span>
-          <span>Année 10</span>
-        </div>
-      </div>
-
-      {/* Scénarios */}
-      <div className="flex flex-wrap gap-1.5">
-        {["Optimiste +9,1%", "Prudent +5,2%", "Meilleure zone : La Marsa"].map((chip) => (
-          <span key={chip} className="rounded-full border border-indigo-500/25 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-300">
-            {chip}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function FeaturesSection() {
   const ref = useRef(null);
+  const navigate = useNavigate();
 
   return (
     <section id="features" ref={ref} className="relative py-24 lg:py-32">
@@ -1073,10 +892,10 @@ function FeaturesSection() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="label-overline mb-3">Fonctionnalités</p>
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-            Tout ce dont vous avez besoin pour estimer vos projets
+            Toute la plateforme de votre projet, de A à Z
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Une solution complète qui utilise l'intelligence artificielle pour simplifier l'estimation des coûts de construction.
+            Estimation, matériaux, guide de construction, investissement et fournisseurs : l'IA accompagne chaque étape sur le marché tunisien.
           </p>
         </div>
 
@@ -1089,14 +908,23 @@ function FeaturesSection() {
               viewport={{ once: true, margin: "-50px" }}
               transition={{ delay: index * 0.1, duration: 0.5 }}
             >
-              <Card className="group relative h-full p-6 border border-border/50 hover:border-primary/20 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 bg-background/50 backdrop-blur-sm">
+              <Card
+                role="link"
+                tabIndex={0}
+                onClick={() => navigate(feature.to)}
+                onKeyDown={(e) => { if (e.key === "Enter") navigate(feature.to); }}
+                className="group relative h-full p-6 border border-border/50 hover:border-primary/20 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 bg-background/50 backdrop-blur-sm cursor-pointer"
+              >
                 <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl`} />
-                <div className="relative z-10">
+                <div className="relative z-10 flex h-full flex-col">
                   <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-background/80 border border-border/50 ${feature.iconColor}`}>
                     <feature.icon className="h-5 w-5" />
                   </div>
                   <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed flex-1">{feature.desc}</p>
+                  <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-primary opacity-70 group-hover:opacity-100 transition-opacity">
+                    Découvrir <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
                 </div>
               </Card>
             </motion.div>
@@ -1104,93 +932,6 @@ function FeaturesSection() {
         </div>
       </div>
     </section>
-  );
-}
-
-/* ── Investment Analysis mock screen ── */
-
-function MockInvestmentScreen() {
-  return (
-    <div className="space-y-4">
-      {/* Score IA card */}
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-indigo-200/50 dark:border-indigo-800/30 bg-gradient-to-r from-indigo-500/10 to-blue-500/10 p-3.5">
-        <div className="flex items-center gap-3">
-          <div className="relative h-14 w-14 shrink-0">
-            <svg viewBox="0 0 56 56" className="h-full w-full -rotate-90">
-              <circle cx="28" cy="28" r="23" fill="none" strokeWidth="5" className="stroke-muted/40" />
-              <circle
-                cx="28" cy="28" r="23" fill="none" strokeWidth="5" strokeLinecap="round"
-                stroke="#6366f1" strokeDasharray={144.5} strokeDashoffset={144.5 * (1 - 0.94)}
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center text-sm font-extrabold">94</div>
-          </div>
-          <div>
-            <div className="text-xs font-semibold">Score IA</div>
-            <div className="text-[10px] text-muted-foreground">Excellent investissement</div>
-            <div className="mt-1 flex items-center gap-1 text-[9px] text-emerald-600 dark:text-emerald-400">
-              <Check className="h-3 w-3" />
-              Confiance IA 92%
-            </div>
-          </div>
-        </div>
-        <div className="text-right hidden sm:block">
-          <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Appartement</div>
-          <div className="text-xs font-bold">La Marsa</div>
-          <div className="text-[9px] text-muted-foreground">Tunis</div>
-        </div>
-      </div>
-
-      {/* KPI chips */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Rendement net", value: "6,2%", color: "text-emerald-600 dark:text-emerald-400", icon: Percent },
-          { label: "Flux de trésorerie", value: "+980 TND", color: "text-blue-600 dark:text-blue-400", icon: Wallet },
-          { label: "Return on Investment 10 ans", value: "82%", color: "text-indigo-600 dark:text-indigo-400", icon: TrendingUp },
-        ].map((kpi) => (
-          <div key={kpi.label} className="rounded-lg border border-border/20 bg-background/50 p-2.5 text-center">
-            <kpi.icon className={`h-3.5 w-3.5 mx-auto mb-1 ${kpi.color}`} />
-            <div className={`text-xs font-bold ${kpi.color}`}>{kpi.value}</div>
-            <div className="text-[8px] text-muted-foreground truncate">{kpi.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Forecast chart */}
-      <div className="rounded-lg border border-border/20 bg-background/50 p-3">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] font-medium text-muted-foreground">Prévisions des bénéfices (10 ans)</span>
-          <span className="text-[9px] text-indigo-600 dark:text-indigo-400 font-semibold">+428 000 TND</span>
-        </div>
-        <div className="flex items-end gap-1.5 h-20">
-          {MOCK_FORECAST_BARS.map((h, i) => (
-            <motion.div
-              key={i}
-              initial={{ height: 0 }}
-              whileInView={{ height: `${h}%` }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.06, duration: 0.5, ease: "easeOut" }}
-              className={`flex-1 rounded-t ${i === 9 ? "bg-gradient-to-t from-indigo-600 to-blue-500" : "bg-indigo-500/25 dark:bg-indigo-400/25"}`}
-              style={{ height: `${h}%` }}
-            />
-          ))}
-        </div>
-        <div className="flex justify-between mt-1 text-[8px] text-muted-foreground/60">
-          <span>An 1</span>
-          <span>An 3</span>
-          <span>An 5</span>
-          <span>An 10</span>
-        </div>
-      </div>
-
-      {/* Assistant chip */}
-      <div className="flex items-center gap-2 rounded-lg border border-indigo-200/40 dark:border-indigo-800/30 bg-indigo-500/5 px-3 py-2">
-        <Bot className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-        <span className="text-[10px] text-muted-foreground">
-          Assistant IA : <span className="font-medium text-foreground">« Cet investissement est-il rentable ? »</span>
-        </span>
-      </div>
-    </div>
   );
 }
 
@@ -1486,16 +1227,17 @@ function Footer() {
               <span className="text-base font-semibold">batibuild App</span>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">
-              Solution IA pour l'estimation des coûts de construction en Tunisie.
+              Plateforme IA complète : estimation de construction, assistant de choix des matériaux, guide A-Z, investissement immobilier et fournisseurs — prix actualisés du marché tunisien.
             </p>
           </div>
           <div>
             <h4 className="text-sm font-semibold mb-3">Produit</h4>
             <ul className="space-y-2">
               <li><a href="#features" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a></li>
-              <li><a href="/dashboard/investments" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Investissements immobiliers</a></li>
-              <li><a href="/blog" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Blog</a></li>
-              <li><a href="/contact" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Contact</a></li>
+              <li><a href="/dashboard/ai-materials" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Assistant Matériaux IA</a></li>
+              <li><a href="/dashboard/guide" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Guide Construction A-Z</a></li>
+              <li><a href="/dashboard/investments" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Investissement immobilier</a></li>
+              <li><a href="/dashboard/materials" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Prix des matériaux</a></li>
             </ul>
           </div>
           <div>
@@ -1527,8 +1269,8 @@ function Footer() {
 
 export default function Landing() {
   usePageSEO({
-    title: "batibuild App - Estimation Construction par IA en Tunisie",
-    description: "Estimez vos projets de construction en Tunisie avec l'IA. Obtenez un devis complet avec prix actualisés du marché tunisien 2026.",
+    title: "batibuild App - Plateforme IA de Construction en Tunisie",
+    description: "Estimation de construction par IA, assistant de choix des matériaux, guide de construction A-Z, analyse d'investissement immobilier et annuaire fournisseurs — prix actualisés du marché tunisien 2026.",
   });
   return (
     <motion.div
