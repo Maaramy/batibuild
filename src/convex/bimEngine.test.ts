@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { runBIMEstimation, type RoomCounts } from "./bimEngine";
+import {
+  applyRealisticDoorsWindows,
+  type RoomCountsInput,
+} from "./bimQuantitatif";
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 
 // ════════════════════════════════════════════════════════════════════════
@@ -317,5 +321,98 @@ describe("runBIMEstimation — quantitatif détaillé aligné sur le catalogue 2
     const mo = getBreakdown(res, "main_oeuvre");
     expect(mo.items?.some((i: any) => i.name === "Chef de chantier & Maçon qualifié")).toBe(true);
     expect(mo.items?.some((i: any) => i.name === "Manœuvre")).toBe(true);
+  });
+});
+
+describe("applyRealisticDoorsWindows — portes & fenêtres par pièce (Quantitatif détaillé)", () => {
+  const MANY: RoomCountsInput = { bedrooms: 6, bathrooms: 3, kitchens: 2, livingRooms: 2, garages: 2 };
+  const FEW: RoomCountsInput = { bedrooms: 2, bathrooms: 1, kitchens: 1, livingRooms: 1 };
+
+  // Le moteur BIM applique des défauts pour wc / piscine ; on les aligne ici
+  // pour que le total des pièces corresponde à celui utilisé par l'engine.
+  const withDefaults = (r: RoomCountsInput): RoomCountsInput => ({
+    ...r,
+    wcs: r.wcs ?? Math.max(1, Math.round(150 / 90)),
+    pools: r.pools ?? 0,
+  });
+
+  const roomTotal = (r: RoomCountsInput) =>
+    (r.bedrooms ?? 0) + (r.bathrooms ?? 0) + (r.kitchens ?? 0) +
+    (r.livingRooms ?? 0) + (r.garages ?? 0) + (r.wcs ?? 0) + (r.pools ?? 0);
+
+  const getSO = (rooms: RoomCountsInput) => {
+    const full = withDefaults(rooms);
+    const res = runBIMEstimation("maison", 150, 1, "tunis", "standard", full);
+    res.costEstimate.breakdown = applyRealisticDoorsWindows(res.costEstimate.breakdown, full);
+    return getBreakdown(res, "second_oeuvre");
+  };
+
+  const find = (so: ReturnType<typeof getBreakdown>, part: string) => findItem(so, part);
+
+  it("1 porte intérieure par pièce et 2 portes principales", () => {
+    const so = getSO(MANY);
+    expect(find(so, "Porte intérieure").quantity).toBe(roomTotal(withDefaults(MANY)));
+    expect(find(so, "Porte d'entrée").quantity).toBe(2);
+  });
+
+  it("1 fenêtre par pièce + 1 fenêtre par chambre, grilles identiques", () => {
+    const so = getSO(MANY);
+    const expected = roomTotal(withDefaults(MANY)) + (MANY.bedrooms ?? 0);
+    expect(find(so, "Fenêtre").quantity).toBe(expected);
+    expect(find(so, "Grille").quantity).toBe(expected);
+  });
+
+  it("petite maison : quantités entières réalistes (portes = pièces, fenêtres = pièces + chambres)", () => {
+    const so = getSO(FEW);
+    const full = withDefaults(FEW);
+    expect(find(so, "Porte intérieure").quantity).toBe(roomTotal(full));
+    expect(find(so, "Porte d'entrée").quantity).toBe(2);
+    expect(find(so, "Fenêtre").quantity).toBe(roomTotal(full) + (FEW.bedrooms ?? 0));
+    expect(find(so, "Grille").quantity).toBe(roomTotal(full) + (FEW.bedrooms ?? 0));
+    for (const part of ["Porte intérieure", "Porte d'entrée", "Fenêtre", "Grille"]) {
+      const it = find(so, part);
+      expect(Number.isInteger(it.quantity)).toBe(true);
+      expect(it.totalPrice).toBe(Math.round(it.quantity * it.unitPrice));
+    }
+  });
+
+  it("les prix unitaires du catalogue 2026 sont conservés", () => {
+    const so = getSO(MANY);
+    expect(find(so, "Porte intérieure").unitPrice).toBe(320);
+    expect(find(so, "Porte d'entrée").unitPrice).toBe(550);
+    expect(find(so, "Fenêtre").unitPrice).toBe(310);
+    expect(find(so, "Grille").unitPrice).toBe(220);
+  });
+
+  it("le total de la catégorie second œuvre est préservé (budget inchangé)", () => {
+    const full = withDefaults(MANY);
+    const res = runBIMEstimation("maison", 150, 1, "tunis", "standard", full);
+    const before = getBreakdown(res, "second_oeuvre").estimatedCost;
+    res.costEstimate.breakdown = applyRealisticDoorsWindows(res.costEstimate.breakdown, full);
+    const after = getBreakdown(res, "second_oeuvre").estimatedCost;
+    expect(Math.abs(after - before)).toBeLessThan(10);
+    const sum =
+      getBreakdown(res, "second_oeuvre").items?.reduce(
+        (s: number, it: any) => s + it.totalPrice,
+        0,
+      ) ?? 0;
+    expect(Math.abs(sum - after)).toBeLessThan(10);
+  });
+
+  it("les catégories hors second œuvre restent inchangées", () => {
+    const full = withDefaults(MANY);
+    const res = runBIMEstimation("maison", 150, 1, "tunis", "standard", full);
+    const goBefore = JSON.stringify(getBreakdown(res, "gros_oeuvre").items);
+    const eqBefore = JSON.stringify(getBreakdown(res, "equipements").items);
+    res.costEstimate.breakdown = applyRealisticDoorsWindows(res.costEstimate.breakdown, full);
+    expect(JSON.stringify(getBreakdown(res, "gros_oeuvre").items)).toBe(goBefore);
+    expect(JSON.stringify(getBreakdown(res, "equipements").items)).toBe(eqBefore);
+  });
+
+  it("les quantités suivent le nombre de pièces (plus de pièces = plus de portes/fenêtres)", () => {
+    const soMany = getSO(MANY);
+    const soFew = getSO(FEW);
+    expect(find(soMany, "Porte intérieure").quantity).toBeGreaterThan(find(soFew, "Porte intérieure").quantity);
+    expect(find(soMany, "Fenêtre").quantity).toBeGreaterThan(find(soFew, "Fenêtre").quantity);
   });
 });

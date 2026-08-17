@@ -711,6 +711,7 @@ import {
   buildLivePriceMap,
   withLivePrices,
 } from "./bimEngine";
+import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { findMatchingSuppliers } from "./suppliers";
 
 // ============================================================================
@@ -752,6 +753,26 @@ export const simulateAnalysis = mutation({
         wcs: project.wcs,
         pools: project.pools,
       }),
+    );
+
+    // Portes & fenêtres du « Quantitatif détaillé » : quantités réalistes par
+    // pièce (1 porte intérieure par pièce, 1-2 fenêtres par pièce, 2 portes
+    // principales) selon le nombre de pièces du projet. Les prix unitaires du
+    // catalogue 2026 / base materialPrices sont conservés ; l'écart de budget
+    // de la catégorie « Second œuvre » est réparti sur les autres postes.
+    // Les défauts pièces sont alignés sur ceux du moteur BIM (~1 pièce / 45 m²).
+    const tb = surface * (floors || 1);
+    result.costEstimate.breakdown = applyRealisticDoorsWindows(
+      result.costEstimate.breakdown,
+      {
+        bedrooms: project.bedrooms ?? Math.max(1, Math.round(tb / 45)),
+        bathrooms: project.bathrooms ?? Math.max(1, Math.round(tb / 80)),
+        kitchens: project.kitchens ?? 1,
+        livingRooms: project.livingRooms ?? Math.max(1, Math.round(tb / 75)),
+        garages: project.garages ?? 0,
+        wcs: project.wcs ?? Math.max(1, Math.round(tb / 90)),
+        pools: project.pools ?? 0,
+      },
     );
 
     // Generate AI provider recommendations

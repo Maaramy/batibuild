@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { roleValidator, subscriptionPlanValidator } from "./schema";
 import bcrypt from "bcryptjs";
 import { P, runBIMEstimation } from "./bimEngine";
+import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { scheduleEmailEvent, formatDateFr, planLabel, splitName } from "./emailNotifications";
 
 /**
@@ -384,6 +385,12 @@ export const seedDemoData = mutation({
     if (!existingProjects) {
       // Run BIM estimation for a demo project
       const demoResult = runBIMEstimation("maison", 150, 1, "tunis", "standard");
+      // Portes & fenêtres : quantités réalistes par pièce (1 porte/pièce,
+      // 1-2 fenêtres/pièce, 2 portes principales) — prix catalogue conservés.
+      demoResult.costEstimate.breakdown = applyRealisticDoorsWindows(
+        demoResult.costEstimate.breakdown,
+        { bedrooms: 4, bathrooms: 2, kitchens: 1, livingRooms: 2, wcs: 2 },
+      );
 
       await ctx.db.insert("projects", {
         userId: user._id,
