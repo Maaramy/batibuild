@@ -101,23 +101,40 @@ export const REGION_LABELS: Record<TunisiaRegion, string> = {
 };
 
 // ============================================================================
-// Project Categories (40+ types)
+// Project Categories (25 types)
 // ============================================================================
 
-// Types de bien synchronisés avec le formulaire d'investissement
-// (à l'exception de « Terrain constructible », qui n'est pas un projet de construction)
 export const PROJECT_CATEGORIES = [
+  // Construction neuve
   "maison",
   "villa",
+  "maison_r_plus_1",
+  "maison_r_plus_2",
+  "immeuble_residentiel",
   "appartement",
   "studio",
   "duplex",
-  "immeuble",
-  "local_commercial",
-  "bureau",
+  // Rénovation
+  "renovation_complete",
+  "renovation_cuisine",
+  "renovation_salle_de_bain",
+  "peinture_interieur",
+  // Piscines
+  "piscine_beton",
+  "piscine_coque",
+  // Commerce / Professionnel
+  "garage",
+  "boutique_commerciale",
+  "restaurant",
+  "cafe",
+  "bureau_cabinet",
+  "atelier",
   "entrepot",
-  "residence_touristique",
-  "projet_neuf",
+  "maison_d_hote",
+  "batiment_agricole",
+  // Installations
+  "electricite_complete",
+  "plomberie_complete",
 ] as const;
 
 export const projectCategoryValidator = v.union(
