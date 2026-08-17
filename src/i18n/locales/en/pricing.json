@@ -1,7 +1,7 @@
 {
   "pageTitle": "Pricing - batibuild App",
   "title": "Our plans",
-  "subtitle": "One-time payment plans — a single plan covers your construction projects, investment analyses and architectural plans",
+  "subtitle": "One-time payment plans — a single plan covers your construction projects and investment analyses",
   "monthly": "one-time payment",
   "popular": "Popular",
   "mostPopular": "Most popular",
@@ -12,7 +12,6 @@
     "features": {
       "projects": "1 construction project (1 PDF)",
       "investments": "1 investment analysis (1 PDF)",
-      "plans": "1 architectural 2D / 3D plan (1 PDF)",
       "exports": "1 PDF download",
       "support": "Email support",
       "materials": "AI estimation at Tunisian prices"
@@ -25,7 +24,6 @@
     "features": {
       "projects": "5 construction projects (5 PDF)",
       "investments": "5 investment analyses (5 PDF)",
-      "plans": "5 architectural 2D / 3D plans (5 PDF)",
       "exports": "5 PDF downloads",
       "support": "Priority support",
       "materials": "Advanced AI analysis",
@@ -39,7 +37,6 @@
     "features": {
       "projects": "20 construction projects (20 PDF)",
       "investments": "20 investment analyses (20 PDF)",
-      "plans": "20 architectural 2D / 3D plans (20 PDF)",
       "exports": "20 PDF downloads",
       "support": "24/7 dedicated support",
       "materials": "Advanced AI analysis",

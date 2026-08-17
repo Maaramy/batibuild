@@ -1,7 +1,7 @@
 {
   "pageTitle": "Tarifs - batibuild App",
   "title": "Nos offres",
-  "subtitle": "Forfaits à paiement unique — un seul forfait couvre vos projets de construction, vos analyses d'investissement et vos plans architecturaux",
+  "subtitle": "Forfaits à paiement unique — un seul forfait couvre vos projets de construction et vos analyses d'investissement",
   "monthly": "paiement unique",
   "popular": "Populaire",
   "mostPopular": "Le plus populaire",
@@ -12,7 +12,6 @@
     "features": {
       "projects": "1 projet de construction (1 PDF)",
       "investments": "1 analyse d'investissement (1 PDF)",
-      "plans": "1 plan architectural 2D / 3D (1 PDF)",
       "exports": "1 téléchargement PDF",
       "support": "Support email",
       "materials": "Estimation IA aux prix tunisiens"
@@ -25,7 +24,6 @@
     "features": {
       "projects": "5 projets de construction (5 PDF)",
       "investments": "5 analyses d'investissement (5 PDF)",
-      "plans": "5 plans architecturaux 2D / 3D (5 PDF)",
       "exports": "5 téléchargements PDF",
       "support": "Support prioritaire",
       "materials": "Analyse IA avancée",
@@ -39,7 +37,6 @@
     "features": {
       "projects": "20 projets de construction (20 PDF)",
       "investments": "20 analyses d'investissement (20 PDF)",
-      "plans": "20 plans architecturaux 2D / 3D (20 PDF)",
       "exports": "20 téléchargements PDF",
       "support": "Support dédié 24/7",
       "materials": "Analyse IA avancée",
