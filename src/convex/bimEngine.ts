@@ -448,6 +448,7 @@ export const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium
   // Maisons & Villa (Marché tunisien 2026 - fournitures + main d'œuvre)
   maison:             { eco: 750,  std: 1100, premium: 1800 },
   maison_r_plus_1:    { eco: 800,  std: 1150, premium: 1900 },
+  maison_r_plus_2:    { eco: 850,  std: 1200, premium: 2000 },
   villa:              { eco: 900,  std: 1350, premium: 2200 },
   immeuble_residentiel:{ eco: 950,  std: 1400, premium: 2200 },
   immeuble:           { eco: 950,  std: 1400, premium: 2200 },
@@ -456,9 +457,12 @@ export const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium
   duplex:             { eco: 1050, std: 1550, premium: 2450 },
   residence_touristique:{ eco: 1000, std: 1450, premium: 2300 },
   projet_neuf:        { eco: 950,  std: 1400, premium: 2200 },
+  maison_hote:        { eco: 950,  std: 1400, premium: 2300 },
 
   // Piscine & Extérieur
   piscine:            { eco: 750,  std: 1100, premium: 1800 },
+  piscine_beton:      { eco: 750,  std: 1100, premium: 1800 },
+  piscine_coque:      { eco: 600,  std: 900,  premium: 1500 },
   jardin:             { eco: 80,   std: 130,  premium: 250 },
   amenagement_paysager:{ eco: 90,   std: 140,  premium: 280 },
   garage:             { eco: 500,  std: 750,  premium: 1200 },
@@ -473,8 +477,11 @@ export const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium
   // Commercial & Industriel
   entrepot:           { eco: 450,  std: 700,  premium: 1100 },
   local_commercial:   { eco: 750,  std: 1100, premium: 1800 },
+  boutique_commerciale:{ eco: 750, std: 1100, premium: 1800 },
   bureau:             { eco: 850,  std: 1250, premium: 2100 },
+  bureau_cabinet:     { eco: 850,  std: 1250, premium: 2100 },
   ferme:              { eco: 450,  std: 650,  premium: 1000 },
+  batiment_agricole:  { eco: 450,  std: 650,  premium: 1000 },
   serre_agricole:     { eco: 220,  std: 350,  premium: 550 },
   parking:            { eco: 200,  std: 320,  premium: 500 },
   aire_de_jeux:       { eco: 130,  std: 230,  premium: 400 },
@@ -502,20 +509,25 @@ export const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium
 
   // Rénovation (Marché tunisien 2026)
   renovation_interieure:    { eco: 320,  std: 550,  premium: 1000 },
+  renovation_complete:      { eco: 300,  std: 500,  premium: 900 },
   renovation_exterieure:   { eco: 260,  std: 450,  premium: 800 },
   renovation_salle_de_bain: { eco: 1300, std: 2000, premium: 3500 },
   renovation_cuisine:       { eco: 1300, std: 2000, premium: 3500 },
   renovation_facade:        { eco: 230,  std: 350,  premium: 600 },
+  peinture_interieure:      { eco: 14,   std: 22,   premium: 38 },
 
   // Démolition
   demolition:                { eco: 90,   std: 130,  premium: 220 },
   installations_sanitaires:  { eco: 1000, std: 1600, premium: 3000 },
+  plomberie_complete:        { eco: 110,  std: 180,  premium: 320 },
   installations_electricite: { eco: 180,  std: 320,  premium: 550 },
+  electricite_complete:      { eco: 120,  std: 210,  premium: 380 },
 };
 
 export const PROJECT_PCT: Record<string, Percentages> = {
   maison: [38, 29, 15, 10, 3, 5],
   maison_r_plus_1: [40, 28, 14, 10, 3, 5],
+  maison_r_plus_2: [41, 28, 13, 10, 3, 5],
   villa: [33, 34, 20, 5, 3, 5],
   immeuble_residentiel: [43, 24, 15, 10, 3, 5],
   immeuble: [43, 24, 15, 10, 3, 5],
@@ -524,7 +536,10 @@ export const PROJECT_PCT: Record<string, Percentages> = {
   duplex: [34, 32, 20, 6, 3, 5],
   residence_touristique: [28, 35, 25, 5, 2, 5],
   projet_neuf: [43, 24, 15, 10, 3, 5],
+  maison_hote: [30, 34, 22, 6, 3, 5],
   piscine: [43, 20, 25, 5, 2, 5],
+  piscine_beton: [43, 20, 25, 5, 2, 5],
+  piscine_coque: [35, 15, 30, 12, 3, 5],
   jardin: [18, 25, 45, 5, 2, 5],
   amenagement_paysager: [20, 25, 43, 5, 2, 5],
   garage: [48, 25, 10, 10, 2, 5],
@@ -537,8 +552,11 @@ export const PROJECT_PCT: Record<string, Percentages> = {
   extension_batiment: [40, 28, 15, 10, 2, 5],
   entrepot: [53, 20, 10, 10, 2, 5],
   local_commercial: [33, 35, 20, 5, 2, 5],
+  boutique_commerciale: [33, 35, 20, 5, 2, 5],
   bureau: [28, 40, 20, 5, 2, 5],
+  bureau_cabinet: [28, 40, 20, 5, 2, 5],
   ferme: [50, 20, 15, 8, 2, 5],
+  batiment_agricole: [50, 20, 15, 8, 2, 5],
   serre_agricole: [30, 20, 40, 3, 2, 5],
   parking: [55, 18, 10, 10, 2, 5],
   aire_de_jeux: [25, 20, 43, 5, 2, 5],
@@ -556,74 +574,113 @@ export const PROJECT_PCT: Record<string, Percentages> = {
   route: [57, 15, 10, 10, 3, 5],
   trottoir: [52, 20, 10, 10, 3, 5],
   renovation_interieure: [10, 48, 30, 5, 2, 5],
+  renovation_complete: [12, 48, 28, 5, 2, 5],
   renovation_exterieure: [35, 40, 8, 7, 3, 7],
   renovation_salle_de_bain: [20, 33, 35, 5, 2, 5],
   renovation_cuisine: [15, 33, 40, 5, 2, 5],
   renovation_facade: [30, 48, 10, 5, 2, 5],
+  peinture_interieure: [0, 85, 5, 5, 2, 3],
   demolition: [15, 0, 35, 35, 10, 5],
   installations_sanitaires: [0, 20, 70, 5, 2, 3],
+  plomberie_complete: [0, 20, 70, 5, 2, 3],
   installations_electricite: [0, 20, 70, 5, 2, 3],
+  electricite_complete: [0, 20, 70, 5, 2, 3],
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
-  maison: "Maison", maison_r_plus_1: "Maison R+1", villa: "Villa",
+  maison: "Maison", maison_r_plus_1: "Maison R+1", maison_r_plus_2: "Maison R+2", villa: "Villa",
   immeuble_residentiel: "Immeuble résidentiel", immeuble: "Immeuble",
   appartement: "Appartement", studio: "Studio", duplex: "Duplex",
   residence_touristique: "Résidence touristique", projet_neuf: "Projet immobilier neuf",
-  piscine: "Piscine", jardin: "Jardin", amenagement_paysager: "Aménagement paysager",
+  maison_hote: "Maison d'hôte",
+  piscine: "Piscine", piscine_beton: "Piscine béton", piscine_coque: "Piscine coque",
+  jardin: "Jardin", amenagement_paysager: "Aménagement paysager",
   garage: "Garage", cloture: "Clôture", mur_de_separation: "Mur de séparation",
   cuisine_exterieure: "Cuisine extérieure", terrasse: "Terrasse", pergola: "Pergola",
   toiture: "Toiture", extension_batiment: "Extension de bâtiment", entrepot: "Entrepôt",
-  local_commercial: "Local commercial", bureau: "Bureau", ferme: "Ferme",
-  serre_agricole: "Serre agricole", parking: "Parking", aire_de_jeux: "Aire de jeux",
+  local_commercial: "Local commercial", boutique_commerciale: "Boutique commerciale",
+  bureau: "Bureau", bureau_cabinet: "Bureau & cabinet", ferme: "Ferme",
+  batiment_agricole: "Bâtiment agricole", serre_agricole: "Serre agricole",
+  parking: "Parking", aire_de_jeux: "Aire de jeux",
   mosquee: "Mosquée", ecole: "École", hotel: "Hôtel", restaurant: "Restaurant",
   cafe: "Café", atelier: "Atelier", usine: "Usine", depot: "Dépôt",
   installation_solaire: "Installation solaire", chateau_d_eau: "Château d'eau",
   systeme_irrigation: "Système d'irrigation", route: "Route", trottoir: "Trottoir",
-  renovation_interieure: "Rénovation intérieure", renovation_exterieure: "Rénovation extérieure",
+  renovation_interieure: "Rénovation intérieure", renovation_complete: "Rénovation complète",
+  renovation_exterieure: "Rénovation extérieure",
   renovation_salle_de_bain: "Rénovation salle de bain",
   renovation_cuisine: "Rénovation cuisine", renovation_facade: "Rénovation façade",
+  peinture_interieure: "Peinture intérieure",
   demolition: "Démolition", installations_sanitaires: "Installations sanitaires",
-  installations_electricite: "Installations électricité",
+  plomberie_complete: "Plomberie complète", installations_electricite: "Installations électricité",
+  electricite_complete: "Électricité complète",
 };
 
 // ============================================================================
-// CATALOGUE OFFICIEL DES TYPES DE BIEN (source unique du moteur BIM)
+// CATALOGUE OFFICIEL DES 25 TYPES DE PROJETS (source unique du moteur BIM)
 // Synchronisé avec le formulaire « Nouveau projet », le module d'investissement
-// et le générateur de plans — à l'exception de « Terrain constructible », qui
-// n'est pas un projet de construction. Les libellés rétro-compatibles des
-// anciens types (maison_r_plus_1, piscine, jardin…) restent supportés par
-// MARKET_PRICE_M2 / PROJECT_PCT pour les projets déjà enregistrés.
+// et le générateur du Quantitatif détaillé (DQE). Les libellés rétro-
+// compatibles des anciens types (piscine, jardin, bureau…) restent supportés
+// par MARKET_PRICE_M2 / PROJECT_PCT pour recalculer les projets enregistrés,
+// mais ne sont plus proposés dans l'interface.
 // ============================================================================
 export const BIM_CATEGORIES = [
   "maison",
   "villa",
+  "maison_r_plus_1",
+  "maison_r_plus_2",
+  "immeuble_residentiel",
   "appartement",
   "studio",
   "duplex",
-  "immeuble",
-  "residence_touristique",
-  "projet_neuf",
-  "local_commercial",
-  "bureau",
+  "maison_hote",
+  "renovation_complete",
+  "renovation_cuisine",
+  "renovation_salle_de_bain",
+  "peinture_interieure",
+  "piscine_beton",
+  "piscine_coque",
+  "garage",
+  "boutique_commerciale",
+  "restaurant",
+  "cafe",
+  "bureau_cabinet",
+  "atelier",
   "entrepot",
+  "batiment_agricole",
+  "electricite_complete",
+  "plomberie_complete",
 ] as const;
 
 export type BIMCategory = (typeof BIM_CATEGORIES)[number];
 
-/** Libellé français d'un type de bien du catalogue officiel. */
+/** Libellé français d'un type de projet du catalogue officiel. */
 export const BIM_CATEGORY_LABELS: Record<BIMCategory, string> = {
   maison: "Maison",
   villa: "Villa",
+  maison_r_plus_1: "Maison R+1",
+  maison_r_plus_2: "Maison R+2",
+  immeuble_residentiel: "Immeuble résidentiel",
   appartement: "Appartement",
   studio: "Studio",
   duplex: "Duplex",
-  immeuble: "Immeuble",
-  residence_touristique: "Résidence touristique",
-  projet_neuf: "Projet immobilier neuf",
-  local_commercial: "Local commercial",
-  bureau: "Bureau",
+  maison_hote: "Maison d'hôte",
+  renovation_complete: "Rénovation complète",
+  renovation_cuisine: "Rénovation cuisine",
+  renovation_salle_de_bain: "Rénovation salle de bain",
+  peinture_interieure: "Peinture intérieure",
+  piscine_beton: "Piscine béton",
+  piscine_coque: "Piscine coque",
+  garage: "Garage",
+  boutique_commerciale: "Boutique commerciale",
+  restaurant: "Restaurant",
+  cafe: "Café",
+  bureau_cabinet: "Bureau & cabinet",
+  atelier: "Atelier",
   entrepot: "Entrepôt",
+  batiment_agricole: "Bâtiment agricole",
+  electricite_complete: "Électricité complète",
+  plomberie_complete: "Plomberie complète",
 };
 
 // ============================================================================
@@ -679,12 +736,15 @@ for (const _rk of _regKeys) {
 
 // Profil technique d'un type de projet → guide les quantités générées
 function catProfile(cat: string): string {
-  if (cat === "piscine") return "pool";
+  if (["piscine", "piscine_beton", "piscine_coque"].includes(cat)) return "pool";
   if (["jardin", "amenagement_paysager", "aire_de_jeux"].includes(cat)) return "garden";
   if (["cloture", "mur_de_separation"].includes(cat)) return "fence";
   if (cat === "installation_solaire") return "solar";
-  if (["usine", "depot", "entrepot", "atelier", "chateau_d_eau", "serre_agricole"].includes(cat)) return "industrial";
-  if (["local_commercial", "bureau", "hotel", "restaurant", "cafe", "residence_touristique"].includes(cat)) return "commercial";
+  if (cat === "electricite_complete") return "electrical";
+  if (cat === "plomberie_complete") return "plumbing";
+  if (cat === "peinture_interieure") return "paint";
+  if (["usine", "depot", "entrepot", "atelier", "chateau_d_eau", "serre_agricole", "batiment_agricole"].includes(cat)) return "industrial";
+  if (["local_commercial", "boutique_commerciale", "bureau", "bureau_cabinet", "hotel", "maison_hote", "restaurant", "cafe", "residence_touristique"].includes(cat)) return "commercial";
   if (["parking", "route", "trottoir"].includes(cat)) return "parking";
   if (cat.startsWith("renovation")) return "renovation";
   return "residential";
@@ -700,18 +760,44 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
 
   let items: any[];
   if (profile === "pool") {
-    // Piscine : pas de maçonnerie de logement → excavation + coque béton armé
+    if (cat === "piscine_coque") {
+      // Piscine coque : pas de coque béton armé → terrassement + assise + remblais
+      items = [
+        {n:"Terrassement & excavation piscine", q:Math.round(tb*0.8*10)/10, u:"m³", up:25},
+        {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.08*10)/10, u:"m³", up:90},
+        {n:"Lit de sable de pose", q:Math.round(tb*0.1*10)/10, u:"m³", up:P.sand.fine},
+        {n:"Remblai latéral stabilisé", q:Math.round(tb*0.2*10)/10, u:"m³", up:40},
+        {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*0.6), u:"sacs", up:P.cement.bag42_5},
+        {n:"Sable de construction 0/4", q:Math.round(tb*0.12*10)/10, u:"m³", up:P.sand.construction},
+        {n:"Gravier 15/25mm", q:Math.round(tb*0.1*10)/10, u:"m³", up:P.gravel["15_25mm"]},
+        {n:"Fouilles en rigole", q:Math.round(tb*0.08), u:"m³", up:18},
+      ];
+    } else {
+      // Piscine béton : pas de maçonnerie de logement → excavation + coque béton armé
+      items = [
+        {n:"Terrassement & excavation piscine", q:Math.round(tb*0.8*10)/10, u:"m³", up:25},
+        {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.1*10)/10, u:"m³", up:90},
+        {n:"Béton armé coque C25/30", q:Math.round(tb*0.35*10)/10, u:"m³", up:265},
+        {n:"Acier à béton T12", q:Math.round(tb*0.018*100)/100, u:"tonnes", up:P.steel.t12_ton},
+        {n:"Treillis soudé ST25", q:Math.round(tb*0.15), u:"m²", up:P.steel.treillis_m2},
+        {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*1.5), u:"sacs", up:P.cement.bag42_5},
+        {n:"Sable de construction 0/4", q:Math.round(tb*0.15*10)/10, u:"m³", up:P.sand.construction},
+        {n:"Gravier 15/25mm", q:Math.round(tb*0.15*10)/10, u:"m³", up:P.gravel["15_25mm"]},
+        {n:"Bois de coffrage", q:Math.round(tb*0.03*100)/100, u:"m³", up:P.wood.formwork_m3},
+        {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
+      ];
+    }
+  } else if (profile === "paint") {
+    // Peinture intérieure : pas de gros œuvre → préparations légères
     items = [
-      {n:"Terrassement & excavation piscine", q:Math.round(tb*0.8*10)/10, u:"m³", up:25},
-      {n:"Béton de propreté 150kg/m³", q:Math.round(tb*0.1*10)/10, u:"m³", up:90},
-      {n:"Béton armé coque C25/30", q:Math.round(tb*0.35*10)/10, u:"m³", up:265},
-      {n:"Acier à béton T12", q:Math.round(tb*0.018*100)/100, u:"tonnes", up:P.steel.t12_ton},
-      {n:"Treillis soudé ST25", q:Math.round(tb*0.15), u:"m²", up:P.steel.treillis_m2},
-      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*1.5), u:"sacs", up:P.cement.bag42_5},
-      {n:"Sable de construction 0/4", q:Math.round(tb*0.15*10)/10, u:"m³", up:P.sand.construction},
-      {n:"Gravier 15/25mm", q:Math.round(tb*0.15*10)/10, u:"m³", up:P.gravel["15_25mm"]},
-      {n:"Bois de coffrage", q:Math.round(tb*0.03*100)/100, u:"m³", up:P.wood.formwork_m3},
-      {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
+      {n:"Enduit de lissage prêt à gâcher", q:Math.round(tb*2.5), u:"kg", up:1.2},
+      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*0.15), u:"sacs", up:P.cement.bag42_5},
+      {n:"Sable de construction 0/4", q:Math.round(tb*0.02*10)/10, u:"m³", up:P.sand.construction},
+    ];
+  } else if (profile === "electrical" || profile === "plumbing") {
+    // Corps d'état spécialisés : pas de gros œuvre
+    items = [
+      {n:"Fouilles et saignées", q:Math.round(tb*0.02), u:"ml", up:15},
     ];
   } else if (profile === "garden") {
     // Jardin / paysager : pas de gros œuvre lourd → terrassement + terre végétale
