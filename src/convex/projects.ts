@@ -712,6 +712,7 @@ import {
   withLivePrices,
 } from "./bimEngine";
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
+import { generateDqe } from "./dqeEngine";
 import { findMatchingSuppliers } from "./suppliers";
 
 // ============================================================================
@@ -774,6 +775,22 @@ export const simulateAnalysis = mutation({
         pools: project.pools ?? 0,
       },
     );
+
+    // ── Devis Quantitatif Estimatif (DQE) ──
+    // « Quantitatif détaillé » structuré selon le modèle Google Sheets de
+    // référence : lots / sous-lots, désignation, description, unité, quantité,
+    // prix unitaire, montant (Montant = Quantité × P.U.), sous-total par lot,
+    // totaux par nature (matériaux, main-d'œuvre, équipements, transport,
+    // études) et coût moyen au m². Le budget total clé en main (avec imprévus)
+    // est réparti par lot ; les prix en direct de la base materialPrices
+    // écrasent les prix de référence internes du moteur.
+    const dqe = generateDqe({
+      category,
+      surface,
+      floors,
+      totalBudget: result.costEstimate.totalCost,
+      livePrices,
+    });
 
     // Generate AI provider recommendations
     const recommendations = generateProviderRecommendations(
@@ -881,6 +898,7 @@ export const simulateAnalysis = mutation({
     await ctx.db.patch(args.projectId, {
       status: PROJECT_STATUS.COMPLETED,
       costEstimate,
+      dqe: dqe as any,
       aiAnalysis: result.aiAnalysis,
       optimizationTips: result.optimizationTips,
       technicalRecommendations: result.technicalRecommendations,

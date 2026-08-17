@@ -476,6 +476,11 @@ const schema = defineSchema(
       ),
       
       // Cost estimation
+      // Devis Quantitatif Estimatif (DQE) — « Quantitatif détaillé » généré
+      // selon le modèle Google Sheets de référence (lots, sous-lots, lignes,
+      // sous-totaux, totaux par nature et coût au m²).
+      dqe: v.optional(v.any()),
+
       costEstimate: v.optional(
         v.object({
           totalCost: v.number(),
@@ -1120,6 +1125,9 @@ const schema = defineSchema(
     // Real-estate investment profitability analyses (AI engine)
     investmentAnalyses: defineTable({
       userId: v.id("users"),
+      // Lien direct avec le module Construction : analyse créée depuis un
+      // projet (coût de construction estimé → prix d'acquisition).
+      projectId: v.optional(v.id("projects")),
       input: analysisInputValidator,
       results: analysisResultsValidator,
       aiInsights: v.optional(aiInsightsValidator),

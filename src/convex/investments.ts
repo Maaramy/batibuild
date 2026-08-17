@@ -741,6 +741,9 @@ export const saveAnalysis = mutation({
     input: analysisInputValidator,
     results: v.optional(v.any()),
     aiInsights: v.optional(v.any()),
+    // Lien direct avec le module Construction : id du projet dont le coût de
+    // construction estimé alimente cette analyse d'investissement.
+    projectId: v.optional(v.id("projects")),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -759,6 +762,7 @@ export const saveAnalysis = mutation({
     const now = Date.now();
     const id = await ctx.db.insert("investmentAnalyses", {
       userId: user._id,
+      projectId: args.projectId,
       input: normalizeInput(args.input),
       results: (args.results ?? runEngine(args.input)) as any,
       aiInsights: args.aiInsights as any,

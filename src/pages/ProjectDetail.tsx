@@ -24,6 +24,10 @@ import { usePageSEO } from "@/hooks/use-page-seo";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { runBIMEstimation } from "@/convex/bimEngine";
 import {
+  projectTypeLabel,
+  investmentTypeForProject as sharedInvestmentTypeForProject,
+} from "@/convex/projectTypes";
+import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
   Target, TrendingUp, TriangleAlert, Users, Globe,
@@ -68,40 +72,9 @@ const COMPARE_REGIONS = [
 // ── Correspondance catégorie de projet → type de bien investissement ──────
 // Le bouton « Return on Investment » n'apparaît sur la page de résultat que si
 // la catégorie du projet correspond à un type de bien géré par le formulaire
-// d'analyse de rentabilité immobilière. Les rénovations sont mappées vers le
-// type résidentiel le plus proche ; les catégories hors périmètre
-// (piscine, jardin, clôture, voirie…) n'affichent pas le bouton.
-const PROJECT_TO_INVESTMENT: Record<string, InvestmentType> = {
-  maison: "maison",
-  "maison_r+1": "maison",
-  villa: "villa",
-  appartement: "appartement",
-  studio: "studio",
-  duplex: "duplex",
-  immeuble: "immeuble",
-  residence_touristique: "residence_touristique",
-  projet_neuf: "projet_neuf",
-  immeuble_residentiel: "immeuble",
-  local_commercial: "local_commercial",
-  bureau: "bureau",
-  entrepot: "entrepot",
-  hotel: "residence_touristique",
-  restaurant: "local_commercial",
-  cafe: "local_commercial",
-  atelier: "local_commercial",
-  depot: "entrepot",
-  usine: "entrepot",
-  ferme: "terrain",
-  renovation_interieure: "appartement",
-  renovation_exterieure: "maison",
-  renovation_salle_de_bain: "appartement",
-  renovation_cuisine: "appartement",
-  renovation_facade: "maison",
-};
-
-/** Type de bien investissement si la catégorie du projet est prise en charge. */
-const investmentTypeForProject = (category?: string): InvestmentType | null =>
-  category && PROJECT_TO_INVESTMENT[category] ? PROJECT_TO_INVESTMENT[category] : null;
+// d'analyse de rentabilité immobilière. La correspondance complète (25 types
+// officiels + anciens slugs) est définie dans src/convex/projectTypes.ts
+// (PROJECT_TO_INVESTMENT_TYPE) et partagée avec le moteur d'investissement.
 
 const CONFIDENCE_STEPS = [
   { min: 80, label: "Fiable", color: "text-emerald-600", bg: "bg-emerald-100", bar: "bg-emerald-500" },
@@ -243,16 +216,18 @@ export default function ProjectDetail() {
 
   // ── Lancer une analyse de rentabilité (Return on Investment) ──
   // Ouvre le formulaire d'investissement pré-rempli avec les données du projet
-  // (coût total estimé → prix d'achat, surface, région, type de bien mappé).
+  // (coût total estimé → prix d'achat, surface, région, type de bien mappé)
+  // et relie l'analyse au projet (projectId) pour un historique croisé.
   const handleInvestRoi = () => {
     if (!project || !ce) return;
-    const invType = investmentTypeForProject(project.category);
+    const invType = sharedInvestmentTypeForProject(project.category);
     if (!invType) return;
     navigate("/dashboard/investments", {
       state: {
+        projectId: project._id,
         prefill: {
           name: `${project.name} — analyse rentabilité`,
-          investmentType: invType,
+          investmentType: invType as InvestmentType,
           purchasePrice: Math.round(ce.totalCost),
           area: project.surface ?? undefined,
           region: project.region ?? "tunis",

@@ -43,7 +43,11 @@ function normalizeAiInsights(
 // ── runAnalysis : moteur + conseil IA + persistance ─────────────────────────
 
 export const runAnalysis = action({
-  args: { input: analysisInputValidator },
+  args: {
+    input: analysisInputValidator,
+    // Id du projet de construction à l'origine de l'analyse (lien Investissement).
+    projectId: v.optional(v.id("projects")),
+  },
   handler: async (ctx, args) => {
     const user = await ctx.runQuery(api.users.currentUser);
     if (!user) throw new Error("Non connecté");
@@ -109,6 +113,7 @@ export const runAnalysis = action({
       input: normalized as any,
       results,
       aiInsights: insights,
+      projectId: args.projectId,
     })) as GenericId<"investmentAnalyses">;
 
     return { _id: id, input: normalized, results, aiInsights: insights };

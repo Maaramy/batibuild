@@ -445,7 +445,10 @@ export default function InvestmentAnalysis() {
     if ((form.horizonYears ?? 0) < 5) { toast.error("La durée prévue de l'investissement doit être d'au moins 5 ans."); return; }
     setRunning(true);
     try {
-      const res = await runAnalysisAction({ input: buildInput() });
+      const res = await runAnalysisAction({
+        input: buildInput(),
+        projectId: (location.state as any)?.projectId as any,
+      });
       const run = res as any;
       const id = run?._id as string | undefined;
       if (!id) throw new Error("L'analyse n'a pas pu être enregistrée.");
