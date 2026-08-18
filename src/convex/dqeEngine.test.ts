@@ -187,14 +187,16 @@ describe("generateDqe — comportement proportionnel et prix en direct", () => {
   });
 
   it("un prix en direct de la base materialPrices écrase le prix de référence", () => {
-    const live = livePriceFor("Ciment CPJ 42.5 (sac 50 kg)", 99);
+    // « Ciment CPJ 42.5 » n'existe plus dans le gabarit résidentiel (modèle
+    // Google Sheets) : on teste une désignation présente et mappée au catalogue.
+    const live = livePriceFor("Carrelage grès cérame 60×60 (m²)", 99);
     const dqeLive = run("maison", { livePrices: live });
     const dqeRef = run("maison");
 
     const line = (dqe: ReturnType<typeof run>) =>
       dqe.lots
         .flatMap((l) => l.lines)
-        .find((l) => l.designation === "Ciment CPJ 42.5")!;
+        .find((l) => l.designation === "Revêtements de sol (carrelage grès cérame premier choix)")!;
 
     expect(line(dqeLive).unitPrice).toBeGreaterThan(line(dqeRef).unitPrice);
     // Les deux versions restent calibrées sur le même budget total
@@ -219,6 +221,27 @@ describe("buildDqeLots — rétro-compatibilité des anciens slugs", () => {
     const lots = buildDqeLots("installations_electricite");
     expect(lots.map((l) => l.id)).toEqual(
       expect.arrayContaining(["tableau", "cablage", "appareillage", "terre"]),
+    );
+  });
+
+  it("installations sanitaires suit le gabarit plomberie complète", () => {
+    const lots = buildDqeLots("installations_sanitaires");
+    expect(lots.map((l) => l.id)).toEqual(
+      expect.arrayContaining(["alimentation", "evacuation", "sanitaires", "chauffe_eau"]),
+    );
+  });
+
+  it("l'ancien slug piscine suit le gabarit piscine béton", () => {
+    const lots = buildDqeLots("piscine");
+    expect(lots.map((l) => l.id)).toEqual(
+      expect.arrayContaining(["terrassement", "structure", "filtration"]),
+    );
+  });
+
+  it("l'ancien slug bureau suit le gabarit bureau & cabinet", () => {
+    const lots = buildDqeLots("bureau");
+    expect(lots.map((l) => l.id)).toEqual(
+      expect.arrayContaining(["cloisons", "cvc"]),
     );
   });
 });

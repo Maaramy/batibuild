@@ -19,6 +19,7 @@ import {
   ExternalLink,
   Ban,
   Loader2,
+  HardHat,
   SearchX,
   Sparkles,
   Star,
@@ -104,6 +105,16 @@ export default function InvestmentResults() {
 
   const docData = doc as any;
   const isFav = !!(docData && docData.isFavorite);
+
+  // ── Projet de construction source (lien direct avec le module Construction) ──
+  // L'analyse est liée au Quantitatif détaillé / coût estimé d'un projet quand
+  // elle a été lancée depuis la page de résultat d'un projet (Return on
+  // Investment). Le badge permet de revenir au devis source.
+  const sourceProjectId = (docData?.projectId ?? (initialRun as any)?.projectId) as string | undefined;
+  const sourceProject = useQuery(
+    api.projects.getProject,
+    sourceProjectId ? { projectId: sourceProjectId as any } : "skip",
+  );
 
   const handleToggleFavorite = async () => {
     if (!analysisId) return;
@@ -319,6 +330,31 @@ export default function InvestmentResults() {
             </Button>
           </div>
         </div>
+
+        {sourceProject && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <HardHat className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                Analyse liée à un projet de construction
+              </p>
+              <p className="text-sm font-semibold truncate">
+                {sourceProject.name} — coût estimé : {fmtTND((sourceProject as any).costEstimate?.totalCost ?? 0)}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs shrink-0"
+              onClick={() => navigate(`/dashboard/project/${(sourceProject as any)._id}`)}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Voir le devis détaillé
+            </Button>
+          </div>
+        )}
 
         {loading && (
           <div className="rounded-2xl border border-border/40 bg-background/50 p-10 text-center">

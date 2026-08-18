@@ -734,8 +734,13 @@ const RESIDENTIAL = new Set([
 ]);
 
 export function buildDqeLots(category: string): LotTpl[] {
-  if (RESIDENTIAL.has(category)) return residentialLots(category);
-  switch (category) {
+  // Rétro-compatibilité : un ancien slug mappé (LEGACY_PROJECT_TYPE_MAP) suit
+  // le gabarit de son type officiel pour que les projets déjà enregistrés
+  // soient recalculés avec le bon découpage. Les anciens slugs sans équivalent
+  // officiel (jardin, mosquée...) retombent sur le gabarit résidentiel.
+  const resolved = resolveProjectType(category) ?? category;
+  if (RESIDENTIAL.has(resolved)) return residentialLots(resolved);
+  switch (resolved) {
     case "renovation_complete":
       return renovationCompleteLots();
     case "renovation_cuisine":
@@ -754,11 +759,11 @@ export function buildDqeLots(category: string): LotTpl[] {
     case "cafe":
     case "boutique_commerciale":
     case "bureau_cabinet":
-      return commercialLots(category);
+      return commercialLots(resolved);
     case "atelier":
     case "entrepot":
     case "batiment_agricole":
-      return industrielLots(category);
+      return industrielLots(resolved);
     case "electricite_complete":
       return electriciteLots();
     case "plomberie_complete":
@@ -818,7 +823,17 @@ export function generateDqe(input: DqeInput): DqeResult {
         total,
       };
     });
-    const subtotal = scaledLines.reduce((s, l) => s + l.total, 0);
+    // Calage exact sur le sous-total du lot : l'écart d'arrondi est absorbé
+    // par la dernière ligne pour que le lot tombe exactement sur son budget
+    // (méthode identique au finalisateur du moteur BIM).
+    let subtotal = scaledLines.reduce((s, l) => s + l.total, 0);
+    const delta = lotBudget - subtotal;
+    if (delta !== 0 && scaledLines.length > 0) {
+      const last = scaledLines[scaledLines.length - 1];
+      last.total += delta;
+      last.unitPrice = Math.round((last.total / (last.quantity || 1)) * 100) / 100;
+      subtotal += delta;
+    }
     return {
       id: lt.id,
       name: lt.name,
