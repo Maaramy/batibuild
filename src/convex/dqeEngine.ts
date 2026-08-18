@@ -192,12 +192,12 @@ function grosOeuvreLot(percent: number, opts?: { toiture?: boolean; escalier?: b
   if (opts?.escalier === false) {
     lines.splice(5, 1);
   }
-  return lot("gros_oeuvre", "Gros œuvre", "materiaux", percent, lines);
+  return lot("gros_oeuvre", "Gros œuvre (fondations, structures)", "materiaux", percent, lines);
 }
 
 /** Lot « Second œuvre et Finitions » — résidentiel. */
 function secondOeuvreLot(percent: number): LotTpl {
-  return lot("second_oeuvre", "Second œuvre et Finitions", "materiaux", percent, [
+  return lot("second_oeuvre", "Second œuvre et finitions", "materiaux", percent, [
     { d: "Enduits intérieurs (ciment, plâtre)", desc: "Enduit au mortier puis enduit de lissage.", u: "m²", q: 300, up: 16, n: "materiaux" },
     { d: "Revêtements de sol (carrelage grès cérame premier choix)", desc: "Pose collée, joints, plinthes.", u: "m²", q: 120, up: 45, n: "materiaux" },
     { d: "Revêtements muraux SDB/Cuisine (faïence)", desc: "Faïence 20×30 sur zones humides.", u: "m²", q: 40, up: 40, n: "materiaux" },
@@ -227,7 +227,7 @@ function amenagementsLot(percent: number): LotTpl {
 
 /** Lot « VRD (Voirie et Réseaux Divers) et Raccordements ». */
 function vrdLot(percent: number): LotTpl {
-  return lot("vrd", "VRD (Voirie et Réseaux Divers) et Raccordements", "transport", percent, [
+  return lot("vrd", "Transports & autres", "transport", percent, [
     { d: "Raccordement Eau Potable (SONEDE)", desc: "Dossier, tranchée, compteur.", u: "lot", q: 1, qMode: "fixed", up: 900, n: "transport" },
     { d: "Raccordement Électricité (STEG)", desc: "Dossier, tranchée, compteur.", u: "lot", q: 1, qMode: "fixed", up: 1200, n: "transport" },
     { d: "Raccordement Assainissement (ONAS)", desc: "Dossier, branchement, regards.", u: "lot", q: 1, qMode: "fixed", up: 1000, n: "transport" },
@@ -247,7 +247,7 @@ function residentialLots(cat: string): LotTpl[] {
     immeuble: [4.5, 52, 35, 5, 3.5],
     residence_touristique: [5, 42, 42, 7, 4],
     projet_neuf: [4.5, 52, 35, 5, 3.5],
-    // Anciens types résidentiels (projets déjà enregistrés)
+    // Types R+1 / R+2 (maintenant officiels)
     maison_r_plus_1: [5.5, 48, 38.5, 5.5, 2.5],
     maison_r_plus_2: [5.5, 49, 38, 5, 2.5],
     immeuble_residentiel: [4.5, 52, 35, 5, 3.5],
@@ -290,7 +290,7 @@ function renovationCompleteLots(): LotTpl[] {
       { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau.", u: "lot", q: 1, qMode: "fixed", up: 9000, n: "equipements" },
       { d: "Électricité", desc: "Mise aux normes, tableaux, points lumineux.", u: "lot", q: 1, qMode: "fixed", up: 11000, n: "equipements" },
     ]),
-    lot("equipements", "Équipements", "equipements", 20, [
+    lot("equipements", "Équipements techniques", "equipements", 20, [
       { d: "Cuisine équipée", desc: "Meubles hauts et bas, plan de travail, évier.", u: "lot", q: 1, qMode: "fixed", up: 8000, n: "equipements" },
       { d: "Sanitaires neufs", desc: "WC, lavabos, robinetterie.", u: "lot", q: 1, qMode: "fixed", up: 3500, n: "equipements" },
       { d: "Chauffe-eau électrique 80L", desc: "Fourniture et pose.", u: "unité", q: 1, qMode: "fixed", up: 480, n: "equipements" },
@@ -385,7 +385,7 @@ function renovationSdbLots(): LotTpl[] {
     lot("peinture", "Peinture", "materiaux", 4, [
       { d: "Peinture des murs et plafonds", desc: "2 couches finition lessivable.", u: "m²", q: 30, up: 8, n: "materiaux" },
     ]),
-    lot("equipements", "Équipements", "equipements", 8, [
+    lot("equipements", "Équipements techniques", "equipements", 8, [
       { d: "Chauffe-eau électrique 80L", desc: "Fourniture et pose.", u: "unité", q: 1, qMode: "fixed", up: 480, n: "equipements" },
     ]),
   ];

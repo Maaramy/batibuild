@@ -13,6 +13,8 @@
 
 export const PROJECT_TYPES = [
   "maison",
+  "maison_r_plus_1",
+  "maison_r_plus_2",
   "villa",
   "appartement",
   "studio",
@@ -29,6 +31,8 @@ export type ProjectType = (typeof PROJECT_TYPES)[number];
 
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   maison: "Maison",
+  maison_r_plus_1: "Maison R+1",
+  maison_r_plus_2: "Maison R+2",
   villa: "Villa",
   appartement: "Appartement",
   studio: "Studio",
@@ -44,6 +48,8 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
 /** Icône Lucide (nom) associée à chaque type — utilisée par l'interface. */
 export const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
   maison: "Home",
+  maison_r_plus_1: "Home",
+  maison_r_plus_2: "Home",
   villa: "Building2",
   appartement: "Building",
   studio: "DoorOpen",
@@ -61,7 +67,7 @@ export const PROJECT_TYPE_GROUPS: { key: string; label: string; types: ProjectTy
   {
     key: "residentiel",
     label: "Résidentiel",
-    types: ["maison", "villa", "appartement", "studio", "duplex", "immeuble"],
+    types: ["maison", "maison_r_plus_1", "maison_r_plus_2", "villa", "appartement", "studio", "duplex", "immeuble"],
   },
   {
     key: "commercial",
@@ -78,6 +84,8 @@ export const PROJECT_TYPE_GROUPS: { key: string; label: string; types: ProjectTy
 /** Types éligibles à l'étape « Composition intérieure » (pièces). */
 export const ROOM_ELIGIBLE_TYPES: string[] = [
   "maison",
+  "maison_r_plus_1",
+  "maison_r_plus_2",
   "villa",
   "appartement",
   "studio",
@@ -116,6 +124,8 @@ export const ROOM_DEFAULTS: Record<
   }
 > = {
   maison: { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
+  maison_r_plus_1: { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "0" },
+  maison_r_plus_2: { bedrooms: "4", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2", pools: "0" },
   villa: { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "1" },
   appartement: { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
   studio: { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
@@ -135,8 +145,8 @@ export const ROOM_DEFAULTS: Record<
 // clé = ancien slug · valeur = slug officiel de remplacement.
 export const LEGACY_PROJECT_TYPE_MAP: Record<string, string> = {
   // Anciens types résidentiels → types officiels
-  maison_r_plus_1: "maison",
-  maison_r_plus_2: "villa",
+  // maison_r_plus_1 et maison_r_plus_2 sont maintenant des types officiels
+  // (supprimés de cette map)
   immeuble_residentiel: "immeuble",
   // Anciens types commerciaux → types officiels
   boutique_commerciale: "local_commercial",
@@ -286,8 +296,10 @@ export function resolveProjectType(slug: string): ProjectType | null {
 // ============================================================================
 
 export const PROJECT_TO_INVESTMENT_TYPE: Record<string, string> = {
-  // 11 types officiels → équivalent d'investissement (mapping direct 1:1)
+  // 13 types officiels → équivalent d'investissement (mapping direct 1:1)
   maison: "maison",
+  maison_r_plus_1: "maison",
+  maison_r_plus_2: "villa",
   villa: "villa",
   appartement: "appartement",
   studio: "studio",
@@ -299,8 +311,7 @@ export const PROJECT_TO_INVESTMENT_TYPE: Record<string, string> = {
   residence_touristique: "residence_touristique",
   projet_neuf: "projet_neuf",
   // Anciens types (rétro-compatibilité données existantes)
-  maison_r_plus_1: "maison",
-  maison_r_plus_2: "villa",
+  // maison_r_plus_1 et maison_r_plus_2 sont maintenant des types officiels ci-dessus
   immeuble_residentiel: "immeuble",
   boutique_commerciale: "local_commercial",
   bureau_cabinet: "bureau",

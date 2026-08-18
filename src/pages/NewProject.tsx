@@ -45,8 +45,10 @@ const TUNISIA_REGIONS = [
 // formulaire d'investissement (à l'exception de « Terrain constructible »,
 // qui n'est pas un projet de construction).
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  // 11 types officiels — alignés module Investissement (hors terrain)
+  // 13 types officiels — alignés module Investissement (hors terrain)
   maison: Home,
+  maison_r_plus_1: Home,
+  maison_r_plus_2: Home,
   villa: Building2,
   appartement: Building,
   studio: DoorOpen,
@@ -861,7 +863,7 @@ export default function NewProject() {
                       )}
                     >
                       <cat.icon className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{cat.label}</span>
+                      <span className="whitespace-normal break-words text-center leading-tight">{cat.label}</span>
                     </button>
                   ))}
                 </div>

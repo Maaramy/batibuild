@@ -392,7 +392,7 @@ export default function ProjectDetail() {
     return sel?.costPerM2 || ce?.costPerSquareMeter || 0;
   }, [scenarios, selectedScenario, ce?.costPerSquareMeter]);
 
-  // Main-d'œuvre : quantité non affichée (N/A) sur la page de résultat.
+  // Main-d'œuvre : 1 lot affiché sur la page de résultat.
 
   const totalItems = useMemo(
     () => scaledBreakdown?.reduce((s: number, b: any) => s + (b.items?.length || 0), 0) ?? 0,
@@ -905,7 +905,7 @@ export default function ProjectDetail() {
               {[
                 { icon: Building2, label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", color: "from-blue-500/10 to-blue-500/5 text-blue-600" },
                 { icon: Globe, label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", color: "from-rose-500/10 to-rose-500/5 text-rose-600" },
-                { icon: Users, label: "Main-d'œuvre", value: "N/A", color: "from-emerald-500/10 to-emerald-500/5 text-emerald-600" },
+                { icon: Users, label: "Main-d'œuvre", value: "1 lot", color: "from-emerald-500/10 to-emerald-500/5 text-emerald-600" },
                 { icon: Clock, label: "Durée estimée", value: ai.estimatedDuration ?? "Non estimée", color: "from-amber-500/10 to-amber-500/5 text-amber-600" },
               ].map((s, i) => (
                 <div key={i} className="flex items-center gap-2.5 p-3 rounded-xl bg-gradient-to-br from-background to-muted/20 border border-border/30 shadow-xs">
@@ -1113,7 +1113,7 @@ export default function ProjectDetail() {
                                     transition={{ delay: i * 0.02 }}
                                     className="border-b border-border/5 hover:bg-muted/10 transition-colors">
                                     <td className="py-2 px-3 font-medium truncate max-w-[140px] sm:max-w-none">{item.name}</td>
-                                    <td className="text-right py-2 px-3 font-mono text-muted-foreground">{cat.category === "main_oeuvre" ? "N/A" : `${item.quantity} ${item.unit}`}</td>
+                                    <td className="text-right py-2 px-3 font-mono text-muted-foreground">{cat.category === "main_oeuvre" ? "1 lot" : `${item.quantity} ${item.unit}`}</td>
                                     <td className="text-right py-2 px-3 text-muted-foreground font-mono hidden sm:table-cell">{fmt(item.unitPrice)}</td>
                                     <td className="text-right py-2 px-3 font-semibold font-mono">{fmt(item.totalPrice)}</td>
                                     <td className="py-2 px-3 hidden lg:table-cell">
