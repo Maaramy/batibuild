@@ -928,6 +928,8 @@ function genSOItems(surface: number, floors: number, cat: string, targetBudget: 
     ];
   } else {
     // Résidentiel / rénovation : finitions classiques tunisiennes
+    const doorMultiplier = floors <= 1 ? 1 : floors === 2 ? 1.5 : 2.0;
+    const multiDoorC = Math.max(1, Math.round(doorC * doorMultiplier));
     items = [
       {n:"Carrelage sol grès cérame 40x40", q:tileQty, u:"m²", up:22},
       {n:"Carrelage mural faïence 20x30", q:Math.round(tileQty*0.25), u:"m²", up:18},
@@ -935,13 +937,16 @@ function genSOItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Peinture extérieure acrylique", q:Math.round(paintL*0.2), u:"litres", up:26},
       {n:"Enduit de lissage prêt à gâcher", q:Math.round(tb*2.0), u:"kg", up:1.2},
       {n:"Plinthe céramique 8x30", q:Math.round(tb*0.35), u:"ml", up:8},
-      {n:"Porte intérieure en bois pleine", q:Math.max(1,doorC), u:"unités", up:320},
+      {n:"Porte intérieure en bois pleine", q:Math.max(1,multiDoorC), u:"unités", up:320},
       {n:"Porte d'entrée métallique blindée", q:1, u:"unité", up:550},
       {n:"Fenêtre coulissante alu simple vitrage", q:Math.max(2,winC), u:"unités", up:310},
       {n:"Grille de protection métallique", q:Math.max(2,winC), u:"unités", up:220},
       {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.25), u:"m²", up:22},
       {n:"Tuile canal rouge", q:Math.round(tb*0.65), u:"m²", up:19},
     ];
+    if (floors >= 2) {
+      items.push({n:"Garde-corps inox/fer forgé (escalier+balcons)", q:floors === 2 ? 18 : 25, u:"ml", up:150});
+    }
     if (isRenov) {
       items.push({n:"Panneau de placoplâtre BA13", q:Math.round(tb*0.15), u:"m²", up:20});
       items.push({n:"Corniche en plâtre", q:Math.round(tb*0.2), u:"ml", up:8});
