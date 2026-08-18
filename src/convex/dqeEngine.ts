@@ -172,15 +172,33 @@ function etudesLot(percent: number): LotTpl {
   ]);
 }
 
-/** Lot « Gros œuvre » — résidentiel (modèle de référence du Google Sheets). */
-function grosOeuvreLot(percent: number, opts?: { toiture?: boolean; escalier?: boolean }): LotTpl {
+/** Lot « Gros œuvre » — résidentiel (modèle de référence du Google Sheets).
+ * @param floors Nombre d'étages (1 = maison RDC, 2 = R+1, 3 = R+2).
+ * Les quantités de structures, armatures et planchers sont proportionnelles
+ * au nombre de niveaux pour refléter la réalité constructive.
+ */
+function grosOeuvreLot(percent: number, opts?: { toiture?: boolean; escalier?: boolean; floors?: number }): LotTpl {
+  const f = opts?.floors || 1;
+  // Multiplicateurs structure proportionnels aux étages :
+  // fondations = ×1 (quel que soit le nb de niveaux)
+  // murs, armatures, planchers = ×facteur
+  const wallFactor = Math.round(100 + (f - 1) * 55) / 100;   // R+1: 1.55, R+2: 2.10
+  const structFactor = Math.round(100 + (f - 1) * 60) / 100;  // R+1: 1.60, R+2: 2.20
+  const slabCount = f; // 1 dalle par niveau (RDC = 1, R+1 = 2, R+2 = 3)
+  const escalierUp = f === 1 ? 3500 : f === 2 ? 5500 : 7500; // escalier plus complexe pour R+1/R+2
+  const escalierDesc = f === 1
+    ? "1 volée droite ou quart tournant, finition brute."
+    : f === 2
+      ? "2 volées avec palier, béton armé, finition brute."
+      : "3 volées avec paliers, béton armé, finition brute.";
+
   const lines: LineTpl[] = [
     { d: "Terrassement et fondations", desc: "Fouilles, remblais, radier / semelles filantes.", u: "m²", q: 120, up: 75, n: "materiaux", obs: "Selon étude de sol" },
     { d: "Soubassement et dallage", desc: "Hérisson, film polyane, isolant, dalle béton.", u: "m²", q: 120, up: 68, n: "materiaux" },
-    { d: "Murs porteurs et refends", desc: "Briques 12T / 8T, parpaings, chaînages verticaux.", u: "m²", q: 120, up: 120, n: "materiaux" },
-    { d: "Poteaux, poutres et chaînages", desc: "Béton armé C25/30, acier T12, coffrage.", u: "m²", q: 120, up: 88, n: "materiaux" },
-    { d: "Planchers", desc: "Dalle pleine ou corps creux (hourdis + poutrelles).", u: "m²", q: 120, up: 105, n: "materiaux" },
-    { d: "Escalier (béton armé)", desc: "1 volée droite ou quart tournant, finition brute.", u: "unité", q: 1, qMode: "fixed", up: 3500, n: "materiaux" },
+    { d: "Murs porteurs et refends", desc: "Briques 12T / 8T, parpaings, chaînages verticaux.", u: "m²", q: Math.round(120 * wallFactor), up: 120, n: "materiaux", obs: f > 1 ? `${f} niveaux — murs cumulés` : undefined },
+    { d: "Poteaux, poutres et chaînages", desc: "Béton armé C25/30, acier T12, coffrage.", u: "m²", q: Math.round(120 * structFactor), up: 88, n: "materiaux", obs: f > 1 ? `${f} niveaux — structures renforcées` : undefined },
+    { d: "Planchers", desc: "Dalle pleine ou corps creux (hourdis + poutrelles).", u: "m²", q: Math.round(120 * slabCount), up: 105, n: "materiaux", obs: slabCount > 1 ? `${slabCount} dalles (1 par niveau)` : undefined },
+    { d: "Escalier (béton armé)", desc: escalierDesc, u: "unité", q: 1, qMode: "fixed", up: escalierUp, n: "materiaux" },
   ];
   if (opts?.toiture !== false) {
     lines.push({
@@ -195,22 +213,47 @@ function grosOeuvreLot(percent: number, opts?: { toiture?: boolean; escalier?: b
   return lot("gros_oeuvre", "Gros œuvre (fondations, structures)", "materiaux", percent, lines);
 }
 
-/** Lot « Second œuvre et Finitions » — résidentiel. */
-function secondOeuvreLot(percent: number): LotTpl {
+/** Lot « Second œuvre et Finitions » — résidentiel.
+ * @param floors Nombre d'étages (1 = maison RDC, 2 = R+1, 3 = R+2).
+ * Les quantités de menuiserie, peinture, garde-corps et finitions
+ * d'escalier sont proportionnelles au nombre de niveaux.
+ */
+function secondOeuvreLot(percent: number, floors?: number): LotTpl {
+  const f = floors || 1;
+  // Portes intérieures : ~3 par niveau (chambres + SDB + cuisine)
+  const doorCount = f === 1 ? 6 : f === 2 ? 9 : 12;
+  // Surface de peinture intérieure ≈ surface murale × nb niveaux
+  const paintSurf = Math.round(300 * (1 + (f - 1) * 0.55));
+  // Enduits intérieurs proportionnels aux murs cumulés
+  const enduitSurf = Math.round(300 * (1 + (f - 1) * 0.55));
+  // Garde-corps escalier + balcons
+  const gardeCorps = f === 1 ? 10 : f === 2 ? 18 : 25;
+  const gardeCorpsDesc = f === 1
+    ? "Main courante, garde-corps balcons."
+    : `Main courante + garde-corps escalier ${f} niveaux et balcons.`;
+  // Finition escalier
+  const escalierFinition = f === 1 ? 800 : f === 2 ? 1500 : 2200;
+  const escalierFinitionDesc = f === 1
+    ? "Revêtement sol escalier (pierre ou carrelage)."
+    : `Revêtement sol escalier ${f} volées (pierre ou carrelage).`;
+  // Peinture extérieure proportionnelle à la façade
+  const paintExtSurf = f === 1 ? 80 : f === 2 ? 130 : 180;
+
   return lot("second_oeuvre", "Second œuvre et finitions", "materiaux", percent, [
-    { d: "Enduits intérieurs (ciment, plâtre)", desc: "Enduit au mortier puis enduit de lissage.", u: "m²", q: 300, up: 16, n: "materiaux" },
+    { d: "Enduits intérieurs (ciment, plâtre)", desc: "Enduit au mortier puis enduit de lissage.", u: "m²", q: enduitSurf, up: 16, n: "materiaux", obs: f > 1 ? `${f} niveaux` : undefined },
     { d: "Revêtements de sol (carrelage grès cérame premier choix)", desc: "Pose collée, joints, plinthes.", u: "m²", q: 120, up: 45, n: "materiaux" },
     { d: "Revêtements muraux SDB/Cuisine (faïence)", desc: "Faïence 20×30 sur zones humides.", u: "m²", q: 40, up: 40, n: "materiaux" },
     { d: "Menuiserie extérieure (fenêtres et portes-fenêtres PVC double vitrage)", desc: "Fourniture et pose, seuils, habillages.", u: "m²", q: 15, up: 620, n: "materiaux" },
     { d: "Menuiserie extérieure (porte d'entrée en bois massif)", desc: "Porte blindée + serrure multipoints.", u: "unité", q: 1, qMode: "fixed", up: 1200, n: "materiaux" },
-    { d: "Menuiserie intérieure (portes en bois semi-massif/stratifié)", desc: "Blocs-portes avec paumelles et poignées.", u: "unité", q: 6, qMode: "fixed", up: 450, n: "materiaux" },
-    { d: "Peinture intérieure (3 couches, finition standard)", desc: "Sous-couche + 2 couches de finition.", u: "m²", q: 300, up: 8, n: "materiaux" },
-    { d: "Peinture extérieure (façade, monocouche acrylique)", desc: "Impression puis monocouche acrylique.", u: "m²", q: 80, up: 12, n: "materiaux" },
+    { d: "Menuiserie intérieure (portes en bois semi-massif/stratifié)", desc: "Blocs-portes avec paumelles et poignées.", u: "unité", q: doorCount, qMode: "fixed", up: 450, n: "materiaux", obs: `${doorCount} portes (${f} niveau${f > 1 ? 'x' : ''})` },
+    { d: "Peinture intérieure (3 couches, finition standard)", desc: "Sous-couche + 2 couches de finition.", u: "m²", q: paintSurf, up: 8, n: "materiaux", obs: f > 1 ? `${f} niveaux` : undefined },
+    { d: "Peinture extérieure (façade, monocouche acrylique)", desc: "Impression puis monocouche acrylique.", u: "m²", q: paintExtSurf, up: 12, n: "materiaux", obs: f > 1 ? `Façade ${f} niveaux` : undefined },
     { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau, appareils inclus.", u: "lot", q: 1, qMode: "fixed", up: 14000, n: "equipements" },
     { d: "Électricité", desc: "Installation complète : tableaux, prises, interrupteurs, luminaires basiques.", u: "lot", q: 1, qMode: "fixed", up: 16000, n: "equipements" },
     { d: "Climatisation (pré-installation)", desc: "Gaines, réservations et support de groupe.", u: "lot", q: 1, qMode: "fixed", up: 2500, n: "equipements" },
     { d: "Cuisine équipée", desc: "Meubles hauts et bas, plan de travail, évier.", u: "lot", q: 1, qMode: "fixed", up: 9000, n: "equipements" },
-    { d: "Garde-corps (balcons/escalier, fer forgé/inox)", desc: "Main courante, garde-corps balcons.", u: "ml", q: 10, up: 150, n: "materiaux" },
+    { d: "Garde-corps (balcons/escalier, fer forgé/inox)", desc: gardeCorpsDesc, u: "ml", q: gardeCorps, up: 150, n: "materiaux" },
+    { d: "Finition escalier", desc: escalierFinitionDesc, u: "unité", q: 1, qMode: "fixed", up: escalierFinition, n: "materiaux" },
     { d: "Faux plafonds (plaque de plâtre)", desc: "Ossature métallique + BA13 + joints.", u: "m²", q: 50, up: 45, n: "materiaux" },
   ]);
 }
@@ -237,7 +280,7 @@ function vrdLot(percent: number): LotTpl {
 }
 
 // ── Résidentiel : gabarit 5 lots du modèle de référence ─────────────────────
-function residentialLots(cat: string): LotTpl[] {
+function residentialLots(cat: string, floors?: number): LotTpl[] {
   const pct: Record<string, [number, number, number, number, number]> = {
     maison: [5.6, 47.7, 39.1, 5.3, 2.3],
     villa: [5, 44, 42, 6.5, 2.5],
@@ -256,8 +299,8 @@ function residentialLots(cat: string): LotTpl[] {
   const [pe, pgo, pso, pam, pvrd] = pct[cat] ?? pct.maison;
   return [
     etudesLot(pe),
-    grosOeuvreLot(pgo),
-    secondOeuvreLot(pso),
+    grosOeuvreLot(pgo, { floors }),
+    secondOeuvreLot(pso, floors),
     amenagementsLot(pam),
     vrdLot(pvrd),
   ];
@@ -741,7 +784,7 @@ const RESIDENTIAL = new Set([
   "immeuble_residentiel",
 ]);
 
-export function buildDqeLots(category: string): LotTpl[] {
+export function buildDqeLots(category: string, floors?: number): LotTpl[] {
   // D'abord, vérifier si le slug brut (ancien ou nouveau) a un gabarit dédié.
   // Cela permet aux anciens slugs spécialisés (renovation_complete, piscine, etc.)
   // de conserver leur gabarit spécifique même si resolveProjectType les mappe
@@ -785,7 +828,7 @@ export function buildDqeLots(category: string): LotTpl[] {
 
   // Ensuite, résoudre vers le type officiel pour les types standards.
   const resolved = resolveProjectType(category) ?? category;
-  if (RESIDENTIAL.has(resolved)) return residentialLots(resolved);
+  if (RESIDENTIAL.has(resolved)) return residentialLots(resolved, floors);
   switch (resolved) {
     case "local_commercial":
       return commercialLots("local_commercial");
@@ -795,7 +838,7 @@ export function buildDqeLots(category: string): LotTpl[] {
       return industrielLots("entrepot");
     default:
       // Anciens slugs inconnus → gabarit résidentiel par défaut.
-      return residentialLots("maison");
+      return residentialLots("maison", floors);
   }
 }
 
@@ -815,7 +858,7 @@ export function generateDqe(input: DqeInput): DqeResult {
   const { category, surface, floors, totalBudget } = input;
   const tb = Math.max(1, surface * (floors || 1));
   const scale = tb / REF_SURFACE;
-  const lotTpls = buildDqeLots(category);
+  const lotTpls = buildDqeLots(category, floors);
   const totalPct = lotTpls.reduce((s, l) => s + l.percent, 0);
 
   const lots: DqeLot[] = lotTpls.map((lt) => {

@@ -824,20 +824,28 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
     ];
   } else {
     // Résidentiel / rénovation : structure classique tunisienne
+    // Facteur multi-niveaux : pour R+1 (floors=2) et R+2 (floors=3),
+    // les structures sont plus robustes (plus de dalles, escalier, armatures)
+    const sf = floors <= 1 ? 1 : floors === 2 ? 1.5 : 2.0;
+    const slabCount = Math.max(1, floors || 1);
     items = [
-      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*3.5*d), u:"sacs", up:P.cement.bag42_5},
-      {n:"Ciment CPJ 32.5 (Maçonnerie)", q:Math.round(tb*1.0*d), u:"sacs", up:P.cement.bag32_5},
-      {n:"Sable de construction 0/4", q:Math.round(tb*0.25*d*10)/10, u:"m³", up:P.sand.construction},
-      {n:"Gravier 15/25mm", q:Math.round(tb*0.15*d*10)/10, u:"m³", up:P.gravel["15_25mm"]},
-      {n:"Acier à béton T12", q:Math.round(tb*0.02*d*100)/100, u:"tonnes", up:P.steel.t12_ton},
-      {n:"Treillis soudé ST25", q:Math.round(tb*0.12), u:"m²", up:P.steel.treillis_m2},
-      {n:"Brique creuse 10cm", q:Math.round(tb*45*dW), u:"unités", up:P.bricks.hollow_10},
-      {n:"Hourdis 16x50", q:Math.round(tb*7*d), u:"unités", up:P.bricks.hourdis_16},
-      {n:"Béton prêt à l'emploi 300kg/m³", q:Math.round(tb*0.25*d*10)/10, u:"m³", up:P.concrete.ready_mix_300},
-      {n:"Bois de coffrage", q:Math.round(tb*0.04*100)/100, u:"m³", up:P.wood.formwork_m3},
+      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*3.5*d*sf), u:"sacs", up:P.cement.bag42_5},
+      {n:"Ciment CPJ 32.5 (Maçonnerie)", q:Math.round(tb*1.0*d*sf), u:"sacs", up:P.cement.bag32_5},
+      {n:"Sable de construction 0/4", q:Math.round(tb*0.25*d*sf*10)/10, u:"m³", up:P.sand.construction},
+      {n:"Gravier 15/25mm", q:Math.round(tb*0.15*d*sf*10)/10, u:"m³", up:P.gravel["15_25mm"]},
+      {n:"Acier à béton T12", q:Math.round(tb*0.02*d*sf*100)/100, u:"tonnes", up:P.steel.t12_ton},
+      {n:"Treillis soudé ST25", q:Math.round(tb*0.12*sf), u:"m²", up:P.steel.treillis_m2},
+      {n:"Brique creuse 10cm", q:Math.round(tb*45*dW*sf), u:"unités", up:P.bricks.hollow_10},
+      {n:"Hourdis 16x50", q:Math.round(tb*7*d*slabCount), u:"unités", up:P.bricks.hourdis_16},
+      {n:"Béton prêt à l'emploi 300kg/m³", q:Math.round(tb*0.25*d*sf*10)/10, u:"m³", up:P.concrete.ready_mix_300},
+      {n:"Bois de coffrage", q:Math.round(tb*0.04*sf*100)/100, u:"m³", up:P.wood.formwork_m3},
       {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
-      {n:"Parpaing creux 20cm", q:Math.round(tb*12*dW), u:"unités", up:P.bricks.parpaing_20},
+      {n:"Parpaing creux 20cm", q:Math.round(tb*12*dW*sf), u:"unités", up:P.bricks.parpaing_20},
     ];
+    if (floors >= 2) {
+      const escUp = floors === 2 ? 5500 : 7500;
+      items.push({n:"Escalier béton armé (volée)", q:1, u:"unité", up:escUp});
+    }
   }
   return finalizeItems(items, targetBudget, true, livePrices);
 }
