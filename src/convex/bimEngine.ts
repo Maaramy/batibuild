@@ -420,11 +420,11 @@ export function normalizeMaterialCategory(category: string): string {
 }
 
 export const MACRO_LABELS: Record<string, string> = {
-  gros_oeuvre: "Gros œuvre",
-  second_oeuvre: "Second œuvre",
-  equipements: "Équipements",
+  gros_oeuvre: "Gros œuvre (fondations, structures)",
+  second_oeuvre: "Second œuvre et finitions",
+  equipements: "Équipements techniques",
   main_oeuvre: "Main-d'œuvre",
-  transport: "Transport",
+  transport: "Transports & autres",
   etudes_imprevus: "Études, permis & imprévus",
 };
 

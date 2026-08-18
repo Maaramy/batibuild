@@ -12,25 +12,16 @@ import { useMutation } from "convex/react";
 import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
-  ArrowLeft, Upload, FileImage, FileText, Map, Pen, Ruler,
+  ArrowLeft, Upload, FileText, Map, Pen, Ruler,
   Loader2, Check, X, Building2, ChevronRight, ChevronDown, HardHat, Image,
-  FileUp, MapPin, AlertCircle, Asterisk, Crown, AlertTriangle, RefreshCcw,
-  CircleDot, CircleDashed, CircleCheck, Circle,
-  Home, Building, Car, Sofa,
-  BedDouble, LayoutGrid,
-  Bath, ChefHat, Briefcase, Store, Package,
-  DoorOpen, Layers, Palmtree, Toilet, Waves,
+  FileUp, MapPin, AlertCircle, Crown, AlertTriangle, RefreshCcw,
+  CircleCheck,
+  Home, Building, Briefcase, Store, Package,
+  DoorOpen, Layers, Palmtree,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BIM_CATEGORIES, BIM_CATEGORY_LABELS } from "@/convex/bimEngine";
-import {
-  ROOM_ELIGIBLE_TYPES,
-  SINGLE_LEVEL_TYPES,
-  HIDDEN_ROOM_FIELDS,
-  ROOM_ONLY_FOR,
-  ROOM_DEFAULTS,
-} from "@/convex/projectTypes";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
@@ -54,6 +45,8 @@ const TUNISIA_REGIONS = [
 // qui n'est pas un projet de construction).
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   maison: Home,
+  maison_r_plus_1: Home,
+  maison_r_plus_2: Building2,
   villa: Building,
   appartement: Building2,
   studio: DoorOpen,
@@ -88,7 +81,6 @@ const STEPS = [
   { key: "method",    label: "Méthode d'import",  desc: "Choisissez comment importer" },
   { key: "upload",    label: "Fichiers",           desc: "Ajoutez vos documents" },
   { key: "form",      label: "Détails du projet",  desc: "Complétez les informations" },
-  { key: "rooms",     label: "Composition intérieur",  desc: "Chambres, sdb, cuisine, salon, garages, WC" },
   { key: "analyzing", label: "Analyse IA",         desc: "Calcul de l'estimation" },
 ] as const;
 
@@ -215,6 +207,8 @@ const METHOD_LABEL: Record<string, string> = {
 
 const CATEGORY_COLORS: Record<string, { hue: number; sat: number; light: number }> = {
   maison:                  { hue: 221, sat: 83, light: 53 },  // blue
+  maison_r_plus_1:         { hue: 213, sat: 75, light: 45 },  // blue dark
+  maison_r_plus_2:         { hue: 245, sat: 80, light: 55 },  // indigo
   villa:                   { hue: 239, sat: 84, light: 65 },  // indigo
   appartement:             { hue: 200, sat: 90, light: 50 },  // sky
   studio:                  { hue: 189, sat: 94, light: 43 },  // cyan
@@ -236,16 +230,6 @@ function ProjectSummary({
   selectedCategory,
   region,
   surface,
-  surfaceTotale,
-  floors,
-  bedrooms,
-  bathrooms,
-  kitchens,
-  livingRooms,
-  garages,
-  wcs,
-  pools,
-  roomEligible,
   importMethod,
   files,
   step,
@@ -257,16 +241,6 @@ function ProjectSummary({
   selectedCategory: string;
   region: string;
   surface: string;
-  surfaceTotale?: string;
-  floors: string;
-  bedrooms: string;
-  bathrooms: string;
-  kitchens: string;
-  livingRooms: string;
-  garages: string;
-  wcs?: string;
-  pools?: string;
-  roomEligible: boolean;
   importMethod: string;
   files: File[];
   step: StepKey;
@@ -288,22 +262,6 @@ function ProjectSummary({
   }
   if (surface && parseFloat(surface) > 0)
     items.push({ label: "Surface couverte", value: `${surface} m²`, icon: Ruler });
-  if (surfaceTotale && parseFloat(surfaceTotale) > 0)
-    items.push({ label: "Surface totale", value: `${surfaceTotale} m²`, icon: Ruler });
-  if (floors && floors !== "0" && floors !== "")
-    items.push({ label: "Étages", value: `${floors} étage${parseInt(floors) > 1 ? "s" : ""}`, icon: Building2 });
-  if (roomEligible) {
-    const parts: string[] = [];
-    if (parseInt(bedrooms || "0") > 0) parts.push(`${bedrooms} chambre${parseInt(bedrooms) > 1 ? "s" : ""}`);
-    if (parseInt(bathrooms || "0") > 0) parts.push(`${bathrooms} sdb`);
-    if (parseInt(kitchens || "0") > 0) parts.push(`${kitchens} cuisine${parseInt(kitchens) > 1 ? "s" : ""}`);
-    if (parseInt(livingRooms || "0") > 0) parts.push(`${livingRooms} salon${parseInt(livingRooms) > 1 ? "s" : ""}`);
-    if (parseInt(garages || "0") > 0) parts.push(`${garages} garage${parseInt(garages) > 1 ? "s" : ""}`);
-    if (parseInt(wcs || "0") > 0) parts.push(`${wcs} WC`);
-    if (selectedCategory === "villa" && parseInt(pools || "0") > 0) parts.push(`${pools} piscine${parseInt(pools || "0") > 1 ? "s" : ""}`);
-    if (parts.length > 0)
-      items.push({ label: "Pièces", value: parts.join(" · "), icon: LayoutGrid });
-  }
   if (files.length > 0)
     items.push({ label: "Fichiers", value: `${files.length} fichier${files.length > 1 ? "s" : ""}`, icon: FileText });
 
@@ -559,15 +517,6 @@ export default function NewProject() {
   const [description, setDescription] = useState("");
   const [region, setRegion] = useState("");
   const [surface, setSurface] = useState("");
-  const [surfaceTotale, setSurfaceTotale] = useState("");
-  const [floors, setFloors] = useState("1");
-  const [bedrooms, setBedrooms] = useState("2");
-  const [bathrooms, setBathrooms] = useState("1");
-  const [kitchens, setKitchens] = useState("1");
-  const [livingRooms, setLivingRooms] = useState("1");
-  const [garages, setGarages] = useState("0");
-  const [wcs, setWcs] = useState("1");
-  const [pools, setPools] = useState("0");
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -583,9 +532,7 @@ export default function NewProject() {
 
   // Determine which steps are in the flow
   const hasUploadStep = importMethod !== "" && importMethod !== "manual";
-  const roomEligible = ROOM_ELIGIBLE_TYPES.includes(selectedCategory);
-  const flowSteps = STEPS.filter((s) => s.key !== "rooms" || roomEligible);
-  const visibleSteps = STEPS.filter((s) => s.key !== "upload" || hasUploadStep);
+  const flowSteps = STEPS.filter((s) => s.key !== "upload" || hasUploadStep);
 
   const validateForm = () => {
     const errs: Record<string, string> = {};
@@ -593,7 +540,6 @@ export default function NewProject() {
     if (!selectedCategory) errs.category = "Sélectionnez un type de projet";
     if (!region) errs.region = "La région est requise";
     if (!surface || parseFloat(surface) <= 0) errs.surface = "La surface couverte est requise";
-    if (!surfaceTotale || parseFloat(surfaceTotale) <= 0) errs.surfaceTotale = "La surface totale est requise";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -622,21 +568,8 @@ export default function NewProject() {
     setStep(key);
   };
 
-  // Applique les valeurs de pièces par défaut quand on change de type de projet
   const handleCategorySelect = (cat: string) => {
     setSelectedCategory(cat);
-    const d = ROOM_DEFAULTS[cat];
-    if (d) {
-      setBedrooms(d.bedrooms);
-      setBathrooms(d.bathrooms);
-      setKitchens(d.kitchens);
-      setLivingRooms(d.livingRooms);
-      setGarages(d.garages);
-      setWcs(d.wcs);
-      setPools(d.pools);
-    }
-    // Rez-de-chaussée imposé pour les locaux d'activité
-    if (SINGLE_LEVEL_TYPES.includes(cat)) setFloors("1");
     setErrors((e) => ({ ...e, category: "" }));
   };
 
@@ -660,30 +593,14 @@ export default function NewProject() {
   const handleFormNext = () => {
     if (!validateForm()) return;
     markStepCompleted("form");
-    if (roomEligible) {
-      goToStep("rooms");
-    } else {
-      handleStartAnalysis();
-    }
+    handleStartAnalysis();
   };
 
   const handleStartAnalysis = async () => {
     if (!validateForm()) return;
-    if (roomEligible) {
-      const totalRooms =
-        (parseInt(bedrooms || "0") || 0) + (parseInt(bathrooms || "0") || 0) +
-        (parseInt(kitchens || "0") || 0) + (parseInt(livingRooms || "0") || 0) +
-        (parseInt(garages || "0") || 0) + (parseInt(wcs || "0") || 0) +
-        (parseInt(pools || "0") || 0);
-      if (totalRooms < 1) {
-        setErrors((e) => ({ ...e, bedrooms: "Renseignez au moins une pièce" }));
-        return;
-      }
-    }
 
     setAnalyzing(true);
     markStepCompleted("form");
-    if (roomEligible) markStepCompleted("rooms");
     goToStep("analyzing");
 
     const interval = setInterval(() => {
@@ -700,15 +617,6 @@ export default function NewProject() {
         description: description || undefined,
         region: region ? (region as any) : undefined,
         surface: surface ? parseFloat(surface) : undefined,
-        surfaceTotale: surfaceTotale ? parseFloat(surfaceTotale) : undefined,
-        floors: floors ? parseInt(floors) : 1,
-        bedrooms: bedrooms ? parseInt(bedrooms) : undefined,
-        bathrooms: bathrooms ? parseInt(bathrooms) : undefined,
-        kitchens: kitchens ? parseInt(kitchens) : undefined,
-        livingRooms: livingRooms ? parseInt(livingRooms) : undefined,
-        garages: garages ? parseInt(garages) : undefined,
-        wcs: wcs ? parseInt(wcs) : undefined,
-        pools: pools ? parseInt(pools) : undefined,
       });
 
       await simulateAnalysis({ projectId });
@@ -957,6 +865,12 @@ export default function NewProject() {
                     </button>
                   ))}
                 </div>
+                {selectedCategory && (
+                  <p className="mt-2 flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    <CircleCheck className="h-4 w-4 shrink-0" />
+                    {CATEGORY_LABEL[selectedCategory]}
+                  </p>
+                )}
                 {errors.category && (
                   <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />{errors.category}
@@ -1015,53 +929,6 @@ export default function NewProject() {
                   )}
                 </div>
 
-                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
-                  <Label htmlFor="surfaceTotale" className="text-xs sm:text-sm font-semibold">
-                    Surface totale du terrain (m²) <span className="text-primary">*</span>
-                  </Label>
-                  <div className="mt-1.5 relative">
-                    <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      id="surfaceTotale"
-                      type="number"
-                      value={surfaceTotale}
-                      onChange={(e) => { setSurfaceTotale(e.target.value); setErrors((e) => ({...e, surfaceTotale: ''})); }}
-                      placeholder="ex: 400"
-                      min="1"
-                      className="pl-9 h-9 sm:h-10 text-xs sm:text-sm"
-                    />
-                  </div>
-                  {errors.surfaceTotale && (
-                    <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />{errors.surfaceTotale}
-                    </p>
-                  )}
-                </div>
-
-                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
-                  <Label htmlFor="floors" className="text-xs sm:text-sm font-semibold">
-                    Nombre d'étages
-                  </Label>
-                  <div className="mt-1.5 relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      id="floors"
-                      type="number"
-                      value={floors}
-                      onChange={(e) => setFloors(e.target.value)}
-                      min="0"
-                      max="20"
-                      disabled={SINGLE_LEVEL_TYPES.includes(selectedCategory)}
-                      className="pl-9 h-9 sm:h-10 text-xs sm:text-sm disabled:opacity-60"
-                    />
-                  </div>
-                  {SINGLE_LEVEL_TYPES.includes(selectedCategory) && (
-                    <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3 shrink-0" />
-                      Rez-de-chaussée uniquement pour ce type de bien (local commercial, entrepôt, bureau).
-                    </p>
-                  )}
-                </div>
               </div>
 
               <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
@@ -1091,96 +958,6 @@ export default function NewProject() {
                 size="sm"
                 className="h-9 text-xs gap-1.5"
                 onClick={handleFormNext}
-                disabled={analyzing}
-              >
-                {analyzing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : null}
-                {analyzing ? "Analyse..." : roomEligible ? "Continuer" : "Lancer l'estimation"}
-                {!analyzing && <ChevronRight className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
-          </motion.div>
-        )}
-
-        {step === "rooms" && (
-          <motion.div
-            key="rooms"
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -24 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-          >
-            <div className="mb-6">
-              <h2 className="text-lg sm:text-xl font-bold">Composition intérieur</h2>
-              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                Composition du bien — {CATEGORY_LABEL[selectedCategory] || selectedCategory}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { key: "bedrooms",  label: "Chambres",        icon: BedDouble, value: bedrooms,    set: setBedrooms,    min: 1, placeholder: "ex: 3" },
-                { key: "bathrooms", label: "Salle(s) de bain", icon: Bath,     value: bathrooms,   set: setBathrooms,   min: 1, placeholder: "ex: 2" },
-                { key: "kitchens",  label: "Cuisine(s)",      icon: ChefHat,   value: kitchens,    set: setKitchens,    min: 1, placeholder: "ex: 1" },
-                { key: "livingRooms", label: "Salon(s)",      icon: Sofa,      value: livingRooms, set: setLivingRooms, min: 1, placeholder: "ex: 1" },
-                { key: "garages",   label: "Garage(s)",       icon: Car,       value: garages,     set: setGarages,     min: 0, placeholder: "ex: 1" },
-                { key: "wcs",       label: "WC",              icon: Toilet,    value: wcs,         set: setWcs,         min: 0, placeholder: "ex: 1" },
-                { key: "pools",     label: "Piscine(s)",      icon: Waves,     value: pools,       set: setPools,       min: 0, placeholder: "ex: 1" },
-              ].filter((f) => {
-                if (HIDDEN_ROOM_FIELDS[selectedCategory]?.includes(f.key)) return false;
-                if (ROOM_ONLY_FOR[f.key] && !ROOM_ONLY_FOR[f.key].includes(selectedCategory)) return false;
-                return true;
-              }).map((f) => (
-                <div key={f.key} className="p-4 rounded-xl border border-border/40 bg-card/30">
-                  <Label className="text-xs font-semibold flex items-center gap-1.5">
-                    <f.icon className="h-3.5 w-3.5 text-primary" />
-                    {f.label}
-                  </Label>
-                  <Input
-                    type="number"
-                    min={f.min}
-                    value={f.value}
-                    onChange={(e) => { f.set(e.target.value); setErrors((err) => ({ ...err, [f.key]: "" })); }}
-                    placeholder={f.placeholder}
-                    className="mt-1.5 h-9 sm:h-10 text-xs sm:text-sm"
-                  />
-                  {errors[f.key] && (
-                    <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />{errors[f.key]}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Live composition recap */}
-            <div className="mt-3 p-3 rounded-lg border border-border/20 bg-muted/20 text-[11px] text-muted-foreground flex items-center gap-2">
-              <LayoutGrid className="h-3.5 w-3.5 text-primary shrink-0" />
-              <span>
-                {parseInt(bedrooms || "0")} chambre{parseInt(bedrooms || "0") > 1 ? "s" : ""}
-                {parseInt(bathrooms || "0") > 0 && ` · ${parseInt(bathrooms)} salle${parseInt(bathrooms) > 1 ? "s" : ""} de bain`}
-                {parseInt(kitchens || "0") > 0 && ` · ${parseInt(kitchens)} cuisine${parseInt(kitchens) > 1 ? "s" : ""}`}
-                {parseInt(livingRooms || "0") > 0 && ` · ${parseInt(livingRooms)} salon${parseInt(livingRooms) > 1 ? "s" : ""}`}
-                {parseInt(garages || "0") > 0 && ` · ${parseInt(garages)} garage${parseInt(garages) > 1 ? "s" : ""}`}
-                {parseInt(wcs || "0") > 0 && ` · ${parseInt(wcs)} WC`}
-                {selectedCategory === "villa" && parseInt(pools || "0") > 0 && ` · ${parseInt(pools)} piscine${parseInt(pools) > 1 ? "s" : ""}`}
-              </span>
-            </div>
-
-            <div className="flex justify-between gap-3 mt-6">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 text-xs"
-                onClick={() => goToStep("form")}
-              >
-                <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Retour
-              </Button>
-              <Button
-                size="sm"
-                className="h-9 text-xs gap-1.5"
-                onClick={handleStartAnalysis}
                 disabled={analyzing}
               >
                 {analyzing ? (
@@ -1386,16 +1163,6 @@ export default function NewProject() {
                 selectedCategory={selectedCategory}
                 region={region}
                 surface={surface}
-                surfaceTotale={surfaceTotale}
-                floors={floors}
-                bedrooms={bedrooms}
-                bathrooms={bathrooms}
-                kitchens={kitchens}
-                livingRooms={livingRooms}
-                garages={garages}
-                wcs={wcs}
-                pools={pools}
-                roomEligible={roomEligible}
                 importMethod={importMethod}
                 files={files}
                 step={step}
@@ -1421,16 +1188,6 @@ export default function NewProject() {
                 selectedCategory={selectedCategory}
                 region={region}
                 surface={surface}
-                surfaceTotale={surfaceTotale}
-                floors={floors}
-                bedrooms={bedrooms}
-                bathrooms={bathrooms}
-                kitchens={kitchens}
-                livingRooms={livingRooms}
-                garages={garages}
-                wcs={wcs}
-                pools={pools}
-                roomEligible={roomEligible}
                 importMethod={importMethod}
                 files={files}
                 step={step}

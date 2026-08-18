@@ -1,15 +1,17 @@
 // ============================================================================
-// CATALOGUE OFFICIEL DES TYPES DE BIEN (11 types unifiés)
+// CATALOGUE OFFICIEL DES TYPES DE BIEN (13 types de construction)
 // Source unique de vérité pour les menus, formulaires, filtres, calculs et
 // résultats de la plateforme Construction.
 //
 // La liste est alignée sur le module Investissement (INVESTMENT_TYPES) à
 // l'exception de « Terrain constructible », qui n'est pas un projet de
-// construction. Un même type de bien alimente donc les deux modules : le
-// projet de construction (quantitatif détaillé / DQE) et l'analyse de
-// rentabilité (investissement).
+// construction. « Maison R+1 » et « Maison R+2 » sont des types de
+// construction spécifiques : ils n'existent pas dans le module Investissement
+// et sont mappés vers « maison » pour l'analyse de rentabilité. Un même type
+// de bien alimente donc les deux modules : le projet de construction
+// (quantitatif détaillé / DQE) et l'analyse de rentabilité (investissement).
 //
-// Les anciens types de projets (maison R+1, rénovation, piscine, garage…)
+// Les anciens types de projets (rénovation, piscine, garage…)
 // restent supportés par LEGACY_PROJECT_TYPE_MAP / LEGACY_TYPE_LABELS et par
 // les moteurs (BIM, DQE) afin que les projets déjà enregistrés puissent être
 // affichés et recalculés ; ils ne sont plus proposés dans l'interface
@@ -20,6 +22,8 @@ export const PROJECT_TYPES = [
   // Résidentiel
   "maison",
   "villa",
+  "maison_r_plus_1",
+  "maison_r_plus_2",
   "appartement",
   "studio",
   "duplex",
@@ -38,6 +42,8 @@ export type ProjectType = (typeof PROJECT_TYPES)[number];
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   maison: "Maison",
   villa: "Villa",
+  maison_r_plus_1: "Maison R+1",
+  maison_r_plus_2: "Maison R+2",
   appartement: "Appartement",
   studio: "Studio",
   duplex: "Duplex",
@@ -53,6 +59,8 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
 export const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
   maison: "Home",
   villa: "Building",
+  maison_r_plus_1: "Home",
+  maison_r_plus_2: "Building2",
   appartement: "Building2",
   studio: "DoorOpen",
   duplex: "Layers",
@@ -69,7 +77,7 @@ export const PROJECT_TYPE_GROUPS: { key: string; label: string; types: ProjectTy
   {
     key: "residentiel",
     label: "Résidentiel",
-    types: ["maison", "villa", "appartement", "studio", "duplex", "immeuble"],
+    types: ["maison", "villa", "maison_r_plus_1", "maison_r_plus_2", "appartement", "studio", "duplex", "immeuble"],
   },
   {
     key: "tertiaire",
@@ -87,6 +95,8 @@ export const PROJECT_TYPE_GROUPS: { key: string; label: string; types: ProjectTy
 export const ROOM_ELIGIBLE_TYPES: string[] = [
   "maison",
   "villa",
+  "maison_r_plus_1",
+  "maison_r_plus_2",
   "appartement",
   "studio",
   "duplex",
@@ -279,6 +289,8 @@ export const PROJECT_TO_INVESTMENT_TYPE: Record<string, string> = {
   // Types officiels (1:1 avec INVESTMENT_TYPES, hors « terrain »)
   maison: "maison",
   villa: "villa",
+  maison_r_plus_1: "maison",
+  maison_r_plus_2: "maison",
   appartement: "appartement",
   studio: "studio",
   duplex: "duplex",
@@ -289,8 +301,6 @@ export const PROJECT_TO_INVESTMENT_TYPE: Record<string, string> = {
   residence_touristique: "residence_touristique",
   projet_neuf: "projet_neuf",
   // Anciens types → équivalent d'investissement le plus proche
-  maison_r_plus_1: "maison",
-  maison_r_plus_2: "maison",
   immeuble_residentiel: "immeuble",
   maison_hote: "residence_touristique",
   renovation_complete: "appartement",
