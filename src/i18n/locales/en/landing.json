@@ -78,8 +78,8 @@
         "desc": "Generate detailed reports in PDF, Excel or CSV with complete cost breakdown."
       },
       "projectTypes": {
-        "title": "40+ Project Types",
-        "desc": "Houses, villas, pools, buildings, renovations and many more."
+        "title": "11 Property Types",
+        "desc": "House, villa, apartment, studio, duplex, building, commercial space, office, warehouse, tourist residence and new development."
       },
       "materials": {
         "title": "Materials Management",
@@ -89,7 +89,7 @@
   },
   "benefits": {
     "time": { "number": "50%", "label": "Time saving", "desc": "Cut estimation time in half with AI" },
-    "projects": { "number": "40+", "label": "Project types", "desc": "Construction categories supported" },
+    "projects": { "number": "11", "label": "Property types", "desc": "Unified property types aligned with investment" },
     "accuracy": { "number": "95%", "label": "Accuracy", "desc": "Average AI estimation confidence rate" },
     "materials": { "number": "500+", "label": "Materials", "desc": "Updated prices in the database" }
   },

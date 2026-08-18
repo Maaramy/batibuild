@@ -250,7 +250,7 @@ function LeftPanel() {
         </motion.div>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="mt-12 space-y-5 text-left">
           {[{ icon: HardHat, text: "Plans, photos, croquis ou dimensions - l'IA les analyse" },
-            { icon: Building2, text: "Plus de 40 types de projets de construction" },
+            { icon: Building2, text: "11 types de biens, de la villa à l'entrepôt" },
             { icon: MapPin, text: "Prix actualisÃ©s par rÃ©gion tunisienne" },
             { icon: Star, text: "Devis PDF dÃ©taillÃ© avec scÃ©narios budget" },
           ].map((item, i) => (

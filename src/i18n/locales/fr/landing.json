@@ -78,8 +78,8 @@
         "desc": "Générez des rapports détaillés en PDF, Excel ou CSV avec répartition complète des coûts."
       },
       "projectTypes": {
-        "title": "40+ Types de Projets",
-        "desc": "Maisons, villas, piscines, immeubles, rénovations et bien plus encore."
+        "title": "11 Types de Biens",
+        "desc": "Maison, villa, appartement, studio, duplex, immeuble, local commercial, bureau, entrepôt, résidence touristique et projet neuf."
       },
       "materials": {
         "title": "Gestion des Matériaux",
@@ -89,7 +89,7 @@
   },
   "benefits": {
     "time": { "number": "50%", "label": "Gain de temps", "desc": "Réduisez de moitié le temps d'estimation grâce à l'IA" },
-    "projects": { "number": "40+", "label": "Types de projets", "desc": "Catégories de construction prises en charge" },
+    "projects": { "number": "11", "label": "Types de biens", "desc": "Types de biens unifiés, alignés sur l'investissement" },
     "accuracy": { "number": "95%", "label": "Précision", "desc": "Taux de confiance moyen des estimations IA" },
     "materials": { "number": "500+", "label": "Matériaux", "desc": "Prix actualisés dans la base de données" }
   },

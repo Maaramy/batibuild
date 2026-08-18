@@ -173,9 +173,9 @@ const BENEFITS = [
     desc: "Réduisez de moitié le temps d'estimation grâce à l'IA",
   },
   {
-    number: "40+",
-    label: "Types de projets",
-    desc: "Catégories de construction prises en charge",
+    number: "11",
+    label: "Types de biens",
+    desc: "Types de biens unifiés, alignés sur l'investissement",
   },
   {
     number: "95%",
