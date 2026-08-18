@@ -18,8 +18,7 @@ import {
   CircleCheck,
   Home, Building, Briefcase, Store, Package,
   DoorOpen, Layers, Palmtree,
-  Wrench, CookingPot, Bath, PaintBucket, Waves, Car,
-  UtensilsCrossed, Coffee, Hammer, Sprout, Zap, Droplets,
+
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -46,38 +45,16 @@ const TUNISIA_REGIONS = [
 // formulaire d'investissement (à l'exception de « Terrain constructible »,
 // qui n'est pas un projet de construction).
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  // Résidentiel
+  // 11 types officiels — alignés module Investissement (hors terrain)
   maison: Home,
-  villa: Building,
-  maison_r_plus_1: Home,
-  maison_r_plus_2: Building2,
-  immeuble: Building2,
-  appartement: Building2,
+  villa: Building2,
+  appartement: Building,
   studio: DoorOpen,
   duplex: Layers,
-  // Rénovation & finitions
-  renovation_complete: Wrench,
-  renovation_cuisine: CookingPot,
-  renovation_salle_de_bain: Bath,
-  peinture_interieure: PaintBucket,
-  // Équipements extérieurs
-  piscine_beton: Waves,
-  piscine_coque: Waves,
-  garage: Car,
-  // Commercial & tertiaire
-  boutique_commerciale: Store,
-  restaurant: UtensilsCrossed,
-  cafe: Coffee,
-  bureau_cabinet: Briefcase,
-  atelier: Hammer,
-  entrepot: Package,
-  maison_hote: Palmtree,
-  // Technique & artisanat
-  batiment_agricole: Sprout,
-  electricite_complete: Zap,
-  plomberie_complete: Droplets,
-  // Anciens types (rétro-compatibilité)
+  immeuble: Building2,
   local_commercial: Store,
+  bureau: Briefcase,
+  entrepot: Package,
   residence_touristique: Palmtree,
   projet_neuf: HardHat,
 };

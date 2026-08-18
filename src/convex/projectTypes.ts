@@ -1,119 +1,59 @@
 // ============================================================================
-// CATALOGUE OFFICIEL DES TYPES DE PROJET (25 types)
-// Source unique de vérité pour les menus, formulaires, filtres, calculs,
-// résultats et Quantitatif détaillé / DQE de la plateforme.
+// CATALOGUE OFFICIEL DES TYPES DE PROJET (11 types)
+// Aligné exactement sur les types de bien du module Investissement
+// (à l'exception de « terrain constructible », qui n'est pas un projet
+// de construction).
 //
-// Les types sont classés en :
-//   • Résidentiel (8)
-//   • Rénovation & finitions (4)
-//   • Équipements extérieurs (3)
-//   • Commercial & tertiaire (6)
-//   • Technique & artisanat (4)
+// Types : maison, villa, appartement, studio, duplex, immeuble,
+// local_commercial, bureau, entrepot, residence_touristique, projet_neuf
 //
 // Chaque type dispose d'un gabarit DQE spécifique dans dqeEngine.ts et
 // est relié au module Investissement via PROJECT_TO_INVESTMENT_TYPE.
 // ============================================================================
 
 export const PROJECT_TYPES = [
-  // Résidentiel
   "maison",
   "villa",
-  "maison_r_plus_1",
-  "maison_r_plus_2",
-  "immeuble",
   "appartement",
   "studio",
   "duplex",
-  // Rénovation & finitions
-  "renovation_complete",
-  "renovation_cuisine",
-  "renovation_salle_de_bain",
-  "peinture_interieure",
-  // Équipements extérieurs
-  "piscine_beton",
-  "piscine_coque",
-  "garage",
-  // Commercial & tertiaire
-  "boutique_commerciale",
-  "restaurant",
-  "cafe",
-  "bureau_cabinet",
-  "atelier",
+  "immeuble",
+  "local_commercial",
+  "bureau",
   "entrepot",
-  "maison_hote",
-  // Technique & artisanat
-  "batiment_agricole",
-  "electricite_complete",
-  "plomberie_complete",
+  "residence_touristique",
+  "projet_neuf",
 ] as const;
 
 export type ProjectType = (typeof PROJECT_TYPES)[number];
 
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
-  // Résidentiel
   maison: "Maison",
   villa: "Villa",
-  maison_r_plus_1: "Maison R+1",
-  maison_r_plus_2: "Maison R+2",
-  immeuble: "Immeuble résidentiel",
   appartement: "Appartement",
   studio: "Studio",
   duplex: "Duplex",
-  // Rénovation & finitions
-  renovation_complete: "Rénovation complète",
-  renovation_cuisine: "Rénovation cuisine",
-  renovation_salle_de_bain: "Rénovation salle de bain",
-  peinture_interieure: "Peinture intérieure",
-  // Équipements extérieurs
-  piscine_beton: "Piscine béton",
-  piscine_coque: "Piscine coque",
-  garage: "Garage",
-  // Commercial & tertiaire
-  boutique_commerciale: "Boutique commerciale",
-  restaurant: "Restaurant",
-  cafe: "Café",
-  bureau_cabinet: "Bureau & cabinet",
-  atelier: "Atelier",
+  immeuble: "Immeuble",
+  local_commercial: "Local commercial",
+  bureau: "Bureau",
   entrepot: "Entrepôt",
-  maison_hote: "Maison d'hôte",
-  // Technique & artisanat
-  batiment_agricole: "Bâtiment agricole",
-  electricite_complete: "Électricité complète",
-  plomberie_complete: "Plomberie complète",
+  residence_touristique: "Résidence touristique",
+  projet_neuf: "Projet immobilier neuf",
 };
 
 /** Icône Lucide (nom) associée à chaque type — utilisée par l'interface. */
 export const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
-  // Résidentiel
   maison: "Home",
-  villa: "Building",
-  maison_r_plus_1: "Home",
-  maison_r_plus_2: "Building2",
-  immeuble: "Building2",
-  appartement: "Building2",
+  villa: "Building2",
+  appartement: "Building",
   studio: "DoorOpen",
   duplex: "Layers",
-  // Rénovation & finitions
-  renovation_complete: "Wrench",
-  renovation_cuisine: "CookingPot",
-  renovation_salle_de_bain: "Bath",
-  peinture_interieure: "PaintBucket",
-  // Équipements extérieurs
-  piscine_beton: "Waves",
-  piscine_coque: "Waves",
-  garage: "Car",
-  // Commercial & tertiaire
-  boutique_commerciale: "Store",
-  restaurant: "UtensilsCrossed",
-  cafe: "Coffee",
-  bureau_cabinet: "Briefcase",
-  atelier: "Hammer",
-  entrepot: "Package",
-  maison_hote: "Palmtree",
-  // Technique & artisanat
-  batiment_agricole: "Sprout",
-  electricite_complete: "Zap",
-  plomberie_complete: "Droplets",
+  immeuble: "Building2",
+  local_commercial: "Store",
+  bureau: "Briefcase",
+  entrepot: "Warehouse",
+  residence_touristique: "Palmtree",
+  projet_neuf: "HardHat",
 };
 
 /** Groupes d'affichage dans les menus / filtres. */
@@ -121,27 +61,17 @@ export const PROJECT_TYPE_GROUPS: { key: string; label: string; types: ProjectTy
   {
     key: "residentiel",
     label: "Résidentiel",
-    types: ["maison", "villa", "maison_r_plus_1", "maison_r_plus_2", "immeuble", "appartement", "studio", "duplex"],
+    types: ["maison", "villa", "appartement", "studio", "duplex", "immeuble"],
   },
   {
-    key: "renovation",
-    label: "Rénovation & finitions",
-    types: ["renovation_complete", "renovation_cuisine", "renovation_salle_de_bain", "peinture_interieure"],
-  },
-  {
-    key: "exterieur",
-    label: "Équipements extérieurs",
-    types: ["piscine_beton", "piscine_coque", "garage"],
-  },
-  {
-    key: "tertiaire",
+    key: "commercial",
     label: "Commercial & tertiaire",
-    types: ["boutique_commerciale", "restaurant", "cafe", "bureau_cabinet", "atelier", "entrepot", "maison_hote"],
+    types: ["local_commercial", "bureau", "entrepot"],
   },
   {
-    key: "technique",
-    label: "Technique & artisanat",
-    types: ["batiment_agricole", "electricite_complete", "plomberie_complete"],
+    key: "tourisme",
+    label: "Tourisme & promotion",
+    types: ["residence_touristique", "projet_neuf"],
   },
 ];
 
@@ -149,24 +79,22 @@ export const PROJECT_TYPE_GROUPS: { key: string; label: string; types: ProjectTy
 export const ROOM_ELIGIBLE_TYPES: string[] = [
   "maison",
   "villa",
-  "maison_r_plus_1",
-  "maison_r_plus_2",
-  "immeuble",
   "appartement",
   "studio",
   "duplex",
-  "boutique_commerciale",
-  "bureau_cabinet",
-  "maison_hote",
+  "immeuble",
+  "residence_touristique",
+  "projet_neuf",
 ];
 
 /** Types à un seul niveau (rez-de-chaussée imposé). */
-export const SINGLE_LEVEL_TYPES: string[] = ["boutique_commerciale", "entrepot", "atelier", "bureau_cabinet", "garage"];
+export const SINGLE_LEVEL_TYPES: string[] = ["local_commercial", "entrepot", "bureau"];
 
 /** Champs de composition masqués selon le type de bien. */
 export const HIDDEN_ROOM_FIELDS: Record<string, string[]> = {
-  bureau_cabinet: ["kitchens", "livingRooms", "garages"],
-  boutique_commerciale: ["kitchens", "livingRooms", "garages"],
+  bureau: ["kitchens", "livingRooms", "garages"],
+  local_commercial: ["kitchens", "livingRooms", "garages"],
+  entrepot: ["kitchens", "livingRooms", "garages", "bedrooms"],
 };
 
 /** Champs de composition réservés à certains types de bien. */
@@ -189,41 +117,54 @@ export const ROOM_DEFAULTS: Record<
 > = {
   maison: { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
   villa: { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "1" },
-  maison_r_plus_1: { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "0" },
-  maison_r_plus_2: { bedrooms: "4", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "0" },
-  immeuble: { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
   appartement: { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
   studio: { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
   duplex: { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "0" },
-  maison_hote: { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2", pools: "0" },
-  bureau_cabinet: { bedrooms: "2", bathrooms: "1", kitchens: "0", livingRooms: "0", garages: "0", wcs: "1", pools: "0" },
+  immeuble: { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
+  local_commercial: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "1", pools: "0" },
+  bureau: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "1", pools: "0" },
+  entrepot: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
+  residence_touristique: { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2", pools: "1" },
+  projet_neuf: { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "0" },
 };
 
 // ============================================================================
 // Rétro-compatibilité : anciens slugs → type officiel (recalcul & logique)
 // ============================================================================
 
-// clé = ancien slug · valeur = slug officiel de remplacement. Seuls les
-// anciens slugs ayant un équivalent structurel dans le catalogue unifié sont
-// résolus (le gabarit DQE est alors identique). Les anciens types sans
-// équivalent (rénovation, piscine, restaurant…) sont conservés tels quels
-// pour l'affichage et le recalcul des projets déjà enregistrés.
+// clé = ancien slug · valeur = slug officiel de remplacement.
 export const LEGACY_PROJECT_TYPE_MAP: Record<string, string> = {
-  // Anciens slugs officiels → nouveaux slugs officiels (migration)
-  local_commercial: "boutique_commerciale",
-  bureau: "bureau_cabinet",
-  residence_touristique: "maison_hote",
+  // Anciens types résidentiels → types officiels
+  maison_r_plus_1: "maison",
+  maison_r_plus_2: "villa",
   immeuble_residentiel: "immeuble",
-  projet_neuf: "immeuble",
-  // Anciens slugs alternatifs → type officiel
-  ferme: "batiment_agricole",
-  serre_agricole: "batiment_agricole",
-  renovation_interieure: "renovation_complete",
-  renovation_exterieure: "renovation_complete",
-  installations_sanitaires: "plomberie_complete",
-  installations_electricite: "electricite_complete",
-  piscine: "piscine_beton",
-  // Anciens types supprimés du catalogue → libellés conservés pour l'affichage
+  // Anciens types commerciaux → types officiels
+  boutique_commerciale: "local_commercial",
+  bureau_cabinet: "bureau",
+  atelier: "entrepot",
+  // Anciens types tourisme → types officiels
+  maison_hote: "residence_touristique",
+  // Anciens types rénovation → types officiels (projet neuf associé)
+  renovation_complete: "projet_neuf",
+  renovation_cuisine: "projet_neuf",
+  renovation_salle_de_bain: "projet_neuf",
+  peinture_interieure: "projet_neuf",
+  // Anciens types équipements → types officiels
+  piscine_beton: "villa",
+  piscine_coque: "villa",
+  piscine: "villa",
+  garage: "local_commercial",
+  // Anciens types technique → types officiels
+  batiment_agricole: "entrepot",
+  electricite_complete: "projet_neuf",
+  plomberie_complete: "projet_neuf",
+  ferme: "entrepot",
+  serre_agricole: "entrepot",
+  installations_sanitaires: "projet_neuf",
+  installations_electricite: "projet_neuf",
+  restaurant: "local_commercial",
+  cafe: "local_commercial",
+  // Anciens types supprimés → libellés conservés pour l'affichage
   jardin: "jardin",
   amenagement_paysager: "amenagement_paysager",
   cloture: "cloture",
@@ -245,6 +186,8 @@ export const LEGACY_PROJECT_TYPE_MAP: Record<string, string> = {
   systeme_irrigation: "systeme_irrigation",
   route: "route",
   trottoir: "trottoir",
+  renovation_interieure: "renovation_interieure",
+  renovation_exterieure: "renovation_exterieure",
   renovation_facade: "renovation_facade",
   demolition: "demolition",
 };
@@ -255,25 +198,41 @@ export const LEGACY_PROJECT_TYPE_MAP: Record<string, string> = {
  * catalogue officiel.
  */
 export const LEGACY_TYPE_LABELS: Record<string, string> = {
+  // Anciens types résidentiels
   maison_r_plus_1: "Maison R+1",
   maison_r_plus_2: "Maison R+2",
   immeuble_residentiel: "Immeuble résidentiel",
+  // Anciens types commerciaux
+  boutique_commerciale: "Boutique commerciale",
+  bureau_cabinet: "Bureau & cabinet",
+  atelier: "Atelier",
+  // Anciens types tourisme
   maison_hote: "Maison d'hôte",
+  // Anciens types rénovation
   renovation_complete: "Rénovation complète",
   renovation_cuisine: "Rénovation cuisine",
   renovation_salle_de_bain: "Rénovation salle de bain",
   peinture_interieure: "Peinture intérieure",
+  renovation_interieure: "Rénovation intérieure",
+  renovation_exterieure: "Rénovation extérieure",
+  renovation_facade: "Rénovation façade",
+  demolition: "Démolition",
+  // Anciens types équipements
   piscine_beton: "Piscine béton",
   piscine_coque: "Piscine coque",
+  piscine: "Piscine",
   garage: "Garage",
-  boutique_commerciale: "Boutique commerciale",
-  restaurant: "Restaurant",
-  cafe: "Café",
-  bureau_cabinet: "Bureau & cabinet",
-  atelier: "Atelier",
+  // Anciens types technique
   batiment_agricole: "Bâtiment agricole",
   electricite_complete: "Électricité complète",
   plomberie_complete: "Plomberie complète",
+  ferme: "Ferme",
+  serre_agricole: "Serre agricole",
+  installations_sanitaires: "Installations sanitaires",
+  installations_electricite: "Installations électricité",
+  restaurant: "Restaurant",
+  cafe: "Café",
+  // Anciens types supprimés
   jardin: "Jardin",
   amenagement_paysager: "Aménagement paysager",
   cloture: "Clôture",
@@ -283,8 +242,6 @@ export const LEGACY_TYPE_LABELS: Record<string, string> = {
   pergola: "Pergola",
   toiture: "Toiture",
   extension_batiment: "Extension de bâtiment",
-  ferme: "Ferme",
-  serre_agricole: "Serre agricole",
   parking: "Parking",
   aire_de_jeux: "Aire de jeux",
   mosquee: "Mosquée",
@@ -297,15 +254,6 @@ export const LEGACY_TYPE_LABELS: Record<string, string> = {
   systeme_irrigation: "Système d'irrigation",
   route: "Route",
   trottoir: "Trottoir",
-  renovation_interieure: "Rénovation intérieure",
-  renovation_exterieure: "Rénovation extérieure",
-  renovation_facade: "Rénovation façade",
-  demolition: "Démolition",
-  installations_sanitaires: "Installations sanitaires",
-  installations_electricite: "Installations électricité",
-  piscine: "Piscine",
-  projet_neuf: "Projet immobilier neuf",
-  residence_touristique: "Résidence touristique",
 };
 
 /** Libellé affiché d'un slug de projet (nouveau ou ancien). */
@@ -333,52 +281,48 @@ export function resolveProjectType(slug: string): ProjectType | null {
 
 // ============================================================================
 // Lien avec le module Investissement
-// Un projet de construction (avec son Quantitatif détaillé / DQE) alimente une
-// analyse d'investissement : coût total de construction → prix d'acquisition ou
-// coût de rénovation, surface & région réutilisées. Les 25 types officiels
-// correspondent aux types de bien du module Investissement (hors « Terrain
-// constructible ») ; les anciens types sont mappés vers l'équivalent le plus
-// proche pour le pré-remplissage.
+// Les 11 types officiels correspondent exactement aux types de bien du module
+// Investissement (hors « Terrain constructible »).
 // ============================================================================
 
 export const PROJECT_TO_INVESTMENT_TYPE: Record<string, string> = {
-  // 25 types officiels → équivalent d'investissement
+  // 11 types officiels → équivalent d'investissement (mapping direct 1:1)
   maison: "maison",
   villa: "villa",
-  maison_r_plus_1: "maison",
-  maison_r_plus_2: "maison",
-  immeuble: "immeuble",
   appartement: "appartement",
   studio: "studio",
   duplex: "duplex",
-  renovation_complete: "appartement",
-  renovation_cuisine: "appartement",
-  renovation_salle_de_bain: "appartement",
-  peinture_interieure: "appartement",
-  piscine_beton: "villa",
-  piscine_coque: "villa",
-  garage: "local_commercial",
-  boutique_commerciale: "local_commercial",
-  restaurant: "local_commercial",
-  cafe: "local_commercial",
-  bureau_cabinet: "bureau",
-  atelier: "entrepot",
-  entrepot: "entrepot",
-  maison_hote: "residence_touristique",
-  batiment_agricole: "entrepot",
-  electricite_complete: "appartement",
-  plomberie_complete: "appartement",
-  // Anciens types (rétro-compatibilité données existantes)
+  immeuble: "immeuble",
   local_commercial: "local_commercial",
   bureau: "bureau",
+  entrepot: "entrepot",
   residence_touristique: "residence_touristique",
   projet_neuf: "projet_neuf",
+  // Anciens types (rétro-compatibilité données existantes)
+  maison_r_plus_1: "maison",
+  maison_r_plus_2: "villa",
   immeuble_residentiel: "immeuble",
+  boutique_commerciale: "local_commercial",
+  bureau_cabinet: "bureau",
+  atelier: "entrepot",
+  maison_hote: "residence_touristique",
+  renovation_complete: "projet_neuf",
+  renovation_cuisine: "projet_neuf",
+  renovation_salle_de_bain: "projet_neuf",
+  peinture_interieure: "projet_neuf",
+  piscine_beton: "villa",
+  piscine_coque: "villa",
   piscine: "villa",
+  garage: "local_commercial",
+  batiment_agricole: "entrepot",
+  electricite_complete: "projet_neuf",
+  plomberie_complete: "projet_neuf",
   ferme: "entrepot",
   serre_agricole: "entrepot",
-  installations_sanitaires: "appartement",
-  installations_electricite: "appartement",
+  installations_sanitaires: "projet_neuf",
+  installations_electricite: "projet_neuf",
+  restaurant: "local_commercial",
+  cafe: "local_commercial",
 };
 
 /** Type d'investissement associé à un projet (nouveau ou ancien slug). */

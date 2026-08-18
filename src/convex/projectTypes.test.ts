@@ -15,44 +15,25 @@ import {
 import { INVESTMENT_TYPES } from "./investmentTypes";
 
 // ============================================================================
-// Contrat du catalogue officiel des types de projet (25 types)
-// Le catalogue est classé en : Résidentiel (8), Rénovation & finitions (4),
-// Équipements extérieurs (3), Commercial & tertiaire (7), Technique & artisanat (3).
+// Contrat du catalogue officiel des types de projet (11 types)
+// Aligné exactement sur les types de bien du module Investissement
+// (à l'exception de « terrain constructible »).
 // ============================================================================
 
-describe("PROJECT_TYPES — catalogue officiel (25 types)", () => {
-  it("contient exactement les 25 types de projet du catalogue", () => {
+describe("PROJECT_TYPES — catalogue officiel (11 types)", () => {
+  it("contient exactement les 11 types de projet du catalogue", () => {
     expect(PROJECT_TYPES).toEqual([
-      // Résidentiel
       "maison",
       "villa",
-      "maison_r_plus_1",
-      "maison_r_plus_2",
-      "immeuble",
       "appartement",
       "studio",
       "duplex",
-      // Rénovation & finitions
-      "renovation_complete",
-      "renovation_cuisine",
-      "renovation_salle_de_bain",
-      "peinture_interieure",
-      // Équipements extérieurs
-      "piscine_beton",
-      "piscine_coque",
-      "garage",
-      // Commercial & tertiaire
-      "boutique_commerciale",
-      "restaurant",
-      "cafe",
-      "bureau_cabinet",
-      "atelier",
+      "immeuble",
+      "local_commercial",
+      "bureau",
       "entrepot",
-      "maison_hote",
-      // Technique & artisanat
-      "batiment_agricole",
-      "electricite_complete",
-      "plomberie_complete",
+      "residence_touristique",
+      "projet_neuf",
     ]);
   });
 
@@ -71,6 +52,11 @@ describe("PROJECT_TYPES — catalogue officiel (25 types)", () => {
     for (const t of ROOM_ELIGIBLE_TYPES) expect(official.has(t), t).toBe(true);
     for (const t of SINGLE_LEVEL_TYPES) expect(official.has(t), t).toBe(true);
   });
+
+  it("correspond exactement aux types d'investissement hors terrain", () => {
+    const investmentWithoutTerrain = INVESTMENT_TYPES.filter((t) => t !== "terrain");
+    expect([...PROJECT_TYPES]).toEqual([...investmentWithoutTerrain]);
+  });
 });
 
 describe("resolveProjectType — résolution des slugs (nouveaux & anciens)", () => {
@@ -82,12 +68,17 @@ describe("resolveProjectType — résolution des slugs (nouveaux & anciens)", ()
 
   it("résout les anciens slugs ayant un équivalent officiel", () => {
     expect(resolveProjectType("immeuble_residentiel")).toBe("immeuble");
-    expect(resolveProjectType("maison_hote")).toBe("maison_hote"); // Now official
-    expect(resolveProjectType("local_commercial")).toBe("boutique_commerciale");
-    expect(resolveProjectType("bureau")).toBe("bureau_cabinet");
-    expect(resolveProjectType("atelier")).toBe("atelier"); // Now official
-    expect(resolveProjectType("residence_touristique")).toBe("maison_hote");
-    expect(resolveProjectType("projet_neuf")).toBe("immeuble");
+    expect(resolveProjectType("maison_r_plus_1")).toBe("maison");
+    expect(resolveProjectType("maison_r_plus_2")).toBe("villa");
+    expect(resolveProjectType("boutique_commerciale")).toBe("local_commercial");
+    expect(resolveProjectType("bureau_cabinet")).toBe("bureau");
+    expect(resolveProjectType("atelier")).toBe("entrepot");
+    expect(resolveProjectType("maison_hote")).toBe("residence_touristique");
+    expect(resolveProjectType("renovation_complete")).toBe("projet_neuf");
+    expect(resolveProjectType("piscine_beton")).toBe("villa");
+    expect(resolveProjectType("garage")).toBe("local_commercial");
+    expect(resolveProjectType("restaurant")).toBe("local_commercial");
+    expect(resolveProjectType("batiment_agricole")).toBe("entrepot");
   });
 
   it("retourne null pour les anciens slugs sans équivalent officiel", () => {
@@ -100,9 +91,9 @@ describe("resolveProjectType — résolution des slugs (nouveaux & anciens)", ()
 describe("projectTypeLabel — libellés d'affichage (nouveaux & anciens)", () => {
   it("affiche le libellé français des types officiels", () => {
     expect(projectTypeLabel("maison")).toBe("Maison");
-    expect(projectTypeLabel("immeuble")).toBe("Immeuble résidentiel");
-    expect(projectTypeLabel("boutique_commerciale")).toBe("Boutique commerciale");
-    expect(projectTypeLabel("renovation_complete")).toBe("Rénovation complète");
+    expect(projectTypeLabel("immeuble")).toBe("Immeuble");
+    expect(projectTypeLabel("local_commercial")).toBe("Local commercial");
+    expect(projectTypeLabel("residence_touristique")).toBe("Résidence touristique");
   });
 
   it("affiche le libellé des anciens types enregistrés", () => {
@@ -126,36 +117,23 @@ describe("projectTypeLabel — libellés d'affichage (nouveaux & anciens)", () =
 });
 
 describe("investmentTypeForProject — lien direct avec le module Investissement", () => {
-  it("les types résidentiels correspondent à leur type d'investissement", () => {
-    const residentialMap: Record<string, string> = {
-      maison: "maison",
-      villa: "villa",
-      maison_r_plus_1: "maison",
-      maison_r_plus_2: "maison",
-      immeuble: "immeuble",
-      appartement: "appartement",
-      studio: "studio",
-      duplex: "duplex",
-    };
-    for (const [t, expected] of Object.entries(residentialMap)) {
-      expect(investmentTypeForProject(t), t).toBe(expected);
+  it("les 11 types officiels mappent vers eux-mêmes (1:1)", () => {
+    for (const t of PROJECT_TYPES) {
+      expect(investmentTypeForProject(t), t).toBe(t);
     }
-  });
-
-  it("les types renovation/piscine/garage mappent vers l'investissement le plus proche", () => {
-    expect(investmentTypeForProject("renovation_complete")).toBe("appartement");
-    expect(investmentTypeForProject("piscine_beton")).toBe("villa");
-    expect(investmentTypeForProject("garage")).toBe("local_commercial");
-    expect(investmentTypeForProject("restaurant")).toBe("local_commercial");
-    expect(investmentTypeForProject("bureau_cabinet")).toBe("bureau");
-    expect(investmentTypeForProject("atelier")).toBe("entrepot");
   });
 
   it("les anciens types sont mappés vers l'équivalent le plus proche", () => {
     expect(investmentTypeForProject("maison_r_plus_1")).toBe("maison");
-    expect(investmentTypeForProject("local_commercial")).toBe("local_commercial");
-    expect(investmentTypeForProject("bureau")).toBe("bureau");
-    expect(investmentTypeForProject("piscine")).toBe("villa");
+    expect(investmentTypeForProject("maison_r_plus_2")).toBe("villa");
+    expect(investmentTypeForProject("boutique_commerciale")).toBe("local_commercial");
+    expect(investmentTypeForProject("bureau_cabinet")).toBe("bureau");
+    expect(investmentTypeForProject("atelier")).toBe("entrepot");
+    expect(investmentTypeForProject("maison_hote")).toBe("residence_touristique");
+    expect(investmentTypeForProject("renovation_complete")).toBe("projet_neuf");
+    expect(investmentTypeForProject("piscine_beton")).toBe("villa");
+    expect(investmentTypeForProject("garage")).toBe("local_commercial");
+    expect(investmentTypeForProject("restaurant")).toBe("local_commercial");
   });
 
   it("retombe sur « appartement » pour un type inconnu", () => {

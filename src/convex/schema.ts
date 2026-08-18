@@ -110,36 +110,18 @@ export const REGION_LABELS: Record<TunisiaRegion, string> = {
 // base (schemaValidation: false) mais ne sont plus proposés dans les menus,
 // formulaires, filtres ou calculs.
 export const PROJECT_CATEGORIES = [
-  // Résidentiel
+  // 11 types officiels — alignés sur le module Investissement (hors terrain)
   "maison",
   "villa",
-  "maison_r_plus_1",
-  "maison_r_plus_2",
-  "immeuble",
   "appartement",
   "studio",
   "duplex",
-  // Rénovation & finitions
-  "renovation_complete",
-  "renovation_cuisine",
-  "renovation_salle_de_bain",
-  "peinture_interieure",
-  // Équipements extérieurs
-  "piscine_beton",
-  "piscine_coque",
-  "garage",
-  // Commercial & tertiaire
-  "boutique_commerciale",
-  "restaurant",
-  "cafe",
-  "bureau_cabinet",
-  "atelier",
+  "immeuble",
+  "local_commercial",
+  "bureau",
   "entrepot",
-  "maison_hote",
-  // Technique & artisanat
-  "batiment_agricole",
-  "electricite_complete",
-  "plomberie_complete",
+  "residence_touristique",
+  "projet_neuf",
 ] as const;
 
 export const projectCategoryValidator = v.union(

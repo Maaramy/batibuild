@@ -726,45 +726,27 @@ function plomberieLots(): LotTpl[] {
 // ════════════════════════════════════════════════════════════════════════
 
 const RESIDENTIAL = new Set([
-  // 25 types officiels — Résidentiel
+  // 11 types officiels — Résidentiel & tourisme (alignés module Investissement)
   "maison",
   "villa",
-  "maison_r_plus_1",
-  "maison_r_plus_2",
-  "immeuble",
   "appartement",
   "studio",
   "duplex",
-  // Anciens types résidentiels (projets déjà enregistrés)
-  "immeuble_residentiel",
+  "immeuble",
   "residence_touristique",
   "projet_neuf",
+  // Anciens types résidentiels (rétro-compatibilité)
+  "maison_r_plus_1",
+  "maison_r_plus_2",
+  "immeuble_residentiel",
 ]);
 
 export function buildDqeLots(category: string): LotTpl[] {
-  // Rétro-compatibilité : un ancien slug mappé (LEGACY_PROJECT_TYPE_MAP) suit
-  // le gabarit de son type officiel pour que les projets déjà enregistrés
-  // soient recalculés avec le bon découpage. Les anciens slugs sans équivalent
-  // officiel (jardin, mosquée...) retombent sur le gabarit résidentiel.
-  const resolved = resolveProjectType(category) ?? category;
-  if (RESIDENTIAL.has(resolved)) return residentialLots(resolved);
-  switch (resolved) {
-    case "boutique_commerciale":
-    case "local_commercial":
-      return commercialLots("boutique_commerciale");
-    case "bureau_cabinet":
-    case "bureau":
-      return commercialLots("bureau_cabinet");
-    case "restaurant":
-    case "cafe":
-      return commercialLots(resolved);
-    case "entrepot":
-    case "atelier":
-      return industrielLots("entrepot");
-    case "batiment_agricole":
-    case "ferme":
-    case "serre_agricole":
-      return industrielLots("batiment_agricole");
+  // D'abord, vérifier si le slug brut (ancien ou nouveau) a un gabarit dédié.
+  // Cela permet aux anciens slugs spécialisés (renovation_complete, piscine, etc.)
+  // de conserver leur gabarit spécifique même si resolveProjectType les mappe
+  // vers un type résidentiel / commercial.
+  switch (category) {
     case "renovation_complete":
       return renovationCompleteLots();
     case "renovation_cuisine":
@@ -786,8 +768,33 @@ export function buildDqeLots(category: string): LotTpl[] {
     case "plomberie_complete":
     case "installations_sanitaires":
       return plomberieLots();
+    case "restaurant":
+    case "cafe":
+      return commercialLots("local_commercial");
+    case "boutique_commerciale":
+      return commercialLots("local_commercial");
+    case "bureau_cabinet":
+      return commercialLots("bureau");
+    case "atelier":
+      return industrielLots("entrepot");
+    case "batiment_agricole":
+    case "ferme":
+    case "serre_agricole":
+      return industrielLots("entrepot");
+  }
+
+  // Ensuite, résoudre vers le type officiel pour les types standards.
+  const resolved = resolveProjectType(category) ?? category;
+  if (RESIDENTIAL.has(resolved)) return residentialLots(resolved);
+  switch (resolved) {
+    case "local_commercial":
+      return commercialLots("local_commercial");
+    case "bureau":
+      return commercialLots("bureau");
+    case "entrepot":
+      return industrielLots("entrepot");
     default:
-      // Anciens slugs (rétro-compatibilité) → gabarit résidentiel par défaut.
+      // Anciens slugs inconnus → gabarit résidentiel par défaut.
       return residentialLots("maison");
   }
 }
