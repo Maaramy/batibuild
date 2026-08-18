@@ -13,7 +13,8 @@ import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 // Invariants vérifiés : Montant = Quantité × Prix unitaire, sous-total par
 // lot, total des lots, répartition par nature (matériaux / main-d'œuvre /
 // équipements / transport / études), coût au m², et un gabarit de lots
-// distinct pour chacun des 25 types de projets officiels.
+// distinct pour chacun des 11 types de bien officiels (catalogue unifié
+// aligné sur le module Investissement).
 // ════════════════════════════════════════════════════════════════════════
 
 const BASE_BUDGET = 300_000;
@@ -94,9 +95,9 @@ describe("generateDqe — invariants de calcul (modèle Google Sheets)", () => {
   });
 });
 
-describe("generateDqe — les 25 types de projets génèrent un DQE", () => {
+describe("generateDqe — les 11 types de bien génèrent un DQE", () => {
   it("chaque type officiel produit au moins 2 lots et 5 lignes", () => {
-    expect(PROJECT_TYPES).toHaveLength(25);
+    expect(PROJECT_TYPES).toHaveLength(11);
     for (const cat of PROJECT_TYPES) {
       const dqe = run(cat);
       expect(dqe.lots.length, cat).toBeGreaterThanOrEqual(2);
@@ -108,14 +109,25 @@ describe("generateDqe — les 25 types de projets génèrent un DQE", () => {
 
   it("chaque type possède un découpage de lots qui lui est propre", () => {
     const byId = (cat: string) => run(cat).lots.map((l) => l.id).join("|");
-    // Types résidentiels partagent le gabarit 5 lots du modèle de référence
+    // Les types résidentiels officiels partagent le gabarit 5 lots du modèle
     const residential = new Set(
-      ["maison", "villa", "maison_r_plus_1", "maison_r_plus_2", "immeuble_residentiel", "appartement", "studio", "duplex", "maison_hote"]
+      ["maison", "villa", "appartement", "studio", "duplex", "immeuble", "residence_touristique", "projet_neuf"]
         .map(byId),
     );
     expect(residential.size).toBe(1);
 
-    // Les gabarits spécialisés diffèrent tous du résidentiel
+    // Les types non résidentiels officiels diffèrent du résidentiel
+    for (const cat of ["local_commercial", "bureau", "entrepot"]) {
+      expect(byId(cat), cat).not.toBe([...residential][0]);
+    }
+    // local_commercial et boutique_commerciale partagent le gabarit vitrine
+    expect(byId("local_commercial")).toBe(byId("boutique_commerciale"));
+    // bureau et bureau_cabinet partagent le gabarit tertiaire
+    expect(byId("bureau")).toBe(byId("bureau_cabinet"));
+    // entrepot et atelier partagent le gabarit industriel
+    expect(byId("entrepot")).toBe(byId("atelier"));
+
+    // Les gabarits spécialisés des anciens types diffèrent tous du résidentiel
     const specialized = [
       "renovation_complete",
       "renovation_cuisine",
@@ -126,10 +138,6 @@ describe("generateDqe — les 25 types de projets génèrent un DQE", () => {
       "garage",
       "restaurant",
       "cafe",
-      "boutique_commerciale",
-      "bureau_cabinet",
-      "atelier",
-      "entrepot",
       "batiment_agricole",
       "electricite_complete",
       "plomberie_complete",
@@ -146,6 +154,13 @@ describe("generateDqe — les 25 types de projets génèrent un DQE", () => {
     expect(lotIds("maison")).toEqual(
       expect.objectContaining(new Set(["frais_preliminaires", "gros_oeuvre", "second_oeuvre", "amenagements_exterieurs", "vrd"])),
     );
+    // Types de bien officiels du catalogue unifié
+    expect(lotIds("immeuble")).toEqual(expect.objectContaining(new Set(["gros_oeuvre", "second_oeuvre"])));
+    expect(lotIds("residence_touristique")).toEqual(expect.objectContaining(new Set(["frais_preliminaires", "gros_oeuvre"])));
+    expect(lotIds("projet_neuf")).toEqual(expect.objectContaining(new Set(["gros_oeuvre", "second_oeuvre"])));
+    expect(lotIds("local_commercial")).toEqual(expect.objectContaining(new Set(["facade", "enseignes"])));
+    expect(lotIds("bureau")).toEqual(expect.objectContaining(new Set(["cloisons", "cvc"])));
+    expect(lotIds("entrepot")).toEqual(expect.objectContaining(new Set(["charpente"])));
     expect(lotIds("renovation_complete")).toEqual(expect.objectContaining(new Set(["depose_demolition", "nettoyage_finition"])));
     expect(lotIds("renovation_cuisine")).toEqual(expect.objectContaining(new Set(["plan_travail", "meubles"])));
     expect(lotIds("renovation_salle_de_bain")).toEqual(expect.objectContaining(new Set(["etancheite", "sanitaires", "robinetterie"])));
@@ -243,5 +258,19 @@ describe("buildDqeLots — rétro-compatibilité des anciens slugs", () => {
     expect(lots.map((l) => l.id)).toEqual(
       expect.arrayContaining(["cloisons", "cvc"]),
     );
+  });
+
+  it("les anciens slugs résidentiels résolvent vers le gabarit unifié", () => {
+    const lotIds = (cat: string) => buildDqeLots(cat).map((l) => l.id).join("|");
+    expect(lotIds("immeuble_residentiel")).toBe(lotIds("immeuble"));
+    expect(lotIds("maison_hote")).toBe(lotIds("residence_touristique"));
+    expect(lotIds("maison_r_plus_1")).toContain("gros_oeuvre");
+  });
+
+  it("les anciens slugs commerciaux résolvent vers le gabarit unifié", () => {
+    const lotIds = (cat: string) => buildDqeLots(cat).map((l) => l.id).join("|");
+    expect(lotIds("boutique_commerciale")).toBe(lotIds("local_commercial"));
+    expect(lotIds("bureau_cabinet")).toBe(lotIds("bureau"));
+    expect(lotIds("atelier")).toBe(lotIds("entrepot"));
   });
 });

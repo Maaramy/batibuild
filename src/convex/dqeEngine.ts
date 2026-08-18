@@ -241,12 +241,16 @@ function residentialLots(cat: string): LotTpl[] {
   const pct: Record<string, [number, number, number, number, number]> = {
     maison: [5.6, 47.7, 39.1, 5.3, 2.3],
     villa: [5, 44, 42, 6.5, 2.5],
-    maison_r_plus_1: [5.5, 48, 38.5, 5.5, 2.5],
-    maison_r_plus_2: [5.5, 49, 38, 5, 2.5],
-    immeuble_residentiel: [4.5, 52, 35, 5, 3.5],
     appartement: [4, 42, 45, 5.5, 3.5],
     studio: [4, 40, 46, 6, 4],
     duplex: [4.5, 44, 43, 5.5, 3],
+    immeuble: [4.5, 52, 35, 5, 3.5],
+    residence_touristique: [5, 42, 42, 7, 4],
+    projet_neuf: [4.5, 52, 35, 5, 3.5],
+    // Anciens types résidentiels (projets déjà enregistrés)
+    maison_r_plus_1: [5.5, 48, 38.5, 5.5, 2.5],
+    maison_r_plus_2: [5.5, 49, 38, 5, 2.5],
+    immeuble_residentiel: [4.5, 52, 35, 5, 3.5],
     maison_hote: [5, 42, 42, 7, 4],
   };
   const [pe, pgo, pso, pam, pvrd] = pct[cat] ?? pct.maison;
@@ -552,7 +556,7 @@ function commercialLots(cat: string): LotTpl[] {
     ];
   }
 
-  if (cat === "boutique_commerciale") {
+  if (cat === "boutique_commerciale" || cat === "local_commercial") {
     return [
       etudesLot(5),
       lot("gros_oeuvre", "Gros œuvre et reprises", "materiaux", 38, [
@@ -722,14 +726,19 @@ function plomberieLots(): LotTpl[] {
 // ════════════════════════════════════════════════════════════════════════
 
 const RESIDENTIAL = new Set([
+  // Types de bien officiels (catalogue unifié)
   "maison",
   "villa",
-  "maison_r_plus_1",
-  "maison_r_plus_2",
-  "immeuble_residentiel",
   "appartement",
   "studio",
   "duplex",
+  "immeuble",
+  "residence_touristique",
+  "projet_neuf",
+  // Anciens types résidentiels (projets déjà enregistrés)
+  "maison_r_plus_1",
+  "maison_r_plus_2",
+  "immeuble_residentiel",
   "maison_hote",
 ]);
 
@@ -741,6 +750,22 @@ export function buildDqeLots(category: string): LotTpl[] {
   const resolved = resolveProjectType(category) ?? category;
   if (RESIDENTIAL.has(resolved)) return residentialLots(resolved);
   switch (resolved) {
+    case "local_commercial":
+    case "boutique_commerciale":
+      return commercialLots("boutique_commerciale");
+    case "bureau":
+    case "bureau_cabinet":
+      return commercialLots("bureau_cabinet");
+    case "restaurant":
+    case "cafe":
+      return commercialLots(resolved);
+    case "entrepot":
+    case "atelier":
+      return industrielLots("entrepot");
+    case "batiment_agricole":
+    case "ferme":
+    case "serre_agricole":
+      return industrielLots("batiment_agricole");
     case "renovation_complete":
       return renovationCompleteLots();
     case "renovation_cuisine":
@@ -750,23 +775,17 @@ export function buildDqeLots(category: string): LotTpl[] {
     case "peinture_interieure":
       return peintureLots();
     case "piscine_beton":
+    case "piscine":
       return piscineBetonLots();
     case "piscine_coque":
       return piscineCoqueLots();
     case "garage":
       return garageLots();
-    case "restaurant":
-    case "cafe":
-    case "boutique_commerciale":
-    case "bureau_cabinet":
-      return commercialLots(resolved);
-    case "atelier":
-    case "entrepot":
-    case "batiment_agricole":
-      return industrielLots(resolved);
     case "electricite_complete":
+    case "installations_electricite":
       return electriciteLots();
     case "plomberie_complete":
+    case "installations_sanitaires":
       return plomberieLots();
     default:
       // Anciens slugs (rétro-compatibilité) → gabarit résidentiel par défaut.

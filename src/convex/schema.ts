@@ -101,39 +101,26 @@ export const REGION_LABELS: Record<TunisiaRegion, string> = {
 };
 
 // ============================================================================
-// Project Categories (25 types officiels)
+// Project Categories (11 types de bien unifiés)
 // ============================================================================
 
-// Catalogue officiel des types de projets (source : src/convex/projectTypes.ts).
-// Tous les anciens types ont été remplacés par cette liste ; les anciens slugs
-// restent lisibles en base (schemaValidation: false) mais ne sont plus
-// proposés dans les menus, formulaires, filtres ou calculs.
+// Catalogue officiel des types de bien (source : src/convex/projectTypes.ts),
+// aligné sur le module Investissement (hors « Terrain constructible »).
+// Les anciens types (maison R+1, rénovation, piscine…) restent lisibles en
+// base (schemaValidation: false) mais ne sont plus proposés dans les menus,
+// formulaires, filtres ou calculs.
 export const PROJECT_CATEGORIES = [
   "maison",
   "villa",
-  "maison_r_plus_1",
-  "maison_r_plus_2",
-  "immeuble_residentiel",
   "appartement",
   "studio",
   "duplex",
-  "maison_hote",
-  "renovation_complete",
-  "renovation_cuisine",
-  "renovation_salle_de_bain",
-  "peinture_interieure",
-  "piscine_beton",
-  "piscine_coque",
-  "garage",
-  "boutique_commerciale",
-  "restaurant",
-  "cafe",
-  "bureau_cabinet",
-  "atelier",
+  "immeuble",
+  "local_commercial",
+  "bureau",
   "entrepot",
-  "batiment_agricole",
-  "electricite_complete",
-  "plomberie_complete",
+  "residence_touristique",
+  "projet_neuf",
 ] as const;
 
 export const projectCategoryValidator = v.union(

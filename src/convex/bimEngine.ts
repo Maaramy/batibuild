@@ -1,4 +1,5 @@
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
+import { PROJECT_TYPES, PROJECT_TYPE_LABELS } from "./projectTypes";
 
 // ============================================================================
 // PROFESSIONAL BIM COST ESTIMATION ENGINE
@@ -617,71 +618,20 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 // ============================================================================
-// CATALOGUE OFFICIEL DES 25 TYPES DE PROJETS (source unique du moteur BIM)
-// Synchronisé avec le formulaire « Nouveau projet », le module d'investissement
-// et le générateur du Quantitatif détaillé (DQE). Les libellés rétro-
-// compatibles des anciens types (piscine, jardin, bureau…) restent supportés
-// par MARKET_PRICE_M2 / PROJECT_PCT pour recalculer les projets enregistrés,
-// mais ne sont plus proposés dans l'interface.
+// CATALOGUE OFFICIEL DES 11 TYPES DE BIEN (source unique du moteur BIM)
+// Synchronisé avec le formulaire « Nouveau projet » (src/convex/projectTypes.ts),
+// le module d'investissement et le générateur du Quantitatif détaillé (DQE).
+// Les libellés rétro-compatibles des anciens types (maison R+1, piscine,
+// jardin, bureau…) restent supportés par MARKET_PRICE_M2 / PROJECT_PCT pour
+// recalculer les projets enregistrés, mais ne sont plus proposés dans
+// l'interface.
 // ============================================================================
-export const BIM_CATEGORIES = [
-  "maison",
-  "villa",
-  "maison_r_plus_1",
-  "maison_r_plus_2",
-  "immeuble_residentiel",
-  "appartement",
-  "studio",
-  "duplex",
-  "maison_hote",
-  "renovation_complete",
-  "renovation_cuisine",
-  "renovation_salle_de_bain",
-  "peinture_interieure",
-  "piscine_beton",
-  "piscine_coque",
-  "garage",
-  "boutique_commerciale",
-  "restaurant",
-  "cafe",
-  "bureau_cabinet",
-  "atelier",
-  "entrepot",
-  "batiment_agricole",
-  "electricite_complete",
-  "plomberie_complete",
-] as const;
+export const BIM_CATEGORIES = PROJECT_TYPES;
 
 export type BIMCategory = (typeof BIM_CATEGORIES)[number];
 
-/** Libellé français d'un type de projet du catalogue officiel. */
-export const BIM_CATEGORY_LABELS: Record<BIMCategory, string> = {
-  maison: "Maison",
-  villa: "Villa",
-  maison_r_plus_1: "Maison R+1",
-  maison_r_plus_2: "Maison R+2",
-  immeuble_residentiel: "Immeuble résidentiel",
-  appartement: "Appartement",
-  studio: "Studio",
-  duplex: "Duplex",
-  maison_hote: "Maison d'hôte",
-  renovation_complete: "Rénovation complète",
-  renovation_cuisine: "Rénovation cuisine",
-  renovation_salle_de_bain: "Rénovation salle de bain",
-  peinture_interieure: "Peinture intérieure",
-  piscine_beton: "Piscine béton",
-  piscine_coque: "Piscine coque",
-  garage: "Garage",
-  boutique_commerciale: "Boutique commerciale",
-  restaurant: "Restaurant",
-  cafe: "Café",
-  bureau_cabinet: "Bureau & cabinet",
-  atelier: "Atelier",
-  entrepot: "Entrepôt",
-  batiment_agricole: "Bâtiment agricole",
-  electricite_complete: "Électricité complète",
-  plomberie_complete: "Plomberie complète",
-};
+/** Libellé français d'un type de bien du catalogue officiel. */
+export const BIM_CATEGORY_LABELS = PROJECT_TYPE_LABELS;
 
 // ============================================================================
 // REGION-SPECIFIC CONSTRUCTION COSTS (TND/m² - clé en main)

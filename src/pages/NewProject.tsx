@@ -24,6 +24,13 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BIM_CATEGORIES, BIM_CATEGORY_LABELS } from "@/convex/bimEngine";
+import {
+  ROOM_ELIGIBLE_TYPES,
+  SINGLE_LEVEL_TYPES,
+  HIDDEN_ROOM_FIELDS,
+  ROOM_ONLY_FOR,
+  ROOM_DEFAULTS,
+} from "@/convex/projectTypes";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
@@ -65,41 +72,6 @@ const PROJECT_CATEGORIES: { value: string; label: string; icon: LucideIcon }[] =
     label: BIM_CATEGORY_LABELS[value],
     icon: CATEGORY_ICONS[value] || Building2,
   }));
-
-// Types de bien éligibles à l'étape « Composition intérieur »
-// (résidentiel : la composition du bien affine l'estimation)
-// local_commercial & entrepot : pas de composition de pièces (éliminée)
-const ROOM_ELIGIBLE_CATEGORIES = [
-  "maison", "villa", "appartement", "studio", "duplex", "immeuble",
-  "residence_touristique", "projet_neuf", "bureau",
-];
-
-// Types de bien à un seul niveau (rez-de-chaussée imposé)
-const SINGLE_LEVEL_TYPES = ["local_commercial", "entrepot", "bureau"];
-
-// Champs de composition masqués selon le type de bien
-// (bureau : pas de cuisine, salon ni garage)
-const HIDDEN_ROOM_FIELDS: Record<string, string[]> = {
-  bureau: ["kitchens", "livingRooms", "garages"],
-};
-
-// Champs de composition réservés à certains types de bien (piscine : villa)
-const ROOM_ONLY_FOR: Record<string, string[]> = {
-  pools: ["villa"],
-};
-
-// Valeurs par défaut des pièces selon le type de bien sélectionné
-const ROOM_DEFAULTS: Record<string, { bedrooms: string; bathrooms: string; kitchens: string; livingRooms: string; garages: string; wcs: string; pools: string }> = {
-  maison:               { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
-  villa:                { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "1" },
-  appartement:          { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
-  studio:               { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
-  duplex:               { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "0" },
-  immeuble:             { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
-  residence_touristique:{ bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2", pools: "0" },
-  projet_neuf:          { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2", pools: "0" },
-  bureau:               { bedrooms: "2", bathrooms: "1", kitchens: "0", livingRooms: "0", garages: "0", wcs: "1", pools: "0" },
-};
 
 const IMPORT_METHODS = [
   { id: "manual", icon: Ruler, label: "Manuelle", desc: "Saisie directe" },
@@ -611,7 +583,7 @@ export default function NewProject() {
 
   // Determine which steps are in the flow
   const hasUploadStep = importMethod !== "" && importMethod !== "manual";
-  const roomEligible = ROOM_ELIGIBLE_CATEGORIES.includes(selectedCategory);
+  const roomEligible = ROOM_ELIGIBLE_TYPES.includes(selectedCategory);
   const flowSteps = STEPS.filter((s) => s.key !== "rooms" || roomEligible);
   const visibleSteps = STEPS.filter((s) => s.key !== "upload" || hasUploadStep);
 

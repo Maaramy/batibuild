@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
+import { projectTypeLabel } from "@/convex/projectTypes";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useState, useMemo } from "react";
@@ -64,13 +65,6 @@ const CRITERIA: { key: keyof MaterialScores; label: string }[] = [
   { key: "disponibilite", label: "Disponibilité" },
   { key: "impactEnvironnemental", label: "Impact environnemental" },
 ];
-
-const PROJECT_LABELS: Record<string, string> = {
-  maison: "Maison", villa: "Villa", appartement: "Appartement", studio: "Studio",
-  duplex: "Duplex", immeuble: "Immeuble", local_commercial: "Local commercial",
-  bureau: "Bureau", entrepot: "Entrepôt", residence_touristique: "Résidence touristique",
-  projet_neuf: "Projet immobilier neuf",
-};
 
 function scoreColor(score: number) {
   if (score >= 80) return "text-emerald-600 dark:text-emerald-400";
@@ -376,7 +370,7 @@ export default function AiMaterials() {
                         </div>
                         <div className="mt-1.5 flex flex-wrap gap-1.5 text-[9px] text-muted-foreground">
                           <span className="inline-flex items-center gap-1 rounded bg-muted/40 px-1.5 py-0.5">
-                            <Building2 className="h-2.5 w-2.5" /> {PROJECT_LABELS[p.category] || p.category}
+                            <Building2 className="h-2.5 w-2.5" /> {projectTypeLabel(p.category)}
                           </span>
                           {p.surface && (
                             <span className="inline-flex items-center gap-1 rounded bg-muted/40 px-1.5 py-0.5">

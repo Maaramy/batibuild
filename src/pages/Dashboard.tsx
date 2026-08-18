@@ -65,6 +65,7 @@ import { useTheme } from "next-themes";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { TYPE_META, fmtTND, fmtPct } from "@/components/investment/shared";
 import { REGION_LABELS } from "@/convex/investmentTypes";
+import { projectTypeLabel } from "@/convex/projectTypes";
 
 // ============================================================================
 // Project Card (compact for mobile)
@@ -87,30 +88,6 @@ function ProjectCard({ project }: { project: any }) {
     analyzing: "Analyse...",
     completed: "Terminé",
     archived: "Archivé",
-  };
-
-  const categoryLabels: Record<string, string> = {
-    maison: "Maison",
-    villa: "Villa",
-    appartement: "Appartement",
-    studio: "Studio",
-    duplex: "Duplex",
-    immeuble: "Immeuble",
-    local_commercial: "Local commercial",
-    bureau: "Bureau",
-    entrepot: "Entrepôt",
-    residence_touristique: "Résidence touristique",
-    projet_neuf: "Projet immobilier neuf",
-    // Libellés rétro-compatibles pour les anciens projets enregistrés
-    immeuble_residentiel: "Immeuble",
-    piscine: "Piscine",
-    jardin: "Jardin",
-    garage: "Garage",
-    renovation_interieure: "Rénovation intérieure",
-    renovation_exterieure: "Rénovation extérieure",
-    renovation_salle_de_bain: "Rénovation salle de bain",
-    renovation_cuisine: "Rénovation cuisine",
-    renovation_facade: "Rénovation façade",
   };
 
   return (
@@ -173,7 +150,7 @@ function ProjectCard({ project }: { project: any }) {
         <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs text-muted-foreground mb-2 flex-wrap">
           <span className="flex items-center gap-1">
             <Building2 className="h-3 w-3 shrink-0" />
-            <span className="truncate max-w-[70px] sm:max-w-none">{categoryLabels[project.category] || project.category}</span>
+            <span className="truncate max-w-[70px] sm:max-w-none">{projectTypeLabel(project.category)}</span>
           </span>
           {project.surface && (
             <span className="flex items-center gap-1">
