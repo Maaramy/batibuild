@@ -1,0 +1,1 @@
+import{c}from"./index-CZ17eAZF.js";const e=[["path",{d:"m18 15-6-6-6 6",key:"153udz"}]],t=c("chevron-up",e);const r=[["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}],["circle",{cx:"12",cy:"12",r:"6",key:"1vlfrh"}],["circle",{cx:"12",cy:"12",r:"2",key:"1c9p78"}]],n=c("target",r);export{t as C,n as T};

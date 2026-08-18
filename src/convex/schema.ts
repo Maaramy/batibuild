@@ -110,17 +110,36 @@ export const REGION_LABELS: Record<TunisiaRegion, string> = {
 // base (schemaValidation: false) mais ne sont plus proposés dans les menus,
 // formulaires, filtres ou calculs.
 export const PROJECT_CATEGORIES = [
+  // Résidentiel
   "maison",
   "villa",
+  "maison_r_plus_1",
+  "maison_r_plus_2",
+  "immeuble",
   "appartement",
   "studio",
   "duplex",
-  "immeuble",
-  "local_commercial",
-  "bureau",
+  // Rénovation & finitions
+  "renovation_complete",
+  "renovation_cuisine",
+  "renovation_salle_de_bain",
+  "peinture_interieure",
+  // Équipements extérieurs
+  "piscine_beton",
+  "piscine_coque",
+  "garage",
+  // Commercial & tertiaire
+  "boutique_commerciale",
+  "restaurant",
+  "cafe",
+  "bureau_cabinet",
+  "atelier",
   "entrepot",
-  "residence_touristique",
-  "projet_neuf",
+  "maison_hote",
+  // Technique & artisanat
+  "batiment_agricole",
+  "electricite_complete",
+  "plomberie_complete",
 ] as const;
 
 export const projectCategoryValidator = v.union(

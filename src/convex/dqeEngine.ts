@@ -726,20 +726,19 @@ function plomberieLots(): LotTpl[] {
 // ════════════════════════════════════════════════════════════════════════
 
 const RESIDENTIAL = new Set([
-  // Types de bien officiels (catalogue unifié)
+  // 25 types officiels — Résidentiel
   "maison",
   "villa",
+  "maison_r_plus_1",
+  "maison_r_plus_2",
+  "immeuble",
   "appartement",
   "studio",
   "duplex",
-  "immeuble",
+  // Anciens types résidentiels (projets déjà enregistrés)
+  "immeuble_residentiel",
   "residence_touristique",
   "projet_neuf",
-  // Anciens types résidentiels (projets déjà enregistrés)
-  "maison_r_plus_1",
-  "maison_r_plus_2",
-  "immeuble_residentiel",
-  "maison_hote",
 ]);
 
 export function buildDqeLots(category: string): LotTpl[] {
@@ -750,11 +749,11 @@ export function buildDqeLots(category: string): LotTpl[] {
   const resolved = resolveProjectType(category) ?? category;
   if (RESIDENTIAL.has(resolved)) return residentialLots(resolved);
   switch (resolved) {
-    case "local_commercial":
     case "boutique_commerciale":
+    case "local_commercial":
       return commercialLots("boutique_commerciale");
-    case "bureau":
     case "bureau_cabinet":
+    case "bureau":
       return commercialLots("bureau_cabinet");
     case "restaurant":
     case "cafe":
