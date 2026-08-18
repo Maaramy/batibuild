@@ -13,7 +13,7 @@ import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 // Invariants vérifiés : Montant = Quantité × Prix unitaire, sous-total par
 // lot, total des lots, répartition par nature (matériaux / main-d'œuvre /
 // équipements / transport / études), coût au m², et un gabarit de lots
-// distinct pour chacun des 11 types de projet officiels.
+// distinct pour chacun des 13 types de projet officiels.
 // ============================================================================
 
 const BASE_BUDGET = 300_000;
@@ -94,9 +94,9 @@ describe("generateDqe — invariants de calcul (modèle Google Sheets)", () => {
   });
 });
 
-describe("generateDqe — les 11 types de projet génèrent un DQE", () => {
+describe("generateDqe — les 13 types de projet génèrent un DQE", () => {
   it("chaque type officiel produit au moins 2 lots et 5 lignes", () => {
-    expect(PROJECT_TYPES).toHaveLength(11);
+    expect(PROJECT_TYPES).toHaveLength(13);
     for (const cat of PROJECT_TYPES) {
       const dqe = run(cat);
       expect(dqe.lots.length, cat).toBeGreaterThanOrEqual(2);

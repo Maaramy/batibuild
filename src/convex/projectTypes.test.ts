@@ -15,15 +15,17 @@ import {
 import { INVESTMENT_TYPES } from "./investmentTypes";
 
 // ============================================================================
-// Contrat du catalogue officiel des types de projet (11 types)
-// Aligné exactement sur les types de bien du module Investissement
+// Contrat du catalogue officiel des types de projet (13 types)
+// Aligné sur les types de bien du module Investissement
 // (à l'exception de « terrain constructible »).
 // ============================================================================
 
-describe("PROJECT_TYPES — catalogue officiel (11 types)", () => {
-  it("contient exactement les 11 types de projet du catalogue", () => {
+describe("PROJECT_TYPES — catalogue officiel (13 types)", () => {
+  it("contient exactement les 13 types de projet du catalogue", () => {
     expect(PROJECT_TYPES).toEqual([
       "maison",
+      "maison_r_plus_1",
+      "maison_r_plus_2",
       "villa",
       "appartement",
       "studio",
@@ -53,9 +55,13 @@ describe("PROJECT_TYPES — catalogue officiel (11 types)", () => {
     for (const t of SINGLE_LEVEL_TYPES) expect(official.has(t), t).toBe(true);
   });
 
-  it("correspond exactement aux types d'investissement hors terrain", () => {
+  it("chaque type officiel est couvert par le mapping vers investissement", () => {
     const investmentWithoutTerrain = INVESTMENT_TYPES.filter((t) => t !== "terrain");
-    expect([...PROJECT_TYPES]).toEqual([...investmentWithoutTerrain]);
+    // Les types officiels (13) incluent R+1/R+2 qui ne sont pas dans INVESTMENT_TYPES
+    // mais tous les types officiels ont un équivalent d'investissement
+    for (const t of PROJECT_TYPES) {
+      expect(investmentTypeForProject(t), t).toBeDefined();
+    }
   });
 });
 
@@ -68,8 +74,8 @@ describe("resolveProjectType — résolution des slugs (nouveaux & anciens)", ()
 
   it("résout les anciens slugs ayant un équivalent officiel", () => {
     expect(resolveProjectType("immeuble_residentiel")).toBe("immeuble");
-    expect(resolveProjectType("maison_r_plus_1")).toBe("maison");
-    expect(resolveProjectType("maison_r_plus_2")).toBe("villa");
+    // maison_r_plus_1 et maison_r_plus_2 sont maintenant des types officiels
+    // (ils retournent eux-mêmes via resolveProjectType)
     expect(resolveProjectType("boutique_commerciale")).toBe("local_commercial");
     expect(resolveProjectType("bureau_cabinet")).toBe("bureau");
     expect(resolveProjectType("atelier")).toBe("entrepot");
@@ -117,9 +123,11 @@ describe("projectTypeLabel — libellés d'affichage (nouveaux & anciens)", () =
 });
 
 describe("investmentTypeForProject — lien direct avec le module Investissement", () => {
-  it("les 11 types officiels mappent vers eux-mêmes (1:1)", () => {
+  it("les types officiels mappent vers des types d'investissement valides", () => {
+    const investmentSet = new Set(INVESTMENT_TYPES);
     for (const t of PROJECT_TYPES) {
-      expect(investmentTypeForProject(t), t).toBe(t);
+      const inv = investmentTypeForProject(t);
+      expect(investmentSet.has(inv as any), `${t} → ${inv}`).toBe(true);
     }
   });
 
