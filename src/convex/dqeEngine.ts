@@ -22,6 +22,7 @@
 // ============================================================================
 
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
+import { resolveProjectType } from "./projectTypes";
 
 export type DqeNature =
   | "materiaux"

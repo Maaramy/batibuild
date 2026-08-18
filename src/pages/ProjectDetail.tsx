@@ -475,7 +475,7 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-1">
             {done && (
               <>
-                {investmentTypeForProject(project.category) && ce && (
+                {sharedInvestmentTypeForProject(project.category) && ce && (
                   <button
                     onClick={handleInvestRoi}
                     title="Lancer une analyse de rentabilité immobilière (Return on Investment)"
@@ -867,7 +867,7 @@ export default function ProjectDetail() {
                         <span className="font-semibold">{ai.estimatedDuration}</span>
                       </div>
                     )}
-                    {investmentTypeForProject(project.category) && (
+                    {sharedInvestmentTypeForProject(project.category) && (
                       <button onClick={handleInvestRoi}
                         title="Lancer une analyse de rentabilité immobilière (Return on Investment)"
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border border-emerald-300/40 bg-emerald-400/20 text-emerald-50 hover:bg-emerald-400/30 active:scale-95 backdrop-blur-md">
