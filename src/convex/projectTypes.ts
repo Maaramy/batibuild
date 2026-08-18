@@ -335,8 +335,8 @@ export function resolveProjectType(slug: string): ProjectType | null {
 // Lien avec le module Investissement
 // Un projet de construction (avec son Quantitatif détaillé / DQE) alimente une
 // analyse d'investissement : coût total de construction → prix d'acquisition ou
-// coût de rénovation, surface & région réutilisées. Les 11 types officiels
-// correspondent 1:1 aux types de bien du module Investissement (hors « Terrain
+// coût de rénovation, surface & région réutilisées. Les 25 types officiels
+// correspondent aux types de bien du module Investissement (hors « Terrain
 // constructible ») ; les anciens types sont mappés vers l'équivalent le plus
 // proche pour le pré-remplissage.
 // ============================================================================
