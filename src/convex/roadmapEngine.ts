@@ -820,9 +820,9 @@ export function buildOmissions(
   }
   if (project.surfaceTotale) {
     green.push(`Surface du terrain renseignée : ${project.surfaceTotale} m²`);
-    if (!project.costEstimate?.breakdown?.length) orange.push("Surface constructible à vérifier auprès de la municipalité (COS).");
-  } else {
-    orange.push("Surface totale du terrain non renseignée — utile pour la faisabilité.");
+  }
+  if (project.surfaceTotale && !project.costEstimate?.breakdown?.length) {
+    orange.push("Surface constructible à vérifier auprès de la municipalité (COS).");
   }
   if (project.files?.length) { green.push(`${project.files.length} document(s) importé(s) (photos, plans).`); } else { orange.push("Aucun document importé — ajoutez des photos ou un plan du terrain."); }
 
@@ -1164,7 +1164,7 @@ export function buildSummary(
   const nextTask = planning.find((t) => t.status !== "done");
   const alerts: RoadmapSummary["alerts"] = [];
   if (!project.costEstimate) alerts.push({ severity: "critical", message: "Aucune estimation de coût — lancez l'estimation du projet." });
-  if (!project.surfaceTotale) alerts.push({ severity: "warning", message: "Surface totale du terrain non renseignée." });
+
   if (progress > 0 && tasksInProgress > 0) alerts.push({ severity: "info", message: `${tasksInProgress} tâche(s) en cours — pensez à mettre à jour l'avancement.` });
 
   return {

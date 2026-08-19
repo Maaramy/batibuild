@@ -8,7 +8,7 @@ import { api } from "@/convex/_generated/api";
 import { projectTypeLabel } from "@/convex/projectTypes";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -96,7 +96,6 @@ export default function AiMaterials() {
 
   // ── Formulaire ──
   const [projectId, setProjectId] = useState(paramProject || "");
-  const [manualMode, setManualMode] = useState(false);
   const [form, setForm] = useState({
     surface: 120,
     floors: 1,
@@ -109,9 +108,15 @@ export default function AiMaterials() {
     budgetAmount: 120000,
   });
   const [priorities, setPriorities] = useState({ price: 50, quality: 50, isolation: 50, durability: 50, eco: 50 });
-  const [selectedCats, setSelectedCats] = useState<string[]>([
-    "ciment", "beton", "briques", "isolation_thermique", "carrelage", "peinture", "menuiserie", "electricite", "plomberie", "sanitaires",
-  ]);
+  const [selectedCats, setSelectedCats] = useState<string[]>([]);
+
+  // Pré-sélectionner toutes les catégories disponibles au chargement
+  useEffect(() => {
+    if (catStats.length > 0 && selectedCats.length === 0) {
+      setSelectedCats(catStats.map((c) => c.id));
+    }
+  }, [catStats]);
+
   const [useAI, setUseAI] = useState(true);
   const [enhance, setEnhance] = useState(true);
   const copilotMaterialsQuery = useQuery(api.aiMaterials.getCopilotMaterials, { categories: selectedCats });
@@ -128,30 +133,40 @@ export default function AiMaterials() {
 
   const projectCtx = useMemo<ProjectContext>(() => {
     const proj = projects.find((p: any) => p._id === projectId) as any;
-    const effective = manualMode ? form : { ...form, surface: form.surface || proj?.surface || 0, floors: form.floors || proj?.floors || 1, region: form.region || proj?.region || "tunis" };
-    return {
-      projectName: !manualMode && proj ? proj.name : undefined,
-      projectCategory: !manualMode && proj ? proj.category : undefined,
-      region: effective.region,
-      city: effective.city,
-      quarter: effective.quarter,
-      surface: Number(effective.surface) || 0,
-      floors: Number(effective.floors) || 1,
-      year: Number(effective.year) || new Date().getFullYear(),
-      standing: effective.standing as ProjectContext["standing"],
-      budgetMode: effective.budgetMode as ProjectContext["budgetMode"],
-      budgetAmount: Number(effective.budgetAmount) || undefined,
+    if (!proj) return {
+      region: form.region,
+      city: form.city,
+      quarter: form.quarter,
+      surface: Number(form.surface) || 0,
+      floors: Number(form.floors) || 1,
+      year: Number(form.year) || new Date().getFullYear(),
+      standing: form.standing as ProjectContext["standing"],
+      budgetMode: form.budgetMode as ProjectContext["budgetMode"],
+      budgetAmount: Number(form.budgetAmount) || undefined,
       priorities,
-      rooms: !manualMode && proj ? { bathrooms: proj.bathrooms, kitchens: proj.kitchens, bedrooms: proj.bedrooms } : undefined,
-      terrainSurface: !manualMode && proj ? proj.surfaceTotale : undefined,
     };
-  }, [projects, projectId, manualMode, form, priorities]);
+    return {
+      projectName: proj.name,
+      projectCategory: proj.category,
+      region: proj.region || form.region,
+      city: form.city,
+      quarter: form.quarter,
+      surface: Number(proj.surface || form.surface) || 0,
+      floors: Number(proj.floors || form.floors) || 1,
+      year: Number(form.year) || new Date().getFullYear(),
+      standing: form.standing as ProjectContext["standing"],
+      budgetMode: form.budgetMode as ProjectContext["budgetMode"],
+      budgetAmount: Number(form.budgetAmount) || undefined,
+      priorities,
+      rooms: { bathrooms: proj.bathrooms, kitchens: proj.kitchens, bedrooms: proj.bedrooms },
+      terrainSurface: proj.surfaceTotale,
+    };
+  }, [projects, projectId, form, priorities]);
 
   const selectedProject = projects.find((p: any) => p._id === projectId) as any;
 
   const selectProject = (id: string) => {
     setProjectId(id);
-    setManualMode(false);
     const proj = projects.find((p: any) => p._id === id) as any;
     if (proj) {
       setForm((f) => ({
@@ -165,14 +180,14 @@ export default function AiMaterials() {
 
   const handleAnalyze = async () => {
     if (selectedCats.length === 0) return toast.error("Sélectionnez au moins une catégorie de matériaux.");
-    if (!manualMode && !projectId) return toast.error("Choisissez un projet (ou activez la saisie manuelle).");
+    if (!projectId) return toast.error("Choisissez un projet.");
     setAnalyzing(true);
     setResult(null);
     setOptimization(null);
     setPerformance(null);
     try {
       const res = await recommendMaterials({
-        projectId: manualMode ? undefined : (projectId as any),
+        projectId: projectId as any,
         context: projectCtx,
         categories: selectedCats,
         enhanceWithAI: enhance,
@@ -182,7 +197,7 @@ export default function AiMaterials() {
       // Sauvegarde automatique de l'analyse
       try {
         const id = await saveAnalysis({
-          projectId: manualMode ? undefined : (projectId as any),
+          projectId: projectId as any,
           input: { context: projectCtx, categories: selectedCats, useAI, enhance },
           results: { recommend: res },
         });
@@ -236,7 +251,6 @@ export default function AiMaterials() {
       if (c.priorities) setPriorities(c.priorities);
     }
     setProjectId(doc.projectId || "");
-    setManualMode(!doc.projectId);
     setSavedId(doc._id);
     setBudgetInput(Math.round((res.cost?.total || 0) * 0.85));
     toast.success("Analyse chargée.");
@@ -253,7 +267,7 @@ export default function AiMaterials() {
     }
   };
 
-  const noProjects = !analyzing && projects.length === 0 && !manualMode;
+  const noProjects = projects.length === 0;
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
@@ -339,14 +353,9 @@ export default function AiMaterials() {
                 <Building2 className="h-10 w-10 mx-auto mb-2 text-muted-foreground/40" />
                 <p className="text-sm font-medium">Aucun projet de construction trouvé</p>
                 <p className="text-xs text-muted-foreground mt-1 mb-3">Créez d'abord un projet pour importer automatiquement surface, type et localisation.</p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button size="sm" onClick={() => navigate("/dashboard/new")} className="h-8 gap-1.5 text-xs">
-                    <HardHat className="h-3.5 w-3.5" /> Créer un projet
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => setManualMode(true)}>
-                    Saisie manuelle
-                  </Button>
-                </div>
+                <Button size="sm" onClick={() => navigate("/dashboard/new")} className="h-8 gap-1.5 text-xs">
+                  <HardHat className="h-3.5 w-3.5" /> Créer un projet de construction
+                </Button>
               </div>
             ) : (
               <>
@@ -358,7 +367,7 @@ export default function AiMaterials() {
                         onClick={() => selectProject(p._id)}
                         className={cn(
                           "text-left rounded-xl border p-3 transition-all cursor-pointer",
-                          !manualMode && projectId === p._id
+                          projectId === p._id
                             ? "border-emerald-500/60 bg-emerald-500/5 ring-1 ring-emerald-500/20"
                             : "border-border/40 hover:border-border hover:bg-muted/30",
                         )}
@@ -366,7 +375,7 @@ export default function AiMaterials() {
                         <div className="flex items-center gap-2">
                           <HardHat className="h-3.5 w-3.5 text-primary shrink-0" />
                           <span className="text-xs font-semibold truncate">{p.name}</span>
-                          {!manualMode && projectId === p._id && <Check className="h-3.5 w-3.5 text-emerald-600 ml-auto shrink-0" />}
+                          {projectId === p._id && <Check className="h-3.5 w-3.5 text-emerald-600 ml-auto shrink-0" />}
                         </div>
                         <div className="mt-1.5 flex flex-wrap gap-1.5 text-[9px] text-muted-foreground">
                           <span className="inline-flex items-center gap-1 rounded bg-muted/40 px-1.5 py-0.5">
@@ -387,19 +396,7 @@ export default function AiMaterials() {
                     ))}
                   </div>
                 )}
-                {projects.length > 0 && (
-                  <button
-                    onClick={() => setManualMode(!manualMode)}
-                    className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 cursor-pointer"
-                  >
-                    {manualMode ? "← Utiliser un projet existant" : "ou saisir manuellement les informations"}
-                  </button>
-                )}
-                {manualMode && (
-                  <div className="rounded-xl border border-border/30 bg-muted/10 p-3 text-[11px] text-muted-foreground">
-                    Mode manuel : renseignez la surface, le niveau de standing et le budget ci-dessous (étape 2).
-                  </div>
-                )}
+
               </>
             )}
           </CardContent>
