@@ -447,7 +447,7 @@ export default function Dashboard() {
         {[
           { icon: LayoutDashboard, label: "Tableau de bord", active: true, onClick: () => setMobileSidebarOpen(false) },
           { icon: Plus, label: "Nouveau projet", onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
-          { icon: Rocket, label: "Guide construction A-Z", onClick: () => { navigate("/dashboard/guide"); setMobileSidebarOpen(false); } },
+          { icon: Rocket, label: "Démarche de construction", onClick: () => { navigate("/dashboard/guide"); setMobileSidebarOpen(false); } },
           { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
           { icon: BarChart3, label: "Comparer", onClick: () => setMobileSidebarOpen(false) },
           { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
@@ -651,7 +651,7 @@ export default function Dashboard() {
                     <Rocket className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Guide A-Z</p>
+                    <p className="text-xs sm:text-sm font-medium truncate">Démarche</p>
                     <p className="text-[10px] text-muted-foreground truncate">Projet de A à Z</p>
                   </div>
                 </CardContent>
