@@ -253,7 +253,6 @@ const BIM_TO_CATALOG: Record<string, { name: string; qtyFactor?: number }> = {
   "Porte intérieure en bois pleine": { name: "Porte intérieure bois pleine" },
   "Porte d'entrée métallique blindée": { name: "Porte d'entrée métallique" },
   "Fenêtre coulissante alu simple vitrage": { name: "Fenêtre aluminium 90×120" },
-  "Tuile canal rouge": { name: "Tuile canal rouge (m²)" },
   "Panneau de placoplâtre BA13": { name: "Plaque placoplâtre BA13 (m²)" },
   "Corniche en plâtre": { name: "Corniche en plâtre (ml)" },
   "Faux plafond dalles 60x60": { name: "Faux plafond dalles 60×60 (m²)" },
@@ -997,7 +996,6 @@ function genSOItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Fenêtre coulissante alu simple vitrage", q:Math.max(2,winC), u:"unités", up:310},
       {n:"Grille de protection métallique", q:Math.max(2,winC), u:"unités", up:220},
       {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.25), u:"m²", up:22},
-      {n:"Tuile canal rouge", q:Math.round(tb*0.65), u:"m²", up:19},
     ];
     if (floors >= 2) {
       items.push({n:"Garde-corps inox/fer forgé (escalier+balcons)", q:floors === 2 ? 18 : 25, u:"ml", up:150});

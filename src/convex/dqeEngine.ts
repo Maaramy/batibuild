@@ -123,7 +123,6 @@ const DQE_TO_CATALOG: Record<string, string> = {
   "Treillis soudé ST25": "Treillis soudé ST25 (panneau)",
   "Brique creuse 10cm": "Brique creuse 10 (m²)",
   "Parpaing creux 20cm": "Parpaing creux 20 (m²)",
-  "Tuile canal rouge": "Tuile canal rouge (m²)",
   "Portail d'accès (métallique, coulissant/battant manuel)": "Portail alu battant 2 vantaux",
   "Gazon en plaques": "Gazon en plaques (m²)",
   "Pavé autobloquant 6cm": "Pavé autobloquant (m²)",

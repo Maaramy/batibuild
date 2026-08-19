@@ -149,11 +149,10 @@ describe("runBIMEstimation — quantitatif cohérent par type de projet", () => 
     expect(eq.some((n) => n.includes("Chauffage électrique piscine"))).toBe(true);
   });
 
-  it("maison : garde fenêtres alu, portes et tuiles (profil résidentiel)", () => {
+  it("maison : garde fenêtres alu et portes (profil résidentiel)", () => {
     const names = soItems("maison");
     expect(names.some((n) => n.includes("Fenêtre aluminium"))).toBe(true);
     expect(names.some((n) => n.includes("Porte intérieure"))).toBe(true);
-    expect(names.some((n) => n.includes("Tuile canal"))).toBe(true);
   });
 
   it("jardin : pas de menuiserie, mais gazon et pavés", () => {
