@@ -1112,7 +1112,7 @@ export default function ProjectDetail() {
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: i * 0.02 }}
                                     className="border-b border-border/5 hover:bg-muted/10 transition-colors">
-                                    <td className="py-2 px-3 font-medium truncate max-w-[140px] sm:max-w-none">{item.name}</td>
+                                    <td className="py-2 px-3 font-medium whitespace-normal break-words min-w-[160px]">{item.name}</td>
                                     <td className="text-right py-2 px-3 font-mono text-muted-foreground">{cat.category === "main_oeuvre" ? "1 lot" : `${item.quantity} ${item.unit}`}</td>
                                     <td className="text-right py-2 px-3 text-muted-foreground font-mono hidden sm:table-cell">{fmt(item.unitPrice)}</td>
                                     <td className="text-right py-2 px-3 font-semibold font-mono">{fmt(item.totalPrice)}</td>
