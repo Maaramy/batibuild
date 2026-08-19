@@ -533,9 +533,9 @@ export default function ProjectGuide() {
                   </div>
                 ))}
               </div>
-              <Button className="w-full h-11 gap-2 text-sm bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white" onClick={handleGenerate} disabled={generating}>
-                {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-                {generating ? "Génération de la feuille de route…" : "🚀 Démarrer mon projet de construction avec IA"}
+              <Button className="w-full h-9 gap-1.5 text-xs bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white" onClick={handleGenerate} disabled={generating}>
+                {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
+                {generating ? "Génération…" : "Démarrer mon projet avec IA"}
               </Button>
               <p className="text-center text-[10px] text-muted-foreground/60 leading-relaxed">
                 Les données de prix, réglementations et démarches sont séparées du moteur IA et mises à jour indépendamment. Toute information réglementaire reste à vérifier auprès des autorités compétentes.

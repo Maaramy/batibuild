@@ -621,7 +621,8 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto">
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+                onClick={() => navigate("/dashboard/materials")}>
                 <CardContent className="p-3 sm:p-4 flex items-center gap-3">
                   <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
                     <Download className="h-4 w-4 sm:h-5 sm:w-5" />
