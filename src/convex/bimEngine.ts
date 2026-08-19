@@ -660,53 +660,69 @@ export const BIM_CATEGORY_LABELS = PROJECT_TYPE_LABELS;
 // ============================================================================
 
 export const REGION_COST_M2: Record<string, { eco: number; std: number; premium: number; ecoRange: string; stdRange: string; premiumRange: string }> = {
-  // ──────────────────────────────────────────────────────────────────────
-  // PRIX CLÉ EN MAIN PAR RÉGION (TND/m²)
-  // Source : Base_Materiaux_Construction_Tunisie_2026.xlsx
-  // Méthode : Prix Grand Tunis × coefficient logistique gouvernorat
-  //           − déduction main-d'œuvre moins chère en région.
-  // Marché tunisien 2026 : maison standard ≈ 800-1 200 TND/m²
-  // ──────────────────────────────────────────────────────────────────────
-  //
   // ── Base : Grand Tunis (Tunis, Ariana, Ben Arous) ──────────────────────
-  tunis:     { eco: 700,  std: 1100, premium: 1750, ecoRange: "550-850",  stdRange: "900-1300", premiumRange: "1400-2200" },
-  ariana:    { eco: 700,  std: 1100, premium: 1750, ecoRange: "550-850",  stdRange: "900-1300", premiumRange: "1400-2200" },
-  ben_arous: { eco: 700,  std: 1100, premium: 1750, ecoRange: "550-850",  stdRange: "900-1300", premiumRange: "1400-2200" },
+  // Calqué sur la feuille « Gouvernorats » du fichier
+  // Base_Materiaux_Construction_Tunisie_2026.xlsx — coefficient 100 %.
+  // Les prix intègrent matériaux + main-d'œuvre + logistique.
+  tunis:     { eco: 1500, std: 2150, premium: 3200, ecoRange: "1300-1700", stdRange: "1900-2400", premiumRange: "2600-3900" },
+  ariana:    { eco: 1500, std: 2150, premium: 3200, ecoRange: "1300-1700", stdRange: "1900-2400", premiumRange: "2600-3900" },
+  ben_arous: { eco: 1500, std: 2150, premium: 3200, ecoRange: "1300-1700", stdRange: "1900-2400", premiumRange: "2600-3900" },
   // ── Grand Tunis périphérie ─────────────────────────────────────────────
-  manouba:   { eco: 690,  std: 1090, premium: 1725, ecoRange: "540-840",  stdRange: "890-1290", premiumRange: "1375-2175" },
+  // Manouba (coeff 101 %) — faible écart
+  manouba:   { eco: 1475, std: 2100, premium: 3100, ecoRange: "1275-1675", stdRange: "1875-2325", premiumRange: "2525-3750" },
   // ── Nord-Est ───────────────────────────────────────────────────────────
-  nabeul:    { eco: 675,  std: 1070, premium: 1700, ecoRange: "525-825",  stdRange: "870-1270", premiumRange: "1350-2125" },
-  zaghouan:  { eco: 665,  std: 1055, premium: 1675, ecoRange: "515-815",  stdRange: "855-1255", premiumRange: "1325-2100" },
-  bizerte:   { eco: 665,  std: 1055, premium: 1675, ecoRange: "515-815",  stdRange: "855-1255", premiumRange: "1325-2100" },
+  // Nabeul (103 %) — proximité Grand Tunis
+  nabeul:    { eco: 1450, std: 2050, premium: 3050, ecoRange: "1250-1650", stdRange: "1825-2275", premiumRange: "2475-3650" },
+  // Zaghouan (104 %) — proximité ciment/acier
+  zaghouan:  { eco: 1400, std: 2000, premium: 2950, ecoRange: "1200-1600", stdRange: "1775-2225", premiumRange: "2400-3525" },
+  // Bizerte (104 %) — accès industriel
+  bizerte:   { eco: 1400, std: 2000, premium: 2950, ecoRange: "1200-1600", stdRange: "1775-2225", premiumRange: "2400-3525" },
   // ── Nord-Ouest ─────────────────────────────────────────────────────────
-  beja:      { eco: 640,  std: 1020, premium: 1625, ecoRange: "490-790",  stdRange: "820-1220", premiumRange: "1275-2025" },
-  jendouba:  { eco: 625,  std: 1000, premium: 1600, ecoRange: "475-775",  stdRange: "800-1200", premiumRange: "1250-2000" },
-  le_kef:    { eco: 615,  std: 985,  premium: 1575, ecoRange: "465-765",  stdRange: "785-1185", premiumRange: "1225-1975" },
-  siliana:   { eco: 625,  std: 1000, premium: 1600, ecoRange: "475-775",  stdRange: "800-1200", premiumRange: "1250-2000" },
+  // Béja (107 %) — transport à calibrer
+  beja:      { eco: 1350, std: 1925, premium: 2850, ecoRange: "1150-1550", stdRange: "1700-2150", premiumRange: "2300-3400" },
+  // Jendouba (109 %) — transport à calibrer
+  jendouba:  { eco: 1325, std: 1900, premium: 2800, ecoRange: "1125-1525", stdRange: "1675-2125", premiumRange: "2275-3350" },
+  // Le Kef (110 %) — transport à calibrer
+  le_kef:    { eco: 1300, std: 1875, premium: 2750, ecoRange: "1100-1500", stdRange: "1650-2100", premiumRange: "2250-3275" },
+  // Siliana (109 %) — transport à calibrer
+  siliana:   { eco: 1325, std: 1900, premium: 2800, ecoRange: "1125-1525", stdRange: "1675-2125", premiumRange: "2275-3350" },
   // ── Sahel ──────────────────────────────────────────────────────────────
-  sousse:    { eco: 685,  std: 1085, premium: 1720, ecoRange: "535-835",  stdRange: "880-1280", premiumRange: "1370-2150" },
-  monastir:  { eco: 675,  std: 1070, premium: 1700, ecoRange: "525-825",  stdRange: "870-1270", premiumRange: "1350-2125" },
-  mahdia:    { eco: 660,  std: 1050, premium: 1665, ecoRange: "510-810",  stdRange: "850-1250", premiumRange: "1320-2075" },
+  // Sousse (102 %) — pôle industriel
+  sousse:    { eco: 1475, std: 2100, premium: 3100, ecoRange: "1275-1675", stdRange: "1850-2350", premiumRange: "2500-3725" },
+  // Monastir (102 %) — pôle industriel
+  monastir:  { eco: 1450, std: 2050, premium: 3050, ecoRange: "1250-1650", stdRange: "1825-2275", premiumRange: "2475-3650" },
+  // Mahdia (104 %) — transport à calibrer
+  mahdia:    { eco: 1400, std: 2000, premium: 2950, ecoRange: "1200-1600", stdRange: "1775-2225", premiumRange: "2400-3525" },
   // ── Centre ─────────────────────────────────────────────────────────────
-  kairouan:  { eco: 645,  std: 1030, premium: 1640, ecoRange: "495-795",  stdRange: "830-1230", premiumRange: "1290-2050" },
+  // Kairouan (106 %) — pôle régional
+  kairouan:  { eco: 1375, std: 1950, premium: 2900, ecoRange: "1175-1575", stdRange: "1725-2175", premiumRange: "2350-3450" },
   // ── Centre-Ouest ───────────────────────────────────────────────────────
-  kasserine: { eco: 610,  std: 975,  premium: 1560, ecoRange: "460-760",  stdRange: "775-1175", premiumRange: "1210-1950" },
-  sidi_bouzid: { eco: 620, std: 990,  premium: 1585, ecoRange: "470-770",  stdRange: "790-1190", premiumRange: "1240-1975" },
+  // Kasserine (110 %) — transport à calibrer
+  kasserine: { eco: 1300, std: 1850, premium: 2725, ecoRange: "1100-1500", stdRange: "1625-2075", premiumRange: "2225-3225" },
+  // Sidi Bouzid (109 %) — transport à calibrer
+  sidi_bouzid: { eco: 1325, std: 1875, premium: 2775, ecoRange: "1125-1525", stdRange: "1650-2100", premiumRange: "2250-3300" },
   // ── Centre-Sud ─────────────────────────────────────────────────────────
-  sfax:      { eco: 670,  std: 1065, premium: 1690, ecoRange: "520-820",  stdRange: "860-1260", premiumRange: "1340-2100" },
+  // Sfax (103 %) — pôle industriel
+  sfax:      { eco: 1425, std: 2000, premium: 2975, ecoRange: "1225-1625", stdRange: "1775-2225", premiumRange: "2425-3550" },
   // ── Sud-Est ────────────────────────────────────────────────────────────
-  gabes:     { eco: 640,  std: 1020, premium: 1625, ecoRange: "490-790",  stdRange: "820-1220", premiumRange: "1275-2025" },
-  medenine:  { eco: 625,  std: 1000, premium: 1600, ecoRange: "475-775",  stdRange: "800-1200", premiumRange: "1250-2000" },
-  tataouine: { eco: 610,  std: 975,  premium: 1560, ecoRange: "460-760",  stdRange: "775-1175", premiumRange: "1210-1950" },
+  // Gabès (107 %) — pôle industriel Sud
+  gabes:     { eco: 1375, std: 1950, premium: 2875, ecoRange: "1175-1575", stdRange: "1725-2175", premiumRange: "2350-3425" },
+  // Médenine (109 %) — transport à calibrer
+  medenine:  { eco: 1350, std: 1900, premium: 2825, ecoRange: "1150-1550", stdRange: "1675-2125", premiumRange: "2300-3350" },
+  // Tataouine (112 %) — longue distance
+  tataouine: { eco: 1300, std: 1850, premium: 2750, ecoRange: "1100-1500", stdRange: "1625-2075", premiumRange: "2225-3275" },
   // ── Sud-Ouest ──────────────────────────────────────────────────────────
-  gafsa:     { eco: 620,  std: 990,  premium: 1585, ecoRange: "470-770",  stdRange: "790-1190", premiumRange: "1240-1975" },
-  tozeur:    { eco: 610,  std: 975,  premium: 1560, ecoRange: "460-760",  stdRange: "775-1175", premiumRange: "1210-1950" },
-  kebili:    { eco: 600,  std: 960,  premium: 1540, ecoRange: "450-750",  stdRange: "760-1160", premiumRange: "1190-1925" },
+  // Gafsa (109 %) — transport à calibrer
+  gafsa:     { eco: 1325, std: 1875, premium: 2775, ecoRange: "1125-1525", stdRange: "1650-2100", premiumRange: "2250-3300" },
+  // Tozeur (112 %) — longue distance
+  tozeur:    { eco: 1300, std: 1850, premium: 2750, ecoRange: "1100-1500", stdRange: "1625-2075", premiumRange: "2225-3275" },
+  // Kébili (113 %) — longue distance
+  kebili:    { eco: 1275, std: 1825, premium: 2700, ecoRange: "1075-1475", stdRange: "1600-2050", premiumRange: "2200-3225" },
 };
 
 // National average (utilisé quand aucune région spécifique n'est sélectionnée)
-// Moyenne pondérée des 24 gouvernorats — marché tunisien 2026
-export const NATIONAL_AVG = { eco: 640, std: 1020, premium: 1615 };
+// Moyenne des 24 gouvernorats calibrée sur le fichier Base_Materiaux 2026
+export const NATIONAL_AVG = { eco: 1375, std: 1975, premium: 2925 };
 
 // Cache les fourchettes de prix par région pour l'affichage UI
 export const REGION_RANGES: Record<string, { eco: string; std: string; premium: string }> = {};
