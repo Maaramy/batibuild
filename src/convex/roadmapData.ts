@@ -17,7 +17,7 @@ export interface TerrainItem {
 
 export const TERRAIN_ITEMS: TerrainItem[] = [
   { id: "situation", label: "Situation et localisation", detail: "Gouvernorat, ville, quartier, accessibilité routière.", auto: true },
-  { id: "surface", label: "Surface et dimensions", detail: "Surface totale du terrain et dimensions réelles du bâti.", auto: true },
+  { id: "surface", label: "Surface et dimensions", detail: "Dimensions et surface construite du projet.", auto: true },
   { id: "accessibilite", label: "Accessibilité", detail: "Voie d'accès, largeur de la rue, possibilité de passage des engins." },
   { id: "orientation", label: "Orientation", detail: "Exposition solaire et vents dominants (impact énergie et confort)." },
   { id: "topographie", label: "Topographie", detail: "Pente, dénivelés, remblais/déblais prévisibles." },

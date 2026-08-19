@@ -469,7 +469,7 @@ export default function ProjectGuide() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold truncate">{p.name}</p>
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate">
-                    <MapPin className="h-3 w-3 shrink-0" /> {p.category} · {p.surface ? `${p.surface} m²` : "surface non définie"}
+                    <MapPin className="h-3 w-3 shrink-0" /> {p.category}
                   </p>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-cyan-600 transition-colors" />
