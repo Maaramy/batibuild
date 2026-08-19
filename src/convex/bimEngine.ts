@@ -24,7 +24,7 @@ export const P = {
   // ── Liants, ciments et mortiers (Base_Materiaux 2026 — TTC) ───────────
   // CPC / CEM II sac 50 kg : 14,85 TND · CPA / CEM I sac 50 kg : 15,85 TND
   // HRS 42,5 sac 50 kg : 18,50 TND
-  cement: { bag42_5: 14.85, bag32_5: 15.85, hrs_42_5: 18.5 },
+  cement: { bag42_5: 15.85, bag32_5: 14.85, hrs_42_5: 18.5 },
   // ── Bétons et préfabrication ──────────────────────────────────────────
   concrete: { ready_mix_250: 210, ready_mix_300: 235, ready_mix_350: 265 },
   // ── Acier et métaux de structure (COMAF / INTERMETAL / SIDENOR) ────────
