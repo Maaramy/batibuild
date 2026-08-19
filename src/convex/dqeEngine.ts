@@ -128,6 +128,16 @@ const DQE_TO_CATALOG: Record<string, string> = {
   "Pavé autobloquant 6cm": "Pavé autobloquant (m²)",
   "Bordure béton 50x20": "Bordure béton préfabriquée",
   "Panneau photovoltaïque 450Wc": "Panneau photovoltaïque 450 Wc",
+  // ── Nouvelles désignations enrichies (août 2026) ──
+  "Isolant sous dalle (polystyrène expansé 80 mm)": "Polystyrène expansé 80 mm (m²)",
+  "Béton de propreté (C12/15 — 5 cm)": "Béton prêt à l'emploi 250kg/m³",
+  "Coffrage permanent (banchage)": "Bois de coffrage (m³)",
+  "Luminaires intérieurs (LED encastrés)": "Spot LED encastré",
+  "Prises et interrupteurs (norme NF)": "Prise 2P+T",
+  "VMC (ventilation mécanique contrôlée)": "VMC",
+  "Seuils de portes (marbre ou granit)": "Granit 60×30",
+  "Plantation et gazon (terrain 200 m²)": "Gazon en plaques (m²)",
+  "Éclairage extérieur (LED solaire)": "Panneau photovoltaïque 450 Wc",
 };
 
 /** Prix en direct (base materialPrices) indexés par libellé normalisé. */
@@ -198,6 +208,10 @@ function grosOeuvreLot(percent: number, opts?: { toiture?: boolean; escalier?: b
     { d: "Poteaux, poutres et chaînages", desc: "Béton armé C25/30, acier T12, coffrage.", u: "m²", q: Math.round(120 * structFactor), up: 88, n: "materiaux", obs: f > 1 ? `${f} niveaux — structures renforcées` : undefined },
     { d: "Planchers", desc: "Dalle pleine ou corps creux (hourdis + poutrelles).", u: "m²", q: Math.round(120 * slabCount), up: 105, n: "materiaux", obs: slabCount > 1 ? `${slabCount} dalles (1 par niveau)` : undefined },
     { d: "Escalier (béton armé)", desc: escalierDesc, u: "unité", q: 1, qMode: "fixed", up: escalierUp, n: "materiaux" },
+    { d: "Isolant sous dalle (polystyrène expansé 80 mm)", desc: "Film PE + polystyrène 20 kg/m³, joints bandés.", u: "m²", q: 120, up: 18, n: "materiaux" },
+    { d: "Joint bitumineux d'étanchéité soubassement", desc: "Bande bitumineuse autocollante sur radier.", u: "ml", q: 45, up: 12, n: "materiaux" },
+    { d: "Béton de propreté (C12/15 — 5 cm)", desc: "Dalle de propreté avant hérisson.", u: "m²", q: 120, up: 18, n: "materiaux" },
+    { d: "Coffrage permanent (banchage)", desc: "Coffrage perdu pour murs porteurs en béton.", u: "m²", q: Math.round(40 * wallFactor), up: 35, n: "materiaux", obs: f > 1 ? `${f} niveaux` : undefined },
   ];
   if (opts?.toiture !== false) {
     lines.push({
@@ -254,6 +268,13 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
     { d: "Garde-corps (balcons/escalier, fer forgé/inox)", desc: gardeCorpsDesc, u: "ml", q: gardeCorps, up: 150, n: "materiaux" },
     { d: "Finition escalier", desc: escalierFinitionDesc, u: "unité", q: 1, qMode: "fixed", up: escalierFinition, n: "materiaux" },
     { d: "Faux plafonds (plaque de plâtre)", desc: "Ossature métallique + BA13 + joints.", u: "m²", q: 50, up: 45, n: "materiaux" },
+    { d: "Luminaires intérieurs (LED encastrés)", desc: "Spots LED encastrés + appliques.", u: "unité", q: 12, up: 45, n: "equipements", obs: f > 1 ? `${12 + (f-1)*4} points` : undefined },
+    { d: "Prises et interrupteurs (norme NF)", desc: "Prises 2P+T, interrupteurs, va-et-vient.", u: "unité", q: 25, up: 18, n: "equipements", obs: f > 1 ? `${25 + (f-1)*8} points` : undefined },
+    { d: "Miroir et accessoires SDB", desc: "Miroir, porte-serviettes, patère, range-médicaments.", u: "lot", q: 1, qMode: "fixed", up: 350, n: "materiaux" },
+    { d: "Seuils de portes (marbre ou granit)", desc: "Seuils 90 cm en pierre naturelle.", u: "unité", q: doorCount, qMode: "fixed", up: 45, n: "materiaux", obs: `${doorCount} seuils` },
+    { d: "Joints silicone sanitaire", desc: "Joints d'étanchéité SDB, cuisine, fenêtres.", u: "lot", q: 1, qMode: "fixed", up: 120, n: "materiaux" },
+    { d: "VMC (ventilation mécanique contrôlée)", desc: "Extracteur hygroréglable + gaine + grille.", u: "lot", q: 1, qMode: "fixed", up: 650, n: "equipements" },
+    { d: "Couloirs et circulations (peinture + plinthes)", desc: "Peinture + plinthes PVC sur circulations.", u: "ml", q: f === 1 ? 12 : f === 2 ? 18 : 24, up: 35, n: "materiaux", obs: f > 1 ? `${f} niveaux` : undefined },
   ]);
 }
 
@@ -264,6 +285,9 @@ function amenagementsLot(percent: number): LotTpl {
     { d: "Portail d'accès (métallique, coulissant/battant manuel)", desc: "Portail 2 vantaux avec motorisation.", u: "unité", q: 1, qMode: "fixed", up: 2500, n: "materiaux" },
     { d: "Portillon piéton (métallique)", desc: "Portillon 1 vantail + paumelles renforcées.", u: "unité", q: 1, qMode: "fixed", up: 800, n: "materiaux" },
     { d: "Allées et terrasses (dalles/pavés extérieurs)", desc: "Pavés autobloquants sur lit de sable.", u: "m²", q: 30, up: 80, n: "materiaux" },
+    { d: "Plantation et gazon (terrain 200 m²)", desc: "Préparation sol, gazon en plaques, arbustes.", u: "m²", q: 80, up: 25, n: "materiaux" },
+    { d: "Éclairage extérieur (LED solaire)", desc: "Bornes solaires, bandeau LED terrasse.", u: "lot", q: 1, qMode: "fixed", up: 900, n: "equipements" },
+    { d: "Drainage périphérique", desc: "Fossette, grilles, réseau pluvial à proximité.", u: "ml", q: 30, up: 35, n: "materiaux" },
   ]);
 }
 
@@ -275,6 +299,9 @@ function vrdLot(percent: number): LotTpl {
     { d: "Raccordement Assainissement (ONAS)", desc: "Dossier, branchement, regards.", u: "lot", q: 1, qMode: "fixed", up: 1000, n: "transport" },
     { d: "Fosse septique et épandage", desc: "Fosse toutes eaux + lit d'épandage (si non raccordé ONAS).", u: "lot", q: 1, qMode: "fixed", up: 3500, n: "transport", obs: "Si non raccordé ONAS" },
     { d: "Téléphone / Internet (TT)", desc: "Dossier et raccordement fibre/ADSL.", u: "lot", q: 1, qMode: "fixed", up: 400, n: "transport" },
+    { d: "Raccordement gaz (TGM)", desc: "Dossier, tranchée, compteur, régulation.", u: "lot", q: 1, qMode: "fixed", up: 1500, n: "transport", obs: "Si gaz disponible" },
+    { d: "Réseau pluvial (tuyauterie PVC Ø200)", desc: "Canalisation, regards de visite.", u: "ml", q: 20, up: 45, n: "transport" },
+    { d: "Bornes de délimitation de terrain", desc: "Bornes béton ou métal, peinture signalétique.", u: "unité", q: 4, qMode: "fixed", up: 80, n: "transport" },
   ]);
 }
 
