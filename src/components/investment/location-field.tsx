@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, CheckCircle2, ChevronsUpDown, MapPin, Plus, Search, X } from "lucide-react";
+import { Check, CheckCircle2, ChevronRight, MapPin, Plus, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -90,12 +90,18 @@ export function LocationField({
       <button
         type="button"
         onClick={openSheet}
-        className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-xs transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 cursor-pointer"
+        className={cn(
+          "flex items-center justify-between w-full rounded-xl border h-10 sm:h-11 px-3 sm:px-4 text-xs sm:text-sm transition-all cursor-pointer",
+          "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          displayValue
+            ? "border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-300 font-semibold"
+            : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400"
+        )}
       >
         <span className={cn("truncate text-left", !displayValue && "text-muted-foreground/60")}>
           {displayValue || placeholder || "Sélectionner…"}
         </span>
-        <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+        <ChevronRight className="size-3.5 sm:size-4 shrink-0 opacity-50" />
       </button>
 
       <Sheet open={open} onOpenChange={(o) => (o ? openSheet() : setOpen(false))}>
