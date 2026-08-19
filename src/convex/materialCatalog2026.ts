@@ -39,7 +39,7 @@ export const TUNISIA_2026_CATALOG: CatalogItem[] = [
   { category: "terrassement_granulats", name: "Tranchée drainante (grave 20/40)", unit: "ml", unitPrice: 22, quality: ESTIMATED, confidence: 0.5 },
 
   // ── Liants, ciments et mortiers ────────────────────────────────────────────
-  { category: "liants_ciments_mortiers", name: "Ciment CPJ 42.5 (sac 50 kg)", unit: "sac", unitPrice: 16.5, quality: OBSERVED, confidence: 0.95, subcategory: "Ciment en sac" },
+  { category: "liants_ciments_mortiers", name: "Ciment CPJ 42.5 (sac 50 kg)", unit: "sac", unitPrice: 15.85, quality: OBSERVED, confidence: 0.95, subcategory: "Ciment en sac" },
   { category: "liants_ciments_mortiers", name: "Ciment CPJ 32.5 (sac 50 kg)", unit: "sac", unitPrice: 14, quality: OBSERVED, confidence: 0.9, subcategory: "Ciment en sac" },
   { category: "liants_ciments_mortiers", name: "Ciment CPJ 42.5 (vrac)", unit: "tonne", unitPrice: 330, quality: OBSERVED, confidence: 0.9, subcategory: "Ciment en vrac" },
   { category: "liants_ciments_mortiers", name: "Ciment blanc (sac 40 kg)", unit: "sac", unitPrice: 38, quality: OBSERVED, confidence: 0.85, subcategory: "Ciment blanc" },
@@ -121,7 +121,7 @@ export const TUNISIA_2026_CATALOG: CatalogItem[] = [
   { category: "maconnerie_plancher", name: "Parpaing creux 20 cm", unit: "pièce", unitPrice: 1.3, quality: OBSERVED, confidence: 0.85, subcategory: "Parpaings" },
   { category: "maconnerie_plancher", name: "Parpaing plein 20 cm", unit: "pièce", unitPrice: 1.85, quality: ESTIMATED, confidence: 0.6, subcategory: "Parpaings" },
   { category: "maconnerie_plancher", name: "Bloc à bancher 20 cm", unit: "pièce", unitPrice: 2.1, quality: ESTIMATED, confidence: 0.55 },
-  { category: "maconnerie_plancher", name: "Hourdis 16×50", unit: "pièce", unitPrice: 1.7, quality: OBSERVED, confidence: 0.8, subcategory: "Hourdis" },
+  { category: "maconnerie_plancher", name: "Hourdis 16×50", unit: "pièce", unitPrice: 1.27, quality: OBSERVED, confidence: 0.9, subcategory: "Hourdis" },
   { category: "maconnerie_plancher", name: "Hourdis 20×50", unit: "pièce", unitPrice: 2, quality: ESTIMATED, confidence: 0.6, subcategory: "Hourdis" },
   { category: "maconnerie_plancher", name: "Corps creux béton 16", unit: "pièce", unitPrice: 1.5, quality: ESTIMATED, confidence: 0.55 },
   { category: "maconnerie_plancher", name: "Brique de verre 19×19", unit: "pièce", unitPrice: 6, quality: ESTIMATED, confidence: 0.5 },

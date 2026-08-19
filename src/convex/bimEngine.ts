@@ -18,38 +18,58 @@ import { PROJECT_TYPES, PROJECT_TYPE_LABELS } from "./projectTypes";
 // they are mapped to the official 2026 material categories (MATERIAL_CATEGORY_2026)
 // via P_CATEGORY_MAP so the price database and the BIM engine stay aligned.
 export const P = {
-  // Terrassement et granulats
+  // ── Terrassement et granulats ─────────────────────────────────────────
   sand: { construction: 45, fine: 40, remblai: 28 },
   gravel: { "15_25mm": 52, "8_15mm": 48 },
-  // Liants, ciments et mortiers
-  cement: { bag42_5: 16.5, bag32_5: 14 },
-  // Bétons et préfabrication
+  // ── Liants, ciments et mortiers (Base_Materiaux 2026 — TTC) ───────────
+  // CPC / CEM II sac 50 kg : 14,85 TND · CPA / CEM I sac 50 kg : 15,85 TND
+  // HRS 42,5 sac 50 kg : 18,50 TND
+  cement: { bag42_5: 14.85, bag32_5: 15.85, hrs_42_5: 18.5 },
+  // ── Bétons et préfabrication ──────────────────────────────────────────
   concrete: { ready_mix_250: 210, ready_mix_300: 235, ready_mix_350: 265 },
-  // Acier et métaux de structure
+  // ── Acier et métaux de structure (COMAF / INTERMETAL / SIDENOR) ────────
+  // Rond Ø6 : 2,625 TND/barre · Ø8 : 13,75 · Ø10 : 19 · Ø12 : 26
+  // Ø14 : 37,40 · Ø16 : 48,30 · Treillis 150×150×4 : 5,384 TND/m²
   steel: { t6_m: 0.95, t8_m: 1.4, t10_m: 2.1, t12_ton: 3850, t14_ton: 3950, treillis_m2: 15 },
-  // Maçonnerie et éléments de plancher
-  bricks: { hollow_10: 0.48, hollow_15: 0.65, hourdis_16: 1.7, noot_6: 0.45, parpaing_15: 1.1, parpaing_20: 1.3, pleine_22x11x7: 0.55 },
-  // Bois, panneaux et coffrage
-  wood: { formwork_m3: 720, framing_m3: 820, chevron_m: 12 },
-  // Étanchéité et protection
+  // ── Maçonnerie et éléments de plancher (Bâtiment El Baraka) ───────────
+  // Brique creuse 12 cm : 0,85 · 8 cm : 0,78 · 6 cm : 0,50
+  // Hourdis terre cuite H16 : 1,27 TND/pièce
+  bricks: { hollow_10: 0.85, hollow_15: 0.65, hourdis_16: 1.27, noot_6: 0.5, parpaing_15: 1.1, parpaing_20: 1.3, pleine_22x11x7: 0.55 },
+  // ── Bois, panneaux et coffrage (COMAF) ────────────────────────────────
+  // Bois blanc autrichien madrier : 1 599 TND/m³
+  wood: { formwork_m3: 1599, framing_m3: 820, chevron_m: 12 },
+  // ── Étanchéité et protection (Sika / Astral) ─────────────────────────
+  // Sikalastic 220 W seau 7 kg : 135 TND
   roofing: { tile_m2: 19, steel_sheet_m2: 29, waterproof_m2: 22, insulation_m2: 26 },
-  // Isolation thermique et acoustique
+  // ── Isolation thermique et acoustique ──────────────────────────────────
   insulation: { laine_m2: 4, polyst_m2: 9, xps_m2: 16 },
-  // Revêtements de sols et murs
+  // ── Revêtements de sols et murs (COMAF / Arkan) ──────────────────────
+  // Grès cérame : 30-80 TND/m² · Ciment-colle FM ECO : 12,57 TND/sac
   tiles: { floor_m2: 30, wall_m2: 25, marble_m2: 120, granite_m2: 135, ext_m2: 34, plinthe_ml: 8 },
-  // Peintures, enduits et finitions
+  // ── Peintures, enduits et finitions (Astral / Ripolin / Espace 2F) ────
+  // Aquastral Mat 20 kg : 81,94 TND · Astralatex 23 kg : 75 TND
+  // Ripolatex Mat 500 40 kg : 95 TND
   paint: { interior_l: 22, exterior_l: 26, primer_l: 18 },
-  // Menuiseries
-  doors: { simple: 280, double: 520, metal: 550, garage: 1300, sliding: 850 },
-  windows: { alu_simple: 330, alu_double: 480, pvc: 420, iron_grille: 220, roller_shutter: 380 },
-  // Vitrage et produits verriers
+  // ── Menuiseries (Chantier.tn / Arkan / Meuble Mansour) ───────────────
+  // Fenêtre alu série 40 simple vitrage 120×120 : 375 TND
+  // Fenêtre alu série 40 double vitrage 120×120 : 437 TND
+  // Fenêtre alu série 67 coulissante 140×120 : 477 TND
+  // Porte intérieure chêne + cadre : 815 TND
+  // Porte d'entrée frêne C1 : 2 850 TND
+  doors: { simple: 320, double: 550, metal: 550, garage: 1300, sliding: 850 },
+  windows: { alu_simple: 375, alu_double: 437, pvc: 420, iron_grille: 220, roller_shutter: 380, alu_coulissante: 477 },
+  // ── Vitrage et produits verriers ──────────────────────────────────────
   glass: { clear_m2: 28, double_m2: 68, tempered_m2: 115 },
-  // Équipements (plomberie, sanitaire, électricité, CVC)
+  // ── Équipements (Bricola / BStore / Espace 2F) ───────────────────────
+  // Câbles : fil rigide 1,5 mm² : 75 TND/100 m · 2,5 mm² : 119 TND/100 m
+  // Disjoncteur DPN 2×16A : 16,20 TND
+  // Disjoncteur diff 2×20A/30mA : 84,90 TND
+  // Réservoir encastré GROHE 10L : 450 TND
   plumbing: { pvc_110: 15, pvc_50: 7, copper_m: 22, geyser: 480, wc: 280, lavabo: 160, douche: 360, evier: 240 },
   electrical: { cable_1_5_m: 1.5, cable_2_5_m: 2.4, cable_6_m: 4.8, breaker: 52, panel: 210, led_light: 38, socket: 9, switch: 7 },
   hvac: { split_12000: 1350, split_18000: 1800, vmc: 350 },
   solar: { panel_450w: 550, onduleur: 2500, batterie_10kwh: 3200 },
-  // Main-d'œuvre, transport et engins (services — utilisés par les macro-postes)
+  // ── Main-d'œuvre, transport et engins ────────────────────────────────
   labor: { worker_day: 65, mason_day: 80, electrician_day: 75, plumber_day: 75, painter_day: 65, tiler_day: 80 },
   transport: { truck_trip: 175, mixer_m3: 30, benne: 200 },
   equipment: { excavator_day: 290, compactor_day: 210, mixer_day: 95 },
@@ -640,34 +660,69 @@ export const BIM_CATEGORY_LABELS = PROJECT_TYPE_LABELS;
 // ============================================================================
 
 export const REGION_COST_M2: Record<string, { eco: number; std: number; premium: number; ecoRange: string; stdRange: string; premiumRange: string }> = {
-  tunis:     { eco: 1500, std: 2150, premium: 3150, ecoRange: "1300-1700", stdRange: "1900-2400", premiumRange: "2500-3800" },
-  ariana:    { eco: 1475, std: 2100, premium: 3075, ecoRange: "1300-1650", stdRange: "1850-2350", premiumRange: "2450-3700" },
-  ben_arous: { eco: 1450, std: 2050, premium: 3000, ecoRange: "1250-1650", stdRange: "1800-2300", premiumRange: "2400-3600" },
-  manouba:   { eco: 1400, std: 2000, premium: 2925, ecoRange: "1200-1600", stdRange: "1750-2250", premiumRange: "2350-3500" },
-  nabeul:    { eco: 1450, std: 2050, premium: 3000, ecoRange: "1250-1650", stdRange: "1800-2300", premiumRange: "2400-3600" },
-  sousse:    { eco: 1500, std: 2100, premium: 3150, ecoRange: "1300-1700", stdRange: "1850-2350", premiumRange: "2500-3800" },
-  monastir:  { eco: 1450, std: 2050, premium: 3000, ecoRange: "1250-1650", stdRange: "1800-2300", premiumRange: "2400-3600" },
-  mahdia:    { eco: 1375, std: 1950, premium: 2850, ecoRange: "1200-1550", stdRange: "1700-2200", premiumRange: "2300-3400" },
-  sfax:      { eco: 1375, std: 1950, premium: 2850, ecoRange: "1200-1550", stdRange: "1700-2200", premiumRange: "2300-3400" },
-  bizerte:   { eco: 1400, std: 2000, premium: 2925, ecoRange: "1200-1600", stdRange: "1750-2250", premiumRange: "2350-3500" },
-  zaghouan:  { eco: 1325, std: 1900, premium: 2775, ecoRange: "1150-1500", stdRange: "1650-2150", premiumRange: "2250-3300" },
-  beja:      { eco: 1275, std: 1850, premium: 2700, ecoRange: "1100-1450", stdRange: "1600-2100", premiumRange: "2200-3200" },
-  jendouba:  { eco: 1275, std: 1850, premium: 2700, ecoRange: "1100-1450", stdRange: "1600-2100", premiumRange: "2200-3200" },
-  le_kef:    { eco: 1275, std: 1800, premium: 2650, ecoRange: "1100-1450", stdRange: "1550-2050", premiumRange: "2150-3150" },
-  siliana:   { eco: 1275, std: 1800, premium: 2650, ecoRange: "1100-1450", stdRange: "1550-2050", premiumRange: "2150-3150" },
-  kairouan:  { eco: 1200, std: 1750, premium: 2550, ecoRange: "1000-1400", stdRange: "1500-2000", premiumRange: "2100-3000" },
-  kasserine: { eco: 1200, std: 1750, premium: 2550, ecoRange: "1000-1400", stdRange: "1500-2000", premiumRange: "2100-3000" },
-  sidi_bouzid: { eco: 1200, std: 1750, premium: 2550, ecoRange: "1000-1400", stdRange: "1500-2000", premiumRange: "2100-3000" },
-  gafsa:     { eco: 1250, std: 1800, premium: 2650, ecoRange: "1050-1450", stdRange: "1550-2050", premiumRange: "2150-3150" },
-  tozeur:    { eco: 1300, std: 1850, premium: 2700, ecoRange: "1100-1500", stdRange: "1600-2100", premiumRange: "2200-3200" },
-  kebili:    { eco: 1300, std: 1850, premium: 2700, ecoRange: "1100-1500", stdRange: "1600-2100", premiumRange: "2200-3200" },
-  gabes:     { eco: 1350, std: 1900, premium: 2775, ecoRange: "1150-1550", stdRange: "1650-2150", premiumRange: "2250-3300" },
-  medenine:  { eco: 1400, std: 1950, premium: 2850, ecoRange: "1200-1600", stdRange: "1700-2200", premiumRange: "2300-3400" },
-  tataouine: { eco: 1425, std: 2000, premium: 2925, ecoRange: "1200-1650", stdRange: "1700-2300", premiumRange: "2350-3500" },
+  // ── Base : Grand Tunis (Tunis, Ariana, Ben Arous) ──────────────────────
+  // Calqué sur la feuille « Gouvernorats » du fichier
+  // Base_Materiaux_Construction_Tunisie_2026.xlsx — coefficient 100 %.
+  // Les prix intègrent matériaux + main-d'œuvre + logistique.
+  tunis:     { eco: 1500, std: 2150, premium: 3200, ecoRange: "1300-1700", stdRange: "1900-2400", premiumRange: "2600-3900" },
+  ariana:    { eco: 1500, std: 2150, premium: 3200, ecoRange: "1300-1700", stdRange: "1900-2400", premiumRange: "2600-3900" },
+  ben_arous: { eco: 1500, std: 2150, premium: 3200, ecoRange: "1300-1700", stdRange: "1900-2400", premiumRange: "2600-3900" },
+  // ── Grand Tunis périphérie ─────────────────────────────────────────────
+  // Manouba (coeff 101 %) — faible écart
+  manouba:   { eco: 1475, std: 2100, premium: 3100, ecoRange: "1275-1675", stdRange: "1875-2325", premiumRange: "2525-3750" },
+  // ── Nord-Est ───────────────────────────────────────────────────────────
+  // Nabeul (103 %) — proximité Grand Tunis
+  nabeul:    { eco: 1450, std: 2050, premium: 3050, ecoRange: "1250-1650", stdRange: "1825-2275", premiumRange: "2475-3650" },
+  // Zaghouan (104 %) — proximité ciment/acier
+  zaghouan:  { eco: 1400, std: 2000, premium: 2950, ecoRange: "1200-1600", stdRange: "1775-2225", premiumRange: "2400-3525" },
+  // Bizerte (104 %) — accès industriel
+  bizerte:   { eco: 1400, std: 2000, premium: 2950, ecoRange: "1200-1600", stdRange: "1775-2225", premiumRange: "2400-3525" },
+  // ── Nord-Ouest ─────────────────────────────────────────────────────────
+  // Béja (107 %) — transport à calibrer
+  beja:      { eco: 1350, std: 1925, premium: 2850, ecoRange: "1150-1550", stdRange: "1700-2150", premiumRange: "2300-3400" },
+  // Jendouba (109 %) — transport à calibrer
+  jendouba:  { eco: 1325, std: 1900, premium: 2800, ecoRange: "1125-1525", stdRange: "1675-2125", premiumRange: "2275-3350" },
+  // Le Kef (110 %) — transport à calibrer
+  le_kef:    { eco: 1300, std: 1875, premium: 2750, ecoRange: "1100-1500", stdRange: "1650-2100", premiumRange: "2250-3275" },
+  // Siliana (109 %) — transport à calibrer
+  siliana:   { eco: 1325, std: 1900, premium: 2800, ecoRange: "1125-1525", stdRange: "1675-2125", premiumRange: "2275-3350" },
+  // ── Sahel ──────────────────────────────────────────────────────────────
+  // Sousse (102 %) — pôle industriel
+  sousse:    { eco: 1475, std: 2100, premium: 3100, ecoRange: "1275-1675", stdRange: "1850-2350", premiumRange: "2500-3725" },
+  // Monastir (102 %) — pôle industriel
+  monastir:  { eco: 1450, std: 2050, premium: 3050, ecoRange: "1250-1650", stdRange: "1825-2275", premiumRange: "2475-3650" },
+  // Mahdia (104 %) — transport à calibrer
+  mahdia:    { eco: 1400, std: 2000, premium: 2950, ecoRange: "1200-1600", stdRange: "1775-2225", premiumRange: "2400-3525" },
+  // ── Centre ─────────────────────────────────────────────────────────────
+  // Kairouan (106 %) — pôle régional
+  kairouan:  { eco: 1375, std: 1950, premium: 2900, ecoRange: "1175-1575", stdRange: "1725-2175", premiumRange: "2350-3450" },
+  // ── Centre-Ouest ───────────────────────────────────────────────────────
+  // Kasserine (110 %) — transport à calibrer
+  kasserine: { eco: 1300, std: 1850, premium: 2725, ecoRange: "1100-1500", stdRange: "1625-2075", premiumRange: "2225-3225" },
+  // Sidi Bouzid (109 %) — transport à calibrer
+  sidi_bouzid: { eco: 1325, std: 1875, premium: 2775, ecoRange: "1125-1525", stdRange: "1650-2100", premiumRange: "2250-3300" },
+  // ── Centre-Sud ─────────────────────────────────────────────────────────
+  // Sfax (103 %) — pôle industriel
+  sfax:      { eco: 1425, std: 2000, premium: 2975, ecoRange: "1225-1625", stdRange: "1775-2225", premiumRange: "2425-3550" },
+  // ── Sud-Est ────────────────────────────────────────────────────────────
+  // Gabès (107 %) — pôle industriel Sud
+  gabes:     { eco: 1375, std: 1950, premium: 2875, ecoRange: "1175-1575", stdRange: "1725-2175", premiumRange: "2350-3425" },
+  // Médenine (109 %) — transport à calibrer
+  medenine:  { eco: 1350, std: 1900, premium: 2825, ecoRange: "1150-1550", stdRange: "1675-2125", premiumRange: "2300-3350" },
+  // Tataouine (112 %) — longue distance
+  tataouine: { eco: 1300, std: 1850, premium: 2750, ecoRange: "1100-1500", stdRange: "1625-2075", premiumRange: "2225-3275" },
+  // ── Sud-Ouest ──────────────────────────────────────────────────────────
+  // Gafsa (109 %) — transport à calibrer
+  gafsa:     { eco: 1325, std: 1875, premium: 2775, ecoRange: "1125-1525", stdRange: "1650-2100", premiumRange: "2250-3300" },
+  // Tozeur (112 %) — longue distance
+  tozeur:    { eco: 1300, std: 1850, premium: 2750, ecoRange: "1100-1500", stdRange: "1625-2075", premiumRange: "2225-3275" },
+  // Kébili (113 %) — longue distance
+  kebili:    { eco: 1275, std: 1825, premium: 2700, ecoRange: "1075-1475", stdRange: "1600-2050", premiumRange: "2200-3225" },
 };
 
 // National average (utilisé quand aucune région spécifique n'est sélectionnée)
-export const NATIONAL_AVG = { eco: 1350, std: 1950, premium: 2900 };
+// Moyenne des 24 gouvernorats calibrée sur le fichier Base_Materiaux 2026
+export const NATIONAL_AVG = { eco: 1375, std: 1975, premium: 2925 };
 
 // Cache les fourchettes de prix par région pour l'affichage UI
 export const REGION_RANGES: Record<string, { eco: string; std: string; premium: string }> = {};

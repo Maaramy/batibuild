@@ -244,12 +244,12 @@ describe("runBIMEstimation — quantitatif détaillé aligné sur le catalogue 2
     const hourdis = item(res, "gros_oeuvre", "Hourdis");
     expect(hourdis.name).toBe("Hourdis 16×50");
     expect(hourdis.unit).toBe("pièce");
-    expect(hourdis.unitPrice).toBe(1.7);
+    expect(hourdis.unitPrice).toBe(1.27);
 
     const cement = item(res, "gros_oeuvre", "Ciment CPJ 42.5");
     expect(cement.name).toBe("Ciment CPJ 42.5 (sac 50 kg)");
     expect(cement.unit).toBe("sac");
-    expect(cement.unitPrice).toBe(16.5);
+    expect(cement.unitPrice).toBe(15.85);
 
     const steel = item(res, "gros_oeuvre", "Acier à béton T12");
     expect(steel.name).toBe("Acier à béton T12 (tonne)");

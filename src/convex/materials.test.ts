@@ -219,7 +219,7 @@ describe("seedMaterialPrices", () => {
 
     const updated = await t.run(async (ctx) => ctx.db.get(legacyId as any));
     expect(updated.category).toBe("liants_ciments_mortiers");
-    expect(updated.unitPrice).toBe(16.5);
+    expect(updated.unitPrice).toBe(15.85);
     expect(updated.priceQuality).toBe("observé_en_ligne");
   });
 });
