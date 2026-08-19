@@ -1038,24 +1038,26 @@ export default function ProjectDetail() {
               </motion.div>
             )}
 
-            {/* ═══ Materials Table ═══ */}
+            {/* ═══ Quantitatif détaillé — Compact ═══ */}
             {scaledBreakdown?.some((b: any) => b.items?.length) && (
               <motion.div variants={fadeUp} custom={7}
-                className="rounded-xl border bg-card shadow-sm overflow-hidden">                  <button onClick={() => setOpenCat(openCat ? "" : "__all")}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
+                className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                {/* Header */}
+                <button onClick={() => setOpenCat(openCat ? "" : "__all")}
+                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/10 transition-colors">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Layers className="h-3.5 w-3.5" />
+                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <Layers className="h-3 w-3" />
                     </div>
-                    <h3 className="text-sm font-semibold">Quantitatif détaillé</h3>
+                    <h3 className="text-xs font-semibold">Quantitatif détaillé</h3>
                     {selectedScenario !== "standard" && scenarios && (
-                      <Badge variant="outline" className="text-[9px] text-primary border-primary/30">
+                      <Badge variant="outline" className="text-[8px] px-1.5 py-0 h-4 text-primary border-primary/30">
                         {scenarios[selectedScenario as keyof typeof scenarios]?.label}
                       </Badge>
                     )}
-                    <Badge variant="secondary" className="text-[9px]">{totalItems} postes</Badge>
+                    <Badge variant="secondary" className="text-[8px] px-1.5 py-0 h-4">{totalItems} postes</Badge>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     <span
                       role="button"
                       tabIndex={0}
@@ -1063,18 +1065,18 @@ export default function ProjectDetail() {
                       title="Mettre à jour le quantitatif selon le catalogue 2026"
                       onClick={(e) => { e.stopPropagation(); refreshQuantitatif(); }}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); refreshQuantitatif(); } }}
-                      className={cn("flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors cursor-pointer", refreshingQuantitatif ? "opacity-60" : "hover:bg-muted/30 hover:text-primary")}
+                      className={cn("flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors cursor-pointer", refreshingQuantitatif ? "opacity-60" : "hover:bg-muted/30 hover:text-primary")}
                     >
-                      {refreshingQuantitatif ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      {refreshingQuantitatif ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                     </span>
                     {openCat !== "" && (
                       <span onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === "__all_expanded" ? "__all" : "__all_expanded"); }}
-                        className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/30 text-muted-foreground transition-colors"
+                        className="flex h-5 w-5 items-center justify-center rounded hover:bg-muted/30 text-muted-foreground transition-colors"
                         title={openCat === "__all_expanded" ? "Tout replier" : "Tout déplier"}>
-                        {openCat === "__all_expanded" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        {openCat === "__all_expanded" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                       </span>
                     )}
-                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", openCat && "rotate-180")} />
+                    <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", openCat && "rotate-180")} />
                   </div>
                 </button>
 
@@ -1082,61 +1084,63 @@ export default function ProjectDetail() {
                   {openCat !== "" && (
                     <motion.div key="table" initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
                       <div className="overflow-x-auto border-t border-border/10">
-                        <table className="w-full text-xs">
+                        <table className="w-full text-[11px]">
                           <thead>
-                            <tr className="bg-muted/30">
-                              <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Matériau / Prestation</th>
-                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Qté</th>
-                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground hidden sm:table-cell">P.U.</th>
-                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Total</th>
-                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground hidden lg:table-cell">Fournisseur (meilleur prix)</th>
+                            <tr className="bg-muted/20">
+                              <th className="text-left py-1 px-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider">Désignation</th>
+                              <th className="text-right py-1 px-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider">Qté</th>
+                              <th className="text-right py-1 px-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider hidden sm:table-cell">P.U.</th>
+                              <th className="text-right py-1 px-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider">Montant</th>
+                              <th className="text-right py-1 px-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider hidden lg:table-cell">Fournisseur</th>
                             </tr>
                           </thead>
                           <tbody>
                             {scaledBreakdown.filter((b: any) => b.items?.length).map((cat: any) => (
                               <Fragment key={cat.label}>
-                                <tr className="border-b border-border/5 bg-muted/10">
-                                  <td colSpan={5} className="py-2 px-3">
+                                {/* Category header row */}
+                                <tr className="border-t border-border/10 bg-muted/10">
+                                  <td colSpan={5} className="py-1 px-2.5">
                                     <button onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === cat.label ? "__all" : cat.label); }}
                                       className="flex items-center gap-1.5 w-full text-left">
-                                      <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[cat.category] ?? "#888" }} />
+                                      <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[cat.category] ?? "#888" }} />
                                       <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{cat.label}</span>
-                                      <span className="text-[9px] text-muted-foreground/50 ml-auto">{cat.items.length} postes — {fmt(cat.estimatedCost)}</span>
-                                      {openCat === cat.label || openCat === "__all_expanded" ? <ChevronUp className="h-3 w-3 text-muted-foreground/50" /> : <ChevronDown className="h-3 w-3 text-muted-foreground/50" />}
+                                      <span className="text-[9px] text-muted-foreground/50 ml-auto tabular-nums">{cat.items.length} — {fmt(cat.estimatedCost)}</span>
+                                      {openCat === cat.label || openCat === "__all_expanded" ? <ChevronUp className="h-2.5 w-2.5 text-muted-foreground/50" /> : <ChevronDown className="h-2.5 w-2.5 text-muted-foreground/50" />}
                                     </button>
                                   </td>
                                 </tr>
+                                {/* Item rows */}
                                 {(openCat === cat.label || openCat === "__all_expanded") && cat.items.map((item: any, i: number) => (
                                   <motion.tr key={i}
-                                    initial={{ opacity: 0, x: -8 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: i * 0.02 }}
-                                    className="border-b border-border/5 hover:bg-muted/10 transition-colors">
-                                    <td className="py-2 px-3 font-medium truncate max-w-[140px] sm:max-w-none">{item.name}</td>
-                                    <td className="text-right py-2 px-3 font-mono text-muted-foreground">{cat.category === "main_oeuvre" ? "1 lot" : `${item.quantity} ${item.unit}`}</td>
-                                    <td className="text-right py-2 px-3 text-muted-foreground font-mono hidden sm:table-cell">{fmt(item.unitPrice)}</td>
-                                    <td className="text-right py-2 px-3 font-semibold font-mono">{fmt(item.totalPrice)}</td>
-                                    <td className="py-2 px-3 hidden lg:table-cell">
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: i * 0.01 }}
+                                    className="border-b border-border/5 hover:bg-muted/5 transition-colors">
+                                    <td className="py-1 px-2.5 font-medium text-foreground/85 truncate max-w-[120px] sm:max-w-none leading-tight">{item.name}</td>
+                                    <td className="text-right py-1 px-2.5 font-mono text-muted-foreground tabular-nums text-[10px]">{cat.category === "main_oeuvre" ? "1 lot" : `${item.quantity} ${item.unit}`}</td>
+                                    <td className="text-right py-1 px-2.5 text-muted-foreground font-mono hidden sm:table-cell tabular-nums text-[10px]">{fmt(item.unitPrice)}</td>
+                                    <td className="text-right py-1 px-2.5 font-semibold font-mono tabular-nums text-[10px]">{fmt(item.totalPrice)}</td>
+                                    <td className="py-1 px-2.5 hidden lg:table-cell">
                                       {(() => {
                                         const sup = supplierByItem[item.name];
                                         if (!sup) {
-                                          return <span className="text-muted-foreground/40">—</span>;
+                                          return <span className="text-muted-foreground/30">—</span>;
                                         }
                                         const cheaper = sup.minPrice < item.unitPrice;
                                         return (
                                           <div
-                                            className="flex items-center justify-end gap-1.5"
-                                            title={`${sup.supplier}${sup.governorate ? ` · ${sup.governorate}` : ""} · prix min ${sup.minPrice.toFixed(2)} TND${sup.unit ? "/" + sup.unit : ""}`}
+                                            className="flex items-center justify-end gap-1"
+                                            title={`${sup.supplier}${sup.governorate ? ` · ${sup.governorate}` : ""} · min ${sup.minPrice.toFixed(2)} TND${sup.unit ? "/" + sup.unit : ""}`}
                                           >
-                                            <span className="text-[10px] font-medium text-foreground/80 truncate max-w-[120px]">{sup.supplier}</span>
+                                            <span className="text-[9px] font-medium text-foreground/70 truncate max-w-[100px]">{sup.supplier}</span>
                                             <span
                                               className={cn(
-                                                "text-[9px] font-semibold tabular-nums shrink-0 rounded px-1 py-px",
+                                                "text-[8px] font-semibold tabular-nums shrink-0 rounded px-0.5",
                                                 cheaper
                                                   ? "text-emerald-600 bg-emerald-500/10 border border-emerald-500/20"
-                                                  : "text-muted-foreground/70",
+                                                  : "text-muted-foreground/60",
                                               )}
-                                              title={cheaper ? `Meilleur que le P.U. estimé (${fmt(item.unitPrice)})` : ""}
+                                              title={cheaper ? `Meilleur que le P.U. (${fmt(item.unitPrice)})` : ""}
                                             >
                                               {fmt(sup.minPrice)}
                                             </span>
