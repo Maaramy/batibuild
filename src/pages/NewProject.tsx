@@ -845,46 +845,38 @@ export default function NewProject() {
               </div>
 
               {/* Catégorie */}
-              <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+              <div className="p-3 sm:p-4 rounded-xl border border-border/40 bg-card/30">
                 <Label className="text-xs sm:text-sm font-semibold">
                   Type de projet <span className="text-primary">*</span>
                 </Label>
-                <div className="mt-1.5 grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-40 overflow-y-auto">
+                <div className="mt-1.5 grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 gap-1 max-h-36 overflow-y-auto">
                   {PROJECT_CATEGORIES.map((cat) => {
                     const sel = selectedCategory === cat.value;
                     return (
-                    <motion.button
+                    <button
                       key={cat.value}
                       type="button"
                       onClick={() => handleCategorySelect(cat.value)}
-                      layout
                       className={cn(
-                        "group relative flex items-center gap-2 sm:gap-2.5 rounded-xl border-2 px-3 sm:px-3.5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold transition-all cursor-pointer",
+                        "group relative flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] sm:text-[11px] font-medium transition-all cursor-pointer",
                         sel
                           ? "border-blue-400 dark:border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/30 dark:to-blue-800/20 text-blue-700 dark:text-blue-300 shadow-sm"
-                          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:shadow-sm"
+                          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50"
                       )}
                     >
                       <div className={cn(
-                        "flex size-7 sm:size-8 items-center justify-center rounded-lg transition-all",
+                        "flex size-5 sm:size-6 items-center justify-center rounded shrink-0 transition-all",
                         sel
-                          ? "bg-blue-500 text-white shadow-xs"
+                          ? "bg-blue-500 text-white"
                           : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500"
                       )}>
-                        <cat.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                        <cat.icon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                       </div>
-                      <span className="whitespace-normal break-words text-center leading-tight">{cat.label}</span>
+                      <span className="whitespace-normal break-words leading-tight">{cat.label}</span>
                       {sel && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                          className="absolute -top-1.5 -right-1.5 flex size-4 sm:size-5 items-center justify-center rounded-full bg-blue-500 text-white shadow-xs"
-                        >
-                          <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3" strokeWidth={3} />
-                        </motion.div>
+                        <Check className="h-3 w-3 shrink-0 text-blue-500 ml-auto" strokeWidth={3} />
                       )}
-                    </motion.button>
+                    </button>
                     );
                   })}
                 </div>
@@ -892,9 +884,9 @@ export default function NewProject() {
                   <motion.p
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-2 flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-blue-600 dark:text-blue-400"
+                    className="mt-1.5 flex items-center gap-1.5 text-[10px] sm:text-[11px] font-semibold text-blue-600 dark:text-blue-400"
                   >
-                    <CircleCheck className="h-4 w-4 shrink-0" />
+                    <CircleCheck className="h-3.5 w-3.5 shrink-0" />
                     {CATEGORY_LABEL[selectedCategory]}
                   </motion.p>
                 )}
