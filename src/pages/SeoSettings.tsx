@@ -36,6 +36,46 @@ type SeoForm = {
   blogOgImage: string;
 };
 
+// ─── Field component (defined OUTSIDE SeoSettings to prevent unmount/remount)
+function Field({
+  label,
+  fieldKey,
+  form,
+  setForm,
+  opts,
+}: {
+  label: string;
+  fieldKey: keyof SeoForm;
+  form: SeoForm;
+  setForm: React.Dispatch<React.SetStateAction<SeoForm>>;
+  opts?: { type?: string; rows?: number; placeholder?: string; hint?: string };
+}) {
+  const value = form[fieldKey] ?? "";
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      {opts?.rows && opts.rows > 1 ? (
+        <textarea
+          value={value}
+          onChange={(e) => setForm((prev) => ({ ...prev, [fieldKey]: e.target.value }))}
+          rows={opts.rows}
+          placeholder={opts?.placeholder}
+          className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 resize-y min-h-[60px]"
+        />
+      ) : (
+        <Input
+          type={opts?.type || "text"}
+          value={value}
+          onChange={(e) => setForm((prev) => ({ ...prev, [fieldKey]: e.target.value }))}
+          placeholder={opts?.placeholder}
+          className="h-9 text-sm"
+        />
+      )}
+      {opts?.hint && <p className="text-[10px] text-muted-foreground/70">{opts.hint}</p>}
+    </div>
+  );
+}
+
 export default function SeoSettings() {
   const seoConfig = useQuery(api.seo.getSeoConfigOrDefault);
   const saveSeo = useMutation(api.seo.saveSeoConfig);
@@ -91,41 +131,6 @@ export default function SeoSettings() {
     setSaving(false);
   };
 
-  const Field = ({
-    label,
-    fieldKey,
-    opts,
-  }: {
-    label: string;
-    fieldKey: keyof SeoForm;
-    opts?: { type?: string; rows?: number; placeholder?: string; hint?: string };
-  }) => {
-    const value = form[fieldKey] ?? "";
-    return (
-      <div className="space-y-1.5">
-        <label className="text-xs font-medium text-muted-foreground">{label}</label>
-        {opts?.rows && opts.rows > 1 ? (
-          <textarea
-            value={value}
-            onChange={(e) => setForm((prev) => ({ ...prev, [fieldKey]: e.target.value }))}
-            rows={opts.rows}
-            placeholder={opts?.placeholder}
-            className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 resize-y min-h-[60px]"
-          />
-        ) : (
-          <Input
-            type={opts?.type || "text"}
-            value={value}
-            onChange={(e) => setForm((prev) => ({ ...prev, [fieldKey]: e.target.value }))}
-            placeholder={opts?.placeholder}
-            className="h-9 text-sm"
-          />
-        )}
-        {opts?.hint && <p className="text-[10px] text-muted-foreground/70">{opts.hint}</p>}
-      </div>
-    );
-  };
-
   return (
     <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
       <CardHeader className="p-4 sm:p-6">
@@ -150,6 +155,8 @@ export default function SeoSettings() {
             <Field
               label="Nom du site (title)"
               fieldKey="siteName"
+              form={form}
+              setForm={setForm}
               opts={{
                 placeholder: "batibuild App - Estimation Construction Tunisie",
                 hint: "Apparaît dans l'onglet et les résultats de recherche",
@@ -158,6 +165,8 @@ export default function SeoSettings() {
             <Field
               label="URL canonique"
               fieldKey="canonicalUrl"
+              form={form}
+              setForm={setForm}
               opts={{
                 placeholder: "https://batibuild.app",
                 hint: "URL principale du site",
@@ -168,6 +177,8 @@ export default function SeoSettings() {
             <Field
               label="Description (meta description)"
               fieldKey="siteDescription"
+              form={form}
+              setForm={setForm}
               opts={{
                 rows: 2,
                 placeholder: "Description en 160 caractères max...",
@@ -179,6 +190,8 @@ export default function SeoSettings() {
             <Field
               label="Mots-clés (keywords)"
               fieldKey="keywords"
+              form={form}
+              setForm={setForm}
               opts={{
                 rows: 2,
                 placeholder: "mot-clé1, mot-clé2, mot-clé3",
@@ -200,6 +213,8 @@ export default function SeoSettings() {
             <Field
               label="Titre OG"
               fieldKey="ogTitle"
+              form={form}
+              setForm={setForm}
               opts={{
                 placeholder: "batibuild App - Estimation Construction",
                 hint: "Pour Facebook, LinkedIn...",
@@ -208,6 +223,8 @@ export default function SeoSettings() {
             <Field
               label="Image OG (URL)"
               fieldKey="ogImage"
+              form={form}
+              setForm={setForm}
               opts={{
                 placeholder: "https://batibuild.app/og-image.jpg",
                 hint: "1200x630px recommandé",
@@ -218,6 +235,8 @@ export default function SeoSettings() {
             <Field
               label="Description OG"
               fieldKey="ogDescription"
+              form={form}
+              setForm={setForm}
               opts={{
                 rows: 2,
                 placeholder: "Description pour les réseaux sociaux...",
@@ -229,6 +248,8 @@ export default function SeoSettings() {
             <Field
               label="Twitter Card"
               fieldKey="twitterCard"
+              form={form}
+              setForm={setForm}
               opts={{
                 placeholder: "summary_large_image",
                 hint: "summary, summary_large_image, app, player",
@@ -249,6 +270,8 @@ export default function SeoSettings() {
             <Field
               label="Titre du blog (title)"
               fieldKey="blogTitle"
+              form={form}
+              setForm={setForm}
               opts={{
                 placeholder: "Blog batibuild App — Construction & Rénovation",
                 hint: "Apparaît sur la page /blog et dans les résultats de recherche",
@@ -257,6 +280,8 @@ export default function SeoSettings() {
             <Field
               label="Image OG du blog (URL)"
               fieldKey="blogOgImage"
+              form={form}
+              setForm={setForm}
               opts={{
                 placeholder: "https://batibuild.app/blog-og.jpg",
                 hint: "1200x630px recommandé — partage du blog sur les réseaux",
@@ -267,6 +292,8 @@ export default function SeoSettings() {
             <Field
               label="Description du blog (meta description)"
               fieldKey="blogDescription"
+              form={form}
+              setForm={setForm}
               opts={{
                 rows: 2,
                 placeholder: "Conseils, guides et actualités sur la construction en Tunisie...",
@@ -288,6 +315,8 @@ export default function SeoSettings() {
             <Field
               label="Google Analytics ID"
               fieldKey="googleAnalyticsId"
+              form={form}
+              setForm={setForm}
               opts={{
                 placeholder: "G-XXXXXXXXXX",
                 hint: "Format : G-XXXXXXXXXX",
@@ -296,6 +325,8 @@ export default function SeoSettings() {
             <Field
               label="Instructions robots.txt"
               fieldKey="robotsTxt"
+              form={form}
+              setForm={setForm}
               opts={{
                 placeholder: "User-agent: *\nAllow: /",
                 hint: "Directives personnalisées",
@@ -306,6 +337,8 @@ export default function SeoSettings() {
             <Field
               label="Google Search Console (code de vérification)"
               fieldKey="googleSiteVerification"
+              form={form}
+              setForm={setForm}
               opts={{
                 placeholder: "votre_code_de_verification_google",
                 hint: "Collez le code fourni par Google Search Console (ex: abc123def456)",
@@ -316,6 +349,8 @@ export default function SeoSettings() {
             <Field
               label="Balises meta supplémentaires"
               fieldKey="additionalMetaTags"
+              form={form}
+              setForm={setForm}
               opts={{
                 rows: 3,
                 placeholder: '<meta name="geo.region" content="TN" />',
