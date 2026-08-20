@@ -93,11 +93,11 @@ export default function SeoSettings() {
 
   const Field = ({
     label,
-    key: fieldKey,
+    fieldKey,
     opts,
   }: {
     label: string;
-    key: keyof SeoForm;
+    fieldKey: keyof SeoForm;
     opts?: { type?: string; rows?: number; placeholder?: string; hint?: string };
   }) => {
     const value = form[fieldKey] ?? "";
@@ -149,7 +149,7 @@ export default function SeoSettings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field
               label="Nom du site (title)"
-              key="siteName"
+              fieldKey="siteName"
               opts={{
                 placeholder: "batibuild App - Estimation Construction Tunisie",
                 hint: "Apparaît dans l'onglet et les résultats de recherche",
@@ -157,7 +157,7 @@ export default function SeoSettings() {
             />
             <Field
               label="URL canonique"
-              key="canonicalUrl"
+              fieldKey="canonicalUrl"
               opts={{
                 placeholder: "https://batibuild.app",
                 hint: "URL principale du site",
@@ -167,7 +167,7 @@ export default function SeoSettings() {
           <div className="mt-4">
             <Field
               label="Description (meta description)"
-              key="siteDescription"
+              fieldKey="siteDescription"
               opts={{
                 rows: 2,
                 placeholder: "Description en 160 caractères max...",
@@ -178,7 +178,7 @@ export default function SeoSettings() {
           <div className="mt-4">
             <Field
               label="Mots-clés (keywords)"
-              key="keywords"
+              fieldKey="keywords"
               opts={{
                 rows: 2,
                 placeholder: "mot-clé1, mot-clé2, mot-clé3",
@@ -199,7 +199,7 @@ export default function SeoSettings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field
               label="Titre OG"
-              key="ogTitle"
+              fieldKey="ogTitle"
               opts={{
                 placeholder: "batibuild App - Estimation Construction",
                 hint: "Pour Facebook, LinkedIn...",
@@ -207,7 +207,7 @@ export default function SeoSettings() {
             />
             <Field
               label="Image OG (URL)"
-              key="ogImage"
+              fieldKey="ogImage"
               opts={{
                 placeholder: "https://batibuild.app/og-image.jpg",
                 hint: "1200x630px recommandé",
@@ -217,7 +217,7 @@ export default function SeoSettings() {
           <div className="mt-4">
             <Field
               label="Description OG"
-              key="ogDescription"
+              fieldKey="ogDescription"
               opts={{
                 rows: 2,
                 placeholder: "Description pour les réseaux sociaux...",
@@ -228,7 +228,7 @@ export default function SeoSettings() {
           <div className="mt-4">
             <Field
               label="Twitter Card"
-              key="twitterCard"
+              fieldKey="twitterCard"
               opts={{
                 placeholder: "summary_large_image",
                 hint: "summary, summary_large_image, app, player",
@@ -248,7 +248,7 @@ export default function SeoSettings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field
               label="Titre du blog (title)"
-              key="blogTitle"
+              fieldKey="blogTitle"
               opts={{
                 placeholder: "Blog batibuild App — Construction & Rénovation",
                 hint: "Apparaît sur la page /blog et dans les résultats de recherche",
@@ -256,7 +256,7 @@ export default function SeoSettings() {
             />
             <Field
               label="Image OG du blog (URL)"
-              key="blogOgImage"
+              fieldKey="blogOgImage"
               opts={{
                 placeholder: "https://batibuild.app/blog-og.jpg",
                 hint: "1200x630px recommandé — partage du blog sur les réseaux",
@@ -266,7 +266,7 @@ export default function SeoSettings() {
           <div className="mt-4">
             <Field
               label="Description du blog (meta description)"
-              key="blogDescription"
+              fieldKey="blogDescription"
               opts={{
                 rows: 2,
                 placeholder: "Conseils, guides et actualités sur la construction en Tunisie...",
@@ -287,7 +287,7 @@ export default function SeoSettings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field
               label="Google Analytics ID"
-              key="googleAnalyticsId"
+              fieldKey="googleAnalyticsId"
               opts={{
                 placeholder: "G-XXXXXXXXXX",
                 hint: "Format : G-XXXXXXXXXX",
@@ -295,7 +295,7 @@ export default function SeoSettings() {
             />
             <Field
               label="Instructions robots.txt"
-              key="robotsTxt"
+              fieldKey="robotsTxt"
               opts={{
                 placeholder: "User-agent: *\nAllow: /",
                 hint: "Directives personnalisées",
@@ -305,7 +305,7 @@ export default function SeoSettings() {
           <div className="mt-4">
             <Field
               label="Google Search Console (code de vérification)"
-              key="googleSiteVerification"
+              fieldKey="googleSiteVerification"
               opts={{
                 placeholder: "votre_code_de_verification_google",
                 hint: "Collez le code fourni par Google Search Console (ex: abc123def456)",
@@ -315,7 +315,7 @@ export default function SeoSettings() {
           <div className="mt-4">
             <Field
               label="Balises meta supplémentaires"
-              key="additionalMetaTags"
+              fieldKey="additionalMetaTags"
               opts={{
                 rows: 3,
                 placeholder: '<meta name="geo.region" content="TN" />',
