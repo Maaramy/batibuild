@@ -522,6 +522,7 @@ export default function NewProject() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [validated, setValidated] = useState(false);
   const [limitExceeded, setLimitExceeded] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -568,6 +569,7 @@ export default function NewProject() {
 
   const goToStep = (key: StepKey) => {
     setStep(key);
+    if (key === "form") setValidated(false);
   };
 
   const handleCategorySelect = (cat: string) => {
@@ -593,6 +595,7 @@ export default function NewProject() {
   };
 
   const handleFormNext = () => {
+    setValidated(true);
     if (!validateForm()) return;
     markStepCompleted("form");
     handleStartAnalysis();
@@ -823,6 +826,25 @@ export default function NewProject() {
                 Complétez les informations pour l'estimation
               </p>
             </div>
+
+            {/* Global validation error banner */}
+            {validated && Object.keys(errors).length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-4 flex items-start gap-2.5 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-950/30 px-4 py-3"
+              >
+                <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-semibold text-red-700 dark:text-red-400">
+                    Veuillez remplir tous les champs obligatoires
+                  </p>
+                  <p className="text-[10px] sm:text-xs text-red-600/80 dark:text-red-400/70 mt-0.5">
+                    {Object.keys(errors).length} champ{Object.keys(errors).length > 1 ? "s" : ""} requis manquant{Object.keys(errors).length > 1 ? "s" : ""}
+                  </p>
+                </div>
+              </motion.div>
+            )}
 
             <div className="space-y-4">
               {/* Nom */}
