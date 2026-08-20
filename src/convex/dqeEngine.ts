@@ -130,14 +130,8 @@ const DQE_TO_CATALOG: Record<string, string> = {
   "Panneau photovoltaïque 450Wc": "Panneau photovoltaïque 450 Wc",
   // ── Nouvelles désignations enrichies (août 2026) ──
   "Isolant sous dalle (polystyrène expansé 80 mm)": "Polystyrène expansé 80 mm (m²)",
-  "Béton de propreté (C12/15 — 5 cm)": "Béton prêt à l'emploi 250kg/m³",
-  "Coffrage permanent (banchage)": "Bois de coffrage (m³)",
-  "Luminaires intérieurs (LED encastrés)": "Spot LED encastré",
   "Prises et interrupteurs (norme NF)": "Prise 2P+T",
   "VMC (ventilation mécanique contrôlée)": "VMC",
-  "Seuils de portes (marbre ou granit)": "Granit 60×30",
-  "Plantation et gazon (terrain 200 m²)": "Gazon en plaques (m²)",
-  "Éclairage extérieur (LED solaire)": "Panneau photovoltaïque 450 Wc",
 };
 
 /** Prix en direct (base materialPrices) indexés par libellé normalisé. */
