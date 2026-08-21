@@ -424,32 +424,32 @@ export default function SupplierDashboard() {
     <main className="min-h-screen bg-gradient-to-b from-background to-muted/20 pb-8">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button onClick={() => navigate("/dashboard")}
-            className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all">
-            <ArrowLeft className="h-4 w-4" />
+            className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/50 active:scale-95 transition-all">
+            <ArrowLeft className="h-3.5 w-3.5" />
           </button>
-          <div className="flex-1">
-            <h1 className="text-lg font-bold">Espace Fournisseur</h1>
-            <p className="text-xs text-muted-foreground">
-              {profile ? "Gérez votre profil et abonnement" : "Créez votre profil pour être recommandé"}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-sm font-bold truncate">Espace Fournisseur</h1>
+            <p className="text-[10px] text-muted-foreground truncate">
+              {profile ? "Profil et abonnement" : "Créez votre profil"}
             </p>
           </div>
           {effStatus === "active" && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => navigate("/dashboard/supplier/quotes")}
-                className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                className="flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
               >
-                <FileText className="h-3.5 w-3.5" />
+                <FileText className="h-3 w-3" />
                 Devis reçus
               </button>
               <button
                 onClick={() => navigate("/dashboard/supplier/stats")}
-                className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                className="flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
               >
-                <BarChart3 className="h-3.5 w-3.5" />
-                Statistiques
+                <BarChart3 className="h-3 w-3" />
+                Stats
               </button>
             </div>
           )}
