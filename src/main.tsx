@@ -34,6 +34,7 @@ const LegalPage = lazy(() => import("./pages/LegalPage.tsx"));
 const BlogPage = lazy(() => import("./pages/BlogPage.tsx"));
 const BlogPostPage = lazy(() => import("./pages/BlogPostPage.tsx"));
 const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
+const SupplierStats = lazy(() => import("./pages/SupplierStats.tsx"));
 const InvestmentAnalysis = lazy(() => import("./pages/InvestmentAnalysis.tsx"));
 const InvestmentResults = lazy(() => import("./pages/InvestmentResults.tsx"));
 const ShareInvestment = lazy(() => import("./pages/ShareInvestment.tsx"));
@@ -245,6 +246,14 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <SupplierDashboard />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/supplier/stats"
+                  element={
+                    <RequireAuth>
+                      <SupplierStats />
                     </RequireAuth>
                   }
                 />

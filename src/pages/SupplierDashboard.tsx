@@ -24,7 +24,7 @@ import {
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard,
   Store, ShieldCheck, Trash2, AlertTriangle,
   Banknote, Smartphone, Landmark, UserRound, Clock3, Upload, Image as ImageIcon, X,
-  Wallet,
+  Wallet, BarChart3,
 } from "lucide-react";
 
 // ============================================================================
@@ -429,12 +429,21 @@ export default function SupplierDashboard() {
             className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all">
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-lg font-bold">Espace Fournisseur</h1>
             <p className="text-xs text-muted-foreground">
               {profile ? "Gérez votre profil et abonnement" : "Créez votre profil pour être recommandé"}
             </p>
           </div>
+          {effStatus === "active" && (
+            <button
+              onClick={() => navigate("/dashboard/supplier/stats")}
+              className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              Statistiques
+            </button>
+          )}
         </div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
