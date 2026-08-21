@@ -47,12 +47,13 @@ export const getMyQuotas = query({
       ? (sub.investmentsUsed ?? 0)
       : await countUserDocs(ctx, user._id, "investments");
     const plan = sub?.plan ?? "free";
-    const cLimit = configs[plan].projects;
-    const iLimit = configs[plan].investments;
+    const planConfig = configs[plan] ?? configs.free;
+    const cLimit = planConfig.projects;
+    const iLimit = planConfig.investments;
 
     const downloadsBase = {
       used: sub ? (sub.monthlyDownloadCount ?? 0) : 0,
-      limit: sub ? configs[plan].downloads : 0,
+      limit: sub ? (configs[plan] ?? configs.free).downloads : 0,
       allowed: !!sub,
     };
 
@@ -169,6 +170,14 @@ export async function getPlanQuotaConfig(ctx: any): Promise<Record<string, PlanQ
       projects: config?.expertProjectLimit ?? DEFAULT_QUOTAS.expert.projects,
       investments: config?.expertInvestmentLimit ?? DEFAULT_QUOTAS.expert.investments,
       downloads: config?.expertDownloadLimit ?? DEFAULT_QUOTAS.expert.downloads,
+    },
+    // Supplier plan: suppliers don't consume construction/investment quotas,
+    // but the record may exist in the DB — provide safe defaults so
+    // getMyQuotas() doesn't crash when plan = "supplier".
+    supplier: {
+      projects: 0,
+      investments: 0,
+      downloads: 0,
     },
   };
 }
