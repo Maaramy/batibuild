@@ -5,13 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Store, Phone, MapPin, Mail, ExternalLink,
+  Store, Phone, MapPin, Mail,
   FileText, Send, Loader2, CheckCircle2, X,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 // ── Types ────────────────────────────────────────────────────────────────────

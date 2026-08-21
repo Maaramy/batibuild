@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, FileText, Loader2, Send, CheckCircle2, Clock,
-  AlertCircle, User, Phone, Mail, Package, Upload, X,
+  AlertCircle, User, Phone, Mail, Package, X,
 } from "lucide-react";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
