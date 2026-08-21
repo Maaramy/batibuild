@@ -94,53 +94,33 @@ export function SupplierRecommendedCard({
 
   return (
     <>
-      <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/[0.03] to-background p-3.5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Store className="h-5 w-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-semibold text-foreground">{s.companyName}</p>
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full">
-                <CheckCircle2 className="h-2 w-2" /> Vérifié
-              </span>
-              <Badge variant="secondary" className="text-[9px]">{categoryLabel}</Badge>
-            </div>
-            {s.description && (
-              <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{s.description}</p>
-            )}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Phone className="h-2.5 w-2.5" /> {s.phone}
-              </span>
-              {s.email && (
-                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <Mail className="h-2.5 w-2.5" /> {s.email}
-                </span>
-              )}
-              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <MapPin className="h-2.5 w-2.5" /> {s.address}
-              </span>
-            </div>
-            <div className="flex gap-2 mt-3">
-              <a
-                href={`tel:${s.phone.replace(/[^\\d+]/g, "")}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10 hover:border-primary/30 active:scale-[0.98] transition-all"
-              >
-                <Phone className="h-3 w-3" /> Contacter
-              </a>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-auto gap-1.5 text-[11px] font-medium rounded-lg border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300"
-                onClick={() => setShowQuoteDialog(true)}
-              >
-                <FileText className="h-3 w-3" /> Demander un devis
-              </Button>
-            </div>
+      <div className="flex items-center gap-2.5 rounded-lg border border-primary/15 bg-primary/[0.03] px-3 py-2">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Store className="h-3.5 w-3.5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-semibold text-foreground truncate">{s.companyName}</span>
+            <span className="inline-flex items-center gap-0.5 text-[8px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-1 py-px rounded-full">
+              <CheckCircle2 className="h-1.5 w-1.5" /> Vérifié
+            </span>
+            <span className="text-[9px] text-muted-foreground truncate hidden sm:inline">· {s.address}</span>
           </div>
         </div>
+        <a
+          href={`tel:${s.phone.replace(/[^\\d+]/g, "")}`}
+          className="shrink-0 inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/[0.04] px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/10 active:scale-[0.98] transition-all"
+        >
+          <Phone className="h-2.5 w-2.5" /> Contacter
+        </a>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0 h-auto gap-1 text-[10px] font-medium rounded-md border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 px-2 py-1"
+          onClick={() => setShowQuoteDialog(true)}
+        >
+          <FileText className="h-2.5 w-2.5" /> Devis
+        </Button>
       </div>
 
       {/* ── Quote Request Dialog ── */}
