@@ -293,13 +293,9 @@ export const refreshBIMDataMonthly = internalMutation({
       }
     }
 
-    // ── 3. Market intelligence: seed sources/catalog on first run, then sync ──
+    // ── 3. Market intelligence sync (seed is done via the manual admin button) ──
     let marketSync: any = null;
     try {
-      const sources = await ctx.db.query("marketSources").take(1);
-      if (sources.length === 0) {
-        await ctx.runMutation(api.marketData.seedMarketData, {});
-      }
       marketSync = await ctx.runMutation(internal.marketData.runMarketSyncInternal, {});
     } catch (e) {
       // Non-blocking: market layer failures must not break the BIM refresh
