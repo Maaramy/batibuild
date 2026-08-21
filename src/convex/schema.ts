@@ -1155,6 +1155,40 @@ const schema = defineSchema(
       .index("by_project", ["projectId"])
       .index("by_user_project", ["userId", "projectId"]),
 
+    // ── Supplier Analytics (views, clicks, contacts per supplier) ──
+    supplierAnalytics: defineTable({
+      supplierId: v.id("supplierProfiles"),
+      date: v.number(),
+      eventType: v.union(
+        v.literal("view"),
+        v.literal("click"),
+        v.literal("contact"),
+      ),
+      productId: v.optional(v.string()),
+      source: v.optional(
+        v.union(
+          v.literal("direct"),
+          v.literal("search"),
+          v.literal("social"),
+          v.literal("other"),
+        ),
+      ),
+    })
+      .index("by_supplier", ["supplierId"])
+      .index("by_supplier_date", ["supplierId", "date"])
+      .index("by_supplier_type", ["supplierId", "eventType"]),
+
+    // Supplier ratings
+    supplierRatings: defineTable({
+      supplierId: v.id("supplierProfiles"),
+      rating: v.number(),
+      projectId: v.optional(v.id("projects")),
+      comment: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_supplier", ["supplierId"])
+      .index("by_supplier_date", ["supplierId", "createdAt"]),
+
   },
   {
     schemaValidation: false,
