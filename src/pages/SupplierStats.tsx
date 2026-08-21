@@ -62,21 +62,16 @@ import {
 // ============================================================================
 
 const PERIODS = [
-  { key: "7d", label: "7 jours" },
-  { key: "30d", label: "30 jours" },
-  { key: "90d", label: "90 jours" },
+  { key: "7d", label: "7j" },
+  { key: "30d", label: "30j" },
+  { key: "90d", label: "90j" },
   { key: "year", label: "Année" },
-  { key: "custom", label: "Personnalisé" },
+  { key: "custom", label: "Custom" },
 ] as const;
 
 const PIE_COLORS = [
-  "#3b82f6", // blue
-  "#10b981", // emerald
-  "#f59e0b", // amber
-  "#ef4444", // red
-  "#8b5cf6", // violet
-  "#06b6d4", // cyan
-  "#ec4899", // pink
+  "#3b82f6", "#10b981", "#f59e0b", "#ef4444",
+  "#8b5cf6", "#06b6d4", "#ec4899",
 ];
 
 // ============================================================================
@@ -85,25 +80,25 @@ const PIE_COLORS = [
 
 function StatsSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Skeleton className="h-8 w-8 rounded-lg" />
-        <Skeleton className="h-7 w-64" />
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-7 w-7 rounded-lg" />
+        <Skeleton className="h-5 w-48" />
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 rounded-xl" />
+          <Skeleton key={i} className="h-20 rounded-lg" />
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Skeleton className="h-72 rounded-xl" />
-        <Skeleton className="h-72 rounded-xl" />
+      <div className="grid gap-3 md:grid-cols-2">
+        <Skeleton className="h-52 rounded-lg" />
+        <Skeleton className="h-52 rounded-lg" />
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Skeleton className="h-72 rounded-xl" />
-        <Skeleton className="h-72 rounded-xl" />
+      <div className="grid gap-3 md:grid-cols-2">
+        <Skeleton className="h-52 rounded-lg" />
+        <Skeleton className="h-52 rounded-lg" />
       </div>
-      <Skeleton className="h-64 rounded-xl" />
+      <Skeleton className="h-48 rounded-lg" />
     </div>
   );
 }
@@ -114,32 +109,32 @@ function StatsSkeleton() {
 
 function UpgradeScreen({ onBack }: { onBack: () => void }) {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center">
+    <div className="flex min-h-[50vh] items-center justify-center">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md text-center"
+        className="max-w-sm text-center"
       >
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-900/30">
-          <Lock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/30">
+          <Lock className="h-6 w-6 text-amber-600 dark:text-amber-400" />
         </div>
-        <h2 className="text-xl font-bold text-foreground">
+        <h2 className="text-lg font-bold text-foreground">
           Statistiques réservées aux fournisseurs
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Souscrivez au forfait Fournisseur pour accéder à vos statistiques de
-          performance : vues, clics, taux de conversion et bien plus.
+        <p className="mt-1 text-xs text-muted-foreground">
+          Souscrivez au forfait Fournisseur pour accéder à vos statistiques.
         </p>
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <Button variant="outline" onClick={onBack}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <Button variant="outline" size="sm" onClick={onBack}>
+            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
             Retour
           </Button>
           <Button
+            size="sm"
             onClick={() => (window.location.href = "/dashboard/supplier")}
           >
-            <Crown className="mr-2 h-4 w-4" />
-            Mon espace fournisseur
+            <Crown className="mr-1.5 h-3.5 w-3.5" />
+            Espace fournisseur
           </Button>
         </div>
       </motion.div>
@@ -153,14 +148,14 @@ function UpgradeScreen({ onBack }: { onBack: () => void }) {
 
 function EmptyState() {
   return (
-    <div className="flex min-h-[40vh] flex-col items-center justify-center text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50">
-        <BarChart3 className="h-7 w-7 text-muted-foreground" />
+    <div className="flex min-h-[30vh] flex-col items-center justify-center text-center">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50">
+        <BarChart3 className="h-5 w-5 text-muted-foreground" />
       </div>
-      <h3 className="text-lg font-semibold text-foreground">
+      <h3 className="text-sm font-semibold text-foreground">
         Aucune donnée pour cette période
       </h3>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+      <p className="mt-0.5 max-w-xs text-xs text-muted-foreground">
         Les statistiques apparaîtront dès que des visiteurs consulteront votre
         profil ou vos produits.
       </p>
@@ -169,7 +164,7 @@ function EmptyState() {
 }
 
 // ============================================================================
-// KPI Card
+// KPI Card (compact)
 // ============================================================================
 
 function KpiCard({
@@ -188,31 +183,31 @@ function KpiCard({
   loading?: boolean;
 }) {
   return (
-    <Card className="relative overflow-hidden">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
+    <Card className="overflow-hidden">
+      <CardContent className="p-3">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: `${color}15` }}
+          >
+            <span style={{ color }}><Icon className="h-4 w-4" /></span>
+          </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="text-[10px] font-medium text-muted-foreground leading-tight">
               {label}
             </p>
             {loading ? (
-              <Skeleton className="mt-2 h-7 w-16" />
+              <Skeleton className="mt-1 h-5 w-12" />
             ) : (
-              <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
+              <p className="text-base font-bold tabular-nums text-foreground leading-tight">
                 {typeof value === "number" ? value.toLocaleString("fr-FR") : value}
                 {suffix && (
-                  <span className="ml-0.5 text-sm font-medium text-muted-foreground">
+                  <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">
                     {suffix}
                   </span>
                 )}
               </p>
             )}
-          </div>
-          <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-            style={{ backgroundColor: `${color}18` }}
-          >
-            <Icon className="h-4.5 w-4.5" />
           </div>
         </div>
       </CardContent>
@@ -256,15 +251,12 @@ export default function SupplierStats() {
 
   const isLoading = profile === undefined;
 
-  // Check supplier plan access
   const hasAccess =
     profile &&
     (profile.plan === "monthly" || profile.effectiveStatus === "active");
 
-  const hasData =
-    viewsOverTime && viewsOverTime.length > 0;
+  const hasData = viewsOverTime && viewsOverTime.length > 0;
 
-  // ── Handle seed demo ──
   const handleSeed = async () => {
     try {
       setSeeding(true);
@@ -277,29 +269,18 @@ export default function SupplierStats() {
     }
   };
 
-  // ── Chart config ──
   const areaChartConfig = {
-    views: {
-      label: "Vues",
-      color: "#3b82f6",
-    },
-    clicks: {
-      label: "Clics",
-      color: "#10b981",
-    },
+    views: { label: "Vues", color: "#3b82f6" },
+    clicks: { label: "Clics", color: "#10b981" },
   } satisfies ChartConfig;
 
   const barChartConfig = {
-    clicks: {
-      label: "Clics",
-      color: "#3b82f6",
-    },
+    clicks: { label: "Clics", color: "#3b82f6" },
   } satisfies ChartConfig;
 
-  // ── Render ──
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-5">
         <StatsSkeleton />
       </div>
     );
@@ -307,74 +288,69 @@ export default function SupplierStats() {
 
   if (!hasAccess) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-5">
         <UpgradeScreen onBack={() => navigate("/dashboard/supplier")} />
       </div>
     );
   }
 
-  // All data loaded but empty
   const totalViews = kpis?.views ?? 0;
   const totalClicks = kpis?.clicks ?? 0;
-  const allEmpty =
-    kpis && !hasData && totalViews === 0 && totalClicks === 0;
+  const allEmpty = kpis && !hasData && totalViews === 0 && totalClicks === 0;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-6xl space-y-4 px-3 py-4 sm:px-5">
       {/* ── Header ── */}
       <motion.div
-        initial={{ opacity: 0, y: -10 }}
+        initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        className="flex items-center justify-between"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => navigate("/dashboard/supplier")}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 transition-colors hover:bg-muted"
+            className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted/50 transition-colors hover:bg-muted"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-3.5 w-3.5" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-foreground">
+            <h1 className="text-base font-bold text-foreground">
               Statistiques
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Performance de votre profil fournisseur
+            <p className="text-[11px] text-muted-foreground">
+              Performance de votre profil
             </p>
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSeed}
-            disabled={seeding}
-            className="gap-1.5"
-          >
-            {seeding ? (
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
-            )}
-            Données démo
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSeed}
+          disabled={seeding}
+          className="h-7 gap-1 text-[11px]"
+        >
+          {seeding ? (
+            <RefreshCw className="h-3 w-3 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3 w-3" />
+          )}
+          Démo
+        </Button>
       </motion.div>
 
       {/* ── Period Filter ── */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         {PERIODS.map((p) => (
           <button
             key={p.key}
             onClick={() => setPeriod(p.key)}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+            className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all ${
               period === p.key
                 ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950/50 dark:text-blue-300"
                 : "border-border bg-background text-muted-foreground hover:bg-muted/50"
             }`}
           >
-            <Calendar className="mr-1 inline h-3 w-3" />
+            <Calendar className="mr-0.5 inline h-2.5 w-2.5" />
             {p.label}
           </button>
         ))}
@@ -385,40 +361,38 @@ export default function SupplierStats() {
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
-          className="flex flex-wrap items-center gap-3"
+          className="flex items-center gap-2"
         >
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Date de début
-            </label>
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs"
-            />
-          </div>
+          <label className="text-[11px] font-medium text-muted-foreground">
+            Début
+          </label>
+          <input
+            type="date"
+            value={customStart}
+            onChange={(e) => setCustomStart(e.target.value)}
+            className="rounded-lg border border-border bg-background px-2.5 py-1 text-[11px]"
+          />
         </motion.div>
       )}
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
         <KpiCard
-          label="Vues totales"
+          label="Vues"
           value={kpis?.views ?? 0}
           icon={Eye}
           color="#3b82f6"
           loading={!kpis}
         />
         <KpiCard
-          label="Clics totaux"
+          label="Clics"
           value={kpis?.clicks ?? 0}
           icon={MousePointerClick}
           color="#10b981"
           loading={!kpis}
         />
         <KpiCard
-          label="Taux de clics"
+          label="CTR"
           value={kpis?.ctr ?? 0}
           icon={TrendingUp}
           suffix="%"
@@ -426,14 +400,14 @@ export default function SupplierStats() {
           loading={!kpis}
         />
         <KpiCard
-          label="Contacts reçus"
+          label="Contacts"
           value={kpis?.contacts ?? 0}
           icon={MessageSquare}
           color="#8b5cf6"
           loading={!kpis}
         />
         <KpiCard
-          label="Note moyenne"
+          label="Note"
           value={kpis?.avgRating ?? 0}
           icon={Star}
           suffix={`/5 (${kpis?.totalRatings ?? 0})`}
@@ -443,23 +417,20 @@ export default function SupplierStats() {
       </div>
 
       {/* ── Empty State ── */}
-      {allEmpty && (
-        <EmptyState />
-      )}
+      {allEmpty && <EmptyState />}
 
       {/* ── Charts Row 1: Area + Pie ── */}
       {viewsOverTime && viewsOverTime.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Views & Clicks Over Time */}
+        <div className="grid gap-3 md:grid-cols-2">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <BarChart3 className="h-4 w-4 text-blue-500" />
-                Évolution des vues & clics
+            <CardHeader className="p-3 pb-1">
+              <CardTitle className="flex items-center gap-1.5 text-xs">
+                <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
+                Évolution vues & clics
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ChartContainer config={areaChartConfig} className="h-64">
+            <CardContent className="p-3 pt-0">
+              <ChartContainer config={areaChartConfig} className="h-48">
                 <AreaChart data={viewsOverTime}>
                   <defs>
                     <linearGradient id="fillViews" x1="0" y1="0" x2="0" y2="1">
@@ -478,27 +449,25 @@ export default function SupplierStats() {
                       const dt = new Date(d);
                       return `${dt.getDate()}/${dt.getMonth() + 1}`;
                     }}
-                    className="text-[10px]"
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 9 }}
                     stroke="hsl(var(--muted-foreground))"
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
-                    className="text-[10px]"
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 9 }}
                     stroke="hsl(var(--muted-foreground))"
                     tickLine={false}
                     axisLine={false}
+                    width={30}
                   />
                   <Tooltip content={<ChartTooltipContent />} />
-                  <Legend content={<ChartTooltipContent />} />
                   <Area
                     type="monotone"
                     dataKey="views"
                     stroke="#3b82f6"
                     fill="url(#fillViews)"
-                    strokeWidth={2}
+                    strokeWidth={1.5}
                     name="Vues"
                   />
                   <Area
@@ -506,7 +475,7 @@ export default function SupplierStats() {
                     dataKey="clicks"
                     stroke="#10b981"
                     fill="url(#fillClicks)"
-                    strokeWidth={2}
+                    strokeWidth={1.5}
                     name="Clics"
                   />
                 </AreaChart>
@@ -514,26 +483,25 @@ export default function SupplierStats() {
             </CardContent>
           </Card>
 
-          {/* Traffic Sources Donut */}
           {trafficSources && trafficSources.length > 0 ? (
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <PieChartIcon className="h-4 w-4 text-emerald-500" />
+              <CardHeader className="p-3 pb-1">
+                <CardTitle className="flex items-center gap-1.5 text-xs">
+                  <PieChartIcon className="h-3.5 w-3.5 text-emerald-500" />
                   Sources de trafic
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-6">
-                  <div className="h-56 w-56 shrink-0">
+              <CardContent className="p-3 pt-0">
+                <div className="flex items-center gap-4">
+                  <div className="h-44 w-44 shrink-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={trafficSources}
                           cx="50%"
                           cy="50%"
-                          innerRadius={55}
-                          outerRadius={85}
+                          innerRadius={40}
+                          outerRadius={65}
                           paddingAngle={3}
                           dataKey="value"
                           nameKey="name"
@@ -548,23 +516,22 @@ export default function SupplierStats() {
                         <Tooltip
                           formatter={(value: number) => [
                             value.toLocaleString("fr-FR"),
-                            "événements",
+                            "",
                           ]}
                         />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {trafficSources.map((src, i) => (
-                      <div key={src.name} className="flex items-center gap-2">
+                      <div key={src.name} className="flex items-center gap-1.5">
                         <div
-                          className="h-3 w-3 shrink-0 rounded-full"
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
                           style={{
-                            backgroundColor:
-                              PIE_COLORS[i % PIE_COLORS.length],
+                            backgroundColor: PIE_COLORS[i % PIE_COLORS.length],
                           }}
                         />
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-[10px] text-muted-foreground">
                           {src.name === "direct"
                             ? "Direct"
                             : src.name === "search"
@@ -573,7 +540,7 @@ export default function SupplierStats() {
                                 ? "Réseau social"
                                 : "Autre"}
                         </span>
-                        <span className="ml-auto text-xs font-semibold tabular-nums text-foreground">
+                        <span className="ml-auto text-[10px] font-semibold tabular-nums text-foreground">
                           {src.value.toLocaleString("fr-FR")}
                         </span>
                       </div>
@@ -584,16 +551,14 @@ export default function SupplierStats() {
             </Card>
           ) : (
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <PieChartIcon className="h-4 w-4 text-emerald-500" />
+              <CardHeader className="p-3 pb-1">
+                <CardTitle className="flex items-center gap-1.5 text-xs">
+                  <PieChartIcon className="h-3.5 w-3.5 text-emerald-500" />
                   Sources de trafic
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex h-56 items-center justify-center">
-                <p className="text-sm text-muted-foreground">
-                  Aucune donnée de trafic disponible
-                </p>
+              <CardContent className="flex h-44 items-center justify-center">
+                <p className="text-xs text-muted-foreground">Aucune donnée</p>
               </CardContent>
             </Card>
           )}
@@ -603,28 +568,26 @@ export default function SupplierStats() {
       {/* ── Charts Row 2: Bar + Horizontal Bar ── */}
       {(clicksByProduct && clicksByProduct.length > 0) ||
       (topProducts && topProducts.length > 0) ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Clicks by Product */}
+        <div className="grid gap-3 md:grid-cols-2">
           {clicksByProduct && clicksByProduct.length > 0 && (
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <BarChart className="h-4 w-4 text-violet-500" />
-                  Clics par produit/service
+              <CardHeader className="p-3 pb-1">
+                <CardTitle className="flex items-center gap-1.5 text-xs">
+                  <BarChart className="h-3.5 w-3.5 text-violet-500" />
+                  Clics par produit
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <ChartContainer config={barChartConfig} className="h-64">
+              <CardContent className="p-3 pt-0">
+                <ChartContainer config={barChartConfig} className="h-48">
                   <RechartsBarChart
                     data={clicksByProduct}
                     layout="vertical"
-                    margin={{ left: 0, right: 10 }}
+                    margin={{ left: 0, right: 8 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
                     <XAxis
                       type="number"
-                      className="text-[10px]"
-                      tick={{ fontSize: 10 }}
+                      tick={{ fontSize: 9 }}
                       stroke="hsl(var(--muted-foreground))"
                       tickLine={false}
                       axisLine={false}
@@ -632,9 +595,8 @@ export default function SupplierStats() {
                     <YAxis
                       type="category"
                       dataKey="product"
-                      className="text-[10px]"
-                      tick={{ fontSize: 10 }}
-                      width={120}
+                      tick={{ fontSize: 9 }}
+                      width={100}
                       stroke="hsl(var(--muted-foreground))"
                       tickLine={false}
                       axisLine={false}
@@ -645,53 +607,51 @@ export default function SupplierStats() {
                         "clics",
                       ]}
                     />
-                    <Bar dataKey="clicks" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="clicks" fill="#8b5cf6" radius={[0, 3, 3, 0]} />
                   </RechartsBarChart>
                 </ChartContainer>
               </CardContent>
             </Card>
           )}
 
-          {/* Top 5 Products */}
           {topProducts && topProducts.length > 0 && (
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <TrendingUp className="h-4 w-4 text-amber-500" />
-                  Top 5 produits les plus consultés
+              <CardHeader className="p-3 pb-1">
+                <CardTitle className="flex items-center gap-1.5 text-xs">
+                  <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
+                  Top 5 produits
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <ChartContainer config={barChartConfig} className="h-64">
+              <CardContent className="p-3 pt-0">
+                <ChartContainer config={barChartConfig} className="h-48">
                   <RechartsBarChart data={topProducts}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
                     <XAxis
                       dataKey="product"
-                      className="text-[10px]"
-                      tick={{ fontSize: 10 }}
+                      tick={{ fontSize: 9 }}
                       stroke="hsl(var(--muted-foreground))"
                       tickLine={false}
                       axisLine={false}
                     />
                     <YAxis
-                      className="text-[10px]"
-                      tick={{ fontSize: 10 }}
+                      tick={{ fontSize: 9 }}
                       stroke="hsl(var(--muted-foreground))"
                       tickLine={false}
                       axisLine={false}
+                      width={28}
                     />
                     <Tooltip />
-                    <Legend />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
                     <Bar
                       dataKey="views"
                       fill="#3b82f6"
-                      radius={[4, 4, 0, 0]}
+                      radius={[3, 3, 0, 0]}
                       name="Vues"
                     />
                     <Bar
                       dataKey="clicks"
                       fill="#10b981"
-                      radius={[4, 4, 0, 0]}
+                      radius={[3, 3, 0, 0]}
                       name="Clics"
                     />
                   </RechartsBarChart>
@@ -705,45 +665,45 @@ export default function SupplierStats() {
       {/* ── Detailed Table ── */}
       {detailedTable && detailedTable.length > 0 && (
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <BarChart3 className="h-4 w-4 text-blue-500" />
-              Tableau détaillé par produit/service
+          <CardHeader className="p-3 pb-1">
+            <CardTitle className="flex items-center gap-1.5 text-xs">
+              <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
+              Détail par produit/service
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 pt-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[200px]">
+                  <TableRow className="h-8">
+                    <TableHead className="min-w-[160px] py-1 text-[10px]">
                       Produit / Service
                     </TableHead>
-                    <TableHead className="text-right">Vues</TableHead>
-                    <TableHead className="text-right">Clics</TableHead>
-                    <TableHead className="text-right">Contacts</TableHead>
-                    <TableHead className="text-right">CTR</TableHead>
+                    <TableHead className="py-1 text-right text-[10px]">Vues</TableHead>
+                    <TableHead className="py-1 text-right text-[10px]">Clics</TableHead>
+                    <TableHead className="py-1 text-right text-[10px]">Contacts</TableHead>
+                    <TableHead className="py-1 text-right text-[10px]">CTR</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {detailedTable.map((row) => (
-                    <TableRow key={row.product}>
-                      <TableCell className="font-medium">
+                    <TableRow key={row.product} className="h-9">
+                      <TableCell className="py-1.5 text-xs font-medium">
                         {row.product}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell className="py-1.5 text-right text-xs tabular-nums">
                         {row.views.toLocaleString("fr-FR")}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell className="py-1.5 text-right text-xs tabular-nums">
                         {row.clicks.toLocaleString("fr-FR")}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell className="py-1.5 text-right text-xs tabular-nums">
                         {row.contacts.toLocaleString("fr-FR")}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="py-1.5 text-right">
                         <Badge
                           variant="outline"
-                          className="tabular-nums"
+                          className="text-[10px] tabular-nums"
                         >
                           {row.ctr}%
                         </Badge>
