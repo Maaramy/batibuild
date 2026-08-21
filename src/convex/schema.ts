@@ -34,6 +34,7 @@ export const subscriptionPlanValidator = v.union(
   v.literal(SUBSCRIPTION_PLANS.FREE),
   v.literal(SUBSCRIPTION_PLANS.PRO),
   v.literal(SUBSCRIPTION_PLANS.EXPERT),
+  v.literal("supplier"),
 );
 export type SubscriptionPlan = Infer<typeof subscriptionPlanValidator>;
 
