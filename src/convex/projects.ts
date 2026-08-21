@@ -713,7 +713,6 @@ import {
 } from "./bimEngine";
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { generateDqe } from "./dqeEngine";
-import { findMatchingSuppliers } from "./suppliers";
 
 // ============================================================================
 // Simulate Analysis (BIM Professional Engine)
@@ -802,13 +801,9 @@ export const simulateAnalysis = mutation({
       finishLevel
     );
 
-    // Attach real Tunisian supplier data to each provider recommendation
+    // Attach registered suppliers to each provider recommendation
     const providerTypes = recommendations.providers.map((p: any) => p.type);
-    const matchedSuppliers = findMatchingSuppliers(providerTypes, region);
     const supplierMap = new Map<string, any[]>();
-    matchedSuppliers.forEach((ms: any) => {
-      supplierMap.set(ms.type, ms.suppliers);
-    });
 
     // ── Also fetch registered suppliers from the database ──
     const now = Date.now();
