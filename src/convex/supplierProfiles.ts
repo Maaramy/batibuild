@@ -727,3 +727,40 @@ export const adminDeleteSupplierReceipt = mutation({
     return { success: true };
   },
 });
+
+// ============================================================================
+// Public: Random active supplier(s) per specialty
+// ============================================================================
+
+/**
+ * Return a random active supplier matching the requested specialties.
+ * Used to display recommended suppliers in the AI Materials and
+ * Project Results pages.
+ */
+export const getRandomBySpecialty = query({
+  args: {
+    specialty: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 1;
+
+    // Get all active suppliers matching this specialty
+    const allProfiles = await ctx.db
+      .query("supplierProfiles")
+      .withIndex("by_subscription", (q) =>
+        q.eq("subscriptionStatus", "active")
+      )
+      .collect();
+
+    const matching = allProfiles.filter(
+      (p) => p.isVisible && p.specialties.includes(args.specialty)
+    );
+
+    if (matching.length === 0) return [];
+
+    // Shuffle and return requested limit
+    const shuffled = [...matching].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, limit);
+  },
+});

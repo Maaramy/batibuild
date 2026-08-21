@@ -35,6 +35,8 @@ const BlogPage = lazy(() => import("./pages/BlogPage.tsx"));
 const BlogPostPage = lazy(() => import("./pages/BlogPostPage.tsx"));
 const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
 const SupplierStats = lazy(() => import("./pages/SupplierStats.tsx"));
+const SupplierQuotes = lazy(() => import("./pages/SupplierQuotes.tsx"));
+const UserMessages = lazy(() => import("./pages/UserMessages.tsx"));
 const InvestmentAnalysis = lazy(() => import("./pages/InvestmentAnalysis.tsx"));
 const InvestmentResults = lazy(() => import("./pages/InvestmentResults.tsx"));
 const ShareInvestment = lazy(() => import("./pages/ShareInvestment.tsx"));
@@ -254,6 +256,22 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <SupplierStats />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/supplier/quotes"
+                  element={
+                    <RequireAuth>
+                      <SupplierQuotes />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/messages"
+                  element={
+                    <RequireAuth>
+                      <UserMessages />
                     </RequireAuth>
                   }
                 />

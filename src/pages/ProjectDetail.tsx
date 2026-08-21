@@ -41,6 +41,7 @@ import {
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from "recharts";
+import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -1706,6 +1707,18 @@ export default function ProjectDetail() {
             )}
 
             {/* ═══ Recommendations ═══ */}
+            {/* Fournisseur recommandé pour la catégorie du projet */}
+            {ai.category && (
+              <div className="mb-2">
+                <SupplierRecommendedCard
+                  categoryKey={ai.category}
+                  categoryLabel={ai.category}
+                  materials={[]}
+                  projectId={project._id}
+                  projectName={ai.category}
+                />
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {project.optimizationTips && project.optimizationTips.length > 0 && (
                 <motion.div variants={fadeUp} custom={8}

@@ -28,6 +28,7 @@ import {
   ProjectContext,
 } from "@/convex/aiMaterialsEngine";
 import { generateMaterialReportPdf } from "@/lib/materialReportPdf";
+import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
 import { REGION_LABELS } from "@/lib/projectPdf";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -826,6 +827,29 @@ export default function AiMaterials() {
                             );
                           })}
                         </div>
+
+                        {/* ── Fournisseur recommandé pour cette catégorie ── */}
+                        {(() => {
+                          // Find the equilibre solution's materials for this category
+                          const equilibreSol = cat.solutions.find((s) => s.profile === "equilibre");
+                          if (!equilibreSol) return null;
+                          const mat = equilibreSol.material;
+                          const mats = [{
+                            name: mat.name,
+                            quantity: mat.quantity ?? 0,
+                            unit: mat.quantityUnit ?? "",
+                          }];
+                          return (
+                            <div className="mt-3">
+                              <SupplierRecommendedCard
+                                categoryKey={cat.categoryId}
+                                categoryLabel={cat.label}
+                                materials={mats}
+                              />
+                            </div>
+                          );
+                        })()}
+
                         {/* Tableau comparatif de la catégorie */}
                         <div className="overflow-x-auto rounded-xl border border-border/30">
                           <table className="w-full text-xs">

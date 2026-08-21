@@ -1189,6 +1189,52 @@ const schema = defineSchema(
       .index("by_supplier", ["supplierId"])
       .index("by_supplier_date", ["supplierId", "createdAt"]),
 
+    // ── Quote Requests (demandes de devis utilisateur → fournisseur) ──
+    quoteRequests: defineTable({
+      userId: v.id("users"),
+      supplierId: v.id("supplierProfiles"),
+      projectId: v.optional(v.id("projects")),
+      projectName: v.optional(v.string()),
+      category: v.string(),
+      materials: v.array(v.object({
+        name: v.string(),
+        quantity: v.number(),
+        unit: v.string(),
+      })),
+      userPhone: v.string(),
+      userEmail: v.string(),
+      userName: v.string(),
+      message: v.optional(v.string()),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("responded"),
+        v.literal("closed"),
+      ),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_supplier", ["supplierId"])
+      .index("by_status", ["status"])
+      .index("by_created", ["createdAt"]),
+
+    // ── Quote Responses (réponses du fournisseur avec pièces jointes) ──
+    quoteResponses: defineTable({
+      quoteRequestId: v.id("quoteRequests"),
+      supplierId: v.id("supplierProfiles"),
+      userId: v.id("users"),
+      message: v.string(),
+      totalAmount: v.optional(v.number()),
+      attachmentUrl: v.optional(v.string()),
+      attachmentStorageId: v.optional(v.id("_storage")),
+      attachmentFileName: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_quote", ["quoteRequestId"])
+      .index("by_supplier", ["supplierId"])
+      .index("by_user", ["userId"])
+      .index("by_created", ["createdAt"]),
+
   },
   {
     schemaValidation: false,

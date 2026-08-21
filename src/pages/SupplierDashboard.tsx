@@ -24,7 +24,7 @@ import {
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard,
   Store, ShieldCheck, Trash2, AlertTriangle,
   Banknote, Smartphone, Landmark, UserRound, Clock3, Upload, Image as ImageIcon, X,
-  Wallet, BarChart3,
+  Wallet, BarChart3, FileText,
 } from "lucide-react";
 
 // ============================================================================
@@ -436,13 +436,22 @@ export default function SupplierDashboard() {
             </p>
           </div>
           {effStatus === "active" && (
-            <button
-              onClick={() => navigate("/dashboard/supplier/stats")}
-              className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-            >
-              <BarChart3 className="h-3.5 w-3.5" />
-              Statistiques
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate("/dashboard/supplier/quotes")}
+                className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Devis reçus
+              </button>
+              <button
+                onClick={() => navigate("/dashboard/supplier/stats")}
+                className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                Statistiques
+              </button>
+            </div>
           )}
         </div>
 

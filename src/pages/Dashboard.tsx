@@ -55,6 +55,7 @@ import {
   Lock,
   RefreshCcw,
   Rocket,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -453,6 +454,7 @@ export default function Dashboard() {
           { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
           { icon: Sparkles, label: "Assistant Matériaux IA", onClick: () => { navigate("/dashboard/ai-materials"); setMobileSidebarOpen(false); } },
           { icon: Store, label: "Espace fournisseur", onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
+          { icon: MessageSquare, label: "Messagerie", onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
           { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
           { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
           ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
