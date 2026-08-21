@@ -222,11 +222,8 @@ export const refreshBIMDataMonthly = internalMutation({
     const now = Date.now();
 
     // Find any admin user for logging purposes
-    const adminUsers = await ctx.db
-      .query("users")
-      .withIndex("subscriptionPlan", (q) => q.eq("subscriptionPlan", "free"))
-      .take(5);
-    const adminUser = adminUsers.find((u) => u.role === "admin") || adminUsers[0];
+    const allUsers = await ctx.db.query("users").take(20);
+    const adminUser = allUsers.find((u) => u.role === "admin");
     if (!adminUser) return { updated: 0, error: "No admin user found" };
 
     // ── 1. Update BIM config in DB ──
@@ -296,7 +293,20 @@ export const refreshBIMDataMonthly = internalMutation({
       }
     }
 
-    // ── 3. Log the automatic update ──
+    // ── 3. Market intelligence: seed sources/catalog on first run, then sync ──
+    let marketSync: any = null;
+    try {
+      const sources = await ctx.db.query("marketSources").take(1);
+      if (sources.length === 0) {
+        await ctx.runMutation(api.marketData.seedMarketData, {});
+      }
+      marketSync = await ctx.runMutation(internal.marketData.runMarketSyncInternal, {});
+    } catch (e) {
+      // Non-blocking: market layer failures must not break the BIM refresh
+      marketSync = { error: (e as Error).message };
+    }
+
+    // ── 4. Log the automatic update ──
     await ctx.db.insert("adminLogs", {
       adminId: adminUser._id,
       adminName: adminUser.name || "Système",
