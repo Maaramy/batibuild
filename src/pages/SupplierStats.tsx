@@ -264,10 +264,6 @@ export default function SupplierStats() {
   const hasData =
     viewsOverTime && viewsOverTime.length > 0;
 
-  // ── Period filter state ──
-  const currentPeriod =
-    PERIODS.find((p) => p.key === period) || PERIODS[1];
-
   // ── Handle seed demo ──
   const handleSeed = async () => {
     try {

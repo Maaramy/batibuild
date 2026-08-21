@@ -22,7 +22,7 @@ async function resolveSupplierId(ctx: any) {
   if (!user) throw new Error("Non authentifié");
   const profile = await ctx.db
     .query("supplierProfiles")
-    .withIndex("by_user", (q) => q.eq("userId", user._id))
+    .withIndex("by_user", (q: any) => q.eq("userId", user._id))
     .first();
   if (!profile) throw new Error("Profil fournisseur introuvable");
   return profile._id;
