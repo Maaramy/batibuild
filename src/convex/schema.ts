@@ -1235,6 +1235,123 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_created", ["createdAt"]),
 
+    // ── Expert Profiles (architectes, bureaux d'études, ingénieurs, promoteurs) ──
+    expertProfiles: defineTable({
+      userId: v.id("users"),
+      // Métier principal
+      profession: v.union(
+        v.literal("architecte"),
+        v.literal("bureau_etudes"),
+        v.literal("ingenieur"),
+        v.literal("promoteur_immobilier"),
+      ),
+      displayName: v.string(),
+      companyName: v.optional(v.string()),
+      phone: v.string(),
+      email: v.string(),
+      address: v.optional(v.string()),
+      website: v.optional(v.string()),
+      description: v.optional(v.string()),
+      logo: v.optional(v.string()),
+      // Compétences par métier
+      specialties: v.array(v.string()),
+      regions: v.array(v.string()),
+      // Abonnement
+      plan: v.union(
+        v.literal("trial"),
+        v.literal("monthly"),
+        v.literal("none")
+      ),
+      subscriptionStatus: v.union(
+        v.literal("active"),
+        v.literal("trial"),
+        v.literal("inactive"),
+        v.literal("expired"),
+        v.literal("pending")
+      ),
+      trialStartDate: v.optional(v.number()),
+      subscriptionStartDate: v.optional(v.number()),
+      subscriptionEndDate: v.optional(v.number()),
+      // Paiement
+      paymentMethod: v.optional(v.union(v.literal("bank_transfer"), v.literal("d17"))),
+      paymentAmount: v.optional(v.number()),
+      paymentProofStorageId: v.optional(v.id("_storage")),
+      paymentProofUrl: v.optional(v.string()),
+      paymentProofFileName: v.optional(v.string()),
+      paymentProofUploadedAt: v.optional(v.number()),
+      paymentProofVerified: v.optional(v.boolean()),
+      // Visibilité
+      isVisible: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_profession", ["profession"])
+      .index("by_subscription", ["subscriptionStatus"]),
+
+    // ── Expert Service Requests (demandes de services d'expertise) ──
+    expertServiceRequests: defineTable({
+      userId: v.id("users"),
+      expertId: v.id("expertProfiles"),
+      projectId: v.optional(v.id("projects")),
+      projectName: v.optional(v.string()),
+      serviceType: v.string(),
+      description: v.string(),
+      userPhone: v.string(),
+      userEmail: v.string(),
+      userName: v.string(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("responded"),
+        v.literal("closed"),
+      ),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_expert", ["expertId"])
+      .index("by_status", ["status"])
+      .index("by_created", ["createdAt"]),
+
+    // ── Expert Service Responses ──
+    expertServiceResponses: defineTable({
+      serviceRequestId: v.id("expertServiceRequests"),
+      expertId: v.id("expertProfiles"),
+      userId: v.id("users"),
+      message: v.string(),
+      totalAmount: v.optional(v.number()),
+      attachmentUrl: v.optional(v.string()),
+      attachmentStorageId: v.optional(v.id("_storage")),
+      attachmentFileName: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_request", ["serviceRequestId"])
+      .index("by_expert", ["expertId"])
+      .index("by_user", ["userId"]),
+
+    // ── Expert Analytics ──
+    expertAnalytics: defineTable({
+      expertId: v.id("expertProfiles"),
+      date: v.number(),
+      eventType: v.union(
+        v.literal("view"),
+        v.literal("click"),
+        v.literal("contact"),
+      ),
+      productId: v.optional(v.string()),
+      source: v.optional(
+        v.union(
+          v.literal("direct"),
+          v.literal("search"),
+          v.literal("social"),
+          v.literal("other"),
+        ),
+      ),
+    })
+      .index("by_expert", ["expertId"])
+      .index("by_expert_date", ["expertId", "date"])
+      .index("by_expert_type", ["expertId", "eventType"]),
+
   },
   {
     schemaValidation: false,

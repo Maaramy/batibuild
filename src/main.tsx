@@ -37,6 +37,9 @@ const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
 const SupplierStats = lazy(() => import("./pages/SupplierStats.tsx"));
 const SupplierQuotes = lazy(() => import("./pages/SupplierQuotes.tsx"));
 const UserMessages = lazy(() => import("./pages/UserMessages.tsx"));
+const ExpertDashboard = lazy(() => import("./pages/ExpertDashboard.tsx"));
+const ExpertServices = lazy(() => import("./pages/ExpertServices.tsx"));
+const ExpertStats = lazy(() => import("./pages/ExpertStats.tsx"));
 const InvestmentAnalysis = lazy(() => import("./pages/InvestmentAnalysis.tsx"));
 const InvestmentResults = lazy(() => import("./pages/InvestmentResults.tsx"));
 const ShareInvestment = lazy(() => import("./pages/ShareInvestment.tsx"));
@@ -272,6 +275,30 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <UserMessages />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/expert"
+                  element={
+                    <RequireAuth>
+                      <ExpertDashboard />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/expert/services"
+                  element={
+                    <RequireAuth>
+                      <ExpertServices />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/expert/stats"
+                  element={
+                    <RequireAuth>
+                      <ExpertStats />
                     </RequireAuth>
                   }
                 />
