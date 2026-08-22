@@ -69,6 +69,7 @@ import { usePageSEO } from "@/hooks/use-page-seo";
 import { TYPE_META, fmtTND, fmtPct } from "@/components/investment/shared";
 import { REGION_LABELS } from "@/convex/investmentTypes";
 import { projectTypeLabel } from "@/convex/projectTypes";
+import { SupplierStatsInline } from "@/pages/SupplierStats";
 
 // ============================================================================
 // Project Card (compact for mobile)
@@ -751,6 +752,9 @@ export default function Dashboard() {
                     <Settings className="h-4 w-4" />
                     Gérer mon profil fournisseur
                   </Button>
+
+                  {/* Inline Stats */}
+                  <SupplierStatsInline />
                 </>
               )}
             </div>
