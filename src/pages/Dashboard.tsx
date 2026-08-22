@@ -336,7 +336,9 @@ export default function Dashboard() {
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [showAllInvestments, setShowAllInvestments] = useState(false);
   // Role switch view mode: client | supplier | expert
-  const [viewMode, setViewMode] = useState<"client" | "supplier" | "expert">("client");
+  const [viewMode, setViewMode] = useState<"client" | "supplier" | "expert">(
+    user?.userRole === "supplier" ? "supplier" : user?.userRole === "expert" ? "expert" : "client",
+  );
 
   useEffect(() => setMounted(true), []);
 
@@ -366,6 +368,14 @@ export default function Dashboard() {
   );
   const hasExpertProfile = useQuery(
     api.expertProfiles.hasExpertProfile,
+    viewMode === "expert" ? {} : "skip",
+  );
+  const pendingQuotesCount = useQuery(
+    api.quoteRequests.pendingCount,
+    viewMode === "supplier" ? {} : "skip",
+  );
+  const pendingServicesCount = useQuery(
+    api.expertServiceRequests.pendingCount,
     viewMode === "expert" ? {} : "skip",
   );
 
@@ -474,15 +484,6 @@ export default function Dashboard() {
           <div className="mb-2">
             <div className="flex items-center gap-1 rounded-lg border border-border/40 bg-muted/20 p-0.5">
               <button
-                onClick={() => { setViewMode("client"); setMobileSidebarOpen(false); }}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] sm:text-xs font-medium transition-all",
-                  viewMode === "client" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
-                )}>
-                <User className="h-3 w-3" />
-                Client
-              </button>
-              <button
                 onClick={() => { setViewMode(isSupplier ? "supplier" : "expert"); setMobileSidebarOpen(false); }}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] sm:text-xs font-medium transition-all",
@@ -490,6 +491,15 @@ export default function Dashboard() {
                 )}>
                 {isSupplier ? <Store className="h-3 w-3" /> : <Briefcase className="h-3 w-3" />}
                 {isSupplier ? "Fournisseur" : "Expert"}
+              </button>
+              <button
+                onClick={() => { setViewMode("client"); setMobileSidebarOpen(false); }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] sm:text-xs font-medium transition-all",
+                  viewMode === "client" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}>
+                <User className="h-3 w-3" />
+                Client
               </button>
             </div>
           </div>
@@ -510,22 +520,34 @@ export default function Dashboard() {
             ] : []),
             // Professional features — only visible in their mode
             ...(viewMode === "supplier" ? [
-              { icon: FileText, label: "Mes devis reçus", onClick: () => { navigate("/dashboard/supplier/quotes"); setMobileSidebarOpen(false); } },
+              { icon: FileText, label: "Mes devis reçus", badge: pendingQuotesCount ?? 0, onClick: () => { navigate("/dashboard/supplier/quotes"); setMobileSidebarOpen(false); } },
               { icon: BarChart3, label: "Statistiques", onClick: () => { navigate("/dashboard/supplier/stats"); setMobileSidebarOpen(false); } },
             ] : []),
             ...(viewMode === "expert" ? [
-              { icon: FileText, label: "Mes services", onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
+              { icon: FileText, label: "Mes services", badge: pendingServicesCount ?? 0, onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
               { icon: BarChart3, label: "Statistiques", onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
             ] : []),
             { icon: MessageSquare, label: "Messagerie", onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
           ];
-        })().map((item) => (
+        }        )().map((item) => (
           <button key={item.label} onClick={item.onClick}
             className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm transition-all ${item.active ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"}`}>
-            <item.icon className="h-4 w-4 shrink-0" />
-            {item.label}
+            <div className="relative shrink-0">
+              <item.icon className="h-4 w-4" />
+              {'badge' in item && typeof item.badge === 'number' && item.badge > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white shadow-sm">
+                  {item.badge > 9 ? '9+' : item.badge}
+                </span>
+              )}
+            </div>
+            <span className="flex-1 text-left truncate">{item.label}</span>
+            {'badge' in item && typeof item.badge === 'number' && item.badge > 0 && (
+              <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                {item.badge > 9 ? '9+' : item.badge}
+              </span>
+            )}
           </button>
         ))}
       </nav>
