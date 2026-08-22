@@ -1,8 +1,9 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   Store, Phone, MapPin, Mail,
@@ -25,6 +26,7 @@ interface SupplierProfile {
   description?: string;
   specialties: string[];
   isVisible: boolean;
+  userId?: string;
 }
 
 interface MaterialQty {
@@ -44,6 +46,8 @@ interface SupplierRecommendedCardProps {
   projectId?: string;
   /** Project name (optional) */
   projectName?: string;
+  /** Current user's ID to block self-quote requests */
+  currentUserId?: string;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -54,10 +58,18 @@ export function SupplierRecommendedCard({
   materials,
   projectId,
   projectName,
+  currentUserId,
 }: SupplierRecommendedCardProps) {
   const [showQuoteDialog, setShowQuoteDialog] = useState(false);
   const [quoteMessage, setQuoteMessage] = useState("");
   const [sending, setSending] = useState(false);
+  // Editable materials state — initialized from props
+  const [editableMaterials, setEditableMaterials] = useState<MaterialQty[]>(materials);
+
+  // Sync when materials prop changes
+  useEffect(() => {
+    setEditableMaterials(materials);
+  }, [materials]);
 
   // Fetch random registered supplier for this specialty
   const supplier = useQuery(
@@ -71,7 +83,14 @@ export function SupplierRecommendedCard({
 
   const s = supplier[0] as SupplierProfile;
 
+  // Autodemand: check if current user owns this supplier profile
+  const isOwnProfile = currentUserId && s.userId && currentUserId === s.userId;
+
   const handleRequestQuote = async () => {
+    if (isOwnProfile) {
+      toast.error("Vous ne pouvez pas vous envoyer un devis à vous-même.");
+      return;
+    }
     try {
       setSending(true);
       await createQuoteRequest({
@@ -79,7 +98,7 @@ export function SupplierRecommendedCard({
         projectId: projectId as any,
         projectName,
         category: categoryLabel,
-        materials,
+        materials: editableMaterials,
         message: quoteMessage || undefined,
       });
       toast.success("Demande de devis envoyée avec succès !");
@@ -90,6 +109,12 @@ export function SupplierRecommendedCard({
     } finally {
       setSending(false);
     }
+  };
+
+  const updateMaterialQty = (index: number, qty: number) => {
+    setEditableMaterials((prev) =>
+      prev.map((m, i) => (i === index ? { ...m, quantity: Math.max(0, qty) } : m))
+    );
   };
 
   return (
@@ -133,8 +158,20 @@ export function SupplierRecommendedCard({
               <Button
                 size="sm"
                 variant="outline"
-                className="h-auto gap-1 text-[10px] font-medium rounded-md border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 px-2 py-1"
-                onClick={() => setShowQuoteDialog(true)}
+                className={`h-auto gap-1 text-[10px] font-medium rounded-md px-2 py-1 ${
+                  isOwnProfile
+                    ? "border-muted bg-muted/30 text-muted-foreground cursor-not-allowed opacity-60"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300"
+                }`}
+                onClick={() => {
+                  if (isOwnProfile) {
+                    toast.error("Vous ne pouvez pas vous envoyer un devis à vous-même.");
+                    return;
+                  }
+                  setShowQuoteDialog(true);
+                }}
+                disabled={!!isOwnProfile}
+                title={isOwnProfile ? "Vous ne pouvez pas vous envoyer un devis à vous-même" : undefined}
               >
                 <FileText className="h-2.5 w-2.5" /> Demander un devis
               </Button>
@@ -152,31 +189,40 @@ export function SupplierRecommendedCard({
               Demande de devis — {s.companyName}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Les quantités de matériaux de votre projet seront transmises automatiquement.
+              Modifiez les quantités si besoin, puis envoyez votre demande.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 pt-2">
-            {/* Materials summary */}
-            {materials.length > 0 && (
+            {/* Editable Materials summary */}
+            {editableMaterials.length > 0 && (
               <div>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Matériaux du projet
+                  Matériaux du projet (quantités modifiables)
                 </p>
                 <div className="rounded-xl border border-border/30 overflow-hidden">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-muted/30 border-b border-border/20">
                         <th className="text-left py-2 px-3 font-medium text-muted-foreground">Désignation</th>
-                        <th className="text-right py-2 px-3 font-medium text-muted-foreground">Quantité</th>
+                        <th className="text-right py-2 px-3 font-medium text-muted-foreground w-24">Quantité</th>
                         <th className="text-right py-2 px-3 font-medium text-muted-foreground">Unité</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {materials.map((m, i) => (
+                      {editableMaterials.map((m, i) => (
                         <tr key={i} className="border-b border-border/10 last:border-0">
                           <td className="py-1.5 px-3 font-medium">{m.name}</td>
-                          <td className="py-1.5 px-3 text-right tabular-nums">{m.quantity}</td>
+                          <td className="py-1.5 px-3">
+                            <Input
+                              type="number"
+                              min={0}
+                              step="any"
+                              value={m.quantity}
+                              onChange={(e) => updateMaterialQty(i, parseFloat(e.target.value) || 0)}
+                              className="h-7 w-full text-right text-xs tabular-nums px-2 py-0"
+                            />
+                          </td>
                           <td className="py-1.5 px-3 text-right text-muted-foreground">{m.unit}</td>
                         </tr>
                       ))}

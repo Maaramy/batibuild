@@ -845,6 +845,7 @@ export default function AiMaterials() {
                                 categoryKey={cat.categoryId}
                                 categoryLabel={cat.label}
                                 materials={mats}
+                                currentUserId={user?._id as string | undefined}
                               />
                             </div>
                           );

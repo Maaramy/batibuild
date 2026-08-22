@@ -19,7 +19,6 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Building2, Phone, Mail, MapPin, Globe, CheckCircle2,
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard,
@@ -771,20 +770,17 @@ export default function SupplierDashboard() {
                 </Card>
               )}
 
-              {/* ═══ Profile Form (collapsible) ═══ */}
-              <Accordion type="single" collapsible defaultValue="company-info">
-                <AccordionItem value="company-info" className="border border-border/40 rounded-lg overflow-hidden">
-                  <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                    <div className="flex items-center justify-between w-full">
-                      <CardTitle className="text-sm font-semibold">Informations de l'entreprise</CardTitle>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing); }}>
-                          {isEditing ? "Annuler" : "Modifier"}
-                        </Button>
-                      </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4">
+              {/* ═══ Profile Form ═══ */}
+              <Card className="border-border/40">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold">Informations de l'entreprise</CardTitle>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setIsEditing(!isEditing)}>
+                      {isEditing ? "Annuler" : "Modifier"}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1"><Building2 className="h-3 w-3" /> Nom de la société</Label>
                     <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} disabled={!isEditing} className="h-9 text-sm" />
@@ -837,9 +833,8 @@ export default function SupplierDashboard() {
                   <div className="space-y-1.5">
                     <Label className="text-xs">Description (optionnelle)</Label>
                     <Textarea value={description} onChange={(e) => setDescription(e.target.value)} disabled={!isEditing} className="text-sm min-h-[60px]" rows={2} />
-                  </div>                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+                  </div>                </CardContent>
+              </Card>
 
               {/* ═══ Specialties ═══ */}
               <Card className="border-border/40">

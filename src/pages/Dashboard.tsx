@@ -339,6 +339,8 @@ export default function Dashboard() {
   const [viewMode, setViewMode] = useState<"client" | "supplier" | "expert">(
     user?.userRole === "supplier" ? "supplier" : user?.userRole === "expert" ? "expert" : "client",
   );
+  // Sub-menu expansion state for professional sidebar
+  const [proMenuOpen, setProMenuOpen] = useState(true);
 
   useEffect(() => setMounted(true), []);
 
@@ -503,8 +505,7 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-        )}
-        {(() => {
+        )}        {(() => {
           const inClientMode = viewMode === "client";
           return [
             { icon: LayoutDashboard, label: "Tableau de bord", active: true, onClick: () => setMobileSidebarOpen(false) },
@@ -518,37 +519,56 @@ export default function Dashboard() {
               { icon: Sparkles, label: "Assistant Matériaux IA", onClick: () => { navigate("/dashboard/ai-materials"); setMobileSidebarOpen(false); } },
               { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
             ] : []),
-            // Professional features — only visible in their mode
+            // Professional features — parent + submenu
             ...(viewMode === "supplier" ? [
-              { icon: FileText, label: "Mes devis reçus", badge: pendingQuotesCount ?? 0, onClick: () => { navigate("/dashboard/supplier/quotes"); setMobileSidebarOpen(false); } },
-              { icon: BarChart3, label: "Statistiques", onClick: () => { navigate("/dashboard/supplier/stats"); setMobileSidebarOpen(false); } },
+              { icon: Store, label: "Espace fournisseur", isExpandable: true, onClick: () => { setProMenuOpen(!proMenuOpen); } },
             ] : []),
             ...(viewMode === "expert" ? [
-              { icon: FileText, label: "Mes services", badge: pendingServicesCount ?? 0, onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
-              { icon: BarChart3, label: "Statistiques", onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
+              { icon: Briefcase, label: "Espace expert", isExpandable: true, onClick: () => { setProMenuOpen(!proMenuOpen); } },
+            ] : []),
+            // Sub-menu items (shown when expanded)
+            ...(viewMode === "supplier" && proMenuOpen ? [
+              { icon: FileText, label: "Devis reçus", badge: pendingQuotesCount ?? 0, isSubItem: true, onClick: () => { navigate("/dashboard/supplier/quotes"); setMobileSidebarOpen(false); } },
+              { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/supplier/stats"); setMobileSidebarOpen(false); } },
+              { icon: Settings, label: "Mon profil fournisseur", isSubItem: true, onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
+            ] : []),
+            ...(viewMode === "expert" && proMenuOpen ? [
+              { icon: FileText, label: "Services reçus", badge: pendingServicesCount ?? 0, isSubItem: true, onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
+              { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
+              { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
             { icon: MessageSquare, label: "Messagerie", onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
           ];
-        }        )().map((item) => (
-          <button key={item.label} onClick={item.onClick}
-            className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm transition-all ${item.active ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"}`}>
-            <div className="relative shrink-0">
-              <item.icon className="h-4 w-4" />
+        })().map((item) => (
+          <div key={item.label}>
+            <button onClick={item.onClick}
+              className={`w-full flex items-center gap-2 sm:gap-3 ${'isSubItem' in item && item.isSubItem ? 'pl-9 sm:pl-10' : 'px-2.5 sm:px-3'} py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm transition-all ${
+                'active' in item && item.active ? "bg-primary/10 text-primary font-medium"
+                : 'isExpandable' in item && item.isExpandable ? "text-foreground font-medium"
+                : 'isSubItem' in item && item.isSubItem ? "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}>
+              <div className="relative shrink-0">
+                {'icon' in item && <item.icon className="h-4 w-4" />}
+                {'badge' in item && typeof item.badge === 'number' && item.badge > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white shadow-sm">
+                    {item.badge > 9 ? '9+' : item.badge}
+                  </span>
+                )}
+              </div>
+              <span className="flex-1 text-left truncate">{item.label}</span>
               {'badge' in item && typeof item.badge === 'number' && item.badge > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white shadow-sm">
+                <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
                   {item.badge > 9 ? '9+' : item.badge}
                 </span>
               )}
-            </div>
-            <span className="flex-1 text-left truncate">{item.label}</span>
-            {'badge' in item && typeof item.badge === 'number' && item.badge > 0 && (
-              <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-                {item.badge > 9 ? '9+' : item.badge}
-              </span>
-            )}
-          </button>
+              {'isExpandable' in item && item.isExpandable && (
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${proMenuOpen ? 'rotate-180' : ''}`} />
+              )}
+            </button>
+          </div>
         ))}
       </nav>
       <div className="p-3 sm:p-4 border-t border-border/30 space-y-1.5">

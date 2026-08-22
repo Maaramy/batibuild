@@ -1716,6 +1716,7 @@ export default function ProjectDetail() {
                   materials={[]}
                   projectId={project._id}
                   projectName={ai.category}
+                  currentUserId={currentUser?._id as string | undefined}
                 />
               </div>
             )}
