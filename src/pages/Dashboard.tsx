@@ -446,9 +446,14 @@ export default function Dashboard() {
         </div>
       </div>
       <nav className="flex-1 p-3 sm:p-4 space-y-0.5">
-        {[
-          { icon: LayoutDashboard, label: "Tableau de bord", active: true, onClick: () => setMobileSidebarOpen(false) },
-          ...(!(user?.userRole === "supplier" || user?.userRole === "expert") ? [
+        {(() => {
+          const isSupplier = user?.userRole === "supplier";
+          const isExpert = user?.userRole === "expert";
+          const isProfessional = isSupplier || isExpert;
+          // In the client dashboard, always show client items + professional space link
+          return [
+            { icon: LayoutDashboard, label: "Tableau de bord", active: true, onClick: () => setMobileSidebarOpen(false) },
+            // Client features — visible for clients AND for professionals in client view
             { icon: Plus, label: "Nouveau projet", onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
             { icon: Rocket, label: "Démarche de construction", onClick: () => { navigate("/dashboard/guide"); setMobileSidebarOpen(false); } },
             { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
@@ -456,13 +461,14 @@ export default function Dashboard() {
             { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
             { icon: Sparkles, label: "Assistant Matériaux IA", onClick: () => { navigate("/dashboard/ai-materials"); setMobileSidebarOpen(false); } },
             { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
-          ] : []),
-          { icon: Store, label: "Espace fournisseur", onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
-          { icon: Briefcase, label: "Espace expert", onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
-          { icon: MessageSquare, label: "Messagerie", onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
-          { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
-          ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
-        ].map((item) => (
+            // Professional spaces — only visible to their respective role
+            ...(isSupplier ? [{ icon: Store, label: "Espace fournisseur", onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } }] : []),
+            ...(isExpert ? [{ icon: Briefcase, label: "Espace expert", onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } }] : []),
+            { icon: MessageSquare, label: "Messagerie", onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
+            { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
+            ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
+          ];
+        })().map((item) => (
           <button key={item.label} onClick={item.onClick}
             className={`w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm transition-all ${item.active ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"}`}>
             <item.icon className="h-4 w-4 shrink-0" />

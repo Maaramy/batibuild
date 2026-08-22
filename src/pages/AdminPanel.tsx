@@ -146,6 +146,7 @@ export default function AdminPanel() {
   const approveSub = useMutation(api.subscriptions.adminApproveSubscription);
   const rejectSub = useMutation(api.subscriptions.adminRejectSubscription);
   const updateUserRole = useMutation(api.users.adminUpdateUserRole);
+  const setUserProfileRole = useMutation(api.users.adminSetUserProfileRole);
   const updateUserPlan = useMutation(api.users.adminUpdateUserPlan);
   const deleteUser = useMutation(api.users.deleteUser);
   const toggleUserStatus = useMutation(api.users.toggleUserStatus);
@@ -3038,6 +3039,7 @@ export default function AdminPanel() {
                       <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Utilisateur</th>
                       <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Téléphone</th>
                       <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Rôle</th>
+                      <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Profil</th>
                       <th className="text-center py-2.5 px-2 font-medium text-muted-foreground text-xs">Abonnement</th>
                       <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Inscription</th>
                       <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Actions</th>

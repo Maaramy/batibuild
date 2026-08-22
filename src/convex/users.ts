@@ -82,6 +82,36 @@ export const adminUpdateUserRole = mutation({
 });
 
 /**
+ * Admin: update user profile type (client, supplier, expert)
+ */
+export const adminSetUserProfileRole = mutation({
+  args: {
+    userId: v.id("users"),
+    userRole: v.union(
+      v.literal("client"),
+      v.literal("supplier"),
+      v.literal("expert"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    await ctx.db.patch(args.userId, { userRole: args.userRole });
+
+    const targetUser = await ctx.db.get(args.userId);
+    const roleLabel = args.userRole === "supplier" ? "Fournisseur" : args.userRole === "expert" ? "Expert" : "Client";
+    await logAdminAction(
+      ctx, admin, "update_user_role",
+      { userId: args.userId, email: targetUser?.email },
+      `Profil utilisateur changé en ${roleLabel}`,
+    );
+  },
+});
+
+/**
  * Admin: update user subscription plan
  */
 export const adminUpdateUserPlan = mutation({
