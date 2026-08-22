@@ -1181,6 +1181,37 @@ export default function AdminPanel() {
                       </div>
                     </div>
 
+                    {/* Profil */}
+                    <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
+                      <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 col-span-2">
+                        <User className="h-3.5 w-3.5" /> Profil
+                      </h4>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Type de compte</p>
+                        <Badge className={cn(
+                          "text-[9px] mt-0.5",
+                          selectedUser.userRole === "supplier" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" :
+                          selectedUser.userRole === "expert" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" :
+                          "bg-muted/30 text-muted-foreground"
+                        )}>
+                          {selectedUser.userRole === "supplier" ? "Fournisseur" :
+                           selectedUser.userRole === "expert" ? "Expert" : "Client"}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Rôle système</p>
+                        <Badge className={cn(
+                          "text-[9px] mt-0.5",
+                          selectedUser.role === "admin" ? "bg-purple-500/10 text-purple-600" :
+                          selectedUser.role === "moderator" ? "bg-amber-500/10 text-amber-600" :
+                          "bg-muted/30 text-muted-foreground"
+                        )}>
+                          {selectedUser.role === "admin" ? "Admin" :
+                           selectedUser.role === "moderator" ? "Modérateur" : "Utilisateur"}
+                        </Badge>
+                      </div>
+                    </div>
+
                     {/* Dates */}
                     <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
                       <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 col-span-2">
@@ -3020,11 +3051,10 @@ export default function AdminPanel() {
               </div>
 
               <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
-                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs w-8">
-                        <input
+                <table className="w-full min-w-[960px] text-sm">
+                      <thead>
+                        <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
+                          <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs w-8">             <input
                           type="checkbox"
                           checked={allUsers.length > 0 && selectedUserIds.size === allUsers.filter((u: any) =>
                             userSearch
