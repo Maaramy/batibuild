@@ -3099,6 +3099,35 @@ export default function AdminPanel() {
                         </td>
                         <td className="py-2.5 px-2 text-center">
                           {isModerator ? (
+                            <Badge className={cn("text-[9px]", u.userRole === "supplier" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" : u.userRole === "expert" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : "bg-muted/30 text-muted-foreground")}>
+                              {u.userRole === "supplier" ? "Fournisseur" : u.userRole === "expert" ? "Expert" : "Client"}
+                            </Badge>
+                          ) : (
+                            <select
+                              value={u.userRole || "client"}
+                              onChange={async (e) => {
+                                try {
+                                  await setUserProfileRole({ userId: u._id, userRole: e.target.value as any });
+                                  toast.success("Profil mis à jour");
+                                } catch (err: any) {
+                                  toast.error(err.message || "Erreur");
+                                }
+                              }}
+                              className={cn(
+                                "text-[9px] h-6 rounded-md border border-border/30 bg-background px-1.5 font-medium",
+                                u.userRole === "supplier" ? "text-amber-600 bg-amber-400/10" :
+                                u.userRole === "expert" ? "text-blue-600 bg-blue-500/5" :
+                                "text-muted-foreground"
+                              )}
+                            >
+                              <option value="client">Client</option>
+                              <option value="supplier">Fournisseur</option>
+                              <option value="expert">Expert</option>
+                            </select>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2 text-center">
+                          {isModerator ? (
                             <Badge className={cn("text-[9px]", u.subscriptionPlan === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : u.subscriptionPlan === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : u.subscriptionPlan === "supplier" ? "bg-amber-400/10 text-amber-600 border-amber-200/30" : "bg-muted/30 text-muted-foreground")}>
                               {u.subscriptionPlan === "pro" ? "Pro" : u.subscriptionPlan === "expert" ? "Expert" : u.subscriptionPlan === "supplier" ? "Fournisseur" : "Start"}
                             </Badge>
