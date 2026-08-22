@@ -218,6 +218,7 @@ export default function ExpertDashboard() {
           specialties: selectedSpecialties, regions: selectedRegions,
         });
         toast.success("Profil expert créé !");
+        setIsEditing(false);
       }
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'enregistrement");
@@ -750,8 +751,146 @@ export default function ExpertDashboard() {
                 </Button>
               </div>
             </>
+          ) : isEditing ? (
+            /* ═══ Create Profile Form ═══ */
+            <>
+              {/* Profession Selector */}
+              <Card className="border-border/40">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold">Profession</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-2">
+                    {EXPERT_PROFESSIONS.map((p) => {
+                      const Icon = p.icon;
+                      const selected = profession === p.value;
+                      return (
+                        <button key={p.value} onClick={() => setProfession(p.value)}
+                          className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left transition-all ${
+                            selected
+                              ? "border-violet-400 dark:border-violet-500 bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-900/30 dark:to-violet-800/20 text-violet-700 dark:text-violet-300 shadow-sm"
+                              : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600"
+                          }`}>
+                          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+                            selected ? "bg-violet-500 text-white shadow-xs" : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500"
+                          }`}>
+                            <Icon className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold truncate">{p.label}</p>
+                            <p className="text-[9px] text-muted-foreground truncate">{p.desc}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Profile Fields */}
+              <Card className="border-border/40">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold">Informations du profil</CardTitle>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setIsEditing(false)}>
+                      Annuler
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1"><UserRound className="h-3 w-3" /> Nom complet *</Label>
+                    <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Votre nom complet" className="h-9 text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1"><Building2 className="h-3 w-3" /> Cabinet / Société (optionnel)</Label>
+                    <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Nom du cabinet ou de la société" className="h-9 text-sm" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs flex items-center gap-1"><Phone className="h-3 w-3" /> Téléphone *</Label>
+                      <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+216 XX XXX XXX" className="h-9 text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs flex items-center gap-1"><Mail className="h-3 w-3" /> Email *</Label>
+                      <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="votre@email.com" className="h-9 text-sm" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1"><MapPin className="h-3 w-3" /> Adresse (optionnel)</Label>
+                    <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Ville, Gouvernorat" className="h-9 text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> Site web (optionnel)</Label>
+                    <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" className="h-9 text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Description (optionnelle)</Label>
+                    <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Présentez votre expertise, vos réalisations..." className="text-sm min-h-[60px]" rows={2} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Specialties */}
+              <Card className="border-border/40">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold">Spécialités — {currentProf?.label} ({selectedSpecialties.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-1.5">
+                    {availableSpecialties.map((s) => {
+                      const selected = selectedSpecialties.includes(s);
+                      return (
+                        <button key={s} onClick={() => toggleSpecialty(s)}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all hover:scale-105 active:scale-95 ${
+                            selected
+                              ? "bg-violet-50 border-violet-300 text-violet-700"
+                              : "bg-background border-border/30 text-muted-foreground hover:border-border/60"
+                          }`}>
+                          {selected && <Check className="h-2.5 w-2.5 inline mr-1" />}
+                          {SPECIALTY_LABELS[s] || s}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Regions */}
+              <Card className="border-border/40">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold">Régions d'intervention ({selectedRegions.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TUNISIA_REGIONS.map((r) => {
+                      const selected = selectedRegions.includes(r.value);
+                      return (
+                        <button key={r.value} onClick={() => toggleRegion(r.value)}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all hover:scale-105 active:scale-95 ${
+                            selected
+                              ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
+                              : "bg-background border-border/30 text-muted-foreground hover:border-border/60"
+                          }`}>
+                          {selected && <Check className="h-2.5 w-2.5 inline mr-1" />}
+                          {r.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Save Button */}
+              <div className="flex items-center justify-between gap-2">
+                <Button size="sm" className="h-9 text-xs gap-1.5 bg-violet-600 hover:bg-violet-700" onClick={handleSave} disabled={saving}>
+                  {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                  Enregistrer le profil
+                </Button>
+              </div>
+            </>
           ) : (
-            /* No profile yet — creation form */
+            /* No profile yet — CTA */
             <Card className="border-border/40">
               <CardContent className="p-6 text-center space-y-4">
                 <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-2xl bg-violet-100 text-violet-600">
