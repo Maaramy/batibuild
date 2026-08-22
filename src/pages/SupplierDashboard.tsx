@@ -19,6 +19,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Building2, Phone, Mail, MapPin, Globe, CheckCircle2,
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard,
@@ -424,42 +425,46 @@ export default function SupplierDashboard() {
     <main className="min-h-screen bg-gradient-to-b from-background to-muted/20 pb-8">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-2">
-          <button onClick={() => navigate("/dashboard")}
-            className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/50 active:scale-95 transition-all">
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-bold truncate">Espace Fournisseur</h1>
-            <p className="text-[10px] text-muted-foreground truncate">
-              {profile ? "Profil et abonnement" : "Créez votre profil"}
-            </p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate("/dashboard")}
+              className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted/50 active:scale-95 transition-all">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base font-bold truncate">Espace Fournisseur</h1>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {profile ? "Profil et abonnement" : "Créez votre profil"}
+              </p>
+            </div>
           </div>
-          {effStatus === "active" && (
-            <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            {effStatus === "active" && (
               <button
                 onClick={() => navigate("/dashboard/supplier/quotes")}
-                className="flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
               >
-                <FileText className="h-3 w-3" />
+                <FileText className="h-3.5 w-3.5" />
                 Devis reçus
               </button>
+            )}
+            {effStatus === "active" && (
               <button
                 onClick={() => navigate("/dashboard/supplier/stats")}
-                className="flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
               >
-                <BarChart3 className="h-3 w-3" />
+                <BarChart3 className="h-3.5 w-3.5" />
                 Stats
               </button>
-            </div>
-          )}
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-          >
-            <UserRound className="h-3 w-3" />
-            Vue Client
-          </button>
+            )}
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+            >
+              <UserRound className="h-3.5 w-3.5" />
+              Vue Client
+            </button>
+          </div>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -501,8 +506,8 @@ export default function SupplierDashboard() {
                             </Badge>
                           )}
                           <button onClick={() => toggleVis()}
-                            className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground transition-colors">
-                            {profile.isVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                            className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+                            {profile.isVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                             {profile.isVisible ? "Visible" : "Masqué"}
                           </button>
                         </div>
@@ -515,15 +520,15 @@ export default function SupplierDashboard() {
 
                     {/* Action buttons */}
                     <div className="flex flex-col sm:items-end gap-2">
-                      <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
+                      <Button size="sm" variant="outline" className="h-9 text-sm gap-1.5 w-full sm:w-auto"
                         onClick={() => setShowPaymentInfo(true)}>
-                        <Wallet className="h-3 w-3" />
+                        <Wallet className="h-4 w-4" />
                         Moyen de paiement
                       </Button>
                       {(effStatus === "inactive" || effStatus === "expired") && (
-                        <Button size="sm" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
+                        <Button size="sm" className="h-9 text-sm gap-1.5 w-full sm:w-auto"
                           onClick={() => setShowPaymentChoice(true)}>
-                          <CreditCard className="h-3 w-3" />
+                          <CreditCard className="h-4 w-4" />
                           {MONTHLY_PRICE} TND/mois
                         </Button>
                       )}
@@ -766,17 +771,20 @@ export default function SupplierDashboard() {
                 </Card>
               )}
 
-              {/* ═══ Profile Form ═══ */}
-              <Card className="border-border/40">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold">Informations de l'entreprise</CardTitle>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setIsEditing(!isEditing)}>
-                      {isEditing ? "Annuler" : "Modifier"}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              {/* ═══ Profile Form (collapsible) ═══ */}
+              <Accordion type="single" collapsible defaultValue="company-info">
+                <AccordionItem value="company-info" className="border border-border/40 rounded-lg overflow-hidden">
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                    <div className="flex items-center justify-between w-full">
+                      <CardTitle className="text-sm font-semibold">Informations de l'entreprise</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing); }}>
+                          {isEditing ? "Annuler" : "Modifier"}
+                        </Button>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1"><Building2 className="h-3 w-3" /> Nom de la société</Label>
                     <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} disabled={!isEditing} className="h-9 text-sm" />
@@ -829,9 +837,9 @@ export default function SupplierDashboard() {
                   <div className="space-y-1.5">
                     <Label className="text-xs">Description (optionnelle)</Label>
                     <Textarea value={description} onChange={(e) => setDescription(e.target.value)} disabled={!isEditing} className="text-sm min-h-[60px]" rows={2} />
-                  </div>
-                </CardContent>
-              </Card>
+                  </div>                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
               {/* ═══ Specialties ═══ */}
               <Card className="border-border/40">
