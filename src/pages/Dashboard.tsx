@@ -739,10 +739,6 @@ export default function Dashboard() {
                             <FileText className="h-3 w-3" />
                             Devis
                           </Button>
-                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => navigate("/dashboard/supplier/stats")}>
-                            <BarChart3 className="h-3 w-3" />
-                            Stats
-                          </Button>
                         </div>
                       </div>
                     </CardContent>

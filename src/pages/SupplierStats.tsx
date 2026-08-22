@@ -726,10 +726,8 @@ export default function SupplierStats() {
 
 export function SupplierStatsInline() {
   const profile = useQuery(api.supplierProfiles.getMyProfile);
-  const seedDemo = useMutation(api.supplierStats.seedDemoAnalytics);
   const [period, setPeriod] = useState<string>("30d");
   const [customStart, setCustomStart] = useState<string>("");
-  const [seeding, setSeeding] = useState(false);
 
   const queryArgs = useMemo(
     () => ({
@@ -754,18 +752,6 @@ export function SupplierStatsInline() {
     profile &&
     (profile.plan === "monthly" || profile.effectiveStatus === "active");
   const hasData = viewsOverTime && viewsOverTime.length > 0;
-
-  const handleSeed = async () => {
-    try {
-      setSeeding(true);
-      await seedDemo();
-      window.location.reload();
-    } catch (e) {
-      console.error("Seed failed:", e);
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   const areaChartConfig = {
     views: { label: "Vues", color: "#3b82f6" },
@@ -804,25 +790,9 @@ export function SupplierStatsInline() {
   return (
     <div className="space-y-3">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-bold text-foreground">Statistiques</h3>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSeed}
-          disabled={seeding}
-          className="h-7 gap-1 text-[11px]"
-        >
-          {seeding ? (
-            <RefreshCw className="h-3 w-3 animate-spin" />
-          ) : (
-            <RefreshCw className="h-3 w-3" />
-          )}
-          Démo
-        </Button>
+      <div className="flex items-center gap-2">
+        <BarChart3 className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-bold text-foreground">Statistiques</h3>
       </div>
 
       {/* ── Period Filter ── */}
