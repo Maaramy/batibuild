@@ -79,17 +79,6 @@ export const getCopilotAnalyses = query({
   },
 });
 
-export const getCopilotAnalysisById = query({
-  args: { analysisId: v.id("aiMaterialAnalyses") },
-  handler: async (ctx, args) => {
-    const doc = await ctx.db.get(args.analysisId);
-    if (!doc) return null;
-    const user = await getCurrentUser(ctx);
-    if (!user || doc.userId !== user._id) return null;
-    return doc;
-  },
-});
-
 // ── Mutations ────────────────────────────────────────────────────────────────
 export const saveCopilotAnalysis = mutation({
   args: {

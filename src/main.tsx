@@ -25,9 +25,6 @@ const AdminPanel = lazy(() => import("./pages/AdminPanel.tsx"));
 const PricingPage = lazy(() => import("./pages/PricingPage.tsx"));
 const MaterialsPage = lazy(() => import("./pages/MaterialsPage.tsx"));
 const AiMaterials = lazy(() => import("./pages/AiMaterials.tsx"));
-const AiMaterialsLoading = lazy(() => import("./pages/AiMaterialsLoading.tsx"));
-const AiMaterialsResults = lazy(() => import("./pages/AiMaterialsResults.tsx"));
-const SuppliersList = lazy(() => import("./pages/SuppliersList.tsx"));
 const ProjectGuide = lazy(() => import("./pages/ProjectGuide.tsx"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage.tsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
@@ -225,30 +222,7 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
-                <Route
-                  path="/dashboard/ai-materials/loading"
-                  element={
-                    <RequireAuth>
-                      <AiMaterialsLoading />
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  path="/dashboard/ai-materials/results/:analysisId"
-                  element={
-                    <RequireAuth>
-                      <AiMaterialsResults />
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  path="/dashboard/suppliers"
-                  element={
-                    <RequireAuth>
-                      <SuppliersList />
-                    </RequireAuth>
-                  }
-                />
+
                 <Route
                   path="/dashboard/guide"
                   element={

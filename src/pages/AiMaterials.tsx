@@ -208,14 +208,7 @@ export default function AiMaterials() {
       } catch {
         /* la sauvegarde est optionnelle */
       }
-      toast.success("Analyse terminée — redirection...");
-      // Redirect to loading page
-      if (savedAnalysisId) {
-        navigate(`/dashboard/ai-materials/loading?analysisId=${savedAnalysisId}`);
-      } else {
-        navigate("/dashboard/ai-materials/loading");
-      }
-      return;
+      toast.success("Analyse terminée.");
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'analyse");
     }
@@ -251,8 +244,11 @@ export default function AiMaterials() {
   const loadAnalysis = (doc: any) => {
     const res = doc.results?.recommend;
     if (!res) return toast.error("Analyse sans recommandation enregistrée.");
-    // Redirect to results page
-    navigate(`/dashboard/ai-materials/results/${doc._id}`);
+    setResult(res);
+    setSavedId(doc._id);
+    setBudgetInput(Math.max(1000, Math.round(res.cost.total * 0.85)));
+    toast.success("Analyse chargée.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handlePdf = () => {
