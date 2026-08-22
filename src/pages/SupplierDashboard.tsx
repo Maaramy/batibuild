@@ -191,6 +191,7 @@ export default function SupplierDashboard() {
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const toggleVis = useMutation(api.supplierProfiles.toggleVisibility);
   const deleteProfile = useMutation(api.supplierProfiles.deleteProfile);
+  const setUserRole = useMutation(api.users.setUserRole);
 
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -453,6 +454,16 @@ export default function SupplierDashboard() {
               </button>
             </div>
           )}
+          <button
+            onClick={async () => {
+              await setUserRole({ userRole: "client" });
+              navigate("/dashboard");
+            }}
+            className="flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+          >
+            <UserRound className="h-3 w-3" />
+            Vue Client
+          </button>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">

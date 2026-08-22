@@ -393,6 +393,11 @@ const schema = defineSchema(
       status: v.optional(v.union(v.literal("active"), v.literal("disabled"))),
       favoriteProjects: v.optional(v.array(v.id("projects"))),
       emailNotifications: v.optional(v.boolean()),
+      userRole: v.optional(v.union(
+        v.literal("client"),
+        v.literal("supplier"),
+        v.literal("expert"),
+      )),
       createdAt: v.optional(v.number()),
     })
       .index("email", ["email"])

@@ -26,12 +26,14 @@ import {
   CheckCircle2,
   KeyRound,
   AlertCircle,
+  Briefcase,
+  Store,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Suspense, useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { api } from "@/convex/_generated/api";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { usePageSEO } from "@/hooks/use-page-seo";
 
 interface AuthProps {
@@ -297,6 +299,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [error, setError] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [userRole, setUserRoleState] = useState<"client" | "supplier" | "expert">("client");
 
   // Separate visibility per field
   const [loginShowPw, setLoginShowPw] = useState(false);
@@ -311,8 +314,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [confirmNewPw, setConfirmNewPw] = useState("");
   const [resetOtp, setResetOtp] = useState("");
   const updateProfile = useMutation(api.users.updateProfile);
+  const setUserRole = useMutation(api.users.setUserRole);
   const resetPasswordMutation = useMutation(api.users.resetPassword);
-  const pendingProfileRef = useRef<{name: string; phone: string} | null>(null);
+  const pendingProfileRef = useRef<{name: string; phone: string; userRole: string} | null>(null);
 
   // Save profile after auth is confirmed (avoids race condition with signIn)
   useEffect(() => {
@@ -320,12 +324,25 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       const data = pendingProfileRef.current;
       pendingProfileRef.current = null;
       updateProfile({ name: data.name || undefined, phone: data.phone || undefined });
+      if (data.userRole && data.userRole !== "client") {
+        setUserRole({ userRole: data.userRole as any });
+      }
     }
-  }, [isAuthenticated, updateProfile]);
+  }, [isAuthenticated, updateProfile, setUserRole]);
 
+  // After auth, get user profile to determine role-based redirect
+  const currentUser = useQuery(api.users.currentUser);
   useEffect(() => {
-    if (!authLoading && isAuthenticated) navigate(redirect);
-  }, [authLoading, isAuthenticated, navigate, redirect]);
+    if (!authLoading && isAuthenticated && currentUser !== undefined) {
+      // If user just registered (pendingProfileRef was set), role redirect handled in submit handlers
+      if (pendingProfileRef.current) return;
+      // For existing users, redirect by their stored role
+      const role = currentUser?.userRole;
+      if (role === "supplier") navigate("/dashboard/supplier");
+      else if (role === "expert") navigate("/dashboard/expert");
+      else navigate(redirect);
+    }
+  }, [authLoading, isAuthenticated, currentUser, navigate, redirect]);
 
   const resetError = () => setError(null);
 
@@ -343,7 +360,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       if (tab === "register") {
         const name = fd.get("name") as string;
         const phone = fd.get("phone") as string;
-        if (name || phone) pendingProfileRef.current = { name: name || "", phone: phone || "" };
+        pendingProfileRef.current = { name: name || "", phone: phone || "", userRole };
       }
       setStep({ email: fd.get("email") as string });
     } catch { setError("Échec d'envoi du code."); }
@@ -356,7 +373,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     try {
       const fd = new FormData(e.currentTarget);
       await signIn("email-otp", fd);
-      navigate(redirect);
+      // If role was saved during registration, redirect accordingly
+      const roleRedirect = userRole === "supplier" ? "/dashboard/supplier" : userRole === "expert" ? "/dashboard/expert" : redirect;
+      navigate(roleRedirect);
     } catch { setError("Le code est incorrect."); setOtp(""); }
     setIsLoading(false);
   };
@@ -368,6 +387,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       const fd = new FormData(e.currentTarget);
       fd.set("flow", "signIn");
       await signIn("password", fd);
+      // Redirect will be handled by the useEffect watching currentUser
       navigate(redirect);
     } catch { setError("Email ou mot de passe incorrect."); }
     setIsLoading(false);
@@ -392,10 +412,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       // Store profile data for useEffect to save once auth is confirmed
       const phone = fd.get("phone") as string;
       const name = fd.get("name") as string;
-      if (phone || name) {
-        pendingProfileRef.current = { name: name || "", phone: phone || "" };
-      }
-      navigate(redirect);
+      pendingProfileRef.current = { name: name || "", phone: phone || "", userRole };
+      // Redirect based on selected role
+      const roleRedirect = userRole === "supplier" ? "/dashboard/supplier" : userRole === "expert" ? "/dashboard/expert" : redirect;
+      navigate(roleRedirect);
     }
     catch { setError("Erreur lors de l'inscription."); }
     setIsLoading(false);
@@ -602,6 +622,32 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         {regShowConfirmPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </FormField>
+                    {/* Profile Type Selector */}
+                    <motion.div variants={fadeUp}>
+                      <Label className="text-sm font-medium" style={{ color: "var(--foreground)" }}>Vous êtes</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-1.5">
+                        {([
+                          { value: "client" as const, label: "Client", icon: User, desc: "Estimer un projet" },
+                          { value: "supplier" as const, label: "Fournisseur", icon: Store, desc: "Vendre des matériaux" },
+                          { value: "expert" as const, label: "Expert", icon: Briefcase, desc: "Services d'expertise" },
+                        ]).map((opt) => (
+                          <button key={opt.value} type="button" onClick={() => setUserRoleState(opt.value)}
+                            className={`flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-center transition-all ${
+                              userRole === opt.value
+                                ? "border-[var(--auth-primary)] bg-[color-mix(in_srgb,var(--auth-primary)8%,transparent)] shadow-sm"
+                                : "border-transparent bg-[color-mix(in_srgb,var(--auth-primary)4%,transparent)] hover:bg-[color-mix(in_srgb,var(--auth-primary)8%,transparent)]"
+                            }`}>
+                            <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                              userRole === opt.value ? "bg-[var(--auth-primary)] text-white" : "bg-[color-mix(in_srgb,var(--auth-primary)10%,transparent)] text-[var(--foreground)] opacity-60"
+                            }`}>
+                              <opt.icon className="h-4 w-4" />
+                            </div>
+                            <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>{opt.label}</span>
+                            <span className="text-[9px] leading-tight" style={{ color: "var(--foreground)", opacity: 0.5 }}>{opt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
                     {error && <ErrorBanner message={error} />}
                     <motion.div variants={fadeUp}>
                       <label htmlFor="accept-terms" className="flex items-start gap-2.5 cursor-pointer select-none rounded-xl p-3 transition-all hover:opacity-95"
@@ -633,6 +679,33 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   )}
                   {tab === "register" && (
                     <FormField label="Téléphone" id="otp-phone" name="phone" type="tel" placeholder="+216 XX XXX XXX" icon={Phone} disabled={isLoading} autoComplete="tel" />
+                  )}
+                  {tab === "register" && (
+                    <motion.div variants={fadeUp}>
+                      <Label className="text-sm font-medium" style={{ color: "var(--foreground)" }}>Vous êtes</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-1.5">
+                        {([
+                          { value: "client" as const, label: "Client", icon: User, desc: "Estimer un projet" },
+                          { value: "supplier" as const, label: "Fournisseur", icon: Store, desc: "Vendre des matériaux" },
+                          { value: "expert" as const, label: "Expert", icon: Briefcase, desc: "Services d'expertise" },
+                        ]).map((opt) => (
+                          <button key={opt.value} type="button" onClick={() => setUserRoleState(opt.value)}
+                            className={`flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-center transition-all ${
+                              userRole === opt.value
+                                ? "border-[var(--auth-primary)] bg-[color-mix(in_srgb,var(--auth-primary)8%,transparent)] shadow-sm"
+                                : "border-transparent bg-[color-mix(in_srgb,var(--auth-primary)4%,transparent)] hover:bg-[color-mix(in_srgb,var(--auth-primary)8%,transparent)]"
+                            }`}>
+                            <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                              userRole === opt.value ? "bg-[var(--auth-primary)] text-white" : "bg-[color-mix(in_srgb,var(--auth-primary)10%,transparent)] text-[var(--foreground)] opacity-60"
+                            }`}>
+                              <opt.icon className="h-4 w-4" />
+                            </div>
+                            <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>{opt.label}</span>
+                            <span className="text-[9px] leading-tight" style={{ color: "var(--foreground)", opacity: 0.5 }}>{opt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
                   )}
                   <FormField label="Email" id="otp-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required />
                   {error && <ErrorBanner message={error} />}

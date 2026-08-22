@@ -172,6 +172,26 @@ export const updateProfile = mutation({
 /**
  * Generate a URL for client-side file upload to Convex storage
  */
+/**
+ * Set the user's profile type (client, supplier, expert)
+ * Used during registration or role switching
+ */
+export const setUserRole = mutation({
+  args: {
+    userRole: v.union(
+      v.literal("client"),
+      v.literal("supplier"),
+      v.literal("expert"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Non connecté");
+    await ctx.db.patch(user._id, { userRole: args.userRole });
+    return { success: true };
+  },
+});
+
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
