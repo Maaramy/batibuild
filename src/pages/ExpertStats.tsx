@@ -1,25 +1,14 @@
-import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useState } from "react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import {
-  Eye, MousePointerClick, TrendingUp, MessageSquare, Star,
-  ArrowLeft, Calendar, BarChart3, Lock, Crown,
-  PieChart as PieChartIcon,
+  Eye, MousePointerClick, TrendingUp, MessageSquare,
+  ArrowLeft, BarChart3, Lock, Crown,
 } from "lucide-react";
-import {
-  Area, AreaChart, Bar, BarChart as RechartsBarChart, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from "recharts";
 import { Spinner } from "@/components/ui/spinner";
 
 // ============================================================================

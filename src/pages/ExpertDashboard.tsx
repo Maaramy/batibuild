@@ -21,10 +21,9 @@ import { toast } from "sonner";
 import {
   Building2, Phone, Mail, MapPin, Globe, CheckCircle2,
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard,
-  ShieldCheck, Trash2, AlertTriangle,
-  Banknote, Smartphone, Landmark, UserRound, Clock3, Upload,
-  Wallet, BarChart3, FileText, Briefcase, Ruler, HardHat, LandmarkIcon,
-  X,
+  ShieldCheck, Trash2, AlertTriangle, Clock3,
+  Banknote, Smartphone, Landmark, UserRound, Upload,
+  Wallet, BarChart3, FileText, Briefcase, Ruler, HardHat, Store,
 } from "lucide-react";
 
 // ============================================================================
@@ -35,7 +34,7 @@ const EXPERT_PROFESSIONS = [
   { value: "architecte", label: "Architecte", icon: Ruler, desc: "Conception, plans, suivi de chantier" },
   { value: "bureau_etudes", label: "Bureau d'études", icon: Briefcase, desc: "Études techniques, dimensionnement" },
   { value: "ingenieur", label: "Ingénieur", icon: HardHat, desc: "Structure, génie civil, MEP" },
-  { value: "promoteur_immobilier", label: "Promoteur immobilier", icon: LandmarkIcon, desc: "Développement, commercialisation" },
+  { value: "promoteur_immobilier", label: "Promoteur immobilier", icon: Store, desc: "Développement, commercialisation" },
 ];
 
 const ARCHITECTE_SPECIALTIES = [
