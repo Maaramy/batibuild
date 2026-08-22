@@ -196,6 +196,7 @@ export default function AiMaterials() {
       setResult(res);
       setBudgetInput(Math.max(1000, Math.round(res.cost.total * 0.85)));
       // Sauvegarde automatique de l'analyse
+      let savedAnalysisId: string | undefined;
       try {
         const id = await saveAnalysis({
           projectId: projectId as any,
@@ -203,10 +204,18 @@ export default function AiMaterials() {
           results: { recommend: res },
         });
         setSavedId(id);
+        savedAnalysisId = id;
       } catch {
         /* la sauvegarde est optionnelle */
       }
-      toast.success("Analyse terminée — recommandations générées.");
+      toast.success("Analyse terminée — redirection...");
+      // Redirect to loading page
+      if (savedAnalysisId) {
+        navigate(`/dashboard/ai-materials/loading?analysisId=${savedAnalysisId}`);
+      } else {
+        navigate("/dashboard/ai-materials/loading");
+      }
+      return;
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'analyse");
     }
@@ -242,20 +251,8 @@ export default function AiMaterials() {
   const loadAnalysis = (doc: any) => {
     const res = doc.results?.recommend;
     if (!res) return toast.error("Analyse sans recommandation enregistrée.");
-    setResult(res);
-    setOptimization(doc.results?.optimization || null);
-    setPerformance(doc.results?.performance || null);
-    if (doc.input?.categories) setSelectedCats(doc.input.categories);
-    if (doc.input?.context) {
-      const c = doc.input.context;
-      setForm((f) => ({ ...f, ...(c.surface ? { surface: c.surface } : {}), ...(c.floors ? { floors: c.floors } : {}), region: c.region || f.region, standing: c.standing || f.standing, budgetMode: c.budgetMode || f.budgetMode, budgetAmount: c.budgetAmount || f.budgetAmount, year: c.year || f.year }));
-      if (c.priorities) setPriorities(c.priorities);
-    }
-    setProjectId(doc.projectId || "");
-    setSavedId(doc._id);
-    setBudgetInput(Math.round((res.cost?.total || 0) * 0.85));
-    toast.success("Analyse chargée.");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Redirect to results page
+    navigate(`/dashboard/ai-materials/results/${doc._id}`);
   };
 
   const handlePdf = () => {

@@ -737,6 +737,17 @@ export const adminDeleteSupplierReceipt = mutation({
  * Used to display recommended suppliers in the AI Materials and
  * Project Results pages.
  */
+export const getAllActive = query({
+  args: {},
+  handler: async (ctx) => {
+    const profiles = await ctx.db
+      .query("supplierProfiles")
+      .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "active"))
+      .collect();
+    return profiles.filter((p) => p.isVisible);
+  },
+});
+
 export const getRandomBySpecialty = query({
   args: {
     specialty: v.string(),
