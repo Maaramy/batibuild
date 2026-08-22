@@ -58,6 +58,7 @@ import {
   Rocket,
   MessageSquare,
   ArrowLeftRight,
+  Link,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -359,19 +360,19 @@ export default function Dashboard() {
   const isExpert = user?.userRole === "expert";
   const supplierProfile = useQuery(
     api.supplierProfiles.getMyProfile,
-    viewMode === "supplier" ? {} : "skip",
+    isSupplier ? {} : "skip",
   );
   const hasSupplierProfile = useQuery(
     api.supplierProfiles.hasSupplierProfile,
-    viewMode === "supplier" ? {} : "skip",
+    isSupplier ? {} : "skip",
   );
   const expertProfile = useQuery(
     api.expertProfiles.getMyProfile,
-    viewMode === "expert" ? {} : "skip",
+    isExpert ? {} : "skip",
   );
   const hasExpertProfile = useQuery(
     api.expertProfiles.hasExpertProfile,
-    viewMode === "expert" ? {} : "skip",
+    isExpert ? {} : "skip",
   );
   const pendingQuotesCount = useQuery(
     api.quoteRequests.pendingCount,
@@ -685,6 +686,110 @@ export default function Dashboard() {
         </header>
 
         <div className="p-3 sm:p-5 lg:p-6 xl:p-8 space-y-3 sm:space-y-4 lg:space-y-6">
+          {/* ══════ NOTIFICATION BANNERS (Supplier / Expert) ══════ */}
+          {isSupplier && (
+            <>
+              {!hasSupplierProfile ? (
+                <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <Store className="h-4.5 w-4.5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">Créez votre profil Fournisseur pour activer le service.</p>
+                  </div>
+                  <Button size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => navigate("/dashboard/supplier")}>
+                    <Link className="h-3.5 w-3.5" />
+                    Créer
+                  </Button>
+                </div>
+              ) : supplierProfile && (
+                !(supplierProfile as any).companyName ||
+                !(supplierProfile as any).phone ||
+                !(supplierProfile as any).email ||
+                !(supplierProfile as any).address ||
+                ((supplierProfile as any).specialties?.length ?? 0) === 0 ||
+                ((supplierProfile as any).regions?.length ?? 0) === 0
+              ) ? (
+                <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/30 dark:bg-amber-950/30">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40">
+                    <AlertTriangle className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">Complétez votre profil Fournisseur.</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => navigate("/dashboard/supplier")}>
+                    <Link className="h-3.5 w-3.5" />
+                    Compléter
+                  </Button>
+                </div>
+              ) : supplierProfile && (supplierProfile as any).effectiveStatus !== "active" ? (
+                <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-800/30 dark:bg-orange-950/30">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/40">
+                    <CreditCard className="h-4.5 w-4.5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">Effectuez le paiement pour activer votre profil.</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => navigate("/dashboard/supplier")}>
+                    <Link className="h-3.5 w-3.5" />
+                    Payer
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          )}
+
+          {isExpert && (
+            <>
+              {!hasExpertProfile ? (
+                <div className="flex items-center gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 dark:border-violet-800/30 dark:bg-violet-950/30">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/40">
+                    <Briefcase className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">Créez votre profil Expert pour activer le service.</p>
+                  </div>
+                  <Button size="sm" className="h-8 shrink-0 gap-1.5 bg-violet-600 hover:bg-violet-700 text-white" onClick={() => navigate("/dashboard/expert")}>
+                    <Link className="h-3.5 w-3.5" />
+                    Créer
+                  </Button>
+                </div>
+              ) : expertProfile && (
+                !(expertProfile as any).displayName ||
+                !(expertProfile as any).profession ||
+                !(expertProfile as any).phone ||
+                !(expertProfile as any).email ||
+                ((expertProfile as any).specialties?.length ?? 0) === 0
+              ) ? (
+                <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/30 dark:bg-amber-950/30">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40">
+                    <AlertTriangle className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">Complétez votre profil Expert.</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => navigate("/dashboard/expert")}>
+                    <Link className="h-3.5 w-3.5" />
+                    Compléter
+                  </Button>
+                </div>
+              ) : expertProfile && (expertProfile as any).effectiveStatus !== "active" ? (
+                <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-800/30 dark:bg-orange-950/30">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/40">
+                    <CreditCard className="h-4.5 w-4.5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">Effectuez le paiement pour activer votre profil.</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => navigate("/dashboard/expert")}>
+                    <Link className="h-3.5 w-3.5" />
+                    Payer
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          )}
+
           {/* ══════ SUPPLIER VIEW ══════ */}
           {viewMode === "supplier" && (
             <div className="space-y-4">
