@@ -57,6 +57,7 @@ import {
   RefreshCcw,
   Rocket,
   MessageSquare,
+  ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -334,6 +335,8 @@ export default function Dashboard() {
   // « Voir plus / Voir moins » — 3 éléments par défaut
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [showAllInvestments, setShowAllInvestments] = useState(false);
+  // Role switch view mode: client | supplier | expert
+  const [viewMode, setViewMode] = useState<"client" | "supplier" | "expert">("client");
 
   useEffect(() => setMounted(true), []);
 
@@ -345,6 +348,26 @@ export default function Dashboard() {
   };
   const quotas = useQuery(api.subscriptions.getMyQuotas); // OK
   const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowed, {});
+
+  // ── Role switch: supplier/expert profile queries ──
+  const isSupplier = user?.userRole === "supplier";
+  const isExpert = user?.userRole === "expert";
+  const supplierProfile = useQuery(
+    api.supplierProfiles.getMyProfile,
+    viewMode === "supplier" ? {} : "skip",
+  );
+  const hasSupplierProfile = useQuery(
+    api.supplierProfiles.hasSupplierProfile,
+    viewMode === "supplier" ? {} : "skip",
+  );
+  const expertProfile = useQuery(
+    api.expertProfiles.getMyProfile,
+    viewMode === "expert" ? {} : "skip",
+  );
+  const hasExpertProfile = useQuery(
+    api.expertProfiles.hasExpertProfile,
+    viewMode === "expert" ? {} : "skip",
+  );
 
   // ── Quotas par type (construction · investissement) ──
   const construction = quotas?.construction;
@@ -446,24 +469,54 @@ export default function Dashboard() {
         </div>
       </div>
       <nav className="flex-1 p-3 sm:p-4 space-y-0.5">
+        {/* Role switch button for professionals */}
+        {(isSupplier || isExpert) && (
+          <div className="mb-2">
+            <div className="flex items-center gap-1 rounded-lg border border-border/40 bg-muted/20 p-0.5">
+              <button
+                onClick={() => { setViewMode("client"); setMobileSidebarOpen(false); }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] sm:text-xs font-medium transition-all",
+                  viewMode === "client" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}>
+                <User className="h-3 w-3" />
+                Client
+              </button>
+              <button
+                onClick={() => { setViewMode(isSupplier ? "supplier" : "expert"); setMobileSidebarOpen(false); }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] sm:text-xs font-medium transition-all",
+                  viewMode !== "client" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}>
+                {isSupplier ? <Store className="h-3 w-3" /> : <Briefcase className="h-3 w-3" />}
+                {isSupplier ? "Fournisseur" : "Expert"}
+              </button>
+            </div>
+          </div>
+        )}
         {(() => {
-          const isSupplier = user?.userRole === "supplier";
-          const isExpert = user?.userRole === "expert";
-          const isProfessional = isSupplier || isExpert;
-          // In the client dashboard, always show client items + professional space link
+          const inClientMode = viewMode === "client";
           return [
             { icon: LayoutDashboard, label: "Tableau de bord", active: true, onClick: () => setMobileSidebarOpen(false) },
-            // Client features — visible for clients AND for professionals in client view
-            { icon: Plus, label: "Nouveau projet", onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
-            { icon: Rocket, label: "Démarche de construction", onClick: () => { navigate("/dashboard/guide"); setMobileSidebarOpen(false); } },
-            { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
-            { icon: BarChart3, label: "Comparer", onClick: () => setMobileSidebarOpen(false) },
-            { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
-            { icon: Sparkles, label: "Assistant Matériaux IA", onClick: () => { navigate("/dashboard/ai-materials"); setMobileSidebarOpen(false); } },
-            { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
-            // Professional spaces — only visible to their respective role
-            ...(isSupplier ? [{ icon: Store, label: "Espace fournisseur", onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } }] : []),
-            ...(isExpert ? [{ icon: Briefcase, label: "Espace expert", onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } }] : []),
+            // Client features — only visible in client mode
+            ...(inClientMode ? [
+              { icon: Plus, label: "Nouveau projet", onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
+              { icon: Rocket, label: "Démarche de construction", onClick: () => { navigate("/dashboard/guide"); setMobileSidebarOpen(false); } },
+              { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
+              { icon: BarChart3, label: "Comparer", onClick: () => setMobileSidebarOpen(false) },
+              { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
+              { icon: Sparkles, label: "Assistant Matériaux IA", onClick: () => { navigate("/dashboard/ai-materials"); setMobileSidebarOpen(false); } },
+              { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
+            ] : []),
+            // Professional features — only visible in their mode
+            ...(viewMode === "supplier" ? [
+              { icon: FileText, label: "Mes devis reçus", onClick: () => { navigate("/dashboard/supplier/quotes"); setMobileSidebarOpen(false); } },
+              { icon: BarChart3, label: "Statistiques", onClick: () => { navigate("/dashboard/supplier/stats"); setMobileSidebarOpen(false); } },
+            ] : []),
+            ...(viewMode === "expert" ? [
+              { icon: FileText, label: "Mes services", onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
+              { icon: BarChart3, label: "Statistiques", onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
+            ] : []),
             { icon: MessageSquare, label: "Messagerie", onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
@@ -524,9 +577,16 @@ export default function Dashboard() {
                 <Menu className="h-4 w-4" />
               </button>
               <div className="min-w-0">
-                <h1 className="text-sm sm:text-base font-semibold truncate">Dashboard</h1>
+                <h1 className="text-sm sm:text-base font-semibold truncate">
+                  {viewMode === "supplier" ? "Espace Fournisseur" : viewMode === "expert" ? "Espace Expert" : "Dashboard"}
+                </h1>
                 <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                  {user?.name ? `Bienvenue, ${user.name.split(' ')[0]}` : "Gérez vos projets de construction"}
+                  {viewMode === "supplier"
+                    ? (supplierProfile ? "Statistiques et devis" : "Créez votre profil fournisseur")
+                    : viewMode === "expert"
+                      ? (expertProfile ? "Statistiques et services" : "Créez votre profil expert")
+                      : user?.name ? `Bienvenue, ${user.name.split(' ')[0]}` : "Gérez vos projets de construction"
+                  }
                 </p>
               </div>
             </div>
@@ -582,6 +642,156 @@ export default function Dashboard() {
         </header>
 
         <div className="p-3 sm:p-5 lg:p-6 xl:p-8 space-y-3 sm:space-y-4 lg:space-y-6">
+          {/* ══════ SUPPLIER VIEW ══════ */}
+          {viewMode === "supplier" && (
+            <div className="space-y-4">
+              {!hasSupplierProfile ? (
+                /* No profile — CTA to create */
+                <Card className="border-dashed border-2 border-primary/30">
+                  <CardContent className="p-6 sm:p-8 text-center space-y-4">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                      <Store className="h-7 w-7 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-base sm:text-lg font-bold">Créez votre profil fournisseur</h2>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                        Inscrivez votre entreprise pour être visible par les clients et recevoir des demandes de devis.
+                      </p>
+                    </div>
+                    <Button onClick={() => navigate("/dashboard/supplier")} className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      Créer mon profil fournisseur
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                /* Profile exists — compact stats + quick links */
+                <>
+                  {/* Status & profile summary */}
+                  <Card className="border-border/40 bg-background/50">
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/10">
+                          <span className="text-sm font-bold text-primary/80">
+                            {(supplierProfile?.companyName || "?").split(/\s+/).filter(Boolean).map((w: string) => w.charAt(0).toUpperCase()).slice(0, 2).join("")}
+                          </span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold truncate">{supplierProfile?.companyName}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="outline" className={`text-[9px] ${(supplierProfile as any)?.effectiveStatus === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                              {(supplierProfile as any)?.effectiveStatus === "active" ? "Abonné Pro" : "Inactif"}
+                            </Badge>
+                            <button
+                              onClick={() => setViewMode("client")}
+                              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <ArrowLeftRight className="h-3 w-3" />
+                              Vue Client
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => navigate("/dashboard/supplier/quotes")}>
+                            <FileText className="h-3 w-3" />
+                            Devis
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => navigate("/dashboard/supplier/stats")}>
+                            <BarChart3 className="h-3 w-3" />
+                            Stats
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  {/* Manage profile CTA */}
+                  <Button variant="outline" className="w-full gap-2" onClick={() => navigate("/dashboard/supplier")}>
+                    <Settings className="h-4 w-4" />
+                    Gérer mon profil fournisseur
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ══════ EXPERT VIEW ══════ */}
+          {viewMode === "expert" && (
+            <div className="space-y-4">
+              {!hasExpertProfile ? (
+                /* No profile — CTA to create */
+                <Card className="border-dashed border-2 border-violet-500/30">
+                  <CardContent className="p-6 sm:p-8 text-center space-y-4">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-500/10">
+                      <Briefcase className="h-7 w-7 text-violet-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-base sm:text-lg font-bold">Créez votre profil expert</h2>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                        Inscription en tant qu'architecte, ingénieur, bureau d'études ou promoteur — recevez des demandes de services.
+                      </p>
+                    </div>
+                    <Button onClick={() => navigate("/dashboard/expert")} className="gap-2 bg-violet-600 hover:bg-violet-700 text-white">
+                      <Plus className="h-4 w-4" />
+                      Créer mon profil expert
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                /* Profile exists — compact stats + quick links */
+                <>
+                  {/* Status & profile summary */}
+                  <Card className="border-border/40 bg-background/50">
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-violet-50 border border-violet-200">
+                          <span className="text-sm font-bold text-violet-600">
+                            {(expertProfile?.displayName || "?").split(/\s+/).filter(Boolean).map((w: string) => w.charAt(0).toUpperCase()).slice(0, 2).join("")}
+                          </span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold truncate">{expertProfile?.displayName}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="outline" className={`text-[9px] ${(expertProfile as any)?.effectiveStatus === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                              {(expertProfile as any)?.effectiveStatus === "active" ? "Expert certifié" : "Inactif"}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {expertProfile?.profession === "architecte" ? "Architecte" : expertProfile?.profession === "ingenieur" ? "Ingénieur" : expertProfile?.profession === "bureau_etudes" ? "Bureau d'études" : "Promoteur"}
+                            </span>
+                            <button
+                              onClick={() => setViewMode("client")}
+                              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <ArrowLeftRight className="h-3 w-3" />
+                              Vue Client
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => navigate("/dashboard/expert/services")}>
+                            <FileText className="h-3 w-3" />
+                            Services
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => navigate("/dashboard/expert/stats")}>
+                            <BarChart3 className="h-3 w-3" />
+                            Stats
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  {/* Manage profile CTA */}
+                  <Button variant="outline" className="w-full gap-2 border-violet-200 text-violet-700 hover:bg-violet-50" onClick={() => navigate("/dashboard/expert")}>
+                    <Settings className="h-4 w-4" />
+                    Gérer mon profil expert
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ══════ CLIENT VIEW (standard dashboard) ══════ */}
+          {viewMode === "client" && (
+            <>
           {/* Quick actions - horizontal scroll on mobile */}
           <div className="overflow-x-auto scrollbar-none -mx-3 sm:mx-0 px-3 sm:px-0">
             <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 min-w-max sm:min-w-0">
@@ -1163,6 +1373,8 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
+            </>
+          )}
 
         </div>
       </div>
