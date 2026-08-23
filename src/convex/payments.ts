@@ -25,6 +25,8 @@ const DEFAULT_PLAN_PRICING = {
   freeDownloadLimit: UNLIMITED,
   proDownloadLimit: UNLIMITED,
   expertDownloadLimit: UNLIMITED,
+  trialEnabled: true,
+  trialDurationDays: 60,
   bankName: "",
   bankTitulaire: "",
   bankRib: "",
@@ -63,6 +65,8 @@ export const getPlanPricing = query({
       freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
+      trialEnabled: config.trialEnabled ?? DEFAULT_PLAN_PRICING.trialEnabled,
+      trialDurationDays: config.trialDurationDays ?? DEFAULT_PLAN_PRICING.trialDurationDays,
     };
   },
 });
@@ -75,6 +79,8 @@ export const updatePlanPricing = mutation({
     projectLimit: v.optional(v.number()),
     investmentLimit: v.optional(v.number()),
     downloadLimit: v.optional(v.number()),
+    trialEnabled: v.optional(v.boolean()),
+    trialDurationDays: v.optional(v.number()),
     // Rétrocompatibilité : un prix unique par forfait couvre tous les types
     type: v.optional(v.union(v.literal("construction"), v.literal("investment"))),
   },
@@ -90,6 +96,8 @@ export const updatePlanPricing = mutation({
       .first();
 
     const patch: Record<string, any> = {};
+    if (args.trialEnabled !== undefined) patch.trialEnabled = args.trialEnabled;
+    if (args.trialDurationDays !== undefined) patch.trialDurationDays = args.trialDurationDays;
     const plan = args.plan;
 
     if (plan === "free") {
@@ -150,6 +158,8 @@ export const getPublicPricing = query({
       freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
+      trialEnabled: config.trialEnabled ?? DEFAULT_PLAN_PRICING.trialEnabled,
+      trialDurationDays: config.trialDurationDays ?? DEFAULT_PLAN_PRICING.trialDurationDays,
       currency: config.currency ?? "TND",
       bankName: config.bankName,
       bankTitulaire: config.bankTitulaire,

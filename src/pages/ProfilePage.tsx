@@ -358,7 +358,7 @@ export default function ProfilePage() {
                     <Sparkles className="h-3.5 w-3.5" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium">{isPaid ? "Gérer mon abonnement" : "Passer à l'offre Pro"}</p>
+                    <p className="text-xs font-medium">{isPaid ? "Gérer mon abonnement" : "Passer à l'offre Fournisseur"}</p>
                     <p className="text-[9px] text-muted-foreground/60">
                       {isPaid ? "Abonnement mensuel · accès illimité" : "Export PDF, rapports détaillés"}
                     </p>

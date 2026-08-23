@@ -549,7 +549,7 @@ export default function SupplierDashboard() {
                           <ShieldCheck className="h-5 w-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold">Abonnement Pro</p>
+                          <p className="text-sm font-semibold">Abonnement Fournisseur</p>
                           <p className="text-lg font-black text-primary mt-1">{MONTHLY_PRICE} TND<small className="text-[9px] font-normal text-muted-foreground">/mois</small></p>
                           <p className="text-[10px] text-muted-foreground mt-1">Virement bancaire ou D17</p>
                           <ul className="mt-2 space-y-1">
@@ -936,7 +936,7 @@ export default function SupplierDashboard() {
                         <ShieldCheck className="h-6 w-6" />
                       </div>
                     </div>
-                    <p className="text-sm font-semibold">Abonnement Pro</p>
+                    <p className="text-sm font-semibold">Abonnement Fournisseur</p>
                     <p className="text-sm font-bold text-primary mt-1">{MONTHLY_PRICE} TND<small className="text-[9px] font-normal text-muted-foreground">/mois</small></p>
                     <ul className="mt-3 space-y-1 text-left max-w-[200px] mx-auto">
                       <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />Tout le profil +</li>

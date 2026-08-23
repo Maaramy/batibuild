@@ -291,10 +291,10 @@ export default function ProjectDetail() {
       const gated = msg.includes("OFFRE_GRATUITE");
       setPredictiveError(
         gated
-          ? "Le module Intelligence prédictive est réservé aux abonnements Pro et Expert."
+          ? "Le module Intelligence prédictive est réservé aux abonnements Fournisseur et Expert."
           : msg,
       );
-      toast.error(gated ? "Réservé aux abonnements Pro et Expert" : msg);
+      toast.error(gated ? "Réservé aux abonnements Fournisseur et Expert" : msg);
     } finally {
       setPredictiveLoading(false);
     }

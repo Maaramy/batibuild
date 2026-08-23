@@ -943,6 +943,8 @@ const schema = defineSchema(
       freeDownloadLimit: v.optional(v.number()),
       proDownloadLimit: v.optional(v.number()),
       expertDownloadLimit: v.optional(v.number()),
+      trialEnabled: v.optional(v.boolean()),
+      trialDurationDays: v.optional(v.number()),
       updatedAt: v.number(),
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),

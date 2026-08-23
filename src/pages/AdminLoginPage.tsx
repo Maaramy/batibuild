@@ -242,7 +242,7 @@ export default function AdminLoginPage() {
           </div>                        <div className="mt-12 space-y-4 text-left max-w-sm mx-auto">
             {[
               { icon: Shield, text: "Gestion des utilisateurs et rôles" },
-              { icon: Lock, text: "Validation des abonnements Pro" },
+              { icon: Lock, text: "Validation des abonnements Fournisseur" },
               { icon: HardHat, text: "Mise à jour des prix des matériaux" },
             ].map((item, i) => (
               <motion.div

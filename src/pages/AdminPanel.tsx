@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -194,6 +195,9 @@ export default function AdminPanel() {
     freeProjects: 1000000, proProjects: 1000000, expertProjects: 1000000,
     freeInvestments: 1000000, proInvestments: 1000000, expertInvestments: 1000000,
     freeDownloadLimit: 1000000, proDownloads: 1000000, expertDownloads: 1000000,
+    // Essai gratuit
+    trialEnabled: true,
+    trialDurationDays: 60,
   });
   const [savingLimits, setSavingLimits] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
@@ -219,6 +223,8 @@ export default function AdminPanel() {
         proDownloads: planForm.proDownloadLimit ?? 5,
         expertDownloads: planForm.expertDownloadLimit ?? 20,
         supplierPrice: planForm.supplierPrice ?? 120,
+        trialEnabled: planForm.trialEnabled ?? true,
+        trialDurationDays: planForm.trialDurationDays ?? 60,
       });
     }
   }, [planForm?.startPrice, planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.freeInvestmentLimit, planForm?.proInvestmentLimit, planForm?.expertInvestmentLimit, planForm?.freeDownloadLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit, planForm?.supplierPrice]);
@@ -3912,6 +3918,55 @@ export default function AdminPanel() {
                   </div>
                 </div>
 
+                {/* ═══ Essai Gratuit (global) ═══ */}
+                <div className="p-5 rounded-xl bg-gradient-to-br from-sky-500/5 to-sky-500/0 border border-sky-200/20 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-600">
+                        <Clock className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold">Essai gratuit</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Activer ou désactiver la période d'essai gratuit pour les nouveaux Fournisseurs et Experts
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={limitForm.trialEnabled}
+                      onCheckedChange={(checked) => setLimitForm({ ...limitForm, trialEnabled: checked })}
+                    />
+                  </div>
+                  {limitForm.trialEnabled && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground">Durée essai gratuit (jours)</label>
+                        <Input
+                          type="number"
+                          value={limitForm.trialDurationDays}
+                          onChange={(e) => setLimitForm({ ...limitForm, trialDurationDays: parseInt(e.target.value) || 0 })}
+                          className="h-8 w-full text-sm mt-1"
+                          min={0}
+                          max={365}
+                        />
+                        <p className="text-[9px] text-muted-foreground mt-0.5">
+                          {limitForm.trialDurationDays} jour(s) — soit ~{Math.round(limitForm.trialDurationDays / 30)} mois
+                        </p>
+                      </div>
+                      <div className="flex items-end">
+                        <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground w-full">
+                          <p><strong className="text-foreground">Règle :</strong> Les nouveaux Fournisseurs et Experts bénéficie de {limitForm.trialDurationDays} jours gratuits à l'inscription, puis passage au paiement obligatoire.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {!limitForm.trialEnabled && (
+                    <div className="rounded-lg bg-amber-500/5 border border-amber-200/20 p-3 text-[11px] text-amber-600 dark:text-amber-400">
+                      <p>L'essai gratuit est <strong>désactivé</strong>. Les nouveaux Fournisseurs et Experts devront payer immédiatement leur abonnement.</p>
+                    </div>
+                  )}
+                </div>
+
                 {savingLimits ? (
                   <Button disabled className="gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -3944,6 +3999,12 @@ export default function AdminPanel() {
                           projectLimit: limitForm.expertProjects,
                           investmentLimit: limitForm.expertInvestments,
                           downloadLimit: limitForm.expertDownloads,
+                        } as any);
+                        // Essai gratuit (global)
+                        await updatePlanPricing({
+                          plan: "free",
+                          trialEnabled: limitForm.trialEnabled,
+                          trialDurationDays: limitForm.trialDurationDays,
                         } as any);
                         toast.success("Abonnements mis à jour");
                       } catch (err: any) {

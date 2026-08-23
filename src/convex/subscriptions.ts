@@ -434,9 +434,14 @@ export const createSubscription = mutation({
 
     // Durée selon le type de plan
     let duration = MONTHLY_DURATION;
-    // Fournisseur et Expert bénéficient de 2 mois gratuits à l'inscription
+    // Fournisseur et Expert bénéficient d'un essai gratuit configurable à l'inscription
     if ((args.plan === "supplier" || args.plan === "expert") && existing.length === 0) {
-      duration = TRIAL_DURATION; // 2 mois gratuits
+      const config = await ctx.db.query("paymentConfig").order("desc").first();
+      const trialEnabled = config?.trialEnabled ?? true;
+      const trialDays = config?.trialDurationDays ?? 60;
+      if (trialEnabled && trialDays > 0) {
+        duration = trialDays * 24 * 60 * 60 * 1000; // essai gratuit configurable
+      }
     }
 
     for (const sub of existing) {
