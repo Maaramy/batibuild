@@ -330,9 +330,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       (async () => {
         try {
           await updateProfile({ name: data.name || undefined, phone: data.phone || undefined });
-          if (data.userRole && data.userRole !== "client") {
-            await setUserRole({ userRole: data.userRole as any });
-          }
+          // Always persist the userRole so admin panel shows the registration choice
+          await setUserRole({ userRole: data.userRole as any });
         } catch (e) {
           // Re-store pending data so the user can retry on next navigation
           pendingProfileRef.current = data;
