@@ -609,19 +609,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Rejoignez batibuild App et estimez vos projets</p>
                   </div>
                   <form onSubmit={handlePasswordRegister} className="space-y-4">
-                    <FormField label="Nom complet" id="reg-name" name="name" placeholder="Votre nom" icon={User} disabled={isLoading} required autoComplete="name" />
-                    <FormField label="Téléphone" id="reg-phone" name="phone" type="tel" placeholder="+216 XX XXX XXX" icon={Phone} disabled={isLoading} autoComplete="tel" />
-                    <FormField label="Email" id="reg-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required autoComplete="email" />
-                    <FormField label="Mot de passe" id="reg-password" name="password" type={regShowPw ? "text" : "password"} placeholder="Min. 8 caractères" icon={Lock} disabled={isLoading} required minLength={8} autoComplete="new-password">
-                      <button type="button" onClick={() => setRegShowPw(!regShowPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--foreground)", opacity: 0.5 }} tabIndex={-1}>
-                        {regShowPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </FormField>
-                    <FormField label="Confirmer le mot de passe" id="reg-confirm-password" name="confirmPassword" type={regShowConfirmPw ? "text" : "password"} placeholder="Répéter" icon={Lock} disabled={isLoading} required minLength={8} autoComplete="new-password">
-                      <button type="button" onClick={() => setRegShowConfirmPw(!regShowConfirmPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--foreground)", opacity: 0.5 }} tabIndex={-1}>
-                        {regShowConfirmPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </FormField>
                     {/* Profile Type Selector */}
                     <motion.div variants={fadeUp}>
                       <Label className="text-sm font-medium" style={{ color: "var(--foreground)" }}>Vous êtes</Label>
@@ -648,6 +635,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         ))}
                       </div>
                     </motion.div>
+                    <FormField label="Nom complet" id="reg-name" name="name" placeholder="Votre nom" icon={User} disabled={isLoading} required autoComplete="name" />
+                    <FormField label="Téléphone" id="reg-phone" name="phone" type="tel" placeholder="+216 XX XXX XXX" icon={Phone} disabled={isLoading} autoComplete="tel" />
+                    <FormField label="Email" id="reg-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required autoComplete="email" />
+                    <FormField label="Mot de passe" id="reg-password" name="password" type={regShowPw ? "text" : "password"} placeholder="Min. 8 caractères" icon={Lock} disabled={isLoading} required minLength={8} autoComplete="new-password">
+                      <button type="button" onClick={() => setRegShowPw(!regShowPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--foreground)", opacity: 0.5 }} tabIndex={-1}>
+                        {regShowPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </FormField>
+                    <FormField label="Confirmer le mot de passe" id="reg-confirm-password" name="confirmPassword" type={regShowConfirmPw ? "text" : "password"} placeholder="Répéter" icon={Lock} disabled={isLoading} required minLength={8} autoComplete="new-password">
+                      <button type="button" onClick={() => setRegShowConfirmPw(!regShowConfirmPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--foreground)", opacity: 0.5 }} tabIndex={-1}>
+                        {regShowConfirmPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </FormField>
                     {error && <ErrorBanner message={error} />}
                     <motion.div variants={fadeUp}>
                       <label htmlFor="accept-terms" className="flex items-start gap-2.5 cursor-pointer select-none rounded-xl p-3 transition-all hover:opacity-95"
@@ -675,12 +675,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 </div>
                 <form onSubmit={handleEmailSubmit} className="space-y-4">
                   {tab === "register" && (
-                    <FormField label="Nom complet" id="otp-name" name="name" placeholder="Votre nom" icon={User} disabled={isLoading} required autoComplete="name" />
-                  )}
-                  {tab === "register" && (
-                    <FormField label="Téléphone" id="otp-phone" name="phone" type="tel" placeholder="+216 XX XXX XXX" icon={Phone} disabled={isLoading} autoComplete="tel" />
-                  )}
-                  {tab === "register" && (
                     <motion.div variants={fadeUp}>
                       <Label className="text-sm font-medium" style={{ color: "var(--foreground)" }}>Vous êtes</Label>
                       <div className="grid grid-cols-3 gap-2 mt-1.5">
@@ -706,6 +700,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         ))}
                       </div>
                     </motion.div>
+                  )}
+                  {tab === "register" && (
+                    <FormField label="Nom complet" id="otp-name" name="name" placeholder="Votre nom" icon={User} disabled={isLoading} required autoComplete="name" />
+                  )}
+                  {tab === "register" && (
+                    <FormField label="Téléphone" id="otp-phone" name="phone" type="tel" placeholder="+216 XX XXX XXX" icon={Phone} disabled={isLoading} autoComplete="tel" />
                   )}
                   <FormField label="Email" id="otp-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required />
                   {error && <ErrorBanner message={error} />}
