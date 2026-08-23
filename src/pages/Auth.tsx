@@ -30,11 +30,12 @@ import {
   Store,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Suspense, useEffect, useState, useRef } from "react";
+import { Suspense, useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { toast } from "sonner";
 
 interface AuthProps {
   redirectAfterAuth?: string;
@@ -317,16 +318,29 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const setUserRole = useMutation(api.users.setUserRole);
   const resetPasswordMutation = useMutation(api.users.resetPassword);
   const pendingProfileRef = useRef<{name: string; phone: string; userRole: string} | null>(null);
+  const profileSavingRef = useRef(false);
 
   // Save profile after auth is confirmed (avoids race condition with signIn)
   useEffect(() => {
-    if (isAuthenticated && pendingProfileRef.current) {
+    if (isAuthenticated && pendingProfileRef.current && !profileSavingRef.current) {
       const data = pendingProfileRef.current;
       pendingProfileRef.current = null;
-      updateProfile({ name: data.name || undefined, phone: data.phone || undefined });
-      if (data.userRole && data.userRole !== "client") {
-        setUserRole({ userRole: data.userRole as any });
-      }
+      profileSavingRef.current = true;
+
+      (async () => {
+        try {
+          await updateProfile({ name: data.name || undefined, phone: data.phone || undefined });
+          if (data.userRole && data.userRole !== "client") {
+            await setUserRole({ userRole: data.userRole as any });
+          }
+        } catch (e) {
+          // Re-store pending data so the user can retry on next navigation
+          pendingProfileRef.current = data;
+          toast.error("Erreur lors de la sauvegarde du profil. Veuillez réessayer.");
+        } finally {
+          profileSavingRef.current = false;
+        }
+      })();
     }
   }, [isAuthenticated, updateProfile, setUserRole]);
 
