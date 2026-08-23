@@ -28,7 +28,7 @@ export const getMySubscription = query({
 
 /**
  * Quotas de l'utilisateur par type (construction · investissement).
- * Un seul forfait (paiement unique) couvre les deux types.
+ * Abonnement mensuel (30 jours) — accès illimité pour les forfaits payants.
  */
 export const getMyQuotas = query({
   args: {},
@@ -45,7 +45,7 @@ export const getMyQuotas = query({
     const now = Date.now();
     const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
 
-    // Forfaits payants = illimité ; forfait gratuit = quota limité
+    // Forfaits payants = accès illimité ; forfait gratuit = quota limité
     const cUsed = isActive && isPaidPlan
       ? 0
       : sub ? (sub.projectsUsed ?? 0) : await countUserDocs(ctx, user._id, "projects");
@@ -408,7 +408,7 @@ const MONTHLY_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 jours
 // Période d'essai gratuite pour Fournisseur/Expert : 2 mois
 const TRIAL_DURATION = 60 * 24 * 60 * 60 * 1000; // 60 jours
 
-/** Create or update subscription (paiement unique, par type de projet) */
+/** Create or update subscription (abonnement mensuel, 30 jours) */
 export const createSubscription = mutation({
   args: {
     plan: subscriptionPlanValidator,
@@ -426,7 +426,7 @@ export const createSubscription = mutation({
     const kind = args.kind ?? "construction"; // legacy : construction
 
     // Un seul forfait actif à la fois : un nouvel achat remplace l'ancien
-    // (paiement unique — renouvellement des quotas).
+    // (abonnement mensuel — renouvellement automatique).
     const existing = await ctx.db
       .query("subscriptions")
       .withIndex("by_user", (q) => q.eq("userId", user._id))

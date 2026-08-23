@@ -395,8 +395,8 @@ export default function SupplierDashboard() {
   const plan = (profile as any)?.plan || "none";
   const MONTHLY_PRICE = paymentConfig?.supplierPrice || (profile as any)?.price || 120;
 
-  // Dès que le paiement est validé (forfait actif), on ferme automatiquement le popup
-  // pour que les coordonnées disparaissent jusqu'à la fin du forfait
+  // Dès que le paiement est validé (abonnement actif), on ferme automatiquement le popup
+  // pour que les coordonnées disparaissent jusqu'à la fin de l'abonnement
   useEffect(() => {
     if (effStatus === "active") {
       setShowPaymentChoice(false);

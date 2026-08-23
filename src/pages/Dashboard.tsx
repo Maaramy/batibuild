@@ -320,7 +320,7 @@ function StatsCard({ icon: Icon, label, value, gradient, iconColor }: any) {
   );
 }
 
-const PLAN_LABELS: Record<string, string> = { free: "Start", pro: "Pro", expert: "Expert" };
+const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client", expert: "Expert", supplier: "Fournisseur" };
 
 // ============================================================================
 // Main Dashboard Component
@@ -1118,10 +1118,10 @@ export default function Dashboard() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-xs sm:text-sm font-medium">Mon abonnement</p>
-                      <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200/30 text-[8px] px-1.5 py-0">Mensuel</Badge>
+                      <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200/30 text-[8px] px-1.5 py-0">30 jours</Badge>
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground">
-                      Forfait <span className="font-semibold text-foreground">{constructionPlan === "free" ? "Client" : constructionPlan === "pro" ? "Pro" : "Expert"}</span> · Accès illimité
+                      Forfait <span className="font-semibold text-foreground">{PLAN_LABELS[constructionPlan] ?? "Client"}</span> · Accès illimité
                     </p>
                   </div>
                 </div>
@@ -1157,7 +1157,7 @@ export default function Dashboard() {
               ) : (
                 <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
                   <p className="text-[10px] sm:text-xs text-primary/80">
-                    Passez à l'offre Client (80 TND/mois) pour un accès illimité à tous les outils.
+                    Passez à l'abonnement Client (80 TND/mois) pour un accès illimité à tous les outils.
                   </p>
                 </div>
               )}
@@ -1472,7 +1472,7 @@ export default function Dashboard() {
                   />
                 </div>
                 <p className="mt-1 text-[9px] text-muted-foreground">
-                  Forfaits à paiement unique — quotas épuisés ? Passez à une offre supérieure ou rachetez un forfait.
+                  Abonnement expiré ? Renouvelez ou passez à une offre supérieure.
                 </p>
               </div>
 

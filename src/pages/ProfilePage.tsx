@@ -360,7 +360,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-xs font-medium">{isPaid ? "Gérer mon abonnement" : "Passer à l'offre Pro"}</p>
                     <p className="text-[9px] text-muted-foreground/60">
-                      {isPaid ? "Paiement unique · quotas par forfait" : "Export PDF, rapports détaillés"}
+                      {isPaid ? "Abonnement mensuel · accès illimité" : "Export PDF, rapports détaillés"}
                     </p>
                   </div>
                 </div>

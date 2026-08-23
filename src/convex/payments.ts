@@ -5,26 +5,26 @@ import { getCurrentUser } from "./users";
 // Payment Configuration
 // ============================================================================
 
-// Forfaits à paiement unique (non mensuels) — un seul forfait couvre tout :
-//   Start 79 TND  → 1 projet · 1 analyse · 1 plan · 1 PDF
-//   Pro 120 TND   → 5 projets · 5 analyses · 5 plans · 5 PDF
-//   Expert 320 TND → 20 projets · 20 analyses · 20 plans · 20 PDF
+// Abonnements mensuels (30 jours) — accès illimité pour les forfaits payants :
+//   Client  80 TND/mois  → accès complet illimité
+//   Fournisseur 120 TND/mois → 2 mois gratuits, puis paiement
+//   Expert 120 TND/mois → 2 mois gratuits, puis paiement
 const UNLIMITED = 1000000;
 const DEFAULT_PLAN_PRICING = {
-  startPrice: 79,
-  proPrice: 120,
-  expertPrice: 320,
+  startPrice: 80,
+  proPrice: 0,
+  expertPrice: 120,
   supplierPrice: 120,
   currency: "TND",
-  freeProjectLimit: 1,
-  proProjectLimit: 5,
-  expertProjectLimit: 20,
-  freeInvestmentLimit: 1,
-  proInvestmentLimit: 5,
-  expertInvestmentLimit: 20,
-  freeDownloadLimit: 1,
-  proDownloadLimit: 5,
-  expertDownloadLimit: 20,
+  freeProjectLimit: UNLIMITED,
+  proProjectLimit: UNLIMITED,
+  expertProjectLimit: UNLIMITED,
+  freeInvestmentLimit: UNLIMITED,
+  proInvestmentLimit: UNLIMITED,
+  expertInvestmentLimit: UNLIMITED,
+  freeDownloadLimit: UNLIMITED,
+  proDownloadLimit: UNLIMITED,
+  expertDownloadLimit: UNLIMITED,
   bankName: "",
   bankTitulaire: "",
   bankRib: "",

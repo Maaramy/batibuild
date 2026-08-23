@@ -93,11 +93,11 @@ export default function InvestmentResults() {
       }
     } else if (downloadInfo.reason === "limite_atteinte") {
       toast.error(
-        `Vous avez atteint votre limite de ${downloadInfo.limit ?? 1} téléchargements pour le forfait investissement. Renouvelez vos quotas pour continuer.`,
+        `Vous avez atteint votre limite de téléchargements pour l'abonnement investissement. Renouvelez pour continuer.`,
       );
     } else {
       toast.error(
-        "Vous devez avoir un forfait d'investissement actif pour télécharger le rapport PDF. L'export CSV reste gratuit.",
+        "Vous devez avoir un abonnement d'investissement actif pour télécharger le rapport PDF. L'export CSV reste gratuit.",
       );
     }
   };

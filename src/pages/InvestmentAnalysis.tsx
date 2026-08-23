@@ -460,7 +460,7 @@ export default function InvestmentAnalysis() {
         toast.error(msg.replace("LIMITE_ATTEINTE:", ""), {
           duration: 12000,
           action: {
-            label: "Voir les forfaits",
+            label: "Voir les abonnements",
             onClick: () => navigate("/dashboard/pricing"),
           },
         });

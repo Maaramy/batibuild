@@ -92,9 +92,9 @@ function TermsContent() {
       icon: CreditCard,
       title: "4. Abonnements et paiements",
       paragraphs: [
-        "La plateforme propose plusieurs forfaits : Start (gratuit), Pro et Expert. Les tarifs sont exprimés en dinars tunisiens (TND) et peuvent être modifiés par l'éditeur, avec préavis raisonnable.",
-        "Les paiements s'effectuent par virement bancaire ou par D17, selon les coordonnées communiquées par la plateforme. L'activation du forfait intervient après vérification du reçu de paiement par l'administration.",
-        "Les fournisseurs disposent également d'un forfait dédié activé selon la même procédure de vérification.",
+        "La plateforme propose plusieurs abonnements mensuels : Client, Fournisseur et Expert. Les tarifs sont exprimés en dinars tunisiens (TND) et peuvent être modifiés par l'éditeur, avec préavis raisonnable.",
+        "Les paiements s'effectuent par virement bancaire ou par D17, selon les coordonnées communiquées par la plateforme. L'activation de l'abonnement intervient après vérification du reçu de paiement par l'administration.",
+        "Les fournisseurs disposent également d'un abonnement dédié activé selon la même procédure de vérification.",
       ],
     },
     {
@@ -162,7 +162,7 @@ function PrivacyContent() {
         <ul key="list" className="space-y-1.5 list-disc pl-5">
           <li>Créer et gérer votre compte et vos abonnements ;</li>
           <li>Générer des estimations de coûts par intelligence artificielle ;</li>
-          <li>Activer vos forfaits après vérification des paiements ;</li>
+          <li>Activer vos abonnements après vérification des paiements ;</li>
           <li>Vous informer par e-mail des événements liés à votre abonnement (activation, renouvellement, expiration, paiement) ;</li>
           <li>Améliorer la qualité de nos modèles d'estimation.</li>
         </ul>,

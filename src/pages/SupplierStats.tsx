@@ -122,7 +122,7 @@ function UpgradeScreen({ onBack }: { onBack: () => void }) {
           Statistiques réservées aux fournisseurs
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Souscrivez au forfait Fournisseur pour accéder à vos statistiques.
+          Souscrivez à l'abonnement Fournisseur pour accéder à vos statistiques.
         </p>
         <div className="mt-4 flex items-center justify-center gap-2">
           <Button variant="outline" size="sm" onClick={onBack}>

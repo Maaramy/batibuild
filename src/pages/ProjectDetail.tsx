@@ -291,10 +291,10 @@ export default function ProjectDetail() {
       const gated = msg.includes("OFFRE_GRATUITE");
       setPredictiveError(
         gated
-          ? "Le module Intelligence prédictive est réservé aux forfaits Pro et Expert."
+          ? "Le module Intelligence prédictive est réservé aux abonnements Pro et Expert."
           : msg,
       );
-      toast.error(gated ? "Réservé aux forfaits Pro et Expert" : msg);
+      toast.error(gated ? "Réservé aux abonnements Pro et Expert" : msg);
     } finally {
       setPredictiveLoading(false);
     }
@@ -573,7 +573,7 @@ export default function ProjectDetail() {
                     <DialogHeader>
                       <DialogTitle className="text-base">Forfait de construction requis</DialogTitle>
                       <DialogDescription className="text-xs">
-                        Le téléchargement de devis en PDF nécessite un forfait actif (paiement unique)
+                        Le téléchargement de devis en PDF nécessite un abonnement actif
                       </DialogDescription>
                     </DialogHeader>
                     <div className="py-2 text-center">
@@ -592,7 +592,7 @@ export default function ProjectDetail() {
                         <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Paiement par virement bancaire ou D17</p>
                       </div>
                       <Button className="w-full" onClick={() => { setShowUpgradeDialog(false); navigate("/dashboard/pricing"); }}>
-                        Voir les forfaits
+                        Voir les abonnements
                         <ChevronRight className="h-3.5 w-3.5 ml-1" />
                       </Button>
                       <button onClick={() => setShowUpgradeDialog(false)}
@@ -1526,7 +1526,7 @@ export default function ProjectDetail() {
                     </Badge>
                   </div>
                   <p className="text-[13px] text-muted-foreground mt-2 max-w-md">
-                    Le module Intelligence prédictive est réservé aux forfaits <strong>Pro</strong> et <strong>Expert</strong>.
+                    Le module Intelligence prédictive est réservé aux abonnements <strong>Pro</strong> et <strong>Expert</strong>.
                   </p>
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     {["Prévision des prix", "Meilleures périodes d'achat", "Optimisation du budget", "Réduction des pertes"].map((f) => (

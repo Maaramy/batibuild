@@ -187,13 +187,13 @@ export default function AdminPanel() {
   const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
   const [limitForm, setLimitForm] = useState({
-    // Prix des forfaits (paiement unique — mêmes prix pour tous les types)
-    constructionStartPrice: 79, constructionProPrice: 120, constructionExpertPrice: 320,
+    // Abonnements mensuels (30 jours)
+    constructionStartPrice: 80, constructionProPrice: 0, constructionExpertPrice: 120,
     supplierPrice: 120,
-    // Quotas par forfait : projets de construction / analyses / PDF
-    freeProjects: 1, proProjects: 5, expertProjects: 20,
-    freeInvestments: 1, proInvestments: 5, expertInvestments: 20,
-    freeDownloadLimit: 1, proDownloads: 5, expertDownloads: 20,
+    // Quotas par forfait (illimités pour les forfaits payants)
+    freeProjects: 1000000, proProjects: 1000000, expertProjects: 1000000,
+    freeInvestments: 1000000, proInvestments: 1000000, expertInvestments: 1000000,
+    freeDownloadLimit: 1000000, proDownloads: 1000000, expertDownloads: 1000000,
   });
   const [savingLimits, setSavingLimits] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
@@ -578,7 +578,7 @@ export default function AdminPanel() {
               {canSee("limites") && (
               <TabsTrigger value="limites" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <HardHat className="h-3.5 w-3.5" />
-                <span>Limites</span>
+                <span>Abonnements</span>
               </TabsTrigger>
               )}
               <TabsTrigger value="fournisseurs" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
@@ -3760,25 +3760,25 @@ export default function AdminPanel() {
             </Card>
           </TabsContent>
 
-          {/* Plan Limits — forfaits couvrant construction · investissement */}
+          {/* Plan Limits — abonnements mensuels */}
           <TabsContent value="limites">
             <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="text-base">Forfaits — prix et quotas</CardTitle>
+                <CardTitle className="text-base">Abonnements mensuels — prix et quotas</CardTitle>
                 <CardDescription className="text-xs">
-                  Forfaits à paiement unique — un seul forfait couvre la construction et l'investissement.
-                  Quand les quotas (construction / investissement) sont épuisés, l'utilisateur renouvelle son forfait
-                  ou passe à une offre supérieure.
+                  Forfaits mensuels (30 jours) — accès illimité pour les forfaits payants.
+                  Client : accès complet. Fournisseur / Expert : 2 mois gratuits, puis paiement obligatoire.
+                  Si le tarif est réglé à 0 TND, l'accès est gratuit et illimité.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Les 3 forfaits : un seul prix couvre construction et investissement */}
+                {/* Les 3 forfaits mensuels */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="p-4 rounded-xl bg-slate-500/5 border border-border/30 space-y-3">
-                    <h3 className="text-sm font-semibold">Start</h3>
-                    <p className="text-xs text-muted-foreground">1 projet · 1 analyse · 1 PDF</p>
+                    <h3 className="text-sm font-semibold">Client</h3>
+                    <p className="text-xs text-muted-foreground">Accès complet illimité · Mensuel</p>
                     <div>
-                      <label className="text-xs text-muted-foreground">Prix (TND)</label>
+                      <label className="text-xs text-muted-foreground">Prix mensuel (TND)</label>
                       <Input
                         type="number"
                         value={limitForm.constructionStartPrice}
@@ -3819,9 +3819,9 @@ export default function AdminPanel() {
                       <Crown className="h-4 w-4 text-blue-500" />
                       Pro
                     </h3>
-                    <p className="text-xs text-muted-foreground">5 projets · 5 analyses · 5 PDF</p>
+                    <p className="text-xs text-muted-foreground">Accès complet · Mensuel</p>
                     <div>
-                      <label className="text-xs text-muted-foreground">Prix (TND)</label>
+                      <label className="text-xs text-muted-foreground">Prix mensuel (TND)</label>
                       <Input
                         type="number"
                         value={limitForm.constructionProPrice}
@@ -3862,9 +3862,9 @@ export default function AdminPanel() {
                       <Crown className="h-4 w-4 text-emerald-500" />
                       Expert
                     </h3>
-                    <p className="text-xs text-muted-foreground">20 projets · 20 analyses · 20 PDF</p>
+                    <p className="text-xs text-muted-foreground">Accès complet · 2 mois gratuits</p>
                     <div>
-                      <label className="text-xs text-muted-foreground">Prix (TND)</label>
+                      <label className="text-xs text-muted-foreground">Prix mensuel (TND)</label>
                       <Input
                         type="number"
                         value={limitForm.constructionExpertPrice}
@@ -3961,7 +3961,7 @@ export default function AdminPanel() {
                           projectLimit: 100,
                           downloadLimit: 100,
                         } as any);
-                        toast.success("Forfaits mis à jour");
+                        toast.success("Abonnements mis à jour");
                       } catch (err: any) {
                         toast.error(err.message || "Erreur");
                       }
@@ -3970,7 +3970,7 @@ export default function AdminPanel() {
                     className="gap-2"
                   >
                     <Save className="h-4 w-4" />
-                    Enregistrer les forfaits
+                    Enregistrer les abonnements
                   </Button>
                 )}
               </CardContent>

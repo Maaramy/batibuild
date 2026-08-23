@@ -21,25 +21,25 @@ const DEFAULT_PAYMENT = {
   d17Phone: "+216 XX XXX XXX",
   d17Email: "paiement@batibuild.app",
   d17Notice: "Envoyez le paiement via l'application D17 de La Poste Tunisienne",
-  startPrice: 79,
+  startPrice: 80,
   proPrice: 120,
   supplierPrice: 120,
-  expertPrice: 320,
+  expertPrice: 120,
   currency: "TND",
 };
 
-// Forfaits à paiement unique — un seul forfait couvre tout :
-//   Start 79 TND  → 1 projet de construction · 1 analyse d'investissement · 1 PDF
-//   Pro 120 TND   → 5 projets · 5 analyses · 5 PDF
-//   Expert 320 TND → 20 projets · 20 analyses · 20 PDF
-type PlanId = "free" | "pro" | "expert";
+// Abonnements mensuels (30 jours) — accès illimité pour les forfaits payants :
+//   Client  80 TND/mois  → accès complet illimité
+//   Fournisseur 120 TND/mois → 2 mois gratuits, puis paiement
+//   Expert 120 TND/mois → 2 mois gratuits, puis paiement
+type PlanId = "free" | "pro" | "expert" | "supplier";
 
-const PLAN_LABELS: Record<string, string> = { free: "Start", pro: "Pro", expert: "Expert" };
+const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client", expert: "Expert", supplier: "Fournisseur" };
 
-const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean }[] = [
-  { id: "free", quota: 1, description: "Pour démarrer avec un premier projet" },
-  { id: "pro", quota: 5, description: "Pour les professionnels et les investisseurs actifs" },
-  { id: "expert", quota: 20, description: "Pour les entreprises et les grands projets", popular: true },
+const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean; trial?: boolean }[] = [
+  { id: "free", quota: -1, description: "Accès complet illimité pour tous vos projets" },
+  { id: "supplier", quota: -1, description: "Vendez vos matériaux — 2 mois gratuits", trial: true },
+  { id: "expert", quota: -1, description: "Offrez vos services d'expertise — 2 mois gratuits", popular: true, trial: true },
 ];
 
 function PaymentField({
@@ -77,7 +77,7 @@ function PaymentField({
 }
 
 export default function PricingPage() {
-  usePageSEO({ title: "Abonnements - batibuild App", description: "Choisissez le forfait batibuild App adapté à vos besoins : Start, Pro ou Expert — paiement unique, sans abonnement mensuel." });
+  usePageSEO({ title: "Abonnements - batibuild App", description: "Choisissez votre abonnement mensuel batibuild App : Client, Fournisseur ou Expert — accès illimité, renouvellement mensuel." });
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const currentSubscription = useQuery(api.subscriptions.getMySubscription);
@@ -254,6 +254,7 @@ export default function PricingPage() {
     description: string,
     popular?: boolean,
     index = 0,
+    trial?: boolean,
   ) => {
     const isCurrent = isCurrentPlan(plan);
     const reached = construction?.reached || investment?.reached;
@@ -294,30 +295,32 @@ export default function PricingPage() {
 
         <div className="mb-5">
           <span className="text-4xl font-bold">{price}</span>
-          <span className="ml-1 text-sm text-muted-foreground">TND · paiement unique</span>
+          <span className="ml-1 text-sm text-muted-foreground">TND · /mois</span>
         </div>
 
         <ul className="mb-8 space-y-3 flex-1">
           <li className="flex items-start gap-2 text-sm">
             <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <span>
-              {quota} projet{quota > 1 ? "s" : ""} de construction
-            </span>
+            <span>Projets de construction illimités</span>
           </li>
           <li className="flex items-start gap-2 text-sm">
             <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <span>
-              {quota} analyse{quota > 1 ? "s" : ""} de rentabilité immobilière
-            </span>
+            <span>Analyses de rentabilité illimitées</span>
           </li>
           <li className="flex items-start gap-2 text-sm">
             <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <span>{quota} téléchargement{quota > 1 ? "s" : ""} PDF</span>
+            <span>Téléchargements PDF illimités</span>
           </li>
           <li className="flex items-start gap-2 text-sm">
             <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <span>Estimation IA aux prix tunisiens</span>
           </li>
+          {trial && (
+            <li className="flex items-start gap-2 text-sm">
+              <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+              <span className="text-emerald-600 font-medium">2 mois gratuits à l'inscription</span>
+            </li>
+          )}
         </ul>
 
         <Button
@@ -351,7 +354,7 @@ export default function PricingPage() {
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <HardHat className="h-3.5 w-3.5" />
             </div>
-            <span className="font-semibold text-sm">Forfaits</span>
+            <span className="font-semibold text-sm">Abonnements</span>
           </div>
         </div>
       </header>
@@ -359,21 +362,20 @@ export default function PricingPage() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
         <div className="text-center mb-8">
           <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Forfait actuel : {PLAN_LABELS[currentPlan]}
+            Abonnement actuel : {PLAN_LABELS[currentPlan]}
             {isPending && " (En attente de validation)"}
           </Badge>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre forfait</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre abonnement</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
-            Paiement unique — aucune reconduction mensuelle. Chaque forfait inclut des quotas de projets de
-            construction et d'analyses d'investissement, ainsi que des téléchargements PDF. Quand vos quotas sont
-            épuisés, vous renouvelez ou passez à une offre supérieure.
+            Abonnement mensuel (30 jours) — renouvellement automatique. Chaque forfait inclut un accès complet
+            aux outils d'estimation, matériaux IA et téléchargements. Fournisseur et Expert bénéficient de 2 mois gratuits à l'inscription.
           </p>
         </div>
 
         {/* ═══ Les 3 forfaits ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {PLANS.map((p, i) =>
-            renderPlanCard(p.id, priceFor(p.id), p.quota, p.description, p.popular, i),
+            renderPlanCard(p.id, priceFor(p.id), p.quota, p.description, p.popular, i, p.trial),
           )}
         </div>
 
@@ -428,7 +430,7 @@ export default function PricingPage() {
             </div>
           </div>
 
-          {/* Forfait selector */}
+          {/* Abonnement selector */}
           <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
             {(["free", "pro", "expert"] as PlanId[]).map((p) => (
               <button
@@ -671,12 +673,12 @@ export default function PricingPage() {
                 <RefreshCcw className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-xs font-semibold text-emerald-700">
-                    Quotas épuisés ? Renouvelez votre forfait.
+                    Abonnement expiré ? Renouvellez votre forfait mensuel.
                   </p>
                   <p className="text-[10px] text-emerald-700/70 mt-0.5">
                     {construction?.reached && "Vos quotas de construction sont épuisés. "}
                     {investment?.reached && "Vos quotas d'investissement sont épuisés. "}
-                    Renouvelez le même forfait ou passez à une offre supérieure — paiement unique, sans abonnement mensuel.
+                    Renouvelez le même forfait ou passez à une offre supérieure — abonnement mensuel renouvelable.
                   </p>
                 </div>
               </div>
