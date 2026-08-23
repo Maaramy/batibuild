@@ -74,7 +74,7 @@ const PALETTE = [
 ];
 
 const fmt = (n: number) => new Intl.NumberFormat("fr-TN", {
-  style: "currency", currency: "TND", maximumFractionDigits: 3,
+  style: "currency", currency: "TND", minimumFractionDigits: 3, maximumFractionDigits: 3,
 }).format(n);
 
 const fmtInt = (n: number) => new Intl.NumberFormat("fr-TN", { maximumFractionDigits: 0 }).format(n);

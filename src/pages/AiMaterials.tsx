@@ -35,7 +35,7 @@ import { REGION_LABELS } from "@/lib/projectPdf";
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 const fmtTnd = (n: number) =>
-  new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(n);
 
 const fmtNum = (n: number, digits = 2) =>
   new Intl.NumberFormat("fr-TN", { maximumFractionDigits: digits }).format(n);
@@ -804,7 +804,7 @@ export default function AiMaterials() {
                                 {s.suppliers.length > 0 && (
                                   <div className="mt-2 rounded-lg border border-border/30 bg-muted/10 px-2.5 py-1.5">
                                     <p className="text-[9px] font-semibold text-muted-foreground flex items-center gap-1">
-                                      <Store className="h-2.5 w-2.5" /> Fournisseurs dès {s.suppliers[0].price.toFixed(2)} TND
+                                      <Store className="h-2.5 w-2.5" /> Fournisseurs dès {fmtTnd(s.suppliers[0].price)}
                                     </p>
                                     {s.suppliers.slice(0, 2).map((sup, i) => (
                                       <p key={i} className="text-[9px] text-muted-foreground truncate">
