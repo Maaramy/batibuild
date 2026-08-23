@@ -30,7 +30,7 @@ import {
   Store,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Suspense, useEffect, useState, useRef, useCallback } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
