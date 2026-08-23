@@ -104,6 +104,7 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [recusFilter, setRecusFilter] = useState<string>("all");
   const [supplierRecusFilter, setSupplierRecusFilter] = useState<string>("all");
+  const [expertSearch, setExpertSearch] = useState("");
   const [previewReceipt, setPreviewReceipt] = useState<any>(null);
   const [previewSupplierReceipt, setPreviewSupplierReceipt] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -165,6 +166,12 @@ export default function AdminPanel() {
   const rejectSupplierSub = useMutation(api.supplierProfiles.adminRejectSupplierSubscription);
   const verifySupplierReceipt = useMutation(api.supplierProfiles.adminVerifySupplierReceipt);
   const deleteSupplierReceipt = useMutation(api.supplierProfiles.adminDeleteSupplierReceipt);
+  const approveExpertSub = useMutation(api.expertProfiles.adminApproveExpertSubscription);
+  const rejectExpertSub = useMutation(api.expertProfiles.adminRejectExpertSubscription);
+  const verifyExpertReceipt = useMutation(api.expertProfiles.adminVerifyExpertReceipt);
+  const deleteExpertReceipt = useMutation(api.expertProfiles.adminDeleteExpertReceipt);
+  const deleteExpertProfile = useMutation(api.expertProfiles.adminDeleteExpertProfile);
+  const toggleExpertVisibility = useMutation(api.expertProfiles.adminToggleExpertVisibility);
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -175,6 +182,7 @@ export default function AdminPanel() {
   // Plan limits
   const planForm = useQuery(api.payments.getPlanPricing);
   const allSuppliers = useQuery(api.supplierProfiles.getAllSupplierProfiles) || [];
+  const allExperts = useQuery(api.expertProfiles.getAllExpertProfiles) || [];
   const updatePlanPricing = useMutation(api.payments.updatePlanPricing);
   const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
@@ -292,7 +300,7 @@ export default function AdminPanel() {
   const isAdmin = user?.role === "admin";
   const isModerator = user?.role === "moderator";
   // Tabs the moderator role can access
-  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "subscriptions", "fournisseurs"];
+  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs", "experts"];
   const canSee = (tab: string) => isAdmin || MODERATOR_TABS.includes(tab);
 
   // Check if user is admin/moderator
@@ -547,6 +555,10 @@ export default function AdminPanel() {
                   </span>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="recusExperts" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Receipt className="h-3 w-3" />
+                <span>Reçus Experts</span>
+              </TabsTrigger>
               <TabsTrigger value="subscriptions" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <CreditCard className="h-3.5 w-3.5" />
                 <span>Abonnements</span>
@@ -577,6 +589,10 @@ export default function AdminPanel() {
                     {allSuppliers.filter((s: any) => s.subscriptionStatus === "pending").length}
                   </span>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="experts" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Briefcase className="h-3.5 w-3.5" />
+                <span>Experts</span>
               </TabsTrigger>
               {canSee("seo") && (
               <TabsTrigger value="seo" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
@@ -3990,6 +4006,387 @@ export default function AdminPanel() {
           <TabsContent value="historique">
             <EmailHistory />
           </TabsContent>
+          {/* ── Experts ── */}
+            <TabsContent value="experts">
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-primary" />
+                    <div>
+                      <h2 className="text-lg font-semibold">Gestion des experts</h2>
+                      <p className="text-xs text-muted-foreground">{allExperts.length} expert(s)</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Rechercher..."
+                        value={expertSearch}
+                        onChange={(e) => setExpertSearch(e.target.value)}
+                        className="h-9 w-36 sm:w-44 pl-9 text-sm"
+                      />
+                    </div>
+                    {allExperts.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs shrink-0"
+                        onClick={() => {
+                          const headers = ["Nom","Métier","Email","Téléphone","Spécialités","Régions","Statut","Visibilité","Date inscription"];
+                          const rows = allExperts.map((p: any) => [
+                            p.displayName || "",
+                            p.profession || "",
+                            p.email || "",
+                            p.phone || "",
+                            (p.specialties || []).join(", "),
+                            (p.regions || []).join(", "),
+                            p.subscriptionStatus || "",
+                            p.isVisible ? "Visible" : "Masqué",
+                            p.createdAt ? new Date(p.createdAt).toLocaleDateString("fr-FR") : "",
+                          ]);
+                          const csv = [headers.join(","), ...rows.map((r: string[]) => r.map(c => `"${c}"`).join(","))].join("\n");
+                          const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "experts_" + new Date().toISOString().split("T")[0] + ".csv";
+                          a.click();
+                          URL.revokeObjectURL(url);
+                          toast.success("Fichier CSV exporté");
+                        }}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Export CSV</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {allExperts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/30 mx-auto mb-4">
+                      <Briefcase className="h-8 w-8 text-muted-foreground/50" />
+                    </div>
+                    <p className="text-sm font-semibold">Aucun expert</p>
+                    <p className="text-xs text-muted-foreground mt-1">Les profils experts apparaîtront ici après inscription.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">Expert</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Métier</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Spécialités</th>
+                          <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Statut</th>
+                          <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Visibilité</th>
+                          <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Reçu</th>
+                          <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allExperts
+                          .filter((profile: any) =>
+                            expertSearch
+                              ? (profile.displayName || "").toLowerCase().includes(expertSearch.toLowerCase()) ||
+                                (profile.user?.name || "").toLowerCase().includes(expertSearch.toLowerCase()) ||
+                                (profile.email || "").toLowerCase().includes(expertSearch.toLowerCase())
+                              : true
+                          )
+                          .map((profile: any) => {
+                          const statusColors: Record<string, string> = {
+                            active: "bg-emerald-500/10 text-emerald-600 border-emerald-200/30",
+                            pending: "bg-amber-500/10 text-amber-600 border-amber-200/30",
+                            expired: "bg-red-500/10 text-red-600 border-red-200/30",
+                            inactive: "bg-muted/30 text-muted-foreground border-muted-foreground/20",
+                          };
+                          const statusLabels: Record<string, string> = {
+                            active: "Actif",
+                            pending: "En attente",
+                            expired: "Expiré",
+                            inactive: "Inactif",
+                          };
+                          return (
+                            <tr key={profile._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
+                              <td className="py-2.5 px-3">
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-8 w-8 shrink-0 border border-border/40">
+                                    {profile.user?.image ? (
+                                      <AvatarImage src={profile.user.image} className="object-cover" />
+                                    ) : (
+                                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                                        {(profile.displayName || "?").charAt(0).toUpperCase()}
+                                      </AvatarFallback>
+                                    )}
+                                  </Avatar>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-xs truncate max-w-[120px] sm:max-w-[180px]">{profile.displayName || "—"}</p>
+                                    <p className="text-[9px] text-muted-foreground truncate">{profile.user?.name || profile.email || ""}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 hidden sm:table-cell">
+                                <Badge variant="secondary" className="text-[9px]">{profile.profession || "—"}</Badge>
+                              </td>
+                              <td className="py-2.5 px-3 hidden md:table-cell">
+                                <div className="flex flex-wrap gap-1">
+                                  {(profile.specialties || []).slice(0, 2).map((s: string) => (
+                                    <Badge key={s} variant="secondary" className="text-[8px]">{s}</Badge>
+                                  ))}
+                                  {(profile.specialties || []).length > 2 && (
+                                    <Badge variant="secondary" className="text-[8px]">+{profile.specialties.length - 2}</Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <Badge className={cn("text-[9px]", statusColors[profile.subscriptionStatus] || statusColors.inactive)}>
+                                  {statusLabels[profile.subscriptionStatus] || profile.subscriptionStatus}
+                                </Badge>
+                              </td>
+                              <td className="py-2.5 px-3 text-center hidden sm:table-cell">
+                                <Badge variant={profile.isVisible ? "default" : "secondary"} className={cn("text-[9px]", profile.isVisible ? "bg-emerald-500/10 text-emerald-600" : "bg-muted/30")}>
+                                  {profile.isVisible ? "Visible" : "Masqué"}
+                                </Badge>
+                              </td>
+                              <td className="py-2.5 px-3 text-center hidden md:table-cell">
+                                {profile.paymentProofUrl ? (
+                                  <Badge className={cn("text-[9px]", profile.paymentProofVerified ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600")}>
+                                    {profile.paymentProofVerified ? "Vérifié" : "En attente"}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-[9px] text-muted-foreground">—</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  {profile.subscriptionStatus === "pending" && (
+                                    <>
+                                      <Button
+                                        variant="ghost" size="icon" className="h-7 w-7"
+                                        onClick={async () => {
+                                          try {
+                                            await approveExpertSub({ profileId: profile._id });
+                                            toast.success("Abonnement expert approuvé");
+                                          } catch (err: any) { toast.error(err.message || "Erreur"); }
+                                        }}
+                                        title="Approuver"
+                                      >
+                                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost" size="icon" className="h-7 w-7"
+                                        onClick={async () => {
+                                          try {
+                                            await rejectExpertSub({ profileId: profile._id });
+                                            toast.success("Abonnement expert rejeté");
+                                          } catch (err: any) { toast.error(err.message || "Erreur"); }
+                                        }}
+                                        title="Rejeter"
+                                      >
+                                        <X className="h-3.5 w-3.5 text-red-600" />
+                                      </Button>
+                                    </>
+                                  )}
+                                  <Button
+                                    variant="ghost" size="icon" className="h-7 w-7"
+                                    onClick={async () => {
+                                      try {
+                                        await toggleExpertVisibility({ profileId: profile._id });
+                                        toast.success("Visibilité modifiée");
+                                      } catch (err: any) { toast.error(err.message || "Erreur"); }
+                                    }}
+                                    title={profile.isVisible ? "Masquer" : "Rendre visible"}
+                                  >
+                                    {profile.isVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                  </Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Supprimer">
+                                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Supprimer ce profil expert ?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Cette action est irréversible. Le profil de <strong>{profile.displayName}</strong> sera supprimé.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          className="bg-destructive text-destructive-foreground"
+                                          onClick={async () => {
+                                            try {
+                                              await deleteExpertProfile({ profileId: profile._id });
+                                              toast.success("Profil expert supprimé");
+                                            } catch (err: any) { toast.error(err.message || "Erreur"); }
+                                          }}
+                                        >
+                                          Supprimer
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+          {/* ── Reçus Experts ── */}
+            <TabsContent value="recusExperts">
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Receipt className="h-5 w-5 text-primary" />
+                    <div>
+                      <h2 className="text-lg font-semibold">Reçus Experts</h2>
+                      <p className="text-xs text-muted-foreground">Historique des reçus de paiement envoyés par les experts</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs shrink-0"
+                      onClick={() => {
+                        const receipts = allExperts.filter((p: any) => p.paymentProofUrl);
+                        if (receipts.length === 0) { toast.info("Aucun reçu à exporter"); return; }
+                        const headers = ["Expert","Email","Montant","Date","Statut"];
+                        const rows = receipts.map((p: any) => [
+                          p.displayName || "",
+                          p.email || "",
+                          p.paymentAmount ? `${p.paymentAmount} TND` : "",
+                          p.paymentProofUploadedAt ? new Date(p.paymentProofUploadedAt).toLocaleDateString("fr-FR") : "",
+                          p.paymentProofVerified ? "Vérifié" : "En attente",
+                        ]);
+                        const csv = [headers.join(","), ...rows.map((r: string[]) => r.map(c => `"${c}"`).join(","))].join("\n");
+                        const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "recus_experts_" + new Date().toISOString().split("T")[0] + ".csv";
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success("CSV exporté");
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Export CSV</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {allExperts.filter((p: any) => p.paymentProofUrl).length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/30 mx-auto mb-4">
+                      <Receipt className="h-8 w-8 text-muted-foreground/50" />
+                    </div>
+                    <p className="text-sm font-semibold">Aucun reçu</p>
+                    <p className="text-xs text-muted-foreground mt-1">Les reçus de paiement des experts apparaîtront ici après soumission.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs">Expert</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
+                          <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Statut</th>
+                          <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Date</th>
+                          <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allExperts.filter((p: any) => p.paymentProofUrl).map((profile: any) => (
+                          <tr key={profile._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-8 w-8 shrink-0 border border-border/40">
+                                  {profile.user?.image ? (
+                                    <AvatarImage src={profile.user.image} className="object-cover" />
+                                  ) : (
+                                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                                      {(profile.displayName || "?").charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  )}
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-xs truncate">{profile.displayName || "—"}</p>
+                                  <p className="text-[9px] text-muted-foreground truncate">{profile.email}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 hidden sm:table-cell">
+                              <span className="text-xs font-medium">{profile.paymentAmount ? `${profile.paymentAmount} TND` : "—"}</span>
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <Badge className={cn("text-[9px]", profile.paymentProofVerified ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : "bg-amber-500/10 text-amber-600 border-amber-200/30")}>
+                                {profile.paymentProofVerified ? "Vérifié" : "En attente"}
+                              </Badge>
+                            </td>
+                            <td className="py-2.5 px-3 hidden md:table-cell">
+                              <span className="text-[9px] text-muted-foreground">
+                                {profile.paymentProofUploadedAt ? new Date(profile.paymentProofUploadedAt).toLocaleDateString("fr-FR") : "—"}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {profile.paymentProofUrl && (
+                                  <Button
+                                    variant="ghost" size="icon" className="h-7 w-7"
+                                    onClick={() => window.open(profile.paymentProofUrl, "_blank")}
+                                    title="Voir le reçu"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                {!profile.paymentProofVerified && (
+                                  <Button
+                                    variant="ghost" size="icon" className="h-7 w-7"
+                                    onClick={async () => {
+                                      try {
+                                        await verifyExpertReceipt({ profileId: profile._id });
+                                        toast.success("Reçu vérifié");
+                                      } catch (err: any) { toast.error(err.message || "Erreur"); }
+                                    }}
+                                    title="Vérifier"
+                                  >
+                                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost" size="icon" className="h-7 w-7"
+                                  onClick={async () => {
+                                    if (!window.confirm("Supprimer ce reçu ?")) return;
+                                    try {
+                                      await deleteExpertReceipt({ profileId: profile._id });
+                                      toast.success("Reçu supprimé");
+                                    } catch (err: any) { toast.error(err.message || "Erreur"); }
+                                  }}
+                                  title="Supprimer"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
         </Tabs>
         </div>
 

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 
 // ============================================================================
 // Constants
@@ -313,6 +314,272 @@ export const deleteProfile = mutation({
     } catch (e) {
       /* optional */
     }
+
+    return { success: true };
+  },
+});
+
+// ============================================================================
+// Admin Queries & Mutations
+// ============================================================================
+
+const EXPERT_MONTHLY_DAYS = 30;
+
+/** Admin: Get all expert profiles with user data */
+export const getAllExpertProfiles = query({
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
+      return [];
+    }
+
+    const profiles = await ctx.db.query("expertProfiles").order("desc").collect();
+
+    const result = await Promise.all(
+      profiles.map(async (profile) => {
+        const user = await ctx.db.get(profile.userId);
+        return {
+          ...profile,
+          subscriptionStatus:
+            profile.subscriptionStatus === "trial" ? "inactive" : profile.subscriptionStatus,
+          user: user
+            ? {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                image: user.image,
+              }
+            : null,
+        };
+      }),
+    );
+
+    return result;
+  },
+});
+
+/** Admin: Delete an expert profile */
+export const adminDeleteExpertProfile = mutation({
+  args: { profileId: v.id("expertProfiles") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator"))
+      throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil expert introuvable");
+
+    await ctx.db.delete(args.profileId);
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "delete_expert_profile",
+        targetUserId: profile.userId,
+        details: `Profil expert supprimé — ${profile.displayName}`,
+        createdAt: Date.now(),
+      });
+    } catch (e) { /* optional */ }
+
+    return { success: true };
+  },
+});
+
+/** Admin: Toggle expert profile visibility */
+export const adminToggleExpertVisibility = mutation({
+  args: { profileId: v.id("expertProfiles") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator"))
+      throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil expert introuvable");
+
+    await ctx.db.patch(args.profileId, {
+      isVisible: !profile.isVisible,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, isVisible: !profile.isVisible };
+  },
+});
+
+/** Admin: Approve a pending expert subscription */
+export const adminApproveExpertSubscription = mutation({
+  args: { profileId: v.id("expertProfiles") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator"))
+      throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil expert introuvable");
+    if (profile.subscriptionStatus !== "pending")
+      throw new Error("Ce profil n'a pas de demande en attente");
+
+    const now = Date.now();
+    const endDate = now + EXPERT_MONTHLY_DAYS * 24 * 60 * 60 * 1000;
+
+    await ctx.db.patch(args.profileId, {
+      plan: "monthly",
+      subscriptionStatus: "active",
+      subscriptionStartDate: now,
+      subscriptionEndDate: endDate,
+      paymentProofVerified: true,
+      isVisible: true,
+      updatedAt: now,
+    });
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "approve_expert_subscription",
+        targetUserId: profile.userId,
+        targetUserEmail: profile.email,
+        details: `Abonnement expert approuvé — ${profile.displayName}`,
+        createdAt: now,
+      });
+    } catch (e) { /* optional */ }
+
+    try {
+      await ctx.db.insert("notifications", {
+        userId: profile.userId,
+        type: "subscription",
+        title: "Abonnement expert activé",
+        message: "Félicitations ! Votre paiement a été vérifié et votre profil expert est désormais visible.",
+        read: false,
+        link: "/dashboard/expert",
+        createdAt: now,
+      });
+    } catch (e) { /* optional */ }
+
+    const expertUser = await ctx.db.get(profile.userId);
+    const to = profile.email || expertUser?.email;
+    if (to && expertUser?.emailNotifications !== false) {
+      await scheduleEmailEvent(ctx, {
+        to,
+        recipientName: profile.displayName,
+        templateKey: "subscription_activated",
+        vars: {
+          nomEntreprise: profile.displayName,
+          typeAbonnement: "Expert",
+          dateActivation: formatDateFr(now),
+          dateExpiration: formatDateFr(endDate),
+          montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : undefined,
+          numeroFacture: `INV-EXP-${profile._id}`,
+        },
+        dedupeKey: `expert_activated:${to}:${profile._id}`,
+        sendToAdmins: true,
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+/** Admin: Reject a pending expert subscription */
+export const adminRejectExpertSubscription = mutation({
+  args: { profileId: v.id("expertProfiles") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator"))
+      throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil expert introuvable");
+    if (profile.subscriptionStatus !== "pending") {
+      return { success: true, alreadyProcessed: true };
+    }
+
+    await ctx.db.patch(args.profileId, {
+      subscriptionStatus: "inactive",
+      paymentProofVerified: false,
+      isVisible: false,
+      updatedAt: Date.now(),
+    });
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "reject_expert_subscription",
+        targetUserId: profile.userId,
+        targetUserEmail: profile.email,
+        details: `Abonnement expert rejeté — ${profile.displayName}`,
+        createdAt: Date.now(),
+      });
+    } catch (e) { /* optional */ }
+
+    return { success: true };
+  },
+});
+
+/** Admin: Verify expert payment receipt */
+export const adminVerifyExpertReceipt = mutation({
+  args: { profileId: v.id("expertProfiles") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator"))
+      throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil expert introuvable");
+
+    await ctx.db.patch(args.profileId, {
+      paymentProofVerified: true,
+      updatedAt: Date.now(),
+    });
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "verify_expert_receipt",
+        targetUserId: profile.userId,
+        targetUserEmail: profile.email,
+        details: `Reçu expert vérifié — ${profile.displayName}`,
+        createdAt: Date.now(),
+      });
+    } catch (e) { /* optional */ }
+
+    return { success: true };
+  },
+});
+
+/** Admin: Delete expert payment receipt */
+export const adminDeleteExpertReceipt = mutation({
+  args: { profileId: v.id("expertProfiles") },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator"))
+      throw new Error("Unauthorized: Admin access required");
+
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profil expert introuvable");
+
+    await ctx.db.patch(args.profileId, {
+      paymentProofStorageId: undefined,
+      paymentProofUrl: undefined,
+      paymentProofFileName: undefined,
+      paymentProofUploadedAt: undefined,
+      paymentProofVerified: undefined,
+      updatedAt: Date.now(),
+    });
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "delete_expert_receipt",
+        targetUserId: profile.userId,
+        details: `Reçu expert supprimé — ${profile.displayName}`,
+        createdAt: Date.now(),
+      });
+    } catch (e) { /* optional */ }
 
     return { success: true };
   },

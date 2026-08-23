@@ -470,11 +470,6 @@ const schema = defineSchema(
       ),
       
       // Cost estimation
-      // Devis Quantitatif Estimatif (DQE) — « Quantitatif détaillé » généré
-      // selon le modèle Google Sheets de référence (lots, sous-lots, lignes,
-      // sous-totaux, totaux par nature et coût au m²).
-      dqe: v.optional(v.any()),
-
       costEstimate: v.optional(
         v.object({
           totalCost: v.number(),
@@ -523,7 +518,6 @@ const schema = defineSchema(
               }),
             }),
           ),
-          // DQE — Quantitatif détaillé par lots (modèle Google Sheets)
           dqe: v.optional(v.any()),
         }),
       ),
@@ -544,7 +538,6 @@ const schema = defineSchema(
               ),
               regionProximity: v.string(),
               localCities: v.array(v.string()),
-              // Real company contacts
               suppliers: v.optional(
                 v.array(
                   v.object({
@@ -623,6 +616,9 @@ const schema = defineSchema(
         })
       ),
       
+      // DQE — Quantitatif détaillé par lots (modèle Google Sheets)
+      dqe: v.optional(v.any()),
+
       // File references
       files: v.optional(
         v.array(
@@ -667,7 +663,6 @@ const schema = defineSchema(
       lastUpdated: v.number(),
       updatedBy: v.id("users"),
       notes: v.optional(v.string()),
-      // ── Market intelligence enrichment (optional) ──
       subcategory: v.optional(v.string()),
       brand: v.optional(v.string()),
       description: v.optional(v.string()),
@@ -680,7 +675,6 @@ const schema = defineSchema(
       ),
       reliabilityIndex: v.optional(v.number()),
       sourceRef: v.optional(v.string()),
-      // ── Qualité du prix (Base 2026) ──
       priceQuality: v.optional(
         v.union(
           v.literal("observé_en_ligne"),
@@ -693,7 +687,6 @@ const schema = defineSchema(
       .index("by_category", ["category"])
       .index("by_name", ["name"]),
 
-    // Market sources registry (manufacturers, distributors, platforms)
     marketSources: defineTable({
       name: v.string(),
       type: v.union(
@@ -711,7 +704,6 @@ const schema = defineSchema(
       .index("by_type", ["type"])
       .index("by_name", ["name"]),
 
-    // Per-supplier market offers (one row per product × source × region)
     materialOffers: defineTable({
       productId: v.id("materialPrices"),
       category: v.string(),
@@ -746,7 +738,6 @@ const schema = defineSchema(
       .index("by_governorate", ["governorate"])
       .index("by_supplier", ["supplier"]),
 
-    // Offer price history (evolution of a specific supplier offer)
     offerPriceHistory: defineTable({
       offerId: v.id("materialOffers"),
       previousMin: v.number(),
@@ -760,7 +751,6 @@ const schema = defineSchema(
       .index("by_offer", ["offerId"])
       .index("by_time", ["changedAt"]),
 
-    // Project Reports
     reports: defineTable({
       projectId: v.id("projects"),
       userId: v.id("users"),
@@ -773,7 +763,6 @@ const schema = defineSchema(
       .index("by_project", ["projectId"])
       .index("by_user", ["userId"]),
 
-    // Notifications
     notifications: defineTable({
       userId: v.id("users"),
       type: v.union(
@@ -792,11 +781,8 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_user_read", ["userId", "read"]),
 
-    // Subscriptions & Payments
     subscriptions: defineTable({
       userId: v.id("users"),
-      // Type de quota couvert par cet abonnement (forfaits indépendants par type).
-      // Legacy (anciens abonnements) : valeur absente → couvre la construction.
       kind: v.optional(v.union(v.literal("construction"), v.literal("investment"))),
       plan: subscriptionPlanValidator,
       status: v.union(
@@ -813,7 +799,6 @@ const schema = defineSchema(
       currency: v.optional(v.string()),
       monthlyDownloadCount: v.optional(v.number()),
       downloadLimit: v.optional(v.number()),
-      // Quotas consommés par type (forfaits à paiement unique)
       projectsUsed: v.optional(v.number()),
       investmentsUsed: v.optional(v.number()),
       paymentProofStorageId: v.optional(v.id("_storage")),
@@ -862,6 +847,11 @@ const schema = defineSchema(
         v.literal("approve_comment"),
         v.literal("reject_comment"),
         v.literal("delete_comment"),
+        v.literal("delete_expert_profile"),
+        v.literal("approve_expert_subscription"),
+        v.literal("reject_expert_subscription"),
+        v.literal("verify_expert_receipt"),
+        v.literal("delete_expert_receipt"),
       ),
       targetUserId: v.optional(v.id("users")),
       targetUserEmail: v.optional(v.string()),
@@ -872,7 +862,6 @@ const schema = defineSchema(
       .index("by_action", ["action"])
       .index("by_created", ["createdAt"]),
 
-    // Price History for tracking material price changes
     priceHistory: defineTable({
       materialPriceId: v.id("materialPrices"),
       previousPrice: v.number(),
@@ -881,7 +870,7 @@ const schema = defineSchema(
       changedAt: v.number(),
     }).index("by_material", ["materialPriceId"]),
 
-    // Supplier Profiles (registered by companies)
+    // Supplier Profiles
     supplierProfiles: defineTable({
       userId: v.id("users"),
       companyName: v.string(),
@@ -908,7 +897,6 @@ const schema = defineSchema(
       trialStartDate: v.optional(v.number()),
       subscriptionStartDate: v.optional(v.number()),
       subscriptionEndDate: v.optional(v.number()),
-      // Payment proof (same procedure as Pro/Expert plans)
       paymentMethod: v.optional(v.union(v.literal("bank_transfer"), v.literal("d17"))),
       paymentAmount: v.optional(v.number()),
       paymentCurrency: v.optional(v.string()),
@@ -925,42 +913,33 @@ const schema = defineSchema(
       .index("by_specialties", ["specialties"])
       .index("by_subscription", ["subscriptionStatus"]),
 
-    // Payment Configuration (bank transfer & D17 details)
     paymentConfig: defineTable({
-      // Bank transfer
       bankName: v.string(),
       bankTitulaire: v.string(),
       bankRib: v.string(),
       bankIban: v.string(),
       bankSwift: v.string(),
-      // D17
       d17MerchantName: v.string(),
       d17Phone: v.string(),
       d17Email: v.string(),
       d17Notice: v.string(),
-      // Common
       proPrice: v.number(),
       supplierPrice: v.number(),
       expertPrice: v.optional(v.number()),
       currency: v.string(),
-      // Prix de l'offre Start (paiement unique, remplace l'ancien forfait gratuit)
       startPrice: v.optional(v.number()),
-      // Prix par type de projet — forfaits indépendants (construction / investissement)
       constructionStartPrice: v.optional(v.number()),
       constructionProPrice: v.optional(v.number()),
       constructionExpertPrice: v.optional(v.number()),
       investmentStartPrice: v.optional(v.number()),
       investmentProPrice: v.optional(v.number()),
       investmentExpertPrice: v.optional(v.number()),
-      // Project plan limits
       freeProjectLimit: v.optional(v.number()),
       proProjectLimit: v.optional(v.number()),
       expertProjectLimit: v.optional(v.number()),
-      // Investment analysis limits per plan
       freeInvestmentLimit: v.optional(v.number()),
       proInvestmentLimit: v.optional(v.number()),
       expertInvestmentLimit: v.optional(v.number()),
-      // Download limits per plan
       freeDownloadLimit: v.optional(v.number()),
       proDownloadLimit: v.optional(v.number()),
       expertDownloadLimit: v.optional(v.number()),
@@ -968,20 +947,16 @@ const schema = defineSchema(
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),
 
-    // BIM Configuration (editable by admin — Tunisian market price overrides)
     bimConfig: defineTable({
-      // JSON-serialized BIM engine pricing data
       marketPricesM2: v.string(),
       projectPercentages: v.string(),
       regionMultipliers: v.string(),
       unitPrices: v.string(),
-      // Metadata
       version: v.number(),
       refreshedAt: v.number(),
       refreshedBy: v.id("users"),
     }).index("by_refreshed", ["refreshedAt"]),
 
-    // Email Configuration (SMTP + branding, admin managed)
     emailConfig: defineTable({
       senderName: v.string(),
       senderEmail: v.string(),
@@ -1004,7 +979,6 @@ const schema = defineSchema(
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),
 
-    // Email templates (7 notification events, HTML with dynamic variables)
     emailTemplates: defineTable({
       key: v.union(
         v.literal("subscription_activated"),
@@ -1023,7 +997,6 @@ const schema = defineSchema(
       updatedBy: v.id("users"),
     }).index("by_key", ["key"]),
 
-    // Email sending history
     emailHistory: defineTable({
       to: v.string(),
       recipientName: v.optional(v.string()),
@@ -1046,7 +1019,6 @@ const schema = defineSchema(
       .index("by_status", ["status"])
       .index("by_dedupe", ["dedupeKey"]),
 
-    // SEO Configuration (editable by admin)
     seoConfig: defineTable({
       siteName: v.string(),
       siteDescription: v.string(),
@@ -1060,7 +1032,6 @@ const schema = defineSchema(
       robotsTxt: v.optional(v.string()),
       additionalMetaTags: v.optional(v.string()),
       googleSiteVerification: v.optional(v.string()),
-      // ── Blog SEO (defaults used by the /blog pages) ──
       blogTitle: v.optional(v.string()),
       blogDescription: v.optional(v.string()),
       blogOgImage: v.optional(v.string()),
@@ -1068,7 +1039,6 @@ const schema = defineSchema(
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),
 
-    // Blog Posts (admin created & configured)
     blogPosts: defineTable({
       title: v.string(),
       slug: v.string(),
@@ -1084,7 +1054,6 @@ const schema = defineSchema(
       status: v.union(v.literal("draft"), v.literal("published")),
       featured: v.optional(v.boolean()),
       views: v.optional(v.number()),
-      // Per-post SEO (overrides blog defaults)
       seoTitle: v.optional(v.string()),
       seoDescription: v.optional(v.string()),
       seoKeywords: v.optional(v.string()),
@@ -1098,7 +1067,6 @@ const schema = defineSchema(
       .index("by_category", ["category"])
       .index("by_created", ["createdAt"]),
 
-    // Blog Comments (moderated: pending → approved / rejected)
     blogComments: defineTable({
       postId: v.id("blogPosts"),
       authorId: v.id("users"),
@@ -1116,11 +1084,8 @@ const schema = defineSchema(
       .index("by_status", ["status", "createdAt"])
       .index("by_created", ["createdAt"]),
 
-    // Real-estate investment profitability analyses (AI engine)
     investmentAnalyses: defineTable({
       userId: v.id("users"),
-      // Lien direct avec le module Construction : analyse créée depuis un
-      // projet (coût de construction estimé → prix d'acquisition).
       projectId: v.optional(v.id("projects")),
       input: analysisInputValidator,
       results: analysisResultsValidator,
@@ -1135,7 +1100,6 @@ const schema = defineSchema(
       .index("by_created", ["createdAt"])
       .index("by_share_token", ["shareToken"]),
 
-    // AI Materials Copilot — analyses enregistrées (Assistant de choix des matériaux)
     aiMaterialAnalyses: defineTable({
       userId: v.id("users"),
       projectId: v.optional(v.id("projects")),
@@ -1147,7 +1111,6 @@ const schema = defineSchema(
       .index("by_user_project", ["userId", "projectId"])
       .index("by_created", ["createdAt"]),
 
-    // Guide Construction A-Z — feuilles de route IA par projet
     projectRoadmaps: defineTable({
       userId: v.id("users"),
       projectId: v.id("projects"),
@@ -1160,7 +1123,6 @@ const schema = defineSchema(
       .index("by_project", ["projectId"])
       .index("by_user_project", ["userId", "projectId"]),
 
-    // ── Supplier Analytics (views, clicks, contacts per supplier) ──
     supplierAnalytics: defineTable({
       supplierId: v.id("supplierProfiles"),
       date: v.number(),
@@ -1183,7 +1145,6 @@ const schema = defineSchema(
       .index("by_supplier_date", ["supplierId", "date"])
       .index("by_supplier_type", ["supplierId", "eventType"]),
 
-    // Supplier ratings
     supplierRatings: defineTable({
       supplierId: v.id("supplierProfiles"),
       rating: v.number(),
@@ -1194,7 +1155,6 @@ const schema = defineSchema(
       .index("by_supplier", ["supplierId"])
       .index("by_supplier_date", ["supplierId", "createdAt"]),
 
-    // ── Quote Requests (demandes de devis utilisateur → fournisseur) ──
     quoteRequests: defineTable({
       userId: v.id("users"),
       supplierId: v.id("supplierProfiles"),
@@ -1223,7 +1183,6 @@ const schema = defineSchema(
       .index("by_status", ["status"])
       .index("by_created", ["createdAt"]),
 
-    // ── Quote Responses (réponses du fournisseur avec pièces jointes) ──
     quoteResponses: defineTable({
       quoteRequestId: v.id("quoteRequests"),
       supplierId: v.id("supplierProfiles"),
@@ -1240,10 +1199,8 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_created", ["createdAt"]),
 
-    // ── Expert Profiles (architectes, bureaux d'études, ingénieurs, promoteurs) ──
     expertProfiles: defineTable({
       userId: v.id("users"),
-      // Métier principal
       profession: v.union(
         v.literal("architecte"),
         v.literal("bureau_etudes"),
@@ -1258,10 +1215,8 @@ const schema = defineSchema(
       website: v.optional(v.string()),
       description: v.optional(v.string()),
       logo: v.optional(v.string()),
-      // Compétences par métier
       specialties: v.array(v.string()),
       regions: v.array(v.string()),
-      // Abonnement
       plan: v.union(
         v.literal("trial"),
         v.literal("monthly"),
@@ -1277,7 +1232,6 @@ const schema = defineSchema(
       trialStartDate: v.optional(v.number()),
       subscriptionStartDate: v.optional(v.number()),
       subscriptionEndDate: v.optional(v.number()),
-      // Paiement
       paymentMethod: v.optional(v.union(v.literal("bank_transfer"), v.literal("d17"))),
       paymentAmount: v.optional(v.number()),
       paymentProofStorageId: v.optional(v.id("_storage")),
@@ -1285,7 +1239,6 @@ const schema = defineSchema(
       paymentProofFileName: v.optional(v.string()),
       paymentProofUploadedAt: v.optional(v.number()),
       paymentProofVerified: v.optional(v.boolean()),
-      // Visibilité
       isVisible: v.boolean(),
       createdAt: v.number(),
       updatedAt: v.number(),
@@ -1294,7 +1247,6 @@ const schema = defineSchema(
       .index("by_profession", ["profession"])
       .index("by_subscription", ["subscriptionStatus"]),
 
-    // ── Expert Service Requests (demandes de services d'expertise) ──
     expertServiceRequests: defineTable({
       userId: v.id("users"),
       expertId: v.id("expertProfiles"),
@@ -1318,7 +1270,6 @@ const schema = defineSchema(
       .index("by_status", ["status"])
       .index("by_created", ["createdAt"]),
 
-    // ── Expert Service Responses ──
     expertServiceResponses: defineTable({
       serviceRequestId: v.id("expertServiceRequests"),
       expertId: v.id("expertProfiles"),
@@ -1334,7 +1285,6 @@ const schema = defineSchema(
       .index("by_expert", ["expertId"])
       .index("by_user", ["userId"]),
 
-    // ── Expert Analytics ──
     expertAnalytics: defineTable({
       expertId: v.id("expertProfiles"),
       date: v.number(),
