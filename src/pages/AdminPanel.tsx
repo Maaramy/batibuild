@@ -3764,160 +3764,132 @@ export default function AdminPanel() {
           <TabsContent value="limites">
             <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="text-base">Abonnements mensuels — prix et quotas</CardTitle>
+                <CardTitle className="text-base">Abonnements mensuels — prix et configuration</CardTitle>
                 <CardDescription className="text-xs">
-                  Forfaits mensuels (30 jours) — accès illimité pour les forfaits payants.
-                  Client : accès complet. Fournisseur / Expert : 2 mois gratuits, puis paiement obligatoire.
-                  Si le tarif est réglé à 0 TND, l'accès est gratuit et illimité.
+                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance.
+                  Si le tarif est réglé à 0 TND, le forfait devient illimité (accès gratuit permanent).
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                {/* Les 3 forfaits mensuels */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div className="p-4 rounded-xl bg-slate-500/5 border border-border/30 space-y-3">
-                    <h3 className="text-sm font-semibold">Client</h3>
-                    <p className="text-xs text-muted-foreground">Accès complet illimité · Mensuel</p>
+              <CardContent className="space-y-6">
+                {/* ═══ Forfait Client ═══ */}
+                <div className="p-5 rounded-xl bg-gradient-to-br from-slate-500/5 to-slate-500/0 border border-border/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold flex items-center gap-2">
+                        <User className="h-4 w-4 text-slate-500" />
+                        Forfait Client
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        80 TND/mois — Accès complet aux outils d'estimation
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] bg-slate-500/5">Client</Badge>
+                  </div>
+                  <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
+                    <p><strong className="text-foreground">Fonctionnalités :</strong> Téléchargement illimité de devis et accès complet aux outils d'estimation (coûts de construction, investissements, matériaux via IA, démarches et prix).</p>
+                    <p><strong className="text-foreground">Dashboard :</strong> Affichage de la date de début et de la date d'échéance.</p>
+                    <p><strong className="text-foreground">Règles :</strong> Renouvellement requis dès dépassement de la date de fin. Si le tarif est réglé à 0 TND, le forfait devient illimité (accès gratuit permanent).</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-muted-foreground">Prix mensuel (TND)</label>
                       <Input
                         type="number"
                         value={limitForm.constructionStartPrice}
                         onChange={(e) => setLimitForm({ ...limitForm, constructionStartPrice: parseFloat(e.target.value) })}
-                        className="h-8 w-28 text-sm"
+                        className="h-8 w-full text-sm mt-1"
                       />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Projets de construction max</label>
-                      <Input
-                        type="number"
-                        value={limitForm.freeProjects}
-                        onChange={(e) => setLimitForm({ ...limitForm, freeProjects: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Analyses d'investissement max</label>
-                      <Input
-                        type="number"
-                        value={limitForm.freeInvestments}
-                        onChange={(e) => setLimitForm({ ...limitForm, freeInvestments: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
-                      <Input
-                        type="number"
-                        value={limitForm.freeDownloadLimit ?? 0}
-                        onChange={(e) => setLimitForm({ ...limitForm, freeDownloadLimit: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
+                      <p className="text-[9px] text-muted-foreground mt-0.5">0 = accès gratuit permanent</p>
                     </div>
                   </div>
-                  <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-200/20 space-y-3">
-                    <h3 className="text-sm font-semibold flex items-center gap-2">
-                      <Crown className="h-4 w-4 text-blue-500" />
-                      Pro
-                    </h3>
-                    <p className="text-xs text-muted-foreground">Accès complet · Mensuel</p>
+                </div>
+
+                {/* ═══ Forfait Fournisseur ═══ */}
+                <div className="p-5 rounded-xl bg-gradient-to-br from-purple-500/5 to-purple-500/0 border border-purple-200/20 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-purple-500" />
+                        Forfait Fournisseur
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        120 TND/mois — Vendez vos matériaux sur la plateforme
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">2 mois gratuits</Badge>
+                      <Badge variant="outline" className="text-[10px] bg-purple-500/5">Fournisseur</Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
+                    <p><strong className="text-foreground">Période d'essai :</strong> 2 mois gratuits offerts à l'inscription. Passage au paiement obligatoire (120 TND/mois) à l'issue de l'essai.</p>
+                    <p><strong className="text-foreground">Dashboard :</strong> Suivi de la date de début et de fin de validité. Renouvellement nécessaire à l'échéance.</p>
+                    <p><strong className="text-foreground">Fonctionnalités :</strong> Espace fournisseur complet — profil entreprise, réception des demandes de devis, statistiques, gestion des devis.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-muted-foreground">Prix mensuel (TND)</label>
                       <Input
                         type="number"
-                        value={limitForm.constructionProPrice}
-                        onChange={(e) => setLimitForm({ ...limitForm, constructionProPrice: parseFloat(e.target.value) })}
-                        className="h-8 w-28 text-sm"
+                        value={limitForm.supplierPrice}
+                        onChange={(e) => setLimitForm({ ...limitForm, supplierPrice: parseFloat(e.target.value) })}
+                        className="h-8 w-full text-sm mt-1"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Projets de construction max</label>
+                      <label className="text-xs text-muted-foreground">Durée essai gratuit (jours)</label>
                       <Input
                         type="number"
-                        value={limitForm.proProjects}
-                        onChange={(e) => setLimitForm({ ...limitForm, proProjects: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
+                        value={60}
+                        disabled
+                        className="h-8 w-full text-sm mt-1 bg-muted/30"
                       />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Analyses d'investissement max</label>
-                      <Input
-                        type="number"
-                        value={limitForm.proInvestments}
-                        onChange={(e) => setLimitForm({ ...limitForm, proInvestments: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
-                      <Input
-                        type="number"
-                        value={limitForm.proDownloads}
-                        onChange={(e) => setLimitForm({ ...limitForm, proDownloads: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
+                      <p className="text-[9px] text-muted-foreground mt-0.5">Fixé à 60 jours (2 mois)</p>
                     </div>
                   </div>
-                  <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-200/20 space-y-3">
-                    <h3 className="text-sm font-semibold flex items-center gap-2">
-                      <Crown className="h-4 w-4 text-emerald-500" />
-                      Expert
-                    </h3>
-                    <p className="text-xs text-muted-foreground">Accès complet · 2 mois gratuits</p>
+                </div>
+
+                {/* ═══ Forfait Expert ═══ */}
+                <div className="p-5 rounded-xl bg-gradient-to-br from-emerald-500/5 to-emerald-500/0 border border-emerald-200/20 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold flex items-center gap-2">
+                        <Crown className="h-4 w-4 text-emerald-500" />
+                        Forfait Expert
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        120 TND/mois — Offrez vos services d'expertise
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">2 mois gratuits</Badge>
+                      <Badge variant="outline" className="text-[10px] bg-emerald-500/5">Expert</Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
+                    <p><strong className="text-foreground">Période d'essai :</strong> 2 mois gratuits offerts à l'inscription. Passage au paiement obligatoire (120 TND/mois) à l'issue de l'essai.</p>
+                    <p><strong className="text-foreground">Dashboard :</strong> Suivi de la date de début et de fin de validité. Renouvellement nécessaire à l'échéance.</p>
+                    <p><strong className="text-foreground">Fonctionnalités :</strong> Espace expert complet — profil métier (architecte, ingénieur, bureau d'études, promoteur), réception des demandes de service, statistiques, gestion des prestations.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-muted-foreground">Prix mensuel (TND)</label>
                       <Input
                         type="number"
                         value={limitForm.constructionExpertPrice}
                         onChange={(e) => setLimitForm({ ...limitForm, constructionExpertPrice: parseFloat(e.target.value) })}
-                        className="h-8 w-28 text-sm"
+                        className="h-8 w-full text-sm mt-1"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground">Projets de construction max</label>
+                      <label className="text-xs text-muted-foreground">Durée essai gratuit (jours)</label>
                       <Input
                         type="number"
-                        value={limitForm.expertProjects}
-                        onChange={(e) => setLimitForm({ ...limitForm, expertProjects: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
+                        value={60}
+                        disabled
+                        className="h-8 w-full text-sm mt-1 bg-muted/30"
                       />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Analyses d'investissement max</label>
-                      <Input
-                        type="number"
-                        value={limitForm.expertInvestments}
-                        onChange={(e) => setLimitForm({ ...limitForm, expertInvestments: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Téléchargements PDF</label>
-                      <Input
-                        type="number"
-                        value={limitForm.expertDownloads}
-                        onChange={(e) => setLimitForm({ ...limitForm, expertDownloads: parseInt(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ═══ Espace fournisseur ═══ */}
-                <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-200/20 mb-6">
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-purple-500" />
-                    Espace fournisseur
-                  </h3>
-                  <div className="mt-3">
-                    <label className="text-xs text-muted-foreground">Prix (TND)</label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={limitForm.supplierPrice}
-                        onChange={(e) => setLimitForm({ ...limitForm, supplierPrice: parseFloat(e.target.value) })}
-                        className="h-8 w-28 text-sm"
-                      />
-                      <span className="text-xs text-muted-foreground">TND</span>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">Fixé à 60 jours (2 mois)</p>
                     </div>
                   </div>
                 </div>
@@ -3932,7 +3904,7 @@ export default function AdminPanel() {
                     onClick={async () => {
                       setSavingLimits(true);
                       try {
-                        // Un seul prix par forfait couvre construction et investissement
+                        // Forfait Client
                         await updatePlanPricing({
                           plan: "free",
                           price: limitForm.constructionStartPrice,
@@ -3940,26 +3912,20 @@ export default function AdminPanel() {
                           investmentLimit: limitForm.freeInvestments,
                           downloadLimit: limitForm.freeDownloadLimit,
                         } as any);
+                        // Forfait Fournisseur
                         await updatePlanPricing({
-                          plan: "pro",
-                          price: limitForm.constructionProPrice,
-                          projectLimit: limitForm.proProjects,
-                          investmentLimit: limitForm.proInvestments,
-                          downloadLimit: limitForm.proDownloads,
+                          plan: "supplier",
+                          price: limitForm.supplierPrice,
+                          projectLimit: 100,
+                          downloadLimit: 100,
                         } as any);
+                        // Forfait Expert
                         await updatePlanPricing({
                           plan: "expert",
                           price: limitForm.constructionExpertPrice,
                           projectLimit: limitForm.expertProjects,
                           investmentLimit: limitForm.expertInvestments,
                           downloadLimit: limitForm.expertDownloads,
-                        } as any);
-                        // Espace fournisseur
-                        await updatePlanPricing({
-                          plan: "supplier",
-                          price: limitForm.supplierPrice,
-                          projectLimit: 100,
-                          downloadLimit: 100,
                         } as any);
                         toast.success("Abonnements mis à jour");
                       } catch (err: any) {
@@ -3976,6 +3942,8 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </TabsContent>
+
+
 
           {/* SEO Configuration (in full-width outside the scroll container) */}
           <TabsContent value="seo">
