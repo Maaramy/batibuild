@@ -822,6 +822,51 @@ export const batchDeleteUsers = mutation({
 });
 
 /**
+ * Admin: auto-correct userRole for users with undefined userRole
+ * who have supplier or expert profiles. Fixes registration bug.
+ */
+export const adminFixUserRoles = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const fixed: { email: string; from: string; to: string }[] = [];
+
+    // Get all users with no userRole
+    const users = await ctx.db.query("users").collect();
+    const usersWithoutRole = users.filter((u) => !u.userRole);
+
+    for (const user of usersWithoutRole) {
+      // Check if user has a supplier profile
+      const supplierProfile = await ctx.db
+        .query("supplierProfiles")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .first();
+      if (supplierProfile) {
+        await ctx.db.patch(user._id, { userRole: "supplier" });
+        fixed.push({ email: user.email || user.name || "unknown", from: "client", to: "supplier" });
+        continue;
+      }
+
+      // Check if user has an expert profile
+      const expertProfile = await ctx.db
+        .query("expertProfiles")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .first();
+      if (expertProfile) {
+        await ctx.db.patch(user._id, { userRole: "expert" });
+        fixed.push({ email: user.email || user.name || "unknown", from: "client", to: "expert" });
+      }
+    }
+
+    return { fixed, total: usersWithoutRole.length };
+  },
+});
+
+/**
  * Use this function internally to get the current user data. Remember to handle the null user case.
  * @param ctx
  * @returns

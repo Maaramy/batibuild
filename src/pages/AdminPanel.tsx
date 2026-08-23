@@ -153,6 +153,7 @@ export default function AdminPanel() {
   const markReceiptVerified = useMutation(api.subscriptions.markReceiptVerified);
   const deleteSubscriptionReceipt = useMutation(api.subscriptions.adminDeleteSubscriptionReceipt);
   const runStoragePurge = useMutation(api.storageCleanup.runStoragePurge);
+  const fixUserRoles = useMutation(api.users.adminFixUserRoles);
   const batchDeleteUsers = useMutation(api.users.batchDeleteUsers);
   const batchDeleteProjects = useMutation(api.projects.adminBatchDeleteProjects);
   const batchDeleteAnalyses = useMutation(api.investments.adminDeleteAnalyses);
@@ -3022,6 +3023,28 @@ export default function AdminPanel() {
                   <p className="text-xs text-muted-foreground">{allUsers.length} utilisateur(s)</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs shrink-0"
+                    title="Corriger les rôles manquants"
+                    onClick={async () => {
+                      if (!window.confirm("Corriger les rôles manquants ?\n\nDétecte les utilisateurs ayant un profil Fournisseur/Expert mais userRole non défini, et le corrige automatiquement.")) return;
+                      try {
+                        const result = await fixUserRoles();
+                        if (result.fixed.length > 0) {
+                          toast.success(`${result.fixed.length} rôle(s) corrigé(s)`);
+                        } else {
+                          toast.info("Aucun rôle à corriger");
+                        }
+                      } catch (err: any) {
+                        toast.error(err.message || "Erreur");
+                      }
+                    }}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Corriger les rôles</span>
+                  </Button>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input

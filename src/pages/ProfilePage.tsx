@@ -24,6 +24,8 @@ import {
   Sparkles,
   Camera,
   BarChart3,
+  Store,
+  Briefcase,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -38,6 +40,7 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState(user?.phone || "");
   const [emailNotifs, setEmailNotifs] = useState(user?.emailNotifications ?? true);
   const [saving, setSaving] = useState(false);
+  const [savingRole, setSavingRole] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -45,10 +48,13 @@ export default function ProfilePage() {
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const updateProfile = useMutation(api.users.updateProfile);
   const updateProfileImage = useMutation(api.users.updateProfileImage);
+  const setUserRole = useMutation(api.users.setUserRole);
 
   const isAdmin = user?.role === "admin";
   const isPaid = user?.subscriptionPlan === "pro" || user?.subscriptionPlan === "expert";
   const planLabel = user?.subscriptionPlan === "expert" ? "Expert" : user?.subscriptionPlan === "pro" ? "Pro" : "Start";
+
+  const currentRole = (user as any)?.userRole || "client";
 
   const handleUploadPhoto = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -86,6 +92,22 @@ export default function ProfilePage() {
       toast.error("Erreur lors de la mise à jour");
     }
     setSaving(false);
+  };
+
+  const handleRoleChange = async (newRole: string) => {
+    if (newRole === currentRole) return;
+    setSavingRole(true);
+    try {
+      await setUserRole({ userRole: newRole as any });
+      toast.success(`Profil mis à jour : ${
+        newRole === "supplier" ? "Fournisseur" : newRole === "expert" ? "Expert" : "Client"
+      }`);
+      // Reload to reflect changes
+      window.location.reload();
+    } catch (err) {
+      toast.error("Erreur lors de la mise à jour du rôle");
+    }
+    setSavingRole(false);
   };
 
   return (
@@ -249,17 +271,69 @@ export default function ProfilePage() {
                   {planLabel}
                 </Badge>
               </div>
-              <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/20 border border-border/20 transition-colors hover:border-primary/30">
-                <div className="flex items-center gap-2.5">
-                  <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", isAdmin ? "bg-primary/15 text-primary" : "bg-muted/40 text-muted-foreground/60")}>
-                    <Shield className="h-3.5 w-3.5" />
+
+              {/* ── Role selector ── */}
+              <div className="py-2.5 px-3 rounded-xl bg-muted/20 border border-border/20 transition-colors hover:border-primary/30">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                      <Shield className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-medium">Type de profil</span>
+                      <p className="text-[9px] text-muted-foreground/60">Client, Fournisseur ou Expert</p>
+                    </div>
                   </div>
-                  <span className="text-xs font-medium">Rôle</span>
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "text-[9px]",
+                      currentRole === "supplier"
+                        ? "bg-amber-500/10 text-amber-600 border-amber-200/30"
+                        : currentRole === "expert"
+                        ? "bg-blue-500/10 text-blue-600 border-blue-200/30"
+                        : "bg-muted/30 text-muted-foreground"
+                    )}
+                  >
+                    {currentRole === "supplier"
+                      ? "Fournisseur"
+                      : currentRole === "expert"
+                      ? "Expert"
+                      : "Client"}
+                  </Badge>
                 </div>
-                <Badge variant={isAdmin ? "default" : "secondary"} className="text-[9px]">
-                  {isAdmin ? "Administrateur" : "Utilisateur"}
-                </Badge>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: "client", label: "Client", icon: User, desc: "Estimer un projet" },
+                    { value: "supplier", label: "Fournisseur", icon: Store, desc: "Vendre des matériaux" },
+                    { value: "expert", label: "Expert", icon: Briefcase, desc: "Services d'expertise" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => handleRoleChange(opt.value)}
+                      disabled={savingRole || currentRole === opt.value}
+                      className={`flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-2.5 text-center transition-all ${
+                        currentRole === opt.value
+                          ? "border-primary bg-primary/5 shadow-sm cursor-default"
+                          : "border-transparent bg-primary/[0.03] hover:bg-primary/[0.06] hover:border-primary/20 cursor-pointer"
+                      }`}
+                    >
+                      <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${
+                        currentRole === opt.value ? "bg-primary text-white" : "bg-primary/10 text-foreground/60"
+                      }`}>
+                        <opt.icon className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-[10px] font-semibold">{opt.label}</span>
+                      <span className="text-[8px] leading-tight text-muted-foreground/60">{opt.desc}</span>
+                      {currentRole === opt.value && (
+                        <span className="text-[8px] text-primary font-medium">Actif</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
+
               <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-muted/20 border border-border/20 transition-colors hover:border-primary/30">
                 <div className="flex items-center gap-2.5">
                   <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", emailNotifs ? "bg-primary/15 text-primary" : "bg-muted/40 text-muted-foreground/60")}>
