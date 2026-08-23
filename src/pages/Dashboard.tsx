@@ -1107,79 +1107,21 @@ export default function Dashboard() {
               gradient="from-amber-500/20 to-orange-500/20" iconColor="text-amber-600 dark:text-amber-400" />
           </div>
 
-          {/* ── Évolution des coûts (Recharts) ── */}
-          {costSeries.length >= 2 && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-            >
-              <Card className="border border-border/40 bg-card/60 shadow-soft">
-                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 lg:p-5">
-                  <div>
-                    <CardTitle className="text-sm sm:text-base">Évolution des coûts estimés</CardTitle>
-                    <CardDescription className="text-[10px] sm:text-xs">Montant total des estimations par mois (TND)</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      Coûts cumulés
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-2 pb-3">
-                  <div className="h-56 sm:h-64 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={costSeries} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="costFill" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#059669" stopOpacity={0.28} />
-                            <stop offset="100%" stopColor="#059669" stopOpacity={0.02} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                        <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} width={44} />
-                        <Tooltip
-                          cursor={{ stroke: "var(--ring)", strokeWidth: 1, strokeDasharray: "4 4" }}
-                          contentStyle={{
-                            borderRadius: 12,
-                            border: "1px solid var(--border)",
-                            background: "var(--card)",
-                            boxShadow: "0 12px 32px -12px oklch(0 0 0 / 0.25)",
-                            fontSize: 12,
-                          }}
-                          formatter={(value: any) => [formatter.format(Number(value)), "Coût estimé"]}
-                        />
-                        <Area type="monotone" dataKey="total" stroke="#059669" strokeWidth={2.5} fill="url(#costFill)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* ── Plan Counter Card (Start/Pro/Expert — quotas par type) ── */}
-          <Card className={`border ${anyNearLimit ? 'border-amber-200/60 dark:border-amber-800/40' : 'border-border/40'} bg-background/50 backdrop-blur-sm overflow-hidden`}>
+          {/* ── Subscription Card (Monthly Plan) ── */}
+          <Card className="border border-border/40 bg-background/50 backdrop-blur-sm overflow-hidden">
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className={`flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg ${
-                    anyNearLimit
-                      ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400'
-                      : 'bg-gradient-to-br from-primary/20 to-primary/10 text-primary'
-                  }`}>
+                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
                     <HardHat className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-xs sm:text-sm font-medium">Vos quotas</p>
-                      <Badge className="bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-400/30 text-[8px] px-1.5 py-0">Paiement unique</Badge>
+                      <p className="text-xs sm:text-sm font-medium">Mon abonnement</p>
+                      <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200/30 text-[8px] px-1.5 py-0">Mensuel</Badge>
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground">
-                      Construction : <span className="font-semibold text-foreground">{PLAN_LABELS[constructionPlan]}</span> ·
-                      Investissement : <span className="font-semibold text-foreground">{PLAN_LABELS[investmentPlan]}</span>
+                      Forfait <span className="font-semibold text-foreground">{constructionPlan === "free" ? "Client" : constructionPlan === "pro" ? "Pro" : "Expert"}</span> · Accès illimité
                     </p>
                   </div>
                 </div>
@@ -1191,100 +1133,32 @@ export default function Dashboard() {
                     className="h-7 gap-1 px-2.5 text-[10px] sm:text-xs"
                   >
                     <CreditCard className="h-3 w-3" />
-                    Voir les forfaits
+                    {constructionPlan === "free" ? "Passer à Pro" : "Renouveler"}
                   </Button>
                 </div>
               </div>
 
-              {/* Quota rows — construction · investissement */}
-              <div className="mt-3 grid gap-2">
-                {/* Construction */}
-                <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
-                    <span className="flex items-center gap-1.5 text-muted-foreground flex-wrap">
-                      <HardHat className="h-3.5 w-3.5 text-primary" />
-                      Projets de construction
-                      <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[8px] px-1.5 py-0">{PLAN_LABELS[constructionPlan]}</Badge>
-                      {projectsReached && <Badge className="bg-amber-500/15 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">Limite atteinte</Badge>}
-                    </span>
-                    <span className={`font-bold tabular-nums ${isNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}>
-                      {displayUsedProjects}/{projectLimit} · {usagePercent}%
-                    </span>
+              {/* Subscription dates */}
+              {quotas?.construction?.plan !== "free" ? (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
+                    <p className="text-[9px] text-muted-foreground mb-1">Date de début</p>
+                    <p className="text-xs sm:text-sm font-semibold text-foreground">
+                      {new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR")}
+                    </p>
                   </div>
-                  {projectsReached && (
-                    <div className="mt-2 flex justify-end">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => navigate("/dashboard/pricing")}
-                        className="h-6 gap-1 px-2 text-[9px] border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                      >
-                        <RefreshCcw className="h-3 w-3" />
-                        Renouveler les quotas
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                {/* Investissement */}
-                <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
-                    <span className="flex items-center gap-1.5 text-muted-foreground flex-wrap">
-                      <Landmark className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                      Projets d'investissement
-                      <Badge className="bg-indigo-500/10 text-indigo-600 border-indigo-200/30 text-[8px] px-1.5 py-0">{PLAN_LABELS[investmentPlan]}</Badge>
-                      {investReached && <Badge className="bg-amber-500/15 text-amber-600 border-amber-400/30 text-[8px] px-1.5 py-0">Limite atteinte</Badge>}
-                    </span>
-                    <span className={`font-bold tabular-nums ${isInvestNearLimit ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
-                      {analyses.length}/{investLimit} · {investUsagePct}%
-                    </span>
+                  <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
+                    <p className="text-[9px] text-muted-foreground mb-1">Date de fin</p>
+                    <p className="text-xs sm:text-sm font-semibold text-foreground">
+                      {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR")}
+                    </p>
                   </div>
-                  {investReached && (
-                    <div className="mt-2 flex justify-end">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => navigate("/dashboard/pricing")}
-                        className="h-6 gap-1 px-2 text-[9px] border-amber-300 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                      >
-                        <RefreshCcw className="h-3 w-3" />
-                        Renouveler les quotas
-                      </Button>
-                    </div>
-                  )}
                 </div>
-              </div>
-
-              {/* Downloads info par type */}
-              {(isProAllowed || isInvestDownloadAllowed) && (
-                <div className="mt-2.5 pt-2.5 border-t border-border/20 grid gap-1.5">
-                  {isProAllowed && downloadLimit > 0 && (
-                    <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                        PDF construction :
-                        <span className={`font-semibold tabular-nums ${remainingDownloads === 0 ? 'text-amber-600' : ''}`}>{remainingDownloads}</span>
-                        <span className="text-muted-foreground/50"> / </span>
-                        <span className="tabular-nums">{downloadLimit}</span>
-                      </span>
-                      {remainingDownloads === 0 && (
-                        <span className="text-[9px] text-amber-600 font-medium">Épuisé — renouvelez</span>
-                      )}
-                    </div>
-                  )}
-                  {isInvestDownloadAllowed && investDownloadLimit > 0 && (
-                    <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                        PDF investissement :
-                        <span className={`font-semibold tabular-nums ${remainingInvestDownloads === 0 ? 'text-amber-600' : ''}`}>{remainingInvestDownloads}</span>
-                        <span className="text-muted-foreground/50"> / </span>
-                        <span className="tabular-nums">{investDownloadLimit}</span>
-                      </span>
-                      {remainingInvestDownloads === 0 && (
-                        <span className="text-[9px] text-amber-600 font-medium">Épuisé — renouvelez</span>
-                      )}
-                    </div>
-                  )}
+              ) : (
+                <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+                  <p className="text-[10px] sm:text-xs text-primary/80">
+                    Passez à l'offre Client (80 TND/mois) pour un accès illimité à tous les outils.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -1428,6 +1302,51 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* ── Évolution des coûts (Recharts) ── */}
+          {costSeries.length >= 2 && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <Card className="border border-border/40 bg-card/60 shadow-soft">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 lg:p-5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
+                      <TrendingUp className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <CardTitle className="text-sm sm:text-base lg:text-lg">Évolution des coûts</CardTitle>
+                      <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
+                        {costSeries.length} mois de données
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-3 sm:p-4 lg:p-5 pt-0">
+                  <ResponsiveContainer width="100%" height={250}>
+                    <AreaChart data={costSeries}>
+                      <defs>
+                        <linearGradient id="costGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-muted-foreground" />
+                      <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip
+                        formatter={(value: number) => [fmtTND(value), "Coût"]}
+                        contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }}
+                      />
+                      <Area type="monotone" dataKey="total" stroke="var(--primary)" fill="url(#costGrad)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </motion.div>
           )}
 
           {/* Projects section */}

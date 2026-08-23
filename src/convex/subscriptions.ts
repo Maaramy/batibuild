@@ -40,21 +40,26 @@ export const getMyQuotas = query({
 
     const sub = await getActiveSubscription(ctx, user._id);
 
-    const cUsed = sub
-      ? (sub.projectsUsed ?? 0)
-      : await countUserDocs(ctx, user._id, "projects");
-    const iUsed = sub
-      ? (sub.investmentsUsed ?? 0)
-      : await countUserDocs(ctx, user._id, "investments");
     const plan = sub?.plan ?? "free";
-    const planConfig = configs[plan] ?? configs.free;
-    const cLimit = planConfig.projects;
-    const iLimit = planConfig.investments;
+    const isPaidPlan = plan === "pro" || plan === "expert" || plan === "supplier";
+    const now = Date.now();
+    const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
+
+    // Forfaits payants = illimité ; forfait gratuit = quota limité
+    const cUsed = isActive && isPaidPlan
+      ? 0
+      : sub ? (sub.projectsUsed ?? 0) : await countUserDocs(ctx, user._id, "projects");
+    const iUsed = isActive && isPaidPlan
+      ? 0
+      : sub ? (sub.investmentsUsed ?? 0) : await countUserDocs(ctx, user._id, "investments");
+
+    const cLimit = isActive && isPaidPlan ? Infinity : (configs[plan] ?? configs.free).projects;
+    const iLimit = isActive && isPaidPlan ? Infinity : (configs[plan] ?? configs.free).investments;
 
     const downloadsBase = {
-      used: sub ? (sub.monthlyDownloadCount ?? 0) : 0,
-      limit: sub ? (configs[plan] ?? configs.free).downloads : 0,
-      allowed: !!sub,
+      used: 0,
+      limit: Infinity,
+      allowed: isActive && isPaidPlan,
     };
 
     return {
@@ -303,11 +308,28 @@ async function checkDownloadAllowedForKind(ctx: any, kind: SubKind) {
   if (!user) return { allowed: false, reason: "non_connecté" };
 
   const sub = await getActiveSubscription(ctx, user._id, kind);
+  const now = Date.now();
+  const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
+  const isPaidPlan = sub && (sub.plan === "pro" || sub.plan === "expert" || sub.plan === "supplier");
 
-  if (!sub || sub.status !== "active") {
+  if (!isActive) {
     return { allowed: false, reason: "abonnement_inactif", kind };
   }
 
+  // Forfaits payants = téléchargements illimités
+  if (isPaidPlan) {
+    return {
+      allowed: true,
+      reason: "ok",
+      remaining: Infinity,
+      limit: Infinity,
+      used: 0,
+      plan: sub.plan,
+      kind,
+    };
+  }
+
+  // Forfait gratuit = limite
   const configs = await getPlanQuotaConfig(ctx);
   const limit = configs[sub.plan]?.downloads ?? 1;
   const used = sub.monthlyDownloadCount ?? 0;
@@ -331,11 +353,20 @@ async function consumeDownloadForKind(ctx: any, kind: SubKind) {
   }
 
   const sub = await getActiveSubscription(ctx, user._id, kind);
+  const now = Date.now();
+  const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
+  const isPaidPlan = sub && (sub.plan === "pro" || sub.plan === "expert" || sub.plan === "supplier");
 
-  if (!sub || sub.status !== "active") {
+  if (!isActive) {
     throw new Error("Aucun forfait actif pour ce type de document — renouvelez vos quotas");
   }
 
+  // Forfaits payants = illimité, pas de compteur
+  if (isPaidPlan) {
+    return { used: 0, remaining: Infinity, kind };
+  }
+
+  // Forfait gratuit = compteur classique
   const configs = await getPlanQuotaConfig(ctx);
   const limit = configs[sub.plan]?.downloads ?? 1;
   const used = (sub.monthlyDownloadCount ?? 0) + 1;
@@ -372,9 +403,10 @@ export const consumeDownloadFor = mutation({
 // Mutations
 // ============================================================================
 
-// Forfaits à paiement unique : validité longue (10 ans) — aucun renouvellement
-// mensuel. Quand les quotas sont épuisés, l'utilisateur rachète un forfait.
-const ONE_TIME_DURATION = 3650 * 24 * 60 * 60 * 1000; // 10 ans
+// Forfaits mensuels : durée de 30 jours — renouvellement mensuel.
+const MONTHLY_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 jours
+// Période d'essai gratuite pour Fournisseur/Expert : 2 mois
+const TRIAL_DURATION = 60 * 24 * 60 * 60 * 1000; // 60 jours
 
 /** Create or update subscription (paiement unique, par type de projet) */
 export const createSubscription = mutation({
@@ -393,16 +425,19 @@ export const createSubscription = mutation({
     const now = Date.now();
     const kind = args.kind ?? "construction"; // legacy : construction
 
-    const quotas = await getPlanQuotaConfig(ctx);
-    const downloadLimit = quotas[args.plan]?.downloads ?? 1;
-    const duration = ONE_TIME_DURATION;
-
     // Un seul forfait actif à la fois : un nouvel achat remplace l'ancien
     // (paiement unique — renouvellement des quotas).
     const existing = await ctx.db
       .query("subscriptions")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
+
+    // Durée selon le type de plan
+    let duration = MONTHLY_DURATION;
+    // Fournisseur et Expert bénéficient de 2 mois gratuits à l'inscription
+    if ((args.plan === "supplier" || args.plan === "expert") && existing.length === 0) {
+      duration = TRIAL_DURATION; // 2 mois gratuits
+    }
 
     for (const sub of existing) {
       if (sub.status === "active") {
@@ -422,7 +457,7 @@ export const createSubscription = mutation({
       amount: args.amount,
       currency: args.currency || "TND",
       monthlyDownloadCount: 0,
-      downloadLimit,
+      downloadLimit: Infinity,
       createdAt: now,
       updatedAt: now,
     });
@@ -604,7 +639,7 @@ export const adminApproveSubscription = mutation({
     if (sub.status !== "pending") throw new Error("Cet abonnement n'est pas en attente");
 
     const now = Date.now();
-    const planDuration = ONE_TIME_DURATION; // paiement unique (10 ans)
+    const planDuration = MONTHLY_DURATION; // paiement mensuel (30 jours)
 
     // Update subscription to active
     await ctx.db.patch(args.subscriptionId, {
