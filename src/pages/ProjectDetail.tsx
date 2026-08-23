@@ -23,6 +23,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { runBIMEstimation } from "@/convex/bimEngine";
+import { estimateQuantity, bimItemToMaterialCategory } from "@/convex/aiMaterialsEngine";
 import {
   projectTypeLabel,
   investmentTypeForProject as sharedInvestmentTypeForProject,
@@ -421,6 +422,38 @@ export default function ProjectDetail() {
     for (const s of cheapestSuppliers ?? []) map[s.name] = s;
     return map;
   }, [cheapestSuppliers]);
+
+  // ── Quantités cohérentes avec la page Matériaux AI ──
+  // Construit un map nom d'item BIM → quantité AiMaterials pour
+  // que les deux pages affichent les mêmes chiffres.
+  const aiMaterialQtyMap = useMemo(() => {
+    const map: Record<string, { quantity: number; unitLabel: string }> = {};
+    if (!project) return map;
+    const ctx = {
+      surface: project.surface ?? 150,
+      floors: project.floors ?? 1,
+      year: 2026,
+      standing: (project as any).finish_level || "standard",
+      budgetMode: "moyen" as const,
+      priorities: { price: 50, quality: 50, isolation: 50, durability: 50, eco: 50 },
+      projectCategory: project.category,
+      region: project.region,
+      rooms: {
+        bedrooms: project.bedrooms,
+        bathrooms: project.bathrooms,
+        kitchens: project.kitchens,
+      },
+    } as any;
+    for (const b of ce?.breakdown ?? []) {
+      for (const item of b.items ?? []) {
+        const matCat = bimItemToMaterialCategory(item.name);
+        if (matCat && !map[item.name]) {
+          map[item.name] = estimateQuantity(matCat, ctx);
+        }
+      }
+    }
+    return map;
+  }, [project?.surface, project?.floors, project?.category, project?.region, project?.bedrooms, project?.bathrooms, project?.kitchens, ce?.breakdown]);
 
   const { rMult, impactPct, baseCost, diff } = useMemo(() => {
     const r = project?.region ? (REGION_MULTIPLIER[project.region] ?? 1) : 1;
@@ -1114,7 +1147,7 @@ export default function ProjectDetail() {
                                     transition={{ delay: i * 0.02 }}
                                     className="border-b border-border/5 hover:bg-muted/10 transition-colors">
                                     <td className="py-2 px-3 font-medium whitespace-normal break-words min-w-[160px]">{item.name}</td>
-                                    <td className="text-right py-2 px-3 font-mono text-muted-foreground">{cat.category === "main_oeuvre" ? "1 lot" : `${item.quantity} ${item.unit}`}</td>
+                                    <td className="text-right py-2 px-3 font-mono text-muted-foreground">{cat.category === "main_oeuvre" ? "1 lot" : (() => { const aiQ = aiMaterialQtyMap[item.name]; return aiQ ? `${aiQ.quantity} ${aiQ.unitLabel}` : `${item.quantity} ${item.unit}`; })()}</td>
                                     <td className="text-right py-2 px-3 text-muted-foreground font-mono hidden sm:table-cell">{fmt(item.unitPrice)}</td>
                                     <td className="text-right py-2 px-3 font-semibold font-mono">{fmt(item.totalPrice)}</td>
                                     <td className="py-2 px-3 hidden lg:table-cell">

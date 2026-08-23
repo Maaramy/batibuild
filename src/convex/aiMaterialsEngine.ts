@@ -191,6 +191,73 @@ export function matchCategoryMaterials(cat: CopilotCategory, materials: CatalogM
 // ─────────────────────────────────────────────────────────────────────────────
 export type QuantityEstimate = { quantity: number; unitLabel: string };
 
+// ── Correspondance noms d'items BIM → catégories Matériaux AI ──────────
+// Permet d'afficher les mêmes quantités dans ProjectDetail que dans AiMaterials.
+const BIM_TO_MATERIAL_CAT: Record<string, string> = {
+  // Gros œuvre
+  "ciment cpj 42.5": "ciment",
+  "ciment cpj 32.5": "ciment",
+  "béton prêt": "beton",
+  "beton pret": "beton",
+  "béton armé": "beton",
+  "béton de": "beton",
+  "sable": "mortier",
+  "gravier": "mortier",
+  "acier": "acier",
+  "treillis": "acier",
+  "brique": "briques",
+  "hourdis": "briques",
+  "parpaing": "blocs_beton",
+  "bois": "bois",
+  "fouilles": "mortier",
+  // Second œuvre
+  "carrelage sol": "carrelage",
+  "carrelage mural": "faience",
+  "peinture": "peinture",
+  "enduit": "enduit",
+  "plinthe": "carrelage",
+  "porte intérieure": "portes",
+  "porte d'entrée": "portes",
+  "porte": "menuiserie",
+  "fenêtre": "menuiserie",
+  "fenetre": "menuiserie",
+  "grille": "menuiserie",
+  "étanchéité": "etancheite",
+  "garde-corps": "menuiserie",
+  // Équipements
+  "wc": "sanitaires",
+  "lavabo": "sanitaires",
+  "receveur": "sanitaires",
+  "chauffe-eau": "sanitaires",
+  "tuyau per": "plomberie",
+  "tuyau pvc": "plomberie",
+  "câble": "electricite",
+  "cable": "electricite",
+  "disjoncteur": "electricite",
+  "tableau électrique": "electricite",
+  "prise": "electricite",
+  "interrupteur": "electricite",
+  "luminaire": "electricite",
+  "climatisation": "climatisation",
+  "clim": "climatisation",
+  "chauffage": "chauffage",
+  "panneau photovoltaïque": "panneaux_solaires",
+};
+
+/**
+ * Retourne l'ID de catégorie Matériaux AI correspondant à un nom d'item BIM.
+ * Permet d'utiliser estimateQuantity() dans ProjectDetail pour afficher les
+ * mêmes quantités que la page Matériaux AI.
+ */
+export function bimItemToMaterialCategory(itemName: string): string | null {
+  const lower = itemName.toLowerCase();
+  // Ordre décroissant de spécificité pour éviter les collisions
+  for (const [key, cat] of Object.entries(BIM_TO_MATERIAL_CAT)) {
+    if (lower.includes(key)) return cat;
+  }
+  return null;
+}
+
 export function estimateQuantity(categoryId: string, ctx: ProjectContext): QuantityEstimate {
   const S = Math.max(0, ctx.surface || 0);
   const floors = Math.max(1, ctx.floors || 1);
