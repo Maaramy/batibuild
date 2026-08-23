@@ -621,9 +621,23 @@ export default function Dashboard() {
                 <Menu className="h-4 w-4" />
               </button>
               <div className="min-w-0">
-                <h1 className="text-sm sm:text-base font-semibold truncate">
-                  {viewMode === "supplier" ? "Espace Fournisseur" : viewMode === "expert" ? "Espace Expert" : "Dashboard"}
-                </h1>
+                <div className="flex items-center gap-1.5">
+                  <h1 className="text-sm sm:text-base font-semibold truncate">
+                    {viewMode === "supplier" ? "Espace Fournisseur" : viewMode === "expert" ? "Espace Expert" : "Dashboard"}
+                  </h1>
+                  <Badge
+                    variant="secondary"
+                    className={`text-[8px] sm:text-[9px] px-1.5 py-0 h-4 sm:h-[18px] font-semibold shrink-0 ${
+                      user?.userRole === "supplier"
+                        ? "bg-amber-500/10 text-amber-600 border-amber-200/30 dark:text-amber-400"
+                        : user?.userRole === "expert"
+                        ? "bg-blue-500/10 text-blue-600 border-blue-200/30 dark:text-blue-400"
+                        : "bg-muted/40 text-muted-foreground"
+                    }`}
+                  >
+                    {user?.userRole === "supplier" ? "Fournisseur" : user?.userRole === "expert" ? "Expert" : "Client"}
+                  </Badge>
+                </div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                   {viewMode === "supplier"
                     ? (supplierProfile ? "Statistiques et devis" : "Créez votre profil fournisseur")
