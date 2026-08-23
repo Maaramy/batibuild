@@ -64,6 +64,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useTheme } from "next-themes";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -337,12 +338,31 @@ export default function Dashboard() {
   // « Voir plus / Voir moins » — 3 éléments par défaut
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [showAllInvestments, setShowAllInvestments] = useState(false);
+  const [savingRole, setSavingRole] = useState(false);
   // Role switch view mode: client | supplier | expert
   const [viewMode, setViewMode] = useState<"client" | "supplier" | "expert">(
     user?.userRole === "supplier" ? "supplier" : user?.userRole === "expert" ? "expert" : "client",
   );
   // Sub-menu expansion state for professional sidebar
   const [proMenuOpen, setProMenuOpen] = useState(true);
+
+  const setUserRole = useMutation(api.users.setUserRole);
+
+  // Role change handler (same as ProfilePage)
+  const handleRoleChange = async (newRole: string) => {
+    if (newRole === (user as any)?.userRole) return;
+    setSavingRole(true);
+    try {
+      await setUserRole({ userRole: newRole as any });
+      toast.success(`Profil mis à jour : ${
+        newRole === "supplier" ? "Fournisseur" : newRole === "expert" ? "Expert" : "Client"
+      }`);
+      window.location.reload();
+    } catch (err) {
+      toast.error("Erreur lors de la mise à jour du rôle");
+    }
+    setSavingRole(false);
+  };
 
   useEffect(() => setMounted(true), []);
 
@@ -803,6 +823,49 @@ export default function Dashboard() {
               ) : null}
             </>
           )}
+
+          {/* ══════ PROFILE TYPE SELECTOR ══════ */}
+          <Card className="border border-border/40 bg-card/60 shadow-soft">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="h-4 w-4 text-primary" />
+                <span className="text-xs sm:text-sm font-semibold">Type de profil</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                {([
+                  { value: "client", label: "Client", icon: User, desc: "Estimer un projet" },
+                  { value: "supplier", label: "Fournisseur", icon: Store, desc: "Vendre des matériaux" },
+                  { value: "expert", label: "Expert", icon: Briefcase, desc: "Services d'expertise" },
+                ] as const).map((opt) => {
+                  const isActive = (user as any)?.userRole === opt.value || (!(user as any)?.userRole && opt.value === "client");
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => handleRoleChange(opt.value)}
+                      disabled={savingRole || isActive}
+                      className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 sm:py-4 text-center transition-all ${
+                        isActive
+                          ? "border-primary bg-primary/5 shadow-sm cursor-default"
+                          : "border-transparent bg-primary/[0.03] hover:bg-primary/[0.06] hover:border-primary/20 cursor-pointer"
+                      }`}
+                    >
+                      <div className={`flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg transition-colors ${
+                        isActive ? "bg-primary text-white" : "bg-primary/10 text-foreground/60"
+                      }`}>
+                        <opt.icon className="h-4 w-4" />
+                      </div>
+                      <span className="text-[10px] sm:text-xs font-semibold">{opt.label}</span>
+                      <span className="text-[8px] sm:text-[9px] leading-tight text-muted-foreground/60 hidden sm:block">{opt.desc}</span>
+                      {isActive && (
+                        <span className="text-[8px] sm:text-[9px] text-primary font-medium">Actif</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* ══════ SUPPLIER VIEW ══════ */}
           {viewMode === "supplier" && (
