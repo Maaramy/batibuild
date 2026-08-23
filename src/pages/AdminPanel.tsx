@@ -1172,20 +1172,18 @@ export default function AdminPanel() {
                     {/* Abonnement */}
                     <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
                       <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 col-span-2">
-                        <Crown className="h-3.5 w-3.5" /> Abonnement
+                        <Crown className="h-3.5 w-3.5" /> Abonnement mensuel
                       </h4>
                       <div>
-                        <p className="text-[9px] text-muted-foreground">Plan</p>
+                        <p className="text-[9px] text-muted-foreground">Forfait</p>
                         <Badge className={cn(
                           "text-[9px] mt-0.5",
-                          selectedUser.subscriptionPlan === "pro" ? "bg-blue-500/10 text-blue-600" :
-                          selectedUser.subscriptionPlan === "expert" ? "bg-emerald-500/10 text-emerald-600" :
                           selectedUser.subscriptionPlan === "supplier" ? "bg-amber-400/10 text-amber-600" :
-                          "bg-muted/30 text-muted-foreground"
+                          selectedUser.subscriptionPlan === "expert" ? "bg-emerald-500/10 text-emerald-600" :
+                          "bg-slate-500/10 text-slate-600"
                         )}>
-                          {selectedUser.subscriptionPlan === "pro" ? "Pro" :
-                           selectedUser.subscriptionPlan === "expert" ? "Expert" :
-                           selectedUser.subscriptionPlan === "supplier" ? "Fournisseur" : "Start"}
+                          {selectedUser.subscriptionPlan === "supplier" ? "Fournisseur" :
+                           selectedUser.subscriptionPlan === "expert" ? "Expert" : "Client"}
                         </Badge>
                       </div>
                       <div>
@@ -1197,6 +1195,26 @@ export default function AdminPanel() {
                         </p>
                       </div>
                     </div>
+
+                    {/* Option Essai Gratuit */}
+                    {(selectedUser.subscriptionPlan === "supplier" || selectedUser.subscriptionPlan === "expert") && (
+                      <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-200/20">
+                        <h4 className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 mb-2">
+                          <Clock className="h-3.5 w-3.5" /> Essai gratuit
+                        </h4>
+                        <p className="text-[10px] text-muted-foreground mb-2">
+                          {selectedUser.subscriptionPlan === "supplier"
+                            ? "Forfait Fournisseur : 2 mois gratuits à l'inscription, puis 120 TND/mois."
+                            : "Forfait Expert : 2 mois gratuits à l'inscription, puis 120 TND/mois."}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Badge className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">
+                            Essai : 60 jours
+                          </Badge>
+                          <span className="text-[9px] text-muted-foreground">Durée fixe — gérée dans Abonnements</span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Profil */}
                     <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
@@ -2264,7 +2282,7 @@ export default function AdminPanel() {
                   <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
                     <span className="flex items-center gap-0.5"><Crown className="h-3 w-3 text-amber-500" />{allUsers.filter((u: any) => u.role === "admin").length} admin</span>
                     <span>•</span>
-                    <span className="flex items-center gap-0.5">{allUsers.filter((u: any) => u.subscriptionPlan === "pro").length} Pro</span>
+                    <span className="flex items-center gap-0.5">{allUsers.filter((u: any) => u.subscriptionPlan === "pro" || !u.subscriptionPlan).length} Client</span>
                   </div>
                 </CardContent>
               </Card>
@@ -3198,7 +3216,7 @@ export default function AdminPanel() {
                         <td className="py-2.5 px-2 text-center">
                           {isModerator ? (
                             <Badge className={cn("text-[9px]", u.subscriptionPlan === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : u.subscriptionPlan === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : u.subscriptionPlan === "supplier" ? "bg-amber-400/10 text-amber-600 border-amber-200/30" : "bg-muted/30 text-muted-foreground")}>
-                              {u.subscriptionPlan === "pro" ? "Pro" : u.subscriptionPlan === "expert" ? "Expert" : u.subscriptionPlan === "supplier" ? "Fournisseur" : "Start"}
+                              {u.subscriptionPlan === "supplier" ? "Fournisseur" : u.subscriptionPlan === "expert" ? "Expert" : u.subscriptionPlan === "pro" ? "Client" : "Client"}
                             </Badge>
                           ) : (
                             <select
@@ -3219,8 +3237,8 @@ export default function AdminPanel() {
                                 "text-muted-foreground"
                               )}
                             >
-                              <option value="free">Start</option>
-                              <option value="pro">Pro</option>
+                              <option value="free">Client</option>
+                              <option value="pro">Client (Pro)</option>
                               <option value="expert">Expert</option>
                               <option value="supplier">Fournisseur</option>
                             </select>
