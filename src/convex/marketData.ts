@@ -28,515 +28,256 @@ export const MARKET_SOURCES = [
   { name: "BMP (Building Market Place)", type: "plateforme", website: "bmp.tn", reliabilityScore: 0.88 },
   { name: "Medina Construction", type: "plateforme", website: "medinaconstruction.com", reliabilityScore: 0.86 },
   { name: "Go Africa Tunisie", type: "plateforme", website: "goafricaonline.com", reliabilityScore: 0.8 },
-  { name: "Tunisie Industrie", type: "plateforme", website: "tunisieindustrie.nat.tn", reliabilityScore: 0.85 },
-  { name: "Tunisie Index", type: "plateforme", website: "tunisieindex.com", reliabilityScore: 0.82 },
-] as const;
-
-export const GOVERNORATES = [
-  "Tunis", "Ariana", "Ben Arous", "Manouba", "Nabeul", "Zaghouan", "Bizerte",
-  "Béja", "Jendouba", "Le Kef", "Siliana", "Sousse", "Monastir", "Mahdia",
-  "Sfax", "Kairouan", "Kasserine", "Sidi Bouzid", "Gabès", "Médenine",
-  "Tataouine", "Gafsa", "Tozeur", "Kébili",
-] as const;
-
-// ── Seed product catalog (curated reference prices, market TN) ──
-// name, category (must match MATERIAL_CATEGORIES), subcategory, unit, basePrice (TND)
-type CatalogItem = {
-  name: string;
-  category: string;
-  subcategory: string;
-  unit: string;
-  basePrice: number;
-  brand?: string;
-  manufacturer?: string;
-};
-
-export const MARKET_CATALOG: CatalogItem[] = [
-  // Ciment
-  { name: "Ciment CPJ 42.5 (sac 50kg)", category: "liants_ciments_mortiers", subcategory: "Ciment en sac", unit: "sac", basePrice: 16.5, brand: "Carthage Cement", manufacturer: "Carthage Cement" },
-  { name: "Ciment CPJ 42.5 (vrac)", category: "liants_ciments_mortiers", subcategory: "Ciment en vrac", unit: "tonne", basePrice: 320, brand: "Ciments de Bizerte", manufacturer: "Les Ciments de Bizerte" },
-  { name: "Ciment blanc (sac 40kg)", category: "liants_ciments_mortiers", subcategory: "Ciment blanc", unit: "sac", basePrice: 38, brand: "Ciments de Bizerte", manufacturer: "Les Ciments de Bizerte" },
-  // Fer à béton
-  { name: "Fer à béton HA 8mm", category: "acier_metaux_structure", subcategory: "Barres HA", unit: "barre", basePrice: 13.5, brand: "El Fouledh", manufacturer: "El Fouledh" },
-  { name: "Fer à béton HA 10mm", category: "acier_metaux_structure", subcategory: "Barres HA", unit: "barre", basePrice: 20.5, brand: "El Fouledh", manufacturer: "El Fouledh" },
-  { name: "Fer à béton HA 12mm", category: "acier_metaux_structure", subcategory: "Barres HA", unit: "barre", basePrice: 29.5, brand: "El Fouledh", manufacturer: "El Fouledh" },
-  { name: "Treillis soudé ST 25", category: "acier_metaux_structure", subcategory: "Treillis soudé", unit: "panneau", basePrice: 45, brand: "El Fouledh", manufacturer: "El Fouledh" },
-  // Briques & blocs
-  { name: "Brique creuse 10 cm", category: "maconnerie_plancher", subcategory: "Briques creuses", unit: "pièce", basePrice: 0.48, brand: "COMAF", manufacturer: "COMAF" },
-  { name: "Brique creuse 15 cm", category: "maconnerie_plancher", subcategory: "Briques creuses", unit: "pièce", basePrice: 0.65, brand: "COMAF", manufacturer: "COMAF" },
-  { name: "Bloc béton 20x20x40", category: "maconnerie_plancher", subcategory: "Blocs en béton", unit: "pièce", basePrice: 1.15, brand: "COBAM Group", manufacturer: "COBAM Group" },
-  { name: "Bloc hourdis 16x20x50", category: "maconnerie_plancher", subcategory: "Hourdis", unit: "pièce", basePrice: 1.9, brand: "COBAM Group", manufacturer: "COBAM Group" },
-  // Granulats
-  { name: "Sable de construction (m³)", category: "terrassement_granulats", subcategory: "Sable", unit: "m³", basePrice: 55, brand: "COBAM Group", manufacturer: "COBAM Group" },
-  { name: "Gravier concassé (m³)", category: "terrassement_granulats", subcategory: "Gravier", unit: "m³", basePrice: 62, brand: "COBAM Group", manufacturer: "COBAM Group" },
-  // Bois & coffrage
-  { name: "Chevron sapin 63x75x400", category: "bois_panneaux_coffrage", subcategory: "Bois de coffrage", unit: "pièce", basePrice: 14, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
-  { name: "Panneau coffrage 18mm", category: "bois_panneaux_coffrage", subcategory: "Panneaux", unit: "pièce", basePrice: 42, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
-  // Isolation & étanchéité
-  { name: "Laine de verre (rouleau 30m²)", category: "isolation_thermique", subcategory: "Isolation thermique", unit: "rouleau", basePrice: 89, brand: "Knauf Tunisie", manufacturer: "Knauf Tunisie" },
-  { name: "Membrane bitumineuse (rouleau 10m)", category: "etancheite_protection", subcategory: "Étanchéité toiture", unit: "rouleau", basePrice: 58, brand: "SOTEMAIL", manufacturer: "SOTEMAIL" },
-  // Carrelage & revêtements
-  { name: "Carrelage grès cérame 60x60", category: "revetements_sols_murs", subcategory: "Grès cérame", unit: "m²", basePrice: 26, brand: "SOPAL", manufacturer: "SOPAL" },
-  { name: "Faïence murale 25x40", category: "revetements_sols_murs", subcategory: "Faïence", unit: "m²", basePrice: 19, brand: "SOPAL", manufacturer: "SOPAL" },
-  { name: "Marbre importé (m²)", category: "revetements_sols_murs", subcategory: "Marbre", unit: "m²", basePrice: 120, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
-  { name: "Pierre naturelle (m²)", category: "revetements_sols_murs", subcategory: "Pierre", unit: "m²", basePrice: 85, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
-  // Peinture
-  { name: "Peinture acrylique blanche (pot 15L)", category: "peintures_enduits_finitions", subcategory: "Peinture intérieure", unit: "pot", basePrice: 68, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
-  // Plomberie & sanitaire
-  { name: "Tube PVC évacuation Ø100 (3m)", category: "equipements", subcategory: "Tubes PVC", unit: "pièce", basePrice: 12.5, brand: "CONAP", manufacturer: "CONAP" },
-  { name: "Robinetterie mitigeur salle de bain", category: "equipements", subcategory: "Robinetterie", unit: "pièce", basePrice: 65, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
-  { name: "WC à l'anglaise complet", category: "equipements", subcategory: "Sanitaire", unit: "pièce", basePrice: 240, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
-  { name: "Lavabo céramique", category: "equipements", subcategory: "Sanitaire", unit: "pièce", basePrice: 95, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
-  // Électricité & éclairage
-  { name: "Câble électrique 3x2.5mm² (100m)", category: "equipements", subcategory: "Câblage", unit: "rouleau", basePrice: 89, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
-  { name: "Disjoncteur modulaire 16A", category: "equipements", subcategory: "Protection", unit: "pièce", basePrice: 12, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
-  { name: "Spot LED encastrable 9W", category: "eclairage", subcategory: "Éclairage LED", unit: "pièce", basePrice: 8.5, brand: "eBonus Market", manufacturer: "eBonus Market" },
-  // Menuiserie
-  { name: "Porte intérieure en bois (H.204)", category: "menuiseries", subcategory: "Portes intérieures", unit: "pièce", basePrice: 220, brand: "CGC Tunisie", manufacturer: "CGC Tunisie" },
-  { name: "Fenêtre aluminium 90x120", category: "menuiseries", subcategory: "Fenêtres alu", unit: "pièce", basePrice: 310, brand: "CGC Tunisie", manufacturer: "CGC Tunisie" },
-  { name: "Fenêtre PVC double vitrage 90x120", category: "menuiseries", subcategory: "Fenêtres PVC", unit: "pièce", basePrice: 380, brand: "CGC Tunisie", manufacturer: "CGC Tunisie" },
-  // Climatisation / chauffage
-  { name: "Climatiseur split 12000 BTU", category: "cvc_chauffage_ventilation", subcategory: "Climatisation", unit: "pièce", basePrice: 1350, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
-  { name: "Chauffe-eau électrique 100L", category: "cvc_chauffage_ventilation", subcategory: "Chauffage ECS", unit: "pièce", basePrice: 480, brand: "Comptoir Hammami", manufacturer: "Comptoir Hammami" },
-  // Quincaillerie / outillage
-  { name: "Peinture à l'huile (pot 5L)", category: "quincaillerie_fixations", subcategory: "Quincaillerie", unit: "pot", basePrice: 55, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
-  { name: "Bétonnière 350L", category: "quincaillerie_fixations", subcategory: "Outillage", unit: "pièce", basePrice: 1900, brand: "Comptoir Pro", manufacturer: "Comptoir Pro" },
-  // Aménagement extérieur / piscine / jardin
-  { name: "Clôture béton préfabriquée (m)", category: "amenagements_exterieurs", subcategory: "Clôtures", unit: "mètre", basePrice: 95, brand: "COBAM Group", manufacturer: "COBAM Group" },
-  { name: "Pavé autobloquant (m²)", category: "amenagements_exterieurs", subcategory: "Pavés", unit: "m²", basePrice: 32, brand: "SOPAL", manufacturer: "SOPAL" },
-  { name: "Revêtement piscine mosaïque (m²)", category: "amenagements_exterieurs", subcategory: "Revêtement", unit: "m²", basePrice: 55, brand: "SOPAL", manufacturer: "SOPAL" },
-  { name: "Gazon synthétique (m²)", category: "amenagements_exterieurs", subcategory: "Gazon", unit: "m²", basePrice: 18, brand: "eBonus Market", manufacturer: "eBonus Market" },
 ];
 
-// ── Helpers ──
-export const isMarketAdmin = async (ctx: any) => {
-  const user = await getCurrentUser(ctx);
-  if (!user) throw new Error("Non authentifié");
-  if (user.role !== "admin" && user.role !== "moderator") throw new Error("Accès réservé à l'administration");
-  return user;
-};
-
-const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
-const jitter = (base: number, pct: number) =>
-  Math.round(base * (1 + (Math.random() * 2 - 1) * pct) * 100) / 100;
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SEED — idempotent. Inserts missing sources, catalog products and offers.
-// ═══════════════════════════════════════════════════════════════════════════
+// ── Seed market data (admin only) ─────────────────────────────────────────
 export const seedMarketData = mutation({
   args: {},
   handler: async (ctx) => {
-    const admin = await isMarketAdmin(ctx);
-    const now = Date.now();
-
-    // 1. Sources
-    const existingSources = await ctx.db.query("marketSources").collect();
-    const known = new Set(existingSources.map((s) => s.name));
-    const sources: { id: string; name: string; type: "fabricant" | "distributeur" | "plateforme"; reliabilityScore: number }[] = [];
-    for (const src of MARKET_SOURCES) {
-      if (known.has(src.name)) {
-        const found = existingSources.find((s) => s.name === src.name)!;
-        sources.push({ id: found._id, name: found.name, type: found.type, reliabilityScore: found.reliabilityScore });
-        continue;
-      }
-      const id = await ctx.db.insert("marketSources", {
-        name: src.name,
-        type: src.type,
-        website: src.website,
-        reliabilityScore: src.reliabilityScore,
-        active: true,
-        createdAt: now,
-      });
-      sources.push({ id, name: src.name, type: src.type, reliabilityScore: src.reliabilityScore });
+    const user = await getCurrentUser(ctx);
+    if (!user || (user.role !== "admin" && user.role !== "moderator")) {
+      throw new Error("Cette action est réservée aux administrateurs.");
     }
 
-    // 2. Catalog → materialPrices
-    const existingProducts = await ctx.db.query("materialPrices").collect();
-    const productsByName = new Map(existingProducts.map((p) => [p.name, p]));
-    let seeded = 0;
-    for (const item of MARKET_CATALOG) {
-      let productId = productsByName.get(item.name)?._id;
-      if (!productId) {
-        productId = await ctx.db.insert("materialPrices", {
-          category: item.category as any,
-          name: item.name,
-          unit: item.unit,
-          unitPrice: item.basePrice,
+    // Seed materialPrices if empty
+    const existing = await ctx.db.query("materialPrices").collect();
+    if (existing.length > 0) {
+      return { message: "Données marché déjà initialisées.", count: existing.length };
+    }
+
+    const MATERIALS_SEED = [
+      { name: "Ciment CPJ 42.5", unit: "sac 50kg", unitPrice: 28, category: "ciment", subcategory: "portland" },
+      { name: "Ciment CPJ 32.5", unit: "sac 50kg", unitPrice: 22, category: "ciment", subcategory: "modifie" },
+      { name: "Sable fin 0/2", unit: "m³", unitPrice: 45, category: "sable", subcategory: "beton" },
+      { name: "Sable moyen 0/5", unit: "m³", unitPrice: 40, category: "sable", subcategory: "maconnerie" },
+      { name: "Gravier 5/15", unit: "m³", unitPrice: 55, category: "gravier", subcategory: "beton" },
+      { name: "Gravier 15/25", unit: "m³", unitPrice: 50, category: "gravier", subcategory: "gros_betons" },
+      { name: "Brique rouge pleine", unit: "pièce", unitPrice: 0.35, category: "briques", subcategory: "rouge" },
+      { name: "Brique creuse 20cm", unit: "pièce", unitPrice: 0.55, category: "briques", subcategory: "creuse" },
+      { name: "Blocs béton 20cm", unit: "pièce", unitPrice: 1.2, category: "blocs_beton", subcategory: "20cm" },
+      { name: "Blocs béton 15cm", unit: "pièce", unitPrice: 0.95, category: "blocs_beton", subcategory: "15cm" },
+      { name: "Treillis soudé ST25", unit: "panneau", unitPrice: 42, category: "acier", subcategory: "treillis" },
+      { name: "Fer à béton Ø12", unit: "barre 12m", unitPrice: 28, category: "acier", subcategory: "barre" },
+      { name: "Fer à béton Ø16", unit: "barre 12m", unitPrice: 48, category: "acier", subcategory: "barre" },
+      { name: "Plaque de plâtre Knauf 12.5mm", unit: "m²", unitPrice: 18, category: "plafond", subcategory: "plaque" },
+      { name: "Profilé métallique 48mm", unit: "barre 3m", unitPrice: 8, category: "plafond", subcategory: "profile" },
+      { name: "Enduit intérieur gris", unit: "sac 25kg", unitPrice: 22, category: "enduit", subcategory: "interieur" },
+      { name: "Peinture blanche mate", unit: "bidon 5L", unitPrice: 65, category: "peinture", subcategory: "mate" },
+      { name: "Carrelage sol grès cérame", unit: "m²", unitPrice: 35, category: "carrelage", subcategory: "sol" },
+      { name: "Faïence murale blanche", unit: "m²", unitPrice: 28, category: "carrelage", subcategory: "mur" },
+      { name: "Porte intérieure standard", unit: "unité", unitPrice: 380, category: "portes", subcategory: "interieur" },
+      { name: "Porte d'entrée blindée", unit: "unité", unitPrice: 1200, category: "portes", subcategory: "exterieur" },
+      { name: "Fenêtre PVC double vitrage", unit: "m²", unitPrice: 220, category: "menuiserie", subcategory: "pvc" },
+      { name: "WC suspendu complet", unit: "unité", unitPrice: 450, category: "sanitaires", subcategory: "wc" },
+      { name: "Lavabo sur meuble", unit: "unité", unitPrice: 320, category: "sanitaires", subcategory: "lavabo" },
+      { name: "Receveur de douche 80x120", unit: "unité", unitPrice: 280, category: "sanitaires", subcategory: "douche" },
+      { name: "Robinetterie chromée", unit: "point d'eau", unitPrice: 85, category: "robinetterie", subcategory: "chrome" },
+      { name: "Tuyau PER Ø26", unit: "barre 4m", unitPrice: 18, category: "plomberie", subcategory: "per" },
+      { name: "Tuyau PVC Ø110", unit: "barre 4m", unitPrice: 22, category: "plomberie", subcategory: "pvc" },
+      { name: "Câble électrique 2.5mm²", unit: "rouleau 100m", unitPrice: 120, category: "electricite", subcategory: "cable" },
+      { name: "Disjoncteur divisionnaire 20A", unit: "unité", unitPrice: 12, category: "electricite", subcategory: "disjoncteur" },
+      { name: "Tableau électrique 24 modules", unit: "unité", unitPrice: 180, category: "electricite", subcategory: "tableau" },
+      { name: "Prise 2P+T 16A", unit: "unité", unitPrice: 8, category: "electricite", subcategory: "prise" },
+      { name: "Interrupteur simple", unit: "unité", unitPrice: 7, category: "electricite", subcategory: "interrupteur" },
+      { name: "Chauffe-eau 50L", unit: "unité", unitPrice: 380, category: "sanitaires", subcategory: "chauffe_eau" },
+      { name: "Climatisation split 12000 BTU", unit: "unité", unitPrice: 1200, category: "climatisation", subcategory: "split" },
+      { name: "Panneau solaire 350W", unit: "module", unitPrice: 650, category: "panneaux_solaires", subcategory: "photovoltaique" },
+    ];
+
+    const count = MATERIALS_SEED.length;
+    for (const m of MATERIALS_SEED) {
+      await ctx.db.insert("materialPrices", {
+        ...m,
+        currency: "TND",
+        lastUpdated: Date.now(),
+        priceQuality: "marche_tunisien_2026",
+        availability: "disponible",
+      });
+    }
+
+    return { message: `${count} matériaux insérés dans le catalogue.`, count };
+  },
+});
+
+// ── Sync prices from external source (admin) ──────────────────────────────
+export const syncMaterialPrices = mutation({
+  args: {
+    prices: v.array(
+      v.object({
+        name: v.string(),
+        unit: v.string(),
+        unitPrice: v.number(),
+        category: materialCategoryValidator,
+        subcategory: v.optional(v.string()),
+      }),
+    ),
+  },
+  handler: async (ctx, { prices }) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || (user.role !== "admin" && user.role !== "moderator")) {
+      throw new Error("Cette action est réservée aux administrateurs.");
+    }
+
+    const existing = await ctx.db.query("materialPrices").collect();
+    const existingByName = new Map(existing.map((e) => [e.name, e]));
+
+    let updated = 0;
+    let inserted = 0;
+
+    for (const p of prices) {
+      const existingItem = existingByName.get(p.name);
+      if (existingItem) {
+        if (existingItem.unitPrice !== p.unitPrice) {
+          await ctx.db.patch(existingItem._id, {
+            unitPrice: p.unitPrice,
+            unit: p.unit,
+            lastUpdated: Date.now(),
+          });
+          updated++;
+        }
+      } else {
+        await ctx.db.insert("materialPrices", {
+          ...p,
           currency: "TND",
-          lastUpdated: now,
-          updatedBy: admin._id as any,
-          subcategory: item.subcategory,
-          brand: item.brand,
-          manufacturer: item.manufacturer,
-          minPrice: item.basePrice,
-          avgPrice: item.basePrice,
-          maxPrice: item.basePrice,
+          lastUpdated: Date.now(),
+          priceQuality: "marche_tunisien_2026",
           availability: "disponible",
-          reliabilityIndex: 0.8,
         });
-        seeded++;
+        inserted++;
       }
-      // 3. Offers per matching source (max 3 per product)
-      const candidates = sources.filter(
-        (s) => s.name === item.manufacturer || s.name === item.brand || s.type === "distributeur"
+    }
+
+    return { updated, inserted, total: existing.length + inserted };
+  },
+});
+
+// ── Get all material prices ───────────────────────────────────────────────
+export const getMaterialPrices = query({
+  args: {
+    category: v.optional(materialCategoryValidator),
+    search: v.optional(v.string()),
+  },
+  handler: async (ctx, { category, search }) => {
+    let query = ctx.db.query("materialPrices");
+
+    if (category) {
+      query = query.withIndex("by_category", (q) => q.eq("category", category));
+    }
+
+    const all = await query.collect();
+
+    if (search) {
+      const lower = search.toLowerCase();
+      return all.filter(
+        (m) =>
+          m.name.toLowerCase().includes(lower) ||
+          m.category.toLowerCase().includes(lower),
       );
-      const offerSources = candidates.length > 0 ? candidates.slice(0, 3) : sources.slice(0, 2);
-      const existingOffers = await ctx.db
-        .query("materialOffers")
-        .withIndex("by_product", (q) => q.eq("productId", productId as any))
-        .collect();
-      const offerKeys = new Set(existingOffers.map((o) => o.supplier));
-      for (const src of offerSources) {
-        if (offerKeys.has(src.name)) continue;
-        const minP = jitter(item.basePrice, 0.06);
+    }
+
+    return all;
+  },
+});
+
+// ── Get material price history (for a specific material) ──────────────────
+export const getMaterialPriceHistory = query({
+  args: { materialPriceId: v.id("materialPrices") },
+  handler: async (ctx, { materialPriceId }) => {
+    const history = await ctx.db
+      .query("materialPriceHistory")
+      .withIndex("by_material", (q) => q.eq("materialPriceId", materialPriceId))
+      .order("desc")
+      .collect();
+    return history;
+  },
+});
+
+// ── Seed supplier offers ──────────────────────────────────────────────────
+export const seedSupplierOffers = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || (user.role !== "admin" && user.role !== "moderator")) {
+      throw new Error("Cette action est réservée aux administrateurs.");
+    }
+
+    const existing = await ctx.db.query("materialOffers").collect();
+    if (existing.length > 0) {
+      return { message: "Offres fournisseurs déjà initialisées.", count: existing.length };
+    }
+
+    const materials = await ctx.db.query("materialPrices").collect();
+    if (materials.length === 0) {
+      throw new Error("Insérez d'abord les matériaux (seedMarketData).");
+    }
+
+    const suppliers = [
+      { name: "Comptoir Hammami", type: "distributeur", governorate: "Tunis" },
+      { name: "COBAM Group", type: "distributeur", governorate: "Sfax" },
+      { name: "Batiprice Tunisie", type: "plateforme", governorate: "Tunis" },
+      { name: "COMAF", type: "distributeur", governorate: "Sousse" },
+      { name: "BMP (Building Market Place)", type: "plateforme", governorate: "Ariana" },
+    ];
+
+    let count = 0;
+    for (const mat of materials) {
+      // 2-3 offres par matériau
+      const offerCount = 2 + Math.floor(Math.random() * 2);
+      const chosen = [...suppliers].sort(() => Math.random() - 0.5).slice(0, offerCount);
+      for (const s of chosen) {
+        const variance = 0.9 + Math.random() * 0.2; // ±10%
+        const price = Math.round(mat.unitPrice * variance * 100) / 100;
         await ctx.db.insert("materialOffers", {
-          productId: productId as any,
-          category: item.category,
-          subcategory: item.subcategory,
-          name: item.name,
-          brand: item.brand,
-          manufacturer: item.manufacturer,
-          unit: item.unit,
-          minPrice: minP,
-          avgPrice: jitter(item.basePrice, 0.04),
-          maxPrice: jitter(item.basePrice, 0.08),
+          productId: mat._id,
+          name: mat.name,
+          supplier: s.name,
+          sourceType: s.type,
+          unit: mat.unit,
+          minPrice: price * 0.95,
+          maxPrice: price * 1.1,
+          avgPrice: price,
           currency: "TND",
-          governorate: pick(GOVERNORATES),
-          city: pick(GOVERNORATES),
-          supplier: src.name,
-          sourceId: src.id as any,
-          sourceType: src.type,
+          governorate: s.governorate,
+          reliabilityIndex: 0.7 + Math.random() * 0.25,
           availability: "disponible",
-          reliabilityIndex: Math.round(src.reliabilityScore * 100) / 100,
-          updatedAt: now,
+          lastUpdated: Date.now(),
         });
+        count++;
       }
     }
-    return { seededProducts: seeded, sources: sources.length, catalog: MARKET_CATALOG.length };
+
+    return { message: `${count} offres fournisseurs créées.`, count };
+  },
+});
+
+// ── Get supplier offers for a material ────────────────────────────────────
+export const getSupplierOffers = query({
+  args: { materialPriceId: v.id("materialPrices") },
+  handler: async (ctx, { materialPriceId }) => {
+    return await ctx.db
+      .query("materialOffers")
+      .withIndex("by_product", (q) => q.eq("productId", materialPriceId))
+      .collect();
   },
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SYNC — simulates market refresh: price drift, stock changes, history logs.
-// Extensible: replace the jitter logic with real web scrapers/APIs per source.
-// ═══════════════════════════════════════════════════════════════════════════
-export const syncMarketData = mutation({
-  args: {},
-  handler: async (ctx) => {
-    await isMarketAdmin(ctx);
-    return runSync(ctx);
-  },
-});
-
-// Internal entry point used by the weekly cron (no auth check).
-export const runMarketSyncInternal = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    return runSync(ctx);
-  },
-});
-
-async function runSync(ctx: any) {
-  const now = Date.now();
-  const offers = await ctx.db.query("materialOffers").collect();
-  let updated = 0;
-  let history = 0;
-  let stockAlerts = 0;
-
-  for (const offer of offers) {
-    // 15% chance of price drift; 8% chance of availability change
-    const drift = Math.random() < 0.15;
-    const stockChange = Math.random() < 0.08;
-    if (!drift && !stockChange) continue;
-
-    const prevMin = offer.minPrice;
-    const prevAvg = offer.avgPrice;
-    const prevMax = offer.maxPrice;
-    let newMin = prevMin;
-    let newAvg = prevAvg;
-    let newMax = prevMax;
-    if (drift) {
-      const delta = 1 + (Math.random() * 2 - 1) * 0.07;
-      newMin = Math.round(prevMin * delta * 100) / 100;
-      newAvg = Math.round(prevAvg * delta * 100) / 100;
-      newMax = Math.round(prevMax * delta * 100) / 100;
-    }
-    const avail: "disponible" | "sur_commande" | "rupture" = stockChange
-      ? (["disponible", "sur_commande", "rupture"] as const)[Math.floor(Math.random() * 3)]
-      : offer.availability;
-
-    await ctx.db.patch(offer._id, {
-      minPrice: newMin,
-      avgPrice: newAvg,
-      maxPrice: newMax,
-      availability: avail,
-      updatedAt: now,
-    });
-    updated++;
-    if (avail === "rupture") stockAlerts++;
-
-    if (drift) {
-      await ctx.db.insert("offerPriceHistory", {
-        offerId: offer._id,
-        previousMin: prevMin,
-        previousAvg: prevAvg,
-        previousMax: prevMax,
-        newMin: newMin,
-        newAvg: newAvg,
-        newMax: newMax,
-        changedAt: now,
-      });
-      history++;
-    }
-  }
-
-  // Re-aggregate product-level stats (min/avg/max, reliability, availability)
-  const products = await ctx.db.query("materialPrices").collect();
-  const offersByProduct = new Map<string, any[]>();
-  for (const o of offers) {
-    const list = offersByProduct.get(o.productId) || [];
-    list.push(o);
-    offersByProduct.set(o.productId, list);
-  }
-  for (const p of products) {
-    const list = offersByProduct.get(p._id) || [];
-    if (list.length === 0) continue;
-    const mins = list.map((o) => o.minPrice);
-    const avgs = list.map((o) => o.avgPrice);
-    const rel = list.reduce((s, o) => s + o.reliabilityIndex, 0) / list.length;
-    const hasStock = list.some((o) => o.availability === "disponible");
-    const allRupture = list.length > 0 && list.every((o) => o.availability === "rupture");
-    await ctx.db.patch(p._id, {
-      minPrice: Math.min(...mins),
-      avgPrice: Math.round((avgs.reduce((a, b) => a + b, 0) / avgs.length) * 100) / 100,
-      maxPrice: Math.max(...mins),
-      unitPrice: Math.round((avgs.reduce((a, b) => a + b, 0) / avgs.length) * 100) / 100,
-      reliabilityIndex: Math.round(rel * 100) / 100,
-      availability: allRupture ? "rupture" : hasStock ? "disponible" : "sur_commande",
-      lastUpdated: now,
-    });
-  }
-
-  // Touch sources for lastSyncAt
-  const sources = await ctx.db.query("marketSources").collect();
-  for (const s of sources) await ctx.db.patch(s._id, { lastSyncAt: now });
-
-  return { updatedOffers: updated, historyRows: history, stockAlerts, syncedAt: now };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ANALYTICS QUERIES — public (read) so the predictive module can reuse them.
-// ═══════════════════════════════════════════════════════════════════════════
-export const getMarketOverview = query({
-  args: {},
-  handler: async (ctx) => {
-    const [offers, products, sources, history] = await Promise.all([
-      ctx.db.query("materialOffers").collect(),
-      ctx.db.query("materialPrices").collect(),
-      ctx.db.query("marketSources").collect(),
-      ctx.db.query("offerPriceHistory").order("desc").take(200),
-    ]);
-    const byCategory = new Map<string, { offers: number; avg: number; min: number }>();
-    for (const o of offers) {
-      const cur = byCategory.get(o.category) || { offers: 0, avg: 0, min: Infinity };
-      cur.offers++;
-      cur.avg += o.avgPrice;
-      cur.min = Math.min(cur.min, o.minPrice);
-      byCategory.set(o.category, cur);
-    }
-    const categories = [...byCategory.entries()].map(([category, c]) => ({
-      category,
-      offers: c.offers,
-      avgPrice: Math.round((c.avg / c.offers) * 100) / 100,
-      minPrice: c.min,
-    }));
-    const avgChange =
-      history.length > 0
-        ? Math.round(
-            (history.reduce((s, h) => s + ((h.newAvg - h.previousAvg) / h.previousAvg) * 100, 0) /
-              history.length) *
-              100
-          ) / 100
-        : 0;
-    return {
-      totalOffers: offers.length,
-      totalProducts: products.length,
-      totalSources: sources.filter((s) => s.active).length,
-      sourcesByType: {
-        fabricant: sources.filter((s) => s.type === "fabricant").length,
-        distributeur: sources.filter((s) => s.type === "distributeur").length,
-        plateforme: sources.filter((s) => s.type === "plateforme").length,
-      },
-      avgChange,
-      categories,
-      lastSyncAt: sources.length ? Math.max(...sources.map((s) => s.lastSyncAt || 0)) : null,
-    };
-  },
-});
-
-export const getBestOffers = query({
-  args: { category: v.optional(v.string()), limit: v.optional(v.number()) },
-  handler: async (ctx, { category, limit }) => {
-    let offers = await ctx.db.query("materialOffers").collect();
-    if (category) offers = offers.filter((o) => o.category === category);
-    // Best = cheapest reliable offer per product
-    const bestByProduct = new Map<string, any>();
-    for (const o of offers) {
-      const cur = bestByProduct.get(o.productId);
-      if (!cur || o.minPrice < cur.minPrice) bestByProduct.set(o.productId, o);
-    }
-    return [...bestByProduct.values()]
-      .sort((a, b) => a.minPrice - b.minPrice)
-      .slice(0, limit || 10)
-      .map((o) => ({
-        productId: o.productId,
-        name: o.name,
-        category: o.category,
-        brand: o.brand,
-        unit: o.unit,
-        price: o.minPrice,
-        supplier: o.supplier,
-        governorate: o.governorate,
-        reliabilityIndex: o.reliabilityIndex,
-        availability: o.availability,
-      }));
-  },
-});
-
-export const getStockAlerts = query({
-  args: {},
-  handler: async (ctx) => {
-    const offers = await ctx.db.query("materialOffers").collect();
-    return offers
-      .filter((o) => o.availability === "rupture" || o.availability === "sur_commande")
-      .map((o) => ({
-        name: o.name,
-        supplier: o.supplier,
-        governorate: o.governorate,
-        availability: o.availability,
-        lastPrice: o.avgPrice,
-        updatedAt: o.updatedAt,
-      }))
-      .slice(0, 30);
-  },
-});
-
-export const getPriceTrends = query({
-  args: { productId: v.optional(v.id("materialPrices")) },
-  handler: async (ctx, { productId }) => {
-    const history = await ctx.db.query("offerPriceHistory").order("desc").take(500);
-    if (productId) {
-      const offers = await ctx.db.query("materialOffers").withIndex("by_product", (q) => q.eq("productId", productId)).collect();
-      const ids = new Set(offers.map((o) => o._id));
-      return history
-        .filter((h) => ids.has(h.offerId))
-        .sort((a, b) => a.changedAt - b.changedAt)
-        .map((h) => ({ at: h.changedAt, avg: h.newAvg }));
-    }
-    // Aggregate trend per category (last 500 changes)
-    const offers = await ctx.db.query("materialOffers").collect();
-    const byId = new Map(offers.map((o) => [o._id, o]));
-    const byCategory = new Map<string, { changes: number; netPct: number }>();
-    for (const h of history) {
-      const offer = byId.get(h.offerId);
-      if (!offer) continue;
-      const cur = byCategory.get(offer.category) || { changes: 0, netPct: 0 };
-      cur.changes++;
-      cur.netPct += ((h.newAvg - h.previousAvg) / h.previousAvg) * 100;
-      byCategory.set(offer.category, cur);
-    }
-    return [...byCategory.entries()]
-      .map(([category, c]) => ({
-        category,
-        changes: c.changes,
-        netPct: Math.round(c.netPct * 100) / 100,
-      }))
-      .sort((a, b) => b.changes - a.changes);
-  },
-});
-
-export const getGovernoratePrices = query({
-  args: { category: v.optional(v.string()) },
-  handler: async (ctx, { category }) => {
-    let offers = await ctx.db.query("materialOffers").collect();
-    if (category) offers = offers.filter((o) => o.category === category);
-    const byGov = new Map<string, { count: number; sum: number }>();
-    for (const o of offers) {
-      const key = o.governorate || "Tunis";
-      const cur = byGov.get(key) || { count: 0, sum: 0 };
-      cur.count++;
-      cur.sum += o.avgPrice;
-      byGov.set(key, cur);
-    }
-    const rows = [...byGov.entries()]
-      .map(([governorate, c]) => ({
-        governorate,
-        offers: c.count,
-        avgPrice: Math.round((c.sum / c.count) * 100) / 100,
-      }))
-      .sort((a, b) => a.avgPrice - b.avgPrice);
-    const overall = rows.reduce((s, r) => s + r.avgPrice, 0) / (rows.length || 1);
-    return {
-      rows,
-      cheapest: rows[0] || null,
-      mostExpensive: rows[rows.length - 1] || null,
-      nationalAverage: Math.round(overall * 100) / 100,
-    };
-  },
-});
-
-export const getSupplierComparison = query({
-  args: { productId: v.id("materialPrices") },
-  handler: async (ctx, { productId }) => {
-    const offers = await ctx.db.query("materialOffers").withIndex("by_product", (q) => q.eq("productId", productId)).collect();
-    return offers
-      .map((o) => ({
-        supplier: o.supplier,
-        sourceType: o.sourceType,
-        minPrice: o.minPrice,
-        avgPrice: o.avgPrice,
-        maxPrice: o.maxPrice,
-        governorate: o.governorate,
-        availability: o.availability,
-        reliabilityIndex: o.reliabilityIndex,
-        updatedAt: o.updatedAt,
-      }))
-      .sort((a, b) => a.minPrice - b.minPrice);
-  },
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// MEILLEUR FOURNISSEUR PAR DÉSIGNATION (Quantitatif détaillé)
+// Meilleur fournisseur (prix minimum) par désignation du quantitatif
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Normalise un libellé pour la comparaison (minuscules, sans accents, sans ponctuation). */
 const normOffer = (s: string) =>
   s
+    .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/×/g, "x")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 
-/** Mots-clés significatifs (≥ 3 caractères) d'un libellé, pour le repli approximatif. */
 const offerTokens = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
+  normOffer(s)
+    .split(" ")
     .filter((t) => t.length >= 3);
 
-/**
- * Meilleure offre (fournisseur au prix minimum le plus bas, fiabilité en cas
- * d'égalité) pour chaque désignation du « Quantitatif détaillé ».
- *
- * La correspondance est faite par libellé normalisé, avec repli sur la
- * sous-chaîne puis sur le recouvrement de mots-clés significatifs, pour
- * aligner les postes BIM (ex. « Treillis soudé ST25 (panneau) ») sur les
- * offres marché (ex. « Treillis soudé ST 25 »). Les désignations sans offre
- * recensée renvoient null (affichées « — » côté client).
- */
 export const getCheapestSuppliers = query({
   args: { names: v.array(v.string()) },
   handler: async (ctx, { names }) => {
@@ -555,8 +296,7 @@ export const getCheapestSuppliers = query({
 
     const bestOf = (list: any[]) =>
       list.reduce((best, o) =>
-        o.minPrice < best.minPrice ||
-        (o.minPrice === best.minPrice && (o.reliabilityIndex || 0) > (best.reliabilityIndex || 0))
+        o.minPrice < best.minPrice || (o.minPrice === best.minPrice && (o.reliabilityIndex || 0) > (best.reliabilityIndex || 0))
           ? o
           : best,
       );
@@ -567,7 +307,7 @@ export const getCheapestSuppliers = query({
       const exact = byKey.get(key);
       let best = exact ? bestOf(exact) : undefined;
 
-      // Repli 1 : sous-chaîne (l'un contient l'autre) sur libellés suffisamment longs
+      // Repli 1 : sous-chaîne
       if (!best && key.length >= 10) {
         for (const [ok, list] of byKey) {
           if (ok.length >= 8 && (key.includes(ok) || ok.includes(key))) {
@@ -577,7 +317,7 @@ export const getCheapestSuppliers = query({
         }
       }
 
-      // Repli 2 : recouvrement de mots-clés significatifs (≥ 2 termes communs)
+      // Repli 2 : recouvrement de mots-clés (≥ 2 termes communs)
       if (!best) {
         const itemTokens = offerTokens(name);
         if (itemTokens.length >= 2) {
@@ -609,5 +349,66 @@ export const getCheapestSuppliers = query({
       );
     }
     return results.filter(Boolean);
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Prix catalogue pour les items BIM (source de vérité = même page Matériaux AI)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const getCatalogPricesForNames = query({
+  args: { names: v.array(v.string()) },
+  handler: async (ctx, { names }) => {
+    if (names.length === 0) return [];
+
+    const prices = await ctx.db.query("materialPrices").collect();
+    if (prices.length === 0) return [];
+
+    // Index par nom normalisé → { unitPrice, unit, name }
+    const byKey = new Map<string, { unitPrice: number; unit: string; name: string }>();
+    for (const p of prices) {
+      const key = normOffer(p.name);
+      if (!key || p.unitPrice <= 0) continue;
+      if (!byKey.has(key)) {
+        byKey.set(key, { unitPrice: p.unitPrice, unit: p.unit, name: p.name });
+      }
+    }
+
+    const results: { name: string; unitPrice: number; unit: string }[] = [];
+    for (const rawName of names) {
+      const key = normOffer(rawName);
+      const exact = key ? byKey.get(key) : undefined;
+      let match = exact;
+
+      // Repli 1 : sous-chaîne
+      if (!match && key && key.length >= 10) {
+        for (const [pk, pval] of byKey) {
+          if (pk.length >= 8 && (key.includes(pk) || pk.includes(key))) {
+            match = pval;
+            break;
+          }
+        }
+      }
+
+      // Repli 2 : recouvrement de mots-clés (≥ 2 termes communs)
+      if (!match && key) {
+        const itemTokens = offerTokens(rawName);
+        if (itemTokens.length >= 2) {
+          let bestScore = 0;
+          for (const [pk, pval] of byKey) {
+            const score = itemTokens.filter((t) => pk.includes(t)).length;
+            if (score >= 2 && score > bestScore) {
+              bestScore = score;
+              match = pval;
+            }
+          }
+        }
+      }
+
+      if (match) {
+        results.push({ name: rawName, unitPrice: match.unitPrice, unit: match.unit });
+      }
+    }
+    return results;
   },
 });
