@@ -101,20 +101,25 @@ export default function AiMaterials() {
     surface: 120,
     floors: 1,
     region: "tunis",
-    city: "",
-    quarter: "",
     standing: "standard",
-    year: new Date().getFullYear(),
     budgetMode: "moyen",
     budgetAmount: 120000,
   });
   const [priorities, setPriorities] = useState({ price: 50, quality: 50, isolation: 50, durability: 50, eco: 50 });
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
 
-  // Pré-sélectionner toutes les catégories disponibles au chargement
+  // Pré-sélectionner uniquement les catégories correspondant aux résultats BIM réels
   useEffect(() => {
     if (catStats.length > 0 && selectedCats.length === 0) {
-      setSelectedCats(catStats.map((c) => c.id));
+      const CORE_CATEGORY_IDS = new Set([
+        // Gros oeuvre
+        "ciment", "acier", "briques", "blocs_beton", "beton",
+        // Second oeuvre
+        "bois", "carrelage", "faience", "peinture", "enduit", "menuiserie", "portes", "revetements_sol",
+        // Equipements
+        "sanitaires", "robinetterie", "electricite", "plomberie", "chauffage", "climatisation",
+      ]);
+      setSelectedCats(catStats.filter((c) => CORE_CATEGORY_IDS.has(c.id)).map((c) => c.id));
     }
   }, [catStats]);
 
@@ -136,11 +141,8 @@ export default function AiMaterials() {
     const proj = projects.find((p: any) => p._id === projectId) as any;
     if (!proj) return {
       region: form.region,
-      city: form.city,
-      quarter: form.quarter,
       surface: Number(form.surface) || 0,
       floors: Number(form.floors) || 1,
-      year: Number(form.year) || new Date().getFullYear(),
       standing: form.standing as ProjectContext["standing"],
       budgetMode: form.budgetMode as ProjectContext["budgetMode"],
       budgetAmount: Number(form.budgetAmount) || undefined,
@@ -150,11 +152,8 @@ export default function AiMaterials() {
       projectName: proj.name,
       projectCategory: proj.category,
       region: proj.region || form.region,
-      city: form.city,
-      quarter: form.quarter,
       surface: Number(proj.surface || form.surface) || 0,
       floors: Number(proj.floors || form.floors) || 1,
-      year: Number(form.year) || new Date().getFullYear(),
       standing: form.standing as ProjectContext["standing"],
       budgetMode: form.budgetMode as ProjectContext["budgetMode"],
       budgetAmount: Number(form.budgetAmount) || undefined,
@@ -403,12 +402,12 @@ export default function AiMaterials() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 text-xs font-bold">2</div>
               <div>
                 <CardTitle className="text-sm font-semibold">Mon besoin</CardTitle>
-                <CardDescription className="text-[10px]">Contexte du projet — surface, localisation, standing et année prévue</CardDescription>
+                <CardDescription className="text-[10px]">Contexte du projet — surface, gouvernorat et standing</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="p-4 sm:p-5 space-y-4">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Surface (m²)</label>
                 <Input type="number" min={1} value={form.surface || ""}
@@ -427,21 +426,6 @@ export default function AiMaterials() {
                     <option key={k} value={k}>{v}</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Année de construction</label>
-                <Input type="number" min={2025} max={2035} value={form.year || ""}
-                  onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} className="h-9 text-sm rounded-lg" />
-              </div>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Ville</label>
-                <Input placeholder="ex. La Marsa" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="h-9 text-sm rounded-lg" />
-              </div>
-              <div>
-                <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Quartier / zone</label>
-                <Input placeholder="ex. Centre-ville" value={form.quarter} onChange={(e) => setForm({ ...form, quarter: e.target.value })} className="h-9 text-sm rounded-lg" />
               </div>
             </div>
             <div>
@@ -844,39 +828,7 @@ export default function AiMaterials() {
                           );
                         })()}
 
-                        {/* Tableau comparatif de la catégorie */}
-                        <div className="overflow-x-auto rounded-xl border border-border/30">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="border-b border-border/10 bg-muted/20">
-                                <th className="text-left py-2 px-3 font-medium text-muted-foreground">Critère (sur 100)</th>
-                                {cat.solutions.map((s) => (
-                                  <th key={s.profile} className="py-2 px-3 text-right font-semibold">{PROFILE_META[s.profile].label}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {CRITERIA.map((c) => (
-                                <tr key={c.key} className="border-b border-border/5">
-                                  <td className="py-1.5 px-3 text-muted-foreground">{c.label}</td>
-                                  {cat.solutions.map((s) => (
-                                    <td key={s.profile} className={cn("py-1.5 px-3 text-right font-semibold tabular-nums", scoreColor(s.scores[c.key]))}>
-                                      {s.scores[c.key]}
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
-                              <tr>
-                                <td className="py-2 px-3 font-bold">Note globale</td>
-                                {cat.solutions.map((s) => (
-                                  <td key={s.profile} className={cn("py-2 px-3 text-right font-black tabular-nums", scoreColor(s.scores.noteGlobale))}>
-                                    {s.scores.noteGlobale}
-                                  </td>
-                                ))}
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
+
                       </CardContent>
                     </Card>
                   </motion.div>
