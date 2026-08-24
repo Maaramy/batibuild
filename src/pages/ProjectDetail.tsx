@@ -23,6 +23,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { runBIMEstimation } from "@/convex/bimEngine";
+import { estimateQuantity, bimItemToCategory } from "@/convex/aiMaterialsEngine";
+import type { ProjectContext } from "@/convex/aiMaterialsEngine";
 import {
   projectTypeLabel,
   investmentTypeForProject as sharedInvestmentTypeForProject,
@@ -400,12 +402,92 @@ export default function ProjectDetail() {
     [scaledBreakdown],
   );
 
+  // ── Sync AiMaterials quantities & prices → ProjectDetail ──
+  // Collect all BIM item names to fetch their catalog prices
+  const allBimItemNames = useMemo(() => {
+    const names: string[] = [];
+    for (const cat of ce?.breakdown ?? []) {
+      for (const it of cat.items ?? []) names.push(it.name);
+    }
+    return names;
+  }, [ce?.breakdown]);
+
+  const catalogPrices = useQuery(
+    api.marketData.getCatalogPricesForNames,
+    allBimItemNames.length ? { names: allBimItemNames } : "skip",
+  );
+
+  // Build a price lookup map from the query results
+  const catalogPriceMap = useMemo(() => {
+    const m: Record<string, { unitPrice: number; unit: string }> = {};
+    for (const p of catalogPrices ?? []) m[p.name] = p;
+    return m;
+  }, [catalogPrices]);
+
+  // Build project context for estimateQuantity
+  const aiProjectCtx = useMemo((): ProjectContext | null => {
+    if (!project) return null;
+    return {
+      surface: project.surface ?? 150,
+      floors: project.floors ?? 1,
+      region: project.region ?? "tunis",
+      rooms: {
+        bedrooms: project.bedrooms,
+        bathrooms: project.bathrooms,
+        kitchens: project.kitchens,
+      },
+      projectCategory: project.category ?? "",
+    };
+  }, [project]);
+
+  // Override scaledBreakdown with AiMaterials quantities + catalog prices
+  const syncedBreakdown = useMemo(() => {
+    if (!scaledBreakdown.length || !aiProjectCtx) return scaledBreakdown;
+    return scaledBreakdown.map((cat: any) => ({
+      ...cat,
+      items: cat.items?.map((item: any) => {
+        const catId = bimItemToCategory(item.name);
+        if (!catId) return item; // no mapping → keep BIM values
+
+        // Override quantity with AiMaterials calculation
+        const aiQty = estimateQuantity(catId, aiProjectCtx);
+        const newQuantity = aiQty.quantity || item.quantity;
+        const newUnit = aiQty.unitLabel || item.unit;
+
+        // Override price with catalog price (if available)
+        const catPrice = catalogPriceMap[item.name];
+        const newUnitPrice = catPrice?.unitPrice ?? item.unitPrice;
+
+        return {
+          ...item,
+          quantity: newQuantity,
+          unit: newUnit,
+          unitPrice: newUnitPrice,
+          totalPrice: Math.round(newQuantity * newUnitPrice),
+        };
+      }),
+    }));
+  }, [scaledBreakdown, aiProjectCtx, catalogPriceMap]);
+
+  // Recalculate category totals from synced items
+  const syncedBreakdownWithTotals = useMemo(() => {
+    return syncedBreakdown.map((cat: any) => {
+      const total = cat.items?.reduce((s: number, it: any) => s + (it.totalPrice || 0), 0) ?? 0;
+      return { ...cat, estimatedCost: total };
+    });
+  }, [syncedBreakdown]);
+
+  // Use synced totals for region/national calculations
+  const syncedTotal = useMemo(() => {
+    return syncedBreakdownWithTotals.reduce((s: number, cat: any) => s + (cat.estimatedCost || 0), 0);
+  }, [syncedBreakdownWithTotals]);
+
   // ── Meilleur fournisseur (prix minimum) par désignation du quantitatif ──
   // Résolu en direct depuis les offres fournisseurs (materialOffers) : le nom
   // du fournisseur le moins cher est affiché pour chaque poste matériau.
   const quantitatifNames = useMemo(() => {
     const set = new Set<string>();
-    for (const b of ce?.breakdown ?? []) {
+    for (const b of syncedBreakdownWithTotals ?? []) {
       for (const it of b.items ?? []) {
         if (it.name) set.add(it.name);
       }
@@ -425,10 +507,11 @@ export default function ProjectDetail() {
   const { rMult, impactPct, baseCost, diff } = useMemo(() => {
     const r = project?.region ? (REGION_MULTIPLIER[project.region] ?? 1) : 1;
     const i = Math.round((r - 1) * 100);
-    const b = ce ? Math.round(ce.totalCost / r) : 0;
-    const d = ce ? ce.totalCost - b : 0;
+    const total = syncedTotal > 0 ? syncedTotal : (ce?.totalCost ?? 0);
+    const b = total > 0 ? Math.round(total / r) : 0;
+    const d = total > 0 ? total - b : 0;
     return { rMult: r, impactPct: i, baseCost: b, diff: d };
-  }, [project?.region, ce]);
+  }, [project?.region, ce, syncedTotal]);
 
   // ── Loading / Skeleton ──────────────────────────────────────────────────
 
@@ -1094,7 +1177,7 @@ export default function ProjectDetail() {
                             </tr>
                           </thead>
                           <tbody>
-                            {scaledBreakdown.filter((b: any) => b.items?.length).map((cat: any) => (
+                            {syncedBreakdownWithTotals.filter((b: any) => b.items?.length).map((cat: any) => (
                               <Fragment key={cat.label}>
                                 <tr className="border-b border-border/5 bg-muted/10">
                                   <td colSpan={5} className="py-2 px-3">
@@ -1194,8 +1277,8 @@ export default function ProjectDetail() {
                 <div className="h-[180px] sm:h-[210px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={scaledBreakdown} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="estimatedCost" nameKey="label">
-                        {scaledBreakdown.map((e: any) => <Cell key={e.label} fill={BIM_COLORS[e.category] ?? "#888"} />)}
+                      <Pie data={syncedBreakdownWithTotals} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="estimatedCost" nameKey="label">
+                        {syncedBreakdownWithTotals.map((e: any) => <Cell key={e.label} fill={BIM_COLORS[e.category] ?? "#888"} />)}
                       </Pie>
                       <Tooltip content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
@@ -1212,7 +1295,7 @@ export default function ProjectDetail() {
                   </ResponsiveContainer>
                 </div>
                 <div className="grid grid-cols-2 gap-1 mt-2 pt-3 border-t border-border/10">
-                  {scaledBreakdown.map((item: any) => {
+                  {syncedBreakdownWithTotals.map((item: any) => {
                     const Icon = BIM_ICONS[item.category] ?? Layers;
                     return (
                       <div key={item.label} className="flex items-center gap-1.5 text-[10px] sm:text-xs">
@@ -1230,7 +1313,7 @@ export default function ProjectDetail() {
                 <h3 className="text-sm font-semibold mb-1">Détail par catégorie</h3>
                 <p className="text-[10px] text-muted-foreground mb-3">Postes de travaux</p>
                 <div className="space-y-3">
-                  {[...scaledBreakdown].sort((a: any, b: any) => b.estimatedCost - a.estimatedCost).map((item: any, i: number) => {
+                  {[...syncedBreakdownWithTotals].sort((a: any, b: any) => b.estimatedCost - a.estimatedCost).map((item: any, i: number) => {
                     const Icon = BIM_ICONS[item.category] ?? Layers;
                     const color = BIM_COLORS[item.category] ?? "#888";
                     return (

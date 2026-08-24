@@ -24,11 +24,11 @@ export type ProjectContext = {
   quarter?: string;
   surface: number; // m² construits
   floors: number;
-  year: number;
-  standing: StandingLevel;
-  budgetMode: BudgetMode;
+  year?: number;
+  standing?: StandingLevel;
+  budgetMode?: BudgetMode;
   budgetAmount?: number; // TND (personnalisé)
-  priorities: Record<PriorityKey, number>; // 0-100
+  priorities?: Record<PriorityKey, number>; // 0-100
   rooms?: { bathrooms?: number; kitchens?: number; bedrooms?: number };
   terrainSurface?: number; // m² du terrain
 };
@@ -494,7 +494,7 @@ export function scoreMaterial(
     impactEnvironnemental: ecoScore(m, cat),
     noteGlobale: 0,
   };
-  const w = weightsFor(profile, ctx, ctx.budgetMode);
+  const w = weightsFor(profile, ctx, ctx.budgetMode ?? "moyen");
   prices.noteGlobale = round0(
     prices.prix * w.prix +
       prices.qualite * w.qualite +
@@ -1203,4 +1203,106 @@ export function buildAssistantContext(result: RecommendResult | null, ctx: Proje
 }
 
 // Prix indicatif du marché — dernière mise à jour : formaté côté client.
+// ═══════════════════════════════════════════════════════════════════════════
+// BIM → AiMaterials category mapping (for ProjectDetail sync)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Maps BIM item names (from bimEngine) → AiMaterials category IDs. */
+export const BIM_NAME_TO_CATEGORY: Record<string, string> = {
+  // Gros oeuvre
+  "Ciment CPJ 42.5 (Sac 50kg)": "ciment",
+  "Ciment CPJ 42.5 (sac 50 kg)": "ciment",
+  "Ciment CPJ 32.5 (Maçonnerie)": "ciment",
+  "Ciment CPJ 32.5 (sac 50 kg)": "ciment",
+  "Acier a beton T12": "acier",
+  "Acier à béton T12": "acier",
+  "Acier à béton T12 (tonne)": "acier",
+  "Acier à béton T10": "acier",
+  "Treillis soudé ST25": "acier",
+  "Brique creuse 10cm": "briques",
+  "Brique creuse 10 cm": "briques",
+  "Brique creuse 15cm": "briques",
+  "Brique creuse 15 cm": "briques",
+  "Brique creuse 20cm": "briques",
+  "Parpaing creux 20cm": "blocs_beton",
+  "Hourdis 16x50": "briques",
+  // Beton
+  "Béton prêt à l'emploi 300kg/m³": "beton",
+  "Béton prêt à l'emploi 350 kg/m³": "beton",
+  "Béton prêt à l'emploi 250 kg/m³": "beton",
+  "Béton armé coque C25/30": "beton",
+  "Béton de dalle industrielle C25/30": "beton",
+  "Béton de fondation linéaire": "beton",
+  "Béton de fondation massifs": "beton",
+  "Béton de propreté 150kg/m³": "beton",
+  // Bois
+  "Bois de coffrage": "bois",
+  "Bois de coffrage (m³)": "bois",
+  // Carrelage
+  "Carrelage sol grès cérame 40x40": "carrelage",
+  "Carrelage sol grès cérame 60x60": "carrelage",
+  "Carrelage extérieur antidérapant (m²)": "carrelage",
+  "Dalle grès cérame antidérapante 40x40": "carrelage",
+  // Faience
+  "Carrelage mural faïence 20x30": "faience",
+  // Peinture
+  "Peinture intérieure mate lessivable": "peinture",
+  "Peinture intérieure mate": "peinture",
+  "Peinture extérieure acrylique": "peinture",
+  "Peinture antirouille supports": "peinture",
+  // Enduit
+  "Enduit de lissage prêt à gâcher": "enduit",
+  "Enduit de lissage (kg)": "enduit",
+  "Enduit de façade ciment": "enduit",
+  // Menuiserie / Portes
+  "Porte intérieure en bois pleine": "portes",
+  "Porte d'entrée métallique blindée": "portes",
+  "Fenêtre coulissante alu simple vitrage": "menuiserie",
+  "Vitrine aluminium + porte coulissante": "menuiserie",
+  "Grille de protection métallique": "menuiserie",
+  "Portail métallique à deux vantaux": "portes",
+  // Sanitaires
+  "WC complet avec réservoir": "sanitaires",
+  "WC public + lave-mains": "sanitaires",
+  "Lavabo vasque + robinetterie": "sanitaires",
+  "Receveur de douche 90x90": "sanitaires",
+  "Chauffe-eau électrique 80L": "chauffage",
+  "Climatisation split 12000 BTU": "climatisation",
+  // Plomberie
+  "Tuyau PER Ø16": "plomberie",
+  "Tube PER Ø16 (ml)": "plomberie",
+  "Tuyau PVC Ø100 évacuation": "plomberie",
+  "Tube PVC évacuation Ø110 (ml)": "plomberie",
+  // Electricite
+  "Câble électrique 2.5mm²": "electricite",
+  "Disjoncteur divisionnaire 20A": "electricite",
+  "Prise de courant 2P+T encastrée": "electricite",
+  "Luminaire LED haute baie 150W": "electricite",
+  "Tableau électrique industriel": "electricite",
+  // Etancheite
+  "Étanchéité liquide bitumeuse": "etancheite",
+  "Étanchéité liquide bitumeuse (tête de mur)": "etancheite",
+  "Étanchéité enduit piscine hydrofuge": "etancheite",
+  "Revêtement liner PVC armé": "etancheite",
+  // Solaire
+  "Panneau photovoltaïque 450Wc monocristallin": "panneaux_solaires",
+  "Onduleur central": "equipements_energetiques",
+  "Câble solaire DC 6mm²": "electricite",
+  "Support aluminium fixation panneaux": "equipements_energetiques",
+  // Plafond
+  "Panneau de placoplâtre BA13": "cloisons_platre_plafonds",
+  "Faux plafond dalles 60x60": "cloisons_platre_plafonds",
+  "Corniche en plâtre": "cloisons_platre_plafonds",
+  // Exterieur
+  "Pavé autobloquant 6cm": "amenagement_exterieur",
+  "Gazon en plaques": "amenagement_exterieur",
+  "Bordure béton 50x20": "amenagement_exterieur",
+  "Bordures béton T2": "amenagement_exterieur",
+};
+
+/** Resolve a BIM item name → AiMaterials category ID (or null if not mapped). */
+export function bimItemToCategory(bimName: string): string | null {
+  return BIM_NAME_TO_CATEGORY[bimName] ?? null;
+}
+
 export const PRICE_DISCLAIMER = "Prix indicatif du marché — dernière mise à jour : ";
