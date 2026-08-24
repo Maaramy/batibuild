@@ -5,12 +5,6 @@
 // ============================================================================
 
 
-// ============================================================================
-// COEFFICIENT DE CORRECTION MARCHÉ — Réduction forfaitaire ~20%
-// Aligné avec bimEngine.ts pour cohérence des prix.
-// ============================================================================
-export const MARKET_DISCOUNT = 0.8;
-
 export type CatalogItem = {
   category: string;
   name: string;
