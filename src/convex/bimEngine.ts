@@ -19,60 +19,60 @@ import { PROJECT_TYPES, PROJECT_TYPE_LABELS } from "./projectTypes";
 // via P_CATEGORY_MAP so the price database and the BIM engine stay aligned.
 export const P = {
   // ── Terrassement et granulats ─────────────────────────────────────────
-  sand: { construction: 36, fine: 32, remblai: 28 },
-  gravel: { "15_25mm": 41, "8_15mm": 48 },
+  sand: { construction: 43.2, fine: 38.4, remblai: 33.6 },
+  gravel: { "15_25mm": 49.2, "8_15mm": 57.6 },
   // ── Liants, ciments et mortiers (Base_Materiaux 2026 — TTC) ───────────
-  // CPC / CEM II sac 50 kg : 11,85 TND · CPA / CEM I sac 50 kg : 12,85 TND
-  // HRS 42,5 sac 50 kg : 14,50 TND
-  cement: { bag42_5: 12.68, bag32_5: 11.88, hrs_42_5: 18.5 },
+  // CPC / CEM II sac 50 kg : 13.2,85 TND · CPA / CEM I sac 50 kg : 14.4,85 TND
+  // HRS 42,5 sac 50 kg : 16.8,50 TND
+  cement: { bag42_5: 15.22, bag32_5: 14.26, hrs_42_5: 22.2 },
   // ── Bétons et préfabrication ──────────────────────────────────────────
-  concrete: { ready_mix_250: 168, ready_mix_300: 188, ready_mix_350: 265 },
+  concrete: { ready_mix_250: 201.6, ready_mix_300: 225.6, ready_mix_350: 318 },
   // ── Acier et métaux de structure (COMAF / INTERMETAL / SIDENOR) ────────
-  // Rond Ø6 : 1,625 TND/barre · Ø8 : 10,75 · Ø10 : 19 · Ø12 : 20
-  // Ø14 : 29,40 · Ø16 : 38,30 · Treillis 150×150×4 : 4,384 TND/m²
-  steel: { t6_m: 0.76, t8_m: 1.12, t10_m: 1.68, t12_ton: 3080, t14_ton: 3160, treillis_m2: 15 },
+  // Rond Ø6 : 1.2,625 TND/barre · Ø8 : 12,75 · Ø10 : 22.8 · Ø12 : 24
+  // Ø14 : 34.8,40 · Ø16 : 45.6,30 · Treillis 150×150×4 : 4.8,384 TND/m²
+  steel: { t6_m: 0.91, t8_m: 1.34, t10_m: 2.02, t12_ton: 3696, t14_ton: 3792, treillis_m2: 18 },
   // ── Maçonnerie et éléments de plancher (Bâtiment El Baraka) ───────────
   // Brique creuse 12 cm : 0,85 · 8 cm : 0,78 · 6 cm : 0,50
   // Hourdis terre cuite H16 : 0,27 TND/pièce
-  bricks: { hollow_10: 0.68, hollow_15: 0.52, hourdis_16: 1.02, noot_6: 0.4, parpaing_15: 0.88, parpaing_20: 1.04, pleine_22x11x7: 0.55 },
+  bricks: { hollow_10: 0.82, hollow_15: 0.62, hourdis_16: 1.22, noot_6: 0.48, parpaing_15: 1.06, parpaing_20: 1.25, pleine_22x11x7: 0.66 },
   // ── Bois, panneaux et coffrage (COMAF) ────────────────────────────────
-  // Bois blanc autrichien madrier : 1 599 TND/m³
-  wood: { formwork_m3: 1279, framing_m3: 656, chevron_m: 12 },
+  // Bois blanc autrichien madrier : 1.2 599 TND/m³
+  wood: { formwork_m3: 1534.8, framing_m3: 787.2, chevron_m: 14.4 },
   // ── Étanchéité et protection (Sika / Astral) ─────────────────────────
-  // Sikalastic 220 W seau 7 kg : 135 TND
-  roofing: { tile_m2: 15, steel_sheet_m2: 23, waterproof_m2: 17, insulation_m2: 26 },
+  // Sikalastic 220 W seau 7 kg : 162 TND
+  roofing: { tile_m2: 18, steel_sheet_m2: 27.6, waterproof_m2: 20.4, insulation_m2: 31.2 },
   // ── Isolation thermique et acoustique ──────────────────────────────────
-  insulation: { laine_m2: 3, polyst_m2: 7, xps_m2: 16 },
+  insulation: { laine_m2: 3.6, polyst_m2: 8.4, xps_m2: 19.2 },
   // ── Revêtements de sols et murs (COMAF / Arkan) ──────────────────────
-  // Grès cérame : 30-80 TND/m² · Ciment-colle FM ECO : 9,57 TND/sac
-  tiles: { floor_m2: 24, wall_m2: 20, marble_m2: 96, granite_m2: 108, ext_m2: 27, plinthe_ml: 8 },
+  // Grès cérame : 36-80 TND/m² · Ciment-colle FM ECO : 10.8,57 TND/sac
+  tiles: { floor_m2: 28.8, wall_m2: 24, marble_m2: 115.2, granite_m2: 129.6, ext_m2: 32.4, plinthe_ml: 9.6 },
   // ── Peintures, enduits et finitions (Astral / Ripolin / Espace 2F) ────
-  // Aquastral Mat 20 kg : 64,94 TND · Astralatex 23 kg : 75 TND
-  // Ripolatex Mat 500 40 kg : 95 TND
-  paint: { interior_l: 17, exterior_l: 20, primer_l: 18 },
+  // Aquastral Mat 20 kg : 76.8,94 TND · Astralatex 23 kg : 90 TND
+  // Ripolatex Mat 500 40 kg : 114 TND
+  paint: { interior_l: 20.4, exterior_l: 24, primer_l: 21.6 },
   // ── Menuiseries (Chantier.tn / Arkan / Meuble Mansour) ───────────────
-  // Fenêtre alu série 40 simple vitrage 120×120 : 375 TND
-  // Fenêtre alu série 40 double vitrage 120×120 : 437 TND
-  // Fenêtre alu série 67 coulissante 140×120 : 477 TND
-  // Porte intérieure chêne + cadre : 815 TND
-  // Porte d'entrée frêne C1 : 2 850 TND
-  doors: { simple: 256, double: 440, metal: 440, garage: 1040, sliding: 850 },
-  windows: { alu_simple: 300, alu_double: 349, pvc: 336, iron_grille: 176, roller_shutter: 304, alu_coulissante: 477 },
+  // Fenêtre alu série 40 simple vitrage 120×120 : 450 TND
+  // Fenêtre alu série 40 double vitrage 120×120 : 524.4 TND
+  // Fenêtre alu série 67 coulissante 140×120 : 572.4 TND
+  // Porte intérieure chêne + cadre : 978 TND
+  // Porte d'entrée frêne C1 : 2.4 850 TND
+  doors: { simple: 307.2, double: 528, metal: 528, garage: 1248, sliding: 1020 },
+  windows: { alu_simple: 360, alu_double: 418.8, pvc: 403.2, iron_grille: 211.2, roller_shutter: 364.8, alu_coulissante: 572.4 },
   // ── Vitrage et produits verriers ──────────────────────────────────────
-  glass: { clear_m2: 22, double_m2: 54, tempered_m2: 115 },
+  glass: { clear_m2: 26.4, double_m2: 64.8, tempered_m2: 138 },
   // ── Équipements (Bricola / BStore / Espace 2F) ───────────────────────
-  // Câbles : fil rigide 1,5 mm² : 75 TND/100 m · 2,5 mm² : 119 TND/100 m
-  // Disjoncteur DPN 2×16A : 12,20 TND
-  // Disjoncteur diff 2×20A/30mA : 67,90 TND
-  // Réservoir encastré GROHE 10L : 450 TND
-  plumbing: { pvc_110: 12, pvc_50: 5, copper_m: 17, geyser: 384, wc: 224, lavabo: 128, douche: 288, evier: 240 },
-  electrical: { cable_1_5_m: 1.2, cable_2_5_m: 1.92, cable_6_m: 3.84, breaker: 41, panel: 168, led_light: 30, socket: 7, switch: 7 },
-  hvac: { split_12000: 1080, split_18000: 1440, vmc: 350 },
-  solar: { panel_450w: 440, onduleur: 2000, batterie_10kwh: 3200 },
+  // Câbles : fil rigide 1,5 mm² : 90 TND/100 m · 2,5 mm² : 142.8 TND/100 m
+  // Disjoncteur DPN 2×16A : 14.4,20 TND
+  // Disjoncteur diff 2×20A/30mA : 80.4,90 TND
+  // Réservoir encastré GROHE 10L : 540 TND
+  plumbing: { pvc_110: 14.4, pvc_50: 6, copper_m: 20.4, geyser: 460.8, wc: 268.8, lavabo: 153.6, douche: 345.6, evier: 288 },
+  electrical: { cable_1_5_m: 1.44, cable_2_5_m: 2.3, cable_6_m: 4.61, breaker: 49.2, panel: 201.6, led_light: 36, socket: 8.4, switch: 8.4 },
+  hvac: { split_12000: 1296, split_18000: 1728, vmc: 420 },
+  solar: { panel_450w: 528, onduleur: 2400, batterie_10kwh: 3840 },
   // ── Main-d'œuvre, transport et engins ────────────────────────────────
-  labor: { worker_day: 52, mason_day: 64, electrician_day: 60, plumber_day: 60, painter_day: 52, tiler_day: 80 },
-  transport: { truck_trip: 140, mixer_m3: 24, benne: 200 },
-  equipment: { excavator_day: 232, compactor_day: 168, mixer_day: 95 },
+  labor: { worker_day: 62.4, mason_day: 76.8, electrician_day: 72, plumber_day: 72, painter_day: 62.4, tiler_day: 96 },
+  transport: { truck_trip: 168, mixer_m3: 28.8, benne: 240 },
+  equipment: { excavator_day: 278.4, compactor_day: 201.6, mixer_day: 114 },
 };
 
 // ============================================================================
@@ -469,82 +469,82 @@ type Percentages = [number, number, number, number, number, number];
 
 export const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium: number }> = {
   // Maisons & Villa (Marché tunisien 2026 - fournitures + main d'œuvre)
-  maison:             { eco: 600, std: 880, premium: 1440 },
-  maison_r_plus_1:    { eco: 640, std: 920, premium: 1520 },
-  maison_r_plus_2:    { eco: 680, std: 960, premium: 1600 },
-  villa:              { eco: 720, std: 1080, premium: 1760 },
-  immeuble_residentiel:{ eco: 760, std: 1120, premium: 1760 },
-  immeuble:           { eco: 760, std: 1120, premium: 1760 },
-  appartement:        { eco: 800, std: 1200, premium: 1920 },
-  studio:             { eco: 760, std: 1120, premium: 1760 },
-  duplex:             { eco: 840, std: 1240, premium: 1960 },
-  residence_touristique:{ eco: 800, std: 1160, premium: 1840 },
-  projet_neuf:        { eco: 760, std: 1120, premium: 1760 },
-  maison_hote:        { eco: 760, std: 1120, premium: 1840 },
+  maison:             { eco: 720, std: 1056, premium: 1728 },
+  maison_r_plus_1:    { eco: 768, std: 1104, premium: 1824 },
+  maison_r_plus_2:    { eco: 816, std: 1152, premium: 1920 },
+  villa:              { eco: 864, std: 1296, premium: 2112 },
+  immeuble_residentiel:{ eco: 912, std: 1344, premium: 2112 },
+  immeuble:           { eco: 912, std: 1344, premium: 2112 },
+  appartement:        { eco: 960, std: 1440, premium: 2304 },
+  studio:             { eco: 912, std: 1344, premium: 2112 },
+  duplex:             { eco: 1008, std: 1488, premium: 2352 },
+  residence_touristique:{ eco: 960, std: 1392, premium: 2208 },
+  projet_neuf:        { eco: 912, std: 1344, premium: 2112 },
+  maison_hote:        { eco: 912, std: 1344, premium: 2208 },
 
   // Piscine & Extérieur
-  piscine:            { eco: 600, std: 880, premium: 1440 },
-  piscine_beton:      { eco: 600, std: 880, premium: 1440 },
-  piscine_coque:      { eco: 480, std: 720, premium: 1200 },
-  jardin:             { eco: 64, std: 104, premium: 200 },
-  amenagement_paysager:{ eco: 72, std: 112, premium: 224 },
-  garage:             { eco: 400, std: 600, premium: 960 },
-  cloture:            { eco: 224, std: 360, premium: 600 },
-  mur_de_separation:  { eco: 224, std: 360, premium: 560 },
-  cuisine_exterieure: { eco: 600, std: 880, premium: 1440 },
-  terrasse:           { eco: 256, std: 400, premium: 680 },
-  pergola:            { eco: 360, std: 560, premium: 880 },
-  toiture:            { eco: 224, std: 320, premium: 520 },
-  extension_batiment: { eco: 640, std: 960, premium: 1600 },
+  piscine:            { eco: 720, std: 1056, premium: 1728 },
+  piscine_beton:      { eco: 720, std: 1056, premium: 1728 },
+  piscine_coque:      { eco: 576, std: 864, premium: 1440 },
+  jardin:             { eco: 77, std: 125, premium: 240 },
+  amenagement_paysager:{ eco: 86, std: 134, premium: 269 },
+  garage:             { eco: 480, std: 720, premium: 1152 },
+  cloture:            { eco: 269, std: 432, premium: 720 },
+  mur_de_separation:  { eco: 269, std: 432, premium: 672 },
+  cuisine_exterieure: { eco: 720, std: 1056, premium: 1728 },
+  terrasse:           { eco: 307, std: 480, premium: 816 },
+  pergola:            { eco: 432, std: 672, premium: 1056 },
+  toiture:            { eco: 269, std: 384, premium: 624 },
+  extension_batiment: { eco: 768, std: 1152, premium: 1920 },
 
   // Commercial & Industriel
-  entrepot:           { eco: 360, std: 560, premium: 880 },
-  local_commercial:   { eco: 600, std: 880, premium: 1440 },
-  boutique_commerciale:{ eco: 600, std: 880, premium: 1440 },
-  bureau:             { eco: 680, std: 1000, premium: 1680 },
-  bureau_cabinet:     { eco: 680, std: 1000, premium: 1680 },
-  ferme:              { eco: 360, std: 520, premium: 800 },
-  batiment_agricole:  { eco: 360, std: 520, premium: 800 },
-  serre_agricole:     { eco: 176, std: 280, premium: 440 },
-  parking:            { eco: 160, std: 256, premium: 400 },
-  aire_de_jeux:       { eco: 104, std: 184, premium: 320 },
+  entrepot:           { eco: 432, std: 672, premium: 1056 },
+  local_commercial:   { eco: 720, std: 1056, premium: 1728 },
+  boutique_commerciale:{ eco: 720, std: 1056, premium: 1728 },
+  bureau:             { eco: 816, std: 1200, premium: 2016 },
+  bureau_cabinet:     { eco: 816, std: 1200, premium: 2016 },
+  ferme:              { eco: 432, std: 624, premium: 960 },
+  batiment_agricole:  { eco: 432, std: 624, premium: 960 },
+  serre_agricole:     { eco: 211, std: 336, premium: 528 },
+  parking:            { eco: 192, std: 307, premium: 480 },
+  aire_de_jeux:       { eco: 125, std: 221, premium: 384 },
 
   // Institutionnel
-  mosquee:            { eco: 760, std: 1120, premium: 1840 },
-  ecole:              { eco: 720, std: 1080, premium: 1680 },
-  hotel:              { eco: 960, std: 1440, premium: 2400 },
-  restaurant:         { eco: 800, std: 1200, premium: 2000 },
-  cafe:               { eco: 760, std: 1120, premium: 1760 },
+  mosquee:            { eco: 912, std: 1344, premium: 2208 },
+  ecole:              { eco: 864, std: 1296, premium: 2016 },
+  hotel:              { eco: 1152, std: 1728, premium: 2880 },
+  restaurant:         { eco: 960, std: 1440, premium: 2400 },
+  cafe:               { eco: 912, std: 1344, premium: 2112 },
 
   // Industrie
-  atelier:            { eco: 280, std: 416, premium: 680 },
-  usine:              { eco: 400, std: 600, premium: 960 },
-  depot:              { eco: 256, std: 384, premium: 600 },
+  atelier:            { eco: 336, std: 499, premium: 816 },
+  usine:              { eco: 480, std: 720, premium: 1152 },
+  depot:              { eco: 307, std: 461, premium: 720 },
 
   // Énergie
-  installation_solaire:{ eco: 1600, std: 2400, premium: 3600 },
-  chateau_d_eau:      { eco: 960, std: 1360, premium: 2160 },
-  systeme_irrigation: { eco: 144, std: 256, premium: 400 },
+  installation_solaire:{ eco: 1920, std: 2880, premium: 4320 },
+  chateau_d_eau:      { eco: 1152, std: 1632, premium: 2592 },
+  systeme_irrigation: { eco: 173, std: 307, premium: 480 },
 
   // VRD
-  route:              { eco: 104, std: 176, premium: 304 },
-  trottoir:           { eco: 80, std: 144, premium: 256 },
+  route:              { eco: 125, std: 211, premium: 365 },
+  trottoir:           { eco: 96, std: 173, premium: 307 },
 
   // Rénovation (Marché tunisien 2026)
-  renovation_interieure:    { eco: 256, std: 440, premium: 800 },
-  renovation_complete:      { eco: 240, std: 400, premium: 720 },
-  renovation_exterieure:   { eco: 208, std: 360, premium: 640 },
-  renovation_salle_de_bain: { eco: 1040, std: 1600, premium: 2800 },
-  renovation_cuisine:       { eco: 1040, std: 1600, premium: 2800 },
-  renovation_facade:        { eco: 184, std: 280, premium: 480 },
-  peinture_interieure:      { eco: 11, std: 17, premium: 30 },
+  renovation_interieure:    { eco: 307, std: 528, premium: 960 },
+  renovation_complete:      { eco: 288, std: 480, premium: 864 },
+  renovation_exterieure:   { eco: 250, std: 432, premium: 768 },
+  renovation_salle_de_bain: { eco: 1248, std: 1920, premium: 3360 },
+  renovation_cuisine:       { eco: 1248, std: 1920, premium: 3360 },
+  renovation_facade:        { eco: 221, std: 336, premium: 576 },
+  peinture_interieure:      { eco: 13, std: 20, premium: 36 },
 
   // Démolition
-  demolition:                { eco: 72, std: 104, premium: 176 },
-  installations_sanitaires:  { eco: 800, std: 1280, premium: 2400 },
-  plomberie_complete:        { eco: 88, std: 144, premium: 256 },
-  installations_electricite: { eco: 144, std: 256, premium: 440 },
-  electricite_complete:      { eco: 96, std: 168, premium: 304 },
+  demolition:                { eco: 86, std: 125, premium: 211 },
+  installations_sanitaires:  { eco: 960, std: 1536, premium: 2880 },
+  plomberie_complete:        { eco: 106, std: 173, premium: 307 },
+  installations_electricite: { eco: 173, std: 307, premium: 528 },
+  electricite_complete:      { eco: 115, std: 202, premium: 365 },
 };
 
 export const PROJECT_PCT: Record<string, Percentages> = {
