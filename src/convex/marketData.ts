@@ -67,35 +67,37 @@ export const seedMarketData = mutation({
       { name: "Gravier 5/15", unit: "m³", unitPrice: 55, category: "terrassement_granulats" as const, subcategory: "beton" },
       { name: "Gravier 15/25", unit: "m³", unitPrice: 50, category: "terrassement_granulats" as const, subcategory: "gros_betons" },
       { name: "Brique rouge pleine", unit: "pièce", unitPrice: 0.35, category: "maconnerie_plancher" as const, subcategory: "rouge" },
+      { name: "Brique creuse 10 cm", unit: "pièce", unitPrice: 0.35, category: "maconnerie_plancher" as const, subcategory: "creuse_10" },
+      { name: "Brique creuse 15 cm", unit: "pièce", unitPrice: 0.45, category: "maconnerie_plancher" as const, subcategory: "creuse_15" },
       { name: "Brique creuse 20cm", unit: "pièce", unitPrice: 0.55, category: "maconnerie_plancher" as const, subcategory: "creuse" },
       { name: "Blocs béton 20cm", unit: "pièce", unitPrice: 1.2, category: "maconnerie_plancher" as const, subcategory: "20cm" },
       { name: "Blocs béton 15cm", unit: "pièce", unitPrice: 0.95, category: "maconnerie_plancher" as const, subcategory: "15cm" },
-      { name: "Treillis soudé ST25", unit: "panneau", unitPrice: 42, category: "structure_metal" as const, subcategory: "treillis" },
-      { name: "Fer à béton Ø12", unit: "barre 12m", unitPrice: 28, category: "structure_metal" as const, subcategory: "barre" },
-      { name: "Fer à béton Ø16", unit: "barre 12m", unitPrice: 48, category: "structure_metal" as const, subcategory: "barre" },
-      { name: "Plaque de plâtre Knauf 12.5mm", unit: "m²", unitPrice: 18, category: "isolation_finitions" as const, subcategory: "plaque" },
-      { name: "Profilé métallique 48mm", unit: "barre 3m", unitPrice: 8, category: "isolation_finitions" as const, subcategory: "profile" },
-      { name: "Enduit intérieur gris", unit: "sac 25kg", unitPrice: 22, category: "isolation_finitions" as const, subcategory: "interieur" },
-      { name: "Peinture blanche mate", unit: "bidon 5L", unitPrice: 65, category: "isolation_finitions" as const, subcategory: "mate" },
-      { name: "Carrelage sol grès cérame", unit: "m²", unitPrice: 35, category: "carrelage_faiencerie" as const, subcategory: "sol" },
-      { name: "Faïence murale blanche", unit: "m²", unitPrice: 28, category: "carrelage_faiencerie" as const, subcategory: "mur" },
-      { name: "Porte intérieure standard", unit: "unité", unitPrice: 380, category: "menuiseries_peinture" as const, subcategory: "interieur" },
-      { name: "Porte d'entrée blindée", unit: "unité", unitPrice: 1200, category: "menuiseries_peinture" as const, subcategory: "exterieur" },
-      { name: "Fenêtre PVC double vitrage", unit: "m²", unitPrice: 220, category: "menuiseries_peinture" as const, subcategory: "pvc" },
-      { name: "WC suspendu complet", unit: "unité", unitPrice: 450, category: "sanitaires_chauffage" as const, subcategory: "wc" },
-      { name: "Lavabo sur meuble", unit: "unité", unitPrice: 320, category: "sanitaires_chauffage" as const, subcategory: "lavabo" },
-      { name: "Receveur de douche 80x120", unit: "unité", unitPrice: 280, category: "sanitaires_chauffage" as const, subcategory: "douche" },
-      { name: "Robinetterie chromée", unit: "point d'eau", unitPrice: 85, category: "sanitaires_chauffage" as const, subcategory: "chrome" },
-      { name: "Tuyau PER Ø26", unit: "barre 4m", unitPrice: 18, category: "sanitaires_chauffage" as const, subcategory: "per" },
-      { name: "Tuyau PVC Ø110", unit: "barre 4m", unitPrice: 22, category: "sanitaires_chauffage" as const, subcategory: "pvc" },
-      { name: "Câble électrique 2.5mm²", unit: "rouleau 100m", unitPrice: 120, category: "electricite_domotique" as const, subcategory: "cable" },
-      { name: "Disjoncteur divisionnaire 20A", unit: "unité", unitPrice: 12, category: "electricite_domotique" as const, subcategory: "disjoncteur" },
-      { name: "Tableau électrique 24 modules", unit: "unité", unitPrice: 180, category: "electricite_domotique" as const, subcategory: "tableau" },
-      { name: "Prise 2P+T 16A", unit: "unité", unitPrice: 8, category: "electricite_domotique" as const, subcategory: "prise" },
-      { name: "Interrupteur simple", unit: "unité", unitPrice: 7, category: "electricite_domotique" as const, subcategory: "interrupteur" },
-      { name: "Chauffe-eau 50L", unit: "unité", unitPrice: 380, category: "sanitaires_chauffage" as const, subcategory: "chauffe_eau" },
-      { name: "Climatisation split 12000 BTU", unit: "unité", unitPrice: 1200, category: "sanitaires_chauffage" as const, subcategory: "split" },
-      { name: "Panneau solaire 350W", unit: "module", unitPrice: 650, category: "electricite_domotique" as const, subcategory: "photovoltaique" },
+      { name: "Treillis soudé ST25", unit: "panneau", unitPrice: 42, category: "acier_metaux_structure" as const, subcategory: "treillis" },
+      { name: "Fer à béton Ø12", unit: "barre 12m", unitPrice: 28, category: "acier_metaux_structure" as const, subcategory: "barre" },
+      { name: "Fer à béton Ø16", unit: "barre 12m", unitPrice: 48, category: "acier_metaux_structure" as const, subcategory: "barre" },
+      { name: "Plaque de plâtre Knauf 12.5mm", unit: "m²", unitPrice: 18, category: "peintures_enduits_finitions" as const, subcategory: "plaque" },
+      { name: "Profilé métallique 48mm", unit: "barre 3m", unitPrice: 8, category: "peintures_enduits_finitions" as const, subcategory: "profile" },
+      { name: "Enduit intérieur gris", unit: "sac 25kg", unitPrice: 22, category: "peintures_enduits_finitions" as const, subcategory: "interieur" },
+      { name: "Peinture blanche mate", unit: "bidon 5L", unitPrice: 65, category: "peintures_enduits_finitions" as const, subcategory: "mate" },
+      { name: "Carrelage sol grès cérame", unit: "m²", unitPrice: 35, category: "revetements_sols_murs" as const, subcategory: "sol" },
+      { name: "Faïence murale blanche", unit: "m²", unitPrice: 28, category: "revetements_sols_murs" as const, subcategory: "mur" },
+      { name: "Porte intérieure standard", unit: "unité", unitPrice: 380, category: "menuiseries" as const, subcategory: "interieur" },
+      { name: "Porte d'entrée blindée", unit: "unité", unitPrice: 1200, category: "menuiseries" as const, subcategory: "exterieur" },
+      { name: "Fenêtre PVC double vitrage", unit: "m²", unitPrice: 220, category: "menuiseries" as const, subcategory: "pvc" },
+      { name: "WC suspendu complet", unit: "unité", unitPrice: 450, category: "plomberie" as const, subcategory: "wc" },
+      { name: "Lavabo sur meuble", unit: "unité", unitPrice: 320, category: "plomberie" as const, subcategory: "lavabo" },
+      { name: "Receveur de douche 80x120", unit: "unité", unitPrice: 280, category: "plomberie" as const, subcategory: "douche" },
+      { name: "Robinetterie chromée", unit: "point d'eau", unitPrice: 85, category: "plomberie" as const, subcategory: "chrome" },
+      { name: "Tuyau PER Ø26", unit: "barre 4m", unitPrice: 18, category: "plomberie" as const, subcategory: "per" },
+      { name: "Tuyau PVC Ø110", unit: "barre 4m", unitPrice: 22, category: "plomberie" as const, subcategory: "pvc" },
+      { name: "Câble électrique 2.5mm²", unit: "rouleau 100m", unitPrice: 120, category: "electricite" as const, subcategory: "cable" },
+      { name: "Disjoncteur divisionnaire 20A", unit: "unité", unitPrice: 12, category: "electricite" as const, subcategory: "disjoncteur" },
+      { name: "Tableau électrique 24 modules", unit: "unité", unitPrice: 180, category: "electricite" as const, subcategory: "tableau" },
+      { name: "Prise 2P+T 16A", unit: "unité", unitPrice: 8, category: "electricite" as const, subcategory: "prise" },
+      { name: "Interrupteur simple", unit: "unité", unitPrice: 7, category: "electricite" as const, subcategory: "interrupteur" },
+      { name: "Chauffe-eau 50L", unit: "unité", unitPrice: 380, category: "plomberie" as const, subcategory: "chauffe_eau" },
+      { name: "Climatisation split 12000 BTU", unit: "unité", unitPrice: 1200, category: "plomberie" as const, subcategory: "split" },
+      { name: "Panneau solaire 350W", unit: "module", unitPrice: 650, category: "electricite" as const, subcategory: "photovoltaique" },
     ];
 
     let catalogCount = 0;
@@ -116,6 +118,37 @@ export const seedMarketData = mutation({
       });
       seededProducts++;
       catalogCount++;
+    }
+
+    // Seed materialOffers (one per product from a random source)
+    const existingOffers = await ctx.db.query("materialOffers").collect();
+    if (existingOffers.length === 0 && sourcesCount > 0) {
+      const allProducts = await ctx.db.query("materialPrices").collect();
+      const firstSource = await ctx.db.query("marketSources").first();
+      if (firstSource) {
+        const GOVS = ["tunis", "ariana", "sfax", "sousse", "monastir"] as const;
+        for (const p of allProducts) {
+          const gov = GOVS[Math.floor(Math.random() * GOVS.length)];
+          await ctx.db.insert("materialOffers", {
+            productId: p._id,
+            category: p.category,
+            subcategory: p.subcategory,
+            name: p.name,
+            unit: p.unit,
+            minPrice: p.unitPrice * 0.9,
+            avgPrice: p.unitPrice,
+            maxPrice: p.unitPrice * 1.1,
+            currency: "TND",
+            governorate: gov,
+            supplier: firstSource.name,
+            sourceId: firstSource._id,
+            sourceType: firstSource.type,
+            availability: "disponible",
+            reliabilityIndex: firstSource.reliabilityScore,
+            updatedAt: Date.now(),
+          });
+        }
+      }
     }
 
     return {
