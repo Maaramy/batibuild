@@ -196,7 +196,7 @@ export default function MaterialsPage() {
     db: statsByCategory[c.slug],
   }));
   const extraCategories = Object.keys(grouped).filter(
-    (k) => !MATERIAL_CATEGORY_LABELS[k] && k !== "equipements",
+    (k) => !MATERIAL_CATEGORY_LABELS[k],
   );
 
   const totalRefs = officialCategories.reduce((s, c) => s + c.refs, 0);
@@ -490,18 +490,7 @@ export default function MaterialsPage() {
                 {c.db?.count ? <span className="text-[9px] opacity-70">({c.db.count})</span> : null}
               </button>
             ))}
-            <button
-              onClick={() => setActiveCategory("equipements")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0 border",
-                activeCategory === "equipements"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-muted-foreground border-border/40 hover:border-border hover:bg-muted/30",
-              )}
-            >
-              Équipements
-              {statsByCategory["equipements"]?.count ? <span className="text-[9px] opacity-70">({statsByCategory["equipements"].count})</span> : null}
-            </button>
+
           </div>
         </div>
 
@@ -536,7 +525,7 @@ export default function MaterialsPage() {
                           </div>
                           <div>
                             <CardTitle className="text-sm font-semibold">
-                              {official?.label || (category === "equipements" ? "Équipements" : category)}
+                              {official?.label || category}
                             </CardTitle>
                             <CardDescription className="text-[10px]">
                               {materials.length} matériaux

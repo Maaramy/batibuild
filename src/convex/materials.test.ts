@@ -33,7 +33,9 @@ const OFFICIAL_2026_CATEGORIES = [
   "voirie_reseaux_drainage",
   "amenagements_exterieurs",
   "materiaux_durables_biosources",
-  "equipements",
+  "plomberie_evacuation",
+  "sanitaires_robinetterie",
+  "electricite_courants_forts",
 ];
 
 async function createUser(

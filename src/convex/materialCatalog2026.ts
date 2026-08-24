@@ -1,9 +1,10 @@
 // ============================================================================
 // CATALOGUE OFFICIEL 2026 — Base de données des matériaux de construction,
-// Tunisie (version du 14 août 2026). 23 catégories officielles + équipements.
+// Tunisie (version du 14 août 2026). 26 catégories officielles.
+// Source : https://docs.google.com/spreadsheets/d/1NE4mea4E-ELRiL2tSgvkqwOOhtaDu8bb
 // priceQuality : observé_en_ligne | publication_2026 | estimation_indicative
+// Paramètres TVA 19%, remise gros 7%, seuil alerte 30 j, critique 60 j.
 // ============================================================================
-
 
 export type CatalogItem = {
   category: string;
@@ -13,11 +14,66 @@ export type CatalogItem = {
   quality?: "observé_en_ligne" | "publication_2026" | "estimation_indicative";
   confidence?: number;
   subcategory?: string;
+  catCode?: string;
+  attributes?: string;
 };
 
 const OBSERVED = "observé_en_ligne" as const;
 const PUBLISHED = "publication_2026" as const;
 const ESTIMATED = "estimation_indicative" as const;
+
+// ── Nomenclature officielle 26 catégories (Base matériaux Tunisie 2026) ────
+export const CATEGORIES_NOMENCLATURE: Array<{
+  code: string;
+  id: string;
+  label: string;
+  description: string;
+  units: string;
+  attributes: string;
+  updateFrequency: string;
+  refCount: number;
+  observedCount: number;
+  highConfidenceCount: number;
+  avgPriceTTC: number;
+}> = [
+  { code: "CAT-01", id: "terrassement_granulats", label: "Terrassement et granulats", description: "Terres, remblais, sables, graviers et pierres", units: "m³; t; sac", attributes: "Granulométrie, propreté, LA/MDE, ES", updateFrequency: "Hebdomadaire / devis transport", refCount: 17, observedCount: 0, highConfidenceCount: 0, avgPriceTTC: 45.324 },
+  { code: "CAT-02", id: "liants_ciments_mortiers", label: "Liants, ciments et mortiers", description: "Ciments, chaux, plâtre et mortiers industriels", units: "sac; kg; t", attributes: "Classe, résistance, temps de prise", updateFrequency: "Hebdomadaire pour ciment; 30 j autres", refCount: 19, observedCount: 5, highConfidenceCount: 2, avgPriceTTC: 54.266 },
+  { code: "CAT-03", id: "betons_prefabrication", label: "Bétons et préfabrication", description: "BPE, blocs, pavés, bordures, regards", units: "m³; U; m²; ml", attributes: "Classe béton, consistance, charge", updateFrequency: "Devis chantier ≤15 j", refCount: 22, observedCount: 3, highConfidenceCount: 3, avgPriceTTC: 123.387 },
+  { code: "CAT-04", id: "acier_metaux_structure", label: "Acier et métaux de structure", description: "Armatures, treillis, profilés, tôles", units: "t; kg; barre; panneau; ml", attributes: "Nuance, diamètre, certificat, revêtement", updateFrequency: "Hebdomadaire", refCount: 26, observedCount: 8, highConfidenceCount: 2, avgPriceTTC: 152.906 },
+  { code: "CAT-05", id: "maconnerie_plancher", label: "Maçonnerie et éléments de plancher", description: "Briques, blocs, hourdis, poutrelles", units: "U; palette; ml; m²", attributes: "Dimensions, résistance, absorption", updateFrequency: "15–30 j", refCount: 21, observedCount: 5, highConfidenceCount: 0, avgPriceTTC: 5.573 },
+  { code: "CAT-06", id: "bois_panneaux_coffrage", label: "Bois, panneaux et coffrage", description: "Bois massif, panneaux et systèmes de coffrage", units: "m³; panneau; ml; U", attributes: "Classe bois, humidité, collage", updateFrequency: "30 j", refCount: 24, observedCount: 9, highConfidenceCount: 9, avgPriceTTC: 388.384 },
+  { code: "CAT-07", id: "etancheite_protection", label: "Étanchéité et protection", description: "Membranes, SEL, mastics et joints", units: "m²; rouleau; kg; L; ml", attributes: "Épaisseur, armature, mouvement, UV", updateFrequency: "30 j", refCount: 20, observedCount: 7, highConfidenceCount: 7, avgPriceTTC: 76.809 },
+  { code: "CAT-08", id: "isolation_thermique", label: "Isolation thermique et acoustique", description: "EPS, XPS, laines, mousses et acoustique", units: "m²; m³; paquet", attributes: "Lambda, R, densité, réaction au feu", updateFrequency: "30 j", refCount: 18, observedCount: 3, highConfidenceCount: 3, avgPriceTTC: 32.306 },
+  { code: "CAT-09", id: "cloisons_platre_plafonds", label: "Cloisons, plâtre et plafonds", description: "Plaques, ossatures et faux plafonds", units: "plaque; m²; ml; U", attributes: "Type A/H/F, épaisseur, feu, acoustique", updateFrequency: "30 j", refCount: 21, observedCount: 4, highConfidenceCount: 4, avgPriceTTC: 43.126 },
+  { code: "CAT-10", id: "toitures_bardages_facades", label: "Toitures, bardages et façades", description: "Bacs, panneaux sandwich, tuiles, parements", units: "m²; ml; U", attributes: "Épaisseur, U, corrosion, feu", updateFrequency: "30 j / devis", refCount: 15, observedCount: 1, highConfidenceCount: 1, avgPriceTTC: 72.81 },
+  { code: "CAT-11", id: "revetements_sols_murs", label: "Revêtements de sols et murs", description: "Céramique, pierre, parquet et sols souples", units: "m²; boîte; ml", attributes: "Absorption, PEI, glissance, calibre", updateFrequency: "30 j", refCount: 29, observedCount: 9, highConfidenceCount: 8, avgPriceTTC: 59.292 },
+  { code: "CAT-12", id: "peintures_enduits_finitions", label: "Peintures, enduits et finitions", description: "Peintures, impressions, enduits et décoration", units: "L; kg; seau; rouleau", attributes: "Résine, COV, rendement, lavabilité", updateFrequency: "30 j", refCount: 24, observedCount: 7, highConfidenceCount: 7, avgPriceTTC: 90.334 },
+  { code: "CAT-13", id: "menuiseries", label: "Menuiseries", description: "Aluminium, PVC, bois, portes et volets", units: "U; m²; ml", attributes: "Profil, AEV, Uw, quincaillerie", updateFrequency: "Devis 15–30 j", refCount: 23, observedCount: 6, highConfidenceCount: 0, avgPriceTTC: 1018.893 },
+  { code: "CAT-14", id: "vitrage_verriers", label: "Vitrage et produits verriers", description: "Verre float, trempé, feuilleté et isolant", units: "m²; U", attributes: "Épaisseur, sécurité, Ug", updateFrequency: "Devis 30 j", refCount: 11, observedCount: 1, highConfidenceCount: 1, avgPriceTTC: 113.25 },
+  { code: "CAT-15", id: "chimie_construction", label: "Chimie de construction", description: "Adjuvants, cure, réparation, scellement", units: "kg; L; kit", attributes: "Dosage, résistance, DPU", updateFrequency: "30 j", refCount: 1, observedCount: 1, highConfidenceCount: 1, avgPriceTTC: 260.438 },
+  { code: "CAT-16", id: "quincaillerie_fixations", label: "Quincaillerie et fixations", description: "Vis, chevilles, serrures et consommables", units: "U; boîte; kg", attributes: "Matière, classe, charge, traitement", updateFrequency: "30 j", refCount: 14, observedCount: 2, highConfidenceCount: 2, avgPriceTTC: 33.335 },
+  { code: "CAT-17", id: "plomberie_evacuation", label: "Plomberie et évacuation", description: "PVC, PEHD, PEX, multicouche, cuivre, vannes", units: "ml; barre; U", attributes: "DN, PN/SN/SDR, température", updateFrequency: "30 j", refCount: 33, observedCount: 0, highConfidenceCount: 0, avgPriceTTC: 0 },
+  { code: "CAT-18", id: "sanitaires_robinetterie", label: "Sanitaires et robinetterie", description: "Appareils sanitaires, mitigeurs et chauffe-eau", units: "U; kit", attributes: "Dimensions, garantie, débit", updateFrequency: "30 j", refCount: 27, observedCount: 0, highConfidenceCount: 0, avgPriceTTC: 0 },
+  { code: "CAT-19", id: "electricite_courants_forts", label: "Électricité – courants forts", description: "Câbles, gaines, protection et appareillage", units: "ml; bobine; U", attributes: "Section, tension, IP/IK, pouvoir coupure", updateFrequency: "30 j; cuivre hebdomadaire", refCount: 38, observedCount: 0, highConfidenceCount: 0, avgPriceTTC: 0 },
+  { code: "CAT-20", id: "eclairage", label: "Éclairage", description: "Lampes, spots, luminaires et sécurité", units: "U; rouleau", attributes: "Flux, IRC, IP, garantie", updateFrequency: "30 j", refCount: 14, observedCount: 3, highConfidenceCount: 2, avgPriceTTC: 70.599 },
+  { code: "CAT-21", id: "cvc_chauffage_ventilation", label: "CVC, chauffage et ventilation", description: "Climatisation, chauffage, gaines et ventilation", units: "U; ml; m²", attributes: "Puissance, rendement, débit, fluide", updateFrequency: "30 j / devis", refCount: 16, observedCount: 4, highConfidenceCount: 2, avgPriceTTC: 1762.162 },
+  { code: "CAT-22", id: "energies_renouvelables", label: "Énergies renouvelables", description: "Photovoltaïque, stockage et solaire thermique", units: "U; kit; système", attributes: "Puissance, rendement, certification", updateFrequency: "30 j / devis", refCount: 15, observedCount: 3, highConfidenceCount: 0, avgPriceTTC: 1970.164 },
+  { code: "CAT-23", id: "securite_incendie_surete", label: "Sécurité incendie et sûreté", description: "Extinction, détection, signalisation et CCTV", units: "U; kit", attributes: "Certification système, maintenance", updateFrequency: "30 j / devis", refCount: 11, observedCount: 1, highConfidenceCount: 1, avgPriceTTC: 463.479 },
+  { code: "CAT-24", id: "voirie_reseaux_drainage", label: "Voirie, réseaux divers et drainage", description: "Canalisations, fonte, géotextiles, drainage", units: "ml; m²; U", attributes: "SN/PN, classe de charge, résistance", updateFrequency: "15–30 j", refCount: 13, observedCount: 0, highConfidenceCount: 0, avgPriceTTC: 138.5 },
+  { code: "CAT-25", id: "amenagements_exterieurs", label: "Aménagements extérieurs", description: "Clôtures, terrasses, portails et paysage", units: "ml; m²; U", attributes: "Corrosion, UV, usage extérieur", updateFrequency: "30 j / devis", refCount: 11, observedCount: 0, highConfidenceCount: 0, avgPriceTTC: 847.045 },
+  { code: "CAT-26", id: "materiaux_durables_biosources", label: "Matériaux durables et biosourcés", description: "Solutions biosourcées, recyclées et bas carbone", units: "Unité propre", attributes: "Contenu recyclé, EPD, réaction feu", updateFrequency: "Devis / disponibilité", refCount: 8, observedCount: 0, highConfidenceCount: 0, avgPriceTTC: 443.438 },
+];
+
+// ── Paramètres officiels ──
+export const CATALOG_PARAMS = {
+  tva: 0.19,
+  remiseGros: 0.07,
+  seuilAlerteJours: 30,
+  seuilCritiqueJours: 60,
+  devise: "TND",
+  consolidationDate: "2026-08-14",
+  minDevis: 3,
+} as const;
 
 export const TUNISIA_2026_CATALOG: CatalogItem[] = [
   // ── Terrassement et granulats ──────────────────────────────────────────────
@@ -455,21 +511,24 @@ export const TUNISIA_2026_CATALOG: CatalogItem[] = [
   { category: "materiaux_durables_biosources", name: "Enduit chaux-chanvre (sac 25 kg)", unit: "sac", unitPrice: 24, quality: ESTIMATED, confidence: 0.5 },
   { category: "materiaux_durables_biosources", name: "Bardeaux bois toiture (m²)", unit: "m²", unitPrice: 40, quality: ESTIMATED, confidence: 0.5 },
 
-  // Équipements (plomberie, sanitaire, électricité)
-  { category: "equipements", name: "Tube PVC évacuation Ø40 (ml)", unit: "ml", unitPrice: 4, quality: ESTIMATED, confidence: 0.6, subcategory: "Tubes PVC" },
-  { category: "equipements", name: "Tube acier galvanisé Ø1″ (ml)", unit: "ml", unitPrice: 9.6, quality: ESTIMATED, confidence: 0.55 },
-  { category: "equipements", name: "Flexible d'alimentation", unit: "pièce", unitPrice: 12, quality: ESTIMATED, confidence: 0.55, subcategory: "Robinetterie" },
-  { category: "equipements", name: "Vanne d'arrêt laiton Ø3/4", unit: "pièce", unitPrice: 20, quality: ESTIMATED, confidence: 0.55 },
-  { category: "equipements", name: "Siphon de sol", unit: "pièce", unitPrice: 16, quality: ESTIMATED, confidence: 0.55 },
-  { category: "equipements", name: "Robinets de jardin", unit: "pièce", unitPrice: 24, quality: ESTIMATED, confidence: 0.55 },
-  { category: "equipements", name: "Câble électrique 4 mm² (ml)", unit: "ml", unitPrice: 2.24, quality: ESTIMATED, confidence: 0.6, subcategory: "Câblage" },
-  { category: "equipements", name: "Câble électrique 6 mm² (ml)", unit: "ml", unitPrice: 3.6, quality: ESTIMATED, confidence: 0.6 },
-  { category: "equipements", name: "Interrupteur différentiel 40 A", unit: "pièce", unitPrice: 72, quality: PUBLISHED, confidence: 0.7, subcategory: "Protection" },
-  { category: "equipements", name: "Lave-mains céramique", unit: "pièce", unitPrice: 64, quality: ESTIMATED, confidence: 0.6, subcategory: "Sanitaire" },
-  { category: "equipements", name: "Mitigeur de cuisine", unit: "pièce", unitPrice: 76, quality: OBSERVED, confidence: 0.8, subcategory: "Robinetterie" },
-  { category: "equipements", name: "Pompe surpresseur 1.5 CV", unit: "pièce", unitPrice: 360, quality: ESTIMATED, confidence: 0.55 },
-  { category: "equipements", name: "Vase d'expansion", unit: "pièce", unitPrice: 96, quality: ESTIMATED, confidence: 0.5 },
+  // ── CAT-17: Plomberie et évacuation ────────────────────────────────────────
+  { category: "plomberie_evacuation", name: "Tube PVC évacuation Ø40 (ml)", unit: "ml", unitPrice: 4, quality: ESTIMATED, confidence: 0.6, subcategory: "Tubes PVC", catCode: "CAT-17", attributes: "DN, PN/SN/SDR, température" },
+  { category: "plomberie_evacuation", name: "Tube acier galvanisé Ø1″ (ml)", unit: "ml", unitPrice: 9.6, quality: ESTIMATED, confidence: 0.55, catCode: "CAT-17", attributes: "DN, PN, revêtement" },
+  { category: "plomberie_evacuation", name: "Flexible d'alimentation", unit: "pièce", unitPrice: 12, quality: ESTIMATED, confidence: 0.55, catCode: "CAT-17", attributes: "DN, pression" },
+  { category: "plomberie_evacuation", name: "Vanne d'arrêt laiton Ø3/4", unit: "pièce", unitPrice: 20, quality: ESTIMATED, confidence: 0.55, catCode: "CAT-17", attributes: "DN, pression" },
+  { category: "plomberie_evacuation", name: "Siphon de sol", unit: "pièce", unitPrice: 16, quality: ESTIMATED, confidence: 0.55, catCode: "CAT-17", attributes: "DN, débit" },
+  { category: "plomberie_evacuation", name: "Robinets de jardin", unit: "pièce", unitPrice: 24, quality: ESTIMATED, confidence: 0.55, catCode: "CAT-17", attributes: "DN, pression" },
+  { category: "plomberie_evacuation", name: "Pompe surpresseur 1.5 CV", unit: "pièce", unitPrice: 360, quality: ESTIMATED, confidence: 0.55, catCode: "CAT-17", attributes: "Puissance, débit, pression" },
+  { category: "plomberie_evacuation", name: "Vase d'expansion", unit: "pièce", unitPrice: 96, quality: ESTIMATED, confidence: 0.5, catCode: "CAT-17", attributes: "Volume, pression" },
 
+  // ── CAT-18: Sanitaires et robinetterie ─────────────────────────────────────
+  { category: "sanitaires_robinetterie", name: "Lave-mains céramique", unit: "pièce", unitPrice: 64, quality: ESTIMATED, confidence: 0.6, subcategory: "Sanitaire", catCode: "CAT-18", attributes: "Dimensions, garantie" },
+  { category: "sanitaires_robinetterie", name: "Mitigeur de cuisine", unit: "pièce", unitPrice: 76, quality: OBSERVED, confidence: 0.8, subcategory: "Robinetterie", catCode: "CAT-18", attributes: "Débit, finition" },
+
+  // ── CAT-19: Électricité – courants forts ────────────────────────────────────
+  { category: "electricite_courants_forts", name: "Câble électrique 4 mm² (ml)", unit: "ml", unitPrice: 2.24, quality: ESTIMATED, confidence: 0.6, subcategory: "Câblage", catCode: "CAT-19", attributes: "Section, tension, IP/IK" },
+  { category: "electricite_courants_forts", name: "Câble électrique 6 mm² (ml)", unit: "ml", unitPrice: 3.6, quality: ESTIMATED, confidence: 0.6, catCode: "CAT-19", attributes: "Section, tension, IP/IK" },
+  { category: "electricite_courants_forts", name: "Interrupteur différentiel 40 A", unit: "pièce", unitPrice: 72, quality: PUBLISHED, confidence: 0.7, subcategory: "Protection", catCode: "CAT-19", attributes: "Pouvoir coupure, sensibilité" },
   // ── Menuiseries ────────────────────────────────────────────────────────────
   { category: "menuiseries", name: "Porte intérieure en bois (H.204)", unit: "pièce", unitPrice: 176, quality: OBSERVED, confidence: 0.85, subcategory: "Portes intérieures" },
   { category: "menuiseries", name: "Porte intérieure bois pleine", unit: "pièce", unitPrice: 256, quality: ESTIMATED, confidence: 0.7 },
@@ -629,25 +688,30 @@ export const TUNISIA_2026_CATALOG: CatalogItem[] = [
   { category: "materiaux_durables_biosources", name: "Peinture écologique biosourcée (L)", unit: "L", unitPrice: 36, quality: ESTIMATED, confidence: 0.55 },
   { category: "materiaux_durables_biosources", name: "Enduit terre (sac 25 kg)", unit: "sac", unitPrice: 16, quality: ESTIMATED, confidence: 0.5 },
 
-  // ── Équipements (plomberie, sanitaire, électricité) ───────────────────────
-  { category: "equipements", name: "Tube PVC évacuation Ø110 (ml)", unit: "ml", unitPrice: 12, quality: OBSERVED, confidence: 0.85, subcategory: "Tubes PVC" },
-  { category: "equipements", name: "Tube PVC évacuation Ø50 (ml)", unit: "ml", unitPrice: 5.6, quality: ESTIMATED, confidence: 0.7, subcategory: "Tubes PVC" },
-  { category: "equipements", name: "Tube PER Ø16 (ml)", unit: "ml", unitPrice: 3.2, quality: ESTIMATED, confidence: 0.6 },
-  { category: "equipements", name: "Tube cuivre Ø14 (ml)", unit: "ml", unitPrice: 17.6, quality: ESTIMATED, confidence: 0.6 },
-  { category: "equipements", name: "Robinetterie mitigeur salle de bain", unit: "pièce", unitPrice: 52, quality: OBSERVED, confidence: 0.8, subcategory: "Robinetterie" },
-  { category: "equipements", name: "WC à l'anglaise complet", unit: "pièce", unitPrice: 192, quality: OBSERVED, confidence: 0.85, subcategory: "Sanitaire" },
-  { category: "equipements", name: "Lavabo céramique", unit: "pièce", unitPrice: 76, quality: OBSERVED, confidence: 0.8, subcategory: "Sanitaire" },
-  { category: "equipements", name: "Receveur de douche 90×90", unit: "pièce", unitPrice: 160, quality: ESTIMATED, confidence: 0.7 },
-  { category: "equipements", name: "Colonne de douche", unit: "pièce", unitPrice: 144, quality: ESTIMATED, confidence: 0.65 },
-  { category: "equipements", name: "Évier inox 2 bacs", unit: "pièce", unitPrice: 192, quality: ESTIMATED, confidence: 0.65 },
-  { category: "equipements", name: "Baignoire 170×75", unit: "pièce", unitPrice: 400, quality: ESTIMATED, confidence: 0.6 },
-  { category: "equipements", name: "Câble électrique 3×2.5 mm² (rouleau 100 m)", unit: "rouleau", unitPrice: 71.2, quality: OBSERVED, confidence: 0.85, subcategory: "Câblage" },
-  { category: "equipements", name: "Câble électrique 1.5 mm² (ml)", unit: "ml", unitPrice: 1.2, quality: ESTIMATED, confidence: 0.6 },
-  { category: "equipements", name: "Disjoncteur modulaire 16 A", unit: "pièce", unitPrice: 9.6, quality: PUBLISHED, confidence: 0.75, subcategory: "Protection" },
-  { category: "equipements", name: "Tableau électrique 13 modules", unit: "pièce", unitPrice: 120, quality: ESTIMATED, confidence: 0.7 },
-  { category: "equipements", name: "Gaine électrique ICTA (ml)", unit: "ml", unitPrice: 1.2, quality: ESTIMATED, confidence: 0.6 },
-  { category: "equipements", name: "Pompe de relevage eaux usées", unit: "pièce", unitPrice: 480, quality: ESTIMATED, confidence: 0.6 },
-  { category: "equipements", name: "Compteur d'eau SONEDE", unit: "pièce", unitPrice: 120, quality: ESTIMATED, confidence: 0.6 },
-  { category: "equipements", name: "Fosse septique 3000 L", unit: "pièce", unitPrice: 960, quality: ESTIMATED, confidence: 0.55 },
-  { category: "equipements", name: "Vide-ordures", unit: "pièce", unitPrice: 72, quality: ESTIMATED, confidence: 0.5 },
+  // ── CAT-17: Plomberie et évacuation (suite) ──────────────────────────────
+  { category: "plomberie_evacuation", name: "Tube PVC évacuation Ø110 (ml)", unit: "ml", unitPrice: 12, quality: OBSERVED, confidence: 0.85, subcategory: "Tubes PVC", catCode: "CAT-17", attributes: "DN, PN/SN/SDR, température" },
+  { category: "plomberie_evacuation", name: "Tube PVC évacuation Ø50 (ml)", unit: "ml", unitPrice: 5.6, quality: ESTIMATED, confidence: 0.7, subcategory: "Tubes PVC", catCode: "CAT-17", attributes: "DN, PN/SN/SDR, température" },
+  { category: "plomberie_evacuation", name: "Tube PER Ø16 (ml)", unit: "ml", unitPrice: 3.2, quality: ESTIMATED, confidence: 0.6, catCode: "CAT-17", attributes: "DN, PN, température" },
+  { category: "plomberie_evacuation", name: "Tube cuivre Ø14 (ml)", unit: "ml", unitPrice: 17.6, quality: ESTIMATED, confidence: 0.6, catCode: "CAT-17", attributes: "DN, PN, température" },
+  { category: "plomberie_evacuation", name: "Pompe de relevage eaux usées", unit: "pièce", unitPrice: 480, quality: ESTIMATED, confidence: 0.6, catCode: "CAT-17", attributes: "Puissance, débit" },
+  { category: "plomberie_evacuation", name: "Compteur d'eau SONEDE", unit: "pièce", unitPrice: 120, quality: ESTIMATED, confidence: 0.6, catCode: "CAT-17", attributes: "DN, débit" },
+  { category: "plomberie_evacuation", name: "Fosse septique 3000 L", unit: "pièce", unitPrice: 960, quality: ESTIMATED, confidence: 0.55, catCode: "CAT-17", attributes: "Volume, norme" },
+  { category: "plomberie_evacuation", name: "Vide-ordures", unit: "pièce", unitPrice: 72, quality: ESTIMATED, confidence: 0.5, catCode: "CAT-17", attributes: "Débit, norme" },
+
+  // ── CAT-18: Sanitaires et robinetterie (suite) ─────────────────────────────
+  { category: "sanitaires_robinetterie", name: "Robinetterie mitigeur salle de bain", unit: "pièce", unitPrice: 52, quality: OBSERVED, confidence: 0.8, subcategory: "Robinetterie", catCode: "CAT-18", attributes: "Dimensions, garantie, débit" },
+  { category: "sanitaires_robinetterie", name: "WC à l'anglaise complet", unit: "pièce", unitPrice: 192, quality: OBSERVED, confidence: 0.85, subcategory: "Sanitaire", catCode: "CAT-18", attributes: "Dimensions, garantie" },
+  { category: "sanitaires_robinetterie", name: "Lavabo céramique", unit: "pièce", unitPrice: 76, quality: OBSERVED, confidence: 0.8, subcategory: "Sanitaire", catCode: "CAT-18", attributes: "Dimensions, garantie" },
+  { category: "sanitaires_robinetterie", name: "Receveur de douche 90×90", unit: "pièce", unitPrice: 160, quality: ESTIMATED, confidence: 0.7, catCode: "CAT-18", attributes: "Dimensions, garantie" },
+  { category: "sanitaires_robinetterie", name: "Colonne de douche", unit: "pièce", unitPrice: 144, quality: ESTIMATED, confidence: 0.65, catCode: "CAT-18", attributes: "Débit, finition" },
+  { category: "sanitaires_robinetterie", name: "Évier inox 2 bacs", unit: "pièce", unitPrice: 192, quality: ESTIMATED, confidence: 0.65, catCode: "CAT-18", attributes: "Dimensions, garantie" },
+  { category: "sanitaires_robinetterie", name: "Baignoire 170×75", unit: "pièce", unitPrice: 400, quality: ESTIMATED, confidence: 0.6, catCode: "CAT-18", attributes: "Dimensions, garantie" },
+
+  // ── CAT-19: Électricité – courants forts (suite) ────────────────────────────
+  { category: "electricite_courants_forts", name: "Câble électrique 3×2.5 mm² (rouleau 100 m)", unit: "rouleau", unitPrice: 71.2, quality: OBSERVED, confidence: 0.85, subcategory: "Câblage", catCode: "CAT-19", attributes: "Section, tension, IP/IK" },
+  { category: "electricite_courants_forts", name: "Câble électrique 1.5 mm² (ml)", unit: "ml", unitPrice: 1.2, quality: ESTIMATED, confidence: 0.6, catCode: "CAT-19", attributes: "Section, tension, IP/IK" },
+  { category: "electricite_courants_forts", name: "Disjoncteur modulaire 16 A", unit: "pièce", unitPrice: 9.6, quality: PUBLISHED, confidence: 0.75, subcategory: "Protection", catCode: "CAT-19", attributes: "Pouvoir coupure, sensibilité" },
+  { category: "electricite_courants_forts", name: "Tableau électrique 13 modules", unit: "pièce", unitPrice: 120, quality: ESTIMATED, confidence: 0.7, catCode: "CAT-19", attributes: "Nombre modules, protection" },
+  { category: "electricite_courants_forts", name: "Gaine électrique ICTA (ml)", unit: "ml", unitPrice: 1.2, quality: ESTIMATED, confidence: 0.6, catCode: "CAT-19", attributes: "Section, norme" },
+
 ];
