@@ -277,7 +277,9 @@ export function projectTypeLabel(slug: string): string {
 
 /**
  * Résout un slug (nouveau ou ancien) vers le type officiel du catalogue.
- * Retourne null si le slug ne correspond à aucun type connu du catalogue.
+ * Accepte aussi les libellés libres (« Maison R+1 », « R+2 », « Villa »…),
+ * utiles pour la rétro-compatibilité des projets existants et les types
+ * détectés par l'IA. Retourne null si aucun type connu ne correspond.
  */
 export function resolveProjectType(slug: string): ProjectType | null {
   const typed = slug as ProjectType;
@@ -286,8 +288,61 @@ export function resolveProjectType(slug: string): ProjectType | null {
   if (mapped && (PROJECT_TYPES as readonly string[]).includes(mapped)) {
     return mapped as ProjectType;
   }
-  return null;
+  // Normalisation du libellé : minuscules, sans accents, sans séparateurs
+  const norm = slug
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s_.-]+/g, "");
+  if (!norm) return null;
+  return LABEL_ALIASES[norm] ?? null;
 }
+
+/**
+ * Alias de libellés libres → type officiel (clés normalisées : minuscules,
+ * sans accents ni espaces/underscores/tirets).
+ */
+const LABEL_ALIASES: Record<string, ProjectType> = {
+  // Résidentiel
+  maison: "maison",
+  maisonr1: "maison_r_plus_1",
+  maisonr2: "maison_r_plus_2",
+  maisonrplus1: "maison_r_plus_1",
+  maisonrplus2: "maison_r_plus_2",
+  maisonr1etage: "maison_r_plus_1",
+  maisonr2etages: "maison_r_plus_2",
+  r1: "maison_r_plus_1",
+  r2: "maison_r_plus_2",
+  r1etage: "maison_r_plus_1",
+  r2etages: "maison_r_plus_2",
+  villar1: "villa",
+  villa: "villa",
+  appartement: "appartement",
+  studio: "studio",
+  duplex: "duplex",
+  immeuble: "immeuble",
+  immeubleresidentiel: "immeuble",
+  residence: "immeuble",
+  // Commercial / tertiaire
+  localcommercial: "local_commercial",
+  boutique: "local_commercial",
+  boutiquecommerciale: "local_commercial",
+  commerce: "local_commercial",
+  bureau: "bureau",
+  bureaucabinet: "bureau",
+  cabinet: "bureau",
+  entrepot: "entrepot",
+  depot: "entrepot",
+  hangar: "entrepot",
+  // Tourisme / divers
+  hotel: "residence_touristique",
+  residencetouristique: "residence_touristique",
+  maisondhotes: "residence_touristique",
+  maisonhote: "residence_touristique",
+  projetneuf: "projet_neuf",
+  neuf: "projet_neuf",
+  construction: "projet_neuf",
+};
 
 // ============================================================================
 // Lien avec le module Investissement
