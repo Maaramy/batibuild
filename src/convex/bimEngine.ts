@@ -459,12 +459,14 @@ export const MACRO_COLORS: Record<string, string> = {
 type Percentages = [number, number, number, number, number, number];
 
 // ============================================================================
-// REAL TUNISIAN MARKET PRICES 2026 (TND/m² - clé en main, standard)
-// Based on Marché tunisien 2025-2026, toutes fournitures + main d'œuvre
-// Ajustés pour refléter les prix réels constatés en Tunisie
+// PRIX MARCHÉ PAR TYPE DE PROJET (TND/m²)
+// Source : feuille « Coût de construction au m² – Tunisie 2026 » (19/08/2026).
+// Les valeurs ci-dessous sont des prix RELATIFS entre types de projet ; elles
+// sont mises à l'échelle pour que maison/std = BASE_NATIONALE_STANDARD_M2
+// (base nationale « Standard » : 1 780 DT/m², maison neuve conventionnelle).
 // ============================================================================
 
-export const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium: number }> = {
+const RELATIVE_PRICE_M2: Record<string, { eco: number, std: number, premium: number }> = {
   // Maisons & Villa (Marché tunisien 2026 - fournitures + main d'œuvre)
   maison:             { eco: 720, std: 1056, premium: 1728 },
   maison_r_plus_1:    { eco: 768, std: 1104, premium: 1824 },
@@ -544,19 +546,39 @@ export const MARKET_PRICE_M2: Record<string, { eco: number, std: number, premium
   electricite_complete:      { eco: 115, std: 202, premium: 365 },
 };
 
+/** Base nationale « Standard » — maison neuve conventionnelle (feuille 2026). */
+export const BASE_NATIONALE_STANDARD_M2 = 1780;
+
+const _PRICE_SCALE = BASE_NATIONALE_STANDARD_M2 / RELATIVE_PRICE_M2.maison.std;
+const _scalePriceRow = (r: { eco: number; std: number; premium: number }) => ({
+  eco: Math.round(r.eco * _PRICE_SCALE),
+  std: Math.round(r.std * _PRICE_SCALE),
+  premium: Math.round(r.premium * _PRICE_SCALE),
+});
+
+export const MARKET_PRICE_M2: Record<string, { eco: number; std: number; premium: number }> =
+  Object.fromEntries(
+    Object.entries(RELATIVE_PRICE_M2).map(([k, v]) => [k, _scalePriceRow(v)]),
+  );
+
 export const PROJECT_PCT: Record<string, Percentages> = {
-  maison: [38, 29, 15, 10, 3, 5],
-  maison_r_plus_1: [40, 28, 14, 10, 3, 5],
-  maison_r_plus_2: [41, 28, 13, 10, 3, 5],
-  villa: [33, 34, 20, 5, 3, 5],
-  immeuble_residentiel: [43, 24, 15, 10, 3, 5],
-  immeuble: [43, 24, 15, 10, 3, 5],
+  // Types résidentiels neufs : alignés sur la répartition par phases de la
+  // feuille « Coût au m² – Tunisie 2026 » — Gros œuvre 43 % · Second œuvre +
+  // Finitions & équipements ≈ 44 % (SO 31 + EQ 13) · solde main-d'œuvre /
+  // transport / études-imprévus 13 %. La contingence de 12 % est appliquée
+  // en sus (DEFAULT_CONTINGENCY_PCT).
+  maison: [43, 31, 13, 6, 3, 4],
+  maison_r_plus_1: [43, 31, 13, 6, 3, 4],
+  maison_r_plus_2: [43, 31, 13, 6, 3, 4],
+  villa: [43, 31, 13, 6, 3, 4],
+  immeuble_residentiel: [45, 29, 13, 6, 3, 4],
+  immeuble: [45, 29, 13, 6, 3, 4],
   appartement: [29, 39, 20, 5, 2, 5],
   studio: [26, 42, 20, 5, 2, 5],
-  duplex: [34, 32, 20, 6, 3, 5],
+  duplex: [42, 32, 13, 6, 3, 4],
   residence_touristique: [28, 35, 25, 5, 2, 5],
-  projet_neuf: [43, 24, 15, 10, 3, 5],
-  maison_hote: [30, 34, 22, 6, 3, 5],
+  projet_neuf: [43, 31, 13, 6, 3, 4],
+  maison_hote: [40, 33, 14, 6, 3, 4],
   piscine: [43, 20, 25, 5, 2, 5],
   piscine_beton: [43, 20, 25, 5, 2, 5],
   piscine_coque: [35, 15, 30, 12, 3, 5],
@@ -653,75 +675,68 @@ export type BIMCategory = (typeof BIM_CATEGORIES)[number];
 export const BIM_CATEGORY_LABELS = PROJECT_TYPE_LABELS;
 
 // ============================================================================
-// REGION-SPECIFIC CONSTRUCTION COSTS (TND/m² - clé en main)
-// Source: Marché tunisien 2026 - fourchettes réelles constatées
-// Mid-point de chaque fourchette utilisée pour le calcul
+// COÛTS RÉGIONAUX DE CONSTRUCTION (TND/m² — clé en main)
+// Source : feuille « Coût de construction au m² – Tunisie 2026 »
+// (référence du 19/08/2026, tableau de bord des 24 gouvernorats).
+// Le niveau « Standard central » est donné par gouvernorat ; les niveaux
+// Économique et Haut standing sont déduits par les ratios nationaux :
+// Éco/Std = 1340/1780 · Haut/Std = 2470/1780.
+// Fourchettes nationales : Éco 1200-1500 · Std 1600-2000 · Haut 2200-2800.
 // ============================================================================
 
-export const REGION_COST_M2: Record<string, { eco: number; std: number; premium: number; ecoRange: string; stdRange: string; premiumRange: string }> = {
-  // ── Base : Grand Tunis (Tunis, Ariana, Ben Arous) ──────────────────────
-  // Calqué sur la feuille « Gouvernorats » du fichier
-  // Base_Materiaux_Construction_Tunisie_2026.xlsx — coefficient 100 %.
-  // Les prix intègrent matériaux + main-d'œuvre + logistique.
-  tunis:     { eco: 1200, std: 1720, premium: 2560, ecoRange: "1040-1360", stdRange: "1520-1920", premiumRange: "2080-3120" },
-  ariana:    { eco: 1200, std: 1720, premium: 2560, ecoRange: "1040-1360", stdRange: "1520-1920", premiumRange: "2080-3120" },
-  ben_arous: { eco: 1200, std: 1720, premium: 2560, ecoRange: "1040-1360", stdRange: "1520-1920", premiumRange: "2080-3120" },
-  // ── Grand Tunis périphérie ─────────────────────────────────────────────
-  // Manouba (coeff 101 %) — faible écart
-  manouba:   { eco: 1180, std: 1680, premium: 2480, ecoRange: "1020-1340", stdRange: "1500-1860", premiumRange: "2020-3000" },
-  // ── Nord-Est ───────────────────────────────────────────────────────────
-  // Nabeul (103 %) — proximité Grand Tunis
-  nabeul:    { eco: 1160, std: 1640, premium: 2440, ecoRange: "1000-1320", stdRange: "1460-1820", premiumRange: "1980-2920" },
-  // Zaghouan (104 %) — proximité ciment/acier
-  zaghouan:  { eco: 1120, std: 1600, premium: 2360, ecoRange: "960-1280", stdRange: "1420-1780", premiumRange: "1920-2820" },
-  // Bizerte (104 %) — accès industriel
-  bizerte:   { eco: 1120, std: 1600, premium: 2360, ecoRange: "960-1280", stdRange: "1420-1780", premiumRange: "1920-2820" },
-  // ── Nord-Ouest ─────────────────────────────────────────────────────────
-  // Béja (107 %) — transport à calibrer
-  beja:      { eco: 1080, std: 1540, premium: 2280, ecoRange: "920-1240", stdRange: "1360-1720", premiumRange: "1840-2720" },
-  // Jendouba (109 %) — transport à calibrer
-  jendouba:  { eco: 1060, std: 1520, premium: 2240, ecoRange: "900-1220", stdRange: "1340-1700", premiumRange: "1820-2680" },
-  // Le Kef (110 %) — transport à calibrer
-  le_kef:    { eco: 1040, std: 1500, premium: 2200, ecoRange: "880-1200", stdRange: "1320-1680", premiumRange: "1800-2620" },
-  // Siliana (109 %) — transport à calibrer
-  siliana:   { eco: 1060, std: 1520, premium: 2240, ecoRange: "900-1220", stdRange: "1340-1700", premiumRange: "1820-2680" },
-  // ── Sahel ──────────────────────────────────────────────────────────────
-  // Sousse (102 %) — pôle industriel
-  sousse:    { eco: 1180, std: 1680, premium: 2480, ecoRange: "1020-1340", stdRange: "1480-1880", premiumRange: "2000-2980" },
-  // Monastir (102 %) — pôle industriel
-  monastir:  { eco: 1160, std: 1640, premium: 2440, ecoRange: "1000-1320", stdRange: "1460-1820", premiumRange: "1980-2920" },
-  // Mahdia (104 %) — transport à calibrer
-  mahdia:    { eco: 1120, std: 1600, premium: 2360, ecoRange: "960-1280", stdRange: "1420-1780", premiumRange: "1920-2820" },
-  // ── Centre ─────────────────────────────────────────────────────────────
-  // Kairouan (106 %) — pôle régional
-  kairouan:  { eco: 1100, std: 1560, premium: 2320, ecoRange: "940-1260", stdRange: "1380-1740", premiumRange: "1880-2760" },
-  // ── Centre-Ouest ───────────────────────────────────────────────────────
-  // Kasserine (110 %) — transport à calibrer
-  kasserine: { eco: 1040, std: 1480, premium: 2180, ecoRange: "880-1200", stdRange: "1300-1660", premiumRange: "1780-2580" },
-  // Sidi Bouzid (109 %) — transport à calibrer
-  sidi_bouzid: { eco: 1060, std: 1500, premium: 2220, ecoRange: "900-1220", stdRange: "1320-1680", premiumRange: "1800-2640" },
-  // ── Centre-Sud ─────────────────────────────────────────────────────────
-  // Sfax (103 %) — pôle industriel
-  sfax:      { eco: 1140, std: 1600, premium: 2380, ecoRange: "980-1300", stdRange: "1420-1780", premiumRange: "1940-2840" },
-  // ── Sud-Est ────────────────────────────────────────────────────────────
-  // Gabès (107 %) — pôle industriel Sud
-  gabes:     { eco: 1100, std: 1560, premium: 2300, ecoRange: "940-1260", stdRange: "1380-1740", premiumRange: "1880-2740" },
-  // Médenine (109 %) — transport à calibrer
-  medenine:  { eco: 1080, std: 1520, premium: 2260, ecoRange: "920-1240", stdRange: "1340-1700", premiumRange: "1840-2680" },
-  // Tataouine (112 %) — longue distance
-  tataouine: { eco: 1040, std: 1480, premium: 2200, ecoRange: "880-1200", stdRange: "1300-1660", premiumRange: "1780-2620" },
-  // ── Sud-Ouest ──────────────────────────────────────────────────────────
-  // Gafsa (109 %) — transport à calibrer
-  gafsa:     { eco: 1060, std: 1500, premium: 2220, ecoRange: "900-1220", stdRange: "1320-1680", premiumRange: "1800-2640" },
-  // Tozeur (112 %) — longue distance
-  tozeur:    { eco: 1040, std: 1480, premium: 2200, ecoRange: "880-1200", stdRange: "1300-1660", premiumRange: "1780-2620" },
-  // Kébili (113 %) — longue distance
-  kebili:    { eco: 1020, std: 1460, premium: 2160, ecoRange: "860-1180", stdRange: "1280-1640", premiumRange: "1760-2580" },
+/** Niveau « Standard central » par gouvernorat (TND/m², feuille 2026). */
+export const GOVERNORATE_STD_M2: Record<string, number> = {
+  tataouine: 1950, kebili: 1920, tunis: 1900, tozeur: 1900,
+  medenine: 1890, nabeul: 1880, sousse: 1880, ariana: 1870,
+  ben_arous: 1850, monastir: 1840, gafsa: 1840,
+  kasserine: 1830, mahdia: 1830, gabes: 1830, manouba: 1830,
+  le_kef: 1820, bizerte: 1820, sfax: 1820, sidi_bouzid: 1820,
+  jendouba: 1810, siliana: 1800, zaghouan: 1790, kairouan: 1780, beja: 1780,
 };
 
-// National average (utilisé quand aucune région spécifique n'est sélectionnée)
-// Moyenne des 24 gouvernorats calibrée sur le fichier Base_Materiaux 2026
-export const NATIONAL_AVG = { eco: 1100, std: 1580, premium: 2340 };
+/** Niveaux de standing nationaux (feuille « Coût au m² – Tunisie 2026 »). */
+export const STANDING_LEVELS_2026 = [
+  { key: "economique", label: "Économique", min: 1200, central: 1340, max: 1500 },
+  { key: "standard", label: "Standard", min: 1600, central: 1780, max: 2000 },
+  { key: "haut_standing", label: "Haut standing", min: 2200, central: 2470, max: 2800 },
+  { key: "luxe", label: "Luxe", min: 3000, central: 3360, max: 4000 },
+] as const;
+
+/** Répartition par grande phase – standard central : Gros œuvre 43 % · Second œuvre 34 % · Finitions & équipements 23 %. */
+export const PHASE_SPLIT_2026 = { gros_oeuvre: 43, second_oeuvre: 34, finitions_equipements: 23 };
+
+/** Contingence par défaut (feuille 2026). */
+export const DEFAULT_CONTINGENCY_PCT = 12;
+
+const _STD_REF = STANDING_LEVELS_2026[1].central; // 1780
+const _range10 = (lo: number, hi: number) =>
+  `${Math.round(lo / 10) * 10}-${Math.round(hi / 10) * 10}`;
+
+function _regionCost(stdM2: number) {
+  const f = stdM2 / _STD_REF;
+  return {
+    eco: Math.round(STANDING_LEVELS_2026[0].central * f),
+    std: stdM2,
+    premium: Math.round(STANDING_LEVELS_2026[2].central * f),
+    ecoRange: _range10(1200 * f, 1500 * f),
+    stdRange: _range10(1600 * f, 2000 * f),
+    premiumRange: _range10(2200 * f, 2800 * f),
+  };
+}
+
+export const REGION_COST_M2: Record<string, { eco: number; std: number; premium: number; ecoRange: string; stdRange: string; premiumRange: string }> =
+  Object.fromEntries(
+    Object.entries(GOVERNORATE_STD_M2).map(([g, std]) => [g, _regionCost(std)]),
+  );
+
+// National average : moyenne des 24 gouvernorats (= 1 845 DT/m² en standard,
+// conforme à la « Moyenne standard – 24 gouvernorats » de la feuille source).
+export const NATIONAL_AVG = (() => {
+  const vals = Object.values(REGION_COST_M2);
+  const avg = (k: "eco" | "std" | "premium") =>
+    Math.round(vals.reduce((s, v) => s + v[k], 0) / vals.length);
+  return { eco: avg("eco"), std: avg("std"), premium: avg("premium") };
+})();
 
 // Cache les fourchettes de prix par région pour l'affichage UI
 export const REGION_RANGES: Record<string, { eco: string; std: string; premium: string }> = {};
