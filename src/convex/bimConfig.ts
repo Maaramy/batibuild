@@ -5,7 +5,7 @@ import { getCurrentUser } from "./users";
 import { P, MARKET_PRICE_M2, PROJECT_PCT, REGION_COST_M2 } from "./bimEngine";
 
 // ============================================================================
-// Queries
+// Queries — configuration du moteur BIM (barèmes Tunisie 2026)
 // ============================================================================
 
 /** Get the latest BIM configuration (if any) */
