@@ -79,6 +79,18 @@ export const getCopilotAnalyses = query({
   },
 });
 
+/** Récupère une analyse enregistrée par son identifiant (propriétaire uniquement). */
+export const getCopilotAnalysis = query({
+  args: { analysisId: v.id("aiMaterialAnalyses") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+    const doc = await ctx.db.get(args.analysisId);
+    if (!doc || doc.userId !== user._id) return null;
+    return doc;
+  },
+});
+
 // ── Mutations ────────────────────────────────────────────────────────────────
 export const saveCopilotAnalysis = mutation({
   args: {

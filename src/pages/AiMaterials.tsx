@@ -182,9 +182,6 @@ export default function AiMaterials() {
     if (selectedCats.length === 0) return toast.error("Sélectionnez au moins une catégorie de matériaux.");
     if (!projectId) return toast.error("Choisissez un projet.");
     setAnalyzing(true);
-    setResult(null);
-    setOptimization(null);
-    setPerformance(null);
     try {
       const res = await recommendMaterials({
         projectId: projectId as any,
@@ -192,22 +189,24 @@ export default function AiMaterials() {
         categories: selectedCats,
         enhanceWithAI: enhance,
       });
-      setResult(res);
-      setBudgetInput(Math.max(1000, Math.round(res.cost.total * 0.85)));
-      // Sauvegarde automatique de l'analyse
+      // Sauvegarde automatique puis redirection vers la page dédiée de résultat
       let savedAnalysisId: string | undefined;
       try {
-        const id = await saveAnalysis({
+        savedAnalysisId = await saveAnalysis({
           projectId: projectId as any,
           input: { context: projectCtx, categories: selectedCats, useAI, enhance },
           results: { recommend: res },
         });
-        setSavedId(id);
-        savedAnalysisId = id;
+        setSavedId(savedAnalysisId);
       } catch {
         /* la sauvegarde est optionnelle */
       }
       toast.success("Analyse terminée.");
+      if (savedAnalysisId) {
+        navigate(`/dashboard/ai-materials/result/${savedAnalysisId}`);
+      } else {
+        toast.error("Impossible de rediriger : analyse non enregistrée.");
+      }
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'analyse");
     }
@@ -243,11 +242,9 @@ export default function AiMaterials() {
   const loadAnalysis = (doc: any) => {
     const res = doc.results?.recommend;
     if (!res) return toast.error("Analyse sans recommandation enregistrée.");
-    setResult(res);
     setSavedId(doc._id);
-    setBudgetInput(Math.max(1000, Math.round(res.cost.total * 0.85)));
-    toast.success("Analyse chargée.");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Redirection vers la page dédiée de résultat
+    navigate(`/dashboard/ai-materials/result/${doc._id}`);
   };
 
   const handlePdf = () => {
