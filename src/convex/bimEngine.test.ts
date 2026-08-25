@@ -473,6 +473,8 @@ describe("runBIMEstimation — maisons à étages (R+1 / R+2)", () => {
   it("la durée du chantier s'allonge avec le nombre de niveaux", () => {
     const d0 = runBIMEstimation("maison", S, 1, "tunis", "standard").aiAnalysis.estimatedDuration;
     const d2 = runBIMEstimation("maison_r_plus_2", S, 3, "tunis", "standard").aiAnalysis.estimatedDuration;
-    if (d0 != null && d2 != null) expect(d2).toBeGreaterThanOrEqual(d0);
+    // Durée au format « N mois »
+    const months = (d: string) => parseInt(d, 10);
+    expect(months(d2 as string)).toBeGreaterThan(months(d0 as string));
   });
 });
