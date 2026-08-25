@@ -396,19 +396,19 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
               </Button>
             </div>
             {optimization && (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-2">
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <p className="text-[9px] text-muted-foreground">Budget initial</p>
-                    <p className="text-xs font-bold">{fmtTnd(optimization.originalTotal)}</p>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-1.5">
+                <div className="grid grid-cols-3 gap-1.5">
+                  <div className="rounded-lg border border-border/30 px-2 py-1 text-center">
+                    <p className="text-[8px] uppercase tracking-wide text-muted-foreground">Budget initial</p>
+                    <p className="text-[11px] font-bold tabular-nums">{fmtTnd(optimization.originalTotal)}</p>
                   </div>
-                  <div>
-                    <p className="text-[9px] text-muted-foreground">Budget optimisé</p>
-                    <p className="text-xs font-bold text-emerald-600">{fmtTnd(optimization.optimizedTotal)}</p>
+                  <div className="rounded-lg border border-border/30 px-2 py-1 text-center">
+                    <p className="text-[8px] uppercase tracking-wide text-muted-foreground">Budget optimisé</p>
+                    <p className="text-[11px] font-bold tabular-nums text-emerald-600">{fmtTnd(optimization.optimizedTotal)}</p>
                   </div>
-                  <div>
-                    <p className="text-[9px] text-muted-foreground">Économie</p>
-                    <p className="text-xs font-bold text-emerald-600">{fmtTnd(optimization.savings)} <span className="text-[9px]">({optimization.savingsPct}%)</span></p>
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-2 py-1 text-center">
+                    <p className="text-[8px] uppercase tracking-wide text-muted-foreground">Économie</p>
+                    <p className="text-[11px] font-bold tabular-nums text-emerald-600">{fmtTnd(optimization.savings)} <span className="text-[9px] font-semibold">({optimization.savingsPct}%)</span></p>
                   </div>
                 </div>
                 {optimization.changes.length > 0 ? (
