@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { FloorPlan, RoomKind } from "@/lib/floorPlanEngine";
+import { roomFurniture, type MatTag } from "@/lib/furniture";
 
 // ============================================================================
 // VUE 3D « MAISON DE POUPEE » — qualité architecturale
@@ -19,6 +20,14 @@ const WIN_SILL = 0.95; // allège fenêtre (m)
 const WIN_TOP = 2.15; // tête de baie vitrée (m)
 const DOOR_H = 2.05; // hauteur porte (m)
 const TOL = 0.02;
+
+/** Teintes du mobilier extrudé (bois, tissu, sanitaire blanc, électroménager). */
+const FURN_COLORS_3D: Record<MatTag, number> = {
+  wood: 0xc8a06a,
+  fabric: 0x8ea3c8,
+  white: 0xf2f2ee,
+  metal: 0xb9c2cc,
+};
 
 const ROOM_COLORS_3D: Record<RoomKind, number> = {
   sejour: 0xf5d9a8,
@@ -321,6 +330,38 @@ export function FloorPlan3D({ plan }: { plan: FloorPlan }) {
         tag.rotation.x = -Math.PI / 2;
         tag.position.set(r.x + r.w / 2, 0.075, r.y + r.h / 2);
         building.add(tag);
+      }
+    }
+
+    // ── Mobilier extrudé (lits, canapés, cuisine équipée, sanitaires…) ─────
+    const furnMats = Object.fromEntries(
+      (Object.keys(FURN_COLORS_3D) as MatTag[]).map((k) => [
+        k,
+        track(
+          new THREE.MeshStandardMaterial({
+            color: FURN_COLORS_3D[k],
+            roughness: 0.75,
+          }),
+        ),
+      ]),
+    ) as Record<MatTag, THREE.MeshStandardMaterial>;
+
+    for (const r of plan.rooms) {
+      for (const p of roomFurniture(r)) {
+        if (p.t === "l") continue;
+        const mat = furnMats[p.m ?? "wood"];
+        if (p.t === "r") {
+          const h = p.ht ?? 0.45;
+          box(p.w, h, p.h, p.x + p.w / 2, h / 2 + 0.06, p.y + p.h / 2, mat);
+        } else {
+          const h = p.ht ?? 0.45;
+          if (p.flat || p.r < 0.03) continue;
+          const geo = track(new THREE.CylinderGeometry(p.r, p.r, h, 18));
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.set(p.x, h / 2 + 0.06, p.y);
+          mesh.castShadow = true;
+          building.add(mesh);
+        }
       }
     }
 

@@ -1,5 +1,6 @@
 import { useId, useMemo } from "react";
 import type { FloorPlan } from "@/lib/floorPlanEngine";
+import { FurnitureLayer } from "./FurnitureLayer";
 
 // ============================================================================
 // PLAN 2D STYLE « DESSIN D'ARCHITECTE »
@@ -115,6 +116,11 @@ export function FloorPlan2D({ plan }: { plan: FloorPlan }) {
               </g>
             );
           })}
+      </g>
+
+      {/* ── Passe 1b : aménagement intérieur (mobilier) ── */}
+      <g clipPath={`url(#${clipId})`}>
+        <FurnitureLayer plan={plan} S={S} />
       </g>
 
       {/* ── Passe 2 : poché des murs (traits fusionnés) ── */}
