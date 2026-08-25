@@ -713,6 +713,7 @@ import {
 } from "./bimEngine";
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { generateDqe } from "./dqeEngine";
+import { inferFloorsFromCategory } from "./projectTypes";
 
 // ============================================================================
 // Simulate Analysis (BIM Professional Engine)
@@ -729,7 +730,9 @@ export const simulateAnalysis = mutation({
     if (!project) return;
 
     const surface = project.surface ?? 150;
-    const floors = project.floors ?? 1;
+    // Nombre de niveaux effectif : valeur saisie si présente, sinon déduite
+    // du type de projet (Maison R+1 → 2 niveaux, Maison R+2 → 3 niveaux).
+    const floors = project.floors ?? inferFloorsFromCategory(project.category);
     const category = project.category;
     const region = project.region ?? "tunis";
     const finishLevel = (project as any).finish_level || "standard";

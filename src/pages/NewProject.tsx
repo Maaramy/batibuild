@@ -23,6 +23,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BIM_CATEGORIES, BIM_CATEGORY_LABELS } from "@/convex/bimEngine";
+import { inferFloorsFromCategory } from "@/convex/projectTypes";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
@@ -622,6 +623,9 @@ export default function NewProject() {
         description: description || undefined,
         region: region ? (region as any) : undefined,
         surface: surface ? parseFloat(surface) : undefined,
+        // Nombre de niveaux déduit du type : Maison R+1 → 2, Maison R+2 → 3.
+        // Le moteur BIM chiffre alors planchers hauts et escalier par niveau.
+        floors: inferFloorsFromCategory(selectedCategory),
       });
 
       await simulateAnalysis({ projectId });

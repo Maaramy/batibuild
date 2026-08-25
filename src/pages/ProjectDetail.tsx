@@ -27,6 +27,7 @@ import { runBIMEstimation } from "@/convex/bimEngine";
 import {
   projectTypeLabel,
   investmentTypeForProject as sharedInvestmentTypeForProject,
+  inferFloorsFromCategory,
 } from "@/convex/projectTypes";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
@@ -333,7 +334,9 @@ export default function ProjectDetail() {
     if (!hasRooms) return null;
     const finishLevel = (project as any).finish_level || "standard";
     const surface = project.surface ?? 150;
-    const floors = project.floors ?? 1;
+    // Cohérent avec simulateAnalysis : niveaux déduits du type si non saisis
+    // (Maison R+1 → 2, Maison R+2 → 3).
+    const floors = project.floors ?? inferFloorsFromCategory(project.category);
     const region = project.region ?? "tunis";
     const withRooms = runBIMEstimation(project.category, surface, floors, region, finishLevel, {
       bedrooms: project.bedrooms,

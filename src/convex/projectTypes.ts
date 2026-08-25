@@ -98,6 +98,31 @@ export const ROOM_ELIGIBLE_TYPES: string[] = [
 /** Types à un seul niveau (rez-de-chaussée imposé). */
 export const SINGLE_LEVEL_TYPES: string[] = ["local_commercial", "entrepot", "bureau"];
 
+/**
+ * Nombre de niveaux par défaut selon le type de bien (moteur BIM / DQE).
+ * 1 = RDC seul · 2 = R+1 · 3 = R+2. Utilisé quand l'utilisateur ne saisit
+ * pas explicitement le nombre d'étages : une « Maison R+1 » doit être chiffrée
+ * sur 2 niveaux (plancher haut + escalier), une « Maison R+2 » sur 3 niveaux.
+ */
+export const CATEGORY_DEFAULT_FLOORS: Record<string, number> = {
+  maison: 1,
+  maison_r_plus_1: 2,
+  maison_r_plus_2: 3,
+  duplex: 2,
+};
+
+/**
+ * Nombre de niveaux effectif pour le calcul de coût : valeur saisie par
+ * l'utilisateur si fournie, sinon déduite du type de projet, sinon 1.
+ * Les types à un seul niveau (local commercial, entrepôt, bureau) sont
+ * toujours forcés à 1.
+ */
+export function inferFloorsFromCategory(category: string | undefined | null): number {
+  if (!category) return 1;
+  if (SINGLE_LEVEL_TYPES.includes(category)) return 1;
+  return CATEGORY_DEFAULT_FLOORS[category] ?? 1;
+}
+
 /** Champs de composition masqués selon le type de bien. */
 export const HIDDEN_ROOM_FIELDS: Record<string, string[]> = {
   bureau: ["kitchens", "livingRooms", "garages"],
