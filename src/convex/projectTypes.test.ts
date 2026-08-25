@@ -11,6 +11,7 @@ import {
   projectTypeLabel,
   resolveProjectType,
   investmentTypeForProject,
+  inferFloorsFromCategory,
 } from "./projectTypes";
 import { INVESTMENT_TYPES } from "./investmentTypes";
 
