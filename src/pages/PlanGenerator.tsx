@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
-import { projectTypeLabel } from "@/convex/projectTypes";
+import { projectTypeLabel, inferFloorsFromCategory } from "@/convex/projectTypes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -90,7 +90,7 @@ export default function PlanGenerator() {
     return generateFloorPlans({
       category: project.category as string,
       surface: project.surface ?? 120,
-      floors: Math.max(1, Math.min(4, project.floors ?? 1)),
+      floors: Math.max(1, Math.min(4, project.floors ?? inferFloorsFromCategory(project.category))),
       bedrooms: project.bedrooms ?? undefined,
       bathrooms: project.bathrooms ?? undefined,
       kitchens: project.kitchens ?? undefined,

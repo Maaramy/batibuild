@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 import { vly } from "../lib/vly-integrations";
+import { inferFloorsFromCategory } from "./projectTypes";
 import {
   COPILOT_CATEGORY_BY_ID,
   matchCategoryMaterials,
@@ -105,7 +106,7 @@ export const recommendMaterials = action({
       projectCategory: project?.category || args.context?.projectCategory,
       region: args.context?.region || project?.region,
       surface: args.context?.surface ?? project?.surface ?? 0,
-      floors: args.context?.floors ?? project?.floors ?? 1,
+      floors: args.context?.floors ?? project?.floors ?? inferFloorsFromCategory(project?.category),
       rooms: args.context?.rooms || {
         bathrooms: project?.bathrooms,
         kitchens: project?.kitchens,
