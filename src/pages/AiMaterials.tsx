@@ -13,21 +13,15 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import {
-  ArrowLeft, Sparkles, HardHat, Loader2, FileDown, Store,
-  PiggyBank, Zap, Scale, Check, Trash2, Clock, MapPin, Ruler, Layers,
-  TrendingDown, TrendingUp, Minus, Wand2, Gauge, CalendarDays, ShieldCheck,
-  RefreshCw, ChevronDown, ChevronUp, BadgeCheck, Crown, CircleDollarSign,
-  CircleDot, Building2, Info, SlidersHorizontal, Trophy,
+ArrowLeft, Sparkles, HardHat, Loader2, Store, Scale, Check, Trash2, Clock, MapPin, Ruler, TrendingDown, TrendingUp, Minus, Wand2, ShieldCheck, RefreshCw, CircleDollarSign, Building2, Info, SlidersHorizontal
 } from "lucide-react";
 import {
   COPILOT_CATEGORIES,
   STANDING_LEVELS,
   BUDGET_MODES,
   MaterialScores,
-  RecommendResult,
   ProjectContext,
 } from "@/convex/aiMaterialsEngine";
-import { generateMaterialReportPdf } from "@/lib/materialReportPdf";
 import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
 import { REGION_LABELS } from "@/lib/projectPdf";
 
@@ -92,8 +86,6 @@ export default function AiMaterials() {
   const saveAnalysis = useMutation(api.aiMaterials.saveCopilotAnalysis);
   const deleteAnalysis = useMutation(api.aiMaterials.deleteCopilotAnalysis);
   const recommendMaterials = useAction(api.aiMaterialsActions.recommendMaterials);
-  const optimizeCopilotBudget = useAction(api.aiMaterialsActions.optimizeCopilotBudget);
-  const improveCopilotPerformance = useAction(api.aiMaterialsActions.improveCopilotPerformance);
 
   // ── Formulaire ──
   const [projectId, setProjectId] = useState(paramProject || "");
@@ -130,11 +122,6 @@ export default function AiMaterials() {
 
   // ── Résultats ──
   const [analyzing, setAnalyzing] = useState(false);
-  const [result, setResult] = useState<RecommendResult | null>(null);
-  const [optimization, setOptimization] = useState<any>(null);
-  const [performance, setPerformance] = useState<any>(null);
-  const [busy, setBusy] = useState<Record<string, boolean>>({});
-  const [budgetInput, setBudgetInput] = useState(0);
   const [savedId, setSavedId] = useState<string | null>(null);
 
   const projectCtx = useMemo<ProjectContext>(() => {
@@ -213,48 +200,12 @@ export default function AiMaterials() {
     setAnalyzing(false);
   };
 
-  const runOptimize = async () => {
-    if (!result || budgetInput <= 0) return;
-    setBusy((b) => ({ ...b, optimize: true }));
-    try {
-      const res = await optimizeCopilotBudget({ result, budgetAmount: budgetInput });
-      setOptimization(res);
-      toast.success(`Économie potentielle : ${fmtTnd(res.savings)}`);
-    } catch (err: any) {
-      toast.error(err.message || "Erreur");
-    }
-    setBusy((b) => ({ ...b, optimize: false }));
-  };
-
-  const runPerformance = async () => {
-    if (!result) return;
-    setBusy((b) => ({ ...b, performance: true }));
-    try {
-      const res = await improveCopilotPerformance({ result });
-      setPerformance(res);
-      toast.success(res.improvements.length ? `${res.improvements.length} amélioration(s) suggérée(s)` : "Aucune amélioration nécessaire — votre sélection est déjà performante.");
-    } catch (err: any) {
-      toast.error(err.message || "Erreur");
-    }
-    setBusy((b) => ({ ...b, performance: false }));
-  };
-
   const loadAnalysis = (doc: any) => {
     const res = doc.results?.recommend;
     if (!res) return toast.error("Analyse sans recommandation enregistrée.");
     setSavedId(doc._id);
     // Redirection vers la page dédiée de résultat
     navigate(`/dashboard/ai-materials/result/${doc._id}`);
-  };
-
-  const handlePdf = () => {
-    if (!result) return;
-    try {
-      generateMaterialReportPdf({ result, optimization: optimization || undefined, performance: performance || undefined });
-      toast.success("Rapport PDF généré.");
-    } catch (err: any) {
-      toast.error("Erreur PDF : " + err.message);
-    }
   };
 
   const noProjects = projects.length === 0;
@@ -277,14 +228,6 @@ export default function AiMaterials() {
               <h1 className="text-sm font-semibold truncate">Assistant Matériaux IA</h1>
               <p className="text-[9px] text-muted-foreground leading-tight truncate">Choix des matériaux · Prix Tunisie 2026 · Copilot</p>
             </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {result && (
-              <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={handlePdf}>
-                <FileDown className="h-3.5 w-3.5" />
-                Rapport PDF
-              </Button>
-            )}
           </div>
         </div>
       </header>
