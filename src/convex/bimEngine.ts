@@ -19,60 +19,60 @@ import { PROJECT_TYPES, PROJECT_TYPE_LABELS } from "./projectTypes";
 // via P_CATEGORY_MAP so the price database and the BIM engine stay aligned.
 export const P = {
   // ── Terrassement et granulats ─────────────────────────────────────────
-  sand: { construction: 43.2, fine: 38.4, remblai: 33.6 },
+  sand: { construction: 36, fine: 32, remblai: 28 },
   gravel: { "15_25mm": 49.2, "8_15mm": 57.6 },
   // ── Liants, ciments et mortiers (Base_Materiaux 2026 — TTC) ───────────
   // CPC / CEM II sac 50 kg : 13.2,85 TND · CPA / CEM I sac 50 kg : 14.4,85 TND
   // HRS 42,5 sac 50 kg : 16.8,50 TND
-  cement: { bag42_5: 15.22, bag32_5: 14.26, hrs_42_5: 22.2 },
+  cement: { bag42_5: 12.683333, bag32_5: 11.883333, hrs_42_5: 18.5 },
   // ── Bétons et préfabrication ──────────────────────────────────────────
-  concrete: { ready_mix_250: 201.6, ready_mix_300: 225.6, ready_mix_350: 318 },
+  concrete: { ready_mix_250: 168, ready_mix_300: 188, ready_mix_350: 265 },
   // ── Acier et métaux de structure (COMAF / INTERMETAL / SIDENOR) ────────
   // Rond Ø6 : 1.2,625 TND/barre · Ø8 : 12,75 · Ø10 : 22.8 · Ø12 : 24
   // Ø14 : 34.8,40 · Ø16 : 45.6,30 · Treillis 150×150×4 : 4.8,384 TND/m²
-  steel: { t6_m: 0.91, t8_m: 1.34, t10_m: 2.02, t12_ton: 3696, t14_ton: 3792, treillis_m2: 18 },
+  steel: { t6_m: 0.758333, t8_m: 1.116667, t10_m: 1.683333, t12_ton: 3080, t14_ton: 3160, treillis_m2: 15 },
   // ── Maçonnerie et éléments de plancher (Bâtiment El Baraka) ───────────
   // Brique creuse 12 cm : 0,85 · 8 cm : 0,78 · 6 cm : 0,50
   // Hourdis terre cuite H16 : 0,27 TND/pièce
-  bricks: { hollow_10: 0.82, hollow_15: 0.62, hourdis_16: 1.22, noot_6: 0.48, parpaing_15: 1.06, parpaing_20: 1.25, pleine_22x11x7: 0.66 },
+  bricks: { hollow_10: 0.683333, hollow_15: 0.516667, hourdis_16: 1.016667, noot_6: 0.4, parpaing_15: 0.883333, parpaing_20: 1.041667, pleine_22x11x7: 0.55 },
   // ── Bois, panneaux et coffrage (COMAF) ────────────────────────────────
   // Bois blanc autrichien madrier : 1.2 599 TND/m³
-  wood: { formwork_m3: 1534.8, framing_m3: 787.2, chevron_m: 14.4 },
+  wood: { formwork_m3: 1279, framing_m3: 656, chevron_m: 12 },
   // ── Étanchéité et protection (Sika / Astral) ─────────────────────────
   // Sikalastic 220 W seau 7 kg : 162 TND
-  roofing: { tile_m2: 18, steel_sheet_m2: 27.6, waterproof_m2: 20.4, insulation_m2: 31.2 },
+  roofing: { tile_m2: 15, steel_sheet_m2: 23, waterproof_m2: 17, insulation_m2: 26 },
   // ── Isolation thermique et acoustique ──────────────────────────────────
-  insulation: { laine_m2: 3.6, polyst_m2: 8.4, xps_m2: 19.2 },
+  insulation: { laine_m2: 3, polyst_m2: 7, xps_m2: 16 },
   // ── Revêtements de sols et murs (COMAF / Arkan) ──────────────────────
   // Grès cérame : 36-80 TND/m² · Ciment-colle FM ECO : 10.8,57 TND/sac
-  tiles: { floor_m2: 28.8, wall_m2: 24, marble_m2: 115.2, granite_m2: 129.6, ext_m2: 32.4, plinthe_ml: 9.6 },
+  tiles: { floor_m2: 24, wall_m2: 20, marble_m2: 96, granite_m2: 108, ext_m2: 27, plinthe_ml: 8 },
   // ── Peintures, enduits et finitions (Astral / Ripolin / Espace 2F) ────
   // Aquastral Mat 20 kg : 76.8,94 TND · Astralatex 23 kg : 90 TND
   // Ripolatex Mat 500 40 kg : 114 TND
-  paint: { interior_l: 20.4, exterior_l: 24, primer_l: 21.6 },
+  paint: { interior_l: 17, exterior_l: 20, primer_l: 18 },
   // ── Menuiseries (Chantier.tn / Arkan / Meuble Mansour) ───────────────
   // Fenêtre alu série 40 simple vitrage 120×120 : 450 TND
   // Fenêtre alu série 40 double vitrage 120×120 : 524.4 TND
   // Fenêtre alu série 67 coulissante 140×120 : 572.4 TND
   // Porte intérieure chêne + cadre : 978 TND
   // Porte d'entrée frêne C1 : 2.4 850 TND
-  doors: { simple: 307.2, double: 528, metal: 528, garage: 1248, sliding: 1020 },
-  windows: { alu_simple: 360, alu_double: 418.8, pvc: 403.2, iron_grille: 211.2, roller_shutter: 364.8, alu_coulissante: 572.4 },
+  doors: { simple: 256, double: 440, metal: 440, garage: 1040, sliding: 850 },
+  windows: { alu_simple: 300, alu_double: 349, pvc: 336, iron_grille: 176, roller_shutter: 304, alu_coulissante: 477 },
   // ── Vitrage et produits verriers ──────────────────────────────────────
-  glass: { clear_m2: 26.4, double_m2: 64.8, tempered_m2: 138 },
+  glass: { clear_m2: 22, double_m2: 54, tempered_m2: 115 },
   // ── Équipements (Bricola / BStore / Espace 2F) ───────────────────────
   // Câbles : fil rigide 1,5 mm² : 90 TND/100 m · 2,5 mm² : 142.8 TND/100 m
   // Disjoncteur DPN 2×16A : 14.4,20 TND
   // Disjoncteur diff 2×20A/30mA : 80.4,90 TND
   // Réservoir encastré GROHE 10L : 540 TND
-  plumbing: { pvc_110: 14.4, pvc_50: 6, copper_m: 20.4, geyser: 460.8, wc: 268.8, lavabo: 153.6, douche: 345.6, evier: 288 },
-  electrical: { cable_1_5_m: 1.44, cable_2_5_m: 2.3, cable_6_m: 4.61, breaker: 49.2, panel: 201.6, led_light: 36, socket: 8.4, switch: 8.4 },
-  hvac: { split_12000: 1296, split_18000: 1728, vmc: 420 },
-  solar: { panel_450w: 528, onduleur: 2400, batterie_10kwh: 3840 },
+  plumbing: { pvc_110: 12, pvc_50: 5, copper_m: 17, geyser: 384, wc: 224, lavabo: 128, douche: 288, evier: 240 },
+  electrical: { cable_1_5_m: 1.2, cable_2_5_m: 1.916667, cable_6_m: 3.841667, breaker: 41, panel: 168, led_light: 30, socket: 7, switch: 7 },
+  hvac: { split_12000: 1080, split_18000: 1440, vmc: 350 },
+  solar: { panel_450w: 440, onduleur: 2000, batterie_10kwh: 3200 },
   // ── Main-d'œuvre, transport et engins ────────────────────────────────
-  labor: { worker_day: 62.4, mason_day: 76.8, electrician_day: 72, plumber_day: 72, painter_day: 62.4, tiler_day: 96 },
-  transport: { truck_trip: 168, mixer_m3: 28.8, benne: 240 },
-  equipment: { excavator_day: 278.4, compactor_day: 201.6, mixer_day: 114 },
+  labor: { worker_day: 52, mason_day: 64, electrician_day: 60, plumber_day: 60, painter_day: 52, tiler_day: 80 },
+  transport: { truck_trip: 140, mixer_m3: 24, benne: 200 },
+  equipment: { excavator_day: 232, compactor_day: 168, mixer_day: 95 },
 };
 
 // ============================================================================
@@ -101,9 +101,6 @@ const MATERIAL_CATEGORY_DEFS = [
   { slug: "vitrage_verriers", label: "Vitrage et produits verriers" },
   { slug: "chimie_construction", label: "Chimie de construction" },
   { slug: "quincaillerie_fixations", label: "Quincaillerie et fixations" },
-  { slug: "plomberie_evacuation", label: "Plomberie et évacuation" },
-  { slug: "sanitaires_robinetterie", label: "Sanitaires et robinetterie" },
-  { slug: "electricite_courants_forts", label: "Électricité – courants forts" },
   { slug: "eclairage", label: "Éclairage" },
   { slug: "cvc_chauffage_ventilation", label: "CVC, chauffage et ventilation" },
   { slug: "energies_renouvelables", label: "Énergies renouvelables" },

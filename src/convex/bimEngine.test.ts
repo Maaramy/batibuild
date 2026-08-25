@@ -243,17 +243,17 @@ describe("runBIMEstimation — quantitatif détaillé aligné sur le catalogue 2
     const hourdis = item(res, "gros_oeuvre", "Hourdis");
     expect(hourdis.name).toBe("Hourdis 16×50");
     expect(hourdis.unit).toBe("pièce");
-    expect(hourdis.unitPrice).toBe(1.224);
+    expect(hourdis.unitPrice).toBe(1.02);
 
     const cement = item(res, "gros_oeuvre", "Ciment CPJ 42.5");
     expect(cement.name).toBe("Ciment CPJ 42.5 (sac 50 kg)");
     expect(cement.unit).toBe("sac");
-    expect(cement.unitPrice).toBe(15.216);
+    expect(cement.unitPrice).toBe(12.68);
 
     const steel = item(res, "gros_oeuvre", "Acier à béton T12");
     expect(steel.name).toBe("Acier à béton T12 (tonne)");
     expect(steel.unit).toBe("tonne");
-    expect(steel.unitPrice).toBe(3696);
+    expect(steel.unitPrice).toBe(3080.0);
   });
 
   it("second œuvre : fenêtres, carrelage et portes utilisent les références catalogue", () => {
@@ -266,16 +266,16 @@ describe("runBIMEstimation — quantitatif détaillé aligné sur le catalogue 2
     const carrelage = item(res, "second_oeuvre", "Carrelage");
     expect(carrelage.name).toBe("Carrelage sol 40×40 (m²)");
     expect(carrelage.unit).toBe("m²");
-    expect(carrelage.unitPrice).toBe(21.12);
+    expect(carrelage.unitPrice).toBe(17.6);
   });
 
   it("équipements : sanitaires et électricité résolus vers le catalogue", () => {
     const res = runBIMEstimation("maison", 150, 1, "tunis", "standard");
 
     const douche = item(res, "equipements", "Receveur de douche");
-    expect(douche.name).toBe("Receveur de douche 90×90");
+    expect(douche.name).toBe("Receveur de douche 90x90");
     expect(douche.unit).toBe("pièce");
-    expect(douche.unitPrice).toBe(192);
+    expect(douche.unitPrice).toBe(160.0);
 
     const cable = item(res, "equipements", "Câble électrique");
     expect(cable.name).toBe("Câble électrique 3×2.5 mm² (rouleau 100 m)");
@@ -287,7 +287,7 @@ describe("runBIMEstimation — quantitatif détaillé aligné sur le catalogue 2
     const brique = item(res, "gros_oeuvre", "Brique pleine");
     expect(brique.name).toBe("Brique pleine 22×11×7");
     expect(brique.unit).toBe("pièce");
-    expect(brique.unitPrice).toBe(0.528);
+    expect(brique.unitPrice).toBe(0.44);
   });
 
   it("entrepôt : la porte sectionnelle industrielle est alignée sur le catalogue", () => {
@@ -295,7 +295,7 @@ describe("runBIMEstimation — quantitatif détaillé aligné sur le catalogue 2
     const porte = item(res, "second_oeuvre", "Porte garage sectionnelle");
     expect(porte.name).toBe("Porte garage sectionnelle 2.5×2.1");
     expect(porte.unit).toBe("pièce");
-    expect(porte.unitPrice).toBe(1248);
+    expect(porte.unitPrice).toBe(1040);
   });
 
   it("bureau : la vitrine est mappée vers la baie coulissante alu du catalogue", () => {
@@ -377,10 +377,10 @@ describe("applyRealisticDoorsWindows — portes & fenêtres par pièce (Quantita
 
   it("les prix unitaires du catalogue 2026 sont conservés", () => {
     const so = getSO(MANY);
-    expect(find(so, "Porte intérieure").unitPrice).toBe(307.2);
-    expect(find(so, "Porte d'entrée").unitPrice).toBe(528);
-    expect(find(so, "Fenêtre").unitPrice).toBe(297.6);
-    expect(find(so, "Grille").unitPrice).toBe(211.2);
+    expect(find(so, "Porte intérieure").unitPrice).toBe(256);
+    expect(find(so, "Porte d'entrée").unitPrice).toBe(440);
+    expect(find(so, "Fenêtre").unitPrice).toBe(248);
+    expect(find(so, "Grille").unitPrice).toBe(176);
   });
 
   it("le total de la catégorie second œuvre est préservé (budget inchangé)", () => {

@@ -33,9 +33,7 @@ const OFFICIAL_2026_CATEGORIES = [
   "voirie_reseaux_drainage",
   "amenagements_exterieurs",
   "materiaux_durables_biosources",
-  "plomberie_evacuation",
-  "sanitaires_robinetterie",
-  "electricite_courants_forts",
+  "equipements",
 ];
 
 async function createUser(
@@ -221,7 +219,7 @@ describe("seedMaterialPrices", () => {
 
     const updated = await t.run(async (ctx) => ctx.db.get(legacyId as any));
     expect(updated.category).toBe("liants_ciments_mortiers");
-    expect(updated.unitPrice).toBe(15.216);
+    expect(updated.unitPrice).toBe(12.68);
     expect(updated.priceQuality).toBe("observé_en_ligne");
   });
 });
