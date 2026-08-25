@@ -238,11 +238,11 @@ function residentialProgram(
   // Répartition des chambres sur les étages (RDC gardé pour les espaces de vie)
   const bedroomLevels: number[][] = Array.from({ length: levels }, () => []);
   let bi = 0;
-  // Remplir à partir du dernier niveau en remontant (les étages portent les chambres)
-  for (let pass = 0; pass < bedrooms; pass++) {
-    const lvl = levels - 1 - (pass % Math.max(1, levels - 1 || 1));
+  // Remplir à partir du dernier niveau en remontant (les étages portent les chambres).
+  // Niveau unique : la boucle est ignorée, le repli ci-dessous place tout au RDC.
+  for (let pass = 0; levels > 1 && pass < bedrooms; pass++) {
+    const lvl = levels - 1 - (pass % Math.max(1, levels - 1));
     bedroomLevels[Math.max(1, Math.min(levels - 1, lvl))].push(bi++);
-    if (levels === 1) break;
   }
   if (levels === 1) {
     bedroomLevels[0] = Array.from({ length: bedrooms }, (_, k) => k);

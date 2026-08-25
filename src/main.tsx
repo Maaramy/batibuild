@@ -26,6 +26,7 @@ const PricingPage = lazy(() => import("./pages/PricingPage.tsx"));
 const MaterialsPage = lazy(() => import("./pages/MaterialsPage.tsx"));
 const AiMaterials = lazy(() => import("./pages/AiMaterials.tsx"));
 const AiMaterialsResult = lazy(() => import("./pages/AiMaterialsResult.tsx"));
+const PlanGenerator = lazy(() => import("./pages/PlanGenerator.tsx"));
 const ProjectGuide = lazy(() => import("./pages/ProjectGuide.tsx"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage.tsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
@@ -228,6 +229,14 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <AiMaterialsResult />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/plans/:id"
+                  element={
+                    <RequireAuth>
+                      <PlanGenerator />
                     </RequireAuth>
                   }
                 />
