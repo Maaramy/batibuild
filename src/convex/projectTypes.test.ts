@@ -15,6 +15,27 @@ import {
 } from "./projectTypes";
 import { INVESTMENT_TYPES } from "./investmentTypes";
 
+describe("inferFloorsFromCategory — niveaux par défaut du moteur BIM", () => {
+  it("Maison R+1 → 2 niveaux · Maison R+2 → 3 niveaux", () => {
+    expect(inferFloorsFromCategory("maison_r_plus_1")).toBe(2);
+    expect(inferFloorsFromCategory("maison_r_plus_2")).toBe(3);
+  });
+
+  it("les types simples restent à 1 niveau", () => {
+    expect(inferFloorsFromCategory("maison")).toBe(1);
+    expect(inferFloorsFromCategory("villa")).toBe(1);
+    expect(inferFloorsFromCategory(undefined)).toBe(1);
+    expect(inferFloorsFromCategory("")).toBe(1);
+  });
+
+  it("duplex → 2 niveaux, types mono-niveaux forcés à 1", () => {
+    expect(inferFloorsFromCategory("duplex")).toBe(2);
+    for (const t of SINGLE_LEVEL_TYPES) {
+      expect(inferFloorsFromCategory(t)).toBe(1);
+    }
+  });
+});
+
 // ============================================================================
 // Contrat du catalogue officiel des types de projet (13 types)
 // Aligné sur les types de bien du module Investissement
