@@ -626,8 +626,6 @@ export const TUNISIA_2026_CATALOG: CatalogItem[] = [
   { category: "equipements", name: "WC à l'anglaise complet", unit: "pièce", unitPrice: 280, quality: ESTIMATED, confidence: 0.6, subcategory: "Sanitaire" },
   { category: "equipements", name: "Lavabo céramique", unit: "pièce", unitPrice: 120, quality: ESTIMATED, confidence: 0.6, subcategory: "Sanitaire" },
   { category: "equipements", name: "Receveur de douche 90x90", unit: "pièce", unitPrice: 160, quality: ESTIMATED, confidence: 0.6, subcategory: "Sanitaire" },
-  { category: "equipements", name: "Interrupteur va-et-vient", unit: "pièce", unitPrice: 8, quality: PUBLISHED, confidence: 0.7, subcategory: "Électricité" },
-  { category: "equipements", name: "Prise de courant 2P+T", unit: "pièce", unitPrice: 12, quality: PUBLISHED, confidence: 0.7, subcategory: "Électricité" },
   { category: "equipements", name: "Tableau électrique 13 modules", unit: "pièce", unitPrice: 150, quality: PUBLISHED, confidence: 0.7, subcategory: "Électricité" },
 
   // ── CAT-17: Plomberie et évacuation (suite) ──────────────────────────────
