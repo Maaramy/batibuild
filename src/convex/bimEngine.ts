@@ -677,10 +677,11 @@ export const BIM_CATEGORY_LABELS = PROJECT_TYPE_LABELS;
 // ============================================================================
 // COÛTS RÉGIONAUX DE CONSTRUCTION (TND/m² — clé en main)
 // Source : feuille « Coût de construction au m² – Tunisie 2026 »
-// (référence du 19/08/2026, tableau de bord des 24 gouvernorats).
-// Le niveau « Standard central » est donné par gouvernorat ; les niveaux
-// Économique et Haut standing sont déduits par les ratios nationaux :
-// Éco/Std = 1340/1780 · Haut/Std = 2470/1780.
+// (référence du 19/08/2026, tableau de bord des 24 gouvernorats) et feuille
+// n°2 « Couts_24_gouv » : valeurs centrales EXACTES par gouvernorat pour les
+// niveaux Économique · Standard · Haut standing · Luxe, plus facteurs
+// régionaux (matériaux / main-d'œuvre / logistique), ventilation GO/SO/Fini
+// et découpage en 15 lots de l'onglet « Detail_lots ».
 // Fourchettes nationales : Éco 1200-1500 · Std 1600-2000 · Haut 2200-2800.
 // ============================================================================
 
@@ -708,25 +709,163 @@ export const PHASE_SPLIT_2026 = { gros_oeuvre: 43, second_oeuvre: 34, finitions_
 /** Contingence par défaut (feuille 2026). */
 export const DEFAULT_CONTINGENCY_PCT = 12;
 
+/**
+ * Feuille n°2 « Couts_24_gouv » — valeurs centrales EXACTES par gouvernorat
+ * et par niveau de standing (TND/m²) : Économique · Standard · Haut standing ·
+ * Luxe. Ces valeurs remplacent les ratios nationaux dérivés.
+ */
+export const GOVERNORATE_LEVELS_2026: Record<
+  string,
+  { eco: number; std: number; hautStanding: number; luxe: number }
+> = {
+  tunis: { eco: 1420, std: 1900, hautStanding: 2640, luxe: 3580 },
+  ariana: { eco: 1410, std: 1870, hautStanding: 2600, luxe: 3540 },
+  ben_arous: { eco: 1380, std: 1850, hautStanding: 2560, luxe: 3490 },
+  manouba: { eco: 1370, std: 1830, hautStanding: 2540, luxe: 3450 },
+  nabeul: { eco: 1410, std: 1880, hautStanding: 2610, luxe: 3550 },
+  zaghouan: { eco: 1340, std: 1790, hautStanding: 2490, luxe: 3380 },
+  bizerte: { eco: 1370, std: 1820, hautStanding: 2530, luxe: 3440 },
+  beja: { eco: 1340, std: 1780, hautStanding: 2470, luxe: 3360 },
+  jendouba: { eco: 1360, std: 1810, hautStanding: 2510, luxe: 3410 },
+  le_kef: { eco: 1370, std: 1820, hautStanding: 2530, luxe: 3440 },
+  siliana: { eco: 1350, std: 1800, hautStanding: 2500, luxe: 3400 },
+  sousse: { eco: 1410, std: 1880, hautStanding: 2610, luxe: 3540 },
+  monastir: { eco: 1380, std: 1840, hautStanding: 2560, luxe: 3480 },
+  mahdia: { eco: 1370, std: 1830, hautStanding: 2540, luxe: 3460 },
+  sfax: { eco: 1360, std: 1820, hautStanding: 2530, luxe: 3440 },
+  kairouan: { eco: 1340, std: 1780, hautStanding: 2480, luxe: 3370 },
+  kasserine: { eco: 1370, std: 1830, hautStanding: 2550, luxe: 3460 },
+  sidi_bouzid: { eco: 1360, std: 1820, hautStanding: 2520, luxe: 3430 },
+  gabes: { eco: 1370, std: 1830, hautStanding: 2540, luxe: 3460 },
+  medenine: { eco: 1420, std: 1890, hautStanding: 2630, luxe: 3570 },
+  tataouine: { eco: 1460, std: 1950, hautStanding: 2700, luxe: 3680 },
+  gafsa: { eco: 1380, std: 1840, hautStanding: 2560, luxe: 3480 },
+  tozeur: { eco: 1420, std: 1900, hautStanding: 2640, luxe: 3580 },
+  kebili: { eco: 1440, std: 1920, hautStanding: 2670, luxe: 3630 },
+};
+
+/**
+ * Feuille n°2 « Couts_24_gouv » — facteurs régionaux : matériaux,
+ * main-d'œuvre, marché/logistique et coefficient régional global.
+ */
+export const GOVERNORATE_FACTORS_2026: Record<
+  string,
+  { materiaux: number; mainOeuvre: number; logistique: number; coefficient: number }
+> = {
+  tunis: { materiaux: 1.0, mainOeuvre: 1.12, logistique: 1.12, coefficient: 1.054 },
+  ariana: { materiaux: 1.0, mainOeuvre: 1.1, logistique: 1.08, coefficient: 1.041 },
+  ben_arous: { materiaux: 0.99, mainOeuvre: 1.08, logistique: 1.05, coefficient: 1.025 },
+  manouba: { materiaux: 1.0, mainOeuvre: 1.04, logistique: 1.02, coefficient: 1.014 },
+  nabeul: { materiaux: 1.02, mainOeuvre: 1.07, logistique: 1.08, coefficient: 1.045 },
+  zaghouan: { materiaux: 1.0, mainOeuvre: 0.97, logistique: 1.01, coefficient: 0.995 },
+  bizerte: { materiaux: 1.01, mainOeuvre: 1.0, logistique: 1.03, coefficient: 1.012 },
+  beja: { materiaux: 1.0, mainOeuvre: 0.94, logistique: 1.02, coefficient: 0.989 },
+  jendouba: { materiaux: 1.02, mainOeuvre: 0.94, logistique: 1.04, coefficient: 1.004 },
+  le_kef: { materiaux: 1.03, mainOeuvre: 0.93, logistique: 1.07, coefficient: 1.013 },
+  siliana: { materiaux: 1.02, mainOeuvre: 0.92, logistique: 1.05, coefficient: 1.001 },
+  sousse: { materiaux: 1.01, mainOeuvre: 1.08, logistique: 1.08, coefficient: 1.042 },
+  monastir: { materiaux: 1.0, mainOeuvre: 1.06, logistique: 1.04, coefficient: 1.023 },
+  mahdia: { materiaux: 1.02, mainOeuvre: 0.99, logistique: 1.04, coefficient: 1.017 },
+  sfax: { materiaux: 0.99, mainOeuvre: 1.04, logistique: 1.03, coefficient: 1.011 },
+  kairouan: { materiaux: 1.01, mainOeuvre: 0.93, logistique: 1.01, coefficient: 0.99 },
+  kasserine: { materiaux: 1.04, mainOeuvre: 0.92, logistique: 1.08, coefficient: 1.018 },
+  sidi_bouzid: { materiaux: 1.03, mainOeuvre: 0.92, logistique: 1.06, coefficient: 1.009 },
+  gabes: { materiaux: 1.02, mainOeuvre: 0.99, logistique: 1.04, coefficient: 1.017 },
+  medenine: { materiaux: 1.05, mainOeuvre: 1.01, logistique: 1.1, coefficient: 1.05 },
+  tataouine: { materiaux: 1.1, mainOeuvre: 0.96, logistique: 1.18, coefficient: 1.081 },
+  gafsa: { materiaux: 1.03, mainOeuvre: 0.96, logistique: 1.08, coefficient: 1.023 },
+  tozeur: { materiaux: 1.07, mainOeuvre: 0.95, logistique: 1.14, coefficient: 1.054 },
+  kebili: { materiaux: 1.09, mainOeuvre: 0.94, logistique: 1.17, coefficient: 1.069 },
+};
+
+/**
+ * Feuille n°2 « Couts_24_gouv » — coût moyen par grande phase au niveau
+ * standard central (TND/m²). Complète PHASE_SPLIT_2026 avec les valeurs
+ * régionales exactes du modèle.
+ */
+export const GOVERNORATE_PHASES_M2: Record<
+  string,
+  { grosOeuvre: number; secondOeuvre: number; finitionsEquipements: number }
+> = {
+  tunis: { grosOeuvre: 820, secondOeuvre: 650, finitionsEquipements: 440 },
+  ariana: { grosOeuvre: 800, secondOeuvre: 640, finitionsEquipements: 430 },
+  ben_arous: { grosOeuvre: 800, secondOeuvre: 630, finitionsEquipements: 430 },
+  manouba: { grosOeuvre: 790, secondOeuvre: 620, finitionsEquipements: 420 },
+  nabeul: { grosOeuvre: 810, secondOeuvre: 640, finitionsEquipements: 430 },
+  zaghouan: { grosOeuvre: 770, secondOeuvre: 610, finitionsEquipements: 410 },
+  bizerte: { grosOeuvre: 780, secondOeuvre: 620, finitionsEquipements: 420 },
+  beja: { grosOeuvre: 770, secondOeuvre: 610, finitionsEquipements: 410 },
+  jendouba: { grosOeuvre: 780, secondOeuvre: 620, finitionsEquipements: 420 },
+  le_kef: { grosOeuvre: 780, secondOeuvre: 620, finitionsEquipements: 420 },
+  siliana: { grosOeuvre: 770, secondOeuvre: 610, finitionsEquipements: 410 },
+  sousse: { grosOeuvre: 810, secondOeuvre: 640, finitionsEquipements: 430 },
+  monastir: { grosOeuvre: 790, secondOeuvre: 630, finitionsEquipements: 420 },
+  mahdia: { grosOeuvre: 790, secondOeuvre: 620, finitionsEquipements: 420 },
+  sfax: { grosOeuvre: 780, secondOeuvre: 620, finitionsEquipements: 420 },
+  kairouan: { grosOeuvre: 770, secondOeuvre: 610, finitionsEquipements: 410 },
+  kasserine: { grosOeuvre: 790, secondOeuvre: 620, finitionsEquipements: 420 },
+  sidi_bouzid: { grosOeuvre: 780, secondOeuvre: 620, finitionsEquipements: 420 },
+  gabes: { grosOeuvre: 790, secondOeuvre: 620, finitionsEquipements: 420 },
+  medenine: { grosOeuvre: 810, secondOeuvre: 640, finitionsEquipements: 430 },
+  tataouine: { grosOeuvre: 840, secondOeuvre: 660, finitionsEquipements: 450 },
+  gafsa: { grosOeuvre: 790, secondOeuvre: 630, finitionsEquipements: 420 },
+  tozeur: { grosOeuvre: 820, secondOeuvre: 650, finitionsEquipements: 440 },
+  kebili: { grosOeuvre: 830, secondOeuvre: 650, finitionsEquipements: 440 },
+};
+
+/**
+ * Onglet « Detail_lots » — ventilation indicative du coût standard central
+ * en 15 lots (% du coût standard central). La somme vaut 100 %.
+ */
+export const LOT_VENTILATION_2026: { id: string; label: string; percent: number }[] = [
+  { id: "installation_securite", label: "Installation, implantation et sécurité", percent: 2 },
+  { id: "terrassements_vrd_immediats", label: "Terrassements et VRD immédiats", percent: 4 },
+  { id: "fondations_infrastructure", label: "Fondations et infrastructure", percent: 8 },
+  { id: "ossature_beton_planchers", label: "Ossature béton armé, planchers et escaliers", percent: 19 },
+  { id: "maconnerie_enduits_chapes", label: "Maçonnerie, enduits et chapes", percent: 10 },
+  { id: "etancheite_isolation", label: "Étanchéité et isolation", percent: 5 },
+  { id: "menuiseries_alu_bois", label: "Menuiseries aluminium et bois", percent: 10 },
+  { id: "electricite_courants_faibles", label: "Électricité et courants faibles", percent: 7 },
+  { id: "plomberie_reseaux_sanitaires", label: "Plomberie et réseaux sanitaires", percent: 7 },
+  { id: "climatisation_chauffage", label: "Climatisation et chauffage", percent: 5 },
+  { id: "revetements_sols_murs", label: "Revêtements sols et murs", percent: 8 },
+  { id: "peinture_faux_plafonds", label: "Peinture et faux plafonds", percent: 5 },
+  { id: "sanitaires_robinetterie", label: "Sanitaires et robinetterie", percent: 4 },
+  { id: "cuisine_rangements", label: "Cuisine et rangements de base", percent: 4 },
+  { id: "divers_reception", label: "Divers, essais, nettoyage et réception", percent: 2 },
+];
+
+/** Ventilation en TND/m² des 15 lots pour un coût standard central donné. */
+export function lotVentilationM2(stdCentralM2: number): { id: string; label: string; percent: number; amountM2: number }[] {
+  return LOT_VENTILATION_2026.map((l) => ({
+    ...l,
+    amountM2: Math.round((stdCentralM2 * l.percent) / 100),
+  }));
+}
+
 const _STD_REF = STANDING_LEVELS_2026[1].central; // 1780
 const _range10 = (lo: number, hi: number) =>
   `${Math.round(lo / 10) * 10}-${Math.round(hi / 10) * 10}`;
 
-function _regionCost(stdM2: number) {
+// Coût régional : niveaux centraux EXACTS de la feuille n°2 (Couts_24_gouv) ;
+// les fourchettes bas/haut restent déduites des fourchettes nationales.
+function _regionCost(g: string, stdM2: number) {
+  const lvl = GOVERNORATE_LEVELS_2026[g];
   const f = stdM2 / _STD_REF;
   return {
-    eco: Math.round(STANDING_LEVELS_2026[0].central * f),
+    eco: lvl ? lvl.eco : Math.round(STANDING_LEVELS_2026[0].central * f),
     std: stdM2,
-    premium: Math.round(STANDING_LEVELS_2026[2].central * f),
+    premium: lvl ? lvl.hautStanding : Math.round(STANDING_LEVELS_2026[2].central * f),
+    luxe: lvl ? lvl.luxe : Math.round(STANDING_LEVELS_2026[3].central * f),
     ecoRange: _range10(1200 * f, 1500 * f),
     stdRange: _range10(1600 * f, 2000 * f),
     premiumRange: _range10(2200 * f, 2800 * f),
   };
 }
 
-export const REGION_COST_M2: Record<string, { eco: number; std: number; premium: number; ecoRange: string; stdRange: string; premiumRange: string }> =
+export const REGION_COST_M2: Record<string, { eco: number; std: number; premium: number; luxe: number; ecoRange: string; stdRange: string; premiumRange: string }> =
   Object.fromEntries(
-    Object.entries(GOVERNORATE_STD_M2).map(([g, std]) => [g, _regionCost(std)]),
+    Object.entries(GOVERNORATE_STD_M2).map(([g, std]) => [g, _regionCost(g, std)]),
   );
 
 // National average : moyenne des 24 gouvernorats (= 1 845 DT/m² en standard,
