@@ -1,46 +1,58 @@
 import { useId, useMemo } from "react";
 import type { FloorPlan } from "@/lib/floorPlanEngine";
 
-// ── Palette par nature de pièce ──────────────────────────────────────────────
+// ============================================================================
+// PLAN 2D STYLE « DESSIN D'ARCHITECTE »
+// Poché des murs (double trait fusionné), trame millimétrée légère, chaînes de
+// cotes avec traits obliques, portes à vantail + arc, fenêtres triple trait,
+// rose des vents et étiquettes pièces NOM + surface.
+// ============================================================================
 
-const ROOM_COLORS: Record<string, { fill: string; stroke: string; text: string }> = {
-  sejour: { fill: "#fef3c7", stroke: "#d97706", text: "#92400e" },
-  cuisine: { fill: "#fee2e2", stroke: "#ef4444", text: "#991b1b" },
-  chambre: { fill: "#dbeafe", stroke: "#3b82f6", text: "#1e40af" },
-  sdb: { fill: "#cffafe", stroke: "#06b6d4", text: "#155e75" },
-  wc: { fill: "#e0e7ff", stroke: "#6366f1", text: "#3730a3" },
-  couloir: { fill: "#f4f4f5", stroke: "#a1a1aa", text: "#52525b" },
-  escalier: { fill: "#fae8ff", stroke: "#c026d3", text: "#86198f" },
-  bureau: { fill: "#dcfce7", stroke: "#22c55e", text: "#166534" },
-  garage: { fill: "#e5e7eb", stroke: "#6b7280", text: "#374151" },
-  reception: { fill: "#fef9c3", stroke: "#ca8a04", text: "#854d0e" },
-  openspace: { fill: "#d1fae5", stroke: "#10b981", text: "#065f46" },
-  reunion: { fill: "#fce7f3", stroke: "#ec4899", text: "#9d174d" },
-  sanitaire: { fill: "#cffafe", stroke: "#06b6d4", text: "#155e75" },
-  hall: { fill: "#f4f4f5", stroke: "#a1a1aa", text: "#52525b" },
-  stockage: { fill: "#ffedd5", stroke: "#f97316", text: "#9a3412" },
-  logistique: { fill: "#fff7ed", stroke: "#ea580c", text: "#9a3412" },
-  vestiaire: { fill: "#ede9fe", stroke: "#8b5cf6", text: "#5b21b6" },
-  polyvalent: { fill: "#f1f5f9", stroke: "#94a3b8", text: "#475569" },
+const INK = "#1c1917"; // trait d'encre (murs, cotes)
+const PAPER = "#fdfdfb"; // fond papier
+const GRID = "#e7e5e4"; // trame
+const DIMC = "#78716c"; // cotes
+
+/** Teintes très légères par nature de pièce (remplissage ~14 %). */
+const ROOM_TINT: Record<string, string> = {
+  sejour: "#f59e0b",
+  cuisine: "#ef4444",
+  chambre: "#3b82f6",
+  sdb: "#06b6d4",
+  wc: "#6366f1",
+  couloir: "#a1a1aa",
+  escalier: "#c026d3",
+  bureau: "#22c55e",
+  garage: "#6b7280",
+  reception: "#ca8a04",
+  openspace: "#10b981",
+  reunion: "#ec4899",
+  sanitaire: "#06b6d4",
+  hall: "#a1a1aa",
+  stockage: "#f97316",
+  logistique: "#ea580c",
+  vestiaire: "#8b5cf6",
+  polyvalent: "#94a3b8",
 };
-
-const SCALE = 42; // px par mètre
-const WALL = 3.5; // épaisseur visuelle des murs (px)
 
 export function FloorPlan2D({ plan }: { plan: FloorPlan }) {
   const clipId = useId();
-  const W = plan.length * SCALE;
-  const H = plan.width * SCALE;
-  const PAD = 18;
+  const gridId = useId();
 
-  const rooms = useMemo(
-    () =>
-      plan.rooms.map((r) => ({
-        ...r,
-        color: ROOM_COLORS[r.kind] ?? ROOM_COLORS.polyvalent,
-      })),
-    [plan],
+  // Échelle adaptative : le plan tient toujours dans ~660 px de large
+  const S = useMemo(
+    () => Math.max(14, Math.min(44, 640 / plan.length)),
+    [plan.length],
   );
+  const W = plan.length * S;
+  const H = plan.width * S;
+  const PAD = 46; // marge pour cotes + rose des vents
+
+  // Épaisseurs de mur (px) : porte-à-faux extérieur 20 cm, cloisons 8 cm
+  const EXT = Math.max(4.5, 0.2 * S);
+  const INT = Math.max(2.5, 0.08 * S);
+
+  const rooms = useMemo(() => plan.rooms, [plan]);
 
   return (
     <svg
@@ -48,180 +60,312 @@ export function FloorPlan2D({ plan }: { plan: FloorPlan }) {
       className="w-full h-auto select-none"
       role="img"
       aria-label={`Plan 2D — ${plan.rooms.length} pièces`}
+      style={{ fontFamily: "inherit" }}
     >
-      {/* Emprise extérieure */}
-      <rect x={0} y={0} width={W} height={H} fill="#fafafa" />
+      {/* ── Papier + emprise ── */}
+      <rect x={-PAD / 2} y={-PAD / 2} width={W + PAD} height={H + PAD} rx={3} fill={PAPER} />
       <clipPath id={clipId}>
         <rect x={0} y={0} width={W} height={H} />
       </clipPath>
+      <pattern id={gridId} width={S} height={S} patternUnits="userSpaceOnUse">
+        <path d={`M ${S} 0 L 0 0 0 ${S}`} fill="none" stroke={GRID} strokeWidth={0.6} />
+      </pattern>
+      <rect x={0} y={0} width={W} height={H} fill={`url(#${gridId})`} />
 
+      {/* ── Passe 1 : remplissages de pièces (teinte légère) ── */}
+      <g clipPath={`url(#${clipId})`}>
+        {rooms.map((r) => (
+          <rect
+            key={`f-${r.id}`}
+            x={r.x * S}
+            y={r.y * S}
+            width={r.w * S}
+            height={r.h * S}
+            fill={ROOM_TINT[r.kind] ?? ROOM_TINT.polyvalent}
+            opacity={0.13}
+          />
+        ))}
+        {/* Escalier : marches dessinées */}
+        {rooms
+          .filter((r) => r.kind === "escalier")
+          .map((r) => {
+            const rx = r.x * S, ry = r.y * S, rw = r.w * S, rh = r.h * S;
+            const steps = Math.max(4, Math.floor((r.w > r.h ? rw : rh) / 7));
+            const horiz = rw >= rh;
+            return (
+              <g key={`st-${r.id}`} stroke="#a855f7" strokeWidth={1} opacity={0.65}>
+                {Array.from({ length: steps - 1 }, (_, i) => {
+                  const t = ((i + 1) / steps);
+                  return horiz ? (
+                    <line key={i} x1={rx + rw * t} y1={ry} x2={rx + rw * t} y2={ry + rh} />
+                  ) : (
+                    <line key={i} x1={rx} y1={ry + rh * t} x2={rx + rw} y2={ry + rh * t} />
+                  );
+                })}
+                {/* Sens de montée */}
+                <line
+                  x1={rx + rw * 0.15} y1={ry + rh * 0.75}
+                  x2={rx + rw * 0.85} y2={ry + rh * 0.25}
+                  strokeWidth={1.2}
+                />
+                <path
+                  d={`M ${rx + rw * 0.85} ${ry + rh * 0.25} l -5 1 l 3 4 z`}
+                  fill="#a855f7" stroke="none"
+                />
+              </g>
+            );
+          })}
+      </g>
+
+      {/* ── Passe 2 : poché des murs (traits fusionnés) ── */}
+      <g clipPath={`url(#${clipId})`}>
+        {rooms.map((r) => (
+          <rect
+            key={`w-${r.id}`}
+            x={r.x * S}
+            y={r.y * S}
+            width={r.w * S}
+            height={r.h * S}
+            fill="none"
+            stroke={INK}
+            strokeWidth={INT}
+          />
+        ))}
+      </g>
+      {/* Murs extérieurs plus épais */}
+      <rect x={0} y={0} width={W} height={H} fill="none" stroke={INK} strokeWidth={EXT} />
+
+      {/* ── Passe 3 : ouvertures (percées dans le poché) ── */}
       <g clipPath={`url(#${clipId})`}>
         {rooms.map((r) => {
-          const rx = r.x * SCALE;
-          const ry = r.y * SCALE;
-          const rw = r.w * SCALE;
-          const rh = r.h * SCALE;
-          const big = rw > 52 && rh > 34;
-          const mid = rw > 30 && rh > 20;
+          const rx = r.x * S, ry = r.y * S, rw = r.w * S, rh = r.h * S;
           return (
-            <g key={r.id}>
-              <rect
-                x={rx}
-                y={ry}
-                width={rw}
-                height={rh}
-                fill={r.color.fill}
-                stroke={r.color.stroke}
-                strokeWidth={1}
-              />
-              {big && (
-                <text
-                  x={rx + rw / 2}
-                  y={ry + rh / 2 - 4}
-                  textAnchor="middle"
-                  fontSize={11}
-                  fontWeight={600}
-                  fill={r.color.text}
-                >
-                  {r.label}
-                </text>
-              )}
-              {big && (
-                <text
-                  x={rx + rw / 2}
-                  y={ry + rh / 2 + 10}
-                  textAnchor="middle"
-                  fontSize={9}
-                  fill={r.color.text}
-                  opacity={0.75}
-                >
-                  {r.area.toFixed(1)} m²
-                </text>
-              )}
-              {!big && mid && (
-                <text
-                  x={rx + rw / 2}
-                  y={ry + rh / 2 + 3}
-                  textAnchor="middle"
-                  fontSize={8}
-                  fontWeight={500}
-                  fill={r.color.text}
-                >
-                  {r.label}
-                </text>
-              )}
-
-              {/* Fenêtres : segment bleu clair en double trait */}
+            <g key={`o-${r.id}`}>
               {r.windows.map((win, i) => (
-                <WindowMark key={`w${i}`} room={{ x: rx, y: ry, w: rw, h: rh }} wall={win.wall} position={win.position * SCALE} width={win.width * SCALE} />
+                <WindowSym
+                  key={`wi-${i}`}
+                  wall={win.wall}
+                  p1={(win.wall === "N" || win.wall === "S" ? r.x + win.position : r.y + win.position) * S}
+                  len={win.width * S}
+                  line={win.wall === "N" ? ry : win.wall === "S" ? ry + rh : win.wall === "W" ? rx : rx + rw}
+                  band={isEdge(win.wall === "N" ? r.y : win.wall === "S" ? r.y + r.h - plan.width : win.wall === "W" ? r.x : r.x + r.w - plan.length) ? EXT : INT}
+                  inward={win.wall === "N" ? 1 : win.wall === "S" ? -1 : win.wall === "W" ? 1 : -1}
+                  vertical={win.wall === "W" || win.wall === "E"}
+                />
               ))}
-              {/* Portes : arc de battant */}
-              {r.doors.map((door, i) => (
-                <DoorMark key={`d${i}`} room={{ x: rx, y: ry, w: rw, h: rh }} wall={door.wall} position={door.position * SCALE} width={door.width * SCALE} isEntry={door.isEntry} />
+              {r.doors.map((d, i) => (
+                <DoorSym
+                  key={`do-${i}`}
+                  wall={d.wall}
+                  p1={(d.wall === "N" || d.wall === "S" ? r.x + d.position : r.y + d.position) * S}
+                  len={d.width * S}
+                  line={d.wall === "N" ? ry : d.wall === "S" ? ry + rh : d.wall === "W" ? rx : rx + rw}
+                  band={isEdge(d.wall === "N" ? r.y : d.wall === "S" ? r.y + r.h - plan.width : d.wall === "W" ? r.x : r.x + r.w - plan.length) ? EXT : INT}
+                  inward={d.wall === "N" ? 1 : d.wall === "S" ? -1 : d.wall === "W" ? 1 : -1}
+                  vertical={d.wall === "W" || d.wall === "E"}
+                  isEntry={!!d.isEntry}
+                />
               ))}
             </g>
           );
         })}
       </g>
 
-      {/* Murs extérieurs */}
-      <rect x={0} y={0} width={W} height={H} fill="none" stroke="#27272a" strokeWidth={WALL} />
+      {/* ── Passe 4 : étiquettes des pièces ── */}
+      <g clipPath={`url(#${clipId})`}>
+        {rooms.map((r) => {
+          const cx = (r.x + r.w / 2) * S;
+          const cy = (r.y + r.h / 2) * S;
+          const big = r.w * S > 58 && r.h * S > 36;
+          const mid = r.w * S > 34 && r.h * S > 22;
+          const nameSize = Math.max(7.5, Math.min(11, S * 0.32));
+          if (!mid) return null;
+          return (
+            <g key={`l-${r.id}`} textAnchor="middle">
+              <text
+                x={cx}
+                y={big ? cy - 2 : cy + 3}
+                fontSize={nameSize}
+                fontWeight={700}
+                letterSpacing={0.8}
+                fill="#292524"
+              >
+                {r.label.toUpperCase()}
+              </text>
+              {big && (
+                <>
+                  <text x={cx} y={cy + nameSize + 4} fontSize={nameSize - 1.5} fill="#57534e">
+                    {r.area.toFixed(2)} m²
+                  </text>
+                  {(r.w * S > 86 && r.h * S > 52) && (
+                    <text x={cx} y={cy + nameSize + 15} fontSize={nameSize - 2.5} fill="#79716b">
+                      {r.w.toFixed(2)} × {r.h.toFixed(2)} m
+                    </text>
+                  )}
+                </>
+              )}
+            </g>
+          );
+        })}
+      </g>
 
-      {/* Cotes */}
-      <Dimension x1={0} y1={-PAD + 8} x2={W} y2={-PAD + 8} label={`${plan.length.toFixed(1)} m`} />
-      <Dimension vertical x1={-PAD + 8} y1={0} x2={-PAD + 8} y2={H} label={`${plan.width.toFixed(1)} m`} />
+      {/* ── Chaînes de cotes ── */}
+      <DimChain from={0} to={W} at={-EXT / 2 - 14} label={`${plan.length.toFixed(2)} m`} />
+      <DimChain vertical from={0} to={H} at={-EXT / 2 - 14} label={`${plan.width.toFixed(2)} m`} />
+
+      {/* ── Rose des vents ── */}
+      <NorthArrow cx={W + PAD * 0.55} cy={-PAD * 0.45} r={11} />
+
+      {/* Flèche d'entrée : sous la première porte isEntry trouvée */}
+      {rooms.map((r) =>
+        r.doors.filter((d) => d.isEntry).map((d, i) => {
+          const ex = (d.wall === "N" || d.wall === "S" ? r.x + d.position + d.width / 2 : d.wall === "W" ? r.x : r.x + r.w) * S;
+          const ey = (d.wall === "N" ? r.y : d.wall === "S" ? r.y + r.h : r.y + d.position + d.width / 2) * S;
+          return (
+            <g key={`e-${r.id}-${i}`}>
+              <line x1={ex} y1={ey + 16} x2={ex} y2={ey + 5} stroke={INK} strokeWidth={1.2} />
+              <path d={`M ${ex} ${ey + 3} l -3 6 l 6 0 z`} fill={INK} />
+              <text x={ex} y={ey + 26} textAnchor="middle" fontSize={7.5} fontWeight={600} letterSpacing={1} fill={DIMC}>
+                ENTRÉE
+              </text>
+            </g>
+          );
+        }),
+      )}
     </svg>
   );
 }
 
-// ── Marqueurs openings ───────────────────────────────────────────────────────
+// ── Helpers géométriques ─────────────────────────────────────────────────────
 
-type Box = { x: number; y: number; w: number; h: number };
-
-function WindowMark({ room, wall, position, width }: { room: Box; wall: string; position: number; width: number }) {
-  const t = 7;
-  let line: React.ReactNode;
-  if (wall === "N") line = <line x1={room.x + position} y1={room.y} x2={room.x + position + width} y2={room.y} />;
-  else if (wall === "S") line = <line x1={room.x + position} y1={room.y + room.h} x2={room.x + position + width} y2={room.y + room.h} />;
-  else if (wall === "W") line = <line x1={room.x} y1={room.y + position} x2={room.x} y2={room.y + position + width} />;
-  else line = <line x1={room.x + room.w} y1={room.y + position} x2={room.x + room.w} y2={room.y + position + width} />;
-  return (
-    <g stroke="#38bdf8" strokeWidth={t} strokeLinecap="butt" opacity={0.9}>
-      {line}
-      <line
-        x1={wall === "N" ? room.x + position : wall === "W" ? room.x : wall === "E" ? room.x + room.w : room.x + position}
-        y1={wall === "N" ? room.y : wall === "S" ? room.y + room.h : room.y + position}
-        x2={
-          wall === "N"
-            ? room.x + position + width
-            : wall === "E"
-              ? room.x + room.w
-              : wall === "W"
-                ? room.x
-                : room.x + position + width
-        }
-        y2={wall === "N" ? room.y : wall === "S" ? room.y + room.h : room.y + position + width}
-        stroke="#ffffff"
-        strokeWidth={t - 4}
-      />
-    </g>
-  );
+function isEdge(distToEmpriseEdge: number): boolean {
+  return Math.abs(distToEmpriseEdge) < 0.01;
 }
 
-function DoorMark({ room, wall, position, width, isEntry }: { room: Box; wall: string; position: number; width: number; isEntry?: boolean }) {
-  // Charnière au début de l'ouverture · vantail perpendiculaire au mur ·
-  // arc quart-de-cercle vers l'intérieur de la pièce.
-  let hx = 0, hy = 0, lx = 0, ly = 0, ex = 0, ey = 0, sweep = 0;
-  if (wall === "N") { hx = room.x + position; hy = room.y; lx = hx + width; ly = hy; ex = hx; ey = hy + width; sweep = 1; }
-  else if (wall === "S") { hx = room.x + position; hy = room.y + room.h; lx = hx + width; ly = hy; ex = hx; ey = hy - width; sweep = 0; }
-  else if (wall === "W") { hx = room.x; hy = room.y + position; lx = hx; ly = hy + width; ex = hx + width; ey = hy; sweep = 0; }
-  else { hx = room.x + room.w; hy = room.y + position; lx = hx; ly = hy + width; ex = hx - width; ey = hy; sweep = 1; }
-  const color = isEntry ? "#16a34a" : "#71717a";
+/** Fenêtre : percement + triple trait normalisé. */
+function WindowSym({
+  wall, p1, len, line, band, inward, vertical,
+}: {
+  wall: string; p1: number; len: number; line: number; band: number; inward: number; vertical: boolean;
+}) {
+  const gap = band / 2 + 1.5;
+  const patch = vertical ? (
+    <rect x={line - gap} y={p1 - 1} width={gap * 2} height={len + 2} fill={PAPER} />
+  ) : (
+    <rect x={p1 - 1} y={line - gap} width={len + 2} height={gap * 2} fill={PAPER} />
+  );
+  const offsets = [-band / 4, 0, band / 4];
+  const lines = offsets.map((o, i) =>
+    vertical ? (
+      <line key={i} x1={line + o} y1={p1} x2={line + o} y2={p1 + len} stroke={INK} strokeWidth={0.9} />
+    ) : (
+      <line key={i} x1={p1} y1={line + o} x2={p1 + len} y2={line + o} stroke={INK} strokeWidth={0.9} />
+    ),
+  );
+  void wall; void inward;
   return (
     <g>
-      {/* Vantail */}
-      <line x1={hx} y1={hy} x2={lx} y2={ly} stroke={color} strokeWidth={1.4} opacity={0.9} />
-      {/* Trajectoire du battant */}
-      <path
-        d={`M ${lx} ${ly} A ${Math.abs(width)} ${Math.abs(width)} 0 0 ${sweep} ${ex} ${ey}`}
-        fill="none"
-        stroke={color}
-        strokeWidth={1.2}
-        opacity={0.85}
-      />
-      <circle cx={hx} cy={hy} r={2.2} fill={color} />
+      {patch}
+      {lines}
     </g>
   );
 }
 
-function Dimension({
-  x1, y1, x2, y2, label, vertical,
-}: { x1: number; y1: number; x2: number; y2: number; label: string; vertical?: boolean }) {
+/** Porte : percement + vantail perpendiculaire + arc de débattement. */
+function DoorSym({
+  p1, len, line, band, inward, vertical, isEntry,
+}: {
+  wall: string; p1: number; len: number; line: number; band: number; inward: number; vertical: boolean; isEntry: boolean;
+}) {
+  const gap = band / 2 + 1.5;
+  const patch = vertical ? (
+    <rect x={line - gap} y={p1 - 1} width={gap * 2} height={len + 2} fill={PAPER} />
+  ) : (
+    <rect x={p1 - 1} y={line - gap} width={len + 2} height={gap * 2} fill={PAPER} />
+  );
+  // Charnière à p1 ; vantail perpendiculaire au mur vers l'intérieur ;
+  // arc de gissement du bout du vantail jusqu'au mur.
+  const hx = vertical ? line : p1;
+  const hy = vertical ? p1 : line;
+  const lx = vertical ? line + inward * len : p1 + len;
+  const ly = vertical ? p1 + len : line + inward * len;
+  const bx = vertical ? line : p1 + len;
+  const by = vertical ? p1 + len : line + inward * len;
+  const sweep = vertical ? (inward > 0 ? 0 : 1) : inward > 0 ? 0 : 1;
   return (
-    <g stroke="#a1a1aa" strokeWidth={1}>
-      <line x1={x1} y1={y1} x2={x2} y2={y2} markerStart="none" />
-      <line
-        x1={vertical ? x1 - 4 : x1}
-        y1={vertical ? y1 : y1 - 4}
-        x2={vertical ? x1 + 4 : x1}
-        y2={vertical ? y1 : y1 + 4}
+    <g>
+      {patch}
+      {/* Vantail */}
+      <line x1={hx} y1={hy} x2={lx} y2={ly} stroke={isEntry ? "#15803d" : INK} strokeWidth={1.3} />
+      {/* Arc de gissement */}
+      <path
+        d={`M ${lx} ${ly} A ${len} ${len} 0 0 ${sweep} ${bx} ${by}`}
+        fill="none"
+        stroke={isEntry ? "#15803d" : DIMC}
+        strokeWidth={0.9}
+        strokeDasharray={isEntry ? undefined : "3 2.5"}
       />
+      {/* Seuil */}
       <line
-        x1={vertical ? x2 - 4 : x2}
-        y1={vertical ? y2 : y2 - 4}
-        x2={vertical ? x2 + 4 : x2}
-        y2={vertical ? y2 : y2 + 4}
+        x1={vertical ? line : p1}
+        y1={vertical ? p1 : line}
+        x2={vertical ? line : p1 + len}
+        y2={vertical ? p1 + len : line}
+        stroke={isEntry ? "#15803d" : "#d6d3d1"}
+        strokeWidth={Math.max(1, band * 0.5)}
       />
+    </g>
+  );
+}
+
+/** Chaîne de cote avec traits obliques (style archi). */
+function DimChain({
+  from, to, at, label, vertical,
+}: {
+  from: number; to: number; at: number; label: string; vertical?: boolean;
+}) {
+  const tick = 4;
+  const mid = (from + to) / 2;
+  return (
+    <g stroke={DIMC} strokeWidth={0.8}>
+      {/* Ligne de cote */}
+      {vertical ? (
+        <line x1={at} y1={from} x2={at} y2={to} />
+      ) : (
+        <line x1={from} y1={at} x2={to} y2={at} />
+      )}
+      {/* Traits obliques aux extrémités */}
+      {[from, to].map((t, i) =>
+        vertical ? (
+          <line key={i} x1={at - tick} y1={t + tick} x2={at + tick} y2={t - tick} strokeWidth={1.1} />
+        ) : (
+          <line key={i} x1={t - tick} y1={at + tick} x2={t + tick} y2={at - tick} strokeWidth={1.1} />
+        ),
+      )}
+      {/* Texte */}
       <text
-        x={(x1 + x2) / 2}
-        y={(y1 + y2) / 2 - 4}
+        x={vertical ? at - 5 : mid}
+        y={vertical ? mid : at - 5}
         textAnchor="middle"
-        fontSize={9}
-        fill="#71717a"
+        fontSize={8.5}
+        fontWeight={500}
+        fill={DIMC}
         stroke="none"
-        transform={vertical ? `rotate(-90 ${(x1 + x2) / 2} ${(y1 + y2) / 2})` : undefined}
+        transform={vertical ? `rotate(-90 ${at - 5} ${mid})` : undefined}
       >
         {label}
+      </text>
+    </g>
+  );
+}
+
+function NorthArrow({ cx, cy, r }: { cx: number; cy: number; r: number }) {
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={DIMC} strokeWidth={1} />
+      <path d={`M ${cx} ${cy - r + 1.5} L ${cx - 4} ${cy + r * 0.55} L ${cx} ${cy + r * 0.2} L ${cx + 4} ${cy + r * 0.55} Z`} fill={INK} />
+      <text x={cx} y={cy + r + 9} textAnchor="middle" fontSize={8} fontWeight={700} fill={DIMC}>
+        N
       </text>
     </g>
   );
