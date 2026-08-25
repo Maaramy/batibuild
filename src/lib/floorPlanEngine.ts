@@ -369,7 +369,10 @@ interface Placed<T> {
   rect: Rect;
 }
 
-/** Partitionne `rect` entre les éléments selon leurs surfaces cibles. */
+/** Partitionne `rect` entre les éléments selon leurs surfaces cibles.
+ *  Les coupures sont quantifiées au millimètre pour que deux pièces voisines
+ *  partagent EXACTEMENT la même coordonnée de mur (aucun chevauchement ni
+ *  débordement après arrondi). */
 function bspLayout<T extends { target: number }>(rect: Rect, items: T[]): Placed<T>[] {
   if (items.length === 0) return [];
   if (items.length === 1) return [{ item: items[0], rect: { ...rect } }];
@@ -391,16 +394,22 @@ function bspLayout<T extends { target: number }>(rect: Rect, items: T[]): Placed
   }
   const f1 = Math.min(0.85, Math.max(0.15, s1 / total));
   if (rect.w >= rect.h) {
-    const wLeft = rect.w * f1;
+    const wLeft = Math.min(Math.round(rect.w * f1 * 1000) / 1000, rect.w - 0.01);
     return [
       ...bspLayout({ x: rect.x, y: rect.y, w: wLeft, h: rect.h }, g1),
-      ...bspLayout({ x: rect.x + wLeft, y: rect.y, w: rect.w - wLeft, h: rect.h }, g2),
+      ...bspLayout(
+        { x: round3(rect.x + wLeft), y: rect.y, w: round3(rect.w - wLeft), h: rect.h },
+        g2,
+      ),
     ];
   }
-  const hTop = rect.h * f1;
+  const hTop = Math.min(Math.round(rect.h * f1 * 1000) / 1000, rect.h - 0.01);
   return [
     ...bspLayout({ x: rect.x, y: rect.y, w: rect.w, h: hTop }, g1),
-    ...bspLayout({ x: rect.x, y: rect.y + hTop, w: rect.w, h: rect.h - hTop }, g2),
+    ...bspLayout(
+      { x: rect.x, y: round3(rect.y + hTop), w: rect.w, h: round3(rect.h - hTop) },
+      g2,
+    ),
   ];
 }
 
@@ -545,9 +554,11 @@ function buildLevel(
   };
 
   const multi = levels > 1;
-  const shaftW = Math.min(2.5, width * 0.32);
-  const shaftD = Math.min(4.2, length * 0.38);
-  const carveShaft = multi && width > shaftD + 3 && length > shaftW + 3;
+  // Gaine d'escalier dimensionnée pour TOUJOURS tenir dans l'emprise quand le
+  // projet est multi-niveaux (continuité verticale garantie sur tous les étages).
+  const shaftW = round3(Math.min(2.5, length * 0.32));
+  const shaftD = round3(Math.min(4.2, width * 0.38));
+  const carveShaft = multi && length >= 4 && width >= 3;
   // Identifiants déterministes par niveau
   const rid = () => `L${levelIdx}-R${plan.rooms.length}`;
 
@@ -583,6 +594,16 @@ function buildLevel(
   }
 
   addOpenings(plan, levelIdx === 0, mulberry32(variantSeed ^ (levelIdx * 7919)));
+
+  // Filet de sécurité géométrique : aucune pièce ne doit dépasser l'emprise
+  // (les arrondis au mm peuvent pousser un bord de ≤ 1 mm au-delà du mur).
+  for (const r of plan.rooms) {
+    r.x = round3(Math.max(0, r.x));
+    r.y = round3(Math.max(0, r.y));
+    if (r.x + r.w > length) r.w = round3(length - r.x);
+    if (r.y + r.h > width) r.h = round3(width - r.y);
+    r.area = round3(r.w * r.h);
+  }
   return plan;
 }
 
