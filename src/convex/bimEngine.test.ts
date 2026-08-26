@@ -248,12 +248,12 @@ describe("runBIMEstimation — quantitatif détaillé aligné sur le catalogue 2
     const cement = item(res, "gros_oeuvre", "Ciment CPJ 42.5");
     expect(cement.name).toBe("Ciment CPJ 42.5 (sac 50 kg)");
     expect(cement.unit).toBe("sac");
-    expect(cement.unitPrice).toBe(12.68);
+    expect(cement.unitPrice).toBe(14.7); // barème Batibuild 2026 (MAT-0001)
 
     const steel = item(res, "gros_oeuvre", "Acier à béton T12");
     expect(steel.name).toBe("Acier à béton T12 (tonne)");
     expect(steel.unit).toBe("tonne");
-    expect(steel.unitPrice).toBe(3080.0);
+    expect(steel.unitPrice).toBe(2800); // barème Batibuild 2026 (MAT-0165)
   });
 
   it("second œuvre : fenêtres, carrelage et portes utilisent les références catalogue", () => {
@@ -377,7 +377,7 @@ describe("applyRealisticDoorsWindows — portes & fenêtres par pièce (Quantita
 
   it("les prix unitaires du catalogue 2026 sont conservés", () => {
     const so = getSO(MANY);
-    expect(find(so, "Porte intérieure").unitPrice).toBe(256);
+    expect(find(so, "Porte intérieure").unitPrice).toBe(750); // MAT-0320
     expect(find(so, "Porte d'entrée").unitPrice).toBe(440);
     expect(find(so, "Fenêtre").unitPrice).toBe(248);
     expect(find(so, "Grille").unitPrice).toBe(176);
