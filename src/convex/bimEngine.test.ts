@@ -378,7 +378,7 @@ describe("applyRealisticDoorsWindows — portes & fenêtres par pièce (Quantita
   it("les prix unitaires du catalogue 2026 sont conservés", () => {
     const so = getSO(MANY);
     expect(find(so, "Porte intérieure").unitPrice).toBe(750); // MAT-0320
-    expect(find(so, "Porte d'entrée").unitPrice).toBe(440);
+    expect(find(so, "Porte d'entrée").unitPrice).toBe(925); // MAT-0324
     expect(find(so, "Fenêtre").unitPrice).toBe(248);
     expect(find(so, "Grille").unitPrice).toBe(176);
   });

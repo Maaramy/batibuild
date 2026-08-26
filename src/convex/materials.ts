@@ -231,7 +231,8 @@ export const seedMaterialPrices = mutation({
         if (
           current.category !== item.category ||
           current.unitPrice !== item.unitPrice ||
-          current.priceQuality !== item.quality
+          current.priceQuality !== item.quality ||
+          (item.sku ?? undefined) !== current.sku
         ) {
           await ctx.db.patch(current._id, {
             category: item.category as any,
@@ -239,6 +240,7 @@ export const seedMaterialPrices = mutation({
             priceQuality: item.quality,
             confidenceIndex: item.confidence,
             subcategory: item.subcategory,
+            sku: item.sku,
             lastUpdated: now,
             updatedBy: user._id,
           });
@@ -257,6 +259,7 @@ export const seedMaterialPrices = mutation({
         subcategory: item.subcategory,
         priceQuality: item.quality,
         confidenceIndex: item.confidence,
+        sku: item.sku,
       });
       created++;
     }
@@ -305,6 +308,7 @@ export const resetMaterialPrices = mutation({
         subcategory: item.subcategory,
         priceQuality: item.quality,
         confidenceIndex: item.confidence,
+        sku: item.sku,
       });
       seeded++;
     }
