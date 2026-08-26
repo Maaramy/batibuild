@@ -587,6 +587,7 @@ export type Solution = {
     transportCost: number;
     wasteCost: number;
     accessoriesCost: number;
+    contingencyCost: number; // imprévus / contingence
     tva: number;
     totalCost: number;
   };
@@ -629,6 +630,7 @@ export type CostSummary = {
   transport: number;
   waste: number;
   accessories: number;
+  contingency: number; // imprévus
   tva: number;
   total: number;
   min: number;
@@ -662,9 +664,10 @@ const PROFILE_LABEL: Record<Profile, string> = {
 };
 
 const TVA = 0.19;
-const TRANSPORT_PCT = 0.05;
-const WASTE_PCT = 0.05;
-const ACCESSORIES_PCT = 0.06;
+const TRANSPORT_PCT = 0.035;  // 3,5 % du coût matériaux (marché tunisien — transport local)
+const WASTE_PCT = 0.07;        // 7 % pertes & déchets chantier
+const ACCESSORIES_PCT = 0.05;  // 5 % quincaillerie, visserie, consommables
+const CONTINGENCY_PCT = 0.05;  // 5 % imprévus / contingence
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JUSTIFICATION TECHNIQUE PAR MODE
@@ -735,7 +738,7 @@ export function recommendForProject(input: {
 
   const categories: CategoryResult[] = [];
   const missingData: string[] = [];
-  const costLines: { label: string; material: number; pose: number; transport: number; waste: number; accessories: number; tva: number; total: number; min: number; max: number }[] = [];
+  const costLines: { label: string; material: number; pose: number; transport: number; waste: number; accessories: number; contingency: number; tva: number; total: number; min: number; max: number }[] = [];
 
   for (const cat of selected) {
     const candidates = matchCategoryMaterials(cat, input.materials);
@@ -816,13 +819,15 @@ export function recommendForProject(input: {
     function finalizeSolution(profile: Profile, best: Pick) {
       const materialCost = qty.quantity * best.band.avg;
       const poseCost = materialCost * cat.posePct;
-      const transportCost = (materialCost + poseCost) * TRANSPORT_PCT;
+      const transportCost = materialCost * TRANSPORT_PCT;  // transport sur coût matériaux seul
       const wasteCost = materialCost * WASTE_PCT;
       const accessoriesCost = materialCost * ACCESSORIES_PCT;
-      const base = materialCost + poseCost + transportCost + wasteCost + accessoriesCost;
+      const subtotal = materialCost + poseCost + transportCost + wasteCost + accessoriesCost;
+      const contingencyCost = subtotal * CONTINGENCY_PCT;
+      const base = subtotal + contingencyCost;
       const tva = base * TVA;
-      const minCost = qty.quantity * best.band.min * (1 + cat.posePct) * (1 + TRANSPORT_PCT + WASTE_PCT + ACCESSORIES_PCT) * (1 + TVA);
-      const maxCost = qty.quantity * best.band.max * (1 + cat.posePct) * (1 + TRANSPORT_PCT + WASTE_PCT + ACCESSORIES_PCT) * (1 + TVA);
+      const minCost = qty.quantity * best.band.min * (1 + cat.posePct) * (1 + TRANSPORT_PCT + WASTE_PCT + ACCESSORIES_PCT) * (1 + CONTINGENCY_PCT) * (1 + TVA);
+      const maxCost = qty.quantity * best.band.max * (1 + cat.posePct) * (1 + TRANSPORT_PCT + WASTE_PCT + ACCESSORIES_PCT) * (1 + CONTINGENCY_PCT) * (1 + TVA);
 
       const { pros, cons } = prosCons(best.s, best.band, cat, catAvg);
       solutions.push({
@@ -843,6 +848,7 @@ export function recommendForProject(input: {
           transportCost: round0(transportCost),
           wasteCost: round0(wasteCost),
           accessoriesCost: round0(accessoriesCost),
+          contingencyCost: round0(contingencyCost),
           tva: round0(tva),
           totalCost: round0(base + tva),
         },
@@ -908,10 +914,11 @@ export function recommendForProject(input: {
       transport: line.material.transportCost,
       waste: line.material.wasteCost,
       accessories: line.material.accessoriesCost,
+      contingency: line.material.contingencyCost,
       tva: line.material.tva,
       total: line.material.totalCost,
-      min: round0(line.material.quantity * line.material.band.min * (1 + cat.posePct) * (1 + TRANSPORT_PCT + WASTE_PCT + ACCESSORIES_PCT) * (1 + TVA)),
-      max: round0(line.material.quantity * line.material.band.max * (1 + cat.posePct) * (1 + TRANSPORT_PCT + WASTE_PCT + ACCESSORIES_PCT) * (1 + TVA)),
+      min: line.material.quantity * line.material.band.min * (1 + cat.posePct) * (1 + TRANSPORT_PCT + WASTE_PCT + ACCESSORIES_PCT) * (1 + CONTINGENCY_PCT) * (1 + TVA),
+      max: line.material.quantity * line.material.band.max * (1 + cat.posePct) * (1 + TRANSPORT_PCT + WASTE_PCT + ACCESSORIES_PCT) * (1 + CONTINGENCY_PCT) * (1 + TVA),
     });
   }
 
@@ -921,6 +928,7 @@ export function recommendForProject(input: {
     transport: round0(costLines.reduce((a, l) => a + l.transport, 0)),
     waste: round0(costLines.reduce((a, l) => a + l.waste, 0)),
     accessories: round0(costLines.reduce((a, l) => a + l.accessories, 0)),
+    contingency: round0(costLines.reduce((a, l) => a + l.contingency, 0)),
     tva: round0(costLines.reduce((a, l) => a + l.tva, 0)),
     total: round0(costLines.reduce((a, l) => a + l.total, 0)),
     min: round0(costLines.reduce((a, l) => a + l.min, 0)),

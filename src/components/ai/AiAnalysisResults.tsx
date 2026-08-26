@@ -167,45 +167,6 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
         </Card>
       </motion.div>
 
-      {/* Matrice de pondération dynamique */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <Card className="border border-border/40 overflow-hidden rounded-xl">
-          <CardHeader className="pb-2 border-b border-border/20 px-4 sm:px-6 py-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600">
-                <Gauge className="h-3.5 w-3.5" />
-              </div>
-              <div>
-                <CardTitle className="text-sm font-semibold">Matrice de pondération appliquée</CardTitle>
-                <CardDescription className="text-[10px]">Répartition des critères de décision (total = 100 pts)</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-5">
-            <div className="grid grid-cols-5 gap-2">
-              {[
-                { label: "Prix", pct: 50, color: "bg-emerald-500" },
-                { label: "Qualité", pct: 50, color: "bg-blue-500" },
-                { label: "Disponibilité", pct: 0, color: "bg-amber-500" },
-                { label: "Empreinte carbone", pct: 0, color: "bg-teal-500" },
-                { label: "Délai de livraison", pct: 0, color: "bg-violet-500" },
-              ].map((p) => (
-                <div key={p.label} className="text-center">
-                  <div className="relative h-16 rounded-lg bg-muted/20 overflow-hidden flex flex-col justify-end">
-                    <div className={cn("rounded-t transition-all", p.color)} style={{ height: `${Math.max(p.pct, 1)}%`, opacity: p.pct > 0 ? 1 : 0.15 }} />
-                  </div>
-                  <p className="text-[9px] text-muted-foreground mt-1 leading-tight">{p.label}</p>
-                  <p className="text-xs font-bold tabular-nums">{p.pct}%</p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-[10px] text-muted-foreground/70 italic">
-              Pondérations par défaut : Prix 50% · Qualité 50%. Les critères optionnels (Disponibilité, Empreinte carbone, Délai) sont à 0% et peuvent être activés dans les paramètres d'analyse.
-            </p>
-          </CardContent>
-        </Card>
-      </motion.div>
-
       {/* Coût total */}
       <Card className="border border-border/40 overflow-hidden rounded-xl">
         <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
@@ -215,7 +176,7 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
             </div>
             <div>
               <CardTitle className="text-sm font-semibold">Coût total estimatif</CardTitle>
-              <CardDescription className="text-[10px]">Matériaux recommandés · Pose · Transport · Déchets · Accessoires · TVA 19%</CardDescription>
+              <CardDescription className="text-[10px]">Matériaux · Pose · Transport · Déchets · Accessoires · Imprévus · TVA 19%</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -241,15 +202,16 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
               <p className="text-[10px] text-muted-foreground mt-2">Dernière mise à jour des données</p>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
             {[
               { label: "Matériaux", value: result.cost.materials },
               { label: "Pose", value: result.cost.pose },
               { label: "Transport", value: result.cost.transport },
               { label: "Déchets", value: result.cost.waste },
               { label: "Accessoires", value: result.cost.accessories },
+              { label: "Imprévus", value: (result.cost as any).contingency ?? 0 },
               { label: "TVA", value: result.cost.tva },
-              { label: "Total", value: result.cost.total, strong: true },
+              { label: "Total TTC", value: result.cost.total, strong: true },
             ].map((row, i) => (
               <div key={i} className={cn("rounded-lg border px-2.5 py-2", row.strong ? "border-emerald-500/40 bg-emerald-500/5" : "border-border/30 bg-muted/10")}>
                 <p className="text-[9px] text-muted-foreground">{row.label}</p>
@@ -383,7 +345,7 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                             </div>
                           )}
                           <p className="mt-2 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 border-t border-border/20 pt-1.5">
-                            Total pose incluse : {fmtTnd(s.material.totalCost)}
+                            Coût total estimé TTC : {fmtTnd(s.material.totalCost)}
                           </p>
                         </div>
                       );
