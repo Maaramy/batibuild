@@ -1121,9 +1121,28 @@ export default function ProjectDetail() {
                 enseignes: Layers,
               };
 
-              // ── Données DQE (lots hiérarchiques) ──
-              const dqeLots: any[] = hasDqeLots ? dqe.lots : [];
-              const dqeTotals = dqe?.totals;
+              // ── Données DQE (lots hiérarchiques) — calés sur le scénario ──
+              const dqeLots: any[] = hasDqeLots
+                ? dqe.lots.map((lot: any) => ({
+                    ...lot,
+                    subtotal: Math.round(lot.subtotal * scaleFactor),
+                    lines: lot.lines?.map((line: any) => ({
+                      ...line,
+                      total: Math.round(line.total * scaleFactor),
+                      unitPrice: Math.round((line.total * scaleFactor) / Math.max(1, line.quantity) * 100) / 100,
+                    })),
+                  }))
+                : [];
+              // Totaux DQE recalculés à partir des lots scalés
+              const dqeTotals = dqe?.totals ? {
+                materiaux: Math.round(dqe.totals.materiaux * scaleFactor),
+                mainOeuvre: Math.round(dqe.totals.mainOeuvre * scaleFactor),
+                equipements: Math.round(dqe.totals.equipements * scaleFactor),
+                transport: Math.round(dqe.totals.transport * scaleFactor),
+                etudes: Math.round(dqe.totals.etudes * scaleFactor),
+                total: Math.round(dqe.totals.total * scaleFactor),
+                costPerM2: Math.round(dqe.totals.costPerM2 * scaleFactor),
+              } : undefined;
 
               // ── Données BIM (fallback plat) ──
               const flatBreakdown = scaledBreakdown ?? [];
@@ -1139,7 +1158,7 @@ export default function ProjectDetail() {
 
                   {/* Header */}
                   <button onClick={() => setOpenCat(openCat ? "" : "__all")}
-                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
+                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/10 transition-colors">
                     <div className="flex items-center gap-2">
                       <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <Layers className="h-3.5 w-3.5" />
@@ -1208,14 +1227,14 @@ export default function ProjectDetail() {
                                     {/* Ligne de l'étape (lot) */}
                                     <button
                                       onClick={(e) => { e.stopPropagation(); setOpenCat(isOpen ? "__all" : lot.name); }}
-                                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/10 transition-colors text-left"
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-muted/10 transition-colors text-left"
                                     >
-                                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                        <LotIcon className="h-4 w-4" />
+                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                        <LotIcon className="h-3.5 w-3.5" />
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
-                                          <span className="text-xs font-bold text-foreground">{lot.name}</span>
+                                          <span className="text-[11px] font-bold text-foreground">{lot.name}</span>
                                           <span className="text-[9px] text-muted-foreground/50">{lot.percent}%</span>
                                         </div>
                                         <div className="flex items-center gap-3 mt-0.5">
@@ -1230,7 +1249,7 @@ export default function ProjectDetail() {
                                           })}
                                         </div>
                                       </div>
-                                      <span className="text-sm font-bold tabular-nums text-primary shrink-0">{fmt(lot.subtotal)}</span>
+                                      <span className="text-xs font-bold tabular-nums text-primary shrink-0">{fmt(lot.subtotal)}</span>
                                       {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground/50 shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground/50 shrink-0" />}
                                     </button>
 
@@ -1244,18 +1263,18 @@ export default function ProjectDetail() {
                                           return (
                                             <div key={nature}>
                                               {/* Header nature */}
-                                              <div className="flex items-center gap-2 px-4 py-1.5 bg-muted/10 border-b border-border/5">
+                                              <div className="flex items-center gap-1.5 px-3 py-1 bg-muted/10 border-b border-border/5">
                                                 <meta.icon className={cn("h-3 w-3", meta.color)} />
                                                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{meta.label}</span>
                                                 <span className="text-[10px] text-muted-foreground/50 ml-auto">{lines.length} postes — {fmt(natureTotal)}</span>
                                               </div>
                                               {/* Lignes */}
                                               {lines.map((line: any, idx: number) => (
-                                                <div key={idx} className="flex items-center gap-3 px-4 py-2 border-b border-border/5 hover:bg-muted/10 transition-colors">
+                                                <div key={idx} className="flex items-start gap-2 px-3 py-1.5 border-b border-border/5 hover:bg-muted/10 transition-colors">
                                                   <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-medium truncate">{line.designation}</p>
+                                                    <p className="text-[11px] font-medium leading-snug">{line.designation}</p>
                                                     {line.description && (
-                                                      <p className="text-[10px] text-muted-foreground/60 truncate">{line.description}</p>
+                                                      <p className="text-[10px] text-muted-foreground/60 leading-snug">{line.description}</p>
                                                     )}
                                                   </div>
                                                   <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{line.quantity} {line.unit}</span>
@@ -1314,7 +1333,7 @@ export default function ProjectDetail() {
                                               return (
                                                 <div className="flex items-center justify-end gap-1.5"
                                                   title={`${sup.supplier}${sup.governorate ? ` · ${sup.governorate}` : ""} · prix min ${sup.minPrice.toFixed(2)} TND${sup.unit ? "/" + sup.unit : ""}`}>
-                                                  <span className="text-[10px] font-medium text-foreground/80 truncate max-w-[120px]">{sup.supplier}</span>
+                                                  <span className="text-[10px] font-medium text-foreground/80">{sup.supplier}</span>
                                                   <span className={cn("text-[9px] font-semibold tabular-nums shrink-0 rounded px-1 py-px", cheaper ? "text-emerald-600 bg-emerald-500/10 border border-emerald-500/20" : "text-muted-foreground/70")}
                                                     title={cheaper ? `Meilleur que le P.U. estimé (${fmt(item.unitPrice)})` : ""}>
                                                     {fmt(sup.minPrice)}
@@ -1333,7 +1352,7 @@ export default function ProjectDetail() {
                           )}
 
                           {/* ═══ Récapitulatif : Total TTC + Prix moyen par région ═══ */}
-                          <div className="border-t border-border/10 bg-muted/5 px-4 py-3">
+                          <div className="border-t border-border/10 bg-muted/5 px-3 py-2.5">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               {/* Total TTC */}
                               <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
