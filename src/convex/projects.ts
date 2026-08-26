@@ -730,10 +730,13 @@ export const simulateAnalysis = mutation({
     if (!project) return;
 
     const surface = project.surface ?? 150;
-    // Nombre de niveaux effectif : valeur saisie si présente, sinon déduite
-    // du type de projet (Maison R+1 → 2 niveaux, Maison R+2 → 3 niveaux).
+    // Nombre de niveaux effectif : valeur saisie par l'utilisateur si présente
+    // (sélecteur manuel), sinon déduite du type de projet.
     const floors = project.floors ?? inferFloorsFromCategory(project.category);
-    const category = project.category;
+    // Les types « Maison R+1 » / « Maison R+2 » ont été supprimés du catalogue :
+    // les projets existants enregistrés avec ces anciens slugs sont
+    // recalculés comme « maison » / « villa » avec leur nombre de niveaux.
+    const category = normalizeLegacyCategory(project.category);
     const region = project.region ?? "tunis";
     const finishLevel = (project as any).finish_level || "standard";
 

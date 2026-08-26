@@ -95,7 +95,8 @@ export const SINGLE_LEVEL_TYPES: string[] = ["local_commercial", "entrepot", "bu
  * 1 = RDC seul · 2 = R+1 · 3 = R+2. Utilisé quand l'utilisateur ne saisit
  * pas explicitement le nombre d'étages : le nombre de niveaux est ensuite
  * ajustable manuellement dans le formulaire « Nouveau projet ».
- * Les entrées maison_r_plus_1/2 servent aux projets existants (legacy).
+ * Les entrées maison_r_plus_1/2 servent uniquement aux projets existants
+ * créés avant la suppression de ces types (legacy).
  */
 export const CATEGORY_DEFAULT_FLOORS: Record<string, number> = {
   maison: 1,
@@ -289,6 +290,18 @@ export function projectTypeLabel(slug: string): string {
   const legacy = LEGACY_TYPE_LABELS[slug];
   if (legacy) return legacy;
   return slug;
+}
+
+/**
+ * Les types « Maison R+1 » et « Maison R+2 » ont été supprimés du catalogue :
+ * le nombre de niveaux est désormais saisi manuellement dans le formulaire.
+ * Cette fonction remappe les anciens slugs des projets existants vers les
+ * types officiels « maison » / « villa » pour tous les recalculs (BIM, DQE).
+ */
+export function normalizeLegacyCategory(category: string | null | undefined): string {
+  if (category === "maison_r_plus_1") return "maison";
+  if (category === "maison_r_plus_2") return "villa";
+  return category ?? "";
 }
 
 /**

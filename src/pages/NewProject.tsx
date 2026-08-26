@@ -46,10 +46,8 @@ const TUNISIA_REGIONS = [
 // formulaire d'investissement (à l'exception de « Terrain constructible »,
 // qui n'est pas un projet de construction).
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  // 13 types officiels — alignés module Investissement (hors terrain)
+  // 11 types officiels — alignés module Investissement (hors terrain)
   maison: Home,
-  maison_r_plus_1: Home,
-  maison_r_plus_2: Home,
   villa: Building2,
   appartement: Building,
   studio: DoorOpen,
@@ -210,8 +208,6 @@ const METHOD_LABEL: Record<string, string> = {
 
 const CATEGORY_COLORS: Record<string, { hue: number; sat: number; light: number }> = {
   maison:                  { hue: 221, sat: 83, light: 53 },  // blue
-  maison_r_plus_1:         { hue: 213, sat: 75, light: 45 },  // blue dark
-  maison_r_plus_2:         { hue: 245, sat: 80, light: 55 },  // indigo
   villa:                   { hue: 239, sat: 84, light: 65 },  // indigo
   appartement:             { hue: 200, sat: 90, light: 50 },  // sky
   studio:                  { hue: 189, sat: 94, light: 43 },  // cyan
@@ -579,7 +575,7 @@ export default function NewProject() {
   const handleCategorySelect = (cat: string) => {
     setSelectedCategory(cat);
     // Repositionne le sélecteur de niveaux sur la valeur par défaut du type
-    // (Maison R+1 → R+1, Maison R+2 → R+2, mono-niveaux → RDC).
+    // (duplex → étage, types mono-niveaux → RDC), puis ajustable manuellement.
     setFloors(inferFloorsFromCategory(cat));
     setErrors((e) => ({ ...e, category: "" }));
   };
