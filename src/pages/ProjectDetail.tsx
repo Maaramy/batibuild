@@ -28,6 +28,7 @@ import {
   projectTypeLabel,
   investmentTypeForProject as sharedInvestmentTypeForProject,
   inferFloorsFromCategory,
+  normalizeLegacyCategory,
 } from "@/convex/projectTypes";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
@@ -334,18 +335,19 @@ export default function ProjectDetail() {
     if (!hasRooms) return null;
     const finishLevel = (project as any).finish_level || "standard";
     const surface = project.surface ?? 150;
-    // Cohérent avec simulateAnalysis : niveaux déduits du type si non saisis
-    // (Maison R+1 → 2, Maison R+2 → 3).
+    // Cohérent avec simulateAnalysis : niveaux déduits du type si non saisis.
     const floors = project.floors ?? inferFloorsFromCategory(project.category);
     const region = project.region ?? "tunis";
-    const withRooms = runBIMEstimation(project.category, surface, floors, region, finishLevel, {
+    // Anciens slugs supprimés « Maison R+1 » / « Maison R+2 » → maison / villa.
+    const category = normalizeLegacyCategory(project.category);
+    const withRooms = runBIMEstimation(category, surface, floors, region, finishLevel, {
       bedrooms: project.bedrooms,
       bathrooms: project.bathrooms,
       kitchens: project.kitchens,
       livingRooms: project.livingRooms,
       garages: project.garages,
     });
-    const ref = runBIMEstimation(project.category, surface, floors, region, finishLevel);
+    const ref = runBIMEstimation(category, surface, floors, region, finishLevel);
     const refTotal = ref.costEstimate.totalCost || 1;
     const diffPct = Math.round(
       ((withRooms.costEstimate.totalCost - refTotal) / refTotal) * 100,

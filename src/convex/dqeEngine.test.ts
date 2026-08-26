@@ -220,8 +220,10 @@ describe("buildDqeLots — rétro-compatibilité des anciens slugs", () => {
   it("les anciens slugs résidentiels résolvent vers le gabarit unifié", () => {
     const lotIds = (cat: string) => buildDqeLots(cat).map((l) => l.id).join("|");
     expect(lotIds("immeuble_residentiel")).toBe(lotIds("immeuble"));
-    expect(lotIds("maison_r_plus_1")).toContain("gros_oeuvre");
-    expect(lotIds("maison_r_plus_2")).toContain("gros_oeuvre");
+    // Anciens types « Maison R+1 » / « Maison R+2 » supprimés : ils résolvent
+    // vers les gabarits officiels maison / villa.
+    expect(lotIds("maison_r_plus_1")).toBe(lotIds("maison"));
+    expect(lotIds("maison_r_plus_2")).toBe(lotIds("villa"));
   });
 
   it("les anciens slugs commerciaux résolvent vers le gabarit unifié", () => {

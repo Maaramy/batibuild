@@ -310,9 +310,6 @@ function residentialLots(cat: string, floors?: number): LotTpl[] {
     immeuble: [4.5, 52, 35, 5, 3.5],
     residence_touristique: [5, 42, 42, 7, 4],
     projet_neuf: [4.5, 52, 35, 5, 3.5],
-    // Types R+1 / R+2 (maintenant officiels)
-    maison_r_plus_1: [5.5, 48, 38.5, 5.5, 2.5],
-    maison_r_plus_2: [5.5, 49, 38, 5, 2.5],
     immeuble_residentiel: [4.5, 52, 35, 5, 3.5],
     maison_hote: [5, 42, 42, 7, 4],
   };

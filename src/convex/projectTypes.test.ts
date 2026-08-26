@@ -16,7 +16,7 @@ import {
 import { INVESTMENT_TYPES } from "./investmentTypes";
 
 describe("inferFloorsFromCategory — niveaux par défaut du moteur BIM", () => {
-  it("Maison R+1 → 2 niveaux · Maison R+2 → 3 niveaux", () => {
+  it("anciens slugs supprimés (legacy) : Maison R+1 → 2 niveaux · R+2 → 3", () => {
     expect(inferFloorsFromCategory("maison_r_plus_1")).toBe(2);
     expect(inferFloorsFromCategory("maison_r_plus_2")).toBe(3);
   });
@@ -37,17 +37,17 @@ describe("inferFloorsFromCategory — niveaux par défaut du moteur BIM", () => 
 });
 
 // ============================================================================
-// Contrat du catalogue officiel des types de projet (13 types)
+// Contrat du catalogue officiel des types de projet (11 types)
 // Aligné sur les types de bien du module Investissement
 // (à l'exception de « terrain constructible »).
+// NB : « Maison R+1 » et « Maison R+2 » ont été supprimés — le nombre de
+// niveaux est désormais choisi manuellement dans le formulaire.
 // ============================================================================
 
-describe("PROJECT_TYPES — catalogue officiel (13 types)", () => {
-  it("contient exactement les 13 types de projet du catalogue", () => {
+describe("PROJECT_TYPES — catalogue officiel (11 types)", () => {
+  it("contient exactement les 11 types de projet du catalogue", () => {
     expect(PROJECT_TYPES).toEqual([
       "maison",
-      "maison_r_plus_1",
-      "maison_r_plus_2",
       "villa",
       "appartement",
       "studio",
@@ -59,6 +59,10 @@ describe("PROJECT_TYPES — catalogue officiel (13 types)", () => {
       "residence_touristique",
       "projet_neuf",
     ]);
+    // Les anciens types « Maison R+1 » / « Maison R+2 » ne font plus partie
+    // du catalogue officiel.
+    expect(PROJECT_TYPES).not.toContain("maison_r_plus_1");
+    expect(PROJECT_TYPES).not.toContain("maison_r_plus_2");
   });
 
   it("chaque type possède un libellé, une icône et un groupe d'affichage", () => {
@@ -79,8 +83,7 @@ describe("PROJECT_TYPES — catalogue officiel (13 types)", () => {
 
   it("chaque type officiel est couvert par le mapping vers investissement", () => {
     const investmentWithoutTerrain = INVESTMENT_TYPES.filter((t) => t !== "terrain");
-    // Les types officiels (13) incluent R+1/R+2 qui ne sont pas dans INVESTMENT_TYPES
-    // mais tous les types officiels ont un équivalent d'investissement
+    // Tous les types officiels ont un équivalent d'investissement
     for (const t of PROJECT_TYPES) {
       expect(investmentTypeForProject(t), t).toBeDefined();
     }
@@ -96,8 +99,10 @@ describe("resolveProjectType — résolution des slugs (nouveaux & anciens)", ()
 
   it("résout les anciens slugs ayant un équivalent officiel", () => {
     expect(resolveProjectType("immeuble_residentiel")).toBe("immeuble");
-    // maison_r_plus_1 et maison_r_plus_2 sont maintenant des types officiels
-    // (ils retournent eux-mêmes via resolveProjectType)
+    // maison_r_plus_1 et maison_r_plus_2 sont supprimés du catalogue :
+    // ils sont remappés vers leurs équivalents officiels.
+    expect(resolveProjectType("maison_r_plus_1")).toBe("maison");
+    expect(resolveProjectType("maison_r_plus_2")).toBe("villa");
     expect(resolveProjectType("boutique_commerciale")).toBe("local_commercial");
     expect(resolveProjectType("bureau_cabinet")).toBe("bureau");
     expect(resolveProjectType("atelier")).toBe("entrepot");

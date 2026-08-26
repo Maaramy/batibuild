@@ -144,8 +144,8 @@ describe("Onglet « Detail_lots » : ventilation en 15 lots", () => {
 describe("Cohérence croisée BIM → DQE", () => {
   const CASES: { category: string; surface: number; floors: number }[] = [
     { category: "maison", surface: 120, floors: 1 },
-    { category: "maison_r_plus_1", surface: 100, floors: 2 },
-    { category: "maison_r_plus_2", surface: 100, floors: 3 },
+    { category: "maison", surface: 100, floors: 2 },
+    { category: "villa", surface: 100, floors: 3 },
     { category: "villa", surface: 220, floors: 2 },
     { category: "immeuble_residentiel", surface: 400, floors: 3 },
     { category: "appartement", surface: 90, floors: 1 },

@@ -112,7 +112,7 @@ export function MockAnalysisScreen() {
       {/* Detection results appearing */}
       <div className="grid grid-cols-2 gap-2">
         {[
-          { label: "Type de projet", value: "Maison R+1", icon: Building2, done: true },
+          { label: "Type de projet", value: "Maison à étage", icon: Building2, done: true },
           { label: "Surface détectée", value: "150 m²", icon: Ruler, done: true },
           { label: "Matériaux", value: "24 identifiés", icon: Layers, done: true },
           { label: "Qualité", value: "Standard", icon: Sparkles, done: true },

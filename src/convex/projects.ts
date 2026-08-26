@@ -713,7 +713,7 @@ import {
 } from "./bimEngine";
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { generateDqe } from "./dqeEngine";
-import { inferFloorsFromCategory } from "./projectTypes";
+import { inferFloorsFromCategory, normalizeLegacyCategory } from "./projectTypes";
 
 // ============================================================================
 // Simulate Analysis (BIM Professional Engine)

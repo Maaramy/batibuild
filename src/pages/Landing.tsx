@@ -523,7 +523,7 @@ function HeroSection() {
                   <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">Copilote IA · Marché tunisien</span>
                 </div>
                 <p className="mt-4 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/80">
-                  Devis moyen — maison R+1 · 150 m² · standard
+                  Devis moyen — maison à étage · 150 m² · standard
                 </p>
                 <p className="mt-1 text-4xl sm:text-5xl font-black text-white tabular-nums">253 590 TND</p>
                 <p className="mt-2 text-xs text-emerald-100/80 max-w-sm leading-relaxed">

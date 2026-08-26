@@ -417,28 +417,29 @@ describe("applyRealisticDoorsWindows — portes & fenêtres par pièce (Quantita
 });
 
 // ════════════════════════════════════════════════════════════════════════
-// Tests multi-niveaux : Maison R+1 (floors=2) et Maison R+2 (floors=3)
+// Tests multi-niveaux : niveaux choisis manuellement (sélecteur du formulaire)
+// — floors=2 (R+1), floors=3 (R+2) ; les types « Maison R+1/R+2 » sont supprimés
 // ════════════════════════════════════════════════════════════════════════
 
-describe("runBIMEstimation — maisons à étages (R+1 / R+2)", () => {
+describe("runBIMEstimation — maisons à étages (sélecteur de niveaux)", () => {
   const S = 100;
 
   it("R+1 coûte plus cher que la même surface en RDC", () => {
     const rdc = runBIMEstimation("maison", S, 1, "tunis", "standard");
-    const r1 = runBIMEstimation("maison_r_plus_1", S, 2, "tunis", "standard");
+    const r1 = runBIMEstimation("maison", S, 2, "tunis", "standard");
     expect(r1.costEstimate.totalCost).toBeGreaterThan(rdc.costEstimate.totalCost);
   });
 
   it("R+2 coûte plus cher que R+1 à surface égale", () => {
-    const r1 = runBIMEstimation("maison_r_plus_1", S, 2, "tunis", "standard");
-    const r2 = runBIMEstimation("maison_r_plus_2", S, 3, "tunis", "standard");
+    const r1 = runBIMEstimation("maison", S, 2, "tunis", "standard");
+    const r2 = runBIMEstimation("maison", S, 3, "tunis", "standard");
     expect(r2.costEstimate.totalCost).toBeGreaterThan(r1.costEstimate.totalCost);
   });
 
   it("le coût au m² croît avec le nombre de niveaux (structure renforcée)", () => {
     const rdc = runBIMEstimation("maison", S, 1, "tunis", "standard");
-    const r1 = runBIMEstimation("maison_r_plus_1", S, 2, "tunis", "standard");
-    const r2 = runBIMEstimation("maison_r_plus_2", S, 3, "tunis", "standard");
+    const r1 = runBIMEstimation("maison", S, 2, "tunis", "standard");
+    const r2 = runBIMEstimation("maison", S, 3, "tunis", "standard");
     const m2rdc = rdc.costEstimate.totalCost / S;
     const m2r1 = r1.costEstimate.totalCost / (S * 2);
     const m2r2 = r2.costEstimate.totalCost / (S * 3);
@@ -447,9 +448,9 @@ describe("runBIMEstimation — maisons à étages (R+1 / R+2)", () => {
   });
 
   it("un escalier béton est ajouté dès le R+1, plus coûteux en R+2", () => {
-    const go1 = getBreakdown(runBIMEstimation("maison_r_plus_1", S, 2), "gros_oeuvre");
+    const go1 = getBreakdown(runBIMEstimation("maison", S, 2), "gros_oeuvre");
     const esc1 = findItem(go1, "Escalier béton armé");
-    const go2 = getBreakdown(runBIMEstimation("maison_r_plus_2", S, 3), "gros_oeuvre");
+    const go2 = getBreakdown(runBIMEstimation("maison", S, 3), "gros_oeuvre");
     const esc2 = findItem(go2, "Escalier béton armé");
     expect(esc2.totalPrice).toBeGreaterThan(esc1.totalPrice);
     // Pas d'escalier en RDC
@@ -459,20 +460,20 @@ describe("runBIMEstimation — maisons à étages (R+1 / R+2)", () => {
 
   it("les garde-corps apparaissent uniquement pour les projets à étages", () => {
     const so0 = getBreakdown(runBIMEstimation("maison", S, 1), "second_oeuvre");
-    const so2 = getBreakdown(runBIMEstimation("maison_r_plus_2", S, 3), "second_oeuvre");
+    const so2 = getBreakdown(runBIMEstimation("maison", S, 3), "second_oeuvre");
     expect(so0.items?.some((i: any) => i.name.includes("Garde-corps"))).toBe(false);
     expect(findItem(so2, "Garde-corps").quantity).toBeGreaterThan(0);
   });
 
   it("les quantités de gros œuvre augmentent avec les niveaux (surface totale × étages)", () => {
     const ciment1 = findItem(getBreakdown(runBIMEstimation("maison", S, 1), "gros_oeuvre"), "Ciment CPJ 42.5").quantity;
-    const ciment3 = findItem(getBreakdown(runBIMEstimation("maison_r_plus_2", S, 3), "gros_oeuvre"), "Ciment CPJ 42.5").quantity;
+    const ciment3 = findItem(getBreakdown(runBIMEstimation("maison", S, 3), "gros_oeuvre"), "Ciment CPJ 42.5").quantity;
     expect(ciment3).toBeGreaterThan(ciment1 * 2);
   });
 
   it("la durée du chantier s'allonge avec le nombre de niveaux", () => {
     const d0 = runBIMEstimation("maison", S, 1, "tunis", "standard").aiAnalysis.estimatedDuration;
-    const d2 = runBIMEstimation("maison_r_plus_2", S, 3, "tunis", "standard").aiAnalysis.estimatedDuration;
+    const d2 = runBIMEstimation("maison", S, 3, "tunis", "standard").aiAnalysis.estimatedDuration;
     // Durée au format « N mois »
     const months = (d: string) => parseInt(d, 10);
     expect(months(d2 as string)).toBeGreaterThan(months(d0 as string));
