@@ -23,7 +23,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BIM_CATEGORIES, BIM_CATEGORY_LABELS } from "@/convex/bimEngine";
-import { inferFloorsFromCategory } from "@/convex/projectTypes";
+import { inferFloorsFromCategory, SINGLE_LEVEL_TYPES } from "@/convex/projectTypes";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
@@ -520,6 +520,9 @@ export default function NewProject() {
   const [description, setDescription] = useState("");
   const [region, setRegion] = useState("");
   const [surface, setSurface] = useState("");
+  // Nombre de niveaux (RDC = 1). Réinitialisé selon le type sélectionné,
+  // puis ajustable manuellement (R+1, R+2, R+3).
+  const [floors, setFloors] = useState(1);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -575,6 +578,9 @@ export default function NewProject() {
 
   const handleCategorySelect = (cat: string) => {
     setSelectedCategory(cat);
+    // Repositionne le sélecteur de niveaux sur la valeur par défaut du type
+    // (Maison R+1 → R+1, Maison R+2 → R+2, mono-niveaux → RDC).
+    setFloors(inferFloorsFromCategory(cat));
     setErrors((e) => ({ ...e, category: "" }));
   };
 
@@ -623,9 +629,7 @@ export default function NewProject() {
         description: description || undefined,
         region: region ? (region as any) : undefined,
         surface: surface ? parseFloat(surface) : undefined,
-        // Nombre de niveaux déduit du type : Maison R+1 → 2, Maison R+2 → 3.
-        // Le moteur BIM chiffre alors planchers hauts et escalier par niveau.
-        floors: inferFloorsFromCategory(selectedCategory),
+        floors,
       });
 
       await simulateAnalysis({ projectId });
@@ -958,6 +962,31 @@ export default function NewProject() {
                       <AlertCircle className="h-3 w-3" />{errors.surface}
                     </p>
                   )}
+                </div>
+
+                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+                  <Label htmlFor="floors" className="text-xs sm:text-sm font-semibold">
+                    Nombre de niveaux
+                  </Label>
+                  <div className="mt-1.5 relative">
+                    <Layers className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <select
+                      id="floors"
+                      value={floors}
+                      onChange={(e) => setFloors(Math.max(1, Math.min(5, parseInt(e.target.value) || 1)))}
+                      className="w-full pl-9 pr-8 h-9 sm:h-10 text-xs sm:text-sm rounded-md border border-input bg-background appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <option key={n} value={n}>
+                          {n === 1 ? "RDC (plain-pied)" : n === 2 ? "R+1 (2 niveaux)" : `R+${n - 1} (${n} niveaux)`}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none rotate-90" />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    Ajusté automatiquement selon le type de projet sélectionné.
+                  </p>
                 </div>
 
               </div>
