@@ -83,6 +83,7 @@ import {
   Calendar,
   NotebookPen,
   CheckCheck,
+  Upload,
   ToggleLeft,
   ToggleRight,
   Download,
@@ -126,6 +127,9 @@ export default function AdminPanel() {
   const [editingMaterial, setEditingMaterial] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
   const [resettingCatalog, setResettingCatalog] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ updated: number; created: number; errors: string[]; total: number } | null>(null);
+  const [showImportZone, setShowImportZone] = useState(false);
   const [userSearch, setUserSearch] = useState("");
   const [subSearch, setSubSearch] = useState("");
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
@@ -250,6 +254,7 @@ export default function AdminPanel() {
   const updateMaterial = useMutation(api.materials.updateMaterialPrice);
   const deleteMaterial = useMutation(api.materials.deleteMaterialPrice);
   const resetMaterialPrices = useMutation(api.materials.resetMaterialPrices);
+  const bulkUpdateMaterialPrices = useMutation(api.materials.bulkUpdateMaterialPrices);
 
   // Handle user deletion
   useEffect(() => {
@@ -350,6 +355,105 @@ export default function AdminPanel() {
       toast.error(err.message || "Erreur lors de la réinitialisation du catalogue");
     }
     setResettingCatalog(false);
+  };
+
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportResult(null);
+    setImporting(true);
+    try {
+      // Dynamic import of xlsx (already installed)
+      const XLSX = await import("xlsx");
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, { type: "array" });
+      const sheetName = wb.SheetNames[0];
+      if (!sheetName) throw new Error("Le fichier Excel est vide");
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+
+      if (rows.length === 0) throw new Error("Aucune ligne trouvée dans le fichier");
+
+      // Detect columns: try common header names for SKU/ID and price
+      const skuHeaders = ["sku", "id", "réf", "ref", "reference", "code", "referance", "id_produit", "id article"];
+      const priceHeaders = ["prix", "price", "nouveau prix", "new price", "prix unitaire", "tarif", "montant"];
+      const nameHeaders = ["désignation", "designation", "nom", "name", "libellé", "libelle", "produit", "description"];
+      const unitHeaders = ["unité", "unite", "unit", "unit measurement"];
+
+      const firstRow = rows[0];
+      const headers = Object.keys(firstRow).map(h => h.toLowerCase().trim());
+
+      function findCol(candidates: string[]): string | undefined {
+        for (const c of candidates) {
+          const found = headers.find(h => h === c || h.includes(c));
+          if (found) return Object.keys(firstRow)[headers.indexOf(found)];
+        }
+        return undefined;
+      }
+
+      const skuCol = findCol(skuHeaders);
+      const priceCol = findCol(priceHeaders);
+      const nameCol = findCol(nameHeaders);
+      const unitCol = findCol(unitHeaders);
+
+      if (!priceCol) throw new Error(`Colonne de prix non trouvée. Colonnes disponibles : ${Object.keys(firstRow).join(", ")}`);
+
+      // Parse rows
+      const parsedRows: { sku?: string; name: string; unitPrice: number; unit?: string; category?: string }[] = [];
+      for (const row of rows) {
+        const name = nameCol ? String(row[nameCol] || "").trim() : "";
+        const sku = skuCol ? String(row[skuCol] || "").trim() : undefined;
+        const priceRaw = row[priceCol];
+        const unitPrice = typeof priceRaw === "number" ? priceRaw : parseFloat(String(priceRaw).replace(/[^\d.,-]/g, "").replace(",", "."));
+      const unit = unitCol ? String(row[unitCol] || "").trim() : undefined;
+
+      if (isNaN(unitPrice) || unitPrice <= 0) continue; // Skip rows without valid price
+        if (!name && !sku) continue; // Skip rows without name or SKU
+
+        parsedRows.push({
+          sku: sku || undefined,
+          name: name || sku || "",
+          unitPrice,
+          unit: unit || undefined,
+        });
+      }
+
+      if (parsedRows.length === 0) throw new Error("Aucune ligne valide trouvée (vérifiez les colonnes : nom/désignation + prix)");
+
+      // Send to Convex (batch of up to 200 at a time to avoid timeout)
+      const BATCH_SIZE = 200;
+      let totalUpdated = 0;
+      let totalCreated = 0;
+      const allErrors: string[] = [];
+
+      for (let i = 0; i < parsedRows.length; i += BATCH_SIZE) {
+        const batch = parsedRows.slice(i, i + BATCH_SIZE);
+        const result = await bulkUpdateMaterialPrices({ rows: batch });
+        totalUpdated += result.updated;
+        totalCreated += result.created;
+        allErrors.push(...result.errors);
+      }
+
+      setImportResult({
+        updated: totalUpdated,
+        created: totalCreated,
+        errors: allErrors,
+        total: parsedRows.length,
+      });
+
+      if (allErrors.length > 0) {
+        toast.warning(`${totalUpdated} mis à jour, ${totalCreated} créés, ${allErrors.length} erreur(s)`);
+      } else {
+        toast.success(`${totalUpdated} prix mis à jour, ${totalCreated} nouveaux matériaux créés`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'importation du fichier");
+      setImportResult(null);
+    } finally {
+      setImporting(false);
+      // Reset file input
+      e.target.value = "";
+    }
   };
 
   const handleCreateMaterial = async () => {
@@ -2585,6 +2689,97 @@ export default function AdminPanel() {
                     </div>
                   </div>
             )}
+              </div>
+
+
+              {/* Excel Import Zone */}
+              <div className="mb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-8 text-xs mb-2"
+                  onClick={() => setShowImportZone(!showImportZone)}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Importer un fichier Excel (.xlsx)
+                </Button>
+                {showImportZone && (
+                  <div className="p-4 rounded-xl bg-muted/30 border border-border/30 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <label
+                          htmlFor="excel-upload"
+                          className={cn(
+                            "flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl cursor-pointer transition-all",
+                            importing
+                              ? "border-primary/40 bg-primary/5"
+                              : "border-border/40 hover:border-primary/40 hover:bg-muted/20"
+                          )}
+                        >
+                          {importing ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                              <span className="text-xs text-muted-foreground">Importation en cours...</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-2">
+                              <Upload className="h-6 w-6 text-muted-foreground/50" />
+                              <span className="text-xs text-muted-foreground">
+                                Cliquez ou glissez un fichier .xlsx ici
+                              </span>
+                              <span className="text-[10px] text-muted-foreground/60">
+                                Colonnes attendues : nom/désignation, prix, unité (optionnel), SKU/ID (optionnel)
+                              </span>
+                            </div>
+                          )}
+                          <input
+                            id="excel-upload"
+                            type="file"
+                            accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                            className="hidden"
+                            onChange={handleExcelImport}
+                            disabled={importing}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                    {importResult && (
+                      <div className="p-3 rounded-lg bg-background/80 border border-border/20 space-y-1.5">
+                        <div className="flex items-center gap-2 text-xs font-medium">
+                          <CheckCheck className="h-4 w-4 text-emerald-500" />
+                          Résultat de l'importation
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 text-xs">
+                          <div className="text-center p-2 rounded-lg bg-emerald-500/10">
+                            <p className="text-lg font-bold text-emerald-600">{importResult.updated}</p>
+                            <p className="text-emerald-600/70">Prix mis à jour</p>
+                          </div>
+                          <div className="text-center p-2 rounded-lg bg-blue-500/10">
+                            <p className="text-lg font-bold text-blue-600">{importResult.created}</p>
+                            <p className="text-blue-600/70">Nouveaux créés</p>
+                          </div>
+                          <div className="text-center p-2 rounded-lg bg-amber-500/10">
+                            <p className="text-lg font-bold text-amber-600">{importResult.errors.length}</p>
+                            <p className="text-amber-600/70">Erreurs</p>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {importResult.total} ligne(s) traitées
+                        </p>
+                        {importResult.errors.length > 0 && (
+                          <div className="mt-2 max-h-24 overflow-y-auto text-[10px] text-destructive/80 space-y-0.5">
+                            {importResult.errors.slice(0, 20).map((err, i) => (
+                              <p key={i}>• {err}</p>
+                            ))}
+                            {importResult.errors.length > 20 && (
+                              <p className="text-muted-foreground">... et {importResult.errors.length - 20} autre(s)</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Materials table */}

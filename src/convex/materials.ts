@@ -421,6 +421,104 @@ export const refreshMaterialPrices = mutation({
   },
 });
 
+/**
+ * Bulk update material prices from an Excel import.
+ * Each row must have either `sku` or `name` to match, plus a `unitPrice`.
+ * Returns summary: { updated, created, errors, total }.
+ */
+export const bulkUpdateMaterialPrices = mutation({
+  args: {
+    rows: v.array(
+      v.object({
+        sku: v.optional(v.string()),
+        name: v.string(),
+        unitPrice: v.number(),
+        unit: v.optional(v.string()),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || user.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const existing = await ctx.db.query("materialPrices").collect();
+    const now = Date.now();
+    let updated = 0;
+    let created = 0;
+    const errors: string[] = [];
+
+    // Index existing materials by SKU and by name
+    const bySku = new Map<string, (typeof existing)[number]>();
+    const byName = new Map<string, (typeof existing)[number]>();
+    for (const m of existing) {
+      if (m.sku) bySku.set(m.sku, m);
+      byName.set(m.name, m);
+    }
+
+    for (const row of args.rows) {
+      try {
+        if (row.unitPrice <= 0 || !isFinite(row.unitPrice)) {
+          errors.push(`Ligne « ${row.name} » : prix invalide (${row.unitPrice})`);
+          continue;
+        }
+
+        // Try matching by SKU first, then by name
+        let match = row.sku ? bySku.get(row.sku) : undefined;
+        if (!match) match = byName.get(row.name);
+
+        if (match) {
+          // Update existing material if price changed
+          if (match.unitPrice !== row.unitPrice) {
+            await ctx.db.insert("priceHistory", {
+              materialPriceId: match._id,
+              previousPrice: match.unitPrice,
+              newPrice: row.unitPrice,
+              changedBy: user._id,
+              changedAt: now,
+            });
+            await ctx.db.patch(match._id, {
+              unitPrice: row.unitPrice,
+              ...(row.unit && { unit: row.unit }),
+              ...(row.sku && { sku: row.sku }),
+              lastUpdated: now,
+              updatedBy: user._id,
+            });
+            updated++;
+          }
+        } else if (row.sku) {
+          // Create new material from import
+          await ctx.db.insert("materialPrices", {
+            name: row.name,
+            sku: row.sku,
+            unitPrice: row.unitPrice,
+            unit: row.unit || "unité",
+            category: "divers" as any,
+            currency: "TND",
+            priceQuality: "observé_en_ligne",
+            lastUpdated: now,
+            updatedBy: user._id,
+          });
+          created++;
+        } else {
+          errors.push(`Ligne « ${row.name} » : aucun SKU/nom correspondant trouvé`);
+        }
+      } catch (err: any) {
+        errors.push(`Ligne « ${row.name} » : ${err.message || "erreur inconnue"}`);
+      }
+    }
+
+    return {
+      updated,
+      created,
+      errors,
+      total: args.rows.length,
+      totalMaterials: existing.length + created,
+    };
+  },
+});
+
 /** Get price history for a material */
 export const getPriceHistory = query({
   args: { materialPriceId: v.id("materialPrices") },
