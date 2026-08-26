@@ -1054,124 +1054,342 @@ export default function ProjectDetail() {
               </motion.div>
             )}
 
-            {/* ═══ Materials Table ═══ */}
-            {scaledBreakdown?.some((b: any) => b.items?.length) && (
-              <motion.div variants={fadeUp} custom={7}
-                className="rounded-xl border bg-card shadow-sm overflow-hidden">                  <button onClick={() => setOpenCat(openCat ? "" : "__all")}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Layers className="h-3.5 w-3.5" />
-                    </div>
-                    <h3 className="text-sm font-semibold">Quantitatif détaillé</h3>
-                    {selectedScenario !== "standard" && scenarios && (
-                      <Badge variant="outline" className="text-[9px] text-primary border-primary/30">
-                        {scenarios[selectedScenario as keyof typeof scenarios]?.label}
-                      </Badge>
-                    )}
-                    <Badge variant="secondary" className="text-[9px]">{totalItems} postes</Badge>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      aria-label="Mettre à jour le quantitatif selon le catalogue 2026"
-                      title="Mettre à jour le quantitatif selon le catalogue 2026"
-                      onClick={(e) => { e.stopPropagation(); refreshQuantitatif(); }}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); refreshQuantitatif(); } }}
-                      className={cn("flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors cursor-pointer", refreshingQuantitatif ? "opacity-60" : "hover:bg-muted/30 hover:text-primary")}
-                    >
-                      {refreshingQuantitatif ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    </span>
-                    {openCat !== "" && (
-                      <span onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === "__all_expanded" ? "__all" : "__all_expanded"); }}
-                        className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/30 text-muted-foreground transition-colors"
-                        title={openCat === "__all_expanded" ? "Tout replier" : "Tout déplier"}>
-                        {openCat === "__all_expanded" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      </span>
-                    )}
-                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", openCat && "rotate-180")} />
-                  </div>
-                </button>
 
-                <AnimatePresence initial={false}>
-                  {openCat !== "" && (
-                    <motion.div key="table" initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-                      <div className="overflow-x-auto border-t border-border/10">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="bg-muted/30">
-                              <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Matériau / Prestation</th>
-                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Qté</th>
-                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground hidden sm:table-cell">P.U.</th>
-                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Total</th>
-                              <th className="text-right py-2.5 px-3 font-medium text-muted-foreground hidden lg:table-cell">Fournisseur (meilleur prix)</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {scaledBreakdown.filter((b: any) => b.items?.length).map((cat: any) => (
-                              <Fragment key={cat.label}>
-                                <tr className="border-b border-border/5 bg-muted/10">
-                                  <td colSpan={5} className="py-2 px-3">
-                                    <button onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === cat.label ? "__all" : cat.label); }}
-                                      className="flex items-center gap-1.5 w-full text-left">
-                                      <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[cat.category] ?? "#888" }} />
-                                      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{cat.label}</span>
-                                      <span className="text-[9px] text-muted-foreground/50 ml-auto">{cat.items.length} postes — {fmt(cat.estimatedCost)}</span>
-                                      {openCat === cat.label || openCat === "__all_expanded" ? <ChevronUp className="h-3 w-3 text-muted-foreground/50" /> : <ChevronDown className="h-3 w-3 text-muted-foreground/50" />}
-                                    </button>
-                                  </td>
-                                </tr>
-                                {(openCat === cat.label || openCat === "__all_expanded") && cat.items.map((item: any, i: number) => (
-                                  <motion.tr key={i}
-                                    initial={{ opacity: 0, x: -8 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: i * 0.02 }}
-                                    className="border-b border-border/5 hover:bg-muted/10 transition-colors">
-                                    <td className="py-2 px-3 font-medium whitespace-normal break-words min-w-[160px]">{item.name}</td>
-                                    <td className="text-right py-2 px-3 font-mono text-muted-foreground">{cat.category === "main_oeuvre" ? "1 lot" : `${item.quantity} ${item.unit}`}</td>
-                                    <td className="text-right py-2 px-3 text-muted-foreground font-mono hidden sm:table-cell">{fmt(item.unitPrice)}</td>
-                                    <td className="text-right py-2 px-3 font-semibold font-mono">{fmt(item.totalPrice)}</td>
-                                    <td className="py-2 px-3 hidden lg:table-cell">
-                                      {(() => {
-                                        const sup = supplierByItem[item.name];
-                                        if (!sup) {
-                                          return <span className="text-muted-foreground/40">—</span>;
-                                        }
-                                        const cheaper = sup.minPrice < item.unitPrice;
-                                        return (
-                                          <div
-                                            className="flex items-center justify-end gap-1.5"
-                                            title={`${sup.supplier}${sup.governorate ? ` · ${sup.governorate}` : ""} · prix min ${sup.minPrice.toFixed(2)} TND${sup.unit ? "/" + sup.unit : ""}`}
-                                          >
-                                            <span className="text-[10px] font-medium text-foreground/80 truncate max-w-[120px]">{sup.supplier}</span>
-                                            <span
-                                              className={cn(
-                                                "text-[9px] font-semibold tabular-nums shrink-0 rounded px-1 py-px",
-                                                cheaper
-                                                  ? "text-emerald-600 bg-emerald-500/10 border border-emerald-500/20"
-                                                  : "text-muted-foreground/70",
-                                              )}
-                                              title={cheaper ? `Meilleur que le P.U. estimé (${fmt(item.unitPrice)})` : ""}
-                                            >
-                                              {fmt(sup.minPrice)}
-                                            </span>
-                                          </div>
-                                        );
-                                      })()}
-                                    </td>
-                                  </motion.tr>
-                                ))}
-                              </Fragment>
-                            ))}
-                          </tbody>
-                        </table>
+            {/* ═══ Quantitatif détaillé — Vue par étapes de construction ═══ */}
+            {(() => {
+              const dqe = (project as any)?.dqe as any;
+              const hasDqeLots = dqe?.lots?.length > 0;
+              const flatHasItems = scaledBreakdown?.some((b: any) => b.items?.length);
+              if (!hasDqeLots && !flatHasItems) return null;
+
+              // ── Helpers d'affichage ──
+              const NATURE_META: Record<string, { label: string; icon: any; color: string }> = {
+                materiaux: { label: "Matériaux", icon: Layers, color: "text-blue-600" },
+                main_oeuvre: { label: "Main-d'œuvre", icon: Users, color: "text-emerald-600" },
+                equipements: { label: "Outillage & Équipements", icon: Plug, color: "text-purple-600" },
+                transport: { label: "Transport", icon: Truck, color: "text-amber-600" },
+                etudes: { label: "Études & Permis", icon: FileText, color: "text-red-600" },
+              };
+              const NATURE_ORDER = ["materiaux", "main_oeuvre", "equipements", "transport", "etudes"];
+              const LOT_ICONS: Record<string, any> = {
+                frais_preliminaires: FileText,
+                gros_oeuvre: Building2,
+                second_oeuvre: Paintbrush,
+                amenagements_exterieurs: Map,
+                vrd: Truck,
+                depose_demolition: TriangleAlert,
+                depose: TriangleAlert,
+                maconnerie: Building2,
+                revetements: Layers,
+                plan_travail: Layers,
+                plomberie: Plug,
+                electricite: Plug,
+                etancheite: Layers,
+                carrelage: Layers,
+                sanitaires: Plug,
+                robinetterie: Plug,
+                preparation: Layers,
+                peinture: Paintbrush,
+                finition: Layers,
+                nettoyage: Layers,
+                meubles: Layers,
+                equipements: Plug,
+                ventilation: Plug,
+                structure: Building2,
+                filtration: Plug,
+                amenagements: Map,
+                main_oeuvre: Users,
+                terrassement: Building2,
+                charpente: Building2,
+                portes: Layers,
+                divers: Truck,
+                tableau: Plug,
+                cablage: Plug,
+                appareillage: Plug,
+                eclairage: Layers,
+                terre: Plug,
+                essais: Layers,
+                alimentation: Plug,
+                evacuation: Plug,
+                chauffe_eau: Plug,
+                cuisine_pro: Layers,
+                froid: Plug,
+                cvc: Plug,
+                facade: Layers,
+                cloisons: Layers,
+                menuiserie: Layers,
+                enseignes: Layers,
+              };
+
+              // ── Données DQE (lots hiérarchiques) ──
+              const dqeLots: any[] = hasDqeLots ? dqe.lots : [];
+              const dqeTotals = dqe?.totals;
+
+              // ── Données BIM (fallback plat) ──
+              const flatBreakdown = scaledBreakdown ?? [];
+
+              // Prix moyen par région (référence comparative)
+              const avgM2 = (ce as any)?.avgRegionPriceM2 ?? currentCostM2;
+              const totalBudg = currentTotal;
+              const surfaceTot = project?.surface ? project.surface * (project.floors || 1) : 0;
+
+              return (
+                <motion.div variants={fadeUp} custom={7}
+                  className="rounded-xl border bg-card shadow-sm overflow-hidden">
+
+                  {/* Header */}
+                  <button onClick={() => setOpenCat(openCat ? "" : "__all")}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Layers className="h-3.5 w-3.5" />
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            )}
+                      <h3 className="text-sm font-semibold">Quantitatif détaillé</h3>
+                      {selectedScenario !== "standard" && scenarios && (
+                        <Badge variant="outline" className="text-[9px] text-primary border-primary/30">
+                          {scenarios[selectedScenario as keyof typeof scenarios]?.label}
+                        </Badge>
+                      )}
+                      <Badge variant="secondary" className="text-[9px]">
+                        {hasDqeLots ? `${dqeLots.length} étapes` : `${totalItems} postes`}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span role="button" tabIndex={0}
+                        aria-label="Mettre à jour le quantitatif selon le catalogue 2026"
+                        title="Mettre à jour le quantitatif selon le catalogue 2026"
+                        onClick={(e) => { e.stopPropagation(); refreshQuantitatif(); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); refreshQuantitatif(); } }}
+                        className={cn("flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors cursor-pointer", refreshingQuantitatif ? "opacity-60" : "hover:bg-muted/30 hover:text-primary")}
+                      >
+                        {refreshingQuantitatif ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      </span>
+                      {openCat !== "" && (
+                        <span onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === "__all_expanded" ? "__all" : "__all_expanded"); }}
+                          className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/30 text-muted-foreground transition-colors"
+                          title={openCat === "__all_expanded" ? "Tout replier" : "Tout déplier"}>
+                          {openCat === "__all_expanded" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </span>
+                      )}
+                      <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", openCat && "rotate-180")} />
+                    </div>
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {openCat !== "" && (
+                      <motion.div key="dqe-table" initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+                        <div className="border-t border-border/10">
+
+                          {hasDqeLots ? (
+                            /* ══════ VUE HIÉRARCHIQUE DQE (étapes / sous-étapes) ══════ */
+                            <div className="divide-y divide-border/10">
+                              {dqeLots.map((lot: any) => {
+                                const LotIcon = LOT_ICONS[lot.id] || Building2;
+                                const isOpen = openCat === lot.name || openCat === "__all_expanded";
+
+                                // Grouper les lignes par nature
+                                const byNature: Record<string, any[]> = {};
+                                for (const line of lot.lines ?? []) {
+                                  const n = line.nature || "materiaux";
+                                  if (!byNature[n]) byNature[n] = [];
+                                  byNature[n].push(line);
+                                }
+                                const activeNatures = NATURE_ORDER.filter(n => byNature[n]?.length > 0);
+
+                                // Totals par nature pour ce lot
+                                const natureTotals = activeNatures.map(n => ({
+                                  nature: n,
+                                  total: byNature[n].reduce((s: number, l: any) => s + (l.total || 0), 0),
+                                  count: byNature[n].length,
+                                }));
+
+                                return (
+                                  <div key={lot.id}>
+                                    {/* Ligne de l'étape (lot) */}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setOpenCat(isOpen ? "__all" : lot.name); }}
+                                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/10 transition-colors text-left"
+                                    >
+                                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                        <LotIcon className="h-4 w-4" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-bold text-foreground">{lot.name}</span>
+                                          <span className="text-[9px] text-muted-foreground/50">{lot.percent}%</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 mt-0.5">
+                                          {natureTotals.map(nt => {
+                                            const meta = NATURE_META[nt.nature];
+                                            return (
+                                              <span key={nt.nature} className="text-[9px] text-muted-foreground/60 flex items-center gap-0.5">
+                                                <meta.icon className={cn("h-2.5 w-2.5", meta.color)} />
+                                                {nt.count} · {fmt(nt.total)}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                      <span className="text-sm font-bold tabular-nums text-primary shrink-0">{fmt(lot.subtotal)}</span>
+                                      {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground/50 shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground/50 shrink-0" />}
+                                    </button>
+
+                                    {/* Sous-étapes (lignes du lot) */}
+                                    {isOpen && (
+                                      <div className="bg-muted/5 border-t border-border/5">
+                                        {activeNatures.map(nature => {
+                                          const meta = NATURE_META[nature];
+                                          const lines = byNature[nature];
+                                          const natureTotal = lines.reduce((s: number, l: any) => s + (l.total || 0), 0);
+                                          return (
+                                            <div key={nature}>
+                                              {/* Header nature */}
+                                              <div className="flex items-center gap-2 px-4 py-1.5 bg-muted/10 border-b border-border/5">
+                                                <meta.icon className={cn("h-3 w-3", meta.color)} />
+                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{meta.label}</span>
+                                                <span className="text-[10px] text-muted-foreground/50 ml-auto">{lines.length} postes — {fmt(natureTotal)}</span>
+                                              </div>
+                                              {/* Lignes */}
+                                              {lines.map((line: any, idx: number) => (
+                                                <div key={idx} className="flex items-center gap-3 px-4 py-2 border-b border-border/5 hover:bg-muted/10 transition-colors">
+                                                  <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-medium truncate">{line.designation}</p>
+                                                    {line.description && (
+                                                      <p className="text-[10px] text-muted-foreground/60 truncate">{line.description}</p>
+                                                    )}
+                                                  </div>
+                                                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{line.quantity} {line.unit}</span>
+                                                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 hidden sm:block">{fmt(line.unitPrice)}</span>
+                                                  <span className="text-xs font-semibold tabular-nums shrink-0">{fmt(line.total)}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            /* ══════ FALLBACK : ancien tableau plat BIM ══════ */
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="bg-muted/30">
+                                    <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Matériau / Prestation</th>
+                                    <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Qté</th>
+                                    <th className="text-right py-2.5 px-3 font-medium text-muted-foreground hidden sm:table-cell">P.U.</th>
+                                    <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Total</th>
+                                    <th className="text-right py-2.5 px-3 font-medium text-muted-foreground hidden lg:table-cell">Fournisseur</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {flatBreakdown.filter((b: any) => b.items?.length).map((cat: any) => (
+                                    <Fragment key={cat.label}>
+                                      <tr className="border-b border-border/5 bg-muted/10">
+                                        <td colSpan={5} className="py-2 px-3">
+                                          <button onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === cat.label ? "__all" : cat.label); }}
+                                            className="flex items-center gap-1.5 w-full text-left">
+                                            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[cat.category] ?? "#888" }} />
+                                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{cat.label}</span>
+                                            <span className="text-[9px] text-muted-foreground/50 ml-auto">{cat.items.length} postes — {fmt(cat.estimatedCost)}</span>
+                                            {openCat === cat.label || openCat === "__all_expanded" ? <ChevronUp className="h-3 w-3 text-muted-foreground/50" /> : <ChevronDown className="h-3 w-3 text-muted-foreground/50" />}
+                                          </button>
+                                        </td>
+                                      </tr>
+                                      {(openCat === cat.label || openCat === "__all_expanded") && cat.items.map((item: any, i: number) => (
+                                        <motion.tr key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
+                                          className="border-b border-border/5 hover:bg-muted/10 transition-colors">
+                                          <td className="py-2 px-3 font-medium whitespace-normal break-words min-w-[160px]">{item.name}</td>
+                                          <td className="text-right py-2 px-3 font-mono text-muted-foreground">{cat.category === "main_oeuvre" ? "1 lot" : `${item.quantity} ${item.unit}`}</td>
+                                          <td className="text-right py-2 px-3 text-muted-foreground font-mono hidden sm:table-cell">{fmt(item.unitPrice)}</td>
+                                          <td className="text-right py-2 px-3 font-semibold font-mono">{fmt(item.totalPrice)}</td>
+                                          <td className="py-2 px-3 hidden lg:table-cell">
+                                            {(() => {
+                                              const sup = supplierByItem[item.name];
+                                              if (!sup) return <span className="text-muted-foreground/40">—</span>;
+                                              const cheaper = sup.minPrice < item.unitPrice;
+                                              return (
+                                                <div className="flex items-center justify-end gap-1.5"
+                                                  title={`${sup.supplier}${sup.governorate ? ` · ${sup.governorate}` : ""} · prix min ${sup.minPrice.toFixed(2)} TND${sup.unit ? "/" + sup.unit : ""}`}>
+                                                  <span className="text-[10px] font-medium text-foreground/80 truncate max-w-[120px]">{sup.supplier}</span>
+                                                  <span className={cn("text-[9px] font-semibold tabular-nums shrink-0 rounded px-1 py-px", cheaper ? "text-emerald-600 bg-emerald-500/10 border border-emerald-500/20" : "text-muted-foreground/70")}
+                                                    title={cheaper ? `Meilleur que le P.U. estimé (${fmt(item.unitPrice)})` : ""}>
+                                                    {fmt(sup.minPrice)}
+                                                  </span>
+                                                </div>
+                                              );
+                                            })()}
+                                          </td>
+                                        </motion.tr>
+                                      ))}
+                                    </Fragment>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {/* ═══ Récapitulatif : Total TTC + Prix moyen par région ═══ */}
+                          <div className="border-t border-border/10 bg-muted/5 px-4 py-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {/* Total TTC */}
+                              <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Wallet className="h-4 w-4 text-primary" />
+                                  <span className="text-xs font-bold text-primary">Coût total estimé TTC</span>
+                                </div>
+                                <p className="text-lg font-black tabular-nums text-primary">{fmt(totalBudg)}</p>
+                                {surfaceTot > 0 && (
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    soit {fmt(currentCostM2)}/m² · {surfaceTot} m² · TVA 19% incluse
+                                  </p>
+                                )}
+                                {/* Ventilation par nature (DQE) */}
+                                {dqeTotals && (
+                                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2">
+                                    {([
+                                      ["materiaux", "Matériaux", dqeTotals.materiaux],
+                                      ["main_oeuvre", "Main-d'œuvre", dqeTotals.mainOeuvre],
+                                      ["equipements", "Outillage", dqeTotals.equipements],
+                                      ["transport", "Transport", dqeTotals.transport],
+                                      ["etudes", "Études", dqeTotals.etudes],
+                                    ] as const).filter(([, , v]) => v > 0).map(([key, label, val]) => (
+                                      <span key={key} className="text-[9px] text-muted-foreground">
+                                        {label}: <span className="font-semibold text-foreground/80">{fmt(val)}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              {/* Prix moyen par région */}
+                              <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Globe className="h-4 w-4 text-muted-foreground" />
+                                  <span className="text-xs font-bold text-muted-foreground">Prix moyen par région</span>
+                                </div>
+                                <p className="text-lg font-black tabular-nums text-foreground">{fmt(avgM2)}<span className="text-xs font-normal text-muted-foreground">/m²</span></p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  Moyenne nationale 24 gouvernorats · Base marché Tunisie 2026
+                                </p>
+                                {project?.region && currentCostM2 !== avgM2 && (
+                                  <p className={cn("text-[10px] font-medium mt-1", currentCostM2 > avgM2 ? "text-amber-600" : "text-emerald-600")}>
+                                    {currentCostM2 > avgM2 ? "▲" : "▼"} {Math.abs(Math.round((currentCostM2 / avgM2 - 1) * 100))}% vs moyenne nationale ({REGION_LABELS[project.region] ?? project.region})
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })()}
 {/* ═══ CTA — Guide construction A-Z ═══ */}
             {done && project && (
               <motion.div
