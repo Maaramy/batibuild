@@ -167,6 +167,45 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
         </Card>
       </motion.div>
 
+      {/* Matrice de pondération dynamique */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <Card className="border border-border/40 overflow-hidden rounded-xl">
+          <CardHeader className="pb-2 border-b border-border/20 px-4 sm:px-6 py-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600">
+                <Gauge className="h-3.5 w-3.5" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-semibold">Matrice de pondération appliquée</CardTitle>
+                <CardDescription className="text-[10px]">Répartition des critères de décision (total = 100 pts)</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-5">
+            <div className="grid grid-cols-5 gap-2">
+              {[
+                { label: "Prix", pct: 50, color: "bg-emerald-500" },
+                { label: "Qualité", pct: 50, color: "bg-blue-500" },
+                { label: "Disponibilité", pct: 0, color: "bg-amber-500" },
+                { label: "Empreinte carbone", pct: 0, color: "bg-teal-500" },
+                { label: "Délai de livraison", pct: 0, color: "bg-violet-500" },
+              ].map((p) => (
+                <div key={p.label} className="text-center">
+                  <div className="relative h-16 rounded-lg bg-muted/20 overflow-hidden flex flex-col justify-end">
+                    <div className={cn("rounded-t transition-all", p.color)} style={{ height: `${Math.max(p.pct, 1)}%`, opacity: p.pct > 0 ? 1 : 0.15 }} />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground mt-1 leading-tight">{p.label}</p>
+                  <p className="text-xs font-bold tabular-nums">{p.pct}%</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[10px] text-muted-foreground/70 italic">
+              Pondérations par défaut : Prix 50% · Qualité 50%. Les critères optionnels (Disponibilité, Empreinte carbone, Délai) sont à 0% et peuvent être activés dans les paramètres d'analyse.
+            </p>
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Coût total */}
       <Card className="border border-border/40 overflow-hidden rounded-xl">
         <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
@@ -295,7 +334,11 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                             <span className={cn("text-xs font-bold uppercase tracking-wide", PROFILE_TEXT[s.profile])}>
                               {meta.label}
                             </span>
-                            <span className="text-lg font-black tabular-nums">{s.scores.noteGlobale}<span className="text-[10px] text-muted-foreground">/100</span></span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground">Qualité</span>
+                              <span className="text-sm font-bold tabular-nums">{(s as any).qualityScore10 ?? (s.scores.qualite / 10).toFixed(1)}<span className="text-[9px] text-muted-foreground">/10</span></span>
+                              <span className="text-lg font-black tabular-nums">{s.scores.noteGlobale}<span className="text-[10px] text-muted-foreground">/100</span></span>
+                            </div>
                           </div>
                           <p className="mt-1 text-sm font-semibold leading-snug">{s.material.name}</p>
                           <p className="text-[10px] text-muted-foreground">
@@ -315,6 +358,11 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                               </div>
                             ))}
                           </div>
+                          {(s as any).justification && (
+                            <p className="mt-2 text-[10px] text-muted-foreground/80 leading-relaxed border-l-2 border-primary/30 pl-2 italic">
+                              {(s as any).justification}
+                            </p>
+                          )}
                           <ul className="mt-2 space-y-0.5 flex-1">
                             {s.pros.slice(0, 2).map((p, i) => (
                               <li key={i} className="flex items-start gap-1 text-[10px] text-muted-foreground">

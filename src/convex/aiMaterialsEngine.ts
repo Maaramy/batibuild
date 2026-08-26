@@ -16,6 +16,36 @@ export type BudgetMode = "limite" | "economique" | "moyen" | "confortable" | "pr
 export type Profile = "economique" | "equilibre" | "premium";
 export type PriorityKey = "price" | "quality" | "isolation" | "durability" | "eco";
 
+// ── Pondération dynamique 100 points (§ priorités utilisateur) ──
+// Par défaut : Prix 50 / Qualité 50. L'utilisateur peut répartir
+// les 100 points sur 5 axes : prix, qualité, disponibilité, empreinte carbone, délai.
+export type UserPriorities = {
+  price: number;        // 0-100 (défaut 50)
+  quality: number;      // 0-100 (défaut 50)
+  availability: number; // 0-100 (défaut 0, optionnel)
+  carbonFootprint: number; // 0-100 (défaut 0, optionnel)
+  deliveryDelay: number;   // 0-100 (défaut 0, optionnel)
+};
+
+/** Crée les pondérations par défaut (50/50 prix-qualité, le reste à 0). */
+export function defaultUserPriorities(): UserPriorities {
+  return { price: 50, quality: 50, availability: 0, carbonFootprint: 0, deliveryDelay: 0 };
+}
+
+/** Normalise les priorités pour qu'elles totalisent exactement 100. */
+export function normalizePriorities(p: Partial<UserPriorities>): UserPriorities {
+  const raw = { ...defaultUserPriorities(), ...p };
+  const total = raw.price + raw.quality + raw.availability + raw.carbonFootprint + raw.deliveryDelay;
+  if (total <= 0) return defaultUserPriorities();
+  return {
+    price: Math.round((raw.price / total) * 100),
+    quality: Math.round((raw.quality / total) * 100),
+    availability: Math.round((raw.availability / total) * 100),
+    carbonFootprint: Math.round((raw.carbonFootprint / total) * 100),
+    deliveryDelay: Math.round((raw.deliveryDelay / total) * 100),
+  };
+}
+
 export type ProjectContext = {
   projectName?: string;
   projectCategory?: string; // maison, villa, appartement…
@@ -561,6 +591,12 @@ export type Solution = {
     totalCost: number;
   };
   scores: MaterialScores;
+  /** Note qualité sur 10 (arrondi). */
+  qualityScore10: number;
+  /** Score de recommandation global calculé selon les pondérations applicables (0-100). */
+  recommendationScore: number;
+  /** Justification technique résumée du choix pour ce mode. */
+  justification: string;
   pros: string[];
   cons: string[];
   suppliers: { name: string; price: number; unit: string; governorate?: string; reliabilityIndex?: number; availability?: string }[];
@@ -630,6 +666,50 @@ const TRANSPORT_PCT = 0.05;
 const WASTE_PCT = 0.05;
 const ACCESSORIES_PCT = 0.06;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// JUSTIFICATION TECHNIQUE PAR MODE
+// ─────────────────────────────────────────────────────────────────────────────
+type Pick = { m: CatalogMaterial; s: MaterialScores; band: PriceBand; suppliers: Offer[]; note: number };
+
+function buildJustification(profile: Profile, best: Pick, cat: CopilotCategory): string {
+  const m = best.m;
+  const s = best.s;
+  const band = best.band;
+  const parts: string[] = [];
+
+  switch (profile) {
+    case "economique":
+      parts.push(`Ce matériau a été retenu pour son coût unitaire minimal dans la catégorie « ${cat.label} ».`);
+      if (s.prix >= 70) parts.push(`Son score prix (${s.prix}/100) reflète une position tarifaire très compétitive (${band.avg.toFixed(2)} TND/${m.unit}).`);
+      if (s.qualite >= 50) parts.push(`La qualité reste suffisante (note ${s.qualite}/100) pour une utilisation conforme aux normes courantes.`);
+      if (s.disponibilite >= 60) parts.push(`Disponibilité confirmée sur le marché tunisien, ce qui réduit les délais d'approvisionnement.`);
+      if (m.brand) parts.push(`Marque ${m.brand} — standard reconnu.`);
+      parts.push(`Pondérations appliquées : prix prioritaire, qualité en second.`);
+      break;
+
+    case "equilibre":
+      parts.push(`Ce matériau offre le meilleur rapport qualité/prix dans la catégorie « ${cat.label} ».`);
+      parts.push(`Prix moyen ${band.avg.toFixed(2)} TND/${m.unit} avec un score qualité de ${s.qualite}/100.`);
+      if (s.isolationThermique >= 60) parts.push(`Performance thermique correcte (${s.isolationThermique}/100), adaptée au climat tunisien.`);
+      if (s.resistance >= 70) parts.push(`Résistance mécanique satisfaisante (${s.resistance}/100) pour les contraintes structurelles.`);
+      if (s.durabilite >= 65) parts.push(`Durabilité estimée à ${s.durabilite}/100, assurant un bon rapport longévité/coût.`);
+      parts.push(`Pondérations équilibrées entre prix (50%) et qualité (50%).`);
+      break;
+
+    case "premium":
+      parts.push(`Ce matériau a été sélectionné pour ses performances supérieures dans la catégorie « ${cat.label} ».`);
+      if (s.qualite >= 75) parts.push(`Qualité élevée (${s.qualite}/100) garantissant une durabilité et un confort optimaux.`);
+      if (s.isolationThermique >= 70) parts.push(`Excellente isolation thermique (${s.isolationThermique}/100), réduisant significativement les besoins en climatisation.`);
+      if (s.durabilite >= 75) parts.push(`Durabilité premium (${s.durabilite}/100), réduisant les coûts de maintenance à long terme.`);
+      if (m.brand) parts.push(`Fabricant ${m.brand} — gamme haut de gamme.`);
+      if (band.avg > 0) parts.push(`Coût ${band.avg.toFixed(2)} TND/${m.unit}, justifié par la performance technique supérieure.`);
+      parts.push(`Pondérations : qualité et durabilité priorisées, prix secondaire.`);
+      break;
+  }
+
+  return parts.join(" ");
+}
+
 export function recommendForProject(input: {
   context: ProjectContext;
   categories: string[];
@@ -675,7 +755,6 @@ export function recommendForProject(input: {
     // Sélection par profil (indépendante), puis résolution des doublons :
     // chaque profil reçoit un matériau distinct, en gardant pour chaque
     // matériau le profil qui l'a noté le plus haut.
-    type Pick = { m: CatalogMaterial; s: MaterialScores; band: PriceBand; suppliers: Offer[]; note: number };
     const pickBest = (profile: Profile, exclude: Set<string>, withCap: boolean): Pick | null => {
       let best: Pick | null = null;
       const cap = withCap ? budgetCap : undefined;
@@ -768,6 +847,9 @@ export function recommendForProject(input: {
           totalCost: round0(base + tva),
         },
         scores: best.s,
+        qualityScore10: Math.round((best.s.qualite / 100) * 10) / 10,
+        recommendationScore: best.s.noteGlobale,
+        justification: buildJustification(profile, best, cat),
         pros,
         cons,
         suppliers: best.suppliers.map((o) => ({
