@@ -13,8 +13,6 @@
 
 export const PROJECT_TYPES = [
   "maison",
-  "maison_r_plus_1",
-  "maison_r_plus_2",
   "villa",
   "appartement",
   "studio",
@@ -31,8 +29,6 @@ export type ProjectType = (typeof PROJECT_TYPES)[number];
 
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   maison: "Maison",
-  maison_r_plus_1: "Maison R+1",
-  maison_r_plus_2: "Maison R+2",
   villa: "Villa",
   appartement: "Appartement",
   studio: "Studio",
@@ -48,8 +44,6 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
 /** Icône Lucide (nom) associée à chaque type — utilisée par l'interface. */
 export const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
   maison: "Home",
-  maison_r_plus_1: "Home",
-  maison_r_plus_2: "Home",
   villa: "Building2",
   appartement: "Building",
   studio: "DoorOpen",
@@ -67,7 +61,7 @@ export const PROJECT_TYPE_GROUPS: { key: string; label: string; types: ProjectTy
   {
     key: "residentiel",
     label: "Résidentiel",
-    types: ["maison", "maison_r_plus_1", "maison_r_plus_2", "villa", "appartement", "studio", "duplex", "immeuble"],
+    types: ["maison", "villa", "appartement", "studio", "duplex", "immeuble"],
   },
   {
     key: "commercial",
@@ -84,8 +78,6 @@ export const PROJECT_TYPE_GROUPS: { key: string; label: string; types: ProjectTy
 /** Types éligibles à l'étape « Composition intérieure » (pièces). */
 export const ROOM_ELIGIBLE_TYPES: string[] = [
   "maison",
-  "maison_r_plus_1",
-  "maison_r_plus_2",
   "villa",
   "appartement",
   "studio",
@@ -101,8 +93,9 @@ export const SINGLE_LEVEL_TYPES: string[] = ["local_commercial", "entrepot", "bu
 /**
  * Nombre de niveaux par défaut selon le type de bien (moteur BIM / DQE).
  * 1 = RDC seul · 2 = R+1 · 3 = R+2. Utilisé quand l'utilisateur ne saisit
- * pas explicitement le nombre d'étages : une « Maison R+1 » doit être chiffrée
- * sur 2 niveaux (plancher haut + escalier), une « Maison R+2 » sur 3 niveaux.
+ * pas explicitement le nombre d'étages : le nombre de niveaux est ensuite
+ * ajustable manuellement dans le formulaire « Nouveau projet ».
+ * Les entrées maison_r_plus_1/2 servent aux projets existants (legacy).
  */
 export const CATEGORY_DEFAULT_FLOORS: Record<string, number> = {
   maison: 1,
@@ -149,8 +142,6 @@ export const ROOM_DEFAULTS: Record<
   }
 > = {
   maison: { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
-  maison_r_plus_1: { bedrooms: "3", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "0" },
-  maison_r_plus_2: { bedrooms: "4", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2", pools: "0" },
   villa: { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "1" },
   appartement: { bedrooms: "2", bathrooms: "1", kitchens: "1", livingRooms: "1", garages: "0", wcs: "1", pools: "0" },
   studio: { bedrooms: "1", bathrooms: "1", kitchens: "1", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
@@ -170,8 +161,8 @@ export const ROOM_DEFAULTS: Record<
 // clé = ancien slug · valeur = slug officiel de remplacement.
 export const LEGACY_PROJECT_TYPE_MAP: Record<string, string> = {
   // Anciens types résidentiels → types officiels
-  // maison_r_plus_1 et maison_r_plus_2 sont maintenant des types officiels
-  // (supprimés de cette map)
+  maison_r_plus_1: "maison",
+  maison_r_plus_2: "villa",
   immeuble_residentiel: "immeuble",
   // Anciens types commerciaux → types officiels
   boutique_commerciale: "local_commercial",
@@ -330,16 +321,16 @@ export function resolveProjectType(slug: string): ProjectType | null {
 const LABEL_ALIASES: Record<string, ProjectType> = {
   // Résidentiel
   maison: "maison",
-  maisonr1: "maison_r_plus_1",
-  maisonr2: "maison_r_plus_2",
-  maisonrplus1: "maison_r_plus_1",
-  maisonrplus2: "maison_r_plus_2",
-  maisonr1etage: "maison_r_plus_1",
-  maisonr2etages: "maison_r_plus_2",
-  r1: "maison_r_plus_1",
-  r2: "maison_r_plus_2",
-  r1etage: "maison_r_plus_1",
-  r2etages: "maison_r_plus_2",
+  maisonr1: "maison",
+  maisonrplus1: "maison",
+  maisonr1etage: "maison",
+  r1: "maison",
+  r1etage: "maison",
+  maisonr2: "villa",
+  maisonrplus2: "villa",
+  maisonr2etages: "villa",
+  r2: "villa",
+  r2etages: "villa",
   villar1: "villa",
   villa: "villa",
   appartement: "appartement",
@@ -376,10 +367,8 @@ const LABEL_ALIASES: Record<string, ProjectType> = {
 // ============================================================================
 
 export const PROJECT_TO_INVESTMENT_TYPE: Record<string, string> = {
-  // 13 types officiels → équivalent d'investissement (mapping direct 1:1)
+  // 11 types officiels → équivalent d'investissement (mapping direct 1:1)
   maison: "maison",
-  maison_r_plus_1: "maison",
-  maison_r_plus_2: "villa",
   villa: "villa",
   appartement: "appartement",
   studio: "studio",
@@ -391,7 +380,8 @@ export const PROJECT_TO_INVESTMENT_TYPE: Record<string, string> = {
   residence_touristique: "residence_touristique",
   projet_neuf: "projet_neuf",
   // Anciens types (rétro-compatibilité données existantes)
-  // maison_r_plus_1 et maison_r_plus_2 sont maintenant des types officiels ci-dessus
+  maison_r_plus_1: "maison",
+  maison_r_plus_2: "villa",
   immeuble_residentiel: "immeuble",
   boutique_commerciale: "local_commercial",
   bureau_cabinet: "bureau",
