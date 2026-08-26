@@ -363,52 +363,104 @@ export default function AdminPanel() {
     setImportResult(null);
     setImporting(true);
     try {
-      // Dynamic import of xlsx (already installed)
       const XLSX = await import("xlsx");
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data, { type: "array" });
-      const sheetName = wb.SheetNames[0];
-      if (!sheetName) throw new Error("Le fichier Excel est vide");
-      const ws = wb.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+      if (wb.SheetNames.length === 0) throw new Error("Le fichier Excel est vide");
 
-      if (rows.length === 0) throw new Error("Aucune ligne trouvée dans le fichier");
+      // ── 1. Auto-detect the data sheet ──
+      // Prefer sheets named "Base matériaux" or containing "matériaux" in the name.
+      // Fallback: scan each sheet's first 10 rows for known header keywords.
+      const HEADER_SIGNALS = ["désignation", "designation", "prix", "unité", "id matériau"];
+      let chosenSheet = wb.SheetNames[0];
+      let rawRows: (string | number)[][] = [];
 
-      // Detect columns: try common header names for SKU/ID and price
-      const skuHeaders = ["sku", "id", "réf", "ref", "reference", "code", "referance", "id_produit", "id article"];
-      const priceHeaders = ["prix", "price", "nouveau prix", "new price", "prix unitaire", "tarif", "montant"];
-      const nameHeaders = ["désignation", "designation", "nom", "name", "libellé", "libelle", "produit", "description"];
-      const unitHeaders = ["unité", "unite", "unit", "unit measurement"];
+      for (const sn of wb.SheetNames) {
+        const lower = sn.toLowerCase();
+        const ws = wb.Sheets[sn];
+        const candidate = XLSX.utils.sheet_to_json<(string | number)[]>(ws, { header: 1, defval: "", blankrows: false });
+        if (candidate.length === 0) continue;
 
-      const firstRow = rows[0];
-      const headers = Object.keys(firstRow).map(h => h.toLowerCase().trim());
+        // Check if any of the first 10 rows contain header signals
+        const sample = candidate.slice(0, 10).flat().join(" ").toLowerCase();
+        const signalCount = HEADER_SIGNALS.filter(s => sample.includes(s)).length;
 
-      function findCol(candidates: string[]): string | undefined {
-        for (const c of candidates) {
-          const found = headers.find(h => h === c || h.includes(c));
-          if (found) return Object.keys(firstRow)[headers.indexOf(found)];
+        if (lower.includes("base") && lower.includes("matériau")) {
+          chosenSheet = sn; rawRows = candidate; break; // Perfect match
         }
-        return undefined;
+        if (signalCount >= 3) {
+          chosenSheet = sn; rawRows = candidate; break; // Good enough
+        }
+        // Keep first sheet as fallback
+        if (rawRows.length === 0) { rawRows = candidate; chosenSheet = sn; }
       }
 
-      const skuCol = findCol(skuHeaders);
-      const priceCol = findCol(priceHeaders);
-      const nameCol = findCol(nameHeaders);
-      const unitCol = findCol(unitHeaders);
+      if (rawRows.length === 0) throw new Error("Aucune feuille de données trouvée dans le fichier");
 
-      if (!priceCol) throw new Error(`Colonne de prix non trouvée. Colonnes disponibles : ${Object.keys(firstRow).join(", ")}`);
+      // ── 2. Find the real header row (scan first 20 rows) ──
+      let headerIdx = -1;
+      let headers: string[] = [];
+      const scanLimit = Math.min(20, rawRows.length);
 
-      // Parse rows
-      const parsedRows: { sku?: string; name: string; unitPrice: number; unit?: string; category?: string }[] = [];
-      for (const row of rows) {
-        const name = nameCol ? String(row[nameCol] || "").trim() : "";
-        const sku = skuCol ? String(row[skuCol] || "").trim() : undefined;
-        const priceRaw = row[priceCol];
-        const unitPrice = typeof priceRaw === "number" ? priceRaw : parseFloat(String(priceRaw).replace(/[^\d.,-]/g, "").replace(",", "."));
-      const unit = unitCol ? String(row[unitCol] || "").trim() : undefined;
+      for (let r = 0; r < scanLimit; r++) {
+        const row = rawRows[r];
+        if (!Array.isArray(row) || row.length < 3) continue;
+        const cells = row.map(c => String(c || "").toLowerCase().trim());
+        const joined = cells.join(" ");
+        const hitCount = HEADER_SIGNALS.filter(s => joined.includes(s)).length;
+        if (hitCount >= 2) {
+          headerIdx = r;
+          headers = cells;
+          break;
+        }
+      }
 
-      if (isNaN(unitPrice) || unitPrice <= 0) continue; // Skip rows without valid price
-        if (!name && !sku) continue; // Skip rows without name or SKU
+      if (headerIdx === -1) {
+        throw new Error(`En-têtes non trouvés dans les 20 premières lignes de « ${chosenSheet} ».
+Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
+      }
+
+      // ── 3. Map columns ──
+      const skuKeys = ["id matériau", "sku", "id", "réf", "ref", "code"];
+      const priceKeys = ["prix référence", "prix ref", "prix", "price", "tarif", "montant"];
+      const nameKeys = ["désignation", "designation", "nom", "name", "libellé", "description"];
+      const unitKeys = ["unité", "unite", "unit"];
+
+      function findColIdx(candidates: string[]): number {
+        for (const c of candidates) {
+          const idx = headers.findIndex(h => h === c || h.startsWith(c));
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      }
+
+      const skuIdx = findColIdx(skuKeys);
+      const priceIdx = findColIdx(priceKeys);
+      const nameIdx = findColIdx(nameKeys);
+      const unitIdx = findColIdx(unitKeys);
+
+      if (priceIdx === -1) {
+        throw new Error(
+          `Colonne de prix non trouvée. Lignes d'en-tête détectées (row ${headerIdx}) :\n${headers.filter(Boolean).join(" | ")}`
+        );
+      }
+
+      // ── 4. Parse data rows ──
+      const dataRows = rawRows.slice(headerIdx + 1);
+      const parsedRows: { sku?: string; name: string; unitPrice: number; unit?: string }[] = [];
+
+      for (const row of dataRows) {
+        if (!Array.isArray(row)) continue;
+        const name = nameIdx >= 0 ? String(row[nameIdx] || "").trim() : "";
+        const sku = skuIdx >= 0 ? String(row[skuIdx] || "").trim() : undefined;
+        const priceRaw = row[priceIdx];
+        const unitPrice = typeof priceRaw === "number"
+          ? priceRaw
+          : parseFloat(String(priceRaw).replace(/[^\d.,-]/g, "").replace(",", "."));
+        const unit = unitIdx >= 0 ? String(row[unitIdx] || "").trim() : undefined;
+
+        if (isNaN(unitPrice) || unitPrice <= 0) continue;
+        if (!name && !sku) continue;
 
         parsedRows.push({
           sku: sku || undefined,
@@ -418,9 +470,13 @@ export default function AdminPanel() {
         });
       }
 
-      if (parsedRows.length === 0) throw new Error("Aucune ligne valide trouvée (vérifiez les colonnes : nom/désignation + prix)");
+      if (parsedRows.length === 0) {
+        throw new Error(
+          `Aucune ligne valide trouvée dans « ${chosenSheet} » (row d'en-tête: ${headerIdx}, colonnes: ${headers.filter(Boolean).join(", ")})`
+        );
+      }
 
-      // Send to Convex (batch of up to 200 at a time to avoid timeout)
+      // ── 5. Send to Convex in batches ──
       const BATCH_SIZE = 200;
       let totalUpdated = 0;
       let totalCreated = 0;
@@ -451,7 +507,6 @@ export default function AdminPanel() {
       setImportResult(null);
     } finally {
       setImporting(false);
-      // Reset file input
       e.target.value = "";
     }
   };
