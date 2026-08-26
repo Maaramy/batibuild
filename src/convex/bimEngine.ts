@@ -468,9 +468,10 @@ type Percentages = [number, number, number, number, number, number];
 
 const RELATIVE_PRICE_M2: Record<string, { eco: number, std: number, premium: number }> = {
   // Maisons & Villa (Marché tunisien 2026 - fournitures + main d'œuvre)
+  // NB : les anciens types « Maison R+1 » / « Maison R+2 » ont été supprimés
+  // du catalogue — le nombre de niveaux est désormais choisi manuellement et
+  // les anciens slugs sont remappés vers « maison » / « villa ».
   maison:             { eco: 720, std: 1056, premium: 1728 },
-  maison_r_plus_1:    { eco: 768, std: 1104, premium: 1824 },
-  maison_r_plus_2:    { eco: 816, std: 1152, premium: 1920 },
   villa:              { eco: 864, std: 1296, premium: 2112 },
   immeuble_residentiel:{ eco: 912, std: 1344, premium: 2112 },
   immeuble:           { eco: 912, std: 1344, premium: 2112 },
@@ -568,8 +569,6 @@ export const PROJECT_PCT: Record<string, Percentages> = {
   // transport / études-imprévus 13 %. La contingence de 12 % est appliquée
   // en sus (DEFAULT_CONTINGENCY_PCT).
   maison: [43, 31, 13, 6, 3, 4],
-  maison_r_plus_1: [43, 31, 13, 6, 3, 4],
-  maison_r_plus_2: [43, 31, 13, 6, 3, 4],
   villa: [43, 31, 13, 6, 3, 4],
   immeuble_residentiel: [45, 29, 13, 6, 3, 4],
   immeuble: [45, 29, 13, 6, 3, 4],
@@ -630,7 +629,7 @@ export const PROJECT_PCT: Record<string, Percentages> = {
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
-  maison: "Maison", maison_r_plus_1: "Maison R+1", maison_r_plus_2: "Maison R+2", villa: "Villa",
+  maison: "Maison", villa: "Villa",
   immeuble_residentiel: "Immeuble résidentiel", immeuble: "Immeuble",
   appartement: "Appartement", studio: "Studio", duplex: "Duplex",
   residence_touristique: "Résidence touristique", projet_neuf: "Projet immobilier neuf",
