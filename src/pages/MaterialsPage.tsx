@@ -207,7 +207,7 @@ export default function MaterialsPage() {
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.02] via-background to-background pb-10">
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border/20 bg-background/90 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button onClick={() => navigate("/dashboard")}
               className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all shrink-0">
@@ -215,12 +215,12 @@ export default function MaterialsPage() {
             </button>
             <div className="h-4 w-px bg-border/50 shrink-0" />
             <div className="flex items-center gap-2 min-w-0">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 shrink-0">
-                <Database className="h-3.5 w-3.5" />
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600 shrink-0">
+                <Database className="h-3 w-3" />
               </div>
               <div>
-                <h1 className="text-sm font-semibold truncate">Matériaux de construction – Tunisie 2026</h1>
-                <p className="text-[9px] text-muted-foreground leading-tight">Périmètre national · Prix TND · Relevés datés</p>
+                <h1 className="text-xs font-semibold leading-tight">Matériaux de construction – Tunisie 2026</h1>
+                <p className="text-[8px] text-muted-foreground leading-tight">Périmètre national · Prix TND · Relevés datés</p>
               </div>
             </div>
           </div>
