@@ -243,7 +243,8 @@ describe("isInvestmentEligible", () => {
   it("les slugs legacy mappent correctement", () => {
     expect(isInvestmentEligible("maison_r_plus_1")).toBe(true);
     expect(isInvestmentEligible("boutique_commerciale")).toBe(true);
-    expect(isInvestmentEligible("piscine_beton")).toBe(false);
+    // piscine_beton → villa (legacy map), villa est investissable
+    expect(isInvestmentEligible("piscine_beton")).toBe(true);
   });
 
   it("un type inconnu est exclu par défaut (non investissable)", () => {
