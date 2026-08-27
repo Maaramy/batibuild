@@ -170,7 +170,6 @@ export default function ProjectDetail() {
   const [exportLabel, setExportLabel] = useState("");
   const [exportStep, setExportStep] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
@@ -205,8 +204,13 @@ export default function ProjectDetail() {
   // ── PDF Export ────────────────────────────────────────────────────────
 
   const handleDownloadClick = () => {
+    if (exporting) return;
+    if (checkDownloadAllowed === undefined) {
+      toast.info("Vérification en cours…");
+      return;
+    }
     if (checkDownloadAllowed?.allowed) {
-      setShowPicker(true);
+      generatePDF(selectedScenario);
     } else if (checkDownloadAllowed?.reason === "limite_atteinte") {
       toast.error(`Vous avez atteint votre limite de ${checkDownloadAllowed?.limit ?? 1} téléchargements pour ce forfait`);
     } else {
@@ -228,7 +232,6 @@ export default function ProjectDetail() {
       scenarios,
       scenario,
       onStart: () => {
-        setShowPicker(false);
         setExporting(true);
       },
       onProgress: advanceProgress,
@@ -423,7 +426,8 @@ export default function ProjectDetail() {
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
-      </main>
+
+    </main>
     );
   }
 
@@ -2034,6 +2038,26 @@ export default function ProjectDetail() {
         </DialogContent>
       </Dialog>
 
+
+      {/* Upgrade Dialog */}
+      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Abonnement requis</DialogTitle>
+            <DialogDescription className="text-xs">
+              Le téléchargement de devis PDF nécessite un abonnement actif.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2">
+            <Button size="sm" className="flex-1 text-xs" onClick={() => { setShowUpgradeDialog(false); navigate("/dashboard/pricing"); }}>
+              Voir les offres
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowUpgradeDialog(false)}>
+              Annuler
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
