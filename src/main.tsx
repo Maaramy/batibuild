@@ -35,6 +35,7 @@ const ContactPage = lazy(() => import("./pages/ContactPage.tsx"));
 const LegalPage = lazy(() => import("./pages/LegalPage.tsx"));
 const BlogPage = lazy(() => import("./pages/BlogPage.tsx"));
 const BlogPostPage = lazy(() => import("./pages/BlogPostPage.tsx"));
+const SuppliersDirectory = lazy(() => import("./pages/SuppliersDirectory.tsx"));
 const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
 const SupplierStats = lazy(() => import("./pages/SupplierStats.tsx"));
 const SupplierQuotes = lazy(() => import("./pages/SupplierQuotes.tsx"));
@@ -262,6 +263,14 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <SettingsPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/suppliers-directory"
+                  element={
+                    <RequireAuth>
+                      <SuppliersDirectory />
                     </RequireAuth>
                   }
                 />

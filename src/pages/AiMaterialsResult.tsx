@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQuery } from "convex/react";
-import { ArrowLeft, Loader2, Sparkles, ShieldCheck, Info } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, ShieldCheck, Info, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import type { RecommendResult } from "@/convex/aiMaterialsEngine";
@@ -64,6 +64,14 @@ export default function AiMaterialsResult() {
               <p className="text-[9px] text-muted-foreground leading-tight truncate">Assistant Matériaux · Prix Tunisie 2026 · Copilot</p>
             </div>
           </div>
+          <button
+            onClick={() => navigate("/dashboard/suppliers-directory")}
+            className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 active:scale-95 shrink-0"
+          >
+            <Store className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Afficher la liste des fournisseurs</span>
+            <span className="sm:hidden">Fournisseurs</span>
+          </button>
         </div>
       </header>
 
