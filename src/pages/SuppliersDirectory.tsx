@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ArrowLeft, Store, Search, MapPin, Phone, Mail,
-  Globe, ChevronDown, ChevronUp, X,
+  Globe, ChevronDown, ChevronUp, X, Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
