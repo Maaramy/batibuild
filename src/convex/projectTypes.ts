@@ -80,7 +80,7 @@ export const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
   local_commercial: "Store",
   bureau: "Briefcase",
   entrepot: "Warehouse",
-  residence_touristique: "Palmtree",
+  residence_touristique: "TreePalm",
   projet_neuf: "HardHat",
   renovation_complete: "Paintbrush",
   extension_batiment: "Expand",

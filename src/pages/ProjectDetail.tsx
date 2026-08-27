@@ -457,6 +457,11 @@ export default function ProjectDetail() {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <button onClick={handleDownloadClick} disabled={exporting}
+              className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all"
+              title="Télécharger le devis PDF">
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            </button>
             <button onClick={() => toggleFav({ projectId: project._id })}
               className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all">
               <Heart className={cn("h-4 w-4 transition-all", project.isFavorite && "fill-red-400 text-red-400 scale-110")} />
@@ -468,7 +473,7 @@ export default function ProjectDetail() {
       {/* ── Bottom Navigation Bar ── */}
       {done && (
         <BottomNavBar actions={[
-          { icon: exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />, label: "PDF", onClick: handleDownloadClick, color: "text-primary", disabled: exporting },
+          { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
           { icon: <LayoutGrid className="h-4 w-4" />, label: "Plans IA", onClick: () => navigate(`/dashboard/plans/${project._id}`), color: "text-violet-500" },
           { icon: <Rocket className="h-4 w-4" />, label: "Guide A-Z", onClick: () => navigate(`/dashboard/guide?project=${project._id}`), color: "text-cyan-500" },
           { icon: <TrendingUp className="h-4 w-4" />, label: "ROI", onClick: () => { const type = investmentTypeForProject(project.category ?? "appartement"); navigate(`/dashboard/investments?type=${type}&project=${project._id}`); }, color: "text-emerald-500" },
