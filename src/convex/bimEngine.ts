@@ -1833,7 +1833,7 @@ export function runBIMEstimation(
 
   // Budget scenarios using region-specific prices
   const regionForScenarios = regionCosts || null;
-  const scenarioEcoPrice = regionForScenarios ? regionForScenarios.eco * projectRatio : NATIONAL_AVG.eco * projectRatio;
+  const scenarioEcoPrice = regionForScenarios ? regionForScenarios.std * projectRatio : NATIONAL_AVG.std * projectRatio;
   const scenarioStdPrice = regionForScenarios ? regionForScenarios.std * projectRatio : NATIONAL_AVG.std * projectRatio;
   const scenarioPremiumPrice = regionForScenarios ? regionForScenarios.premium * projectRatio : NATIONAL_AVG.premium * projectRatio;
   const totalEco = Math.round(scenarioEcoPrice * tb);
@@ -1907,8 +1907,8 @@ export function runBIMEstimation(
       contingencyBuffer: buffer,
       contingencyPercentage: contingencyPct,
       budgetScenarios: scenarios,
-      // Prix moyen TTC par m² toutes régions (référence comparative — scénario Économique)
-      avgRegionPriceM2: Math.round(NATIONAL_AVG.eco * projectRatio),
+      // Prix moyen TTC par m² toutes régions (référence comparative)
+      avgRegionPriceM2: Math.round(NATIONAL_AVG.std * projectRatio),
     },
     aiAnalysis: {
       category: CATEGORY_LABEL[category] || category,
