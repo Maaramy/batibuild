@@ -623,39 +623,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isAdmin && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 h-8 shrink-0 border-amber-300/60 text-amber-700 hover:bg-amber-50 hover:border-amber-400"
-                    disabled={resettingCatalog}
-                  >
-                    {resettingCatalog ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
-                    <span className="hidden lg:inline">Charger le catalogue 2026</span>
-                    <span className="lg:hidden">Catalogue</span>
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Réinitialiser la base des prix ?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Cette action supprime toutes les références existantes (et leur historique de prix),
-                      puis charge le catalogue officiel 2026 consolidé (491 références).
-                      Les anciennes références (main-d'œuvre, transport, engins…) seront remplacées. Cette action est irréversible.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleResetCatalog} disabled={resettingCatalog}>
-                      {resettingCatalog ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-                      Oui, charger le catalogue
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
             <span className="hidden sm:flex items-center gap-1.5 text-[10px] text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-full border border-border/20">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
               {allUsers.length} utilisateurs
