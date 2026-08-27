@@ -21,6 +21,7 @@ import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { BottomNavBar } from "@/components/BottomNavBar";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { runBIMEstimation } from "@/convex/bimEngine";
 
@@ -429,7 +430,7 @@ export default function ProjectDetail() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-primary/[0.02] via-background to-background pb-8">
+    <main className="min-h-screen bg-gradient-to-b from-primary/[0.02] via-background to-background pb-24">
       {/* Sticky Header */}
       <header className="glass-header sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 flex items-center justify-between h-12 sm:h-14">
@@ -456,154 +457,6 @@ export default function ProjectDetail() {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            {done && (
-              <>
-
-                    <button onClick={handleDownloadClick} disabled={exporting}
-                      className={cn("flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-border/30",
-                    exporting
-                      ? "opacity-50 cursor-not-allowed bg-muted/30"
-                      : "hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-95 bg-background"
-                  )}>
-                  {exporting ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Download className="h-3.5 w-3.5" />
-                  )}
-                  <span className="hidden sm:inline">                      Télécharger le devis
-</span>
-                  <span className="sm:hidden">PDF</span>
-                </button>
-                <button
-                  onClick={() => navigate(`/dashboard/plans/${project._id}`)}
-                  title="🧠 Générer 10 plans d'architecte 2D / 3D par IA pour ce projet"
-                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 hover:border-violet-500/50 active:scale-95"
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Plans IA</span>
-                </button>
-                <button
-                  onClick={() => navigate(`/dashboard/guide?project=${project._id}`)}
-                  title="🚀 Démarrer mon projet de construction avec IA : feuille de route complète de A à Z"
-                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-500/50 active:scale-95"
-                >
-                  <Rocket className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Guide A-Z</span>
-                </button>
-                <button
-                  onClick={() => {
-                    const type = investmentTypeForProject(project.category ?? "appartement");
-                    navigate(`/dashboard/investments?type=${type}&project=${project._id}`);
-                  }}
-                  title="📈 Return on Investment — Analyser la rentabilité de ce projet"
-                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 active:scale-95"
-                >
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Return on Investment</span>
-                </button>
-                <button
-                  onClick={() => navigate(`/dashboard/professionals-directory?project=${project._id}`)}
-                  title="👷 Besoin d'un expert ou entreprise de construction ?"
-                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/50 active:scale-95"
-                >
-                  <Users className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Expert / Entreprise</span>
-                  <span className="sm:hidden">Expert</span>
-                </button>
-
-                {/* Scenario picker modal */}
-                <Dialog open={showPicker} onOpenChange={setShowPicker}>
-                  <DialogContent className="sm:max-w-sm rounded-2xl">
-                    <DialogHeader>
-                      <DialogTitle className="text-base">Choisir un scénario</DialogTitle>
-                      <DialogDescription className="text-xs">
-                        Sélectionnez le scénario budgétaire à exporter en PDF
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-2 pt-2">
-                      {(["economique", "standard", "premium"] as const).map((key) => {
-                        const s = scenarios?.[key];
-                        if (!s) return null;
-                        const icons: Record<string, any> = { economique: Wallet, standard: Gauge, premium: Sparkles };
-                        const Icon = icons[key];
-                        const colors: Record<string, string> = {
-                          economique: "border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/30 from-emerald-500/10",
-                          standard: "border-primary/20 hover:border-primary/40 hover:bg-primary/5 from-primary/10",
-                          premium: "border-violet-200 hover:border-violet-400 hover:bg-violet-50/30 from-violet-500/10",
-                        };
-                        const txtColors: Record<string, string> = {
-                          economique: "text-emerald-600",
-                          standard: "text-primary",
-                          premium: "text-violet-600",
-                        };
-                        return (
-                          <button
-                            key={key}
-                            onClick={() => generatePDF(key)}
-                            className={cn(
-                              "w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all hover:shadow-sm active:scale-[0.98] bg-gradient-to-br",
-                              colors[key]
-                            )}
-                          >
-                            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br", txtColors[key], "from-current/10 to-current/5")}>
-                              <Icon className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className={cn("font-semibold text-sm", txtColors[key])}>{s.label}</span>
-                              <span className="block text-[11px] text-muted-foreground mt-0.5">
-                                Total: {fmt(s.totalCost)}
-                              </span>
-                            </div>
-                            <Badge variant="secondary" className={cn("text-[9px] shrink-0", txtColors[key])}>
-                              {fmt(s.costPerM2)}/m²
-                            </Badge>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="text-center text-[9px] text-muted-foreground/50 pt-1">
-                      Le rapport sera généré avec les données du scénario choisi
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                {/* Upgrade dialog for Free users */}
-                <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
-                  <DialogContent className="sm:max-w-sm rounded-2xl">
-                    <DialogHeader>
-                      <DialogTitle className="text-base">Forfait de construction requis</DialogTitle>
-                      <DialogDescription className="text-xs">
-                        Le téléchargement de devis en PDF nécessite un abonnement actif
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-2 text-center">
-                      <div className="flex justify-center mb-4">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
-                          <Download className="h-7 w-7 text-amber-600" />
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Choisissez un forfait de construction pour débloquer les téléchargements PDF de vos devis.
-                      </p>
-                      <div className="text-xs text-muted-foreground/60 space-y-1 mb-4">
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Start 79 TND</strong> — 1 projet · 1 analyse · 1 téléchargement PDF</p>
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Pro 120 TND</strong> — 5 projets · 5 analyses · 5 téléchargements PDF</p>
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" /><strong>Expert 320 TND</strong> — 20 projets · 20 analyses · 20 téléchargements PDF</p>
-                        <p className="flex items-center justify-center gap-1"><Check className="h-3 w-3 text-emerald-500" />Paiement par virement bancaire ou D17</p>
-                      </div>
-                      <Button className="w-full" onClick={() => { setShowUpgradeDialog(false); navigate("/dashboard/pricing"); }}>
-                        Voir les abonnements
-                        <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                      </Button>
-                      <button onClick={() => setShowUpgradeDialog(false)}
-                        className="mt-2 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors">
-                        Annuler
-                      </button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </>
-            )}
             <button onClick={() => toggleFav({ projectId: project._id })}
               className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all">
               <Heart className={cn("h-4 w-4 transition-all", project.isFavorite && "fill-red-400 text-red-400 scale-110")} />
@@ -611,6 +464,17 @@ export default function ProjectDetail() {
           </div>
         </div>
       </header>
+
+      {/* ── Bottom Navigation Bar ── */}
+      {done && (
+        <BottomNavBar actions={[
+          { icon: exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />, label: "PDF", onClick: handleDownloadClick, color: "text-primary", disabled: exporting },
+          { icon: <LayoutGrid className="h-4 w-4" />, label: "Plans IA", onClick: () => navigate(`/dashboard/plans/${project._id}`), color: "text-violet-500" },
+          { icon: <Rocket className="h-4 w-4" />, label: "Guide A-Z", onClick: () => navigate(`/dashboard/guide?project=${project._id}`), color: "text-cyan-500" },
+          { icon: <TrendingUp className="h-4 w-4" />, label: "ROI", onClick: () => { const type = investmentTypeForProject(project.category ?? "appartement"); navigate(`/dashboard/investments?type=${type}&project=${project._id}`); }, color: "text-emerald-500" },
+          { icon: <Users className="h-4 w-4" />, label: "Expert", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
+        ]} />
+      )}
 
       {/* ── Export Progress Overlay ── */}
       {exporting && (

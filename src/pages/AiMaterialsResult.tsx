@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import type { RecommendResult } from "@/convex/aiMaterialsEngine";
 import { AiAnalysisResults } from "@/components/ai/AiAnalysisResults";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { BottomNavBar } from "@/components/BottomNavBar";
 
 /** Durée fixe de l'écran de chargement : 3 secondes. */
 const LOADING_DURATION_MS = 3000;
@@ -46,7 +47,7 @@ export default function AiMaterialsResult() {
   const result: RecommendResult | null = (analysis?.results?.recommend as RecommendResult) ?? null;
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
+    <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-24">
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border/20 bg-background/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
@@ -64,14 +65,6 @@ export default function AiMaterialsResult() {
               <p className="text-[9px] text-muted-foreground leading-tight truncate">Assistant Matériaux · Prix Tunisie 2026 · Copilot</p>
             </div>
           </div>
-          <button
-            onClick={() => navigate("/dashboard/suppliers-directory")}
-            className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 active:scale-95 shrink-0"
-          >
-            <Store className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Afficher la liste des fournisseurs</span>
-            <span className="sm:hidden">Fournisseurs</span>
-          </button>
         </div>
       </header>
 
@@ -139,6 +132,11 @@ export default function AiMaterialsResult() {
           </span>
         </div>
       </div>
+
+      {/* ── Bottom Navigation Bar ── */}
+      <BottomNavBar actions={[
+        { icon: <Store className="h-4 w-4" />, label: "Fournisseurs", onClick: () => navigate("/dashboard/suppliers-directory"), color: "text-emerald-500" },
+      ]} />
     </main>
   );
 }
