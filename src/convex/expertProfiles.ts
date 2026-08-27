@@ -94,6 +94,40 @@ export const getRandomByProfession = query({
   },
 });
 
+/** Get all active & visible expert profiles (for the professionals directory) */
+export const getActiveExperts = query({
+  handler: async (ctx) => {
+    const now = Date.now();
+    const experts = await ctx.db.query("expertProfiles").collect();
+
+    return experts
+      .filter((e) => e.isVisible)
+      .filter((e) => {
+        if (
+          (e.subscriptionStatus === "active" || e.subscriptionStatus === "trial") &&
+          e.subscriptionEndDate && e.subscriptionEndDate < now
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .map((e) => ({
+        _id: e._id,
+        displayName: e.displayName,
+        companyName: e.companyName,
+        phone: e.phone,
+        email: e.email,
+        address: e.address,
+        website: e.website,
+        description: e.description,
+        profession: e.profession,
+        specialties: e.specialties,
+        regions: e.regions,
+        plan: e.plan,
+      }));
+  },
+});
+
 // ============================================================================
 // Mutations
 // ============================================================================

@@ -501,6 +501,15 @@ export default function ProjectDetail() {
                   <TrendingUp className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Return on Investment</span>
                 </button>
+                <button
+                  onClick={() => navigate(`/dashboard/professionals-directory?project=${project._id}`)}
+                  title="👷 Besoin d'un expert ou entreprise de construction ?"
+                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/50 active:scale-95"
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Expert / Entreprise</span>
+                  <span className="sm:hidden">Expert</span>
+                </button>
 
                 {/* Scenario picker modal */}
                 <Dialog open={showPicker} onOpenChange={setShowPicker}>
