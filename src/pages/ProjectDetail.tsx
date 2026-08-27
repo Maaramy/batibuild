@@ -39,7 +39,7 @@ import {
   Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
   Percent, ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
-  LockKeyhole, RefreshCw, BedDouble, Rocket,
+  LockKeyhole, RefreshCw, BedDouble, Rocket, LayoutGrid,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -479,7 +479,7 @@ export default function ProjectDetail() {
                   title="🧠 Générer 10 plans d'architecte 2D / 3D par IA pour ce projet"
                   className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 hover:border-violet-500/50 active:scale-95"
                 >
-                  <Building2 className="h-3.5 w-3.5" />
+                  <LayoutGrid className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Plans IA</span>
                 </button>
                 <button
@@ -489,6 +489,17 @@ export default function ProjectDetail() {
                 >
                   <Rocket className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Guide A-Z</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const type = investmentTypeForProject(project.category ?? "appartement");
+                    navigate(`/dashboard/investments?type=${type}&project=${project._id}`);
+                  }}
+                  title="📈 Return on Investment — Analyser la rentabilité de ce projet"
+                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 active:scale-95"
+                >
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Return on Investment</span>
                 </button>
 
                 {/* Scenario picker modal */}
@@ -814,7 +825,7 @@ export default function ProjectDetail() {
                   </Badge>
                   {roomsImpact && (
                     <Badge className="rounded-full bg-white/15 text-white backdrop-blur-md border border-white/20 text-[9px] gap-1" title={`Composition déclarée : ${roomsImpact.parts} — écart vs composition standard de ${roomsImpact.diffPct >= 0 ? "+" : ""}${roomsImpact.diffPct}%`}>
-                      <BedDouble className="h-3 w-3" /> {roomsImpact.parts}
+                      <LayoutGrid className="h-3 w-3" /> {roomsImpact.parts}
                       <span className={cn("font-bold", roomsImpact.diffPct >= 0 ? "text-amber-300" : "text-emerald-300")}>
                         {roomsImpact.diffPct >= 0 ? "+" : ""}{roomsImpact.diffPct}%
                       </span>
@@ -861,6 +872,16 @@ export default function ProjectDetail() {
                         <Download className="h-3 w-3" />
                       )}
                       Télécharger le devis
+                    </button>
+                    <button
+                      onClick={() => {
+                        const type = investmentTypeForProject(project.category ?? "appartement");
+                        navigate(`/dashboard/investments?type=${type}&project=${project._id}`);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border bg-emerald-500/20 text-emerald-100 border-emerald-400/30 hover:bg-emerald-500/30 active:scale-95"
+                    >
+                      <TrendingUp className="h-3 w-3" />
+                      Return on Investment
                     </button>
                   </div>
                 </div>
@@ -1991,7 +2012,7 @@ export default function ProjectDetail() {
                       project.garages ? `${project.garages} gar.` : "",
                       project.wcs ? `${project.wcs} WC` : "",
                     ].filter(Boolean).join(" · ") || "Non définie",
-                    icon: BedDouble,
+                    icon: LayoutGrid,
                   },
                   { label: "Créé le", value: new Date(project.createdAt).toLocaleDateString("fr-FR"), icon: Calendar },
                   { label: "Statut", value: "Terminé", icon: CheckCircle2 },
