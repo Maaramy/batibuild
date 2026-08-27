@@ -1,14 +1,17 @@
 // ============================================================================
-// CATALOGUE OFFICIEL DES TYPES DE PROJET (11 types)
-// Aligné exactement sur les types de bien du module Investissement
-// (à l'exception de « terrain constructible », qui n'est pas un projet
-// de construction).
+// CATALOGUE OFFICIEL DES TYPES DE PROJET (21 types)
 //
-// Types : maison, villa, appartement, studio, duplex, immeuble,
-// local_commercial, bureau, entrepot, residence_touristique, projet_neuf
+// 11 types immobiliers (éligibles Investissement) :
+//   maison, villa, appartement, studio, duplex, immeuble,
+//   local_commercial, bureau, entrepot, residence_touristique, projet_neuf
 //
-// Chaque type dispose d'un gabarit DQE spécifique dans dqeEngine.ts et
-// est relié au module Investissement via PROJECT_TO_INVESTMENT_TYPE.
+// 10 types rénovation / travaux techniques (exclus de l'Investissement) :
+//   renovation_complete, extension_batiment, renovation_cuisine,
+//   renovation_salle_de_bain, peinture_interieure, piscine,
+//   restaurant, cafe, electricite_complete, plomberie_complete
+//
+// Chaque type dispose d'un gabarit DQE spécifique dans dqeEngine.ts.
+// Les types éligibles Investissement sont listés dans INVESTMENT_ELIGIBLE_TYPES.
 // ============================================================================
 
 export const PROJECT_TYPES = [

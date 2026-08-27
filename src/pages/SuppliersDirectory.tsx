@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ArrowLeft, Store, Search, MapPin, Phone, Mail,
-  Globe, ChevronDown, ChevronUp, X, Filter,
+  Globe, ChevronDown, ChevronUp, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
@@ -34,9 +34,9 @@ const REGION_LABELS: Record<string, string> = {
   gafsa: "Gafsa",
   sidi_bouzid: "Sidi Bouzid",
   kasserine: "Kasserine",
- el_kef: "Le Kef",
+  le_kef: "Le Kef",
   jendouba: "Jendouba",
-  bizzle: "Béja",
+  beja: "Béja",
   siliana: "Siliana",
   zaghouan: "Zaghouan",
   tataouine: "Tataouine",

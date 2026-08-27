@@ -12,6 +12,9 @@ import {
   resolveProjectType,
   investmentTypeForProject,
   inferFloorsFromCategory,
+  INVESTMENT_ELIGIBLE_TYPES,
+  INVESTMENT_INELIGIBLE_TYPES,
+  isInvestmentEligible,
 } from "./projectTypes";
 import { INVESTMENT_TYPES } from "./investmentTypes";
 
@@ -186,5 +189,64 @@ describe("investmentTypeForProject — lien direct avec le module Investissement
 
   it("retombe sur « appartement » pour un type inconnu", () => {
     expect(investmentTypeForProject("slug_inconnu")).toBe("appartement");
+  });
+});
+
+// ============================================================================
+// Restriction Investissement — 11 éligibles / 10 exclus
+
+describe("INVESTMENT_ELIGIBLE_TYPES / INVESTMENT_INELIGIBLE_TYPES", () => {
+  it("les 11 types immobiliers sont éligibles", () => {
+    const expected = [
+      "maison", "villa", "appartement", "studio", "duplex", "immeuble",
+      "local_commercial", "bureau", "entrepot", "residence_touristique", "projet_neuf",
+    ];
+    expect(INVESTMENT_ELIGIBLE_TYPES).toEqual(expected);
+  });
+
+  it("les 10 types rénovation/travaux sont exclus", () => {
+    const expected = [
+      "renovation_complete", "extension_batiment", "renovation_cuisine",
+      "renovation_salle_de_bain", "peinture_interieure", "piscine",
+      "restaurant", "cafe", "electricite_complete", "plomberie_complete",
+    ];
+    expect(INVESTMENT_INELIGIBLE_TYPES).toEqual(expected);
+  });
+
+  it("aucun chevauchement entre les deux listes", () => {
+    const overlap = INVESTMENT_ELIGIBLE_TYPES.filter((t) =>
+      INVESTMENT_INELIGIBLE_TYPES.includes(t)
+    );
+    expect(overlap).toEqual([]);
+  });
+
+  it("la somme couvre exactement PROJECT_TYPES", () => {
+    const all = [...INVESTMENT_ELIGIBLE_TYPES, ...INVESTMENT_INELIGIBLE_TYPES].sort();
+    const expected = [...PROJECT_TYPES].sort();
+    expect(all).toEqual(expected);
+  });
+});
+
+describe("isInvestmentEligible", () => {
+  it("les 11 types éligibles retournent true", () => {
+    for (const t of INVESTMENT_ELIGIBLE_TYPES) {
+      expect(isInvestmentEligible(t), `${t}`).toBe(true);
+    }
+  });
+
+  it("les 10 types exclus retournent false", () => {
+    for (const t of INVESTMENT_INELIGIBLE_TYPES) {
+      expect(isInvestmentEligible(t), `${t}`).toBe(false);
+    }
+  });
+
+  it("les slugs legacy mappent correctement", () => {
+    expect(isInvestmentEligible("maison_r_plus_1")).toBe(true);
+    expect(isInvestmentEligible("boutique_commerciale")).toBe(true);
+    expect(isInvestmentEligible("piscine_beton")).toBe(false);
+  });
+
+  it("un type inconnu est exclu par défaut (non investissable)", () => {
+    expect(isInvestmentEligible("slug_inconnu")).toBe(false);
   });
 });
