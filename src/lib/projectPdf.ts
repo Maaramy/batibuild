@@ -35,6 +35,8 @@ export interface ProjectPdfOptions {
   ai: any;
   scenarios: any;
   scenario: string;
+  dqe?: any;           // DQE hiérarchique (lots → natures → lignes)
+  dqeScaleFactor?: number; // Facteur d'échelle pour le scénario sélectionné
   onStart: () => void;
   onProgress: (step: number) => void;
   onSuccess: () => void;
@@ -53,6 +55,8 @@ export async function generateProjectPdf({
   ai,
   scenarios,
   scenario,
+  dqe,
+  dqeScaleFactor = 1,
   onStart,
   onProgress,
   onSuccess,
@@ -424,166 +428,212 @@ export async function generateProjectPdf({
       y += 24;
     }
 
-    // ═══ QUANTITATIF DÉTAILLÉ (autoTable) ══════════════════════════
+    // ═══ QUANTITATIF DÉTAILLÉ — DQE HIÉRARCHIQUE ═══════════════════════
     onProgress(2);
 
-    const hasItems = breakdown.some((b: any) => b.items?.length > 0);
-    if (hasItems) {
+    const NATURE_COLORS: Record<string, [number, number, number]> = {
+      materiaux: [59, 130, 246],
+      main_oeuvre: [34, 197, 94],
+      equipements: [139, 92, 246],
+      transport: [245, 158, 11],
+      etudes: [239, 68, 68],
+    };
+    const NATURE_LABELS: Record<string, string> = {
+      materiaux: "Matériaux",
+      main_oeuvre: "Main-d'œuvre",
+      equipements: "Outillage & Équipements",
+      transport: "Transport",
+      etudes: "Études & Permis",
+    };
+    const NATURE_ORDER = ["materiaux", "main_oeuvre", "equipements", "transport", "etudes"];
+
+    // ── DQE data: scale all lots/lines for the selected scenario ──
+    const dqeLots: any[] = dqe?.lots
+      ? dqe.lots.map((lot: any) => ({
+          ...lot,
+          subtotal: Math.round(lot.subtotal * dqeScaleFactor),
+          lines: (lot.lines || []).map((line: any) => ({
+            ...line,
+            total: Math.round(line.total * dqeScaleFactor),
+            unitPrice: Math.round((line.total * dqeScaleFactor) / Math.max(1, line.quantity) * 100) / 100,
+          })),
+        }))
+      : [];
+
+    const hasDqeLots = dqeLots.length > 0;
+    const hasFlatItems = breakdown.some((b: any) => b.items?.length > 0);
+
+    if (hasDqeLots || hasFlatItems) {
       addPageIfNeeded(12);
 
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(C.text[0], C.text[1], C.text[2]);
-      doc.text(`Quantitatif détaillé — ${scenarioLabel}`, ml, y);
-      y += 6;
+      doc.text(`Quantitatif détaillé — Scénario ${scenarioLabel}`, ml, y);
+      y += 2;
 
-      const totalItemsCount = breakdown.reduce(
-        (s: number, b: any) => s + (b.items?.length || 0),
-        0,
-      );
-      doc.setFontSize(6);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(
-        C.textSecondary[0],
-        C.textSecondary[1],
-        C.textSecondary[2],
-      );
-      doc.text(`${totalItemsCount} postes de travaux`, ml, y);
-      y += 4;
+      // Ventilation par nature (DQE totals)
+      const dqeTotals = dqe?.totals
+        ? {
+            materiaux: Math.round(dqe.totals.materiaux * dqeScaleFactor),
+            mainOeuvre: Math.round(dqe.totals.mainOeuvre * dqeScaleFactor),
+            equipements: Math.round(dqe.totals.equipements * dqeScaleFactor),
+            transport: Math.round(dqe.totals.transport * dqeScaleFactor),
+            etudes: Math.round(dqe.totals.etudes * dqeScaleFactor),
+            total: Math.round(dqe.totals.total * dqeScaleFactor),
+          }
+        : null;
 
-      // Build autoTable data
-      const tableBody: any[][] = [];
-      breakdown.forEach((cat: any) => {
-        const catItems = cat.items || [];
-        if (catItems.length === 0) return;
-        // Category header row
-        tableBody.push([
-          {
-            content: cat.label,
-            styles: {
-              fontStyle: "bold",
-              fontSize: 7,
-              fillColor: [243, 244, 246],
-              textColor: C.text,
-              halign: "left" as const,
-            },
-          },
-          {
-            content: `${catItems.length} postes`,
-            styles: {
-              fontSize: 6.5,
-              fillColor: [243, 244, 246],
-              textColor: C.textLight,
-              halign: "right" as const,
-            },
-          },
-          {
-            content: "",
-            styles: { fillColor: [243, 244, 246] },
-          },
-          {
-            content: fmtPdf(cat.estimatedCost),
-            styles: {
-              fontSize: 7,
-              fontStyle: "bold",
-              halign: "right" as const,
-              fillColor: [243, 244, 246],
-            },
-          },
-        ]);
-        // Item rows
-        catItems.forEach((item: any) => {
-          tableBody.push([
-            {
-              content: item.name,
-              styles: { fontSize: 6.5, halign: "left" as const },
-            },
-            {
-              content: `${item.quantity} ${item.unit}`,
-              styles: {
-                fontSize: 6.5,
-                halign: "right" as const,
-                textColor: C.textSecondary,
-              },
-            },
-            {
-              content: fmtPdf(item.unitPrice),
-              styles: {
-                fontSize: 6.5,
-                halign: "right" as const,
-                textColor: C.textSecondary,
-              },
-            },
-            {
-              content: fmtPdf(item.totalPrice),
-              styles: {
-                fontSize: 6.5,
-                halign: "right" as const,
-                fontStyle: "bold",
-              },
-            },
-          ]);
+      if (dqeTotals) {
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+        doc.text("Ventilation par nature :", ml, y + 4);
+        y += 2;
+
+        const natureEntries: [string, number][] = [
+          ["materiaux", dqeTotals.materiaux],
+          ["main_oeuvre", dqeTotals.mainOeuvre],
+          ["equipements", dqeTotals.equipements],
+          ["transport", dqeTotals.transport],
+          ["etudes", dqeTotals.etudes],
+        ].filter(([, v]) => (v as number) > 0) as [string, number][];
+
+        const natureColW = cw / Math.min(natureEntries.length, 5);
+        natureEntries.forEach(([key, val], i) => {
+          const nx = ml + i * natureColW;
+          const nc = NATURE_COLORS[key] || C.textSecondary;
+          doc.setFillColor(nc[0], nc[1], nc[2]);
+          doc.roundedRect(nx, y + 5, natureColW - 2, 5, 0.5, 0.5, "F");
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(5.5);
+          doc.setFont("helvetica", "bold");
+          doc.text(`${NATURE_LABELS[key] || key}: ${fmtPdf(val)}`, nx + 1.5, y + 8.2);
         });
-      });
+        y += 13;
+      }
 
-      (doc as any).autoTable({
-        startY: y,
-        margin: { left: ml, right: mr },
-        tableWidth: cw,
-        head: [
-          [
+      // ── DQE LOTS (hierarchical) ──
+      if (hasDqeLots) {
+        dqeLots.forEach((lot: any) => {
+          addPageIfNeeded(14);
+
+          // Lot header
+          doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
+          doc.roundedRect(ml, y, cw, 6, 0.5, 0.5, "F");
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "bold");
+          doc.text(lot.name, ml + 2, y + 4);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(6);
+          doc.text(`${lot.percent || 0}% · ${(lot.lines || []).length} lignes`, ml + cw * 0.55, y + 4, { align: "left" });
+          doc.setFontSize(7);
+          doc.text(fmtPdf(lot.subtotal), ml + cw - 2, y + 4, { align: "right" });
+          y += 7;
+
+          // Group lines by nature within this lot
+          const byNature: Record<string, any[]> = {};
+          for (const line of lot.lines || []) {
+            const n = line.nature || "materiaux";
+            if (!byNature[n]) byNature[n] = [];
+            byNature[n].push(line);
+          }
+
+          NATURE_ORDER.forEach((nat) => {
+            const natLines = byNature[nat];
+            if (!natLines || natLines.length === 0) return;
+
+            addPageIfNeeded(6 + natLines.length * 4);
+
+            // Nature sub-header
+            const nc = NATURE_COLORS[nat] || C.textSecondary;
+            doc.setFillColor(nc[0], nc[1], nc[2]);
+            doc.rect(ml + 2, y, 2, 4, "F");
+            doc.setFontSize(6);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(nc[0], nc[1], nc[2]);
+            const natTotal = natLines.reduce((s: number, l: any) => s + (l.total || 0), 0);
+            doc.text(`${NATURE_LABELS[nat] || nat} — ${natLines.length} postes · ${fmtPdf(natTotal)}`, ml + 5, y + 3);
+            y += 5;
+
+            // Build autoTable rows for this nature
+            const natTableBody: any[][] = [];
+            natLines.forEach((line: any) => {
+              natTableBody.push([
+                { content: line.name || "", styles: { fontSize: 6, halign: "left" as const } },
+                { content: `${line.quantity || 0} ${line.unit || ""}`, styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary } },
+                { content: fmtPdf(line.unitPrice || 0), styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary } },
+                { content: fmtPdf(line.total || 0), styles: { fontSize: 6, halign: "right" as const, fontStyle: "bold" as const } },
+              ]);
+            });
+
+            (doc as any).autoTable({
+              startY: y,
+              margin: { left: ml + 2, right: mr },
+              tableWidth: cw - 2,
+              head: [[
+                { content: "Désignation", styles: { halign: "left" as const, fontSize: 5.5 } },
+                { content: "Qté", styles: { halign: "right" as const, fontSize: 5.5 } },
+                { content: "P.U.", styles: { halign: "right" as const, fontSize: 5.5 } },
+                { content: "Total", styles: { halign: "right" as const, fontSize: 5.5 } },
+              ]],
+              body: natTableBody,
+              theme: "grid",
+              styles: { fontSize: 6, cellPadding: 1, textColor: C.text, lineColor: C.border, lineWidth: 0.2 },
+              headStyles: { fillColor: nc, textColor: 255, fontStyle: "bold", fontSize: 5.5, cellPadding: 1.5 },
+              alternateRowStyles: { fillColor: [249, 250, 251] },
+            });
+
+            y = (doc as any).lastAutoTable?.finalY || y + 4;
+            y += 2;
+          });
+
+          y += 3;
+        });
+      } else if (hasFlatItems) {
+        // ── Fallback: flat BIM breakdown (legacy) ──
+        const tableBody: any[][] = [];
+        breakdown.forEach((cat: any) => {
+          const catItems = cat.items || [];
+          if (catItems.length === 0) return;
+          tableBody.push([
+            { content: cat.label, styles: { fontStyle: "bold", fontSize: 7, fillColor: [243, 244, 246], textColor: C.text, halign: "left" as const } },
+            { content: `${catItems.length} postes`, styles: { fontSize: 6.5, fillColor: [243, 244, 246], textColor: C.textLight, halign: "right" as const } },
+            { content: "", styles: { fillColor: [243, 244, 246] } },
+            { content: fmtPdf(cat.estimatedCost), styles: { fontSize: 7, fontStyle: "bold", halign: "right" as const, fillColor: [243, 244, 246] } },
+          ]);
+          catItems.forEach((item: any) => {
+            tableBody.push([
+              { content: item.name, styles: { fontSize: 6.5, halign: "left" as const } },
+              { content: `${item.quantity} ${item.unit}`, styles: { fontSize: 6.5, halign: "right" as const, textColor: C.textSecondary } },
+              { content: fmtPdf(item.unitPrice), styles: { fontSize: 6.5, halign: "right" as const, textColor: C.textSecondary } },
+              { content: fmtPdf(item.totalPrice), styles: { fontSize: 6.5, halign: "right" as const, fontStyle: "bold" } },
+            ]);
+          });
+        });
+
+        (doc as any).autoTable({
+          startY: y,
+          margin: { left: ml, right: mr },
+          tableWidth: cw,
+          head: [[
             { content: "Matériau / Prestation", styles: { halign: "left" } },
             { content: "Qté", styles: { halign: "right" } },
             { content: "P.U.", styles: { halign: "right" } },
             { content: "Total", styles: { halign: "right" } },
-          ],
-        ],
-        body: tableBody,
-        theme: "grid",
-        styles: {
-          fontSize: 6.5,
-          cellPadding: 1.5,
-          textColor: C.text,
-          lineColor: C.border,
-          lineWidth: 0.3,
-        },
-        headStyles: {
-          fillColor: C.primary,
-          textColor: 255,
-          fontStyle: "bold",
-          fontSize: 7,
-          cellPadding: 2,
-        },
-        alternatingRowBackground: true,
-        alternatingRowBackgroundColor: [249, 250, 251],
-        didDrawPage: (data: any) => {
-          const pageCount = doc.getNumberOfPages();
-          // Footer line
-          doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
-          doc.line(ml, ph - 8, pw - mr, ph - 8);
-          doc.setFontSize(5.5);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(
-            C.textLight[0],
-            C.textLight[1],
-            C.textLight[2],
-          );
-          doc.text(
-            `batibuild App — Devis estimatif — Page ${pageCount}`,
-            ml,
-            ph - 4,
-          );
-          doc.text(
-            "Document généré automatiquement — Prix Tunisie 2026",
-            pw - mr,
-            ph - 4,
-            { align: "right" },
-          );
-        },
-      });
+          ]],
+          body: tableBody,
+          theme: "grid",
+          styles: { fontSize: 6.5, cellPadding: 1.5, textColor: C.text, lineColor: C.border, lineWidth: 0.3 },
+          headStyles: { fillColor: C.primary, textColor: 255, fontStyle: "bold", fontSize: 7, cellPadding: 2 },
+          alternatingRowBackground: true,
+          alternatingRowBackgroundColor: [249, 250, 251],
+        });
 
-      y = (doc as any).lastAutoTable?.finalY || y;
-      y += 8;
+        y = (doc as any).lastAutoTable?.finalY || y;
+        y += 8;
+      }
     }
 
     // ═══ ANOMALIES ═════════════════════════════════════════════════

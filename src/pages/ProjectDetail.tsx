@@ -171,6 +171,8 @@ export default function ProjectDetail() {
   const [exportStep, setExportStep] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [showPdfPicker, setShowPdfPicker] = useState(false);
+  const [pdfPickerScenario, setPdfPickerScenario] = useState("standard");
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
   const [showAllProviders, setShowAllProviders] = useState(false);
@@ -210,12 +212,19 @@ export default function ProjectDetail() {
       return;
     }
     if (checkDownloadAllowed?.allowed) {
-      generatePDF(selectedScenario);
+      // Open scenario picker dialog
+      setPdfPickerScenario(selectedScenario);
+      setShowPdfPicker(true);
     } else if (checkDownloadAllowed?.reason === "limite_atteinte") {
       toast.error(`Vous avez atteint votre limite de ${checkDownloadAllowed?.limit ?? 1} téléchargements pour ce forfait`);
     } else {
       setShowUpgradeDialog(true);
     }
+  };
+
+  const confirmPdfDownload = () => {
+    setShowPdfPicker(false);
+    generatePDF(pdfPickerScenario);
   };
 
   
@@ -225,12 +234,21 @@ export default function ProjectDetail() {
       toast.error("Le rapport n'est pas prêt");
       return;
     }
+    // Compute scale factor for the requested scenario
+    const sf = (() => {
+      if (!scenarios || !scenarios.standard || scenario === "standard") return 1;
+      const sel = scenarios[scenario as keyof typeof scenarios];
+      return sel ? sel.totalCost / (scenarios.standard.totalCost || 1) : 1;
+    })();
+    const dqeData = (project as any)?.dqe;
     await generateProjectPdf({
       project,
       ce,
       ai,
       scenarios,
       scenario,
+      dqe: dqeData,
+      dqeScaleFactor: sf,
       onStart: () => {
         setExporting(true);
       },
@@ -2053,6 +2071,57 @@ export default function ProjectDetail() {
               Voir les offres
             </Button>
             <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowUpgradeDialog(false)}>
+              Annuler
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Scenario Picker Dialog for PDF Export */}
+      <Dialog open={showPdfPicker} onOpenChange={setShowPdfPicker}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Choisir le scénario du devis</DialogTitle>
+            <DialogDescription className="text-xs">
+              Sélectionnez le scénario budgétaire pour générer le PDF.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 pt-1">
+            {(["economique", "standard", "premium"] as const).map((key) => {
+              const s = scenarios?.[key];
+              const labels: Record<string, { label: string; color: string; desc: string }> = {
+                economique: { label: "Économique", color: "text-emerald-600", desc: "Coût le plus bas — qualité standard" },
+                standard:   { label: "Standard",   color: "text-blue-600",   desc: "Recommandé — meilleur rapport qualité/prix" },
+                premium:    { label: "Premium",     color: "text-purple-600", desc: "Haute performance — matériaux premium" },
+              };
+              const meta = labels[key];
+              return (
+                <button key={key}
+                  onClick={() => setPdfPickerScenario(key)}
+                  className={cn(
+                    "w-full flex items-center justify-between p-3 rounded-lg border transition-all text-left",
+                    pdfPickerScenario === key
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                      : "border-border/50 hover:border-border hover:bg-muted/30"
+                  )}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-xs font-bold", meta.color)}>{meta.label}</span>
+                      {s && <span className="text-[9px] text-muted-foreground">{fmt(s.totalCost)} TTC</span>}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{meta.desc}</p>
+                  </div>
+                  {pdfPickerScenario === key && <CheckCheck className="h-4 w-4 text-primary shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button size="sm" className="flex-1 text-xs gap-1.5" onClick={confirmPdfDownload} disabled={exporting}>
+              {exporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+              Générer le devis PDF
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowPdfPicker(false)}>
               Annuler
             </Button>
           </div>
