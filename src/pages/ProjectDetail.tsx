@@ -164,7 +164,7 @@ export default function ProjectDetail() {
   const [analyzing, setAnalyzing] = useState(false);
   const [refreshingQuantitatif, setRefreshingQuantitatif] = useState(false);
   const [openCat, setOpenCat] = useState<string>("__all_expanded");
-  const [selectedScenario, setSelectedScenario] = useState<string>("standard");
+  const [selectedScenario, setSelectedScenario] = useState<string>("economique");
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportLabel, setExportLabel] = useState("");

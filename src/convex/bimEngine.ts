@@ -1907,8 +1907,8 @@ export function runBIMEstimation(
       contingencyBuffer: buffer,
       contingencyPercentage: contingencyPct,
       budgetScenarios: scenarios,
-      // Prix moyen TTC par m² toutes régions (référence comparative)
-      avgRegionPriceM2: Math.round(NATIONAL_AVG.std * projectRatio),
+      // Prix moyen TTC par m² toutes régions (référence comparative — scénario Économique)
+      avgRegionPriceM2: Math.round(NATIONAL_AVG.eco * projectRatio),
     },
     aiAnalysis: {
       category: CATEGORY_LABEL[category] || category,
