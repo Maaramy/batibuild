@@ -561,7 +561,7 @@ export async function generateProjectPdf({
             const natTableBody: any[][] = [];
             natLines.forEach((line: any) => {
               natTableBody.push([
-                { content: line.name || "", styles: { fontSize: 6, halign: "left" as const } },
+                { content: line.designation || line.name || "", styles: { fontSize: 6, halign: "left" as const } },
                 { content: `${line.quantity || 0} ${line.unit || ""}`, styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary } },
                 { content: fmtPdf(line.unitPrice || 0), styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary } },
                 { content: fmtPdf(line.total || 0), styles: { fontSize: 6, halign: "right" as const, fontStyle: "bold" as const } },
