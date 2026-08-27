@@ -44,8 +44,8 @@ describe("inferFloorsFromCategory — niveaux par défaut du moteur BIM", () => 
 // niveaux est désormais choisi manuellement dans le formulaire.
 // ============================================================================
 
-describe("PROJECT_TYPES — catalogue officiel (11 types)", () => {
-  it("contient exactement les 11 types de projet du catalogue", () => {
+describe("PROJECT_TYPES — catalogue officiel (21 types)", () => {
+  it("contient exactement les 21 types de projet du catalogue", () => {
     expect(PROJECT_TYPES).toEqual([
       "maison",
       "villa",
@@ -58,6 +58,16 @@ describe("PROJECT_TYPES — catalogue officiel (11 types)", () => {
       "entrepot",
       "residence_touristique",
       "projet_neuf",
+      "renovation_complete",
+      "extension_batiment",
+      "renovation_cuisine",
+      "renovation_salle_de_bain",
+      "peinture_interieure",
+      "piscine",
+      "restaurant",
+      "cafe",
+      "electricite_complete",
+      "plomberie_complete",
     ]);
     // Les anciens types « Maison R+1 » / « Maison R+2 » ne font plus partie
     // du catalogue officiel.
@@ -107,10 +117,11 @@ describe("resolveProjectType — résolution des slugs (nouveaux & anciens)", ()
     expect(resolveProjectType("bureau_cabinet")).toBe("bureau");
     expect(resolveProjectType("atelier")).toBe("entrepot");
     expect(resolveProjectType("maison_hote")).toBe("residence_touristique");
-    expect(resolveProjectType("renovation_complete")).toBe("projet_neuf");
+    // Les anciens slugs de rénovation/travaux sont désormais des types officiels
+    expect(resolveProjectType("renovation_complete")).toBe("renovation_complete");
     expect(resolveProjectType("piscine_beton")).toBe("villa");
     expect(resolveProjectType("garage")).toBe("local_commercial");
-    expect(resolveProjectType("restaurant")).toBe("local_commercial");
+    expect(resolveProjectType("restaurant")).toBe("restaurant");
     expect(resolveProjectType("batiment_agricole")).toBe("entrepot");
   });
 
@@ -165,9 +176,11 @@ describe("investmentTypeForProject — lien direct avec le module Investissement
     expect(investmentTypeForProject("bureau_cabinet")).toBe("bureau");
     expect(investmentTypeForProject("atelier")).toBe("entrepot");
     expect(investmentTypeForProject("maison_hote")).toBe("residence_touristique");
+    // renovation_complete est maintenant un type officiel → mappe vers projet_neuf via PROJECT_TO_INVESTMENT_TYPE
     expect(investmentTypeForProject("renovation_complete")).toBe("projet_neuf");
     expect(investmentTypeForProject("piscine_beton")).toBe("villa");
     expect(investmentTypeForProject("garage")).toBe("local_commercial");
+    // restaurant est maintenant un type officiel → mappe vers local_commercial
     expect(investmentTypeForProject("restaurant")).toBe("local_commercial");
   });
 

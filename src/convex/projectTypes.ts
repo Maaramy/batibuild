@@ -12,17 +12,35 @@
 // ============================================================================
 
 export const PROJECT_TYPES = [
+  // Résidentiel
   "maison",
   "villa",
   "appartement",
   "studio",
   "duplex",
   "immeuble",
+  // Commercial & tertiaire
   "local_commercial",
   "bureau",
   "entrepot",
+  // Tourisme
   "residence_touristique",
+  // Projet neuf générique
   "projet_neuf",
+  // Rénovation & finition
+  "renovation_complete",
+  "extension_batiment",
+  "renovation_cuisine",
+  "renovation_salle_de_bain",
+  "peinture_interieure",
+  // Équipements extérieurs
+  "piscine",
+  // Hébergement & restauration
+  "restaurant",
+  "cafe",
+  // Travaux techniques
+  "electricite_complete",
+  "plomberie_complete",
 ] as const;
 
 export type ProjectType = (typeof PROJECT_TYPES)[number];
@@ -39,6 +57,16 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   entrepot: "Entrepôt",
   residence_touristique: "Résidence touristique",
   projet_neuf: "Projet immobilier neuf",
+  renovation_complete: "Rénovation complète",
+  extension_batiment: "Extension bâtiment",
+  renovation_cuisine: "Rénovation cuisine",
+  renovation_salle_de_bain: "Rénovation salle de bain",
+  peinture_interieure: "Peinture",
+  piscine: "Piscine",
+  restaurant: "Restaurant",
+  cafe: "Café",
+  electricite_complete: "Électricité complète",
+  plomberie_complete: "Plomberie complète",
 };
 
 /** Icône Lucide (nom) associée à chaque type — utilisée par l'interface. */
@@ -54,6 +82,16 @@ export const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
   entrepot: "Warehouse",
   residence_touristique: "Palmtree",
   projet_neuf: "HardHat",
+  renovation_complete: "Paintbrush",
+  extension_batiment: "Expand",
+  renovation_cuisine: "CookingPot",
+  renovation_salle_de_bain: "Bath",
+  peinture_interieure: "Paintbrush",
+  piscine: "Waves",
+  restaurant: "UtensilsCrossed",
+  cafe: "Coffee",
+  electricite_complete: "Zap",
+  plomberie_complete: "Droplets",
 };
 
 /** Groupes d'affichage dans les menus / filtres. */
@@ -73,6 +111,26 @@ export const PROJECT_TYPE_GROUPS: { key: string; label: string; types: ProjectTy
     label: "Tourisme & promotion",
     types: ["residence_touristique", "projet_neuf"],
   },
+  {
+    key: "renovation",
+    label: "Rénovation & finition",
+    types: ["renovation_complete", "extension_batiment", "renovation_cuisine", "renovation_salle_de_bain", "peinture_interieure"],
+  },
+  {
+    key: "equipements_exterieurs",
+    label: "Équipements extérieurs",
+    types: ["piscine"],
+  },
+  {
+    key: "restauration",
+    label: "Restauration & hébergement",
+    types: ["restaurant", "cafe"],
+  },
+  {
+    key: "technique",
+    label: "Travaux techniques",
+    types: ["electricite_complete", "plomberie_complete"],
+  },
 ];
 
 /** Types éligibles à l'étape « Composition intérieure » (pièces). */
@@ -88,7 +146,13 @@ export const ROOM_ELIGIBLE_TYPES: string[] = [
 ];
 
 /** Types à un seul niveau (rez-de-chaussée imposé). */
-export const SINGLE_LEVEL_TYPES: string[] = ["local_commercial", "entrepot", "bureau"];
+export const SINGLE_LEVEL_TYPES: string[] = [
+  "local_commercial", "entrepot", "bureau",
+  "renovation_complete", "extension_batiment", "renovation_cuisine",
+  "renovation_salle_de_bain", "peinture_interieure",
+  "piscine", "restaurant", "cafe",
+  "electricite_complete", "plomberie_complete",
+];
 
 /**
  * Nombre de niveaux par défaut selon le type de bien (moteur BIM / DQE).
@@ -153,6 +217,17 @@ export const ROOM_DEFAULTS: Record<
   entrepot: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
   residence_touristique: { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "2", pools: "1" },
   projet_neuf: { bedrooms: "3", bathrooms: "2", kitchens: "1", livingRooms: "1", garages: "1", wcs: "1", pools: "0" },
+  // Rénovation & finition — pas de composition intérieure
+  renovation_complete: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
+  extension_batiment: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
+  renovation_cuisine: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
+  renovation_salle_de_bain: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
+  peinture_interieure: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
+  piscine: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
+  restaurant: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "1", pools: "0" },
+  cafe: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "1", pools: "0" },
+  electricite_complete: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
+  plomberie_complete: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
 };
 
 // ============================================================================
@@ -373,14 +448,54 @@ const LABEL_ALIASES: Record<string, ProjectType> = {
   construction: "projet_neuf",
 };
 
+/**
+ * Types éligibles au module Investissement.
+ * Les types de rénovation, travaux techniques et équipements extérieurs
+ * sont exclus de l'investissement car ce ne sont pas des biens immobiliers.
+ */
+export const INVESTMENT_ELIGIBLE_TYPES: string[] = [
+  "maison",
+  "villa",
+  "appartement",
+  "studio",
+  "duplex",
+  "immeuble",
+  "local_commercial",
+  "bureau",
+  "entrepot",
+  "residence_touristique",
+  "projet_neuf",
+];
+
+/** Types exclus du module Investissement (rénovation, équipements, techniques). */
+export const INVESTMENT_INELIGIBLE_TYPES: string[] = [
+  "renovation_complete",
+  "extension_batiment",
+  "renovation_cuisine",
+  "renovation_salle_de_bain",
+  "peinture_interieure",
+  "piscine",
+  "restaurant",
+  "cafe",
+  "electricite_complete",
+  "plomberie_complete",
+];
+
+/** Vérifie si un type de projet est éligible au module Investissement. */
+export function isInvestmentEligible(slug: string): boolean {
+  const resolved = resolveProjectType(slug) ?? slug;
+  return INVESTMENT_ELIGIBLE_TYPES.includes(resolved);
+}
+
 // ============================================================================
 // Lien avec le module Investissement
-// Les 11 types officiels correspondent exactement aux types de bien du module
-// Investissement (hors « Terrain constructible »).
+// Les types éligibles correspondent aux types de bien du module Investissement
+// (hors « Terrain constructible »). Les types de rénovation/travaux techniques
+// sont exclus car ce ne sont pas des biens immobiliers investissables.
 // ============================================================================
 
 export const PROJECT_TO_INVESTMENT_TYPE: Record<string, string> = {
-  // 11 types officiels → équivalent d'investissement (mapping direct 1:1)
+  // Types officiels éligibles → équivalent d'investissement (mapping direct 1:1)
   maison: "maison",
   villa: "villa",
   appartement: "appartement",
