@@ -335,65 +335,12 @@ export default function AiMaterials() {
           </CardContent>
         </Card>
 
-        {/* ÉTAPE 2 — CONTEXTE */}
-        <Card className="border border-border/40 overflow-hidden rounded-xl">
-          <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 text-xs font-bold">2</div>
-              <div>
-                <CardTitle className="text-sm font-semibold">Mon besoin</CardTitle>
-                <CardDescription className="text-[10px]">Contexte du projet — surface, gouvernorat et standing</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-5 space-y-4">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <div>
-                <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Surface (m²)</label>
-                <Input type="number" min={1} value={form.surface || ""}
-                  onChange={(e) => setForm({ ...form, surface: Number(e.target.value) })} className="h-9 text-sm rounded-lg" />
-              </div>
-              <div>
-                <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Niveaux</label>
-                <Input type="number" min={1} max={12} value={form.floors || ""}
-                  onChange={(e) => setForm({ ...form, floors: Number(e.target.value) })} className="h-9 text-sm rounded-lg" />
-              </div>
-              <div>
-                <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Gouvernorat</label>
-                <select value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}
-                  className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm">
-                  {Object.entries(REGION_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-muted-foreground mb-2 block">Niveau de standing</label>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                {STANDING_LEVELS.map((s) => (
-                  <button key={s.id}
-                    onClick={() => setForm({ ...form, standing: s.id })}
-                    className={cn(
-                      "rounded-xl border px-3 py-2 text-left transition-all cursor-pointer",
-                      form.standing === s.id ? "border-blue-500/60 bg-blue-500/5 ring-1 ring-blue-500/20" : "border-border/40 hover:border-border hover:bg-muted/30",
-                    )}
-                  >
-                    <span className={cn("text-xs font-semibold", form.standing === s.id ? "text-blue-600 dark:text-blue-400" : "")}>{s.label}</span>
-                    <span className="block text-[9px] text-muted-foreground mt-0.5 leading-tight">{s.hint}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ÉTAPE 3 — CATÉGORIES */}
+        {/* ÉTAPE 2 — CATÉGORIES */}
         <Card className="border border-border/40 overflow-hidden rounded-xl">
           <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 text-xs font-bold">3</div>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 text-xs font-bold">2</div>
                 <div>
                   <CardTitle className="text-sm font-semibold">Sélection des catégories de matériaux</CardTitle>
                   <CardDescription className="text-[10px]">{selectedCats.length} sélectionnée(s) · {catStats.length} catégories disponibles</CardDescription>
@@ -431,11 +378,11 @@ export default function AiMaterials() {
           </CardContent>
         </Card>
 
-        {/* ÉTAPE 4 — BUDGET & PRIORITÉS + ANALYSE */}
+        {/* ÉTAPE 3 — BUDGET & PRIORITÉS + ANALYSE */}
         <Card className="border border-border/40 overflow-hidden rounded-xl">
           <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 text-xs font-bold">4</div>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 text-xs font-bold">3</div>
               <div>
                 <CardTitle className="text-sm font-semibold">Mon budget & mes priorités</CardTitle>
                 <CardDescription className="text-[10px]">L'IA recherche le meilleur rapport valeur/prix — jamais le matériau le plus cher automatiquement</CardDescription>
