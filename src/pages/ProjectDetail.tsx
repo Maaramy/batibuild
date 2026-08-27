@@ -26,7 +26,7 @@ import { runBIMEstimation } from "@/convex/bimEngine";
 
 import {
   projectTypeLabel,
-  investmentTypeForProject as sharedInvestmentTypeForProject,
+  investmentTypeForProject,
   inferFloorsFromCategory,
   normalizeLegacyCategory,
 } from "@/convex/projectTypes";
@@ -39,7 +39,7 @@ import {
   Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
   Percent, ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
-  LockKeyhole, RefreshCw, BedDouble, LayoutGrid, Rocket,
+  LockKeyhole, RefreshCw, BedDouble, Rocket,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -73,12 +73,7 @@ const COMPARE_REGIONS = [
   { key: "kairouan", name: "Kairouan" }, { key: "kasserine", name: "Kasserine" },
 ];
 
-// ── Correspondance catégorie de projet → type de bien investissement ──────
-// Le bouton « Return on Investment » n'apparaît sur la page de résultat que si
-// la catégorie du projet correspond à un type de bien géré par le formulaire
-// d'analyse de rentabilité immobilière. La correspondance complète (25 types
-// officiels + anciens slugs) est définie dans src/convex/projectTypes.ts
-// (PROJECT_TO_INVESTMENT_TYPE) et partagée avec le moteur d'investissement.
+
 
 const CONFIDENCE_STEPS = [
   { min: 80, label: "Fiable", color: "text-emerald-600", bg: "bg-emerald-100", bar: "bg-emerald-500" },
@@ -218,27 +213,7 @@ export default function ProjectDetail() {
     }
   };
 
-  // ── Lancer une analyse de rentabilité (Return on Investment) ──
-  // Ouvre le formulaire d'investissement pré-rempli avec les données du projet
-  // (coût total estimé → prix d'achat, surface, région, type de bien mappé)
-  // et relie l'analyse au projet (projectId) pour un historique croisé.
-  const handleInvestRoi = () => {
-    if (!project || !ce) return;
-    const invType = sharedInvestmentTypeForProject(project.category);
-    if (!invType) return;
-    navigate("/dashboard/investments", {
-      state: {
-        projectId: project._id,
-        prefill: {
-          name: `${project.name} — analyse rentabilité`,
-          investmentType: invType as InvestmentType,
-          purchasePrice: Math.round(ce.totalCost),
-          area: project.surface ?? undefined,
-          region: project.region ?? "tunis",
-        },
-      },
-    });
-  };
+  
 
   const generatePDF = async (scenario: string) => {
     if (!project || !ce || !ai) {
@@ -483,17 +458,7 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-1">
             {done && (
               <>
-                {sharedInvestmentTypeForProject(project.category) && ce && (
-                  <button
-                    onClick={handleInvestRoi}
-                    title="Lancer une analyse de rentabilité immobilière (Return on Investment)"
-                    className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 active:scale-95"
-                  >
-                    <TrendingUp className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Return on Investment</span>
-                    <span className="sm:hidden">ROI</span>
-                  </button>
-                )}
+
                     <button onClick={handleDownloadClick} disabled={exporting}
                       className={cn("flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-border/30",
                     exporting
@@ -514,7 +479,7 @@ export default function ProjectDetail() {
                   title="🧠 Générer 10 plans d'architecte 2D / 3D par IA pour ce projet"
                   className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-all border border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 hover:border-violet-500/50 active:scale-95"
                 >
-                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <Building2 className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Plans IA</span>
                 </button>
                 <button
@@ -849,7 +814,7 @@ export default function ProjectDetail() {
                   </Badge>
                   {roomsImpact && (
                     <Badge className="rounded-full bg-white/15 text-white backdrop-blur-md border border-white/20 text-[9px] gap-1" title={`Composition déclarée : ${roomsImpact.parts} — écart vs composition standard de ${roomsImpact.diffPct >= 0 ? "+" : ""}${roomsImpact.diffPct}%`}>
-                      <LayoutGrid className="h-3 w-3" /> {roomsImpact.parts}
+                      <BedDouble className="h-3 w-3" /> {roomsImpact.parts}
                       <span className={cn("font-bold", roomsImpact.diffPct >= 0 ? "text-amber-300" : "text-emerald-300")}>
                         {roomsImpact.diffPct >= 0 ? "+" : ""}{roomsImpact.diffPct}%
                       </span>
@@ -883,14 +848,7 @@ export default function ProjectDetail() {
                         <span className="font-semibold">{ai.estimatedDuration}</span>
                       </div>
                     )}
-                    {sharedInvestmentTypeForProject(project.category) && (
-                      <button onClick={handleInvestRoi}
-                        title="Lancer une analyse de rentabilité immobilière (Return on Investment)"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border border-emerald-300/40 bg-emerald-400/20 text-emerald-50 hover:bg-emerald-400/30 active:scale-95 backdrop-blur-md">
-                        <TrendingUp className="h-3 w-3" />
-                        Return on Investment
-                      </button>
-                    )}
+
                     <button onClick={handleDownloadClick} disabled={exporting}
                       className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border",
                         exporting
@@ -2033,7 +1991,7 @@ export default function ProjectDetail() {
                       project.garages ? `${project.garages} gar.` : "",
                       project.wcs ? `${project.wcs} WC` : "",
                     ].filter(Boolean).join(" · ") || "Non définie",
-                    icon: LayoutGrid,
+                    icon: BedDouble,
                   },
                   { label: "Créé le", value: new Date(project.createdAt).toLocaleDateString("fr-FR"), icon: Calendar },
                   { label: "Statut", value: "Terminé", icon: CheckCircle2 },
