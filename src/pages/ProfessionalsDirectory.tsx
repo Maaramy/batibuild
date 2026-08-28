@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
+import { PROJECT_TYPE_LABELS } from "@/convex/projectTypes";
 import { toast } from "sonner";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -59,7 +60,17 @@ export default function ProfessionalsDirectory() {
   const [selectedRegion, setSelectedRegion] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [devisExpert, setDevisExpert] = useState<any>(null);
-  const [devisForm, setDevisForm] = useState({ description: "", userPhone: "", userEmail: "", userName: "" });
+  const [devisForm, setDevisForm] = useState({
+    requestType: "devis" as "devis" | "service",
+    description: "",
+    projectType: "",
+    totalTTC: "",
+    surface: "",
+    region: "",
+    userPhone: "",
+    userEmail: "",
+    userName: "",
+  });
   const [sendingDevis, setSendingDevis] = useState(false);
   const createServiceRequest = useMutation(api.expertServiceRequests.create);
 
@@ -301,7 +312,17 @@ export default function ProfessionalsDirectory() {
                             return;
                           }
                           setDevisExpert(e);
-                          setDevisForm({ description: "", userPhone: user?.phone ?? "", userEmail: user?.email ?? "", userName: user?.name ?? "" });
+                          setDevisForm({
+                            requestType: "devis",
+                            description: "",
+                            projectType: "",
+                            totalTTC: "",
+                            surface: "",
+                            region: "",
+                            userPhone: user?.phone ?? "",
+                            userEmail: user?.email ?? "",
+                            userName: user?.name ?? "",
+                          });
                         }}
                         className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
                       >
@@ -369,6 +390,73 @@ export default function ProfessionalsDirectory() {
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs min-h-[80px] resize-none focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Nature de la demande</label>
+              <div className="flex gap-2">
+                {(["devis", "service"] as const).map((rt) => (
+                  <button
+                    key={rt}
+                    type="button"
+                    onClick={() => setDevisForm((f) => ({ ...f, requestType: rt }))}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-[11px] font-medium transition-all ${
+                      devisForm.requestType === rt
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border/40 bg-background text-muted-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    {rt === "devis" ? "Proposition de devis" : "Proposition de service"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground">Type de projet</label>
+              <select
+                value={devisForm.projectType}
+                onChange={(ev) => setDevisForm((f) => ({ ...f, projectType: ev.target.value }))}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Sélectionner un type...</option>
+                {Object.entries(PROJECT_TYPE_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Montant total TTC (TND)</label>
+                <Input
+                  type="number"
+                  value={devisForm.totalTTC}
+                  onChange={(ev) => setDevisForm((f) => ({ ...f, totalTTC: ev.target.value }))}
+                  placeholder="ex: 150000"
+                  className="h-8 text-xs mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Surface (m²)</label>
+                <Input
+                  type="number"
+                  value={devisForm.surface}
+                  onChange={(ev) => setDevisForm((f) => ({ ...f, surface: ev.target.value }))}
+                  placeholder="ex: 150"
+                  className="h-8 text-xs mt-1"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground">Région</label>
+              <select
+                value={devisForm.region}
+                onChange={(ev) => setDevisForm((f) => ({ ...f, region: ev.target.value }))}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Sélectionner une région...</option>
+                {Object.entries(REGION_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
             <Button
               className="w-full gap-1.5 text-xs"
               disabled={sendingDevis || !devisForm.description.trim()}
@@ -378,8 +466,13 @@ export default function ProfessionalsDirectory() {
                 try {
                   await createServiceRequest({
                     expertId: devisExpert._id,
-                    serviceType: "devis",
+                    requestType: devisForm.requestType,
+                    serviceType: devisForm.requestType,
                     description: devisForm.description,
+                    projectType: devisForm.projectType || undefined,
+                    totalTTC: devisForm.totalTTC ? Number(devisForm.totalTTC) : undefined,
+                    surface: devisForm.surface ? Number(devisForm.surface) : undefined,
+                    region: devisForm.region || undefined,
                     userPhone: devisForm.userPhone,
                     userEmail: devisForm.userEmail,
                     userName: devisForm.userName,

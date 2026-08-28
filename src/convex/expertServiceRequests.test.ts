@@ -82,6 +82,7 @@ describe("expertServiceRequests.create", () => {
     await expect(
       t.mutation(api.expertServiceRequests.create, {
         expertId: expertId as any,
+        requestType: "devis" as const,
         serviceType: "architecture",
         description: "Need an architect",
         userPhone: "+216 99 000 000",
@@ -103,6 +104,7 @@ describe("expertServiceRequests.create", () => {
     await expect(
       userT.mutation(api.expertServiceRequests.create, {
         expertId: expertId as any,
+        requestType: "devis" as const,
         serviceType: "architecture",
         description: "Need an architect",
         userPhone: "+216 99 000 000",
@@ -127,6 +129,7 @@ describe("expertServiceRequests.create", () => {
 
     const result = await clientT.mutation(api.expertServiceRequests.create, {
       expertId: expertId as any,
+      requestType: "devis" as const,
       serviceType: "architecture",
       description: "I need architectural plans for a villa",
       userPhone: "+216 99 555 555",
@@ -165,6 +168,7 @@ describe("expertServiceRequests.respond", () => {
 
     const result = await clientT.mutation(api.expertServiceRequests.create, {
       expertId: expertId as any,
+      requestType: "devis" as const,
       serviceType: "architecture",
       description: "Need plans",
       userPhone: "+216 99 000 000",
@@ -189,6 +193,7 @@ describe("expertServiceRequests.respond", () => {
 
     const result = await clientT.mutation(api.expertServiceRequests.create, {
       expertId: expertId as any,
+      requestType: "devis" as const,
       serviceType: "architecture",
       description: "Need plans",
       userPhone: "+216 99 000 000",
@@ -217,6 +222,7 @@ describe("expertServiceRequests.respond", () => {
 
     const result = await clientT.mutation(api.expertServiceRequests.create, {
       expertId: expertId as any,
+      requestType: "devis" as const,
       serviceType: "architecture",
       description: "Need plans",
       userPhone: "+216 99 000 000",
@@ -251,6 +257,7 @@ describe("expertServiceRequests.respond", () => {
 
     const result = await clientT.mutation(api.expertServiceRequests.create, {
       expertId: expertId as any,
+      requestType: "service" as const,
       serviceType: "bureau_etudes",
       description: "Études de sol",
       userPhone: "+216 99 000 000",
@@ -292,6 +299,7 @@ describe("expertServiceRequests.getByExpert", () => {
 
     await clientT.mutation(api.expertServiceRequests.create, {
       expertId: expertId as any,
+      requestType: "devis" as const,
       serviceType: "architecture",
       description: "Villa plans",
       userPhone: "+216 99 000 000",
@@ -338,6 +346,7 @@ describe("expertServiceRequests.getMyRequests", () => {
 
     await clientT.mutation(api.expertServiceRequests.create, {
       expertId: expertId as any,
+      requestType: "devis" as const,
       serviceType: "ingenieur",
       description: "Structure analysis",
       userPhone: "+216 99 000 000",
@@ -375,6 +384,7 @@ describe("expertServiceRequests.pendingCount", () => {
     for (let i = 0; i < 2; i++) {
       await clientT.mutation(api.expertServiceRequests.create, {
         expertId: expertId as any,
+        requestType: "devis" as const,
         serviceType: "architecture",
         description: `Request ${i}`,
         userPhone: "+216 99 000 000",
