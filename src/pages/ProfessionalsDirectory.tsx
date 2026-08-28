@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Users, Search, MapPin, Phone, Mail,
   Globe, ChevronDown, ChevronUp, X, Briefcase, Building2, FileText,
@@ -67,6 +68,10 @@ export default function ProfessionalsDirectory() {
   const [selectedRegion, setSelectedRegion] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [devisExpert, setDevisExpert] = useState<any>(null);
+  const [ratingExpert, setRatingExpert] = useState<any>(null);
+  const [myExpertRating, setMyExpertRating] = useState(0);
+  const [sendingRating, setSendingRating] = useState(false);
+  const rateExpert = useMutation(api.ratings.rateExpert);
   const [devisForm, setDevisForm] = useState({
     requestType: "devis" as "devis" | "service",
     description: "",
@@ -242,6 +247,7 @@ export default function ProfessionalsDirectory() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h3 className="text-sm font-semibold leading-tight truncate">{e.displayName}</h3>
+                        <ExpertRatingInline expertId={e._id} />
                         {e.companyName && (
                           <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{e.companyName}</p>
                         )}
@@ -339,6 +345,27 @@ export default function ProfessionalsDirectory() {
                       >
                         <FileText className="h-3 w-3" />
                         Demande de devis
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          if (!user) {
+                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+                            return;
+                          }
+                          setRatingExpert(e);
+                          setMyExpertRating(0);
+                        }}
+                        className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-[10px] font-medium text-amber-700 hover:bg-amber-500/10 transition-all"
+                      >
+                        ⭐ Noter
+                      </button>
+                      <button
+                        onClick={() => navigate(`/dashboard/expert-profile/${e._id}`)}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background px-2.5 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                      >
+                        Voir profil
                       </button>
                     </div>
                   </CardContent>
@@ -505,6 +532,49 @@ export default function ProfessionalsDirectory() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Expert Rating Dialog */}
+      <Dialog open={!!ratingExpert} onOpenChange={(o) => { if (!o) setRatingExpert(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Noter {ratingExpert?.displayName}</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              Votre note aide les autres clients à choisir.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 pt-2">
+            <StarRating value={myExpertRating} size="md" interactive onChange={setMyExpertRating} />
+            <Button
+              className="w-full gap-1.5 text-xs"
+              disabled={sendingRating || myExpertRating === 0}
+              onClick={async () => {
+                if (!ratingExpert || myExpertRating === 0) return;
+                setSendingRating(true);
+                try {
+                  await rateExpert({ expertId: ratingExpert._id, rating: myExpertRating });
+                  toast.success(`Note ${myExpertRating}/5 enregistrée !`);
+                  setRatingExpert(null);
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Erreur");
+                } finally {
+                  setSendingRating(false);
+                }
+              }}
+            >
+              {sendingRating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Enregistrer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
+}
+
+// ── Inline Rating Display ─────────────────────────────────────────────────
+
+function ExpertRatingInline({ expertId }: { expertId: string }) {
+  const rating = useQuery(api.ratings.getExpertAverage, { expertId: expertId as any });
+  if (!rating || rating.count === 0) return null;
+  return <StarRating value={rating.avg} count={rating.count} size="xs" className="mt-0.5" />;
 }

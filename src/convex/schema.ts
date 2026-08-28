@@ -1168,13 +1168,27 @@ const schema = defineSchema(
 
     supplierRatings: defineTable({
       supplierId: v.id("supplierProfiles"),
+      userId: v.id("users"),
       rating: v.number(),
       projectId: v.optional(v.id("projects")),
       comment: v.optional(v.string()),
       createdAt: v.number(),
     })
       .index("by_supplier", ["supplierId"])
+      .index("by_user", ["userId"])
       .index("by_supplier_date", ["supplierId", "createdAt"]),
+
+    expertRatings: defineTable({
+      expertId: v.id("expertProfiles"),
+      userId: v.id("users"),
+      rating: v.number(),
+      projectId: v.optional(v.id("projects")),
+      comment: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_expert", ["expertId"])
+      .index("by_user", ["userId"])
+      .index("by_expert_date", ["expertId", "createdAt"]),
 
     quoteRequests: defineTable({
       userId: v.id("users"),

@@ -128,6 +128,29 @@ export const getActiveExperts = query({
   },
 });
 
+/** Get a single expert profile by ID (for profile detail page) */
+export const getExpertById = query({
+  args: { expertId: v.id("expertProfiles") },
+  handler: async (ctx, args) => {
+    const profile = await ctx.db.get(args.expertId);
+    if (!profile || !profile.isVisible) return null;
+    return {
+      _id: profile._id,
+      displayName: profile.displayName,
+      companyName: profile.companyName,
+      phone: profile.phone,
+      email: profile.email,
+      address: profile.address,
+      website: profile.website,
+      description: profile.description,
+      profession: profile.profession,
+      specialties: profile.specialties,
+      regions: profile.regions ?? [],
+      logo: profile.logo,
+    };
+  },
+});
+
 // ============================================================================
 // Mutations
 // ============================================================================

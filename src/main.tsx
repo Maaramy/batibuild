@@ -37,6 +37,8 @@ const BlogPage = lazy(() => import("./pages/BlogPage.tsx"));
 const BlogPostPage = lazy(() => import("./pages/BlogPostPage.tsx"));
 const SuppliersDirectory = lazy(() => import("./pages/SuppliersDirectory.tsx"));
 const ProfessionalsDirectory = lazy(() => import("./pages/ProfessionalsDirectory.tsx"));
+const SupplierProfile = lazy(() => import("./pages/SupplierProfile.tsx"));
+const ExpertProfile = lazy(() => import("./pages/ExpertProfile.tsx"));
 const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
 const SupplierStats = lazy(() => import("./pages/SupplierStats.tsx"));
 const SupplierQuotes = lazy(() => import("./pages/SupplierQuotes.tsx"));
@@ -280,6 +282,22 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <SuppliersDirectory />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/supplier-profile/:id"
+                  element={
+                    <RequireAuth>
+                      <SupplierProfile />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/expert-profile/:id"
+                  element={
+                    <RequireAuth>
+                      <ExpertProfile />
                     </RequireAuth>
                   }
                 />

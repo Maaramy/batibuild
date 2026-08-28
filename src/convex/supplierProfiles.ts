@@ -172,6 +172,7 @@ export const getSupplierById = query({
     const profile = await ctx.db.get(args.supplierId);
     if (!profile || !profile.isVisible) return null;
     return {
+      _id: profile._id,
       companyName: profile.companyName,
       phone: profile.phone,
       email: profile.email,
@@ -179,6 +180,7 @@ export const getSupplierById = query({
       website: profile.website,
       description: profile.description,
       specialties: profile.specialties,
+      regions: profile.regions ?? [],
       specialtiesLabels: profile.specialties.map(
         (s) => SUPPLIER_SPECIALTIES_LABELS[s] || s
       ),

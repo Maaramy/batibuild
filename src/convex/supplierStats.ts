@@ -317,6 +317,7 @@ export const seedDemoAnalytics = mutation({
     for (let i = 0; i < 12; i++) {
       await ctx.db.insert("supplierRatings", {
         supplierId: profile._id,
+        userId: user._id,
         rating: 3 + Math.floor(Math.random() * 3), // 3-5
         createdAt: now - Math.floor(Math.random() * 90) * DAY,
       });

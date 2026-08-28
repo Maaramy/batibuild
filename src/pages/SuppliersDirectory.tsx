@@ -1,18 +1,22 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Store, Search, MapPin, Phone, Mail,
   Globe, ChevronDown, ChevronUp, X, Filter,
-  MessageSquare, FileText, Eye, EyeOff,
+  MessageSquare, FileText, Eye, EyeOff, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
 
 // ── Region labels ────────────────────────────────────────────────────────────
@@ -60,6 +64,11 @@ export default function SuppliersDirectory() {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("");
   const [selectedRegion, setSelectedRegion] = useState<string>("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [ratingSupplier, setRatingSupplier] = useState<any>(null);
+  const [myRating, setMyRating] = useState(0);
+  const [sendingRating, setSendingRating] = useState(false);
+  const rateSupplier = useMutation(api.ratings.rateSupplier);
+  const { user } = useAuth();
 
   // Build unique specialties & regions from data
   const availableSpecialties = useMemo(() => {
@@ -293,6 +302,7 @@ export default function SuppliersDirectory() {
                         <h3 className="text-sm font-semibold leading-tight truncate">
                           {s.companyName}
                         </h3>
+                        <SupplierRatingInline supplierId={s._id} />
                         {s.description && (
                           <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2 leading-snug">
                             {s.description}
@@ -379,6 +389,19 @@ export default function SuppliersDirectory() {
                     {/* Action buttons */}
                     <div className="flex items-center gap-2 pt-1">
                       <button
+                        onClick={() => {
+                          if (!user) {
+                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+                            return;
+                          }
+                          setRatingSupplier(s);
+                          setMyRating(0);
+                        }}
+                        className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-[10px] font-medium text-amber-700 hover:bg-amber-500/10 transition-all"
+                      >
+                        ⭐ Noter
+                      </button>
+                      <button
                         onClick={() => setExpandedId(isExpanded ? null : s._id)}
                         className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-[10px] font-medium text-emerald-700 hover:bg-emerald-500/10 transition-all"
                       >
@@ -386,11 +409,10 @@ export default function SuppliersDirectory() {
                         Contacter
                       </button>
                       <button
-                        onClick={() => navigate("/auth?returnTo=/dashboard")}
-                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                        onClick={() => navigate(`/dashboard/supplier-profile/${s._id}`)}
+                        className="flex items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background px-2.5 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
                       >
-                        <FileText className="h-3 w-3" />
-                        Demande de devis
+                        Voir profil
                       </button>
                     </div>
                   </CardContent>
@@ -400,6 +422,49 @@ export default function SuppliersDirectory() {
           </div>
         )}
       </div>
+
+      {/* Rating Dialog */}
+      <Dialog open={!!ratingSupplier} onOpenChange={(o) => { if (!o) setRatingSupplier(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Noter {ratingSupplier?.companyName}</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              Votre note aide les autres clients à choisir.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 pt-2">
+            <StarRating value={myRating} size="md" interactive onChange={setMyRating} />
+            <Button
+              className="w-full gap-1.5 text-xs"
+              disabled={sendingRating || myRating === 0}
+              onClick={async () => {
+                if (!ratingSupplier || myRating === 0) return;
+                setSendingRating(true);
+                try {
+                  await rateSupplier({ supplierId: ratingSupplier._id, rating: myRating });
+                  toast.success(`Note ${myRating}/5 enregistrée !`);
+                  setRatingSupplier(null);
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Erreur");
+                } finally {
+                  setSendingRating(false);
+                }
+              }}
+            >
+              {sendingRating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Enregistrer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
+}
+
+// ── Inline Rating Display ─────────────────────────────────────────────────
+
+function SupplierRatingInline({ supplierId }: { supplierId: string }) {
+  const rating = useQuery(api.ratings.getSupplierAverage, { supplierId: supplierId as any });
+  if (!rating || rating.count === 0) return null;
+  return <StarRating value={rating.avg} count={rating.count} size="xs" className="mt-0.5" />;
 }
