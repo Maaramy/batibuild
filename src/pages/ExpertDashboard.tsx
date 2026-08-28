@@ -24,6 +24,7 @@ import {
   ShieldCheck, Trash2, AlertTriangle, Clock3,
   Banknote, Smartphone, Landmark, UserRound, Upload,
   Wallet, BarChart3, FileText, Briefcase, Ruler, HardHat, Store,
+  MessageSquare, MousePointerClick, TrendingUp,
 } from "lucide-react";
 
 // ============================================================================
@@ -226,6 +227,7 @@ export default function ExpertDashboard() {
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [statsPeriod, setStatsPeriod] = useState<"7d" | "30d" | "90d" | "year">("30d");
 
   // Init form when profile loads
   useMemo(() => {
@@ -492,6 +494,32 @@ export default function ExpertDashboard() {
                           {" · "}
                           {profile.specialties?.length || 0} spécialités · {(profile as any).regions?.length || 0} régions
                         </p>
+                        {/* Action buttons directly under Expert certifié */}
+                        {effStatus === "active" && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <button
+                              onClick={() => navigate("/dashboard/expert/services")}
+                              className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                            >
+                              <FileText className="h-3 w-3" />
+                              Devis
+                            </button>
+                            <button
+                              onClick={() => navigate("/dashboard/expert/stats")}
+                              className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                            >
+                              <BarChart3 className="h-3 w-3" />
+                              Stats
+                            </button>
+                            <button
+                              onClick={() => navigate("/dashboard")}
+                              className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                            >
+                              <UserRound className="h-3 w-3" />
+                              Vue Client
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col sm:items-end gap-2">
@@ -509,33 +537,6 @@ export default function ExpertDashboard() {
                       )}
                     </div>
                   </div>
-
-                  {/* Action buttons under Expert certifié */}
-                  {effStatus === "active" && (
-                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/30">
-                      <button
-                        onClick={() => navigate("/dashboard/expert/services")}
-                        className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        Devis
-                      </button>
-                      <button
-                        onClick={() => navigate("/dashboard/expert/stats")}
-                        className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-                      >
-                        <BarChart3 className="h-3.5 w-3.5" />
-                        Statistiques
-                      </button>
-                      <button
-                        onClick={() => navigate("/dashboard")}
-                        className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-                      >
-                        <UserRound className="h-3.5 w-3.5" />
-                        Vue Client
-                      </button>
-                    </div>
-                  )}
 
                   {/* Payment info inline (show on click) */}
                   {showPaymentInfo && effStatus === "active" && (
@@ -773,6 +774,58 @@ export default function ExpertDashboard() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Stats Section (inside Gérer mon profil expert) */}
+              {effStatus === "active" && (
+                <Card className="border-border/40">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                      <BarChart3 className="h-3.5 w-3.5 text-violet-600" />
+                      Statistiques
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Period selector */}
+                    <div className="flex gap-1 bg-muted/30 rounded-xl p-1">
+                      {[{ value: "7d", label: "7j" }, { value: "30d", label: "30j" }, { value: "90d", label: "90j" }, { value: "year", label: "Année" }].map((p) => (
+                        <button
+                          key={p.value}
+                          onClick={() => setStatsPeriod(p.value as any)}
+                          className={`flex-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all ${
+                            statsPeriod === p.value
+                              ? "bg-background text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                    {/* KPI Cards */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: "Vues du profil", value: "—", icon: Eye, color: "text-blue-600 bg-blue-50" },
+                        { label: "Demandes reçues", value: "—", icon: MessageSquare, color: "text-violet-600 bg-violet-50" },
+                        { label: "Réponses envoyées", value: "—", icon: MousePointerClick, color: "text-emerald-600 bg-emerald-50" },
+                        { label: "Taux de réponse", value: "—", icon: TrendingUp, color: "text-amber-600 bg-amber-50" },
+                      ].map((kpi) => (
+                        <div key={kpi.label} className="flex items-center gap-2 rounded-xl border border-border/30 bg-muted/10 px-3 py-2.5">
+                          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${kpi.color}`}>
+                            <kpi.icon className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold leading-none">{kpi.value}</p>
+                            <p className="text-[8px] text-muted-foreground truncate mt-0.5">{kpi.label}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/60 text-center">
+                      Données en cours de collecte
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Specialties */}
               <Card className="border-border/40">
