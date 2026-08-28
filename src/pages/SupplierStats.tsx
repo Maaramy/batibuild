@@ -338,19 +338,18 @@ export default function SupplierStats() {
         </Button>
       </motion.div>
 
-      {/* ── Period Filter ── */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      {/* ── Period Filter (pill-style, matching ExpertStats) ── */}
+      <div className="flex gap-1.5 bg-muted/30 rounded-xl p-1">
         {PERIODS.map((p) => (
           <button
             key={p.key}
             onClick={() => setPeriod(p.key)}
-            className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all ${
+            className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               period === p.key
-                ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950/50 dark:text-blue-300"
-                : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Calendar className="mr-0.5 inline h-2.5 w-2.5" />
             {p.label}
           </button>
         ))}
@@ -795,19 +794,18 @@ export function SupplierStatsInline() {
         <h3 className="text-sm font-bold text-foreground">Statistiques</h3>
       </div>
 
-      {/* ── Period Filter ── */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      {/* ── Period Filter (pill-style, matching ExpertStats) ── */}
+      <div className="flex gap-1.5 bg-muted/30 rounded-xl p-1">
         {PERIODS.map((p) => (
           <button
             key={p.key}
             onClick={() => setPeriod(p.key)}
-            className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all ${
+            className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               period === p.key
-                ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950/50 dark:text-blue-300"
-                : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Calendar className="mr-0.5 inline h-2.5 w-2.5" />
             {p.label}
           </button>
         ))}

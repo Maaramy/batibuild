@@ -113,6 +113,79 @@ const TUNISIA_REGIONS = [
 ];
 
 // ============================================================================
+// Payment Coordinates (bank + D17)
+// ============================================================================
+
+function PaymentCoordinates({
+  paymentConfig,
+  monthlyPrice,
+}: {
+  paymentConfig: any;
+  monthlyPrice: number;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-muted/10 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100">
+              <Landmark className="h-4 w-4 text-violet-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold">{paymentConfig?.bankName || "Banque de Tunisie"}</p>
+              <p className="truncate text-[10px] text-muted-foreground">Coordonnées bancaires</p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-bold text-white">
+            {monthlyPrice} TND
+          </span>
+        </div>
+        <div className="divide-y divide-border/30">
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">RIB</span>
+            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.bankRib || "—"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">IBAN</span>
+            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.bankIban || "—"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">Swift / BIC</span>
+            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.bankSwift || "BTBK TN TT"}</span>
+          </div>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-amber-500/[0.07] px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15">
+              <Smartphone className="h-4 w-4 text-amber-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold">D17 · La Poste Tunisienne</p>
+              <p className="truncate text-[10px] text-muted-foreground">Paiement marchand</p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-bold text-white">
+            {monthlyPrice} TND
+          </span>
+        </div>
+        <div className="divide-y divide-border/30">
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">Téléphone D17</span>
+            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.d17Phone || "+216 XX XXX XXX"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <span className="w-28 shrink-0 text-[11px] font-medium text-muted-foreground">Email</span>
+            <span className="min-w-0 flex-1 break-all text-right text-xs font-semibold leading-snug">{paymentConfig?.d17Email || "paiement@batibuild.app"}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // Component
 // ============================================================================
 
@@ -135,6 +208,7 @@ export default function ExpertDashboard() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [expertPaymentMethod, setExpertPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
   const [showPaymentChoice, setShowPaymentChoice] = useState(false);
+  const [showPaymentInfo, setShowPaymentInfo] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
@@ -370,31 +444,6 @@ export default function ExpertDashboard() {
               {profile ? "Profil et abonnement" : "Créez votre profil"}
             </p>
           </div>
-          {effStatus === "active" && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => navigate("/dashboard/expert/services")}
-                className="flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-              >
-                <FileText className="h-3 w-3" />
-                Demandes reçues
-              </button>
-              <button
-                onClick={() => navigate("/dashboard/expert/stats")}
-                className="flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-              >
-                <BarChart3 className="h-3 w-3" />
-                Stats
-              </button>
-            </div>
-          )}
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-          >
-            <UserRound className="h-3 w-3" />
-            Vue Client
-          </button>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -447,7 +496,7 @@ export default function ExpertDashboard() {
                     </div>
                     <div className="flex flex-col sm:items-end gap-2">
                       <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
-                        onClick={() => setShowPaymentChoice(true)}>
+                        onClick={() => setShowPaymentInfo(!showPaymentInfo)}>
                         <Wallet className="h-3 w-3" />
                         Moyen de paiement
                       </Button>
@@ -460,6 +509,40 @@ export default function ExpertDashboard() {
                       )}
                     </div>
                   </div>
+
+                  {/* Action buttons under Expert certifié */}
+                  {effStatus === "active" && (
+                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/30">
+                      <button
+                        onClick={() => navigate("/dashboard/expert/services")}
+                        className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        Services
+                      </button>
+                      <button
+                        onClick={() => navigate("/dashboard/expert/stats")}
+                        className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                      >
+                        <BarChart3 className="h-3.5 w-3.5" />
+                        Statistiques
+                      </button>
+                      <button
+                        onClick={() => navigate("/dashboard")}
+                        className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                      >
+                        <UserRound className="h-3.5 w-3.5" />
+                        Vue Client
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Payment info inline (show on click) */}
+                  {showPaymentInfo && effStatus === "active" && (
+                    <div className="mt-3">
+                      <PaymentCoordinates paymentConfig={paymentConfig} monthlyPrice={MONTHLY_PRICE} />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

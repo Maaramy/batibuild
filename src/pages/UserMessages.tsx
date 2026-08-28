@@ -8,6 +8,7 @@ import { useNavigate } from "react-router";
 import {
   ArrowLeft, MessageSquare, Loader2, Clock, CheckCircle2,
   AlertCircle, Send, Building2, Package, Download, FileText,
+  Phone, Store, Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -67,6 +68,41 @@ export default function UserMessages() {
               {pendingCount} en attente
             </Badge>
           )}
+        </div>
+
+        {/* Pending Requests Section */}
+        {quotes && quotes.filter((q) => q.status === "pending").length > 0 && (
+          <Card className="border-amber-200/50 bg-amber-50/30">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-4 w-4 text-amber-600" />
+                <p className="text-xs font-semibold text-amber-700">Demandes en attente</p>
+                <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[9px] ml-auto">
+                  {quotes.filter((q) => q.status === "pending").length}
+                </Badge>
+              </div>
+              <div className="space-y-2">
+                {quotes.filter((q) => q.status === "pending").map((q) => (
+                  <div key={q._id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-border/30 bg-background/60">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">{q.projectName || q.category}</p>
+                      <p className="text-[9px] text-muted-foreground">{q.category} · {fmtDate(q.createdAt)}</p>
+                    </div>
+                    <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1 shrink-0">
+                      <Phone className="h-3 w-3" />
+                      Contacter
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Historique des envois */}
+        <div className="flex items-center gap-2">
+          <Send className="h-4 w-4 text-muted-foreground" />
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Historique des envois</p>
         </div>
 
         {/* Quote list */}

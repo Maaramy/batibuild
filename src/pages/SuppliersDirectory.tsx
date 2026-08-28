@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   ArrowLeft, Store, Search, MapPin, Phone, Mail,
   Globe, ChevronDown, ChevronUp, X, Filter,
+  MessageSquare, FileText, Eye, EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
@@ -375,21 +376,23 @@ export default function SuppliersDirectory() {
                       </div>
                     )}
 
-                    {/* Expand toggle */}
-                    <button
-                      onClick={() => setExpandedId(isExpanded ? null : s._id)}
-                      className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      {isExpanded ? (
-                        <>
-                          <ChevronUp className="h-3 w-3" /> Moins de détails
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="h-3 w-3" /> Voir les coordonnées
-                        </>
-                      )}
-                    </button>
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={() => setExpandedId(isExpanded ? null : s._id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-[10px] font-medium text-emerald-700 hover:bg-emerald-500/10 transition-all"
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                        Contacter
+                      </button>
+                      <button
+                        onClick={() => navigate("/auth?returnTo=/dashboard")}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                      >
+                        <FileText className="h-3 w-3" />
+                        Demande de devis
+                      </button>
+                    </div>
                   </CardContent>
                 </Card>
               );
