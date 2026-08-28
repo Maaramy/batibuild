@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -52,8 +52,15 @@ export default function ProfessionalsDirectory() {
   });
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const projectIdParam = searchParams.get("project");
+  const scenarioParam = searchParams.get("scenario") ?? "standard";
   const { user } = useAuth();
   const experts = useQuery(api.expertProfiles.getActiveExperts);
+  const project = useQuery(
+    api.projects.getProject,
+    projectIdParam ? { projectId: projectIdParam as any } : "skip",
+  );
 
   const [search, setSearch] = useState("");
   const [selectedProfession, setSelectedProfession] = useState("");
@@ -312,13 +319,17 @@ export default function ProfessionalsDirectory() {
                             return;
                           }
                           setDevisExpert(e);
+                          const ce = project?.costEstimate;
+                          const scenarios = ce?.budgetScenarios as Record<string, { totalCost: number }> | undefined;
+                          const sel = scenarios?.[scenarioParam] ?? scenarios?.standard;
+                          const categoryLabel = project?.category ? (PROJECT_TYPE_LABELS[project.category as keyof typeof PROJECT_TYPE_LABELS] ?? project.category) : "";
                           setDevisForm({
                             requestType: "devis",
-                            description: "",
-                            projectType: "",
-                            totalTTC: "",
-                            surface: "",
-                            region: "",
+                            description: project ? `Projet ${categoryLabel} — ${project.surface ?? ""}m² — ${project.region ? (REGION_LABELS[project.region] ?? project.region) : ""}` : "",
+                            projectType: project?.category ?? "",
+                            totalTTC: sel ? String(Math.round(sel.totalCost)) : "",
+                            surface: project?.surface ? String(project.surface) : "",
+                            region: project?.region ?? "",
                             userPhone: user?.phone ?? "",
                             userEmail: user?.email ?? "",
                             userName: user?.name ?? "",
