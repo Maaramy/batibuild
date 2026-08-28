@@ -508,63 +508,124 @@ function HeroSection() {
             </DropdownMenu>
           </motion.div>
 
-          {/* Signature hero card : résultat en dégradé + watermark + chiffre clé */}
+          {/* Signature hero card — modern glassmorphism dashboard preview */}
           <motion.div
             initial={{ opacity: 0, y: 30, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ delay: 0.45, duration: 0.6, ease: "easeOut" }}
-            className="relative mt-12 sm:mt-14 overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-green-900 p-6 sm:p-9 text-left shadow-soft-lg"
+            className="relative mt-12 sm:mt-14"
           >
-            <div className="dotted-watermark absolute inset-0 opacity-40" />
-            <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+            {/* Glow behind card */}
+            <div className="absolute -inset-4 bg-gradient-to-br from-emerald-500/15 via-transparent to-violet-500/10 rounded-3xl blur-2xl" />
 
-            <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-              <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 backdrop-blur-sm">
-                  <Sparkles className="h-3.5 w-3.5 text-emerald-100" />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">Copilote IA · Marché tunisien</span>
+            <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-background/80 backdrop-blur-xl shadow-soft-lg">
+              {/* Browser chrome bar */}
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/20 bg-muted/20">
+                <div className="flex gap-1.5">
+                  <div className="h-2.5 w-2.5 rounded-full bg-red-400/80" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-amber-400/80" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
                 </div>
-                <p className="mt-4 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/80">
-                  Devis moyen — maison à étage · 150 m² · standard
-                </p>
-                <p className="mt-1 text-4xl sm:text-5xl font-black text-white tabular-nums">253 590 TND</p>
-                <p className="mt-2 text-xs text-emerald-100/80 max-w-sm leading-relaxed">
-                  Répartition IA : gros œuvre, second œuvre, équipements et finitions — prix actualisés 2026.
-                </p>
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="flex items-center gap-1.5 rounded-full bg-muted/50 px-3 py-1 text-[9px] text-muted-foreground">
+                    <HardHat className="h-2.5 w-2.5" />
+                    <span>app.batibuild.app / estimation</span>
+                  </div>
+                </div>
+                <div className="w-14" />
               </div>
 
-              <div className="flex sm:flex-col gap-2 shrink-0">
-                <div className="flex-1 sm:flex-none rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/10">
-                  <p className="text-[9px] uppercase tracking-widest text-emerald-100/70">Confiance IA</p>
-                  <p className="text-xl font-black text-white">95%</p>
-                </div>
-                <div className="flex-1 sm:flex-none rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/10">
-                  <p className="text-[9px] uppercase tracking-widest text-emerald-100/70">Durée chantier</p>
-                  <p className="text-xl font-black text-white">6 mois</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Copilote flow */}
-            <div className="relative mt-6 flex flex-wrap items-center gap-2">
-              {["Estimer", "Optimiser", "Construire", "Investir"].map((stepLabel, i) => (
-                <span
-                  key={stepLabel}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-semibold text-white/90 border border-white/10 backdrop-blur-sm"
-                >
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[9px] font-black">
-                    {i + 1}
+              {/* Dashboard mockup content */}
+              <div className="p-5 sm:p-7">
+                {/* Top row: title + badge */}
+                <div className="flex items-start justify-between gap-3 mb-5">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
+                        <HardHat className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <h3 className="text-sm font-bold tracking-tight">Estimation Maison à Étage</h3>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground ml-10">150 m² · Sousse · Scénario Standard</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
+                    <Check className="h-2.5 w-2.5" />
+                    IA Validé
                   </span>
-                  {stepLabel}
-                </span>
-              ))}
-            </div>
+                </div>
 
-            <div className="relative mt-3 flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/10">
-              <Sparkles className="h-4 w-4 text-emerald-100 shrink-0" />
-              <p className="text-[11px] text-emerald-50/90 leading-snug">
-                Rapport complet : liste des matériaux, quantités, main-d'œuvre, planning et recommandations — export PDF / Excel / CSV.
-              </p>
+                {/* Stats grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                  {[
+                    { label: "Coût total TTC", value: "253 590", unit: "TND", accent: true },
+                    { label: "Prix / m²", value: "1 691", unit: "TND" },
+                    { label: "Confiance IA", value: "95", unit: "%" },
+                    { label: "Durée chantier", value: "6", unit: "mois" },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className={`rounded-xl border p-3 ${
+                        stat.accent
+                          ? "border-emerald-500/20 bg-emerald-500/5"
+                          : "border-border/30 bg-muted/20"
+                      }`}
+                    >
+                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">{stat.label}</p>
+                      <p className="text-lg sm:text-xl font-black tabular-nums">
+                        {stat.value}
+                        <span className="text-xs font-semibold text-muted-foreground ml-0.5">{stat.unit}</span>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Cost breakdown mini bars */}
+                <div className="rounded-xl border border-border/30 bg-muted/10 p-4 mb-5">
+                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-3">Répartition des coûts</p>
+                  <div className="space-y-2.5">
+                    {[
+                      { label: "Gros œuvre", pct: 35, color: "bg-emerald-500" },
+                      { label: "Second œuvre", pct: 25, color: "bg-sky-500" },
+                      { label: "Équipements", pct: 22, color: "bg-violet-500" },
+                      { label: "Finitions", pct: 18, color: "bg-amber-500" },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center gap-3">
+                        <span className="text-[10px] text-muted-foreground w-24 shrink-0">{item.label}</span>
+                        <div className="flex-1 h-2 rounded-full bg-muted/40 overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${item.pct}%` }}
+                            transition={{ delay: 0.8, duration: 0.8, ease: "easeOut" }}
+                            className={`h-full rounded-full ${item.color}`}
+                          />
+                        </div>
+                        <span className="text-[10px] font-semibold tabular-nums w-8 text-right">{item.pct}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Copilot flow pills */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { icon: Calculator, label: "Estimer" },
+                    { icon: Sparkles, label: "Optimiser" },
+                    { icon: Building2, label: "Construire" },
+                    { icon: TrendingUp, label: "Investir" },
+                  ].map((step, i) => (
+                    <span
+                      key={step.label}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-muted/30 px-3 py-1.5 text-[10px] font-semibold text-foreground/80"
+                    >
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 text-primary text-[9px] font-black">
+                        {i + 1}
+                      </span>
+                      <step.icon className="h-3 w-3 text-muted-foreground" />
+                      {step.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           </motion.div>
 
