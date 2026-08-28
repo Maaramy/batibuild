@@ -13,8 +13,9 @@ import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Users, Search, MapPin, Phone, Mail,
   Globe, ChevronDown, ChevronUp, X, Briefcase, Building2, FileText,
-  Loader2,
+  Loader2, MapPinned,
 } from "lucide-react";
+import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
 import { PROJECT_TYPE_LABELS } from "@/convex/projectTypes";
 import { toast } from "sonner";
@@ -244,8 +245,13 @@ export default function ProfessionalsDirectory() {
               return (
                 <Card key={e._id} className="border border-border/40 overflow-hidden rounded-xl hover:border-amber-500/30 transition-colors">
                   <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                    <div className="flex items-start gap-3">
+                      <AvatarWithInitials
+                        logo={e.logo}
+                        name={e.displayName}
+                        size="md"
+                      />
+                      <div className="min-w-0 flex-1">
                         <h3 className="text-sm font-semibold leading-tight truncate">{e.displayName}</h3>
                         <ExpertRatingInline expertId={e._id} />
                         {e.companyName && (
@@ -255,10 +261,15 @@ export default function ProfessionalsDirectory() {
                           <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2 leading-snug">{e.description}</p>
                         )}
                       </div>
-                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 shrink-0">
-                        <Icon className="h-3.5 w-3.5" />
-                      </div>
                     </div>
+
+                    {/* Address */}
+                    {e.address && (
+                      <div className="flex items-start gap-1.5 text-[9px] text-muted-foreground">
+                        <MapPinned className="h-3 w-3 shrink-0 mt-0.5" />
+                        <span className="line-clamp-1">{e.address}</span>
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap gap-1">
                       <Badge variant="outline" className="text-[8px] h-4 px-1.5 leading-none">
@@ -313,7 +324,7 @@ export default function ProfessionalsDirectory() {
                     <div className="flex items-center gap-2 pt-1">
                       <a
                         href={e.phone ? `tel:${e.phone}` : undefined}
-                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[10px] font-medium text-amber-700 hover:bg-amber-500/10 transition-all"
+                        className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-[10px] font-medium text-amber-700 hover:bg-amber-500/10 transition-all"
                       >
                         <Phone className="h-3 w-3" />
                         Contacter
@@ -341,10 +352,10 @@ export default function ProfessionalsDirectory() {
                             userName: user?.name ?? "",
                           });
                         }}
-                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-medium text-white hover:bg-emerald-700 transition-all"
                       >
                         <FileText className="h-3 w-3" />
-                        Demande de devis
+                        Envoyer une demande
                       </button>
                     </div>
                     <div className="flex items-center gap-2">

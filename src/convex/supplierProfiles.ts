@@ -106,6 +106,7 @@ export const getActiveSuppliers = query({
         address: s.address,
         website: s.website,
         description: s.description,
+        logo: s.logo,
         specialties: s.specialties,
         regions: s.regions,
         plan: s.plan,

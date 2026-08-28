@@ -120,6 +120,7 @@ export const getActiveExperts = query({
         address: e.address,
         website: e.website,
         description: e.description,
+        logo: e.logo,
         profession: e.profession,
         specialties: e.specialties,
         regions: e.regions,

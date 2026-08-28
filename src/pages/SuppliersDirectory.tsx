@@ -13,8 +13,9 @@ import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Store, Search, MapPin, Phone, Mail,
   Globe, ChevronDown, ChevronUp, X, Filter,
-  MessageSquare, FileText, Eye, EyeOff, Loader2,
+  MessageSquare, FileText, Eye, EyeOff, Loader2, MapPinned,
 } from "lucide-react";
+import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
@@ -297,8 +298,13 @@ export default function SuppliersDirectory() {
                 >
                   <CardContent className="p-4 space-y-3">
                     {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                    <div className="flex items-start gap-3">
+                      <AvatarWithInitials
+                        logo={s.logo}
+                        name={s.companyName}
+                        size="md"
+                      />
+                      <div className="min-w-0 flex-1">
                         <h3 className="text-sm font-semibold leading-tight truncate">
                           {s.companyName}
                         </h3>
@@ -309,10 +315,15 @@ export default function SuppliersDirectory() {
                           </p>
                         )}
                       </div>
-                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 shrink-0">
-                        <Store className="h-3.5 w-3.5" />
-                      </div>
                     </div>
+
+                    {/* Address */}
+                    {s.address && (
+                      <div className="flex items-start gap-1.5 text-[9px] text-muted-foreground">
+                        <MapPinned className="h-3 w-3 shrink-0 mt-0.5" />
+                        <span className="line-clamp-1">{s.address}</span>
+                      </div>
+                    )}
 
                     {/* Specialties */}
                     <div className="flex flex-wrap gap-1">
@@ -401,13 +412,13 @@ export default function SuppliersDirectory() {
                       >
                         ⭐ Noter
                       </button>
-                      <button
-                        onClick={() => setExpandedId(isExpanded ? null : s._id)}
-                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-[10px] font-medium text-emerald-700 hover:bg-emerald-500/10 transition-all"
+                      <a
+                        href={s.phone ? `tel:${s.phone}` : undefined}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-medium text-white hover:bg-emerald-700 transition-all"
                       >
                         <MessageSquare className="h-3 w-3" />
-                        Contacter
-                      </button>
+                        Demande de devis
+                      </a>
                       <button
                         onClick={() => navigate(`/dashboard/supplier-profile/${s._id}`)}
                         className="flex items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background px-2.5 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
