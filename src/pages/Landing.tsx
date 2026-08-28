@@ -419,42 +419,54 @@ function HeroSection() {
             construire, rénover et investir.
           </motion.h1>
 
-          {/* Tagline — 3 proof points inline */}
+          {/* Tagline — pill badges with gradient backgrounds */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.22, duration: 0.5 }}
-            className="mt-7 flex flex-wrap items-center justify-center gap-x-4 gap-y-2"
+            className="mt-8 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3"
           >
             {[
-              { icon: Calculator, label: "Estimez", color: "text-emerald-600 dark:text-emerald-400" },
-              { icon: Sparkles, label: "Optimisez", color: "text-violet-600 dark:text-violet-400" },
-              { icon: Building2, label: "Construisez", color: "text-sky-600 dark:text-sky-400" },
-              { icon: TrendingUp, label: "Investissez", color: "text-indigo-600 dark:text-indigo-400" },
+              { icon: Calculator, label: "Estimez", bg: "bg-emerald-500/8", border: "border-emerald-500/20", hover: "hover:bg-emerald-500/15 hover:border-emerald-500/30", color: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-500/20" },
+              { icon: Sparkles, label: "Optimisez", bg: "bg-violet-500/8", border: "border-violet-500/20", hover: "hover:bg-violet-500/15 hover:border-violet-500/30", color: "text-violet-600 dark:text-violet-400", ring: "ring-violet-500/20" },
+              { icon: Building2, label: "Construisez", bg: "bg-sky-500/8", border: "border-sky-500/20", hover: "hover:bg-sky-500/15 hover:border-sky-500/30", color: "text-sky-600 dark:text-sky-400", ring: "ring-sky-500/20" },
+              { icon: TrendingUp, label: "Investissez", bg: "bg-indigo-500/8", border: "border-indigo-500/20", hover: "hover:bg-indigo-500/15 hover:border-indigo-500/30", color: "text-indigo-600 dark:text-indigo-400", ring: "ring-indigo-500/20" },
             ].map((item, i) => (
-              <span
+              <motion.span
                 key={item.label}
-                className="inline-flex items-center gap-1.5 text-sm sm:text-base font-semibold tracking-tight"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.25 + i * 0.07, duration: 0.35, ease: "easeOut" }}
+                className={`inline-flex items-center gap-2 rounded-full border ${item.bg} ${item.border} ${item.hover} px-4 py-2 text-sm sm:text-[15px] font-semibold tracking-tight transition-all duration-200 cursor-default focus-visible:outline-none focus-visible:ring-2 ${item.ring} ${item.color}`}
               >
-                <span className={`inline-flex items-center gap-1.5 ${item.color}`}>
-                  <item.icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
-                  {item.label}
-                </span>
-                {i < 3 && <span className="text-muted-foreground/40">·</span>}
-              </span>
+                <item.icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+                {item.label}
+              </motion.span>
             ))}
           </motion.div>
 
-          {/* Subtitle — specific, benefit-oriented */}
-          <motion.p
+          {/* Subtitle — benefit-oriented with structured layout */}
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.28, duration: 0.5 }}
-            className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed"
+            transition={{ delay: 0.32, duration: 0.5 }}
+            className="mt-7 max-w-2xl mx-auto"
           >
-            Analysez vos projets, optimisez vos coûts, choisissez vos matériaux et prenez de meilleures
-            décisions immobilières grâce à l'IA.
-          </motion.p>
+            <p className="text-base sm:text-lg text-muted-foreground/80 leading-relaxed text-center">
+              <span className="font-medium text-foreground/90">Analysez vos projets</span>,
+              <span className="text-muted-foreground/60"> </span>
+              <span className="font-medium text-foreground/90">optimisez vos coûts</span>,
+              <span className="text-muted-foreground/60"> </span>
+              <span className="font-medium text-foreground/90">choisissez vos matériaux</span>
+              <span className="text-muted-foreground/50"> et </span>
+              <span className="font-medium text-foreground/90">prenez de meilleures décisions immobilières</span>
+              <span className="text-muted-foreground/50"> grâce à </span>
+              <span className="inline-flex items-center gap-1 font-semibold bg-gradient-to-r from-emerald-600 to-violet-600 dark:from-emerald-400 dark:to-violet-400 bg-clip-text text-transparent">
+                <Sparkles className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
+                l'IA
+              </span>.
+            </p>
+          </motion.div>
 
           {/* CTA — reduced to 2 clear actions */}
           <motion.div
