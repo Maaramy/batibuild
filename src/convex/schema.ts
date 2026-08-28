@@ -1328,6 +1328,26 @@ const schema = defineSchema(
       .index("by_expert_date", ["expertId", "date"])
       .index("by_expert_type", ["expertId", "eventType"]),
 
+    // ── Connection logs (real-time analytics) ──────────────────────
+    connectionLogs: defineTable({
+      sessionId: v.string(),
+      country: v.string(),
+      city: v.optional(v.string()),
+      region: v.optional(v.string()),
+      lat: v.optional(v.number()),
+      lng: v.optional(v.number()),
+      userAgent: v.optional(v.string()),
+      page: v.string(),
+      connectedAt: v.number(),
+      lastSeenAt: v.number(),
+      disconnectedAt: v.optional(v.number()),
+    })
+      .index("by_session", ["sessionId"])
+      .index("by_country", ["country"])
+      .index("by_region", ["region"])
+      .index("by_connected", ["connectedAt"])
+      .index("by_lastSeen", ["lastSeenAt"]),
+
   },
   {
     schemaValidation: false,
