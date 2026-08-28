@@ -94,72 +94,72 @@ import {
 const FEATURES = [
   {
     icon: Upload,
-    title: "Import Multi-Format",
-    desc: "Importez des photos, plans PDF, images satellite ou croquis dessinés à la main en un clic.",
+    title: "Gagnez 3 jours par devis",
+    desc: "Importez une photo, un plan PDF, une image satellite ou un croquis à la main — l'IA fait le reste en quelques minutes.",
     gradient: "from-blue-500/20 to-cyan-500/20",
     iconColor: "text-blue-600 dark:text-blue-400",
     to: "/dashboard/new",
   },
   {
     icon: Cpu,
-    title: "Analyse IA Automatique",
-    desc: "L'IA reconnaît le type de projet, détecte les dimensions et identifie les matériaux nécessaires.",
+    title: "Evitez les surcoûts",
+    desc: "L'IA détecte automatiquement les surfaces, les matériaux et les quantités — plus d'oublis, plus de mauvaises surprises en chantier.",
     gradient: "from-emerald-500/20 to-teal-500/20",
     iconColor: "text-emerald-600 dark:text-emerald-400",
     to: "/dashboard/new",
   },
   {
     icon: TrendingUp,
-    title: "Estimation Précise",
-    desc: "Calcul automatique des coûts basé sur les prix actualisés du marché tunisien 2026.",
+    title: "Prix marché 2026 inclus",
+    desc: "Calcul automatique basé sur les tarifs actualisés du marché tunisien — fini les devis basés sur des prix de 2022.",
     gradient: "from-emerald-500/20 to-teal-500/20",
     iconColor: "text-emerald-600 dark:text-emerald-400",
     to: "/dashboard",
   },
   {
     icon: Sparkles,
-    title: "Assistant Matériaux IA",
-    desc: "Recommandation comparative des matériaux, fournisseurs au meilleur prix, optimisation du budget et performance énergétique.",
+    title: "Choisissez les meilleurs matériaux",
+    desc: "Comparez 3 options (Économique, Équilibré, Premium) pour chaque poste — l'IA recommande le meilleur rapport qualité/prix.",
     gradient: "from-violet-500/20 to-purple-500/20",
     iconColor: "text-violet-600 dark:text-violet-400",
     to: "/dashboard/ai-materials",
   },
   {
     icon: ClipboardList,
-    title: "Guide Construction A-Z",
-    desc: "Feuille de route de 10 phases : démarches tunisiennes, budget à 3 scénarios, planning Gantt, contrôle du chantier et diagnostic IA.",
+    title: "Ne perdez plus une seule étape",
+    desc: "Guide complet de 10 phases : démarches tunisiennes, budget, planning, contrôle de chantier — rien n'est oublié.",
     gradient: "from-sky-500/20 to-blue-500/20",
     iconColor: "text-sky-600 dark:text-sky-400",
     to: "/dashboard/guide",
   },
   {
     icon: ChartBar,
-    title: "Analyse d'Investissement",
-    desc: "Rentabilité nette, flux de trésorerie, ROI à 1/5/10 ans, score IA /100 et scénarios de simulation immobilière.",
+    title: "Investissez sans risque",
+    desc: "ROI à 1/5/10 ans, flux de trésorerie, score IA /100 et 3 scénarios — comparez avant d'engager votre capital.",
     gradient: "from-indigo-500/20 to-blue-500/20",
     iconColor: "text-indigo-600 dark:text-indigo-400",
     to: "/dashboard/investments",
   },
   {
     icon: Store,
-    title: "Espace Fournisseur",
-    desc: "Annuaire des entrepreneurs, architectes, ingénieurs et fournisseurs : profils vérifiés, spécialités et recommandations ciblées.",
+    title: "Trouvez les bons prestataires",
+    desc: "Annuaire vérifié d'architectes, ingénieurs et fournisseurs : spécialités, régions et recommandations ciblées.",
     gradient: "from-amber-500/20 to-orange-500/20",
     iconColor: "text-amber-600 dark:text-amber-400",
     to: "/dashboard/supplier",
   },
   {
     icon: Table2,
-    title: "Prix des Matériaux Tunisie",
-    desc: "Base de données actualisée 2026 avec historique des prix, mise à jour par l'administration.",
+    title: "Suivez l'évolution des prix",
+    desc: "Base de 500+ matériaux actualisée en temps réel — anticipez les hausses et optimisez votre timing d'achat.",
     gradient: "from-teal-500/20 to-cyan-500/20",
     iconColor: "text-teal-600 dark:text-teal-400",
     to: "/dashboard/materials",
   },
   {
     icon: FileText,
-    title: "Rapports & Exports",
-    desc: "Rapports professionnels détaillés en PDF, Excel ou CSV avec répartition complète des coûts.",
+    title: "Envoyez un devis pro en 1 clic",
+    desc: "Exportez des rapports PDF, Excel ou CSV professionnels — prêts à envoyer à vos clients ou à votre banquier.",
     gradient: "from-rose-500/20 to-orange-500/20",
     iconColor: "text-rose-600 dark:text-rose-400",
     to: "/dashboard",
@@ -168,24 +168,24 @@ const FEATURES = [
 
 const BENEFITS = [
   {
-    number: "50%",
-    label: "Gain de temps",
-    desc: "Réduisez de moitié le temps d'estimation grâce à l'IA",
-  },
-  {
-    number: "11",
-    label: "Types de biens",
-    desc: "Types de biens unifiés, alignés sur l'investissement",
+    number: "5 min",
+    label: "Au lieu de 5 jours",
+    desc: "Un devis complet en quelques minutes, pas en semaines",
   },
   {
     number: "95%",
-    label: "Précision",
-    desc: "Taux de confiance moyen des estimations IA",
+    label: "De précision IA",
+    desc: "Estimations fiables basées sur les prix marché 2026",
   },
   {
     number: "500+",
-    label: "Matériaux",
-    desc: "Prix actualisés dans la base de données",
+    label: "Matériaux suivis",
+    desc: "Prix actualisés de la CNAM au carrelage — Tunisie",
+  },
+  {
+    number: "0 TND",
+    label: "Pour démarrer",
+    desc: "Inscrivez-vous et testez — sans engagement, sans CB",
   },
 ];
 
@@ -194,25 +194,28 @@ const TESTIMONIALS = [
     name: "Ahmed Ben Salah",
     role: "Architecte, Tunis",
     content:
-      "Cet outil a révolutionné ma façon d'estimer les projets. L'IA est impressionnante de précision.",
+      "Avant, mes devis prenaient 2 à 3 jours. Avec BatiBuild, je les livre en 30 minutes — et mes clients me font plus confiance grâce aux détails IA.",
     avatar: "AB",
     rating: 5,
+    metric: "Devis en 30 min au lieu de 3 jours",
   },
   {
     name: "Sarra Mejri",
     role: "Promotrice Immobilière, Sfax",
     content:
-      "Gain de temps considérable. Je peux maintenant fournir des devis détaillés en quelques minutes.",
+      "J'ai analysé 4 projets d'investissement en une matinée. L'outil m'a évité une erreur qui m'aurait coûté 40 000 TND.",
     avatar: "SM",
     rating: 5,
+    metric: "40 000 TND d'erreur évitée",
   },
   {
     name: "Karim Bouaziz",
     role: "Ingénieur Civil, Sousse",
     content:
-      "La base de données des prix tunisiens est très complète et régulièrement mise à jour.",
+      "La base de prix tunisiens est la seule à jour sur le marché. Mes concurrents utilisent encore des tarifs de 2022.",
     avatar: "KB",
     rating: 5,
+    metric: "Prix 2026 vs tarifs 2022",
   },
 ];
 
@@ -402,59 +405,58 @@ function HeroSection() {
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-sm">
                 <Sparkles className="h-3 w-3" />
               </span>
-              Plateforme IA de construction & d'investissement — Tunisie 2026
+              N°1 en Tunisie — estimation IA construction & investissement
             </span>
           </motion.div>
 
-          {/* Title */}
+          {/* Title — benefit-driven H1 */}
           <motion.h1
             initial={{ opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ delay: 0.15, duration: 0.55, ease: "easeOut" }}
             className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.08] max-w-4xl mx-auto"
           >
-            Votre <span className="gradient-text">copilote IA</span> pour
-            construire, rénover et investir.
+            <span className="gradient-text">Devis de construction</span> en
+            5 minutes — pas en 5 jours.
           </motion.h1>
 
-          {/* Tagline : Estimez. Optimisez. Construisez. Investissez. */}
+          {/* Tagline — 3 proof points inline */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.22, duration: 0.5 }}
-            className="mt-7 flex flex-wrap items-center justify-center gap-x-3 gap-y-2"
+            className="mt-7 flex flex-wrap items-center justify-center gap-x-4 gap-y-2"
           >
             {[
-              { icon: Calculator, label: "Estimez", color: "text-emerald-600 dark:text-emerald-400" },
-              { icon: Sparkles, label: "Optimisez", color: "text-violet-600 dark:text-violet-400" },
-              { icon: HardHat, label: "Construisez", color: "text-sky-600 dark:text-sky-400" },
-              { icon: TrendingUp, label: "Investissez", color: "text-indigo-600 dark:text-indigo-400" },
+              { icon: Calculator, label: "Importez un plan ou une photo", color: "text-emerald-600 dark:text-emerald-400" },
+              { icon: Sparkles, label: "L'IA calcule les coûts", color: "text-violet-600 dark:text-violet-400" },
+              { icon: FileText, label: "Recevez votre devis PDF", color: "text-sky-600 dark:text-sky-400" },
             ].map((item, i) => (
               <span
                 key={item.label}
-                className="inline-flex items-center gap-1.5 text-base sm:text-lg font-black tracking-tight"
+                className="inline-flex items-center gap-1.5 text-sm sm:text-base font-semibold tracking-tight"
               >
                 <span className={`inline-flex items-center gap-1.5 ${item.color}`}>
                   <item.icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
                   {item.label}
                 </span>
-                <span className="text-muted-foreground/40">.</span>
               </span>
             ))}
-            <span className="sr-only">Estimez. Optimisez. Construisez. Investissez.</span>
           </motion.div>
 
-          {/* Description */}
+          {/* Subtitle — specific, benefit-oriented */}
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.28, duration: 0.5 }}
             className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed"
           >
-            Analysez vos projets, optimisez vos coûts, choisissez vos matériaux et prenez de meilleures décisions immobilières grâce à l'IA.
+            Importez un plan, une photo ou une simple esquisse. L'IA tunisienne calcule les matériaux,
+            les quantités et les coûts — basés sur les prix marché 2026.
+            <span className="font-semibold text-foreground"> 0 TND pour démarrer.</span>
           </motion.p>
 
-          {/* CTA */}
+          {/* CTA — reduced to 2 clear actions */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -466,22 +468,14 @@ function HeroSection() {
               className="btn-gradient h-12 px-8 text-base gap-2 w-full sm:w-auto text-white border-0"
               onClick={() => navigate("/auth")}
             >
-              Commencer un devis gratuit
+              Calculer mon devis gratuitement
               <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-12 px-8 text-base w-full sm:w-auto"
-              onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
-            >
-              En savoir plus
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="lg" className="h-12 px-6 text-base w-full sm:w-auto gap-2">
                   <Eye className="h-4 w-4" />
-                  Voir un exemple de résultats
+                  Voir un exemple de résultat
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -752,15 +746,15 @@ function HowItWorksSection() {
           transition={{ duration: 0.5 }}
           className="mx-auto max-w-2xl text-center mb-16"
         >
-          <p className="label-overline mb-3">Copilote IA</p>
+          <p className="label-overline mb-3">Comment ça marche</p>
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-            De l'import au rapport en{" "}
-            <span className="gradient-text">3 étapes</span>
+            Du croquis au devis en{" "}
+            <span className="gradient-text">3 clics</span>
           </h2>
           <p className="mt-4 text-muted-foreground">
             {mode === "construction"
-              ? "Un processus simple et rapide pour estimer vos projets de construction en Tunisie."
-              : "Analysez la rentabilité de vos investissements immobiliers en 3 étapes — marché tunisien 2026."}
+              ? "Importez, laissez l'IA analyser, recevez votre devis détaillé — en moins de 5 minutes."
+              : "Décrivez le bien, recevez l'analyse de rentabilité, comparez les scénarios — en 3 minutes."}
           </p>
 
           {/* Sélecteur de produit */}
@@ -933,10 +927,11 @@ function FeaturesSection() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="label-overline mb-3">Votre copilote IA</p>
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-            Un copilote IA à chaque étape, de l'estimation à l'investissement
+            Tout ce dont vous avez besoin pour{' '}
+            <span className="gradient-text">construire sereinement</span>
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Estimation, matériaux, guide de construction, rénovation, investissement et fournisseurs : l'IA accompagne chaque étape sur le marché tunisien.
+            9 modules qui couvrent chaque étape : de l'estimation au suivi de chantier, en passant par le choix des matériaux et l'analyse d'investissement.
           </p>
         </div>
 
@@ -1002,12 +997,11 @@ function InvestmentsSection() {
             <span className="ml-1 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-blue-600 dark:text-blue-400">Nouveau</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-            Analysez la rentabilité de vos{" "}
-            <span className="gradient-text">investissements immobiliers</span>
+            Investissez{' '}
+            <span className="gradient-text">sans surprise</span> en Tunisie
           </h2>
           <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
-            Le moteur IA évalue automatiquement vos projets d'investissement en Tunisie : Return on Investment, flux de trésorerie,
-            récupération du capital, prévisions de bénéfices et score d'investissement.
+            Comparez 3 scénarios, visualisez votre ROI à 1/5/10 ans, et obtenez un score IA sur 100 avant d'engager votre capital.
           </p>
         </motion.div>
 
@@ -1158,12 +1152,12 @@ function TestimonialsSection() {
       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-primary/5" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="label-overline mb-3">Social proof</p>
+          <p className="label-overline mb-3">Ils nous font confiance</p>
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-            Ce que disent nos utilisateurs
+            Des résultats concrets, pas des promesses
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Rejoignez les centaines de professionnels qui nous font confiance.
+            Architectes, promoteurs et ingénieurs en Tunisie utilisent BatiBuild au quotidien.
           </p>
         </div>
 
@@ -1223,13 +1217,13 @@ function CTASection() {
           <div className="relative">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 backdrop-blur-sm">
               <Sparkles className="h-3.5 w-3.5 text-emerald-100" />
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">Prêt à commencer ?</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">Rejoignez les professionnels tunisiens</span>
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white mb-4">
-              Estimez. Optimisez. Construisez. Investissez.
+              Votre premier devis est à 5 minutes.
             </h2>
             <p className="text-emerald-100/80 max-w-lg mx-auto mb-8">
-              Commencez gratuitement : importez une photo, un plan ou des dimensions et recevez votre devis IA en quelques minutes.
+              Importez une photo, un plan ou saisissez vos dimensions. L'IA calcule tout — matériaux, coûts, planning — et vous recevez un devis PDF professionnel.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
@@ -1238,14 +1232,14 @@ function CTASection() {
                 onClick={() => navigate("/auth")}
               >
                 <Upload className="h-4 w-4" />
-                Commencer maintenant
+                Calculer mon devis gratuitement
               </Button>
               <Button
                 size="lg"
                 className="h-12 px-8 text-base bg-white/10 text-white hover:bg-white/20 border border-white/20 backdrop-blur-sm"
-                onClick={() => navigate("/auth")}
+                onClick={() => navigate("/construction/demo")}
               >
-                Créer un compte
+                Voir un exemple de résultat
               </Button>
             </div>
           </div>
