@@ -404,7 +404,7 @@ function HeroSection() {
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-sm">
                 <Sparkles className="h-3 w-3" />
               </span>
-              Plateforme IA de construction & d'investissement — Tunisie 2026
+              Plateforme IA de construction & d'investissement
             </span>
           </motion.div>
 
