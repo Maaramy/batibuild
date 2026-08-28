@@ -163,7 +163,7 @@ export default function ExpertStats() {
             <BarChart3 className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-sm font-medium text-muted-foreground">Données en cours de collecte</p>
             <p className="text-xs text-muted-foreground/60 mt-1">
-              Les statistiques seront disponibles après avoir reçu des demandes de services.
+              Les statistiques seront disponibles après avoir reçu des demandes de devis.
             </p>
           </CardContent>
         </Card>

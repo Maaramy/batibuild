@@ -81,7 +81,7 @@ export default function ExpertServices() {
           <div className="flex-1">
             <h1 className="text-lg font-bold">Demandes reçues</h1>
             <p className="text-xs text-muted-foreground">
-              Demandes de services de vos clients
+              Demandes de devis de vos clients
             </p>
           </div>
           {pendingCount > 0 && (
@@ -122,7 +122,7 @@ export default function ExpertServices() {
           <Card className="border-border/40">
             <CardContent className="p-8 text-center">
               <FileText className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm font-medium text-muted-foreground">Aucune demande de service</p>
+              <p className="text-sm font-medium text-muted-foreground">Aucune demande de devis</p>
               <p className="text-xs text-muted-foreground/60 mt-1">
                 Les demandes de vos clients apparaîtront ici.
               </p>

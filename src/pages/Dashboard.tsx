@@ -942,7 +942,7 @@ export default function Dashboard() {
                     <div>
                       <h2 className="text-base sm:text-lg font-bold">Créez votre profil expert</h2>
                       <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                        Inscription en tant qu'architecte, ingénieur, bureau d'études ou promoteur — recevez des demandes de services.
+                        Inscription en tant qu'architecte, ingénieur, bureau d'études ou promoteur — recevez des demandes de devis.
                       </p>
                     </div>
                     <Button onClick={() => navigate("/dashboard/expert")} className="gap-2 bg-violet-600 hover:bg-violet-700 text-white">

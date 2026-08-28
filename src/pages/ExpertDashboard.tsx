@@ -518,7 +518,7 @@ export default function ExpertDashboard() {
                         className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
                       >
                         <FileText className="h-3.5 w-3.5" />
-                        Services
+                        Devis
                       </button>
                       <button
                         onClick={() => navigate("/dashboard/expert/stats")}
@@ -559,7 +559,7 @@ export default function ExpertDashboard() {
                         <p className="text-sm font-semibold">Abonnement Expert</p>
                         <p className="text-lg font-black text-violet-600 mt-1">{MONTHLY_PRICE} TND<small className="text-[9px] font-normal text-muted-foreground">/mois</small></p>
                         <ul className="mt-2 space-y-1">
-                          {["Profil expert complet", "Badge certifié", "Demandes de services", "Statistiques avancées", "Support prioritaire"].map((f) => (
+                          {["Profil expert complet", "Badge certifié", "Demandes de devis", "Statistiques avancées", "Support prioritaire"].map((f) => (
                             <li key={f} className="flex items-center gap-1 text-[9px] text-muted-foreground">
                               <Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />{f}
                             </li>
@@ -989,7 +989,7 @@ export default function ExpertDashboard() {
                 <div>
                   <p className="text-sm font-semibold">Créez votre profil expert</p>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Vous êtes architecte, ingénieur, bureau d'études ou promoteur ? Créez votre profil pour recevoir des demandes de services.
+                    Vous êtes architecte, ingénieur, bureau d'études ou promoteur ? Créez votre profil pour recevoir des demandes de devis.
                   </p>
                 </div>
                 <Button className="gap-1.5 text-sm bg-violet-600 hover:bg-violet-700" onClick={() => setIsEditing(true)}>

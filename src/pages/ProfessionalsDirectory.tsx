@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ArrowLeft, Users, Search, MapPin, Phone, Mail,
-  Globe, ChevronDown, ChevronUp, X, Briefcase, Building2,
-  MessageSquare, BriefcaseBusiness,
+  Globe, ChevronDown, ChevronUp, X, Briefcase, Building2, FileText,
+
 } from "lucide-react";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
 
@@ -278,19 +278,19 @@ export default function ProfessionalsDirectory() {
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-2 pt-1">
-                      <button
-                        onClick={() => setExpandedId(isExpanded ? null : e._id)}
+                      <a
+                        href={e.phone ? `tel:${e.phone}` : undefined}
                         className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[10px] font-medium text-amber-700 hover:bg-amber-500/10 transition-all"
                       >
-                        <MessageSquare className="h-3 w-3" />
+                        <Phone className="h-3 w-3" />
                         Contacter
-                      </button>
+                      </a>
                       <button
                         onClick={() => navigate("/auth?returnTo=/dashboard")}
                         className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
                       >
-                        <BriefcaseBusiness className="h-3 w-3" />
-                        Demande de service
+                        <FileText className="h-3 w-3" />
+                        Demande de devis
                       </button>
                     </div>
                   </CardContent>
