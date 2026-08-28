@@ -400,12 +400,11 @@ function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05, duration: 0.5 }}
             className="mb-4 flex justify-center"
-          >
-            <span className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-1.5 text-[11px] sm:text-xs font-semibold text-violet-700 dark:text-violet-300 shadow-sm">
+          >              <span className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-1.5 text-[11px] sm:text-xs font-semibold text-violet-700 dark:text-violet-300 shadow-sm">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-sm">
                 <Sparkles className="h-3 w-3" />
               </span>
-              N°1 en Tunisie — estimation IA construction & investissement
+              Plateforme IA de construction & d'investissement — Tunisie 2026
             </span>
           </motion.div>
 
@@ -416,8 +415,8 @@ function HeroSection() {
             transition={{ delay: 0.15, duration: 0.55, ease: "easeOut" }}
             className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.08] max-w-4xl mx-auto"
           >
-            <span className="gradient-text">Devis de construction</span> en
-            5 minutes — pas en 5 jours.
+            Votre <span className="gradient-text">copilote IA</span> pour
+            construire, rénover et investir.
           </motion.h1>
 
           {/* Tagline — 3 proof points inline */}
@@ -428,9 +427,10 @@ function HeroSection() {
             className="mt-7 flex flex-wrap items-center justify-center gap-x-4 gap-y-2"
           >
             {[
-              { icon: Calculator, label: "Importez un plan ou une photo", color: "text-emerald-600 dark:text-emerald-400" },
-              { icon: Sparkles, label: "L'IA calcule les coûts", color: "text-violet-600 dark:text-violet-400" },
-              { icon: FileText, label: "Recevez votre devis PDF", color: "text-sky-600 dark:text-sky-400" },
+              { icon: Calculator, label: "Estimez", color: "text-emerald-600 dark:text-emerald-400" },
+              { icon: Sparkles, label: "Optimisez", color: "text-violet-600 dark:text-violet-400" },
+              { icon: Building2, label: "Construisez", color: "text-sky-600 dark:text-sky-400" },
+              { icon: TrendingUp, label: "Investissez", color: "text-indigo-600 dark:text-indigo-400" },
             ].map((item, i) => (
               <span
                 key={item.label}
@@ -440,6 +440,7 @@ function HeroSection() {
                   <item.icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
                   {item.label}
                 </span>
+                {i < 3 && <span className="text-muted-foreground/40">·</span>}
               </span>
             ))}
           </motion.div>
@@ -451,9 +452,8 @@ function HeroSection() {
             transition={{ delay: 0.28, duration: 0.5 }}
             className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed"
           >
-            Importez un plan, une photo ou une simple esquisse. L'IA tunisienne calcule les matériaux,
-            les quantités et les coûts — basés sur les prix marché 2026.
-            <span className="font-semibold text-foreground"> 0 TND pour démarrer.</span>
+            Analysez vos projets, optimisez vos coûts, choisissez vos matériaux et prenez de meilleures
+            décisions immobilières grâce à l'IA.
           </motion.p>
 
           {/* CTA — reduced to 2 clear actions */}
@@ -468,14 +468,22 @@ function HeroSection() {
               className="btn-gradient h-12 px-8 text-base gap-2 w-full sm:w-auto text-white border-0"
               onClick={() => navigate("/auth")}
             >
-              Calculer mon devis gratuitement
+              Commencer un devis gratuit
               <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="h-12 px-6 text-base w-full sm:w-auto gap-2"
+              onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+            >
+              En savoir plus
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="lg" className="h-12 px-6 text-base w-full sm:w-auto gap-2">
                   <Eye className="h-4 w-4" />
-                  Voir un exemple de résultat
+                  Voir un exemple de résultats
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
