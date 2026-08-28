@@ -1,17 +1,21 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   ArrowLeft, Users, Search, MapPin, Phone, Mail,
   Globe, ChevronDown, ChevronUp, X, Briefcase, Building2, FileText,
-
+  Loader2,
 } from "lucide-react";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
+import { toast } from "sonner";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -47,12 +51,17 @@ export default function ProfessionalsDirectory() {
   });
 
   const navigate = useNavigate();
+  const { user } = useAuth();
   const experts = useQuery(api.expertProfiles.getActiveExperts);
 
   const [search, setSearch] = useState("");
   const [selectedProfession, setSelectedProfession] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [devisExpert, setDevisExpert] = useState<any>(null);
+  const [devisForm, setDevisForm] = useState({ description: "", userPhone: "", userEmail: "", userName: "" });
+  const [sendingDevis, setSendingDevis] = useState(false);
+  const createServiceRequest = useMutation(api.expertServiceRequests.create);
 
   const availableSpecialties = useMemo(() => {
     if (!experts) return [];
@@ -286,7 +295,14 @@ export default function ProfessionalsDirectory() {
                         Contacter
                       </a>
                       <button
-                        onClick={() => navigate("/auth?returnTo=/dashboard")}
+                        onClick={() => {
+                          if (!user) {
+                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+                            return;
+                          }
+                          setDevisExpert(e);
+                          setDevisForm({ description: "", userPhone: user?.phone ?? "", userEmail: user?.email ?? "", userName: user?.name ?? "" });
+                        }}
                         className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
                       >
                         <FileText className="h-3 w-3" />
@@ -300,6 +316,91 @@ export default function ProfessionalsDirectory() {
           </div>
         )}
       </div>
+
+      {/* Dialog Demande de devis */}
+      <Dialog open={!!devisExpert} onOpenChange={(o) => { if (!o) setDevisExpert(null); }}>
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-amber-600" />
+              Demande de devis
+            </DialogTitle>
+            <DialogDescription>
+              Envoyez votre demande de devis à <b>{devisExpert?.displayName}</b>.
+              L'expert vous enverra une offre personnalisée.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground">Votre nom</label>
+              <Input
+                value={devisForm.userName}
+                onChange={(ev) => setDevisForm((f) => ({ ...f, userName: ev.target.value }))}
+                placeholder="Nom complet"
+                className="h-8 text-xs mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Téléphone</label>
+                <Input
+                  value={devisForm.userPhone}
+                  onChange={(ev) => setDevisForm((f) => ({ ...f, userPhone: ev.target.value }))}
+                  placeholder="+216 XX XXX XXX"
+                  className="h-8 text-xs mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground">Email</label>
+                <Input
+                  value={devisForm.userEmail}
+                  onChange={(ev) => setDevisForm((f) => ({ ...f, userEmail: ev.target.value }))}
+                  placeholder="email@example.com"
+                  className="h-8 text-xs mt-1"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground">Description du besoin</label>
+              <textarea
+                value={devisForm.description}
+                onChange={(ev) => setDevisForm((f) => ({ ...f, description: ev.target.value }))}
+                placeholder="Décrivez votre projet (type de travaux, surface, budget estimé, délais souhaités...)"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs min-h-[80px] resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <Button
+              className="w-full gap-1.5 text-xs"
+              disabled={sendingDevis || !devisForm.description.trim()}
+              onClick={async () => {
+                if (!devisExpert) return;
+                setSendingDevis(true);
+                try {
+                  await createServiceRequest({
+                    expertId: devisExpert._id,
+                    serviceType: "devis",
+                    description: devisForm.description,
+                    userPhone: devisForm.userPhone,
+                    userEmail: devisForm.userEmail,
+                    userName: devisForm.userName,
+                  });
+                  toast.success("Demande de devis envoyée avec succès !", {
+                    description: `${devisExpert.displayName} recevra votre demande et vous enverra une offre.`,
+                  });
+                  setDevisExpert(null);
+                } catch (err: any) {
+                  toast.error("Erreur lors de l'envoi", { description: err?.message ?? "Veuillez réessayer." });
+                } finally {
+                  setSendingDevis(false);
+                }
+              }}
+            >
+              {sendingDevis ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+              {sendingDevis ? "Envoi en cours..." : "Envoyer la demande"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
