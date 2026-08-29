@@ -235,6 +235,8 @@ interface ProgramItem {
   unique?: boolean;
   /** Priorité de placement adjacent (pièce intérieure idéale voisine) */
   preferredNeighbor?: RoomKind;
+  /** Circulation dédiée (couloir, hall) — pas une pièce habitable */
+  circulation?: boolean;
 }
 
 function residentialProgram(
@@ -340,6 +342,24 @@ function residentialProgram(
           min: 5,
           priority: 6,
           habitable: true,
+        });
+      }
+    }
+    // ── Couloir de circulation pour étages supérieurs multi-pièces ──
+    //    Le couloir est alloué EN AMONT du BSP : son aire est comptée dans
+    //    la surface totale, les pièces se répartissent le reste.
+    if (lvl > 0 && levels > 1) {
+      const bedroomCount = bedroomLevels[lvl]?.length ?? 0;
+      const totalRooms = items.length; // chambres + SDB (+ WC)
+      if (bedroomCount >= 2 || totalRooms >= 3) {
+        const corridorArea = round3(Math.max(CORRIDOR_WIDTH * 3, area * CORRIDOR_SHARE));
+        items.push({
+          kind: "couloir",
+          label: "Couloir",
+          target: corridorArea,
+          min: CORRIDOR_WIDTH * 2,
+          priority: 16, // priorité haute : essentiel pour la circulation
+          circulation: true,
         });
       }
     }
@@ -1023,6 +1043,10 @@ function buildLevel(
     for (const p of placed) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable, p.item.preferredNeighbor));
   }
 
+  // Les couloirs de circulation sont placés par BSP comme des pièces normales.
+  // Leur aire est comptée dans le programme, donc la somme des surfaces est
+  // préservée. Les portes sont ajoutées par addOpenings.
+
   // ── Repositionner les pièces extérieures en périphérie de la structure ──
   repositionExteriorRooms(plan);
 
@@ -1142,10 +1166,12 @@ export function validatePlan(
   }
   if (!areasOk) score -= 10;
 
-  // 4. Circulation : chaque pièce dispose d'une porte
+  // 4. Circulation : chaque pièce (hors couloirs/escaliers) dispose d'une porte
+  const NO_DOOR_KINDS = new Set<RoomKind>(["couloir", "escalier", "jardin", "piscine"]);
   let circulationOk = true;
   for (const fp of variant.floors) {
     for (const r of fp.rooms) {
+      if (NO_DOOR_KINDS.has(r.kind)) continue;
       if (r.doors.length === 0) {
         circulationOk = false;
         issues.push(`Pièce sans accès : ${r.label} (niveau ${fp.level + 1})`);
