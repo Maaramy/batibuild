@@ -68,6 +68,8 @@ export interface PlanRoom {
   area: number;
   doors: DoorSpec[];
   windows: WindowSpec[];
+  /** Pièce intérieure idéale voisine (pour les extras extérieurs) */
+  preferredNeighbor?: RoomKind;
 }
 
 export interface FloorPlan {
@@ -231,6 +233,8 @@ interface ProgramItem {
   habitable?: boolean;
   /** Unique dans le programme */
   unique?: boolean;
+  /** Priorité de placement adjacent (pièce intérieure idéale voisine) */
+  preferredNeighbor?: RoomKind;
 }
 
 function residentialProgram(
@@ -340,21 +344,54 @@ function residentialProgram(
       }
     }
     // ── Extras optionnels (garage, jardin, piscine, balcon, véranda) ──
+    //    Chaque option dimensionnée proportionnellement au projet,
+    //    avec adjacency idéale pour optimiser les flux d'accès.
     if (lvl === 0 && input.extras && input.extras.length > 0) {
       if (input.extras.includes("garage")) {
-        items.push({ kind: "garage", label: "Garage", target: 15, min: 12, priority: 8 });
+        // Garage : dimensionné selon la surface du projet (1 voiture = ~12m², 2 voitures = ~22m²)
+        const garageTarget = area >= 120 ? 22 : area >= 80 ? 17 : 13;
+        items.push({
+          kind: "garage", label: "Garage",
+          target: garageTarget, min: 12, priority: 8,
+          preferredNeighbor: "cuisine", // accès direct cuisine/couloir
+        });
       }
       if (input.extras.includes("jardin")) {
-        items.push({ kind: "jardin", label: "Jardin", target: 20, min: 10, priority: 3 });
+        // Jardin : surface proportionnelle au projet, accès depuis séjour
+        const jardinTarget = area >= 150 ? 40 : area >= 100 ? 28 : 18;
+        items.push({
+          kind: "jardin", label: "Jardin",
+          target: jardinTarget, min: 10, priority: 3,
+          preferredNeighbor: "sejour", // vue/jardin depuis le séjour
+        });
       }
       if (input.extras.includes("piscine")) {
-        items.push({ kind: "piscine", label: "Piscine", target: 12, min: 8, priority: 2 });
+        // Piscine : adapte à la taille du projet (petite/moyenne/large)
+        const piscineTarget = area >= 150 ? 16 : area >= 100 ? 12 : 9;
+        items.push({
+          kind: "piscine", label: "Piscine",
+          target: piscineTarget, min: 8, priority: 2,
+          preferredNeighbor: "sejour", // accès depuis séjour/jardin
+        });
       }
       if (input.extras.includes("balcon")) {
-        items.push({ kind: "balcon", label: "Balcon", target: 5, min: 3, priority: 4 });
+        // Balcon : relié à une chambre ou séjour, surface adaptée
+        const balconTarget = area >= 120 ? 6 : 4;
+        items.push({
+          kind: "balcon", label: "Balcon",
+          target: balconTarget, min: 3, priority: 4,
+          preferredNeighbor: "chambre", // accès depuis chambre principale
+        });
       }
       if (input.extras.includes("veranda")) {
-        items.push({ kind: "veranda", label: "Véranda", target: 10, min: 6, priority: 5, habitable: true });
+        // Véranda : extension du séjour, baies vitrées
+        const verandaTarget = area >= 120 ? 16 : area >= 80 ? 12 : 9;
+        items.push({
+          kind: "veranda", label: "Véranda",
+          target: verandaTarget, min: 6, priority: 5,
+          habitable: true,
+          preferredNeighbor: "sejour", // ouverture directe sur séjour
+        });
       }
     }
     result.push({ level: lvl, items });
@@ -550,19 +587,23 @@ function repositionExteriorRooms(plan: FloorPlan): void {
     const isInside = cx > bMinX && cx < bMaxX && cy > bMinY && cy < bMaxY;
     if (!isInside) continue; // déjà en périphérie
 
-    // Tester les 4 côtés et choisir celui avec le moins de chevauchement
-    const candidates: { x: number; y: number; w: number; h: number; score: number }[] = [];
+    // Trouver le voisin préféré s'il existe
+    const preferred = ext.preferredNeighbor
+      ? interior.find((r) => r.kind === ext.preferredNeighbor)
+      : undefined;
 
-    // Côté Nord (au-dessus du bâtiment)
-    candidates.push({ x: ext.x, y: bMinY - ext.h, w: ext.w, h: ext.h, score: 0 });
-    // Côté Sud (en dessous)
-    candidates.push({ x: ext.x, y: bMaxY, w: ext.w, h: ext.h, score: 1 });
-    // Côté Ouest (à gauche)
-    candidates.push({ x: bMinX - ext.w, y: ext.y, w: ext.w, h: ext.h, score: 2 });
-    // Côté Est (à droite)
-    candidates.push({ x: bMaxX, y: ext.y, w: ext.w, h: ext.h, score: 3 });
+    // Les 4 positions candidates (un par côté du bâtiment)
+    const candidates: { x: number; y: number; w: number; h: number; side: string }[] = [
+      { x: ext.x, y: bMinY - ext.h, w: ext.w, h: ext.h, side: "N" },
+      { x: ext.x, y: bMaxY, w: ext.w, h: ext.h, side: "S" },
+      { x: bMinX - ext.w, y: ext.y, w: ext.w, h: ext.h, side: "W" },
+      { x: bMaxX, y: ext.y, w: ext.w, h: ext.h, side: "E" },
+    ];
 
-    // Évaluer chaque candidat : pénaliser les chevauchements avec les pièces intérieures
+    // Évaluer chaque candidat :
+    //  - pénaliser les chevauchements avec les pièces intérieures
+    //  - pénaliser les débordements hors emprise
+    //  - bonus si adjacent au voisin préféré
     let best = candidates[0];
     let bestScore = Infinity;
     for (const c of candidates) {
@@ -575,7 +616,19 @@ function repositionExteriorRooms(plan: FloorPlan): void {
       // Pénaliser les débordements hors emprise
       const overX = Math.max(0, (c.x + c.w) - plan.length) + Math.max(0, -c.x);
       const overY = Math.max(0, (c.y + c.h) - plan.width) + Math.max(0, -c.y);
-      const total = overlap + (overX + overY) * 10;
+      let total = overlap + (overX + overY) * 10;
+
+      // Bonus : si cette position est adjacente au voisin préféré, réduire le score
+      if (preferred) {
+        const isAdjVert = Math.abs(c.x + c.w - preferred.x) < TOL || Math.abs(preferred.x + preferred.w - c.x) < TOL;
+        const isAdjHoriz = Math.abs(c.y + c.h - preferred.y) < TOL || Math.abs(preferred.y + preferred.h - c.y) < TOL;
+        const yOverlap = Math.max(0, Math.min(c.y + c.h, preferred.y + preferred.h) - Math.max(c.y, preferred.y));
+        const xOverlap = Math.max(0, Math.min(c.x + c.w, preferred.x + preferred.w) - Math.max(c.x, preferred.x));
+        if ((isAdjVert && yOverlap > 1.0) || (isAdjHoriz && xOverlap > 1.0)) {
+          total -= 50; // bonus d'adjacence fort
+        }
+      }
+
       if (total < bestScore) {
         bestScore = total;
         best = c;
@@ -630,7 +683,13 @@ function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number
         }
       }
     }
-    const doorWidth = room.kind === "garage" ? 2.4 : 0.9;
+    // Largeur de porte adaptée au type de pièce
+    let doorWidth = 0.9;
+    if (room.kind === "garage") doorWidth = 2.4;       // portail double battant
+    else if (room.kind === "veranda") doorWidth = 1.8; // baie vitrée coulissante
+    else if (room.kind === "jardin") doorWidth = 1.4;  // porte-fenêtre
+    else if (room.kind === "piscine") doorWidth = 0.9; // accès depuis séjour
+    else if (room.kind === "balcon") doorWidth = 0.9;  // porte-fenêtre balcon
     if (best) {
       room.doors.push({
         wall: best.side,
@@ -671,7 +730,7 @@ function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number
     }
   }
 
-  // Fenêtres : pièces habitables donnant sur l'extérieur
+  // Fenêtres : pièces habitables + véranda donnant sur l'extérieur
   for (const room of rooms) {
     const habitable =
       room.kind === "chambre" ||
@@ -681,7 +740,8 @@ function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number
       room.kind === "openspace" ||
       room.kind === "reunion" ||
       room.kind === "reception" ||
-      room.kind === "polyvalent";
+      room.kind === "polyvalent" ||
+      room.kind === "veranda";
     if (!habitable) continue;
     const sides: { side: WallSide; exterior: boolean; span: number; origin: number }[] = [
       { side: "N", exterior: Math.abs(room.y) < TOL, span: room.w, origin: room.x },
@@ -957,10 +1017,10 @@ function buildLevel(
     }
     const placedR = bspLayout(zones[0], fitProgram(rightItems, areaRight));
     const placedB = bspLayout(zones[1], fitProgram(bottomItems, areaBottom));
-    for (const p of [...placedR, ...placedB]) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable));
+    for (const p of [...placedR, ...placedB]) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable, p.item.preferredNeighbor));
   } else {
     const placed = bspLayout({ x: 0, y: 0, w: length, h: width }, fitProgram(items, length * width));
-    for (const p of placed) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable));
+    for (const p of placed) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable, p.item.preferredNeighbor));
   }
 
   // ── Repositionner les pièces extérieures en périphérie de la structure ──
@@ -992,6 +1052,7 @@ function makeRoom(
   w: number,
   h: number,
   _habitable?: boolean,
+  preferredNeighbor?: RoomKind,
 ): PlanRoom {
   return {
     id,
@@ -1004,6 +1065,7 @@ function makeRoom(
     area: round3(w * h),
     doors: [],
     windows: [],
+    preferredNeighbor,
   };
 }
 
