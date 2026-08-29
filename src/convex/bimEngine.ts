@@ -534,17 +534,17 @@ const RELATIVE_PRICE_M2: Record<string, { eco: number, std: number, premium: num
   renovation_interieure:    { eco: 307, std: 528, premium: 960 },
   renovation_complete:      { eco: 288, std: 480, premium: 864 },
   renovation_exterieure:   { eco: 250, std: 432, premium: 768 },
-  renovation_salle_de_bain: { eco: 1248, std: 1920, premium: 3360 },
-  renovation_cuisine:       { eco: 1248, std: 1920, premium: 3360 },
+  renovation_salle_de_bain: { eco: 712, std: 890, premium: 1068 },
+  renovation_cuisine:       { eco: 712, std: 1098, premium: 1483 },
   renovation_facade:        { eco: 221, std: 336, premium: 576 },
   peinture_interieure:      { eco: 13, std: 20, premium: 36 },
 
   // Démolition
   demolition:                { eco: 86, std: 125, premium: 211 },
   installations_sanitaires:  { eco: 960, std: 1536, premium: 2880 },
-  plomberie_complete:        { eco: 106, std: 173, premium: 307 },
+  plomberie_complete:        { eco: 47, std: 98, premium: 148 },
   installations_electricite: { eco: 173, std: 307, premium: 528 },
-  electricite_complete:      { eco: 115, std: 202, premium: 365 },
+  electricite_complete:      { eco: 36, std: 71, premium: 107 },
 };
 
 /** Base nationale « Standard » — maison neuve conventionnelle (feuille 2026). */
