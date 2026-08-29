@@ -394,7 +394,7 @@ function renovationCuisineLots(): LotTpl[] {
     ]),
     lot("meubles", "Meubles de cuisine", "equipements", 18, [
       { d: "Meubles hauts et bas", desc: "Cuisine équipée sur mesure ou standard.", u: "ml", q: 3, up: 650, n: "equipements" },
-      { d: "Hotte aspirante", desc: "Hotte 60 cm avec évacuation.", u: "unité", q: 1, qMode: "fixed", up: 450, n: "equipements" },
+      { d: "Hotte aspirante", desc: "Hotte 60 cm avec évacuation.", u: "unité", q: 1, qMode: "fixed", up: 350, n: "equipements" },
     ]),
     lot("peinture", "Peinture", "materiaux", 5, [
       { d: "Peinture des murs et plafonds", desc: "2 couches finition lessivable.", u: "m²", q: 60, up: 8, n: "materiaux" },
