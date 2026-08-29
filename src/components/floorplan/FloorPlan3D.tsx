@@ -156,6 +156,12 @@ export function FloorPlan3D({ plan }: { plan: FloorPlan }) {
     const doorMat = track(
       new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: 0.6 }),
     );
+    const doorFrameMat = track(
+      new THREE.MeshStandardMaterial({ color: 0x6b3f1f, roughness: 0.5 }),
+    );
+    const doorHandleMat = track(
+      new THREE.MeshStandardMaterial({ color: 0xc0a050, roughness: 0.3, metalness: 0.7 }),
+    );
 
     const building = new THREE.Group();
 
@@ -266,6 +272,35 @@ export function FloorPlan3D({ plan }: { plan: FloorPlan }) {
         } else {
           place(op.a, op.b, DOOR_H, WALL_H, wallMat); // linteau
           place(op.a, op.b, 0, DOOR_H, doorMat); // porte bois (fermée)
+          // Cadre de porte (légèrement saillant)
+          const doorLen = op.b - op.a;
+          const frDepth = 0.04;
+          const frH = 0.06;
+          if (side.key === "N") {
+            box(doorLen + 0.1, frH, frDepth, (op.a + op.b) / 2, DOOR_H + frH / 2, halfE + EXT_T / 2 + frDepth / 2, doorFrameMat);
+            box(doorLen + 0.1, frH, frDepth, (op.a + op.b) / 2, frH / 2, halfE + EXT_T / 2 + frDepth / 2, doorFrameMat);
+          } else if (side.key === "S") {
+            box(doorLen + 0.1, frH, frDepth, (op.a + op.b) / 2, DOOR_H + frH / 2, W - halfE - EXT_T / 2 - frDepth / 2, doorFrameMat);
+            box(doorLen + 0.1, frH, frDepth, (op.a + op.b) / 2, frH / 2, W - halfE - EXT_T / 2 - frDepth / 2, doorFrameMat);
+          } else if (side.key === "W") {
+            box(frDepth, frH, doorLen + 0.1, halfE + EXT_T / 2 + frDepth / 2, DOOR_H + frH / 2, (op.a + op.b) / 2, doorFrameMat);
+            box(frDepth, frH, doorLen + 0.1, halfE + EXT_T / 2 + frDepth / 2, frH / 2, (op.a + op.b) / 2, doorFrameMat);
+          } else {
+            box(frDepth, frH, doorLen + 0.1, L - halfE - EXT_T / 2 - frDepth / 2, DOOR_H + frH / 2, (op.a + op.b) / 2, doorFrameMat);
+            box(frDepth, frH, doorLen + 0.1, L - halfE - EXT_T / 2 - frDepth / 2, frH / 2, (op.a + op.b) / 2, doorFrameMat);
+          }
+          // Poignée de porte (petite sphère métallique)
+          const handleR = 0.03;
+          const handleH = DOOR_H * 0.52;
+          const handleOff = doorLen * 0.38;
+          const handleGeo = track(new THREE.SphereGeometry(handleR, 12, 8));
+          const handleMesh = new THREE.Mesh(handleGeo, doorHandleMat);
+          if (side.key === "N") handleMesh.position.set((op.a + op.b) / 2 + handleOff, handleH, halfE + EXT_T / 2 + 0.05);
+          else if (side.key === "S") handleMesh.position.set((op.a + op.b) / 2 + handleOff, handleH, W - halfE - EXT_T / 2 - 0.05);
+          else if (side.key === "W") handleMesh.position.set(halfE + EXT_T / 2 + 0.05, handleH, (op.a + op.b) / 2 + handleOff);
+          else handleMesh.position.set(L - halfE - EXT_T / 2 - 0.05, handleH, (op.a + op.b) / 2 + handleOff);
+          handleMesh.castShadow = true;
+          building.add(handleMesh);
         }
       }
     }
