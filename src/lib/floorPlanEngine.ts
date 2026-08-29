@@ -31,7 +31,11 @@ export type RoomKind =
   | "stockage"
   | "logistique"
   | "vestiaire"
-  | "polyvalent";
+  | "polyvalent"
+  | "jardin"
+  | "piscine"
+  | "balcon"
+  | "veranda";
 
 export type WallSide = "N" | "S" | "E" | "W";
 
@@ -111,6 +115,8 @@ export interface FloorPlanInput {
   kitchens?: number;
   livingRooms?: number;
   wcs?: number;
+  /** Options supplémentaires à inclure dans les plans */
+  extras?: string[];
 }
 
 // ── PRNG déterministe (mulberry32) ──────────────────────────────────────────
@@ -149,6 +155,10 @@ export const PLAN_ROOM_COLORS: Record<RoomKind, string> = {
   logistique: "#ecfccb",
   vestiaire: "#f1f5f9",
   polyvalent: "#f5f5f4",
+  jardin: "#d9f99d",
+  piscine: "#bae6fd",
+  balcon: "#e0e7ff",
+  veranda: "#fef3c7",
 };
 
 export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
@@ -170,6 +180,10 @@ export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
   logistique: "Zone logistique",
   vestiaire: "Vestiaire",
   polyvalent: "Espace polyvalent",
+  jardin: "Jardin",
+  piscine: "Piscine",
+  balcon: "Balcon",
+  veranda: "Véranda",
 };
 
 // ── Familles de projets ─────────────────────────────────────────────────────
@@ -278,15 +292,7 @@ function residentialProgram(
         min: 1.5,
         priority: 5,
       });
-      if (input.category === "villa" || input.category === "maison") {
-        items.push({
-          kind: "garage",
-          label: "Garage",
-          target: 15,
-          min: 12,
-          priority: 8,
-        });
-      }
+
       // Sur un R+1 avec peu de chambres, quelques chambres peuvent monter au RDC
       if (levels === 1) {
         for (const idx of bedroomLevels[0]) items.push(mkChambre(idx));
@@ -319,6 +325,24 @@ function residentialProgram(
           priority: 6,
           habitable: true,
         });
+      }
+    }
+    // ── Extras optionnels (garage, jardin, piscine, balcon, véranda) ──
+    if (lvl === 0 && input.extras && input.extras.length > 0) {
+      if (input.extras.includes("garage")) {
+        items.push({ kind: "garage", label: "Garage", target: 15, min: 12, priority: 8 });
+      }
+      if (input.extras.includes("jardin")) {
+        items.push({ kind: "jardin", label: "Jardin", target: 20, min: 10, priority: 3 });
+      }
+      if (input.extras.includes("piscine")) {
+        items.push({ kind: "piscine", label: "Piscine", target: 12, min: 8, priority: 2 });
+      }
+      if (input.extras.includes("balcon")) {
+        items.push({ kind: "balcon", label: "Balcon", target: 5, min: 3, priority: 4 });
+      }
+      if (input.extras.includes("veranda")) {
+        items.push({ kind: "veranda", label: "Véranda", target: 10, min: 6, priority: 5, habitable: true });
       }
     }
     result.push({ level: lvl, items });
