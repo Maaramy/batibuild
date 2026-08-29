@@ -48,10 +48,6 @@ const ROOM_COLORS_3D: Record<RoomKind, number> = {
   logistique: 0xf6dcc2,
   vestiaire: 0xd8cdf5,
   polyvalent: 0xdfe3e8,
-  jardin: 0xc8e6a0,
-  piscine: 0xa0d8f0,
-  balcon: 0xc8c8e8,
-  veranda: 0xf0e0b0,
 };
 
 interface Interval {

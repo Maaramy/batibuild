@@ -34,10 +34,6 @@ const ROOM_TINT: Record<string, string> = {
   logistique: "#ea580c",
   vestiaire: "#8b5cf6",
   polyvalent: "#94a3b8",
-  jardin: "#22c55e",
-  piscine: "#0ea5e9",
-  balcon: "#6366f1",
-  veranda: "#f59e0b",
 };
 
 export function FloorPlan2D({ plan }: { plan: FloorPlan }) {

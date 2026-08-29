@@ -31,11 +31,7 @@ export type RoomKind =
   | "stockage"
   | "logistique"
   | "vestiaire"
-  | "polyvalent"
-  | "jardin"
-  | "piscine"
-  | "balcon"
-  | "veranda";
+  | "polyvalent";
 
 export type WallSide = "N" | "S" | "E" | "W";
 
@@ -68,8 +64,6 @@ export interface PlanRoom {
   area: number;
   doors: DoorSpec[];
   windows: WindowSpec[];
-  /** Pièce intérieure idéale voisine (pour les extras extérieurs) */
-  preferredNeighbor?: RoomKind;
 }
 
 export interface FloorPlan {
@@ -117,8 +111,6 @@ export interface FloorPlanInput {
   kitchens?: number;
   livingRooms?: number;
   wcs?: number;
-  /** Options supplémentaires à inclure dans les plans */
-  extras?: string[];
 }
 
 // ── PRNG déterministe (mulberry32) ──────────────────────────────────────────
@@ -169,10 +161,6 @@ export const PLAN_ROOM_COLORS: Record<RoomKind, string> = {
   logistique: "#ecfccb",
   vestiaire: "#f1f5f9",
   polyvalent: "#f5f5f4",
-  jardin: "#d9f99d",
-  piscine: "#bae6fd",
-  balcon: "#e0e7ff",
-  veranda: "#fef3c7",
 };
 
 export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
@@ -194,10 +182,6 @@ export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
   logistique: "Zone logistique",
   vestiaire: "Vestiaire",
   polyvalent: "Espace polyvalent",
-  jardin: "Jardin",
-  piscine: "Piscine",
-  balcon: "Balcon",
-  veranda: "Véranda",
 };
 
 // ── Familles de projets ─────────────────────────────────────────────────────
@@ -233,8 +217,6 @@ interface ProgramItem {
   habitable?: boolean;
   /** Unique dans le programme */
   unique?: boolean;
-  /** Priorité de placement adjacent (pièce intérieure idéale voisine) */
-  preferredNeighbor?: RoomKind;
   /** Circulation dédiée (couloir, hall) — pas une pièce habitable */
   circulation?: boolean;
 }
@@ -360,57 +342,6 @@ function residentialProgram(
           min: CORRIDOR_WIDTH * 2,
           priority: 16, // priorité haute : essentiel pour la circulation
           circulation: true,
-        });
-      }
-    }
-    // ── Extras optionnels (garage, jardin, piscine, balcon, véranda) ──
-    //    Chaque option dimensionnée proportionnellement au projet,
-    //    avec adjacency idéale pour optimiser les flux d'accès.
-    if (lvl === 0 && input.extras && input.extras.length > 0) {
-      if (input.extras.includes("garage")) {
-        // Garage : dimensionné selon la surface du projet (1 voiture = ~12m², 2 voitures = ~22m²)
-        const garageTarget = area >= 120 ? 22 : area >= 80 ? 17 : 13;
-        items.push({
-          kind: "garage", label: "Garage",
-          target: garageTarget, min: 12, priority: 8,
-          preferredNeighbor: "cuisine", // accès direct cuisine/couloir
-        });
-      }
-      if (input.extras.includes("jardin")) {
-        // Jardin : surface proportionnelle au projet, accès depuis séjour
-        const jardinTarget = area >= 150 ? 40 : area >= 100 ? 28 : 18;
-        items.push({
-          kind: "jardin", label: "Jardin",
-          target: jardinTarget, min: 10, priority: 3,
-          preferredNeighbor: "sejour", // vue/jardin depuis le séjour
-        });
-      }
-      if (input.extras.includes("piscine")) {
-        // Piscine : adapte à la taille du projet (petite/moyenne/large)
-        const piscineTarget = area >= 150 ? 16 : area >= 100 ? 12 : 9;
-        items.push({
-          kind: "piscine", label: "Piscine",
-          target: piscineTarget, min: 8, priority: 2,
-          preferredNeighbor: "sejour", // accès depuis séjour/jardin
-        });
-      }
-      if (input.extras.includes("balcon")) {
-        // Balcon : relié à une chambre ou séjour, surface adaptée
-        const balconTarget = area >= 120 ? 6 : 4;
-        items.push({
-          kind: "balcon", label: "Balcon",
-          target: balconTarget, min: 3, priority: 4,
-          preferredNeighbor: "chambre", // accès depuis chambre principale
-        });
-      }
-      if (input.extras.includes("veranda")) {
-        // Véranda : extension du séjour, baies vitrées
-        const verandaTarget = area >= 120 ? 16 : area >= 80 ? 12 : 9;
-        items.push({
-          kind: "veranda", label: "Véranda",
-          target: verandaTarget, min: 6, priority: 5,
-          habitable: true,
-          preferredNeighbor: "sejour", // ouverture directe sur séjour
         });
       }
     }
@@ -581,86 +512,6 @@ function fitProgram(items: ProgramItem[], available: number): ProgramItem[] {
   return kept.map((i) => ({ ...i, target: Math.max(i.min, i.target * scale) }));
 }
 
-// ── Repositionnement des pièces extérieures ────────────────────────────────
-/**
- * Après le placement BSP, les pièces extérieures (jardin, piscine, garage,
- * balcon, véranda) peuvent se retrouver au centre de la structure. Cette
- * fonction les déplace sur le périmètre du bâtiment (bord du rectangle
- * englobant des pièces intérieures) pour respecter la logique architecturale.
- */
-function repositionExteriorRooms(plan: FloorPlan): void {
-  const EXTERIOR_KINDS = new Set<RoomKind>(["jardin", "piscine", "garage", "balcon", "veranda"]);
-  const exterior = plan.rooms.filter((r) => EXTERIOR_KINDS.has(r.kind));
-  const interior = plan.rooms.filter((r) => !EXTERIOR_KINDS.has(r.kind));
-  if (exterior.length === 0 || interior.length === 0) return;
-
-  // Bounding box des pièces intérieures (la « structure »)
-  const bMinX = Math.min(...interior.map((r) => r.x));
-  const bMinY = Math.min(...interior.map((r) => r.y));
-  const bMaxX = Math.max(...interior.map((r) => r.x + r.w));
-  const bMaxY = Math.max(...interior.map((r) => r.y + r.h));
-
-  // Pour chaque pièce extérieure, trouver le meilleur bord
-  for (const ext of exterior) {
-    const cx = ext.x + ext.w / 2;
-    const cy = ext.y + ext.h / 2;
-    const isInside = cx > bMinX && cx < bMaxX && cy > bMinY && cy < bMaxY;
-    if (!isInside) continue; // déjà en périphérie
-
-    // Trouver le voisin préféré s'il existe
-    const preferred = ext.preferredNeighbor
-      ? interior.find((r) => r.kind === ext.preferredNeighbor)
-      : undefined;
-
-    // Les 4 positions candidates (un par côté du bâtiment)
-    const candidates: { x: number; y: number; w: number; h: number; side: string }[] = [
-      { x: ext.x, y: bMinY - ext.h, w: ext.w, h: ext.h, side: "N" },
-      { x: ext.x, y: bMaxY, w: ext.w, h: ext.h, side: "S" },
-      { x: bMinX - ext.w, y: ext.y, w: ext.w, h: ext.h, side: "W" },
-      { x: bMaxX, y: ext.y, w: ext.w, h: ext.h, side: "E" },
-    ];
-
-    // Évaluer chaque candidat :
-    //  - pénaliser les chevauchements avec les pièces intérieures
-    //  - pénaliser les débordements hors emprise
-    //  - bonus si adjacent au voisin préféré
-    let best = candidates[0];
-    let bestScore = Infinity;
-    for (const c of candidates) {
-      let overlap = 0;
-      for (const room of interior) {
-        const ox = Math.max(0, Math.min(c.x + c.w, room.x + room.w) - Math.max(c.x, room.x));
-        const oy = Math.max(0, Math.min(c.y + c.h, room.y + room.h) - Math.max(c.y, room.y));
-        overlap += ox * oy;
-      }
-      // Pénaliser les débordements hors emprise
-      const overX = Math.max(0, (c.x + c.w) - plan.length) + Math.max(0, -c.x);
-      const overY = Math.max(0, (c.y + c.h) - plan.width) + Math.max(0, -c.y);
-      let total = overlap + (overX + overY) * 10;
-
-      // Bonus : si cette position est adjacente au voisin préféré, réduire le score
-      if (preferred) {
-        const isAdjVert = Math.abs(c.x + c.w - preferred.x) < TOL || Math.abs(preferred.x + preferred.w - c.x) < TOL;
-        const isAdjHoriz = Math.abs(c.y + c.h - preferred.y) < TOL || Math.abs(preferred.y + preferred.h - c.y) < TOL;
-        const yOverlap = Math.max(0, Math.min(c.y + c.h, preferred.y + preferred.h) - Math.max(c.y, preferred.y));
-        const xOverlap = Math.max(0, Math.min(c.x + c.w, preferred.x + preferred.w) - Math.max(c.x, preferred.x));
-        if ((isAdjVert && yOverlap > 1.0) || (isAdjHoriz && xOverlap > 1.0)) {
-          total -= 50; // bonus d'adjacence fort
-        }
-      }
-
-      if (total < bestScore) {
-        bestScore = total;
-        best = c;
-      }
-    }
-    // Appliquer la meilleure position
-    ext.x = round3(Math.max(0, Math.min(best.x, plan.length - ext.w)));
-    ext.y = round3(Math.max(0, Math.min(best.y, plan.width - ext.h)));
-    ext.area = round3(ext.w * ext.h);
-  }
-}
-
 // ── Voisinages, portes et fenêtres ──────────────────────────────────────────
 
 /** Tolérance géométrique (les coordonnées sont arrondies au mm). */
@@ -706,10 +557,6 @@ function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number
     // Largeur de porte adaptée au type de pièce
     let doorWidth = 0.9;
     if (room.kind === "garage") doorWidth = 2.4;       // portail double battant
-    else if (room.kind === "veranda") doorWidth = 1.8; // baie vitrée coulissante
-    else if (room.kind === "jardin") doorWidth = 1.4;  // porte-fenêtre
-    else if (room.kind === "piscine") doorWidth = 0.9; // accès depuis séjour
-    else if (room.kind === "balcon") doorWidth = 0.9;  // porte-fenêtre balcon
     if (best) {
       room.doors.push({
         wall: best.side,
@@ -760,8 +607,7 @@ function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number
       room.kind === "openspace" ||
       room.kind === "reunion" ||
       room.kind === "reception" ||
-      room.kind === "polyvalent" ||
-      room.kind === "veranda";
+      room.kind === "polyvalent";
     if (!habitable) continue;
     const sides: { side: WallSide; exterior: boolean; span: number; origin: number }[] = [
       { side: "N", exterior: Math.abs(room.y) < TOL, span: room.w, origin: room.x },
@@ -1037,18 +883,15 @@ function buildLevel(
     }
     const placedR = bspLayout(zones[0], fitProgram(rightItems, areaRight));
     const placedB = bspLayout(zones[1], fitProgram(bottomItems, areaBottom));
-    for (const p of [...placedR, ...placedB]) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable, p.item.preferredNeighbor));
+    for (const p of [...placedR, ...placedB]) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable));
   } else {
     const placed = bspLayout({ x: 0, y: 0, w: length, h: width }, fitProgram(items, length * width));
-    for (const p of placed) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable, p.item.preferredNeighbor));
+    for (const p of placed) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable));
   }
 
   // Les couloirs de circulation sont placés par BSP comme des pièces normales.
   // Leur aire est comptée dans le programme, donc la somme des surfaces est
   // préservée. Les portes sont ajoutées par addOpenings.
-
-  // ── Repositionner les pièces extérieures en périphérie de la structure ──
-  repositionExteriorRooms(plan);
 
   addOpenings(plan, levelIdx === 0, mulberry32(variantSeed ^ (levelIdx * 7919)));
 
@@ -1076,7 +919,6 @@ function makeRoom(
   w: number,
   h: number,
   _habitable?: boolean,
-  preferredNeighbor?: RoomKind,
 ): PlanRoom {
   return {
     id,
@@ -1089,7 +931,6 @@ function makeRoom(
     area: round3(w * h),
     doors: [],
     windows: [],
-    preferredNeighbor,
   };
 }
 
@@ -1167,7 +1008,7 @@ export function validatePlan(
   if (!areasOk) score -= 10;
 
   // 4. Circulation : chaque pièce (hors couloirs/escaliers) dispose d'une porte
-  const NO_DOOR_KINDS = new Set<RoomKind>(["couloir", "escalier", "jardin", "piscine"]);
+  const NO_DOOR_KINDS = new Set<RoomKind>(["couloir", "escalier"]);
   let circulationOk = true;
   for (const fp of variant.floors) {
     for (const r of fp.rooms) {

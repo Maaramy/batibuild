@@ -8,16 +8,12 @@ import {
   Boxes,
   Building2,
   Compass,
-  Flower2,
   Info,
   Layers3,
   Lightbulb,
   Loader2,
   Ruler,
   Sparkles,
-  Waves,
-  Fence,
-  Sun,
 } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
@@ -50,14 +46,6 @@ const LOADING_STEPS = [
   "Analyse des caractéristiques du projet…",
   "Génération des variantes architecturales…",
   "Validation spatiale (surfaces, circulation, structure)…",
-];
-
-const EXTRAS = [
-  { value: "jardin", label: "Jardin", icon: Flower2 },
-  { value: "garage", label: "Garage", icon: Building2 },
-  { value: "piscine", label: "Piscine", icon: Waves },
-  { value: "balcon", label: "Balcon", icon: Fence },
-  { value: "veranda", label: "Véranda", icon: Sun },
 ];
 
 export default function PlanGenerator() {
@@ -96,15 +84,6 @@ export default function PlanGenerator() {
     loading || !id ? "skip" : { projectId: id as any },
   );
 
-  // ── Filtres extras ──
-  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
-
-  const toggleExtra = (extra: string) => {
-    setSelectedExtras((prev) =>
-      prev.includes(extra) ? prev.filter((e) => e !== extra) : [...prev, extra],
-    );
-  };
-
   // ── Génération des 10 variantes (déterministe) ──
   const allVariants: FloorPlanVariant[] = useMemo(() => {
     if (!project) return [];
@@ -117,20 +96,10 @@ export default function PlanGenerator() {
       kitchens: project.kitchens ?? undefined,
       livingRooms: project.livingRooms ?? undefined,
       wcs: project.wcs ?? undefined,
-      extras: selectedExtras.length > 0 ? selectedExtras : undefined,
     });
-  }, [project, selectedExtras]);
+  }, [project]);
 
-  // ── Filtrage par extras sélectionnés ──
-  const variants = useMemo(() => {
-    if (selectedExtras.length === 0) return allVariants;
-    return allVariants.filter((v) => {
-      const roomKinds = new Set(
-        v.floors.flatMap((f) => f.rooms.map((r) => r.kind)),
-      );
-      return selectedExtras.every((e) => roomKinds.has(e as any));
-    });
-  }, [allVariants, selectedExtras]);
+  const variants = allVariants;
 
   const bestScore = useMemo(
     () => Math.max(0, ...variants.map((v) => v.validation.score)),
@@ -232,42 +201,12 @@ export default function PlanGenerator() {
               </CardContent>
             </Card>
 
-            {/* ── Filtres options ── */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold text-muted-foreground mr-1">Options :</span>
-              {EXTRAS.map((ext) => (
-                <button
-                  key={ext.value}
-                  onClick={() => toggleExtra(ext.value)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-medium transition-all cursor-pointer",
-                    selectedExtras.includes(ext.value)
-                      ? "bg-primary/10 border-primary/40 text-primary"
-                      : "bg-background border-border text-muted-foreground hover:border-primary/30",
-                  )}
-                >
-                  <ext.icon className="h-3 w-3" />
-                  {ext.label}
-                </button>
-              ))}
-            </div>
-
             {/* ── Grille des variantes ── */}
-            {variants.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <Info className="h-7 w-7 text-muted-foreground mb-2" />
-                <p className="text-sm font-semibold">Aucune variante ne correspond</p>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Essayez de décocher certaines options pour plus de résultats.
-                </p>
-              </div>
-            ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
               {variants.map((variant, i) => (
                 <VariantCard key={variant.id} variant={variant} index={i} />
               ))}
             </div>
-            )}
 
             <p className="text-center text-[10px] text-muted-foreground/60 pt-2">
               Plans générés algorithmiquement à titre indicatif — validation par un architecte
