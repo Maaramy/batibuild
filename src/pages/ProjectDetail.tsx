@@ -1094,13 +1094,6 @@ export default function ProjectDetail() {
                                 }
                                 const activeNatures = NATURE_ORDER.filter(n => byNature[n]?.length > 0);
 
-                                // Totals par nature pour ce lot
-                                const natureTotals = activeNatures.map(n => ({
-                                  nature: n,
-                                  total: byNature[n].reduce((s: number, l: any) => s + (l.total || 0), 0),
-                                  count: byNature[n].length,
-                                }));
-
                                 return (
                                   <div key={lot.id}>
                                     {/* Ligne de l'étape (lot) */}
@@ -1108,25 +1101,13 @@ export default function ProjectDetail() {
                                       onClick={(e) => { e.stopPropagation(); setOpenCat(isOpen ? "__all" : lot.name); }}
                                       className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-muted/10 transition-colors text-left"
                                     >
-                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                        <LotIcon className="h-3.5 w-3.5" />
-                                      </div>
+
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
                                           <span className="text-[11px] font-bold text-foreground">{lot.name}</span>
                                           <span className="text-[9px] text-muted-foreground/50">{lot.percent}%</span>
                                         </div>
-                                        <div className="flex items-center gap-3 mt-0.5">
-                                          {natureTotals.map(nt => {
-                                            const meta = NATURE_META[nt.nature];
-                                            return (
-                                              <span key={nt.nature} className="text-[9px] text-muted-foreground/60 flex items-center gap-0.5">
-                                                <meta.icon className={cn("h-2.5 w-2.5", meta.color)} />
-                                                {nt.count} · {fmt(nt.total)}
-                                              </span>
-                                            );
-                                          })}
-                                        </div>
+        
                                       </div>
                                       <span className="text-xs font-bold tabular-nums text-primary shrink-0">{fmt(lot.subtotal)}</span>
                                       {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground/50 shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground/50 shrink-0" />}
@@ -1143,9 +1124,8 @@ export default function ProjectDetail() {
                                             <div key={nature}>
                                               {/* Header nature */}
                                               <div className="flex items-center gap-1.5 px-3 py-1 bg-muted/10 border-b border-border/5">
-                                                <meta.icon className={cn("h-3 w-3", meta.color)} />
                                                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{meta.label}</span>
-                                                <span className="text-[10px] text-muted-foreground/50 ml-auto">{lines.length} postes — {fmt(natureTotal)}</span>
+                                                <span className="text-[10px] text-muted-foreground/50 ml-auto">{fmt(natureTotal)}</span>
                                               </div>
                                               {/* Lignes */}
                                               {lines.map((line: any, idx: number) => (
@@ -1900,20 +1880,8 @@ export default function ProjectDetail() {
                   { label: "Catégorie", value: ai.category, icon: Building2 },
                   { label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", icon: MapPin },
                   { label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", icon: Ruler },
-                  { label: "Surface totale", value: project.surfaceTotale ? `${project.surfaceTotale} m²` : "Non définie", icon: Ruler },
                   { label: "Étages", value: String(project.floors ?? 1), icon: Building2 },
-                  {
-                    label: "Pièces",
-                    value: [
-                      project.bedrooms ? `${project.bedrooms} ch.` : "",
-                      project.bathrooms ? `${project.bathrooms} sdb` : "",
-                      project.kitchens ? `${project.kitchens} cuis.` : "",
-                      project.livingRooms ? `${project.livingRooms} salon` : "",
-                      project.garages ? `${project.garages} gar.` : "",
-                      project.wcs ? `${project.wcs} WC` : "",
-                    ].filter(Boolean).join(" · ") || "Non définie",
-                    icon: LayoutGrid,
-                  },
+
                   { label: "Créé le", value: new Date(project.createdAt).toLocaleDateString("fr-FR"), icon: Calendar },
                   { label: "Statut", value: "Terminé", icon: CheckCircle2 },
                 ].map((info, i) => (
