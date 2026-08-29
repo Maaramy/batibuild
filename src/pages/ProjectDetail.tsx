@@ -30,7 +30,6 @@ import {
   investmentTypeForProject,
   inferFloorsFromCategory,
   normalizeLegacyCategory,
-  INVESTMENT_INELIGIBLE_TYPES,
 } from "@/convex/projectTypes";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
@@ -272,7 +271,6 @@ export default function ProjectDetail() {
   const ai = project?.aiAnalysis;
   const done = project?.status === "completed";
   const busy = project?.status === "analyzing" || analyzing;
-  const isEstimationType = INVESTMENT_INELIGIBLE_TYPES.includes((project?.category ?? "") as string);
 
   // Predictive intelligence module (Pro/Expert only)
   const insights = project?.predictiveInsights;
@@ -1295,11 +1293,9 @@ export default function ProjectDetail() {
                     <Rocket className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">{isEstimationType ? "Estimez les coûts de votre projet" : "Suivez les démarches de construction de vos projets"}</p>
+                    <p className="text-sm font-semibold">Suivez les démarches de construction de vos projets</p>
                     <p className="text-[11px] text-muted-foreground">
-                      {isEstimationType
-                        ? "Quantitatif détaillé, scénarios budgétaires, matériaux et étapes de travaux — tout en un seul endroit."
-                        : "Feuille de route personnalisée de A à Z : démarches administratives, budget, planning, chantier et contrôle."}
+                      Feuille de route personnalisée de A à Z : démarches administratives, budget, planning, chantier et contrôle.
                     </p>
                   </div>
                   <Button
@@ -1308,7 +1304,7 @@ export default function ProjectDetail() {
                     onClick={() => navigate(`/dashboard/guide?project=${project._id}`)}
                   >
                     <Rocket className="h-3.5 w-3.5" />
-                    {isEstimationType ? "Estimer mon projet" : "Mon projet de A à Z"}
+                    Mon projet de A à Z
                   </Button>
                 </div>
               </motion.div>

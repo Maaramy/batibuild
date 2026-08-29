@@ -37,7 +37,6 @@ import {
   Gauge,
   HardHat,
   KeyRound,
-  Layers,
   Loader2,
   Map,
   MapPin,
@@ -55,8 +54,6 @@ import {
 } from "lucide-react";
 import type { Roadmap, RoadmapProjectInput, RoadmapPhase, PhaseItem } from "@/convex/roadmapEngine";
 import { exportRoadmapPdf } from "@/lib/roadmapReportPdf";
-import { INVESTMENT_INELIGIBLE_TYPES } from "@/convex/projectTypes";
-import { resolveProjectType } from "@/convex/projectTypes";
 
 const fmtTnd = (n: number) =>
   new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(n);
@@ -109,21 +106,7 @@ const JOURNEY = [
   { label: "Réception", phase: "phase_10" },
 ];
 
-// ── Parcours « Estimer » : types rénovation/équipement/technique ─────────
-const ESTIMATION_JOURNEY = [
-  { label: "Paramètres", phase: "est_params" },
-  { label: "DQE", phase: "est_dqe" },
-  { label: "Scénarios", phase: "est_budget" },
-  { label: "Matériaux", phase: "est_materials" },
-  { label: "Étapes", phase: "est_steps" },
-  { label: "Synthèse", phase: "est_summary" },
-];
 
-function isEstimationProject(category?: string): boolean {
-  if (!category) return false;
-  const resolved = resolveProjectType(category) ?? category;
-  return INVESTMENT_INELIGIBLE_TYPES.includes(resolved);
-}
 
 // ─── Contenu générable des documents ────────────────────────────────────────
 
@@ -326,7 +309,6 @@ function Gantt({ roadmap }: { roadmap: Roadmap }) {
 // ─── Page principale ─────────────────────────────────────────────────────────
 
 export default function ProjectGuide() {
-  /* SEO set after project is computed */
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const paramProject = params.get("project");
@@ -363,22 +345,12 @@ export default function ProjectGuide() {
   }, [projects, projectId]);
 
   const selectedProject = projects.find((p) => p._id === projectId) ?? null;
-  const isEstimation = isEstimationProject(selectedProject?.category);
-  const isEstimationPage = isEstimation;
-  const activeJourney = isEstimation ? ESTIMATION_JOURNEY : JOURNEY;
 
   usePageSEO({
-    title: isEstimationPage ? "Estimer mon projet - batibuild App" : "Guide construction A-Z - batibuild App",
-    description: isEstimationPage
-      ? "Estimez les coûts de votre projet : quantitatif détaillé, scénarios budgétaires, matériaux et étapes de travaux."
-      : "Feuille de route complète et personnalisée de votre projet de construction : phases, démarches, budget, planning, contrôle et IA prédictive.",
+    title: "Guide construction A-Z - batibuild App",
+    description: "Feuille de route complète et personnalisée de votre projet de construction : phases, démarches, budget, planning, contrôle et IA prédictive.",
   });
 
-  // Auto-switch tab when project type changes
-  useEffect(() => {
-    if (isEstimation) setTab("est_overview");
-    else setTab("apercu");
-  }, [isEstimation]);
   const roadmap: Roadmap | null = roadmapData?.results ?? null;
   const input: RoadmapProjectInput | null = roadmapData?.input ?? null;
   const roadmapId = roadmapData?.roadmapId ?? null;
@@ -481,7 +453,7 @@ export default function ProjectGuide() {
               <Rocket className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight">{isEstimationPage ? "Estimer mon projet" : "Guide construction A-Z avec IA"}</h1>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight">Guide construction A-Z avec IA</h1>
               <p className="text-xs text-muted-foreground">Choisissez le projet à accompagner de A à Z.</p>
             </div>
           </div>
@@ -633,7 +605,7 @@ export default function ProjectGuide() {
             <Target className="h-3 w-3" /> Où suis-je dans mon projet ?
           </p>
           <div className="flex min-w-[760px] items-center">
-            {activeJourney.map((step, i) => {
+            {JOURNEY.map((step, i) => {
               const phase = roadmap.phases.find((p) => p.id === step.phase);
               const done = phase?.status === "done";
               const active = phase?.status === "in_progress";
@@ -651,7 +623,7 @@ export default function ProjectGuide() {
                       {step.label}
                     </span>
                   </div>
-                  {i < activeJourney.length - 1 && <div className={`h-px flex-1 mb-4 ${done ? "bg-emerald-500/60" : "bg-border/60"}`} />}
+                  {i < JOURNEY.length - 1 && <div className={`h-px flex-1 mb-4 ${done ? "bg-emerald-500/60" : "bg-border/60"}`} />}
                 </div>
               );
             })}
@@ -743,24 +715,15 @@ export default function ProjectGuide() {
         <Tabs value={tab} onValueChange={setTab} className="space-y-3">
           <TabsList className="w-full sm:w-auto h-auto flex-wrap justify-start bg-muted/30 p-1">
             {[
-              ...(isEstimation ? [
-                { id: "est_overview", label: "Vue d'ensemble", icon: Rocket },
-                { id: "est_dqe", label: "Détail des coûts", icon: Layers },
-                { id: "est_budget", label: "Scénarios", icon: Wallet },
-                { id: "est_materials", label: "Matériaux", icon: Target },
-                { id: "est_steps", label: "Étapes", icon: HardHat },
-                { id: "est_documents", label: "Documents", icon: FileText },
-              ] : [
-                { id: "apercu", label: "Phases A-Z", icon: Rocket },
-                { id: "demarches", label: "Démarches", icon: FileCheck },
-                { id: "budget", label: "Budget", icon: Wallet },
-                { id: "planning", label: "Planning", icon: CalendarRange },
-                { id: "construction", label: "Construction", icon: HardHat },
-                { id: "controle", label: "Contrôle", icon: Camera },
-                { id: "verification", label: "Vérification", icon: CheckSquare },
-                { id: "ia", label: "IA prédictive", icon: Sparkles },
-                { id: "documents", label: "Documents", icon: FileText },
-              ])
+              { id: "apercu", label: "Phases A-Z", icon: Rocket },
+              { id: "demarches", label: "Démarches", icon: FileCheck },
+              { id: "budget", label: "Budget", icon: Wallet },
+              { id: "planning", label: "Planning", icon: CalendarRange },
+              { id: "construction", label: "Construction", icon: HardHat },
+              { id: "controle", label: "Contrôle", icon: Camera },
+              { id: "verification", label: "Vérification", icon: CheckSquare },
+              { id: "ia", label: "IA prédictive", icon: Sparkles },
+              { id: "documents", label: "Documents", icon: FileText }
             ].map((t) => (
               <TabsTrigger key={t.id} value={t.id} className="gap-1.5 text-[11px] data-[state=active]:bg-background">
                 <t.icon className="h-3.5 w-3.5" /> {t.label}
@@ -1242,195 +1205,6 @@ export default function ProjectGuide() {
               </Card>
             ))}
           </TabsContent>
-          {/* ═══ ONGLETS « ESTIMER » ═══ */}
-
-          {/* ── Vue d'ensemble (Estimer) ── */}
-          {isEstimation && (
-            <TabsContent value="est_overview" className="space-y-2">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                {input?.costEstimate?.budgetScenarios && (
-                  Object.entries(input.costEstimate.budgetScenarios).map(([key, s]: [string, any]) => (
-                    <Card key={key} className="border-border/40 bg-background/50">
-                      <CardContent className="p-3">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">{s.label}</p>
-                        <p className="text-lg font-bold tabular-nums">{fmtTnd(s.totalCost)}</p>
-                        <p className="text-[10px] text-muted-foreground">{fmtTnd(s.costPerM2)}/m²</p>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-              <Card className="border-border/40 bg-background/50">
-                <CardHeader className="p-3 sm:p-4 pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2"><Target className="h-4 w-4 text-cyan-600" /> Paramètres du projet</CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Type</p>
-                    <p className="text-xs font-semibold">{input?.category ?? "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Surface</p>
-                    <p className="text-xs font-semibold">{input?.surface ?? "—"} m²</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Région</p>
-                    <p className="text-xs font-semibold">{input?.region ?? "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Niveaux</p>
-                    <p className="text-xs font-semibold">{input?.floors ?? 1}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-
-          {/* ── Détail des coûts / DQE (Estimer) ── */}
-          {isEstimation && (() => {
-            const dqe = (input as any)?.dqe;
-            const dqeLots: any[] = dqe?.lots ?? [];
-            if (!dqeLots.length) return (
-              <TabsContent value="est_dqe" className="space-y-2">
-                <p className="text-xs text-muted-foreground">Aucun quantitatif détaillé disponible pour ce projet.</p>
-              </TabsContent>
-            );
-            return (
-              <TabsContent value="est_dqe" className="space-y-2">
-                <Accordion type="multiple" className="w-full">
-                  {dqeLots.map((lot: any) => (
-                    <AccordionItem key={lot.id} value={lot.id} className="border-border/40 bg-background/50 rounded-xl mb-1.5 border px-1">
-                      <AccordionTrigger className="px-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <p className="text-xs font-semibold truncate">{lot.name}</p>
-                          <Badge variant="secondary" className="text-[9px] shrink-0">{lot.lines?.length ?? 0} postes</Badge>
-                          <span className="text-xs font-bold tabular-nums ml-auto shrink-0">{fmtTnd(lot.subtotal)}</span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="px-2">
-                        <div className="divide-y divide-border/20">
-                          {(lot.lines ?? []).map((line: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between py-1.5 gap-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[11px] font-medium truncate">{line.designation}</p>
-                                {line.description && <p className="text-[9px] text-muted-foreground truncate">{line.description}</p>}
-                              </div>
-                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">{line.quantity} {line.unit}</span>
-                              <span className="text-[11px] font-semibold tabular-nums whitespace-nowrap">{fmtTnd(line.total)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </TabsContent>
-            );
-          })()}
-
-          {/* ── Scénarios budgétaires (Estimer) ── */}
-          {isEstimation && (
-            <TabsContent value="est_budget" className="space-y-2">
-              <p className="text-[11px] text-muted-foreground leading-snug">Sélectionnez un scénario pour adapter automatiquement les prix du quantitatif.</p>
-              {input?.costEstimate?.budgetScenarios && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {Object.entries(input.costEstimate.budgetScenarios).map(([key, s]: [string, any]) => {
-                    const sc = roadmap.budget.scenarios.find((x: any) => x.id === key);
-                    const isSelected = key === (roadmap.budget.selected ?? "standard");
-                    return (
-                      <Card key={key} className={`border ${isSelected ? "border-primary/50 bg-primary/5" : "border-border/40 bg-background/50"} cursor-pointer`} onClick={() => roadmapId && setScenario({ roadmapId, scenario: key as any }).catch(() => {})}>
-                        <CardContent className="p-3">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">{s.label}</p>
-                          <p className="text-lg font-bold tabular-nums">{fmtTnd(s.totalCost)}</p>
-                          <p className="text-[10px] text-muted-foreground mb-2">{fmtTnd(s.costPerM2)}/m²</p>
-                          {sc?.rows && (
-                            <div className="space-y-0.5">
-                              {sc.rows.map((r: any) => (
-                                <div key={r.label} className="flex items-center justify-between text-[10px]">
-                                  <span className="text-muted-foreground truncate">{r.label}</span>
-                                  <span className="font-medium tabular-nums ml-2">{r.pct}%</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {isSelected && <Badge className="mt-2 text-[9px]">Sélectionné</Badge>}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
-          )}
-
-          {/* ── Matériaux / Comparaison (Estimer) ── */}
-          {isEstimation && (
-            <TabsContent value="est_materials" className="space-y-2">
-              <p className="text-[11px] text-muted-foreground leading-snug">Comparez les matériaux recommandés pour chaque scénario.</p>
-              <Card className="border-border/40 bg-background/50">
-                <CardContent className="p-3 sm:p-4">
-                  <p className="text-xs text-muted-foreground">Ouvrez l'Assistant Matériaux IA depuis la page du projet pour comparer les matériaux par scénario.</p>
-                  <Button size="sm" variant="outline" className="mt-2 gap-1.5 text-xs" onClick={() => navigate(`/dashboard/ai-materials?project=${input?._id ?? projectId}`)}>
-                    <Sparkles className="h-3.5 w-3.5" /> Ouvrir l'Assistant Matériaux IA
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-
-          {/* ── Étapes de travaux (Estimer) ── */}
-          {isEstimation && (
-            <TabsContent value="est_steps" className="space-y-2">
-              <Accordion type="single" collapsible className="w-full">
-                {roadmap.construction.map((c) => (
-                  <AccordionItem key={c.id} value={c.id} className="border-border/40 bg-background/50 rounded-xl mb-1.5 border px-1">
-                    <AccordionTrigger className="px-2">
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <Checkbox checked={c.status === "done"} onCheckedChange={() => handleToggle("phase_08", c.id)} onClick={(e) => e.stopPropagation()} className="shrink-0" />
-                        <div className="min-w-0 flex-1 text-left">
-                          <p className={`text-xs font-semibold truncate ${c.status === "done" ? "line-through text-muted-foreground" : ""}`}>{c.order}. {c.title}</p>
-                          <p className="text-[10px] text-muted-foreground">{c.dureeJours} j · {fmtTnd(c.budgetEstime)}</p>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-2">
-                      <div className="space-y-3 text-[11px]">
-                        <Section label="Objectif" items={[c.objectif]} />
-                        <Section label="Travaux" items={c.travaux} />
-                        <Section label="Matériaux" items={c.materiaux} />
-                        <Section label="Main-d'œuvre" items={c.mainOeuvre} />
-                        <Section label="Outillage" items={c.outillage} />
-                        <Section label="Contrôles" items={c.controles} tone="emerald" />
-                        <Section label="Risques" items={c.risques} tone="red" />
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </TabsContent>
-          )}
-
-          {/* ── Documents (Estimer) ── */}
-          {isEstimation && (
-            <TabsContent value="est_documents" className="space-y-2">
-              {roadmap.documents.map((d) => (
-                <Card key={d.id} className="border-border/40 bg-background/50">
-                  <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600"><FileText className="h-4 w-4" /></div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold">{d.title}</p>
-                      <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">{d.description}</p>
-                    </div>
-                    {d.generatedAt && <Badge variant="outline" className="shrink-0 text-[9px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600">Généré</Badge>}
-                    <Button size="sm" variant="outline" className="shrink-0 h-8 gap-1.5 text-xs" onClick={() => handleDocument(d.id)}>
-                      <Download className="h-3.5 w-3.5" /> Générer
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-          )}
-
         </Tabs>
 
         {/* Avertissement */}
