@@ -462,6 +462,70 @@ function fitProgram(items: ProgramItem[], available: number): ProgramItem[] {
   return kept.map((i) => ({ ...i, target: Math.max(i.min, i.target * scale) }));
 }
 
+// ── Repositionnement des pièces extérieures ────────────────────────────────
+/**
+ * Après le placement BSP, les pièces extérieures (jardin, piscine, garage,
+ * balcon, véranda) peuvent se retrouver au centre de la structure. Cette
+ * fonction les déplace sur le périmètre du bâtiment (bord du rectangle
+ * englobant des pièces intérieures) pour respecter la logique architecturale.
+ */
+function repositionExteriorRooms(plan: FloorPlan): void {
+  const EXTERIOR_KINDS = new Set<RoomKind>(["jardin", "piscine", "garage", "balcon", "veranda"]);
+  const exterior = plan.rooms.filter((r) => EXTERIOR_KINDS.has(r.kind));
+  const interior = plan.rooms.filter((r) => !EXTERIOR_KINDS.has(r.kind));
+  if (exterior.length === 0 || interior.length === 0) return;
+
+  // Bounding box des pièces intérieures (la « structure »)
+  const bMinX = Math.min(...interior.map((r) => r.x));
+  const bMinY = Math.min(...interior.map((r) => r.y));
+  const bMaxX = Math.max(...interior.map((r) => r.x + r.w));
+  const bMaxY = Math.max(...interior.map((r) => r.y + r.h));
+
+  // Pour chaque pièce extérieure, trouver le meilleur bord
+  for (const ext of exterior) {
+    const cx = ext.x + ext.w / 2;
+    const cy = ext.y + ext.h / 2;
+    const isInside = cx > bMinX && cx < bMaxX && cy > bMinY && cy < bMaxY;
+    if (!isInside) continue; // déjà en périphérie
+
+    // Tester les 4 côtés et choisir celui avec le moins de chevauchement
+    const candidates: { x: number; y: number; w: number; h: number; score: number }[] = [];
+
+    // Côté Nord (au-dessus du bâtiment)
+    candidates.push({ x: ext.x, y: bMinY - ext.h, w: ext.w, h: ext.h, score: 0 });
+    // Côté Sud (en dessous)
+    candidates.push({ x: ext.x, y: bMaxY, w: ext.w, h: ext.h, score: 1 });
+    // Côté Ouest (à gauche)
+    candidates.push({ x: bMinX - ext.w, y: ext.y, w: ext.w, h: ext.h, score: 2 });
+    // Côté Est (à droite)
+    candidates.push({ x: bMaxX, y: ext.y, w: ext.w, h: ext.h, score: 3 });
+
+    // Évaluer chaque candidat : pénaliser les chevauchements avec les pièces intérieures
+    let best = candidates[0];
+    let bestScore = Infinity;
+    for (const c of candidates) {
+      let overlap = 0;
+      for (const room of interior) {
+        const ox = Math.max(0, Math.min(c.x + c.w, room.x + room.w) - Math.max(c.x, room.x));
+        const oy = Math.max(0, Math.min(c.y + c.h, room.y + room.h) - Math.max(c.y, room.y));
+        overlap += ox * oy;
+      }
+      // Pénaliser les débordements hors emprise
+      const overX = Math.max(0, (c.x + c.w) - plan.length) + Math.max(0, -c.x);
+      const overY = Math.max(0, (c.y + c.h) - plan.width) + Math.max(0, -c.y);
+      const total = overlap + (overX + overY) * 10;
+      if (total < bestScore) {
+        bestScore = total;
+        best = c;
+      }
+    }
+    // Appliquer la meilleure position
+    ext.x = round3(Math.max(0, Math.min(best.x, plan.length - ext.w)));
+    ext.y = round3(Math.max(0, Math.min(best.y, plan.width - ext.h)));
+    ext.area = round3(ext.w * ext.h);
+  }
+}
+
 // ── Voisinages, portes et fenêtres ──────────────────────────────────────────
 
 /** Tolérance géométrique (les coordonnées sont arrondies au mm). */
@@ -616,6 +680,9 @@ function buildLevel(
     const placed = bspLayout({ x: 0, y: 0, w: length, h: width }, fitProgram(items, length * width));
     for (const p of placed) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable));
   }
+
+  // ── Repositionner les pièces extérieures en périphérie de la structure ──
+  repositionExteriorRooms(plan);
 
   addOpenings(plan, levelIdx === 0, mulberry32(variantSeed ^ (levelIdx * 7919)));
 
