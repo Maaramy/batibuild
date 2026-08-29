@@ -74,32 +74,10 @@ export default function InvestmentResults() {
   const zones = useQuery(api.investments.getInvestmentZones) || [];
   const askAssistant = useAction(api.investmentAi.askInvestorAssistant);
   const toggleFavorite = useMutation(api.investments.toggleFavorite);
-  const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowedFor, { kind: "investment" });
-  const consumeDownload = useMutation(api.subscriptions.consumeDownloadFor);
-
-  // ── Téléchargement du rapport PDF (quota du forfait investissement) ──
+  // Quotas removed — always allow PDF download
   const handlePdfDownload = async () => {
     if (!run) return;
-    if (!downloadInfo) {
-      generatePdf(run);
-      return;
-    }
-    if (downloadInfo.allowed) {
-      generatePdf(run);
-      try {
-        await consumeDownload({ kind: "investment" });
-      } catch (e: any) {
-        toast.error(e.message || "Erreur lors de la consommation du téléchargement");
-      }
-    } else if (downloadInfo.reason === "limite_atteinte") {
-      toast.error(
-        `Vous avez atteint votre limite de téléchargements pour l'abonnement investissement. Renouvelez pour continuer.`,
-      );
-    } else {
-      toast.error(
-        "Vous devez avoir un abonnement d'investissement actif pour télécharger le rapport PDF. L'export CSV reste gratuit.",
-      );
-    }
+    generatePdf(run);
   };
   const [favBusy, setFavBusy] = useState(false);
 

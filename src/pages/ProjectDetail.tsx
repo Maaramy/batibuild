@@ -207,19 +207,9 @@ export default function ProjectDetail() {
 
   const handleDownloadClick = () => {
     if (exporting) return;
-    if (checkDownloadAllowed === undefined) {
-      toast.info("Vérification en cours…");
-      return;
-    }
-    if (checkDownloadAllowed?.allowed) {
-      // Open scenario picker dialog
-      setPdfPickerScenario(selectedScenario);
-      setShowPdfPicker(true);
-    } else if (checkDownloadAllowed?.reason === "limite_atteinte") {
-      toast.error(`Vous avez atteint votre limite de ${checkDownloadAllowed?.limit ?? 1} téléchargements pour ce forfait`);
-    } else {
-      setShowUpgradeDialog(true);
-    }
+    // Quotas removed — always open scenario picker
+    setPdfPickerScenario(selectedScenario);
+    setShowPdfPicker(true);
   };
 
   const confirmPdfDownload = () => {
