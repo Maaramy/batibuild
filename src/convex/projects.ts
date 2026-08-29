@@ -271,16 +271,6 @@ export const createProject = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
 
-    // ── Quota projets par forfait (paiement unique) ──
-    const quota = await checkQuota(ctx, user, "projects");
-    if (!quota.allowed) {
-      const planLabel = quota.plan === "free" ? "Start" : quota.plan === "pro" ? "Pro" : "Expert";
-      throw new Error(
-        `LIMITE_ATTEINTE:Vous avez atteint la limite de ${quota.limit} projet(s) de construction offerte avec le forfait ${planLabel}. ` +
-        `Forfaits à paiement unique : passez à une offre supérieure ou rachetez un forfait pour augmenter vos quotas.`
-      );
-    }
-
     const now = Date.now();
     const projectId = await ctx.db.insert("projects", {
       userId: user._id,
@@ -304,8 +294,6 @@ export const createProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
-
-    await consumeQuota(ctx, user, "projects");
 
     return projectId;
   },
