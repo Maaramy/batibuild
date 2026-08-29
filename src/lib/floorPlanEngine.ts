@@ -128,17 +128,7 @@ function mulberry32(seed: number): () => number {
 
 const EPS = 1e-6;
 
-// ── Contraintes de faisabilité technique ────────────────────────────────────
-/** Largeur/hauteur minimale d'une pièce résidentielle (m). */
-const MIN_ROOM_DIM = 1.5;
-/** Ratio longueur/largeur maximal d'une pièce résidentielle. */
-const MAX_ASPECT_RATIO = 3.0;
-/** Surface minimale d'une pièce habitable (m²). */
-const MIN_HABITABLE_AREA = 4.0;
-/** Largeur du couloir de circulation résidentiel (m). */
-const CORRIDOR_WIDTH = 1.2;
-/** Pourcentage de surface allouée au couloir (RDC = 0, étages ≥ 4 pièces). */
-const CORRIDOR_SHARE = 0.12;
+
 
 // ── Couleurs par nature de pièce (partagées 2D / 3D) ───────────────────────
 
@@ -217,8 +207,6 @@ interface ProgramItem {
   habitable?: boolean;
   /** Unique dans le programme */
   unique?: boolean;
-  /** Circulation dédiée (couloir, hall) — pas une pièce habitable */
-  circulation?: boolean;
 }
 
 function residentialProgram(
@@ -327,24 +315,7 @@ function residentialProgram(
         });
       }
     }
-    // ── Couloir de circulation pour étages supérieurs multi-pièces ──
-    //    Le couloir est alloué EN AMONT du BSP : son aire est comptée dans
-    //    la surface totale, les pièces se répartissent le reste.
-    if (lvl > 0 && levels > 1) {
-      const bedroomCount = bedroomLevels[lvl]?.length ?? 0;
-      const totalRooms = items.length; // chambres + SDB (+ WC)
-      if (bedroomCount >= 2 || totalRooms >= 3) {
-        const corridorArea = round3(Math.max(CORRIDOR_WIDTH * 3, area * CORRIDOR_SHARE));
-        items.push({
-          kind: "couloir",
-          label: "Couloir",
-          target: corridorArea,
-          min: CORRIDOR_WIDTH * 2,
-          priority: 16, // priorité haute : essentiel pour la circulation
-          circulation: true,
-        });
-      }
-    }
+
     result.push({ level: lvl, items });
   }
   return result;
@@ -418,70 +389,20 @@ function bspLayout<T extends { target: number }>(rect: Rect, items: T[]): Placed
   }
   const f1 = Math.min(0.85, Math.max(0.15, s1 / total));
   if (rect.w >= rect.h) {
-    // Contrainte : chaque côté doit faire au moins MIN_ROOM_DIM
-    const maxLeft = rect.w - MIN_ROOM_DIM;
-    const minLeft = MIN_ROOM_DIM;
-    if (maxLeft < minLeft || g1.length === 0 || g2.length === 0) {
-      // Pas assez de place pour couper proprement → découper en bandes verticales sans chevauchement
-      const n = items.length;
-      let accX = rect.x;
-      return items.map((it) => {
-        const w = round3(Math.max(MIN_ROOM_DIM, rect.w / n));
-        const r = { item: it, rect: { x: round3(accX), y: rect.y, w, h: rect.h } };
-        accX = round3(accX + w);
-        return r;
-      });
-    }
-    const rawLeft = Math.round(rect.w * f1 * 1000) / 1000;
-    const wLeft = round3(Math.min(Math.max(rawLeft, minLeft), maxLeft));
-    // Vérifier le ratio d'aspect du côté gauche
-    const leftRatio = Math.max(wLeft, rect.h) / Math.min(wLeft, rect.h);
-    const rightW = round3(rect.w - wLeft);
-    const rightRatio = Math.max(rightW, rect.h) / Math.min(rightW, rect.h);
-    // Si un côté dépasse le ratio max, ajuster la coupe
-    let finalLeft = wLeft;
-    if (leftRatio > MAX_ASPECT_RATIO) {
-      finalLeft = round3(Math.min(rect.w * 0.6, Math.max(minLeft, rect.h * MAX_ASPECT_RATIO)));
-    } else if (rightRatio > MAX_ASPECT_RATIO) {
-      finalLeft = round3(Math.max(rect.w * 0.4, rect.w - rect.h * MAX_ASPECT_RATIO));
-    }
-    finalLeft = round3(Math.min(Math.max(finalLeft, minLeft), maxLeft));
+    const split = round3(Math.round(rect.w * f1 * 1000) / 1000);
     return [
-      ...bspLayout({ x: rect.x, y: rect.y, w: finalLeft, h: rect.h }, g1),
+      ...bspLayout({ x: rect.x, y: rect.y, w: split, h: rect.h }, g1),
       ...bspLayout(
-        { x: round3(rect.x + finalLeft), y: rect.y, w: round3(rect.w - finalLeft), h: rect.h },
+        { x: round3(rect.x + split), y: rect.y, w: round3(rect.w - split), h: rect.h },
         g2,
       ),
     ];
   }
-  const maxTop = rect.h - MIN_ROOM_DIM;
-  const minTop = MIN_ROOM_DIM;
-  if (maxTop < minTop || g1.length === 0 || g2.length === 0) {
-      const n = items.length;
-      let accY = rect.y;
-      return items.map((it) => {
-        const h = round3(Math.max(MIN_ROOM_DIM, rect.h / n));
-        const r = { item: it, rect: { x: rect.x, y: round3(accY), w: rect.w, h } };
-        accY = round3(accY + h);
-        return r;
-      });
-    }
-  const rawTop = Math.round(rect.h * f1 * 1000) / 1000;
-  const hTop = round3(Math.min(Math.max(rawTop, minTop), maxTop));
-  const topRatio = Math.max(rect.w, hTop) / Math.min(rect.w, hTop);
-  const bottomH = round3(rect.h - hTop);
-  const bottomRatio = Math.max(rect.w, bottomH) / Math.min(rect.w, bottomH);
-  let finalTop = hTop;
-  if (topRatio > MAX_ASPECT_RATIO) {
-    finalTop = round3(Math.min(rect.h * 0.6, Math.max(minTop, rect.w * MAX_ASPECT_RATIO)));
-  } else if (bottomRatio > MAX_ASPECT_RATIO) {
-    finalTop = round3(Math.max(rect.h * 0.4, rect.h - rect.w * MAX_ASPECT_RATIO));
-  }
-  finalTop = round3(Math.min(Math.max(finalTop, minTop), maxTop));
+  const split = round3(Math.round(rect.h * f1 * 1000) / 1000);
   return [
-    ...bspLayout({ x: rect.x, y: rect.y, w: rect.w, h: finalTop }, g1),
+    ...bspLayout({ x: rect.x, y: rect.y, w: rect.w, h: split }, g1),
     ...bspLayout(
-      { x: rect.x, y: round3(rect.y + finalTop), w: rect.w, h: round3(rect.h - finalTop) },
+      { x: rect.x, y: round3(rect.y + split), w: rect.w, h: round3(rect.h - split) },
       g2,
     ),
   ];
@@ -554,9 +475,7 @@ function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number
         }
       }
     }
-    // Largeur de porte adaptée au type de pièce
-    let doorWidth = 0.9;
-    if (room.kind === "garage") doorWidth = 2.4;       // portail double battant
+    const doorWidth = 0.9;
     if (best) {
       room.doors.push({
         wall: best.side,
@@ -566,35 +485,17 @@ function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number
     }
   }
 
-  // Porte d'entrée : RDC, pièce d'accueil (réception/séjour/hall/openspace)
+  // Porte d'entrée : RDC, pièce d'accueil (réception/séjour)
   if (isGroundFloor) {
-    const prio: RoomKind[] = ["reception", "sejour", "hall", "openspace", "stockage"];
+    const prio: RoomKind[] = ["reception", "sejour", "hall", "openspace"];
     let entry: PlanRoom | undefined;
     for (const k of prio) {
       entry = rooms.find((r) => r.kind === k);
       if (entry) break;
     }
     if (!entry) entry = [...rooms].sort((a, b) => b.area - a.area)[0];
-    // Déterminer le mur extérieur le plus accessible pour la porte d'entrée
-    const allSides: { wall: WallSide; span: number; origin: number; wallLen: number }[] = [
-      { wall: "S" as WallSide, span: entry!.w, origin: entry!.x, wallLen: level.width },
-      { wall: "N" as WallSide, span: entry!.w, origin: entry!.x, wallLen: level.width },
-      { wall: "W" as WallSide, span: entry!.h, origin: entry!.y, wallLen: level.length },
-      { wall: "E" as WallSide, span: entry!.h, origin: entry!.y, wallLen: level.length },
-    ];
-    const exteriorSides = allSides.filter((s) => {
-      // Le mur doit être sur le bord extérieur du plan
-      if (s.wall === "S") return Math.abs(entry!.y + entry!.h - level.width) < TOL;
-      if (s.wall === "N") return Math.abs(entry!.y) < TOL;
-      if (s.wall === "W") return Math.abs(entry!.x) < TOL;
-      return Math.abs(entry!.x + entry!.w - level.length) < TOL;
-    });
-    if (exteriorSides.length > 0) {
-      // Préférer le mur S (face rue conventionnelle), sinon le plus long
-      const chosen = exteriorSides.find((s) => s.wall === "S") ?? exteriorSides.reduce((best, s) => s.wallLen > best.wallLen ? s : best);
-      const pos = Math.max(0.8, Math.min(chosen.span - 0.8, chosen.span * 0.5));
-      entry!.doors.push({ wall: chosen.wall, position: pos, width: 1.1, isEntry: true });
-    }
+    const pos = Math.max(0.8, Math.min(entry!.w - 0.8, entry!.w * 0.5));
+    entry!.doors.push({ wall: "S", position: pos, width: 1.1, isEntry: true });
   }
 
   // Fenêtres : pièces habitables + véranda donnant sur l'extérieur
@@ -629,207 +530,6 @@ function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number
   }
 }
 
-// ── Corridor de circulation ───────────────────────────────────────────────
-/**
- * Ajoute un couloir de circulation pour les étages avec ≥ 4 pièces (RDC avec
- * séjour+cuisine n'en a pas besoin, mais un étage avec 3 chambres+SDB+WC oui).
- * Le couloir est un rectangle central qui connecte toutes les pièces.
- * Seulement pour les niveaux sans gaine d'escalier carvée (le couloir part
- * de l'escalier dans ce cas).
- */
-function addCorridor(
-  plan: FloorPlan,
-  levelIdx: number,
-  levels: number,
-  hasShaft: boolean,
-): void {
-  const roomCount = plan.rooms.length;
-  const isUpper = levelIdx > 0;
-  // RDC : le séjour sert de hall/circulation naturelle, pas de couloir dédié
-  if (!isUpper || roomCount < 4 || levels <= 1) return;
-
-  // Calculer l'emprise des pièces (hors escalier)
-  const nonStair = plan.rooms.filter((r) => r.kind !== "escalier");
-  if (nonStair.length < 3) return;
-
-  const minX = Math.min(...nonStair.map((r) => r.x));
-  const minY = Math.min(...nonStair.map((r) => r.y));
-  const maxX = Math.max(...nonStair.map((r) => r.x + r.w));
-  const maxY = Math.max(...nonStair.map((r) => r.y + r.h));
-  const totalW = maxX - minX;
-  const totalH = maxY - minY;
-
-  // Le couloir traverse le centre horizontalement ou verticalement
-  const useHorizontal = totalW >= totalH;
-  let corridorRect: Rect;
-
-  if (useHorizontal) {
-    const cy = round3(minY + totalH * 0.45);
-    corridorRect = { x: minX, y: cy, w: totalW, h: CORRIDOR_WIDTH };
-  } else {
-    const cx = round3(minX + totalW * 0.45);
-    corridorRect = { x: cx, y: minY, w: CORRIDOR_WIDTH, h: totalH };
-  }
-
-  // Vérifier que le couloir ne coupe pas l'escalier
-  const stair = plan.rooms.find((r) => r.kind === "escalier");
-  if (stair) {
-    if (useHorizontal) {
-      // Éviter la zone de l'escalier
-      if (stair.y < corridorRect.y + corridorRect.h && stair.y + stair.h > corridorRect.y) {
-        corridorRect.x = round3(stair.x + stair.w + 0.05);
-        corridorRect.w = round3(maxX - corridorRect.x);
-      }
-    } else {
-      if (stair.x < corridorRect.x + corridorRect.w && stair.x + stair.w > corridorRect.x) {
-        corridorRect.y = round3(stair.y + stair.h + 0.05);
-        corridorRect.h = round3(maxY - corridorRect.y);
-      }
-    }
-  }
-
-  // Si le couloir est trop petit ou trop grand, ne pas l'ajouter
-  const corridorArea = corridorRect.w * corridorRect.h;
-  if (corridorArea < 1.5 || corridorArea > plan.area * 0.2) return;
-
-  // Réduire les pièces qui chevauchent le couloir
-  for (const room of plan.rooms) {
-    if (room.kind === "escalier") continue;
-    const overlapX = Math.max(0, Math.min(room.x + room.w, corridorRect.x + corridorRect.w) - Math.max(room.x, corridorRect.x));
-    const overlapY = Math.max(0, Math.min(room.y + room.h, corridorRect.y + corridorRect.h) - Math.max(room.y, corridorRect.y));
-    if (overlapX > 0.1 && overlapY > 0.1) {
-      // Réduire la pièce pour libérer le couloir
-      if (useHorizontal) {
-        if (room.y < corridorRect.y && room.y + room.h > corridorRect.y) {
-          room.h = round3(corridorRect.y - room.y);
-        } else if (room.y > corridorRect.y && room.y < corridorRect.y + corridorRect.h) {
-          const shift = round3(corridorRect.y + corridorRect.h - room.y);
-          room.y = round3(corridorRect.y + corridorRect.h);
-          room.h = round3(room.h - shift);
-        }
-      } else {
-        if (room.x < corridorRect.x && room.x + room.w > corridorRect.x) {
-          room.w = round3(corridorRect.x - room.x);
-        } else if (room.x > corridorRect.x && room.x < corridorRect.x + corridorRect.w) {
-          const shift = round3(corridorRect.x + corridorRect.w - room.x);
-          room.x = round3(corridorRect.x + corridorRect.w);
-          room.w = round3(room.w - shift);
-        }
-      }
-      room.area = round3(room.w * room.h);
-    }
-  }
-
-  // Ajouter le couloir
-  plan.rooms.push({
-    id: `L${levelIdx}-COR`,
-    kind: "couloir",
-    label: "Couloir",
-    ...corridorRect,
-    w: round3(corridorRect.w),
-    h: round3(corridorRect.h),
-    area: round3(corridorRect.w * corridorRect.h),
-    doors: [],
-    windows: [],
-  });
-}
-
-// ── Regroupement des zones humides ─────────────────────────────────────────
-/**
- * Post-traitement : regroupe les pièces humides (SDB, WC, cuisine) en zone
- * adjacente pour minimiser les longueurs de tuyauterie et réduire les coûts
- * de construction. Algorithme : déplacer les zones humides côté même que la
- * cuisine (si elle existe) ou adjacente entre elles.
- */
-function groupWetZones(plan: FloorPlan): void {
-  const WET_KINDS = new Set<RoomKind>(["sdb", "wc", "cuisine"]);
-  const wetRooms = plan.rooms.filter((r) => WET_KINDS.has(r.kind));
-  if (wetRooms.length < 2) return;
-
-  // Trouver la cuisine comme ancrage
-  const kitchen = wetRooms.find((r) => r.kind === "cuisine");
-  const anchor = kitchen ?? wetRooms[0];
-
-  // Trier les autres pièces humides par distance à l'ancre
-  const others = wetRooms.filter((r) => r !== anchor);
-  others.sort((a, b) => {
-    const dA = Math.abs(a.x - anchor.x) + Math.abs(a.y - anchor.y);
-    const dB = Math.abs(b.x - anchor.x) + Math.abs(b.y - anchor.y);
-    return dA - dB;
-  });
-
-  // Déplacer les pièces humides éloignées pour qu'elles soient adjacentes
-  // à l'ancre ou les plus proches. Onswap les positions avec les pièces
-  // non-humides les plus proches de la zone humide cible.
-  for (const wet of others) {
-    const isAlreadyAdjacent = plan.rooms.some((r) => {
-      if (r === wet || r === anchor || WET_KINDS.has(r.kind)) return false;
-      const touchV = Math.abs(wet.x + wet.w - anchor.x) < TOL || Math.abs(anchor.x + anchor.w - wet.x) < TOL;
-      const touchH = Math.abs(wet.y + wet.h - anchor.y) < TOL || Math.abs(anchor.y + anchor.h - wet.y) < TOL;
-      return touchV || touchH;
-    });
-    if (isAlreadyAdjacent) continue;
-
-    // Chercher la meilleure position adjacente à l'ancre
-    const candidates = [
-      { x: anchor.x + anchor.w, y: anchor.y, side: "E" as WallSide },
-      { x: anchor.x - wet.w, y: anchor.y, side: "W" as WallSide },
-      { x: anchor.x, y: anchor.y + anchor.h, side: "S" as WallSide },
-      { x: anchor.x, y: anchor.y - wet.h, side: "N" as WallSide },
-    ];
-
-    let bestCandidate = candidates[0];
-    let bestFit = Infinity;
-    for (const c of candidates) {
-      if (c.x < 0 || c.y < 0 || c.x + wet.w > plan.length || c.y + wet.h > plan.width) continue;
-      // Vérifier que la position ne chevauche pas une autre pièce
-      let overlap = false;
-      for (const other of plan.rooms) {
-        if (other === wet || other === anchor || WET_KINDS.has(other.kind)) continue;
-        if (c.x < other.x + other.w && c.x + wet.w > other.x && c.y < other.y + other.h && c.y + wet.h > other.y) {
-          overlap = true;
-          break;
-        }
-      }
-      if (overlap) continue;
-      const fit = Math.abs(c.x - wet.x) + Math.abs(c.y - wet.y);
-      if (fit < bestFit) {
-        bestFit = fit;
-        bestCandidate = c;
-      }
-    }
-    if (bestFit < Infinity) {
-      wet.x = round3(bestCandidate.x);
-      wet.y = round3(bestCandidate.y);
-      wet.area = round3(wet.w * wet.h);
-    }
-  }
-}
-
-// ── Porte d'entrée avec hall ──────────────────────────────────────────────
-/**
- * Améliore le placement de la porte d'entrée pour qu'elle donne sur un hall
- * ou le séjour (jamais directement sur une chambre ou un WC).
- * Si la pièce d'entrée n'est pas un hall, crée un mini-vestibule de transition.
- */
-function ensureEntryHall(plan: FloorPlan, levelIdx: number): void {
-  if (levelIdx !== 0) return;
-  const entryRoom = plan.rooms.find((r) => r.doors.some((d) => d.isEntry));
-  if (!entryRoom) return;
-  const ENTRY_KINDS: RoomKind[] = ["hall", "sejour", "reception", "openspace"];
-  if (ENTRY_KINDS.includes(entryRoom.kind)) return; // déjà correct
-
-  // Chercher la pièce d'accueil préférée
-  const preferred = plan.rooms.find((r) => ENTRY_KINDS.includes(r.kind));
-  if (!preferred) return;
-
-  // Déplacer la porte d'entrée vers la pièce préférée
-  const entryDoor = entryRoom.doors.find((d) => d.isEntry);
-  if (!entryDoor) return;
-  entryRoom.doors = entryRoom.doors.filter((d) => !d.isEntry);
-  const pos = Math.max(0.8, Math.min(preferred.w - 0.8, preferred.w * 0.5));
-  preferred.doors.push({ wall: "S", position: pos, width: 1.1, isEntry: true });
-}
 
 // ── Construction d'un niveau ────────────────────────────────────────────────
 
@@ -889,14 +589,7 @@ function buildLevel(
     for (const p of placed) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable));
   }
 
-  // Les couloirs de circulation sont placés par BSP comme des pièces normales.
-  // Leur aire est comptée dans le programme, donc la somme des surfaces est
-  // préservée. Les portes sont ajoutées par addOpenings.
-
   addOpenings(plan, levelIdx === 0, mulberry32(variantSeed ^ (levelIdx * 7919)));
-
-  // ── Porte d'entrée sur pièce d'accueil (hall, séjour) ──
-  ensureEntryHall(plan, levelIdx);
 
   // Filet de sécurité géométrique : aucune pièce ne doit dépasser l'emprise
   // (les arrondis au mm peuvent pousser un bord de ≤ 1 mm au-delà du mur).
@@ -1066,26 +759,6 @@ export function validatePlan(
     }
   }
 
-  // 7. Dimensions minimales et ratio d'aspect des pièces
-  for (const fp of variant.floors) {
-    for (const r of fp.rooms) {
-      if (r.kind === "couloir" || r.kind === "escalier") continue;
-      const minDim = Math.min(r.w, r.h);
-      const maxDim = Math.max(r.w, r.h);
-      if (minDim < MIN_ROOM_DIM) {
-        score -= 3;
-        issues.push(`Pièce trop étroite : ${r.label} (${minDim.toFixed(1)}m < ${MIN_ROOM_DIM}m minimum, niveau ${fp.level + 1})`);
-      }
-      if (r.area < MIN_HABITABLE_AREA && habitableKinds.includes(r.kind)) {
-        score -= 4;
-        issues.push(`Surface insuffisante : ${r.label} (${r.area.toFixed(1)}m² < ${MIN_HABITABLE_AREA}m² minimum, niveau ${fp.level + 1})`);
-      }
-      if (minDim > 0 && maxDim / minDim > MAX_ASPECT_RATIO) {
-        score -= 2;
-        issues.push(`Pièce trop allongée : ${r.label} (ratio ${(maxDim / minDim).toFixed(1)}:1 > ${MAX_ASPECT_RATIO}:1, niveau ${fp.level + 1})`);
-      }
-    }
-  }
 
   return {
     dimensionsOk,
