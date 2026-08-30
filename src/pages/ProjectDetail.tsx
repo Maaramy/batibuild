@@ -937,17 +937,6 @@ export default function ProjectDetail() {
             )}
 
 
-            {/* ═══ CTA — AI Architect ═══ */}
-            {done && project && (
-              <motion.div variants={fadeUp} custom={6.7} className="rounded-xl border border-indigo-200/40 bg-gradient-to-r from-indigo-500/[0.06] to-background overflow-hidden">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600"><LayoutGrid className="h-4 w-4" /></div>
-                  <div className="min-w-0 flex-1"><p className="text-sm font-semibold">AI Architect</p><p className="text-[11px] text-muted-foreground">Générez 10 propositions de plans 2D et 3D à partir des données de votre projet.</p></div>
-                  <Button size="sm" className="gap-1.5 shrink-0" onClick={() => navigate(`/architectural-ai/generate/${project._id}`)}><LayoutGrid className="h-3.5 w-3.5" />Générer les plans avec l’IA</Button>
-                </div>
-              </motion.div>
-            )}
-
             {/* ═══ Quantitatif détaillé — Vue par étapes de construction ═══ */}
             {(() => {
               const dqe = (project as any)?.dqe as any;
