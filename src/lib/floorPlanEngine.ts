@@ -31,7 +31,15 @@ export type RoomKind =
   | "stockage"
   | "logistique"
   | "vestiaire"
-  | "polyvalent";
+  | "polyvalent"
+  // — Restauration (café / restaurant) —
+  | "salle_client"
+  | "comptoir"
+  | "cuisine_pro"
+  | "plonge"
+  | "chambre_froide"
+  | "terrasse"
+  | "attente";
 
 export type WallSide = "N" | "S" | "E" | "W";
 
@@ -151,6 +159,14 @@ export const PLAN_ROOM_COLORS: Record<RoomKind, string> = {
   logistique: "#ecfccb",
   vestiaire: "#f1f5f9",
   polyvalent: "#f5f5f4",
+  // — Restauration —
+  salle_client: "#fef9c3",
+  comptoir: "#fed7aa",
+  cuisine_pro: "#fef3c7",
+  plonge: "#cffafe",
+  chambre_froide: "#e0f2fe",
+  terrasse: "#dcfce7",
+  attente: "#f3e8ff",
 };
 
 export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
@@ -172,11 +188,19 @@ export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
   logistique: "Zone logistique",
   vestiaire: "Vestiaire",
   polyvalent: "Espace polyvalent",
+  // — Restauration —
+  salle_client: "Salle client",
+  comptoir: "Comptoir / Bar",
+  cuisine_pro: "Cuisine pro",
+  plonge: "Plonge",
+  chambre_froide: "Chambre froide",
+  terrasse: "Terrasse",
+  attente: "Zone d'attente",
 };
 
 // ── Familles de projets ─────────────────────────────────────────────────────
 
-type ProjectFamily = "residential" | "commercial" | "logistics";
+type ProjectFamily = "residential" | "commercial" | "logistics" | "restoration";
 
 function familyForCategory(category: string): ProjectFamily {
   switch (category) {
@@ -186,6 +210,9 @@ function familyForCategory(category: string): ProjectFamily {
       return "commercial";
     case "entrepot":
       return "logistics";
+    case "cafe":
+    case "restaurant":
+      return "restoration";
     default:
       // maison, villa, appartement, studio, duplex, immeuble, projet_neuf…
       return "residential";
@@ -347,6 +374,125 @@ function logisticsProgram(area: number): ProgramItem[] {
   }
   items.push({ kind: "vestiaire", label: "Vestiaires", target: 8, min: 5, priority: 6 });
   items.push({ kind: "sanitaire", label: "Sanitaires", target: 5, min: 3, priority: 6 });
+  return items;
+}
+
+function restorationProgram(
+  area: number,
+  type: "cafe" | "restaurant",
+): ProgramItem[] {
+  // Ratios du zonage restauration (marche en avant + ERP)
+  const clientPct = type === "cafe" ? 0.38 : 0.35;   // Salle client
+  const servicePct = 0.42;                              // Cuisine + plonge + stockage + vestiaires
+  const circPct = 0.08;                                 // Couloirs / circulations
+  const sanitPct = 0.12;                                // Sanitaires H/F/PMR
+
+  const clientArea = area * clientPct;
+  const serviceArea = area * servicePct;
+  const circArea = area * circPct;
+  const sanitArea = area * sanitPct;
+
+  const items: ProgramItem[] = [];
+
+  // ── Zone client ──
+  items.push({
+    kind: "salle_client",
+    label: type === "cafe" ? "Salle café" : "Salle de restauration",
+    target: clientArea * 0.65,
+    min: 18,
+    priority: 20,
+    habitable: true,
+    unique: true,
+  });
+  items.push({
+    kind: "comptoir",
+    label: type === "cafe" ? "Comptoir café" : "Bar / Comptoir",
+    target: clientArea * 0.25,
+    min: 6,
+    priority: 18,
+    habitable: true,
+    unique: true,
+  });
+  items.push({
+    kind: "attente",
+    label: "Zone d'accueil",
+    target: clientArea * 0.10,
+    min: 4,
+    priority: 14,
+    habitable: true,
+  });
+
+  // ── Zone service (marche en avant) ──
+  items.push({
+    kind: "cuisine_pro",
+    label: "Cuisine professionnelle",
+    target: serviceArea * 0.40,
+    min: 12,
+    priority: 19,
+    habitable: true,
+    unique: true,
+  });
+  items.push({
+    kind: "plonge",
+    label: "Plonge",
+    target: serviceArea * 0.12,
+    min: 4,
+    priority: 13,
+  });
+  items.push({
+    kind: "chambre_froide",
+    label: "Stockage / Frigos",
+    target: serviceArea * 0.18,
+    min: 5,
+    priority: 12,
+  });
+  items.push({
+    kind: "stockage",
+    label: "Stockage sec",
+    target: serviceArea * 0.12,
+    min: 4,
+    priority: 10,
+  });
+  items.push({
+    kind: "vestiaire",
+    label: "Vestiaires personnel",
+    target: serviceArea * 0.10,
+    min: 4,
+    priority: 8,
+  });
+
+  // ── Circulations ──
+  items.push({
+    kind: "couloir",
+    label: "Couloir service",
+    target: circArea,
+    min: 3,
+    priority: 7,
+  });
+
+  // ── Sanitaires (H / F / PMR) ──
+  items.push({
+    kind: "sanitaire",
+    label: "Sanitaires Hommes",
+    target: sanitArea * 0.35,
+    min: 3,
+    priority: 11,
+  });
+  items.push({
+    kind: "sanitaire",
+    label: "Sanitaires Femmes",
+    target: sanitArea * 0.35,
+    min: 3,
+    priority: 11,
+  });
+  items.push({
+    kind: "wc",
+    label: "WC PMR",
+    target: sanitArea * 0.30,
+    min: 2.5,
+    priority: 11,
+  });
+
   return items;
 }
 
@@ -788,17 +934,25 @@ function conceptNote(
       : ratios > 1.15
         ? "un volume rectangulaire efficace aux circulations resserrées"
         : "un volume quasi carré qui limite les déperditions et rationalise la structure";
+  const isResto = input.category === "cafe" || input.category === "restaurant";
   const org =
     fam === "residential"
       ? "Le rez-de-chaussée regroupe les espaces de vie ouverts sur l'entrée, tandis que les chambres occupent les niveaux supérieurs autour de la cage d'escalier."
       : fam === "commercial"
         ? "L'accueil filtre naturellement les flux vers l'espace de travail ouvert et les bureaux fermés, avec les salles de réunion en profondeur."
-        : "Le hall de stockage occupe le cœur du bâtiment, desservi directement par la zone logistique et les locaux d'exploitation.";
+        : isResto
+          ? "La zone client " + (input.category === "cafe" ? "salle café + comptoir" : "salle de restauration + bar") + " occupe la façade principale, séparée de la cuisine professionnelle par un couloir de service respectant la marche en avant. Les sanitaires H/F/PMR sont accessibles depuis la salle client sans croiser la zone de production."
+          : "Le hall de stockage occupe le cœur du bâtiment, desservi directement par la zone logistique et les locaux d'exploitation.";
   const strengths = [
     "absence totale de chevauchement entre pièces",
     "surfaces ventilées conformes aux minima d'habitabilité",
     "continuité structurelle assurée par une gaine d'escalier alignée sur tous les niveaux",
     "éclairement naturel maximalisé par un double exposition des pièces principales",
+    // Restauration
+    "respect strict de la marche en avant entre zones de production et de service",
+    "circulation client séparée des flux de service et livraison",
+    "conformité ERP avec sorties de secours et largeurs minimales de 1,20 m",
+    "sanitaires accessibles PMR sans croisement avec la zone de cuisine",
   ];
   const chosen = new Set<string>();
   while (chosen.size < 2 && chosen.size < strengths.length) chosen.add(strengths[Math.floor(rng() * strengths.length)]);
@@ -861,6 +1015,13 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
       const programs = residentialProgram(input, areaPerLevel, levels);
       for (const prog of programs) {
         floors.push(buildLevel(prog.level, levels, L, W, prog.items, baseSeed + v * 977));
+      }
+    } else if (family === "restoration") {
+      const isRestaurant = input.category === "restaurant";
+      const items = restorationProgram(areaPerLevel, isRestaurant ? "restaurant" : "cafe");
+      // Les restaurant/café sont généralement mono-niveau, mais on supporte R+1
+      for (let lvl = 0; lvl < levels; lvl++) {
+        floors.push(buildLevel(lvl, levels, L, W, items.map((i) => ({ ...i })), baseSeed + v * 977));
       }
     } else {
       const items = family === "commercial" ? commercialProgram(areaPerLevel) : logisticsProgram(areaPerLevel);
