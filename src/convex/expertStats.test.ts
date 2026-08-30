@@ -122,9 +122,9 @@ describe("expertStats — getExpertKPIs", () => {
     const userId = await createUser(t);
     const expertId = await createExpertProfile(t, userId);
 
-    const kpis = await asUser(t, userId).run(async (ctx) => {
+    const kpis = (await asUser(t, userId).run(async (ctx) => {
       return ctx.runQuery(api.expertStats.getExpertKPIs, { period: "30d" });
-    });
+    }))!;
 
     expect(kpis.views).toBe(0);
     expect(kpis.requestsReceived).toBe(0);
@@ -146,9 +146,9 @@ describe("expertStats — getExpertKPIs", () => {
       });
     }
 
-    const kpis = await asUser(t, userId).run(async (ctx) => {
+    const kpis = (await asUser(t, userId).run(async (ctx) => {
       return ctx.runQuery(api.expertStats.getExpertKPIs, { period: "30d" });
-    });
+    }))!;
 
     expect(kpis.views).toBe(3);
   });
@@ -187,9 +187,9 @@ describe("expertStats — getExpertKPIs", () => {
       });
     });
 
-    const kpis = await asUser(t, userId).run(async (ctx) => {
+    const kpis = (await asUser(t, userId).run(async (ctx) => {
       return ctx.runQuery(api.expertStats.getExpertKPIs, { period: "30d" });
-    });
+    }))!;
 
     expect(kpis.requestsReceived).toBe(2);
   });
@@ -231,9 +231,9 @@ describe("expertStats — getExpertKPIs", () => {
       }
     });
 
-    const kpis = await asUser(t, userId).run(async (ctx) => {
+    const kpis = (await asUser(t, userId).run(async (ctx) => {
       return ctx.runQuery(api.expertStats.getExpertKPIs, { period: "30d" });
-    });
+    }))!;
 
     expect(kpis.requestsReceived).toBe(3);
     expect(kpis.responsesSent).toBe(2);
@@ -259,13 +259,13 @@ describe("expertStats — getExpertKPIs", () => {
       });
     });
 
-    const kpis30d = await asUser(t, userId).run(async (ctx) => {
+    const kpis30d = (await asUser(t, userId).run(async (ctx) => {
       return ctx.runQuery(api.expertStats.getExpertKPIs, { period: "30d" });
-    });
+    }))!;
 
-    const kpis90d = await asUser(t, userId).run(async (ctx) => {
+    const kpis90d = (await asUser(t, userId).run(async (ctx) => {
       return ctx.runQuery(api.expertStats.getExpertKPIs, { period: "90d" });
-    });
+    }))!;
 
     expect(kpis30d.views).toBe(1); // only recent
     expect(kpis90d.views).toBe(2); // both

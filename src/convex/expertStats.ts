@@ -32,14 +32,23 @@ async function resolveExpertId(ctx: any) {
 // QUERIES — Real-time KPIs
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** KPI summary cards for expert dashboard */
+/** KPI summary cards for expert dashboard.
+ *  Returns null when the user has no expert profile yet (dashboard calls this
+ *  for every expert-role user, profile creation is a separate step). */
 export const getExpertKPIs = query({
   args: {
     period: v.string(),
     customStart: v.optional(v.number()),
   },
   handler: async (ctx, { period, customStart }) => {
-    const expertId = await resolveExpertId(ctx);
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+    const profile = await ctx.db
+      .query("expertProfiles")
+      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .first();
+    if (!profile) return null;
+    const expertId = profile._id;
     const startTs = getStartTs(period, customStart);
 
     // ── Analytics events (views, contacts from expertAnalytics) ──

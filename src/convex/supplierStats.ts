@@ -32,14 +32,23 @@ async function resolveSupplierId(ctx: any) {
 // QUERIES
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** KPI summary cards */
+/** KPI summary cards.
+ *  Returns null when the user has no supplier profile yet (dashboard calls
+ *  this for every supplier-role user, profile creation is a separate step). */
 export const getSupplierKPIs = query({
   args: {
     period: v.string(),
     customStart: v.optional(v.number()),
   },
   handler: async (ctx, { period, customStart }) => {
-    const supplierId = await resolveSupplierId(ctx);
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+    const profile = await ctx.db
+      .query("supplierProfiles")
+      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .first();
+    if (!profile) return null;
+    const supplierId = profile._id;
     const startTs = getStartTs(period, customStart);
 
     const allEvents = await ctx.db
