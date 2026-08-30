@@ -73,7 +73,6 @@ import { usePageSEO } from "@/hooks/use-page-seo";
 import { TYPE_META, fmtTND, fmtPct } from "@/components/investment/shared";
 import { REGION_LABELS } from "@/convex/investmentTypes";
 import { projectTypeLabel } from "@/convex/projectTypes";
-import { SupplierStatsInline } from "@/pages/SupplierStats";
 
 // ============================================================================
 // Project Card (compact for mobile)
@@ -932,13 +931,36 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
                   {/* Manage profile CTA */}
-                  <Button variant="outline" className="w-full gap-2" onClick={() => navigate("/dashboard/supplier")}>
+                  <Button variant="outline" className="w-full gap-2 border-violet-200 text-violet-700 hover:bg-violet-50" onClick={() => navigate("/dashboard/supplier")}>
                     <Settings className="h-4 w-4" />
                     Gérer mon profil fournisseur
                   </Button>
-
-                  {/* Inline Stats under Gérer mon profil fournisseur */}
-                  <SupplierStatsInline />
+                  {/* Stats inline under Gérer mon profil fournisseur */}
+                  <Card className="border-border/40 bg-background/50">
+                    <CardContent className="p-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: "Vues du profil", value: "—", icon: Eye, color: "text-blue-600 bg-blue-50" },
+                          { label: "Demandes reçues", value: "—", icon: MessageSquare, color: "text-violet-600 bg-violet-50" },
+                          { label: "Réponses envoyées", value: "—", icon: MousePointerClick, color: "text-emerald-600 bg-emerald-50" },
+                          { label: "Taux de réponse", value: "—", icon: TrendingUp, color: "text-amber-600 bg-amber-50" },
+                        ].map((kpi) => (
+                          <div key={kpi.label} className="flex items-center gap-2 rounded-xl border border-border/30 bg-muted/10 px-3 py-2.5">
+                            <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${kpi.color}`}>
+                              <kpi.icon className="h-3.5 w-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold leading-none">{kpi.value}</p>
+                              <p className="text-[8px] text-muted-foreground truncate mt-0.5">{kpi.label}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/60 text-center mt-2">
+                        Données en cours de collecte
+                      </p>
+                    </CardContent>
+                  </Card>
                 </>
               )}
             </div>
