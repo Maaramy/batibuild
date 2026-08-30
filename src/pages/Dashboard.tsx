@@ -1156,7 +1156,7 @@ export default function Dashboard() {
           </Card>
 
           {/* ── Quota warnings par type (presque atteinte / atteinte) ── */}
-          {(isNearLimit || projectsReached) && (
+          {(isNearLimit || isInvestNearLimit || projectsReached || investReached) && (
             <div className="space-y-2.5">
               {[
                 {
@@ -1170,6 +1170,18 @@ export default function Dashboard() {
                   body: projectsReached
                     ? `Vous avez utilisé ${displayUsedProjects}/${projectLimit} projets de construction de votre forfait ${PLAN_LABELS[constructionPlan]}.`
                     : `Vous avez utilisé ${usagePercent}% de votre limite de ${projectLimit} projets de construction.`,
+                },
+                {
+                  show: isInvestNearLimit || investReached,
+                  reached: investReached,
+                  type: "investment",
+                  plan: investmentPlan,
+                  title: investReached
+                    ? "Limite d'analyses d'investissement atteinte"
+                    : "Limite d'analyses d'investissement presque atteinte",
+                  body: investReached
+                    ? `Vous avez utilisé ${analyses.length}/${investLimit} analyses d'investissement de votre forfait ${PLAN_LABELS[investmentPlan]}.`
+                    : `Vous avez utilisé ${investUsagePct}% de votre limite de ${investLimit} analyses d'investissement.`,
                 },
               ]
                 .filter((w) => w.show)
@@ -1361,6 +1373,28 @@ export default function Dashboard() {
                 <MiniStat icon={Percent} label="Rendement net moyen" value={fmtPct(investStats.avgYield)} tone={{ bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" }} />
                 <MiniStat icon={Gauge} label="Meilleur score" value={investStats.bestScore ? `${investStats.bestScore}/100` : "—"} tone={{ bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400" }} />
                 <MiniStat icon={Heart} label="Favoris" value={investStats.favorites} tone={{ bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400" }} />
+              </div>
+
+              {/* Compteur de progression — quota investissements */}
+              <div className="mb-3 rounded-xl border border-border/40 bg-card/40 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <Gauge className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    Quota investissements utilisés
+                  </span>
+                  <span className={`font-bold tabular-nums ${investUsagePct >= 80 ? "text-amber-600" : "text-indigo-600 dark:text-indigo-400"}`}>
+                    {analyses.length}/{investLimit} · {investUsagePct}%
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${investUsagePct >= 80 ? "bg-gradient-to-r from-amber-400 to-orange-500" : "bg-gradient-to-r from-indigo-400 to-blue-500"}`}
+                    style={{ width: `${investUsagePct}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-[9px] text-muted-foreground">
+                  Abonnement expiré ? Renouvelez ou passez à une offre supérieure.
+                </p>
               </div>
 
               {analyses.length === 0 ? (

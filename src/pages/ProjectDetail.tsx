@@ -207,9 +207,19 @@ export default function ProjectDetail() {
 
   const handleDownloadClick = () => {
     if (exporting) return;
-    // Quotas removed — always open scenario picker
-    setPdfPickerScenario(selectedScenario);
-    setShowPdfPicker(true);
+    if (checkDownloadAllowed === undefined) {
+      toast.info("Vérification en cours…");
+      return;
+    }
+    if (checkDownloadAllowed?.allowed) {
+      // Open scenario picker dialog
+      setPdfPickerScenario(selectedScenario);
+      setShowPdfPicker(true);
+    } else if (checkDownloadAllowed?.reason === "limite_atteinte") {
+      toast.error(`Vous avez atteint votre limite de ${checkDownloadAllowed?.limit ?? 1} téléchargements pour ce forfait`);
+    } else {
+      setShowUpgradeDialog(true);
+    }
   };
 
   const confirmPdfDownload = () => {
@@ -483,29 +493,15 @@ export default function ProjectDetail() {
       </header>
 
       {/* ── Bottom Navigation Bar ── */}
-      {done && (() => {
-        const cat = (project.category ?? "") as string;
-        const EXPERT_ONLY_TYPES = new Set([
-          "renovation_complete", "extension_batiment", "renovation_cuisine",
-          "renovation_salle_de_bain", "peinture_interieure", "piscine",
-          "restaurant", "cafe", "electricite_complete", "plomberie_complete",
-        ]);
-        const isExpertOnly = EXPERT_ONLY_TYPES.has(cat);
-
-        const navActions = isExpertOnly
-          ? [
-              { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
-              { icon: <Users className="h-4 w-4" />, label: "Consulter expert / entreprise", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
-            ]
-          : [
-              { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
-              { icon: <LayoutGrid className="h-4 w-4" />, label: "Plans IA", onClick: () => navigate(`/dashboard/plans/${project._id}`), color: "text-violet-500" },
-              { icon: <Rocket className="h-4 w-4" />, label: "Guide A-Z", onClick: () => navigate(`/dashboard/guide?project=${project._id}`), color: "text-cyan-500" },
-              { icon: <TrendingUp className="h-4 w-4" />, label: "ROI", onClick: () => { const type = investmentTypeForProject(project.category ?? "appartement"); navigate(`/dashboard/investments?type=${type}&project=${project._id}`); }, color: "text-emerald-500" },
-              { icon: <Users className="h-4 w-4" />, label: "Expert", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
-            ];
-        return <BottomNavBar actions={navActions} />;
-      })()}
+      {done && (
+        <BottomNavBar actions={[
+          { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
+          { icon: <LayoutGrid className="h-4 w-4" />, label: "Plans IA", onClick: () => navigate(`/dashboard/plans/${project._id}`), color: "text-violet-500" },
+          { icon: <Rocket className="h-4 w-4" />, label: "Guide A-Z", onClick: () => navigate(`/dashboard/guide?project=${project._id}`), color: "text-cyan-500" },
+          { icon: <TrendingUp className="h-4 w-4" />, label: "ROI", onClick: () => { const type = investmentTypeForProject(project.category ?? "appartement"); navigate(`/dashboard/investments?type=${type}&project=${project._id}`); }, color: "text-emerald-500" },
+          { icon: <Users className="h-4 w-4" />, label: "Expert", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
+        ]} />
+      )}
 
       {/* ── Export Progress Overlay ── */}
       {exporting && (

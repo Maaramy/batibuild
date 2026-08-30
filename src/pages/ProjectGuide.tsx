@@ -106,8 +106,6 @@ const JOURNEY = [
   { label: "Réception", phase: "phase_10" },
 ];
 
-
-
 // ─── Contenu générable des documents ────────────────────────────────────────
 
 function buildDocumentContent(roadmap: Roadmap, input: RoadmapProjectInput, docId: string): string {
@@ -309,6 +307,10 @@ function Gantt({ roadmap }: { roadmap: Roadmap }) {
 // ─── Page principale ─────────────────────────────────────────────────────────
 
 export default function ProjectGuide() {
+  usePageSEO({
+    title: "Guide construction A-Z - batibuild App",
+    description: "Feuille de route complète et personnalisée de votre projet de construction : phases, démarches, budget, planning, contrôle et IA prédictive.",
+  });
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const paramProject = params.get("project");
@@ -345,12 +347,6 @@ export default function ProjectGuide() {
   }, [projects, projectId]);
 
   const selectedProject = projects.find((p) => p._id === projectId) ?? null;
-
-  usePageSEO({
-    title: "Guide construction A-Z - batibuild App",
-    description: "Feuille de route complète et personnalisée de votre projet de construction : phases, démarches, budget, planning, contrôle et IA prédictive.",
-  });
-
   const roadmap: Roadmap | null = roadmapData?.results ?? null;
   const input: RoadmapProjectInput | null = roadmapData?.input ?? null;
   const roadmapId = roadmapData?.roadmapId ?? null;
@@ -723,7 +719,7 @@ export default function ProjectGuide() {
               { id: "controle", label: "Contrôle", icon: Camera },
               { id: "verification", label: "Vérification", icon: CheckSquare },
               { id: "ia", label: "IA prédictive", icon: Sparkles },
-              { id: "documents", label: "Documents", icon: FileText }
+              { id: "documents", label: "Documents", icon: FileText },
             ].map((t) => (
               <TabsTrigger key={t.id} value={t.id} className="gap-1.5 text-[11px] data-[state=active]:bg-background">
                 <t.icon className="h-3.5 w-3.5" /> {t.label}

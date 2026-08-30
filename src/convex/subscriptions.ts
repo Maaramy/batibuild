@@ -233,16 +233,37 @@ async function countUserDocs(ctx: any, userId: any, kind: QuotaKind): Promise<nu
  * base (Start) comptée sur les documents.
  */
 export async function checkQuota(
-  _ctx: any,
-  _user: any,
-  _kind: QuotaKind,
+  ctx: any,
+  user: any,
+  kind: QuotaKind,
 ): Promise<{ allowed: boolean; limit: number; used: number; plan: string; reason: string }> {
-  return { allowed: true, limit: Infinity, used: 0, plan: "free", reason: "ok" };
+  const configs = await getPlanQuotaConfig(ctx);
+  const sub = await getActiveSubscription(ctx, user._id, subKindForQuota(kind) ?? undefined);
+  const plan = sub?.plan ?? "free";
+  const limit = configs[plan]?.[kind] ?? 1;
+
+  if (sub) {
+    const used = (sub as any)[KIND_TO_SUB_FIELD[kind]] ?? 0;
+    const allowed = used < limit;
+    return { allowed, limit, used, plan, reason: allowed ? "ok" : "limite_atteinte" };
+  }
+
+  const used = await countUserDocs(ctx, user._id, kind);
+  const allowed = used < limit;
+  return { allowed, limit, used, plan: "free", reason: allowed ? "ok" : "limite_atteinte" };
 }
 
 /** Incrémente le compteur de quota de l'abonnement actif. */
-export async function consumeQuota(_ctx: any, _user: any, _kind: QuotaKind): Promise<void> {
-  // Quotas removed — no-op
+export async function consumeQuota(ctx: any, user: any, kind: QuotaKind): Promise<void> {
+  const subKind = subKindForQuota(kind);
+  if (!subKind) return;
+  const sub = await getActiveSubscription(ctx, user._id, subKind);
+  if (!sub) return;
+  const field = KIND_TO_SUB_FIELD[kind];
+  await ctx.db.patch(sub._id, {
+    [field]: ((sub as any)[field] ?? 0) + 1,
+    updatedAt: Date.now(),
+  });
 }
 
 /**
@@ -250,8 +271,16 @@ export async function consumeQuota(_ctx: any, _user: any, _kind: QuotaKind): Pro
  * Utilisé quand un administrateur supprime un document (projet, analyse) :
  * le quota consommé est libéré pour l'utilisateur concerné.
  */
-export async function releaseQuota(_ctx: any, _userId: any, _kind: QuotaKind, _count = 1): Promise<void> {
-  // Quotas removed — no-op
+export async function releaseQuota(ctx: any, userId: any, kind: QuotaKind, count = 1): Promise<void> {
+  const subKind = subKindForQuota(kind);
+  if (!subKind) return;
+  const sub = await getActiveSubscription(ctx, userId, subKind);
+  if (!sub) return;
+  const field = KIND_TO_SUB_FIELD[kind];
+  await ctx.db.patch(sub._id, {
+    [field]: Math.max(0, ((sub as any)[field] ?? 0) - count),
+    updatedAt: Date.now(),
+  });
 }
 
 // ============================================================================
@@ -274,31 +303,98 @@ export const consumeDownload = mutation({
   },
 });
 
-async function checkDownloadAllowedForKind(_ctx: any, _kind: SubKind) {
-  return { allowed: true, reason: "ok", limit: Infinity, used: 0 } as any;
+async function checkDownloadAllowedForKind(ctx: any, kind: SubKind) {
+  const user = await getCurrentUser(ctx);
+  if (!user) return { allowed: false, reason: "non_connecté" };
+
+  const sub = await getActiveSubscription(ctx, user._id, kind);
+  const now = Date.now();
+  const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
+  const isPaidPlan = sub && (sub.plan === "pro" || sub.plan === "expert" || sub.plan === "supplier");
+
+  if (!isActive) {
+    return { allowed: false, reason: "abonnement_inactif", kind };
+  }
+
+  // Forfaits payants = téléchargements illimités
+  if (isPaidPlan) {
+    return {
+      allowed: true,
+      reason: "ok",
+      remaining: Infinity,
+      limit: Infinity,
+      used: 0,
+      plan: sub.plan,
+      kind,
+    };
+  }
+
+  // Forfait gratuit = limite
+  const configs = await getPlanQuotaConfig(ctx);
+  const limit = configs[sub.plan]?.downloads ?? 1;
+  const used = sub.monthlyDownloadCount ?? 0;
+  const remaining = limit - used;
+
+  return {
+    allowed: remaining > 0,
+    reason: remaining > 0 ? "ok" : "limite_atteinte",
+    remaining,
+    limit,
+    used,
+    plan: sub.plan,
+    kind,
+  };
 }
 
-async function consumeDownloadForKind(_ctx: any, _kind: SubKind): Promise<void> {
-  // Quotas removed — no-op
+async function consumeDownloadForKind(ctx: any, kind: SubKind) {
+  const user = await getCurrentUser(ctx);
+  if (!user) {
+    throw new Error("Vous devez être connecté pour télécharger");
+  }
+
+  const sub = await getActiveSubscription(ctx, user._id, kind);
+  const now = Date.now();
+  const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
+  const isPaidPlan = sub && (sub.plan === "pro" || sub.plan === "expert" || sub.plan === "supplier");
+
+  if (!isActive) {
+    throw new Error("Aucun forfait actif pour ce type de document — renouvelez vos quotas");
+  }
+
+  // Forfaits payants = illimité, pas de compteur
+  if (isPaidPlan) {
+    return { used: 0, remaining: Infinity, kind };
+  }
+
+  // Forfait gratuit = compteur classique
+  const configs = await getPlanQuotaConfig(ctx);
+  const limit = configs[sub.plan]?.downloads ?? 1;
+  const used = (sub.monthlyDownloadCount ?? 0) + 1;
+  await ctx.db.patch(sub._id, {
+    monthlyDownloadCount: used,
+    updatedAt: Date.now(),
+  });
+
+  return { used, remaining: limit - used, kind };
 }
 
-// consumeDownloadForKind — quotas removed
-export const consumeDownloadFor = mutation({
-  args: {
-    kind: v.union(v.literal("construction"), v.literal("investment")),
-  },
-  handler: async (ctx, args) => {
-    return consumeDownloadForKind(ctx, args.kind);
-  },
-});
-
-/** Vérifie si l'utilisateur peut télécharger (constru ou investissement). */
+/** Vérifie si l'utilisateur peut télécharger un PDF pour un type donné. */
 export const checkDownloadAllowedFor = query({
   args: {
     kind: v.union(v.literal("construction"), v.literal("investment")),
   },
   handler: async (ctx, args) => {
     return checkDownloadAllowedForKind(ctx, args.kind);
+  },
+});
+
+/** Consomme un téléchargement pour un type donné. */
+export const consumeDownloadFor = mutation({
+  args: {
+    kind: v.union(v.literal("construction"), v.literal("investment")),
+  },
+  handler: async (ctx, args) => {
+    return consumeDownloadForKind(ctx, args.kind);
   },
 });
 
