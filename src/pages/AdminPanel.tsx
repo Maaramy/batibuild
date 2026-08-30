@@ -766,10 +766,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 <span>Historique E-mails</span>
               </TabsTrigger>
               )}
+              {canSee("analytics") && (
               <TabsTrigger value="analytics" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Globe className="h-3.5 w-3.5" />
                 <span>Analytics</span>
               </TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -4660,9 +4662,11 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
             </TabsContent>
 
           {/* ── Analytics (Real-time geolocation tracking) ── */}
+          {canSee("analytics") && (
           <TabsContent value="analytics">
             <AnalyticsDashboard />
           </TabsContent>
+          )}
 
         </Tabs>
         </div>
