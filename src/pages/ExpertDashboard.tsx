@@ -453,83 +453,90 @@ export default function ExpertDashboard() {
             <>
               {/* Status Card */}
               <Card className="border-border/40">
-                <CardContent className="p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      {logo ? (
-                        <div className="h-14 w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden shadow-sm">
-                          <img src={logo} alt={profile.displayName} className="h-full w-full object-cover" />
-                        </div>
-                      ) : (
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-violet-50 border border-violet-200 shadow-sm">
-                          <span className="text-lg font-black text-violet-600 tracking-wide">
-                            {(profile.displayName || "?")
-                              .split(/\s+/).filter(Boolean)
-                              .map((w: string) => w.charAt(0).toUpperCase())
-                              .slice(0, 2).join("")}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-semibold text-sm">{profile.displayName}</p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <Badge variant="outline" className={`text-[9px] ${stCfg.color}`}>
-                            <StatusIcon className="h-2.5 w-2.5 inline mr-1" />
-                            {stCfg.label}
-                          </Badge>
-                          {effStatus === "active" && (
-                            <Badge variant="secondary" className="text-[9px] gap-1 bg-emerald-50 text-emerald-600">
-                              <CheckCircle2 className="h-2.5 w-2.5" />
-                              {remainingDays} jour{remainingDays > 1 ? "s" : ""}
-                            </Badge>
-                          )}
-                          <button onClick={() => toggleVis()}
-                            className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground transition-colors">
-                            {profile.isVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                            {profile.isVisible ? "Visible" : "Masqué"}
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-1.5">
-                          {EXPERT_PROFESSIONS.find((p) => p.value === profile.profession)?.label || profile.profession}
-                          {" · "}
-                          {profile.specialties?.length || 0} spécialités · {(profile as any).regions?.length || 0} régions
-                        </p>
-                        {/* Services under Expert certifié */}
+                <CardContent className="p-4 sm:p-5">
+                  {/* Top row: avatar + name + action buttons */}
+                  <div className="flex items-start gap-3">
+                    {logo ? (
+                      <div className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden shadow-sm">
+                        <img src={logo} alt={profile.displayName} className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-violet-50 border border-violet-200 shadow-sm">
+                        <span className="text-base sm:text-lg font-black text-violet-600 tracking-wide">
+                          {(profile.displayName || "?")
+                            .split(/\s+/).filter(Boolean)
+                            .map((w: string) => w.charAt(0).toUpperCase())
+                            .slice(0, 2).join("")}
+                        </span>
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-sm truncate">{profile.displayName}</p>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <Badge variant="outline" className={`text-[9px] ${stCfg.color}`}>
+                          <StatusIcon className="h-2.5 w-2.5 inline mr-1" />
+                          {stCfg.label}
+                        </Badge>
                         {effStatus === "active" && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <button
-                              onClick={() => navigate("/dashboard/expert/services")}
-                              className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-                            >
-                              <FileText className="h-3 w-3" />
-                              Devis
-                            </button>
-                            <button
-                              onClick={() => navigate("/dashboard")}
-                              className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-                            >
-                              <UserRound className="h-3 w-3" />
-                              Vue Client
-                            </button>
-                          </div>
+                          <Badge variant="secondary" className="text-[9px] gap-1 bg-emerald-50 text-emerald-600">
+                            <CheckCircle2 className="h-2.5 w-2.5" />
+                            {remainingDays} j
+                          </Badge>
                         )}
+                        <button onClick={() => toggleVis()}
+                          className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground transition-colors">
+                          {profile.isVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                          {profile.isVisible ? "Visible" : "Masqué"}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {EXPERT_PROFESSIONS.find((p) => p.value === profile.profession)?.label || profile.profession}
+                        {" · "}{profile.specialties?.length || 0} spécialités · {(profile as any).regions?.length || 0} régions
+                      </p>
+                    </div>
+                  </div>
+                  {/* Action buttons row */}
+                  {effStatus === "active" && (
+                    <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+                      <button
+                        onClick={() => navigate("/dashboard/expert/services")}
+                        className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                      >
+                        <FileText className="h-3 w-3" />
+                        Devis
+                      </button>
+                      <button
+                        onClick={() => navigate("/dashboard")}
+                        className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                      >
+                        <UserRound className="h-3 w-3" />
+                        Vue Client
+                      </button>
+                      <div className="ml-auto">
+                        <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1"
+                          onClick={() => setShowPaymentInfo(!showPaymentInfo)}>
+                          <Wallet className="h-3 w-3" />
+                          Paiement
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:items-end gap-2">
-                      <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
+                  )}
+                  {effStatus !== "active" && (
+                    <div className="flex items-center gap-1.5 mt-3">
+                      <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1"
                         onClick={() => setShowPaymentInfo(!showPaymentInfo)}>
                         <Wallet className="h-3 w-3" />
-                        Moyen de paiement
+                        Paiement
                       </Button>
                       {(effStatus === "inactive" || effStatus === "expired") && (
-                        <Button size="sm" className="h-8 text-xs gap-1.5 w-full sm:w-auto"
+                        <Button size="sm" className="h-7 text-[10px] gap-1"
                           onClick={() => setShowPaymentChoice(true)}>
                           <CreditCard className="h-3 w-3" />
                           {MONTHLY_PRICE} TND/mois
                         </Button>
                       )}
                     </div>
-                  </div>
+                  )}
 
                   {/* Payment info inline (show on click) */}
                   {showPaymentInfo && effStatus === "active" && (
