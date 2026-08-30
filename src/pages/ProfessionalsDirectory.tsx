@@ -36,6 +36,8 @@ const PROFESSION_LABELS: Record<string, string> = {
   bureau_etudes: "Bureau d'études",
   ingenieur: "Ingénieur",
   promoteur_immobilier: "Promoteur immobilier",
+  plombier: "Plombier",
+  electricien: "Électricien",
 };
 
 const PROFESSION_ICONS: Record<string, typeof Building2> = {
@@ -87,10 +89,10 @@ export default function ProfessionalsDirectory() {
   const [sendingDevis, setSendingDevis] = useState(false);
   const createServiceRequest = useMutation(api.expertServiceRequests.create);
 
-  const availableSpecialties = useMemo(() => {
+  const availableProfessions = useMemo(() => {
     if (!experts) return [];
     const set = new Set<string>();
-    for (const e of experts) for (const sp of e.specialties) set.add(sp);
+    for (const e of experts) if (e.profession) set.add(e.profession);
     return [...set].sort();
   }, [experts]);
 
@@ -100,6 +102,14 @@ export default function ProfessionalsDirectory() {
     for (const e of experts) for (const r of e.regions ?? []) set.add(r);
     return [...set].sort();
   }, [experts]);
+
+  const projectRegion = project?.region ?? "";
+
+  useEffect(() => {
+    if (projectRegion && !selectedRegion) {
+      setSelectedRegion(projectRegion);
+    }
+  }, [projectRegion]);
 
   const filtered = useMemo(() => {
     if (!experts) return [];
@@ -159,12 +169,9 @@ export default function ProfessionalsDirectory() {
                 <Briefcase className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <select value={selectedProfession} onChange={(e) => setSelectedProfession(e.target.value)}
                   className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-8 text-sm appearance-none">
-                  <option value="">Toutes spécialités</option>
-                  {Object.entries(PROFESSION_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
-                  ))}
-                  {availableSpecialties.map((sp) => (
-                    <option key={sp} value={sp}>{SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp}</option>
+                  <option value="">Toutes professions</option>
+                  {availableProfessions.map((p) => (
+                    <option key={p} value={p}>{PROFESSION_LABELS[p] ?? p}</option>
                   ))}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -173,7 +180,7 @@ export default function ProfessionalsDirectory() {
                 <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}
                   className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-8 text-sm appearance-none">
-                  <option value="">Toutes régions</option>
+                  <option value="">Toutes les régions</option>
                   {availableRegions.map((r) => (
                     <option key={r} value={r}>{REGION_LABELS[r] ?? r}</option>
                   ))}
