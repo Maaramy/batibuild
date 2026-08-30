@@ -491,14 +491,10 @@ export default function ProjectDetail() {
           "restaurant", "cafe", "electricite_complete", "plomberie_complete",
         ]);
         const isExpertOnly = EXPERT_ONLY_TYPES.has(cat);
-        // Types that are expert-only but also get the Plans IA tab
-        const PLANS_AI_TYPES = new Set(["cafe", "restaurant"]);
-        const hasPlansAI = isExpertOnly && PLANS_AI_TYPES.has(cat);
 
         const navActions = isExpertOnly
           ? [
               { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
-              ...(hasPlansAI ? [{ icon: <LayoutGrid className="h-4 w-4" />, label: "Plans IA", onClick: () => navigate(`/dashboard/plans/${project._id}`), color: "text-violet-500" }] : []),
               { icon: <Users className="h-4 w-4" />, label: "Consulter expert / entreprise", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
             ]
           : [
