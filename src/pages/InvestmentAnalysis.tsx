@@ -316,8 +316,8 @@ function projectPreview(form: FormState, years: number) {
 }
 
 /** La ville doit être choisie strictement dans la liste des villes de la région. */
-const cityInList = (city: string, region: string) =>
-  city.trim() !== "" && (REGION_CASCADE[region] ?? []).some((c) => c.name === city);
+const cityInList = (city: string | undefined, region: string | undefined) =>
+  !!city && city.trim() !== "" && (REGION_CASCADE[region ?? ""] ?? []).some((c) => c.name === city);
 
 function loadSavedLocation(): Pick<FormState, "region" | "city" | "quartier"> | null {
   try {
