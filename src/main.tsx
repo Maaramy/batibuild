@@ -26,7 +26,6 @@ const PricingPage = lazy(() => import("./pages/PricingPage.tsx"));
 const MaterialsPage = lazy(() => import("./pages/MaterialsPage.tsx"));
 const AiMaterials = lazy(() => import("./pages/AiMaterials.tsx"));
 const AiMaterialsResult = lazy(() => import("./pages/AiMaterialsResult.tsx"));
-const ArchitecturalPlans = lazy(() => import("./pages/ArchitecturalPlans.tsx"));
 const ProjectGuide = lazy(() => import("./pages/ProjectGuide.tsx"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage.tsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
@@ -237,8 +236,6 @@ createRoot(document.getElementById("root")!).render(
                   }
                 />
 
-                <Route path="/architectural-ai/generate/:projectId" element={<RequireAuth><ArchitecturalPlans /></RequireAuth>} />
-                <Route path="/architectural-ai/project/:projectId" element={<RequireAuth><ArchitecturalPlans consultation /></RequireAuth>} />
 
                 <Route
                   path="/dashboard/guide"
