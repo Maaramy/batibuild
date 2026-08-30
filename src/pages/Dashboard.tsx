@@ -885,34 +885,47 @@ export default function Dashboard() {
               ) : (
                 /* Profile exists — compact stats + quick links */
                 <>
-                  {/* Status & profile summary */}
+                  {/* Status & profile summary — mobile-friendly */}
                   <Card className="border-border/40 bg-background/50">
-                    <CardContent className="p-3 sm:p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/10">
-                          <span className="text-sm font-bold text-primary/80">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/10">
+                          <span className="text-base font-bold text-primary/80">
                             {(supplierProfile?.companyName || "?").split(/\s+/).filter(Boolean).map((w: string) => w.charAt(0).toUpperCase()).slice(0, 2).join("")}
                           </span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold truncate">{supplierProfile?.companyName}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-sm font-bold truncate">{supplierProfile?.companyName}</p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
                             <Badge variant="outline" className={`text-[9px] ${(supplierProfile as any)?.effectiveStatus === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
                               {(supplierProfile as any)?.effectiveStatus === "active" ? "Abonné Pro" : "Inactif"}
                             </Badge>
-                            <button
-                              onClick={() => setViewMode("client")}
-                              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              <ArrowLeftRight className="h-3 w-3" />
-                              Vue Client
-                            </button>
+                            <span className="text-[10px] text-muted-foreground">
+                              {((supplierProfile as any)?.specialties?.length ?? 0)} spécialités · {((supplierProfile as any)?.regions?.length ?? 0)} régions
+                            </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => navigate("/dashboard/supplier/quotes")}>
-                            <FileText className="h-3 w-3" />
-                            Devis
+                      </div>
+                      {/* Action buttons row */}
+                      <div className="flex items-center gap-1.5 mt-3">
+                        <button
+                          onClick={() => navigate("/dashboard/supplier/quotes")}
+                          className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                        >
+                          <FileText className="h-3 w-3" />
+                          Devis
+                        </button>
+                        <button
+                          onClick={() => setViewMode("client")}
+                          className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                        >
+                          <User className="h-3 w-3" />
+                          Vue Client
+                        </button>
+                        <div className="ml-auto">
+                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => navigate("/dashboard/supplier")}>
+                            <Settings className="h-3 w-3" />
+                            Profil
                           </Button>
                         </div>
                       </div>
@@ -924,7 +937,7 @@ export default function Dashboard() {
                     Gérer mon profil fournisseur
                   </Button>
 
-                  {/* Inline Stats */}
+                  {/* Inline Stats under Gérer mon profil fournisseur */}
                   <SupplierStatsInline />
                 </>
               )}
