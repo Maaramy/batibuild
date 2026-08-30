@@ -36,6 +36,9 @@ import {
 import type { FloorPlan, FloorPlanVariant } from "@/lib/floorPlanEngine";
 import { FloorPlan2D } from "@/components/floorplan/FloorPlan2D";
 import { FloorPlan3D } from "@/components/floorplan/FloorPlan3D";
+import { RestaurantPlan2D } from "@/components/floorplan/RestaurantPlan2D";
+import { RestaurantPlan3D } from "@/components/floorplan/RestaurantPlan3D";
+import { generateRestaurantPlan, type RestaurantPlan } from "@/lib/restaurantPlanEngine";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { cn } from "@/lib/utils";
 
@@ -100,6 +103,11 @@ export default function PlanGenerator() {
   }, [project]);
 
   const variants = allVariants;
+  const isRestaurant = project?.category === "cafe" || project?.category === "restaurant";
+  const restaurantPlan: RestaurantPlan | null = useMemo(
+    () => project && isRestaurant ? generateRestaurantPlan({ area: project.surface ?? 180, type: project.category as "cafe" | "restaurant" }) : null,
+    [isRestaurant, project],
+  );
 
   const bestScore = useMemo(
     () => Math.max(0, ...variants.map((v) => v.validation.score)),
@@ -177,6 +185,7 @@ export default function PlanGenerator() {
           </div>
         ) : (
           <>
+            {restaurantPlan && <RestaurantDesign plan={restaurantPlan} />}
             {/* ── Bandeau synthèse projet ── */}
             <Card className="border-primary/15 bg-gradient-to-r from-violet-500/[0.05] to-transparent">
               <CardContent className="py-4 px-4 sm:px-5 flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -217,6 +226,19 @@ export default function PlanGenerator() {
       </div>
     </main>
   );
+}
+
+function RestaurantDesign({ plan }: { plan: RestaurantPlan }) {
+  const [view, setView] = useState<"2d" | "axo" | "interior">("2d");
+  return <Card className="border-amber-500/20">
+    <CardHeader><CardTitle className="text-base">Conception Café / Restaurant</CardTitle><p className="text-xs text-muted-foreground">Zonage client/service, marche en avant, accessibilité PMR et circulation de 1,20 m minimum.</p></CardHeader>
+    <CardContent className="space-y-3">
+      <Tabs value={view} onValueChange={(v) => setView(v as typeof view)}><TabsList><TabsTrigger value="2d">Plan 2D zoné</TabsTrigger><TabsTrigger value="axo">Coupe axonométrique 3D</TabsTrigger><TabsTrigger value="interior">Perspective salle / bar</TabsTrigger></TabsList></Tabs>
+      {view === "2d" ? <RestaurantPlan2D plan={plan} /> : <RestaurantPlan3D plan={plan} interior={view === "interior"} />}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px]">{[{l:"HSP",v:"2,80 m"},{l:"Circulation",v:"1,20 m"},{l:"Orientation",v:"Sud-Ouest"},{l:"Extraction",v:"Ø350 mm"},{l:"Validation",v:`${plan.validation.score}/100`}].map((x) => <div key={x.l} className="rounded-md border p-2"><p className="text-muted-foreground">{x.l}</p><p className="font-semibold">{x.v}</p></div>)}</div>
+      <p className="text-[10px] text-muted-foreground">Conception indicative : les exigences ERP, incendie, accessibilité, hygiène, extraction et évacuation doivent être vérifiées par un architecte et les autorités compétentes avant exécution.</p>
+    </CardContent>
+  </Card>;
 }
 
 // ── Sous-composants ─────────────────────────────────────────────────────────
