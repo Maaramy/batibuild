@@ -494,7 +494,7 @@ export default function ExpertDashboard() {
                           {" · "}
                           {profile.specialties?.length || 0} spécialités · {(profile as any).regions?.length || 0} régions
                         </p>
-                        {/* Action buttons directly under Expert certifié */}
+                        {/* Services under Expert certifié */}
                         {effStatus === "active" && (
                           <div className="flex items-center gap-2 mt-2">
                             <button
@@ -503,13 +503,6 @@ export default function ExpertDashboard() {
                             >
                               <FileText className="h-3 w-3" />
                               Devis
-                            </button>
-                            <button
-                              onClick={() => navigate("/dashboard/expert/stats")}
-                              className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-                            >
-                              <BarChart3 className="h-3 w-3" />
-                              Stats
                             </button>
                             <button
                               onClick={() => navigate("/dashboard")}
@@ -775,17 +768,16 @@ export default function ExpertDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Stats Section (inside Gérer mon profil expert) */}
+              {/* Stats inline under Gérer mon profil expert */}
               {effStatus === "active" && (
                 <Card className="border-border/40">
-                  <CardHeader className="pb-3">
+                  <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                       <BarChart3 className="h-3.5 w-3.5 text-violet-600" />
                       Statistiques
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Period selector */}
+                  <CardContent className="space-y-3">
                     <div className="flex gap-1 bg-muted/30 rounded-xl p-1">
                       {[{ value: "7d", label: "7j" }, { value: "30d", label: "30j" }, { value: "90d", label: "90j" }, { value: "year", label: "Année" }].map((p) => (
                         <button
@@ -801,7 +793,6 @@ export default function ExpertDashboard() {
                         </button>
                       ))}
                     </div>
-                    {/* KPI Cards */}
                     <div className="grid grid-cols-2 gap-2">
                       {[
                         { label: "Vues du profil", value: "—", icon: Eye, color: "text-blue-600 bg-blue-50" },
