@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useAuth } from "@/hooks/use-auth";
+import { useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +53,16 @@ export default function ExpertProfile() {
   const [myRating, setMyRating] = useState(0);
   const [sending, setSending] = useState(false);
   const rateExpert = useMutation(api.ratings.rateExpert);
+  const recordEvent = useMutation(api.expertStats.recordExpertEvent);
+  const viewRecorded = useRef(false);
+
+  // Track profile view (once per page load)
+  useEffect(() => {
+    if (expert && id && !viewRecorded.current) {
+      viewRecorded.current = true;
+      recordEvent({ expertId: id as any, eventType: "view" }).catch(() => {});
+    }
+  }, [expert, id, recordEvent]);
 
   usePageSEO({
     title: expert ? `${expert.displayName} — Expert` : "Profil Expert",

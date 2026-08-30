@@ -12,7 +12,7 @@ import {
   ArrowLeft, Store, MapPin, Phone, Mail, Globe, MessageSquare, Loader2,
 } from "lucide-react";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 const REGION_LABELS: Record<string, string> = {
@@ -45,6 +45,16 @@ export default function SupplierProfile() {
   const [myRating, setMyRating] = useState(0);
   const [sending, setSending] = useState(false);
   const rateSupplier = useMutation(api.ratings.rateSupplier);
+  const recordEvent = useMutation(api.supplierStats.recordEvent);
+  const viewRecorded = useRef(false);
+
+  // Track profile view (once per page load)
+  useEffect(() => {
+    if (supplier && id && !viewRecorded.current) {
+      viewRecorded.current = true;
+      recordEvent({ supplierId: id as any, eventType: "view" }).catch(() => {});
+    }
+  }, [supplier, id, recordEvent]);
 
   usePageSEO({
     title: supplier ? `${supplier.companyName} — Fournisseur` : "Profil Fournisseur",

@@ -50,6 +50,16 @@ export const create = mutation({
       updatedAt: now,
     });
 
+    // Track analytics contact event
+    try {
+      await ctx.db.insert("supplierAnalytics", {
+        supplierId: args.supplierId,
+        date: now,
+        eventType: "contact",
+        source: "direct",
+      });
+    } catch (e) { /* optional */ }
+
     return quoteId;
   },
 });
