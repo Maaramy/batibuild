@@ -28,12 +28,11 @@ import {
 } from "@/components/ui/chart";
 import {
   Eye,
-  MousePointerClick,
+  Inbox,
+  Send,
+  Percent,
   TrendingUp,
-  MessageSquare,
-  Star,
   ArrowLeft,
-  Calendar,
   BarChart3,
   RefreshCw,
   Lock,
@@ -375,42 +374,34 @@ export default function SupplierStats() {
       )}
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <KpiCard
-          label="Vues"
+          label="Vues du profil"
           value={kpis?.views ?? 0}
           icon={Eye}
           color="#3b82f6"
           loading={!kpis}
         />
         <KpiCard
-          label="Clics"
-          value={kpis?.clicks ?? 0}
-          icon={MousePointerClick}
+          label="Demandes reçues"
+          value={kpis?.contacts ?? 0}
+          icon={Inbox}
           color="#10b981"
           loading={!kpis}
         />
         <KpiCard
-          label="CTR"
-          value={kpis?.ctr ?? 0}
-          icon={TrendingUp}
-          suffix="%"
-          color="#f59e0b"
-          loading={!kpis}
-        />
-        <KpiCard
-          label="Contacts"
-          value={kpis?.contacts ?? 0}
-          icon={MessageSquare}
+          label="Réponses envoyées"
+          value={kpis?.clicks ?? 0}
+          icon={Send}
           color="#8b5cf6"
           loading={!kpis}
         />
         <KpiCard
-          label="Note"
-          value={kpis?.avgRating ?? 0}
-          icon={Star}
-          suffix={`/5 (${kpis?.totalRatings ?? 0})`}
-          color="#ec4899"
+          label="Taux de réponse"
+          value={kpis?.ctr ?? 0}
+          icon={Percent}
+          suffix="%"
+          color="#f59e0b"
           loading={!kpis}
         />
       </div>
@@ -827,12 +818,11 @@ export function SupplierStatsInline() {
       )}
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-        <KpiCard label="Vues" value={kpis?.views ?? 0} icon={Eye} color="#3b82f6" loading={!kpis} />
-        <KpiCard label="Clics" value={kpis?.clicks ?? 0} icon={MousePointerClick} color="#10b981" loading={!kpis} />
-        <KpiCard label="CTR" value={kpis?.ctr ?? 0} icon={TrendingUp} suffix="%" color="#f59e0b" loading={!kpis} />
-        <KpiCard label="Contacts" value={kpis?.contacts ?? 0} icon={MessageSquare} color="#8b5cf6" loading={!kpis} />
-        <KpiCard label="Note" value={kpis?.avgRating ?? 0} icon={Star} suffix={`/5 (${kpis?.totalRatings ?? 0})`} color="#ec4899" loading={!kpis} />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <KpiCard label="Vues du profil" value={kpis?.views ?? 0} icon={Eye} color="#3b82f6" loading={!kpis} />
+        <KpiCard label="Demandes reçues" value={kpis?.contacts ?? 0} icon={Inbox} color="#10b981" loading={!kpis} />
+        <KpiCard label="Réponses envoyées" value={kpis?.clicks ?? 0} icon={Send} color="#8b5cf6" loading={!kpis} />
+        <KpiCard label="Taux de réponse" value={kpis?.ctr ?? 0} icon={Percent} suffix="%" color="#f59e0b" loading={!kpis} />
       </div>
 
       {/* ── Empty State ── */}
