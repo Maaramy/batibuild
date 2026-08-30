@@ -492,53 +492,6 @@ export default function ProjectDetail() {
         ]);
         const isExpertOnly = EXPERT_ONLY_TYPES.has(cat);
 
-        const investmentPrefill = (() => {
-          const type = investmentTypeForProject(project.category ?? "appartement");
-          const ce = project.costEstimate as any;
-          const scenarios = ce?.budgetScenarios as Record<string, { totalCost: number }> | undefined;
-          const std = scenarios?.standard;
-          const scenarioParam = "standard";
-          const sel = scenarios?.[scenarioParam] ?? std;
-          const region = project.region ?? "";
-          const regionLabelMap: Record<string, string> = {
-            tunis: "Tunis", ariana: "Ariana", ben_arous: "Ben Arous", manouba: "Manouba",
-            nabeul: "Nabeul", zaghouan: "Zaghouan", bizerte: "Bizerte", beja: "Béja",
-            sousse: "Sousse", monastir: "Monastir", mahdia: "Mahdia", sfax: "Sfax",
-            gabes: "Gabès", medenine: "Médenine", tozeur: "Tozeur", kebili: "Kébili",
-            gafsa: "Gafsa", sidi_bouzid: "Sidi Bouzid", kasserine: "Kasserine",
-            le_kef: "Le Kef", jendouba: "Jendouba", siliana: "Siliana", tataouine: "Tataouine",
-          };
-          const projectName = project.name ?? `${regionLabelMap[region] ?? region} — ${project.surface ?? ""} m²`;
-          return {
-            name: projectName,
-            investmentType: type,
-            purchasePrice: sel ? Math.round(sel.totalCost) : 0,
-            area: project.surface ?? undefined,
-            region,
-            city: regionLabelMap[region] ?? "",
-            quartier: "",
-            rentMode: "mensuel" as const,
-            rentAmount: 0,
-            monthlyRent: 0,
-            occupancyRate: 95,
-            annualCharges: 0,
-            insurance: 0,
-            managementFees: 0,
-            taxationPct: 10,
-            renovationCost: 0,
-            financingFees: 0,
-            agencyFees: 0,
-            furnishingCost: 0,
-            acquisitionFeesPct: 6,
-            annualAppreciationPct: 5,
-            rentGrowthPct: 5,
-            inflationPct: 6,
-            horizonYears: 10,
-          };
-        })();
-
-        const investUrl = `/dashboard/investments/analysis`;
-
         const navActions = isExpertOnly
           ? [
               { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
@@ -548,7 +501,7 @@ export default function ProjectDetail() {
               { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
               { icon: <LayoutGrid className="h-4 w-4" />, label: "Plans IA", onClick: () => navigate(`/dashboard/plans/${project._id}`), color: "text-violet-500" },
               { icon: <Rocket className="h-4 w-4" />, label: "Guide A-Z", onClick: () => navigate(`/dashboard/guide?project=${project._id}`), color: "text-cyan-500" },
-              { icon: <TrendingUp className="h-4 w-4" />, label: "ROI", onClick: () => navigate(investUrl, { state: { prefill: investmentPrefill, projectId: project._id } }), color: "text-emerald-500" },
+              { icon: <TrendingUp className="h-4 w-4" />, label: "ROI", onClick: () => { const type = investmentTypeForProject(project.category ?? "appartement"); navigate(`/dashboard/investments?type=${type}&project=${project._id}`); }, color: "text-emerald-500" },
               { icon: <Users className="h-4 w-4" />, label: "Expert", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
             ];
         return <BottomNavBar actions={navActions} />;
@@ -827,49 +780,7 @@ export default function ProjectDetail() {
                     <button
                       onClick={() => {
                         const type = investmentTypeForProject(project.category ?? "appartement");
-                        const ce = project.costEstimate as any;
-                        const scenarios = ce?.budgetScenarios as Record<string, { totalCost: number }> | undefined;
-                        const sel = scenarios?.standard;
-                        const regionLabelMap: Record<string, string> = {
-                          tunis: "Tunis", ariana: "Ariana", ben_arous: "Ben Arous", manouba: "Manouba",
-                          nabeul: "Nabeul", zaghouan: "Zaghouan", bizerte: "Bizerte", beja: "Béja",
-                          sousse: "Sousse", monastir: "Monastir", mahdia: "Mahdia", sfax: "Sfax",
-                          gabes: "Gabès", medenine: "Médenine", tozeur: "Tozeur", kebili: "Kébili",
-                          gafsa: "Gafsa", sidi_bouzid: "Sidi Bouzid", kasserine: "Kasserine",
-                          le_kef: "Le Kef", jendouba: "Jendouba", siliana: "Siliana", tataouine: "Tataouine",
-                        };
-                        const r = project.region ?? "";
-                        navigate(`/dashboard/investments/analysis`, {
-                          state: {
-                            prefill: {
-                              name: project.name ?? `${regionLabelMap[r] ?? r} — ${project.surface ?? ""} m²`,
-                              investmentType: type,
-                              purchasePrice: sel ? Math.round(sel.totalCost) : 0,
-                              area: project.surface ?? undefined,
-                              region: r,
-                              city: regionLabelMap[r] ?? "",
-                              quartier: "",
-                              rentMode: "mensuel",
-                              rentAmount: 0,
-                              monthlyRent: 0,
-                              occupancyRate: 95,
-                              annualCharges: 0,
-                              insurance: 0,
-                              managementFees: 0,
-                              taxationPct: 10,
-                              renovationCost: 0,
-                              financingFees: 0,
-                              agencyFees: 0,
-                              furnishingCost: 0,
-                              acquisitionFeesPct: 6,
-                              annualAppreciationPct: 5,
-                              rentGrowthPct: 5,
-                              inflationPct: 6,
-                              horizonYears: 10,
-                            },
-                            projectId: project._id,
-                          },
-                        });
+                        navigate(`/dashboard/investments?type=${type}&project=${project._id}`);
                       }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border bg-emerald-500/20 text-emerald-100 border-emerald-400/30 hover:bg-emerald-500/30 active:scale-95"
                     >
