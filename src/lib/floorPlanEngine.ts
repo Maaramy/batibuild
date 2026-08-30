@@ -310,7 +310,8 @@ function buildConnectivity(rooms: PlanRoom[]): Map<string, string[]> {
 function checkConnectivity(rooms: PlanRoom[]): boolean {
   if (rooms.length === 0) return true;
   const graph = buildConnectivity(rooms);
-  const start = rooms.find((r) => r.kind === "hall")?.id ?? rooms[0].id;
+  const start = rooms.find((r) => r.kind === "hall")?.id ?? rooms[0]?.id;
+  if (!start) return true;
   const visited = new Set<string>([start]);
   const queue = [start];
   while (queue.length > 0) {
@@ -325,6 +326,7 @@ function checkConnectivity(rooms: PlanRoom[]): boolean {
 // ─── Openings ───────────────────────────────────────────────────────────────
 
 function placeOpenings(rooms: PlanRoom[], bL: number, bW: number): void {
+  if (rooms.length === 0) return;
   // Entry door: hall gets entry on exterior wall
   const hall = rooms.find((r) => r.kind === "hall");
   if (hall) {
@@ -344,15 +346,18 @@ function placeOpenings(rooms: PlanRoom[], bL: number, bW: number): void {
   const graph = buildConnectivity(rooms);
   const startId = hall?.id ?? rooms[0]?.id;
   if (!startId) return;
+  const byId = new Map(rooms.map((r) => [r.id, r]));
   const visited = new Set<string>([startId]);
   const queue = [startId];
   while (queue.length > 0) {
-    const cur = rooms.find((r) => r.id === queue.shift()!)!;
+    const cur = byId.get(queue.shift()!);
+    if (!cur) continue;
     for (const nbId of graph.get(cur.id) ?? []) {
       if (visited.has(nbId)) continue;
+      const nb = byId.get(nbId);
+      if (!nb) continue;
       visited.add(nbId);
       queue.push(nbId);
-      const nb = rooms.find((r) => r.id === nbId)!;
       const shared = findSharedWall(cur, nb);
       if (shared && nb.doors.length === 0) {
         nb.doors.push({ wall: shared.wall, position: shared.pos, width: 0.9, toRoom: cur.id });
@@ -364,7 +369,8 @@ function placeOpenings(rooms: PlanRoom[], bL: number, bW: number): void {
   rooms.forEach((r) => {
     if (r.doors.length > 0 || r.id === startId) return;
     for (const nbId of graph.get(r.id) ?? []) {
-      const nb = rooms.find((x) => x.id === nbId)!;
+      const nb = byId.get(nbId);
+      if (!nb) continue;
       const shared = findSharedWall(r, nb);
       if (shared) {
         r.doors.push({ wall: shared.wall, position: shared.pos, width: 0.9, toRoom: nb.id });
