@@ -262,6 +262,44 @@ export default function ProjectDetail() {
   const done = project?.status === "completed";
   const busy = project?.status === "analyzing" || analyzing;
 
+  // ── Investment prefill: scrape project data for ROI page ──────────────
+  const investmentPrefill = useMemo(() => {
+    if (!project) return undefined;
+    const scenarios = ce?.budgetScenarios as Record<string, { totalCost: number }> | undefined;
+    const scenarioKey = selectedScenario || "economique";
+    const selectedCost = scenarios?.[scenarioKey]?.totalCost
+      ?? scenarios?.economique?.totalCost
+      ?? scenarios?.standard?.totalCost
+      ?? ce?.totalCost
+      ?? 0;
+    return {
+      name: project.name || undefined,
+      investmentType: investmentTypeForProject(project.category ?? "appartement"),
+      purchasePrice: Math.round(selectedCost),
+      area: project.surface ?? undefined,
+      region: project.region ?? "tunis",
+      city: undefined,
+      quartier: undefined,
+      rentMode: "mensuel" as const,
+      rentAmount: 1500,
+      monthlyRent: 1500,
+      occupancyRate: 95,
+      annualCharges: 1200,
+      insurance: 300,
+      managementFees: 0,
+      taxationPct: 10,
+      renovationCost: 0,
+      financingFees: 0,
+      agencyFees: 0,
+      furnishingCost: 0,
+      acquisitionFeesPct: 6,
+      annualAppreciationPct: 5,
+      rentGrowthPct: 5,
+      inflationPct: 6,
+      horizonYears: 10,
+    };
+  }, [project, ce, selectedScenario]);
+
   // Predictive intelligence module (Pro/Expert only)
   const insights = project?.predictiveInsights;
   const isPremium =
@@ -501,7 +539,7 @@ export default function ProjectDetail() {
               { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
               { icon: <LayoutGrid className="h-4 w-4" />, label: "Plans IA", onClick: () => navigate(`/dashboard/plans/${project._id}`), color: "text-violet-500" },
               { icon: <Rocket className="h-4 w-4" />, label: "Guide A-Z", onClick: () => navigate(`/dashboard/guide?project=${project._id}`), color: "text-cyan-500" },
-              { icon: <TrendingUp className="h-4 w-4" />, label: "ROI", onClick: () => { const type = investmentTypeForProject(project.category ?? "appartement"); navigate(`/dashboard/investments?type=${type}&project=${project._id}`); }, color: "text-emerald-500" },
+              { icon: <TrendingUp className="h-4 w-4" />, label: "ROI", onClick: () => { const type = investmentTypeForProject(project.category ?? "appartement"); navigate(`/dashboard/investments?type=${type}&project=${project._id}`, { state: { prefill: investmentPrefill, projectId: project._id } }); }, color: "text-emerald-500" },
               { icon: <Users className="h-4 w-4" />, label: "Expert", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
             ];
         return <BottomNavBar actions={navActions} />;
@@ -780,7 +818,7 @@ export default function ProjectDetail() {
                     <button
                       onClick={() => {
                         const type = investmentTypeForProject(project.category ?? "appartement");
-                        navigate(`/dashboard/investments?type=${type}&project=${project._id}`);
+                        navigate(`/dashboard/investments?type=${type}&project=${project._id}`, { state: { prefill: investmentPrefill, projectId: project._id } });
                       }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border bg-emerald-500/20 text-emerald-100 border-emerald-400/30 hover:bg-emerald-500/30 active:scale-95"
                     >
