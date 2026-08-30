@@ -488,7 +488,7 @@ export default function ProjectDetail() {
         const EXPERT_ONLY_TYPES = new Set([
           "renovation_complete", "extension_batiment", "renovation_cuisine",
           "renovation_salle_de_bain", "peinture_interieure", "piscine",
-          "electricite_complete", "plomberie_complete",
+          "restaurant", "cafe", "electricite_complete", "plomberie_complete",
         ]);
         const isExpertOnly = EXPERT_ONLY_TYPES.has(cat);
 
@@ -499,6 +499,7 @@ export default function ProjectDetail() {
             ]
           : [
               { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
+              { icon: <LayoutGrid className="h-4 w-4" />, label: "Plans IA", onClick: () => navigate(`/dashboard/plans/${project._id}`), color: "text-violet-500" },
               { icon: <Rocket className="h-4 w-4" />, label: "Guide A-Z", onClick: () => navigate(`/dashboard/guide?project=${project._id}`), color: "text-cyan-500" },
               { icon: <TrendingUp className="h-4 w-4" />, label: "ROI", onClick: () => { const type = investmentTypeForProject(project.category ?? "appartement"); navigate(`/dashboard/investments?type=${type}&project=${project._id}`); }, color: "text-emerald-500" },
               { icon: <Users className="h-4 w-4" />, label: "Expert", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
