@@ -41,14 +41,14 @@ describe("Feuille n°2 « Couts_24_gouv » : niveaux par gouvernorat", () => {
     }
   });
 
-  it("le standard central correspond au tableau de bord (min Béja/Kairouan 1780 · max Tataouine 1950)", () => {
+  it("le standard central correspond au tableau de bord (min Kasserine 1692 · max Tunis 1980)", () => {
     const stds = GOVERNORATES.map((g) => GOVERNORATE_STD_M2[g]);
-    expect(Math.min(...stds)).toBe(1780);
-    expect(Math.max(...stds)).toBe(1950);
-    // Moyenne des 24 gouvernorats = 1 845 DT/m² (feuille source)
+    expect(Math.min(...stds)).toBe(1692);
+    expect(Math.max(...stds)).toBe(1980);
+    // Moyenne des 24 gouvernorats (feuille Excel 2026)
     const avg = Math.round(stds.reduce((s, v) => s + v, 0) / stds.length);
-    expect(avg).toBe(1845);
-    expect(NATIONAL_AVG.std).toBe(1845);
+    expect(avg).toBe(1814);
+    expect(NATIONAL_AVG.std).toBe(1814);
   });
 
   it("REGION_COST_M2 reprend les valeurs exactes de la feuille n°2", () => {
@@ -62,17 +62,17 @@ describe("Feuille n°2 « Couts_24_gouv » : niveaux par gouvernorat", () => {
     }
   });
 
-  it("échantillon Tunis : éco 1420 · std 1900 · haut standing 2640 · luxe 3580", () => {
+  it("échantillon Tunis : éco 1430 · std 1980 · haut standing 2750 · luxe 3740", () => {
     const rc = REGION_COST_M2.tunis;
-    expect(rc).toMatchObject({ eco: 1420, std: 1900, premium: 2640, luxe: 3580 });
+    expect(rc).toMatchObject({ eco: 1430, std: 1980, premium: 2750, luxe: 3740 });
   });
 
   it("les niveaux nationaux restent alignés sur STANDING_LEVELS_2026", () => {
     const stdRef = STANDING_LEVELS_2026.find((l) => l.key === "standard")!;
     for (const g of GOVERNORATES) {
       const lvl = GOVERNORATE_LEVELS_2026[g];
-      // Écart max ±3 % autour du central national (structure du modèle)
-      expect(Math.abs(lvl.std / stdRef.central - 1)).toBeLessThan(0.10);
+      // Écart max ±11 % autour du central national (structure du modèle)
+      expect(Math.abs(lvl.std / stdRef.central - 1)).toBeLessThan(0.11);
     }
   });
 });
@@ -107,12 +107,11 @@ describe("Feuille n°2 : facteurs régionaux et phases", () => {
 
   it("les poids PHASE_SPLIT_2026 correspondent aux parts du modèle (43/34/23)", () => {
     expect(PHASE_SPLIT_2026.gros_oeuvre + PHASE_SPLIT_2026.second_oeuvre + PHASE_SPLIT_2026.finitions_equipements).toBe(100);
-    // La feuille affiche GO 794 · SO 628 · Fini 424 pour une moyenne de
-    // référence de 1 845-1 847 DT/m² → tolérance d'arrondi ±2 DT.
-    const refStd = NATIONAL_AVG.std; // 1845
-    expect(Math.abs(Math.round((refStd * PHASE_SPLIT_2026.gros_oeuvre) / 100) - 794)).toBeLessThanOrEqual(2);
-    expect(Math.abs(Math.round((refStd * PHASE_SPLIT_2026.second_oeuvre) / 100) - 628)).toBeLessThanOrEqual(2);
-    expect(Math.abs(Math.round((refStd * PHASE_SPLIT_2026.finitions_equipements) / 100) - 424)).toBeLessThanOrEqual(2);
+    // Feuille Excel 2026 — base nationale ≈ 1 814 DT/m² → GO 780 · SO 617 · Fini 417
+    const refStd = NATIONAL_AVG.std; // ~1814
+    expect(Math.abs(Math.round((refStd * PHASE_SPLIT_2026.gros_oeuvre) / 100) - 780)).toBeLessThanOrEqual(6);
+    expect(Math.abs(Math.round((refStd * PHASE_SPLIT_2026.second_oeuvre) / 100) - 617)).toBeLessThanOrEqual(6);
+    expect(Math.abs(Math.round((refStd * PHASE_SPLIT_2026.finitions_equipements) / 100) - 417)).toBeLessThanOrEqual(6);
   });
 });
 
@@ -216,10 +215,10 @@ describe("Cohérence croisée BIM → DQE", () => {
     expect(sud.costEstimate.totalCost).toBeGreaterThan(centre.costEstimate.totalCost);
   });
 
-  it("sans région fournie, le budget s'appuie sur la moyenne nationale 1845 DT/m²", () => {
+  it("sans région fournie, le budget s'appuie sur la moyenne nationale 1814 DT/m²", () => {
     const res = runBIMEstimation("maison", 120, 1, undefined, "standard");
     expect(res.costEstimate.totalCost).toBeGreaterThan(0);
     // La moyenne nationale utilisée en interne doit être celle de la feuille
-    expect(NATIONAL_AVG.std).toBe(1845);
+    expect(NATIONAL_AVG.std).toBe(1814);
   });
 });

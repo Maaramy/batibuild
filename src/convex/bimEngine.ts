@@ -467,54 +467,51 @@ type Percentages = [number, number, number, number, number, number];
 // ============================================================================
 
 const RELATIVE_PRICE_M2: Record<string, { eco: number, std: number, premium: number }> = {
-  // Maisons & Villa (Marché tunisien 2026 - fournitures + main d'œuvre)
-  // NB : les anciens types « Maison R+1 » / « Maison R+2 » ont été supprimés
-  // du catalogue — le nombre de niveaux est désormais choisi manuellement et
-  // les anciens slugs sont remappés vers « maison » / « villa ».
-  maison:             { eco: 720, std: 1056, premium: 1728 },
-  villa:              { eco: 864, std: 1296, premium: 2112 },
-  immeuble_residentiel:{ eco: 912, std: 1344, premium: 2112 },
-  immeuble:           { eco: 912, std: 1344, premium: 2112 },
-  appartement:        { eco: 960, std: 1440, premium: 2304 },
-  studio:             { eco: 912, std: 1344, premium: 2112 },
-  duplex:             { eco: 1008, std: 1488, premium: 2352 },
-  residence_touristique:{ eco: 960, std: 1392, premium: 2208 },
-  projet_neuf:        { eco: 912, std: 1344, premium: 2112 },
-  maison_hote:        { eco: 912, std: 1344, premium: 2208 },
+  // Maisons & Villa (base Médenine = 100 %, feuille Excel 2026)
+  maison:             { eco: 1300, std: 1800, premium: 2500 },
+  villa:              { eco: 1800, std: 2500, premium: 3800 },
+  immeuble_residentiel:{ eco: 1300, std: 1800, premium: 2600 },
+  immeuble:           { eco: 1300, std: 1800, premium: 2600 },
+  appartement:        { eco: 1200, std: 1700, premium: 2400 },
+  studio:             { eco: 1200, std: 1650, premium: 2300 },
+  duplex:             { eco: 1350, std: 1900, premium: 2700 },
+  residence_touristique:{ eco: 1600, std: 2200, premium: 3300 },
+  projet_neuf:        { eco: 1350, std: 1850, premium: 2800 },
+  maison_hote:        { eco: 1350, std: 1850, premium: 2800 },
 
   // Piscine & Extérieur
-  piscine:            { eco: 720, std: 1056, premium: 1728 },
-  piscine_beton:      { eco: 720, std: 1056, premium: 1728 },
-  piscine_coque:      { eco: 576, std: 864, premium: 1440 },
-  jardin:             { eco: 77, std: 125, premium: 240 },
-  amenagement_paysager:{ eco: 86, std: 134, premium: 269 },
-  garage:             { eco: 480, std: 720, premium: 1152 },
-  cloture:            { eco: 269, std: 432, premium: 720 },
-  mur_de_separation:  { eco: 269, std: 432, premium: 672 },
-  cuisine_exterieure: { eco: 720, std: 1056, premium: 1728 },
-  terrasse:           { eco: 307, std: 480, premium: 816 },
-  pergola:            { eco: 432, std: 672, premium: 1056 },
-  toiture:            { eco: 269, std: 384, premium: 624 },
-  extension_batiment: { eco: 768, std: 1152, premium: 1920 },
+  piscine:            { eco: 1400, std: 2200, premium: 3500 },
+  piscine_beton:      { eco: 1400, std: 2200, premium: 3500 },
+  piscine_coque:      { eco: 1100, std: 1700, premium: 2700 },
+  jardin:             { eco: 150, std: 250, premium: 480 },
+  amenagement_paysager:{ eco: 170, std: 270, premium: 540 },
+  garage:             { eco: 600, std: 900, premium: 1440 },
+  cloture:            { eco: 350, std: 550, premium: 900 },
+  mur_de_separation:  { eco: 350, std: 550, premium: 850 },
+  cuisine_exterieure: { eco: 900, std: 1300, premium: 2100 },
+  terrasse:           { eco: 400, std: 600, premium: 1000 },
+  pergola:            { eco: 550, std: 850, premium: 1300 },
+  toiture:            { eco: 350, std: 500, premium: 800 },
+  extension_batiment: { eco: 1000, std: 1700, premium: 2800 },
 
   // Commercial & Industriel
-  entrepot:           { eco: 432, std: 672, premium: 1056 },
-  local_commercial:   { eco: 720, std: 1056, premium: 1728 },
-  boutique_commerciale:{ eco: 720, std: 1056, premium: 1728 },
-  bureau:             { eco: 816, std: 1200, premium: 2016 },
-  bureau_cabinet:     { eco: 816, std: 1200, premium: 2016 },
-  ferme:              { eco: 432, std: 624, premium: 960 },
-  batiment_agricole:  { eco: 432, std: 624, premium: 960 },
-  serre_agricole:     { eco: 211, std: 336, premium: 528 },
-  parking:            { eco: 192, std: 307, premium: 480 },
-  aire_de_jeux:       { eco: 125, std: 221, premium: 384 },
+  entrepot:           { eco: 700, std: 1000, premium: 1500 },
+  local_commercial:   { eco: 1100, std: 1500, premium: 2200 },
+  boutique_commerciale:{ eco: 1100, std: 1500, premium: 2200 },
+  bureau:             { eco: 1100, std: 1600, premium: 2400 },
+  bureau_cabinet:     { eco: 1100, std: 1600, premium: 2400 },
+  ferme:              { eco: 550, std: 800, premium: 1200 },
+  batiment_agricole:  { eco: 550, std: 800, premium: 1200 },
+  serre_agricole:     { eco: 280, std: 450, premium: 700 },
+  parking:            { eco: 250, std: 400, premium: 600 },
+  aire_de_jeux:       { eco: 160, std: 280, premium: 480 },
 
-  // Institutionnel
-  mosquee:            { eco: 912, std: 1344, premium: 2208 },
-  ecole:              { eco: 864, std: 1296, premium: 2016 },
-  hotel:              { eco: 1152, std: 1728, premium: 2880 },
-  restaurant:         { eco: 960, std: 1440, premium: 2400 },
-  cafe:               { eco: 912, std: 1344, premium: 2112 },
+  // Institutionnel (base Médenine, feuille 2026)
+  mosquee:            { eco: 1350, std: 1850, premium: 2800 },
+  ecole:              { eco: 1300, std: 1800, premium: 2500 },
+  hotel:              { eco: 1600, std: 2200, premium: 3300 },
+  restaurant:         { eco: 1400, std: 1900, premium: 3000 },
+  cafe:               { eco: 1200, std: 1700, premium: 2600 },
 
   // Industrie
   atelier:            { eco: 336, std: 499, premium: 816 },
@@ -530,25 +527,25 @@ const RELATIVE_PRICE_M2: Record<string, { eco: number, std: number, premium: num
   route:              { eco: 125, std: 211, premium: 365 },
   trottoir:           { eco: 96, std: 173, premium: 307 },
 
-  // Rénovation (Marché tunisien 2026)
-  renovation_interieure:    { eco: 307, std: 528, premium: 960 },
-  renovation_complete:      { eco: 288, std: 480, premium: 864 },
-  renovation_exterieure:   { eco: 250, std: 432, premium: 768 },
-  renovation_salle_de_bain: { eco: 712, std: 890, premium: 1068 },
-  renovation_cuisine:       { eco: 712, std: 1098, premium: 1483 },
-  renovation_facade:        { eco: 221, std: 336, premium: 576 },
-  peinture_interieure:      { eco: 13, std: 20, premium: 36 },
+  // Rénovation (feuille Excel 2026, base Médenine)
+  renovation_interieure:    { eco: 900, std: 1400, premium: 2400 },
+  renovation_complete:      { eco: 900, std: 1400, premium: 2400 },
+  renovation_exterieure:   { eco: 900, std: 1400, premium: 2400 },
+  renovation_salle_de_bain: { eco: 800, std: 1400, premium: 2400 },
+  renovation_cuisine:       { eco: 700, std: 1200, premium: 2200 },
+  renovation_facade:        { eco: 500, std: 800, premium: 1400 },
+  peinture_interieure:      { eco: 180, std: 350, premium: 650 },
 
   // Démolition
   demolition:                { eco: 86, std: 125, premium: 211 },
   installations_sanitaires:  { eco: 960, std: 1536, premium: 2880 },
-  plomberie_complete:        { eco: 47, std: 98, premium: 148 },
-  installations_electricite: { eco: 173, std: 307, premium: 528 },
-  electricite_complete:      { eco: 36, std: 71, premium: 107 },
+  plomberie_complete:        { eco: 80, std: 165, premium: 250 },
+  installations_electricite: { eco: 300, std: 520, premium: 880 },
+  electricite_complete:      { eco: 60, std: 120, premium: 180 },
 };
 
-/** Base nationale « Standard » — maison neuve conventionnelle (feuille 2026). */
-export const BASE_NATIONALE_STANDARD_M2 = 1780;
+/** Base nationale « Standard » — maison neuve conventionnelle (feuille Excel 2026, base Médenine = 1 800 DT/m²). */
+export const BASE_NATIONALE_STANDARD_M2 = 1800;
 
 const _PRICE_SCALE = BASE_NATIONALE_STANDARD_M2 / RELATIVE_PRICE_M2.maison.std;
 const _scalePriceRow = (r: { eco: number; std: number; premium: number }) => ({
@@ -686,20 +683,22 @@ export const BIM_CATEGORY_LABELS = PROJECT_TYPE_LABELS;
 
 /** Niveau « Standard central » par gouvernorat (TND/m², feuille 2026). */
 export const GOVERNORATE_STD_M2: Record<string, number> = {
-  tataouine: 1950, kebili: 1920, tunis: 1900, tozeur: 1900,
-  medenine: 1890, nabeul: 1880, sousse: 1880, ariana: 1870,
-  ben_arous: 1850, monastir: 1840, gafsa: 1840,
-  kasserine: 1830, mahdia: 1830, gabes: 1830, manouba: 1830,
-  le_kef: 1820, bizerte: 1820, sfax: 1820, sidi_bouzid: 1820,
-  jendouba: 1810, siliana: 1800, zaghouan: 1790, kairouan: 1780, beja: 1780,
+  // Feuille Excel 2026 — base Médenine = 1 800 DT/m² × indice régional
+  tunis: 1980, ariana: 1944, sousse: 1926, monastir: 1908,
+  ben_arous: 1890, nabeul: 1872, medenine: 1800, tozeur: 1800,
+  mahdia: 1854, manouba: 1854, bizerte: 1836, sfax: 1836,
+  tataouine: 1836, kebili: 1782, gabes: 1764, beja: 1764,
+  kairouan: 1728, le_kef: 1728, siliana: 1728,
+  kasserine: 1692, sidi_bouzid: 1710, jendouba: 1746,
+  gafsa: 1746, zaghouan: 1800,
 };
 
 /** Niveaux de standing nationaux (feuille « Coût au m² – Tunisie 2026 »). */
 export const STANDING_LEVELS_2026 = [
-  { key: "economique", label: "Économique", min: 1200, central: 1340, max: 1500 },
-  { key: "standard", label: "Standard", min: 1600, central: 1780, max: 2000 },
-  { key: "haut_standing", label: "Haut standing", min: 2200, central: 2470, max: 2800 },
-  { key: "luxe", label: "Luxe", min: 3000, central: 3360, max: 4000 },
+  { key: "economique", label: "Économique", min: 1200, central: 1400, max: 1600 },
+  { key: "standard", label: "Standard", min: 1600, central: 1800, max: 2000 },
+  { key: "haut_standing", label: "Haut standing", min: 2200, central: 2500, max: 2800 },
+  { key: "luxe", label: "Luxe", min: 3000, central: 3400, max: 4000 },
 ] as const;
 
 /** Répartition par grande phase – standard central : Gros œuvre 43 % · Second œuvre 34 % · Finitions & équipements 23 %. */
@@ -717,30 +716,31 @@ export const GOVERNORATE_LEVELS_2026: Record<
   string,
   { eco: number; std: number; hautStanding: number; luxe: number }
 > = {
-  tunis: { eco: 1420, std: 1900, hautStanding: 2640, luxe: 3580 },
-  ariana: { eco: 1410, std: 1870, hautStanding: 2600, luxe: 3540 },
-  ben_arous: { eco: 1380, std: 1850, hautStanding: 2560, luxe: 3490 },
-  manouba: { eco: 1370, std: 1830, hautStanding: 2540, luxe: 3450 },
-  nabeul: { eco: 1410, std: 1880, hautStanding: 2610, luxe: 3550 },
-  zaghouan: { eco: 1340, std: 1790, hautStanding: 2490, luxe: 3380 },
-  bizerte: { eco: 1370, std: 1820, hautStanding: 2530, luxe: 3440 },
-  beja: { eco: 1340, std: 1780, hautStanding: 2470, luxe: 3360 },
-  jendouba: { eco: 1360, std: 1810, hautStanding: 2510, luxe: 3410 },
-  le_kef: { eco: 1370, std: 1820, hautStanding: 2530, luxe: 3440 },
-  siliana: { eco: 1350, std: 1800, hautStanding: 2500, luxe: 3400 },
-  sousse: { eco: 1410, std: 1880, hautStanding: 2610, luxe: 3540 },
-  monastir: { eco: 1380, std: 1840, hautStanding: 2560, luxe: 3480 },
-  mahdia: { eco: 1370, std: 1830, hautStanding: 2540, luxe: 3460 },
-  sfax: { eco: 1360, std: 1820, hautStanding: 2530, luxe: 3440 },
-  kairouan: { eco: 1340, std: 1780, hautStanding: 2480, luxe: 3370 },
-  kasserine: { eco: 1370, std: 1830, hautStanding: 2550, luxe: 3460 },
-  sidi_bouzid: { eco: 1360, std: 1820, hautStanding: 2520, luxe: 3430 },
-  gabes: { eco: 1370, std: 1830, hautStanding: 2540, luxe: 3460 },
-  medenine: { eco: 1420, std: 1890, hautStanding: 2630, luxe: 3570 },
-  tataouine: { eco: 1460, std: 1950, hautStanding: 2700, luxe: 3680 },
-  gafsa: { eco: 1380, std: 1840, hautStanding: 2560, luxe: 3480 },
-  tozeur: { eco: 1420, std: 1900, hautStanding: 2640, luxe: 3580 },
-  kebili: { eco: 1440, std: 1920, hautStanding: 2670, luxe: 3630 },
+  // Feuille Excel 2026 — valeurs exactes par gouvernorat
+  tunis:     { eco: 1430, std: 1980, hautStanding: 2750, luxe: 3740 },
+  ariana:    { eco: 1404, std: 1944, hautStanding: 2700, luxe: 3670 },
+  ben_arous: { eco: 1365, std: 1890, hautStanding: 2625, luxe: 3570 },
+  manouba:   { eco: 1339, std: 1854, hautStanding: 2575, luxe: 3510 },
+  nabeul:    { eco: 1352, std: 1872, hautStanding: 2600, luxe: 3540 },
+  zaghouan:  { eco: 1300, std: 1800, hautStanding: 2500, luxe: 3400 },
+  bizerte:   { eco: 1326, std: 1836, hautStanding: 2550, luxe: 3480 },
+  beja:      { eco: 1274, std: 1764, hautStanding: 2450, luxe: 3340 },
+  jendouba:  { eco: 1261, std: 1746, hautStanding: 2425, luxe: 3300 },
+  le_kef:    { eco: 1248, std: 1728, hautStanding: 2400, luxe: 3270 },
+  siliana:   { eco: 1248, std: 1728, hautStanding: 2400, luxe: 3270 },
+  sousse:    { eco: 1391, std: 1926, hautStanding: 2675, luxe: 3640 },
+  monastir:  { eco: 1378, std: 1908, hautStanding: 2650, luxe: 3600 },
+  mahdia:    { eco: 1339, std: 1854, hautStanding: 2575, luxe: 3510 },
+  sfax:      { eco: 1326, std: 1836, hautStanding: 2550, luxe: 3480 },
+  kairouan:  { eco: 1248, std: 1728, hautStanding: 2400, luxe: 3270 },
+  kasserine: { eco: 1222, std: 1692, hautStanding: 2350, luxe: 3200 },
+  sidi_bouzid: { eco: 1235, std: 1710, hautStanding: 2375, luxe: 3240 },
+  gabes:     { eco: 1274, std: 1764, hautStanding: 2450, luxe: 3340 },
+  medenine:  { eco: 1300, std: 1800, hautStanding: 2500, luxe: 3400 },
+  tataouine: { eco: 1326, std: 1836, hautStanding: 2550, luxe: 3480 },
+  gafsa:     { eco: 1261, std: 1746, hautStanding: 2425, luxe: 3300 },
+  tozeur:    { eco: 1300, std: 1800, hautStanding: 2500, luxe: 3400 },
+  kebili:    { eco: 1287, std: 1782, hautStanding: 2475, luxe: 3370 },
 };
 
 /**
@@ -786,30 +786,31 @@ export const GOVERNORATE_PHASES_M2: Record<
   string,
   { grosOeuvre: number; secondOeuvre: number; finitionsEquipements: number }
 > = {
-  tunis: { grosOeuvre: 820, secondOeuvre: 650, finitionsEquipements: 440 },
-  ariana: { grosOeuvre: 800, secondOeuvre: 640, finitionsEquipements: 430 },
-  ben_arous: { grosOeuvre: 800, secondOeuvre: 630, finitionsEquipements: 430 },
-  manouba: { grosOeuvre: 790, secondOeuvre: 620, finitionsEquipements: 420 },
-  nabeul: { grosOeuvre: 810, secondOeuvre: 640, finitionsEquipements: 430 },
-  zaghouan: { grosOeuvre: 770, secondOeuvre: 610, finitionsEquipements: 410 },
-  bizerte: { grosOeuvre: 780, secondOeuvre: 620, finitionsEquipements: 420 },
-  beja: { grosOeuvre: 770, secondOeuvre: 610, finitionsEquipements: 410 },
-  jendouba: { grosOeuvre: 780, secondOeuvre: 620, finitionsEquipements: 420 },
-  le_kef: { grosOeuvre: 780, secondOeuvre: 620, finitionsEquipements: 420 },
-  siliana: { grosOeuvre: 770, secondOeuvre: 610, finitionsEquipements: 410 },
-  sousse: { grosOeuvre: 810, secondOeuvre: 640, finitionsEquipements: 430 },
-  monastir: { grosOeuvre: 790, secondOeuvre: 630, finitionsEquipements: 420 },
-  mahdia: { grosOeuvre: 790, secondOeuvre: 620, finitionsEquipements: 420 },
-  sfax: { grosOeuvre: 780, secondOeuvre: 620, finitionsEquipements: 420 },
-  kairouan: { grosOeuvre: 770, secondOeuvre: 610, finitionsEquipements: 410 },
-  kasserine: { grosOeuvre: 790, secondOeuvre: 620, finitionsEquipements: 420 },
-  sidi_bouzid: { grosOeuvre: 780, secondOeuvre: 620, finitionsEquipements: 420 },
-  gabes: { grosOeuvre: 790, secondOeuvre: 620, finitionsEquipements: 420 },
-  medenine: { grosOeuvre: 810, secondOeuvre: 640, finitionsEquipements: 430 },
-  tataouine: { grosOeuvre: 840, secondOeuvre: 660, finitionsEquipements: 450 },
-  gafsa: { grosOeuvre: 790, secondOeuvre: 630, finitionsEquipements: 420 },
-  tozeur: { grosOeuvre: 820, secondOeuvre: 650, finitionsEquipements: 440 },
-  kebili: { grosOeuvre: 830, secondOeuvre: 650, finitionsEquipements: 440 },
+  // Feuille 2026 — GO 43 % · SO 34 % · Fini 23 % du standard régional
+  tunis:     { grosOeuvre: 851, secondOeuvre: 673, finitionsEquipements: 455 },
+  ariana:    { grosOeuvre: 836, secondOeuvre: 661, finitionsEquipements: 447 },
+  ben_arous: { grosOeuvre: 813, secondOeuvre: 643, finitionsEquipements: 435 },
+  manouba:   { grosOeuvre: 797, secondOeuvre: 630, finitionsEquipements: 426 },
+  nabeul:    { grosOeuvre: 805, secondOeuvre: 636, finitionsEquipements: 431 },
+  zaghouan:  { grosOeuvre: 774, secondOeuvre: 612, finitionsEquipements: 414 },
+  bizerte:   { grosOeuvre: 789, secondOeuvre: 624, finitionsEquipements: 422 },
+  beja:      { grosOeuvre: 759, secondOeuvre: 600, finitionsEquipements: 406 },
+  jendouba:  { grosOeuvre: 751, secondOeuvre: 594, finitionsEquipements: 402 },
+  le_kef:    { grosOeuvre: 743, secondOeuvre: 588, finitionsEquipements: 397 },
+  siliana:   { grosOeuvre: 743, secondOeuvre: 588, finitionsEquipements: 397 },
+  sousse:    { grosOeuvre: 828, secondOeuvre: 655, finitionsEquipements: 443 },
+  monastir:  { grosOeuvre: 820, secondOeuvre: 649, finitionsEquipements: 439 },
+  mahdia:    { grosOeuvre: 797, secondOeuvre: 630, finitionsEquipements: 426 },
+  sfax:      { grosOeuvre: 789, secondOeuvre: 624, finitionsEquipements: 422 },
+  kairouan:  { grosOeuvre: 743, secondOeuvre: 588, finitionsEquipements: 397 },
+  kasserine: { grosOeuvre: 728, secondOeuvre: 575, finitionsEquipements: 389 },
+  sidi_bouzid: { grosOeuvre: 735, secondOeuvre: 581, finitionsEquipements: 393 },
+  gabes:     { grosOeuvre: 759, secondOeuvre: 600, finitionsEquipements: 406 },
+  medenine:  { grosOeuvre: 774, secondOeuvre: 612, finitionsEquipements: 414 },
+  tataouine: { grosOeuvre: 789, secondOeuvre: 624, finitionsEquipements: 422 },
+  gafsa:     { grosOeuvre: 751, secondOeuvre: 594, finitionsEquipements: 402 },
+  tozeur:    { grosOeuvre: 774, secondOeuvre: 612, finitionsEquipements: 414 },
+  kebili:    { grosOeuvre: 766, secondOeuvre: 606, finitionsEquipements: 410 },
 };
 
 /**
