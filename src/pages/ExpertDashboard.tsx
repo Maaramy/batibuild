@@ -24,7 +24,7 @@ import {
   ShieldCheck, Trash2, AlertTriangle, Clock3,
   Banknote, Smartphone, Landmark, UserRound, Upload,
   Wallet, FileText, Briefcase, Ruler, HardHat, Store,
-  Wrench, Zap,
+  Wrench, Zap, ImageIcon, X,
 } from "lucide-react";
 
 // ============================================================================
@@ -751,6 +751,37 @@ export default function ExpertDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Logo upload */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Logo de l'entreprise</Label>
+                    <div className="flex items-center gap-3">
+                      <div className="relative h-14 w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden">
+                        {logo ? (
+                          <img src={logo} alt="Logo" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <ImageIcon className="h-5 w-5 text-muted-foreground shrink-0" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed text-[10px] transition-all ${isEditing ? "border-border/40 hover:border-violet-300 cursor-pointer hover:bg-muted/20" : "border-border/30 opacity-60 cursor-default"}`}>
+                          {uploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                          {uploadingLogo ? "Upload..." : logo ? "Changer le logo" : "Ajouter un logo"}
+                          <input type="file" accept="image/*" onChange={handleUploadLogo} disabled={!isEditing} className="hidden" />
+                        </label>
+                        {logo && isEditing && (
+                          <button type="button" onClick={() => setLogo(undefined)} className="text-[10px] text-destructive hover:underline text-left">
+                            Supprimer le logo
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {!logo && isEditing && (
+                      <p className="text-[9px] text-muted-foreground">JPG, PNG ou WebP · Max 5 Mo</p>
+                    )}
+                  </div>
+
                   {/* Profession Selector */}
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1"><Briefcase className="h-3 w-3" /> Profession</Label>
@@ -928,6 +959,37 @@ export default function ExpertDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Logo upload (create mode) */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Logo de l'entreprise (optionnel)</Label>
+                    <div className="flex items-center gap-3">
+                      <div className="relative h-14 w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden">
+                        {logo ? (
+                          <img src={logo} alt="Logo" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <ImageIcon className="h-5 w-5 text-muted-foreground shrink-0" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <label className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-border/40 hover:border-violet-300 cursor-pointer transition-all hover:bg-muted/20 text-[10px]">
+                          {uploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                          {uploadingLogo ? "Upload..." : logo ? "Changer le logo" : "Ajouter un logo"}
+                          <input type="file" accept="image/*" onChange={handleUploadLogo} className="hidden" />
+                        </label>
+                        {logo && (
+                          <button type="button" onClick={() => setLogo(undefined)} className="text-[10px] text-destructive hover:underline text-left">
+                            Supprimer le logo
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {!logo && (
+                      <p className="text-[9px] text-muted-foreground">JPG, PNG ou WebP · Max 5 Mo</p>
+                    )}
+                  </div>
+
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1"><UserRound className="h-3 w-3" /> Nom complet *</Label>
                     <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Votre nom complet" className="h-9 text-sm" />
