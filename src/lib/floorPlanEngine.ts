@@ -128,6 +128,8 @@ function mulberry32(seed: number): () => number {
 
 const EPS = 1e-6;
 
+
+
 // ── Couleurs par nature de pièce (partagées 2D / 3D) ───────────────────────
 
 export const PLAN_ROOM_COLORS: Record<RoomKind, string> = {
@@ -278,15 +280,7 @@ function residentialProgram(
         min: 1.5,
         priority: 5,
       });
-      if (input.category === "villa" || input.category === "maison") {
-        items.push({
-          kind: "garage",
-          label: "Garage",
-          target: 15,
-          min: 12,
-          priority: 8,
-        });
-      }
+
       // Sur un R+1 avec peu de chambres, quelques chambres peuvent monter au RDC
       if (levels === 1) {
         for (const idx of bedroomLevels[0]) items.push(mkChambre(idx));
@@ -321,6 +315,7 @@ function residentialProgram(
         });
       }
     }
+
     result.push({ level: lvl, items });
   }
   return result;
@@ -394,20 +389,20 @@ function bspLayout<T extends { target: number }>(rect: Rect, items: T[]): Placed
   }
   const f1 = Math.min(0.85, Math.max(0.15, s1 / total));
   if (rect.w >= rect.h) {
-    const wLeft = Math.min(Math.round(rect.w * f1 * 1000) / 1000, rect.w - 0.01);
+    const split = round3(Math.round(rect.w * f1 * 1000) / 1000);
     return [
-      ...bspLayout({ x: rect.x, y: rect.y, w: wLeft, h: rect.h }, g1),
+      ...bspLayout({ x: rect.x, y: rect.y, w: split, h: rect.h }, g1),
       ...bspLayout(
-        { x: round3(rect.x + wLeft), y: rect.y, w: round3(rect.w - wLeft), h: rect.h },
+        { x: round3(rect.x + split), y: rect.y, w: round3(rect.w - split), h: rect.h },
         g2,
       ),
     ];
   }
-  const hTop = Math.min(Math.round(rect.h * f1 * 1000) / 1000, rect.h - 0.01);
+  const split = round3(Math.round(rect.h * f1 * 1000) / 1000);
   return [
-    ...bspLayout({ x: rect.x, y: rect.y, w: rect.w, h: hTop }, g1),
+    ...bspLayout({ x: rect.x, y: rect.y, w: rect.w, h: split }, g1),
     ...bspLayout(
-      { x: rect.x, y: round3(rect.y + hTop), w: rect.w, h: round3(rect.h - hTop) },
+      { x: rect.x, y: round3(rect.y + split), w: rect.w, h: round3(rect.h - split) },
       g2,
     ),
   ];
@@ -480,7 +475,7 @@ function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number
         }
       }
     }
-    const doorWidth = room.kind === "garage" ? 2.4 : 0.9;
+    const doorWidth = 0.9;
     if (best) {
       room.doors.push({
         wall: best.side,
@@ -490,20 +485,20 @@ function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number
     }
   }
 
-  // Porte d'entrée : RDC, pièce d'accueil (réception/séjour/hall/openspace)
+  // Porte d'entrée : RDC, pièce d'accueil (réception/séjour)
   if (isGroundFloor) {
-    const prio: RoomKind[] = ["reception", "sejour", "hall", "openspace", "stockage"];
+    const prio: RoomKind[] = ["reception", "sejour", "hall", "openspace"];
     let entry: PlanRoom | undefined;
     for (const k of prio) {
       entry = rooms.find((r) => r.kind === k);
       if (entry) break;
     }
     if (!entry) entry = [...rooms].sort((a, b) => b.area - a.area)[0];
-    const pos = Math.max(0.8, Math.min(entry!.w - 0.8, entry!.x + entry!.w * 0.5));
-    entry!.doors.push({ wall: "S", position: pos - entry!.x, width: 1.1, isEntry: true });
+    const pos = Math.max(0.8, Math.min(entry!.w - 0.8, entry!.w * 0.5));
+    entry!.doors.push({ wall: "S", position: pos, width: 1.1, isEntry: true });
   }
 
-  // Fenêtres : pièces habitables donnant sur l'extérieur
+  // Fenêtres : pièces habitables + véranda donnant sur l'extérieur
   for (const room of rooms) {
     const habitable =
       room.kind === "chambre" ||
@@ -534,6 +529,7 @@ function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number
     }
   }
 }
+
 
 // ── Construction d'un niveau ────────────────────────────────────────────────
 
@@ -704,10 +700,12 @@ export function validatePlan(
   }
   if (!areasOk) score -= 10;
 
-  // 4. Circulation : chaque pièce dispose d'une porte
+  // 4. Circulation : chaque pièce (hors couloirs/escaliers) dispose d'une porte
+  const NO_DOOR_KINDS = new Set<RoomKind>(["couloir", "escalier"]);
   let circulationOk = true;
   for (const fp of variant.floors) {
     for (const r of fp.rooms) {
+      if (NO_DOOR_KINDS.has(r.kind)) continue;
       if (r.doors.length === 0) {
         circulationOk = false;
         issues.push(`Pièce sans accès : ${r.label} (niveau ${fp.level + 1})`);
@@ -760,6 +758,7 @@ export function validatePlan(
       }
     }
   }
+
 
   return {
     dimensionsOk,

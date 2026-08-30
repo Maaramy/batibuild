@@ -85,7 +85,7 @@ export default function PlanGenerator() {
   );
 
   // ── Génération des 10 variantes (déterministe) ──
-  const variants: FloorPlanVariant[] = useMemo(() => {
+  const allVariants: FloorPlanVariant[] = useMemo(() => {
     if (!project) return [];
     return generateFloorPlans({
       category: project.category as string,
@@ -98,6 +98,8 @@ export default function PlanGenerator() {
       wcs: project.wcs ?? undefined,
     });
   }, [project]);
+
+  const variants = allVariants;
 
   const bestScore = useMemo(
     () => Math.max(0, ...variants.map((v) => v.validation.score)),
