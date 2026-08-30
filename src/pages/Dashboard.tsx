@@ -950,8 +950,8 @@ export default function Dashboard() {
                               <kpi.icon className="h-3.5 w-3.5" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-bold leading-none">{kpi.value}</p>
-                              <p className="text-[8px] text-muted-foreground truncate mt-0.5">{kpi.label}</p>
+                              <p className="text-base font-bold leading-none">{kpi.value}</p>
+                              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{kpi.label}</p>
                             </div>
                           </div>
                         ))}
@@ -1057,8 +1057,8 @@ export default function Dashboard() {
                               <kpi.icon className="h-3.5 w-3.5" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-bold leading-none">{kpi.value}</p>
-                              <p className="text-[8px] text-muted-foreground truncate mt-0.5">{kpi.label}</p>
+                              <p className="text-base font-bold leading-none">{kpi.value}</p>
+                              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{kpi.label}</p>
                             </div>
                           </div>
                         ))}
