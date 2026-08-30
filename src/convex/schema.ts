@@ -1241,6 +1241,8 @@ const schema = defineSchema(
         v.literal("bureau_etudes"),
         v.literal("ingenieur"),
         v.literal("promoteur_immobilier"),
+        v.literal("plombier"),
+        v.literal("electricien"),
       ),
       displayName: v.string(),
       companyName: v.optional(v.string()),

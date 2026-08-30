@@ -24,6 +24,7 @@ import {
   ShieldCheck, Trash2, AlertTriangle, Clock3,
   Banknote, Smartphone, Landmark, UserRound, Upload,
   Wallet, FileText, Briefcase, Ruler, HardHat, Store,
+  Wrench, Zap,
 } from "lucide-react";
 
 // ============================================================================
@@ -35,6 +36,8 @@ const EXPERT_PROFESSIONS = [
   { value: "bureau_etudes", label: "Bureau d'études", icon: Briefcase, desc: "Études techniques, dimensionnement" },
   { value: "ingenieur", label: "Ingénieur", icon: HardHat, desc: "Structure, génie civil, MEP" },
   { value: "promoteur_immobilier", label: "Promoteur immobilier", icon: Store, desc: "Développement, commercialisation" },
+  { value: "plombier", label: "Plombier", icon: Wrench, desc: "Installation, réparation, maintenance plomberie" },
+  { value: "electricien", label: "Électricien", icon: Zap, desc: "Installation, câblage, maintenance électrique" },
 ];
 
 const ARCHITECTE_SPECIALTIES = [
@@ -60,8 +63,22 @@ const INGENIEUR_SPECIALTIES = [
 const PROMOTEUR_SPECIALTIES = [
   "promotion_immobiliere", "viabilisation", "commercialisation",
   "gestion_projet", "finance_projet", "urbanisme",
-  "permis_construire", "etudes_marche", "négociation",
+  "permis_construire", "etudes_marche", "negociation",
   "suivi_livraison",
+];
+
+const PLOMBIER_SPECIALTIES = [
+  "installation_eau_croisse", "reparation_fuites", "depannage_plomberie",
+  "installation_sanitaires", "canalisation_evacuation", "chauffe_eau",
+  "plomberie_industrielle", "maintenance_preventive", "raccordement_gaz",
+  "traitement_eau",
+];
+
+const ELECTRICIEN_SPECIALTIES = [
+  "installation_electrique_neuve", "renovation_electrique", "câblage_structure",
+  "tableau_electrique", "eclairage_interieur_exterieur", "prise_interrupteur",
+  "installation_solaire", "domotique", "depannage_electrique",
+  "contrôle_conformite",
 ];
 
 const PROFESSION_SPECIALTIES: Record<string, string[]> = {
@@ -69,6 +86,8 @@ const PROFESSION_SPECIALTIES: Record<string, string[]> = {
   bureau_etudes: BUREAU_ETUDES_SPECIALTIES,
   ingenieur: INGENIEUR_SPECIALTIES,
   promoteur_immobilier: PROMOTEUR_SPECIALTIES,
+  plombier: PLOMBIER_SPECIALTIES,
+  electricien: ELECTRICIEN_SPECIALTIES,
 };
 
 const SPECIALTY_LABELS: Record<string, string> = {
@@ -95,6 +114,28 @@ const SPECIALTY_LABELS: Record<string, string> = {
   finance_projet: "Financement", urbanisme: "Urbanisme",
   etudes_marche: "Études de marché", negociation: "Négociation",
   suivi_livraison: "Suivi de livraison",
+  // Plombier
+  installation_eau_croisse: "Installation eau croissée",
+  reparation_fuites: "Réparation de fuites",
+  depannage_plomberie: "Dépannage plomberie",
+  installation_sanitaires_p: "Installation sanitaires",
+  canalisation_evacuation: "Canalisation & évacuation",
+  chauffe_eau: "Chauffe-eau",
+  plomberie_industrielle: "Plomberie industrielle",
+  maintenance_preventive_p: "Maintenance préventive",
+  raccordement_gaz: "Raccordement gaz",
+  traitement_eau: "Traitement de l'eau",
+  // Électricien
+  installation_electrique_neuve: "Installation électrique neuve",
+  renovation_electrique: "Rénovation électrique",
+  câblage_structure: "Câblage structuré",
+  tableau_electrique: "Tableau électrique",
+  eclairage_interieur_exterieur: "Éclairage intérieur/extérieur",
+  prise_interrupteur: "Prises & interrupteurs",
+  installation_solaire: "Installation solaire",
+  domotique: "Domotique",
+  depannage_electrique: "Dépannage électrique",
+  contrôle_conformite: "Contrôle de conformité",
 };
 
 const TUNISIA_REGIONS = [

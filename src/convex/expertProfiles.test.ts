@@ -109,7 +109,7 @@ describe("expertProfiles.createProfile", () => {
     await expect(
       userT.mutation(api.expertProfiles.createProfile, {
         ...baseProfileArgs,
-        profession: "plombier" as any,
+        profession: "invalid_profession" as any,
       }),
     ).rejects.toThrow();
   });
@@ -120,6 +120,8 @@ describe("expertProfiles.createProfile", () => {
       "bureau_etudes",
       "ingenieur",
       "promoteur_immobilier",
+      "plombier",
+      "electricien",
     ] as const;
 
     for (const profession of professions) {
