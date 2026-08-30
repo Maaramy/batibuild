@@ -404,6 +404,15 @@ export default function Dashboard() {
     api.supplierStats.getSupplierKPIs,
     isSupplier ? { period: "30d" } : "skip",
   );
+  // ── Badges temps réel : demandes en attente ──
+  const expertPending = useQuery(
+    api.expertServiceRequests.pendingCount,
+    isExpert ? {} : "skip",
+  );
+  const supplierPending = useQuery(
+    api.quoteRequests.pendingCount,
+    isSupplier ? {} : "skip",
+  );
   // ── Quotas par type (construction · investissement) ──
   const construction = quotas?.construction;
   const investment = quotas?.investment;
@@ -544,19 +553,19 @@ export default function Dashboard() {
             ] : []),
             // Professional features — parent + submenu
             ...(viewMode === "supplier" ? [
-              { icon: Store, label: "Espace fournisseur", isExpandable: true, onClick: () => { setProMenuOpen(!proMenuOpen); } },
+              { icon: Store, label: "Espace fournisseur", isExpandable: true, badge: supplierPending ?? 0, onClick: () => { setProMenuOpen(!proMenuOpen); } },
             ] : []),
             ...(viewMode === "expert" ? [
-              { icon: Briefcase, label: "Espace expert", isExpandable: true, onClick: () => { setProMenuOpen(!proMenuOpen); } },
+              { icon: Briefcase, label: "Espace expert", isExpandable: true, badge: expertPending ?? 0, onClick: () => { setProMenuOpen(!proMenuOpen); } },
             ] : []),
             // Sub-menu items (shown when expanded)
             ...(viewMode === "supplier" && proMenuOpen ? [
-              { icon: FileText, label: "Devis reçus", isSubItem: true, onClick: () => { navigate("/dashboard/supplier/quotes"); setMobileSidebarOpen(false); } },
+              { icon: FileText, label: "Devis reçus", isSubItem: true, badge: supplierPending ?? 0, onClick: () => { navigate("/dashboard/supplier/quotes"); setMobileSidebarOpen(false); } },
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/supplier/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil fournisseur", isSubItem: true, onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
             ] : []),
             ...(viewMode === "expert" && proMenuOpen ? [
-              { icon: FileText, label: "Services reçus", isSubItem: true, onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
+              { icon: FileText, label: "Devis reçus", isSubItem: true, badge: expertPending ?? 0, onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
