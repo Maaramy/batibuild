@@ -22,16 +22,7 @@ export const getMySubscription = query({
       .order("desc")
       .first();
 
-    if (!subscription) return null;
-
-    const now = Date.now();
-    const isActive = subscription.status === "active" && (!subscription.endDate || subscription.endDate > now);
-
-    return {
-      ...subscription,
-      needsRenewal: !isActive && (subscription.status === "active" || subscription.status === "expired"),
-      isTrial: !!subscription.isTrial,
-    };
+    return subscription;
   },
 });
 
@@ -45,25 +36,48 @@ export const getMyQuotas = query({
     const user = await getCurrentUser(ctx);
     if (!user) return null;
 
+    const configs = await getPlanQuotaConfig(ctx);
+
     const sub = await getActiveSubscription(ctx, user._id);
 
-    // Système de quota supprimé : accès illimité pour tous
+    const plan = sub?.plan ?? "free";
+    const isPaidPlan = plan === "pro" || plan === "expert" || plan === "supplier";
+    const now = Date.now();
+    const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
+
+    // Forfaits payants = accès illimité ; forfait gratuit = quota limité
+    const cUsed = isActive && isPaidPlan
+      ? 0
+      : sub ? (sub.projectsUsed ?? 0) : await countUserDocs(ctx, user._id, "projects");
+    const iUsed = isActive && isPaidPlan
+      ? 0
+      : sub ? (sub.investmentsUsed ?? 0) : await countUserDocs(ctx, user._id, "investments");
+
+    const cLimit = isActive && isPaidPlan ? Infinity : (configs[plan] ?? configs.free).projects;
+    const iLimit = isActive && isPaidPlan ? Infinity : (configs[plan] ?? configs.free).investments;
+
+    const downloadsBase = {
+      used: 0,
+      limit: Infinity,
+      allowed: isActive && isPaidPlan,
+    };
+
     return {
       construction: {
         kind: "construction" as const,
-        plan: sub?.plan ?? "free",
-        used: 0,
-        limit: Infinity,
-        reached: false,
-        downloads: { used: 0, limit: Infinity, allowed: true },
+        plan,
+        used: cUsed,
+        limit: cLimit,
+        reached: cUsed >= cLimit,
+        downloads: downloadsBase,
       },
       investment: {
         kind: "investment" as const,
-        plan: sub?.plan ?? "free",
-        used: 0,
-        limit: Infinity,
-        reached: false,
-        downloads: { used: 0, limit: Infinity, allowed: true },
+        plan,
+        used: iUsed,
+        limit: iLimit,
+        reached: iUsed >= iLimit,
+        downloads: downloadsBase,
       },
     };
   },
@@ -121,8 +135,57 @@ export const getAllSubscriptionsWithUsers = query({
 });
 
 // ============================================================================
-// Helper: abonnement actif
+// Quota helpers — forfaits à paiement unique (non mensuels)
 // ============================================================================
+
+/** Type de ressource soumise à quota. */
+export type QuotaKind = "projects" | "investments" | "downloads";
+
+export interface PlanQuota {
+  projects: number;
+  investments: number;
+  downloads: number;
+}
+
+/** Quotas par défaut par forfait. */
+export const DEFAULT_QUOTAS: Record<string, PlanQuota> = {
+  free: { projects: 1, investments: 1, downloads: 1 },
+  pro: { projects: 5, investments: 5, downloads: 5 },
+  expert: { projects: 20, investments: 20, downloads: 20 },
+};
+
+/** Lit les quotas par forfait depuis paymentConfig (fallback aux défauts). */
+export async function getPlanQuotaConfig(ctx: any): Promise<Record<string, PlanQuota>> {
+  const config = await ctx.db
+    .query("paymentConfig")
+    .order("desc")
+    .first();
+  return {
+    free: {
+      projects: config?.freeProjectLimit ?? DEFAULT_QUOTAS.free.projects,
+      investments: config?.freeInvestmentLimit ?? DEFAULT_QUOTAS.free.investments,
+      downloads: config?.freeDownloadLimit ?? DEFAULT_QUOTAS.free.downloads,
+    },
+    pro: {
+      projects: config?.proProjectLimit ?? DEFAULT_QUOTAS.pro.projects,
+      investments: config?.proInvestmentLimit ?? DEFAULT_QUOTAS.pro.investments,
+      downloads: config?.proDownloadLimit ?? DEFAULT_QUOTAS.pro.downloads,
+    },
+    expert: {
+      projects: config?.expertProjectLimit ?? DEFAULT_QUOTAS.expert.projects,
+      investments: config?.expertInvestmentLimit ?? DEFAULT_QUOTAS.expert.investments,
+      downloads: config?.expertDownloadLimit ?? DEFAULT_QUOTAS.expert.downloads,
+    },
+    // Supplier plan: suppliers don't consume construction/investment quotas,
+    // but the record may exist in the DB — provide safe defaults so
+    // getMyQuotas() doesn't crash when plan = "supplier".
+    supplier: {
+      projects: 0,
+      investments: 0,
+      downloads: 0,
+    },
+  };
+}
 
 type SubKind = "construction" | "investment";
 
@@ -139,15 +202,67 @@ async function getActiveSubscription(ctx: any, userId: any, _kind?: SubKind) {
   return subs.find((s: any) => s.status === "active") ?? null;
 }
 
+/** Type d'abonnement correspondant à un quota (tous couverts par le même forfait). */
+function subKindForQuota(kind: QuotaKind): SubKind | null {
+  if (kind === "projects") return "construction";
+  if (kind === "investments") return "investment";
+  return null;
+}
+
+const KIND_TO_SUB_FIELD: Record<QuotaKind, string> = {
+  projects: "projectsUsed",
+  investments: "investmentsUsed",
+  downloads: "monthlyDownloadCount",
+};
+
+async function countUserDocs(ctx: any, userId: any, kind: QuotaKind): Promise<number> {
+  if (kind === "projects") {
+    return (await ctx.db.query("projects").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect()).length;
+  }
+  if (kind === "investments") {
+    return (await ctx.db.query("investmentAnalyses").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect()).length;
+  }
+  return 0;
+}
+
+/**
+ * Vérifie si l'utilisateur peut encore créer un élément du type demandé.
+ * Les quotas sont comptés par abonnement (paiement unique) et par type
+ * (construction / investissement).
+ * Sans abonnement actif pour le type demandé, on retombe sur l'offre de
+ * base (Start) comptée sur les documents.
+ */
+export async function checkQuota(
+  _ctx: any,
+  _user: any,
+  _kind: QuotaKind,
+): Promise<{ allowed: boolean; limit: number; used: number; plan: string; reason: string }> {
+  return { allowed: true, limit: Infinity, used: 0, plan: "free", reason: "ok" };
+}
+
+/** Incrémente le compteur de quota de l'abonnement actif. */
+export async function consumeQuota(_ctx: any, _user: any, _kind: QuotaKind): Promise<void> {
+  // Quotas removed — no-op
+}
+
+/**
+ * Décrémente le compteur de quota de l'abonnement actif.
+ * Utilisé quand un administrateur supprime un document (projet, analyse) :
+ * le quota consommé est libéré pour l'utilisateur concerné.
+ */
+export async function releaseQuota(_ctx: any, _userId: any, _kind: QuotaKind, _count = 1): Promise<void> {
+  // Quotas removed — no-op
+}
+
 // ============================================================================
-// Download Limit Helpers (passthrough — quotas supprimés)
+// Download Limit Helpers
 // ============================================================================
 
 /** Vérifie si l'utilisateur peut télécharger un PDF de construction (rétrocompatible). */
 export const checkDownloadAllowed = query({
   args: {},
   handler: async (ctx) => {
-    return { allowed: true, reason: "ok", limit: Infinity, used: 0 };
+    return checkDownloadAllowedForKind(ctx, "construction");
   },
 });
 
@@ -155,16 +270,25 @@ export const checkDownloadAllowed = query({
 export const consumeDownload = mutation({
   args: {},
   handler: async (ctx) => {
-    // Quotas removed — no-op
+    return consumeDownloadForKind(ctx, "construction");
   },
 });
 
+async function checkDownloadAllowedForKind(_ctx: any, _kind: SubKind) {
+  return { allowed: true, reason: "ok", limit: Infinity, used: 0 } as any;
+}
+
+async function consumeDownloadForKind(_ctx: any, _kind: SubKind): Promise<void> {
+  // Quotas removed — no-op
+}
+
+// consumeDownloadForKind — quotas removed
 export const consumeDownloadFor = mutation({
   args: {
     kind: v.union(v.literal("construction"), v.literal("investment")),
   },
   handler: async (ctx, args) => {
-    // Quotas removed — no-op
+    return consumeDownloadForKind(ctx, args.kind);
   },
 });
 
@@ -174,7 +298,7 @@ export const checkDownloadAllowedFor = query({
     kind: v.union(v.literal("construction"), v.literal("investment")),
   },
   handler: async (ctx, args) => {
-    return { allowed: true, reason: "ok", limit: Infinity, used: 0 };
+    return checkDownloadAllowedForKind(ctx, args.kind);
   },
 });
 
@@ -214,15 +338,13 @@ export const createSubscription = mutation({
 
     // Durée selon le type de plan
     let duration = MONTHLY_DURATION;
-    let isTrial = false;
-    // Tous les profils bénéficient d'un essai gratuit configurable à l'inscription
-    if (existing.length === 0) {
+    // Fournisseur et Expert bénéficient d'un essai gratuit configurable à l'inscription
+    if ((args.plan === "supplier" || args.plan === "expert") && existing.length === 0) {
       const config = await ctx.db.query("paymentConfig").order("desc").first();
-      const trialEnabled = config?.trialEnabled ?? false;
+      const trialEnabled = config?.trialEnabled ?? true;
       const trialDays = config?.trialDurationDays ?? 60;
       if (trialEnabled && trialDays > 0) {
         duration = trialDays * 24 * 60 * 60 * 1000; // essai gratuit configurable
-        isTrial = true;
       }
     }
 
@@ -236,10 +358,9 @@ export const createSubscription = mutation({
       userId: user._id,
       kind,
       plan: args.plan,
-      status: isTrial ? "active" : (args.paymentMethod === "bank_transfer" ? "pending" : "active"),
+      status: args.paymentMethod === "bank_transfer" ? "pending" : "active",
       startDate: now,
       endDate: now + duration,
-      isTrial,
       paymentMethod: args.paymentMethod,
       paymentId: args.paymentId,
       amount: args.amount,
@@ -251,7 +372,7 @@ export const createSubscription = mutation({
     });
 
     // Update user's subscription plan (only if not pending) — dernière formule achetée
-    if (!isTrial && args.paymentMethod !== "bank_transfer") {
+    if (args.paymentMethod !== "bank_transfer") {
       await ctx.db.patch(user._id, {
         subscriptionPlan: args.plan,
         subscriptionEndDate: now + duration,
@@ -697,127 +818,5 @@ export const markReceiptVerified = mutation({
     }
 
     return { success: true, verified: args.verified };
-  },
-});
-
-// ============================================================================
-// Admin: Renouvellement d'abonnement
-// ============================================================================
-
-/** Renouveler un abonnement expiré ou en renouvellement (admin) */
-export const adminRenewSubscription = mutation({
-  args: {
-    subscriptionId: v.id("subscriptions"),
-  },
-  handler: async (ctx, args) => {
-    const admin = await getCurrentUser(ctx);
-    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
-      throw new Error("Unauthorized: Admin access required");
-    }
-
-    const sub = await ctx.db.get(args.subscriptionId);
-    if (!sub) throw new Error("Abonnement introuvable");
-
-    const now = Date.now();
-    const planDuration = MONTHLY_DURATION; // 30 jours
-
-    await ctx.db.patch(args.subscriptionId, {
-      status: "active",
-      startDate: now,
-      endDate: now + planDuration,
-      isTrial: false,
-      updatedAt: now,
-    });
-
-    // Mettre à jour l'utilisateur
-    await ctx.db.patch(sub.userId, {
-      subscriptionPlan: sub.plan,
-      subscriptionEndDate: now + planDuration,
-    });
-
-    // Notification in-app
-    try {
-      await ctx.db.insert("notifications", {
-        userId: sub.userId,
-        type: "subscription",
-        title: "Abonnement renouvelé",
-        message: `Votre abonnement ${planLabel(sub.plan)} a été renouvelé. Nouvelle date d'expiration : ${formatDateFr(now + planDuration)}.`,
-        read: false,
-        link: "/pricing",
-        createdAt: now,
-      });
-    } catch (e) { /* optional */ }
-
-    // Email
-    const targetUser = await ctx.db.get(sub.userId);
-    if (targetUser?.email && targetUser.emailNotifications !== false) {
-      await scheduleEmailEvent(ctx, {
-        to: targetUser.email,
-        recipientName: targetUser.name || undefined,
-        templateKey: "subscription_renewed",
-        vars: {
-          ...splitName(targetUser.name),
-          typeAbonnement: planLabel(sub.plan),
-          dateActivation: formatDateFr(now),
-          dateExpiration: formatDateFr(now + planDuration),
-          montant: sub.amount ? `${sub.amount} ${sub.currency || "TND"}` : undefined,
-          numeroFacture: `INV-${sub._id}`,
-        },
-        dedupeKey: `subscription_renewed:${targetUser.email}:${sub._id}`,
-        sendToAdmins: true,
-      });
-    }
-
-    // Journal admin
-    try {
-      await ctx.db.insert("adminLogs", {
-        adminId: admin._id,
-        adminName: admin.name,
-        action: "approve_subscription",
-        targetUserId: sub.userId,
-        details: `Abonnement ${planLabel(sub.plan)} renouvelé pour 30 jours`,
-        createdAt: now,
-      });
-    } catch (e) { /* optional */ }
-
-    return { success: true };
-  },
-});
-
-// ============================================================================
-// Admin: Configuration de la période d'essai
-// ============================================================================
-
-/** Modifier la configuration de la période d'essai gratuite (admin) */
-export const adminUpdateTrialConfig = mutation({
-  args: {
-    trialEnabled: v.boolean(),
-    trialDurationDays: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const admin = await getCurrentUser(ctx);
-    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
-      throw new Error("Unauthorized: Admin access required");
-    }
-
-    if (args.trialDurationDays < 1 || args.trialDurationDays > 365) {
-      throw new Error("La durée de l'essai doit être entre 1 et 365 jours.");
-    }
-
-    const existing = await ctx.db
-      .query("paymentConfig")
-      .order("desc")
-      .first();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        trialEnabled: args.trialEnabled,
-        trialDurationDays: args.trialDurationDays,
-        updatedAt: Date.now(),
-        updatedBy: admin._id,
-      });
-    }
-
-    return { success: true };
   },
 });

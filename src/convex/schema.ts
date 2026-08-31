@@ -812,7 +812,6 @@ const schema = defineSchema(
       ),
       startDate: v.number(),
       endDate: v.optional(v.number()),
-      isTrial: v.optional(v.boolean()),
       paymentMethod: v.optional(v.string()),
       paymentId: v.optional(v.string()),
       amount: v.optional(v.number()),
@@ -1008,7 +1007,6 @@ const schema = defineSchema(
         v.literal("subscription_expired"),
         v.literal("payment_confirmed"),
         v.literal("payment_rejected"),
-        v.literal("payment_required"),
         v.literal("subscription_suspended"),
         v.literal("subscription_canceled")
       ),

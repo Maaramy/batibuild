@@ -17,7 +17,6 @@ import BIMSettings from "./BIMSettings";
 import EmailSettings from "./EmailSettings";
 import EmailTemplates from "./EmailTemplates";
 import EmailHistory from "./EmailHistory";
-import AdminSubscriptions from "@/components/admin/AdminSubscriptions";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -696,7 +695,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 <Receipt className="h-3 w-3" />
                 <span>Reçus Experts</span>
               </TabsTrigger>
-              <TabsTrigger value="abonnements" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+              <TabsTrigger value="subscriptions" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <CreditCard className="h-3.5 w-3.5" />
                 <span>Abonnements</span>
               </TabsTrigger>
@@ -775,11 +774,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               )}
             </TabsList>
           </div>
-
-          {/* ── Abonnements (nouveau module réécrit) ── */}
-            <TabsContent value="abonnements">
-              <AdminSubscriptions />
-            </TabsContent>
 
           {/* ── Fournisseurs ── */}
             <TabsContent value="fournisseurs">
