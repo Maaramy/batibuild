@@ -1,0 +1,7 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["src/main.tsx", "src/convex/**/*.ts"],
+  "ignore": ["isolate/**", "dist/**", "vly-toolbar-readonly.tsx"],
+  "ignoreDependencies": ["@types/nodemailer", "@types/three", "@types/bcryptjs", "@types/jspdf"],
+  "exclude": ["unlisted", "binaries", "unresolved"]
+}
