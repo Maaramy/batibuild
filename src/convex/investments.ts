@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { checkQuota, consumeQuota, releaseQuota } from "./subscriptions";
 import {
   INVESTMENT_TYPE_META,
   INVESTMENT_TYPES,
@@ -749,16 +748,7 @@ export const saveAnalysis = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
 
-    // ── Quota analyses d'investissement par forfait (paiement unique) ──
-    const quota = await checkQuota(ctx, user, "investments");
-    if (!quota.allowed) {
-      const planLabel = quota.plan === "free" ? "Start" : quota.plan === "pro" ? "Pro" : "Expert";
-      throw new Error(
-        `LIMITE_ATTEINTE:Vous avez atteint la limite de ${quota.limit} projet(s) d'investissement offerte avec le forfait ${planLabel}. ` +
-        `Forfaits à paiement unique : passez à une offre supérieure ou rachetez un forfait pour augmenter vos quotas.`
-      );
-    }
-
+    // Système de quota supprimé : la création d'analyses n'est plus limitée.
     const now = Date.now();
     const id = await ctx.db.insert("investmentAnalyses", {
       userId: user._id,
@@ -769,8 +759,6 @@ export const saveAnalysis = mutation({
       createdAt: now,
       updatedAt: now,
     });
-
-    await consumeQuota(ctx, user, "investments");
 
     return id;
   },
@@ -824,7 +812,6 @@ export const adminDeleteAnalyses = mutation({
       const doc = await ctx.db.get(id);
       if (doc) {
         await ctx.db.delete(id);
-        try { await releaseQuota(ctx, doc.userId, "investments", 1); } catch { /* non bloquant */ }
         deleted++;
       }
     }
@@ -841,7 +828,6 @@ export const adminDeleteAnalysis = mutation({
     const doc = await ctx.db.get(args.analysisId);
     if (!doc) throw new Error("Analyse introuvable");
     await ctx.db.delete(args.analysisId);
-    try { await releaseQuota(ctx, doc.userId, "investments", 1); } catch { /* non bloquant */ }
     return { deleted: 1 };
   },
 });

@@ -32,80 +32,82 @@ async function createTestUser(
   });
 }
 
-async function createSubscription(
-  t: ReturnType<typeof convexTest>,
-  userId: string,
-  overrides: Partial<{ plan: string; status: string; startDate: number; endDate: number }> = {},
-) {
-  const now = Date.now();
-  return t.run(async (ctx) => {
-    return ctx.db.insert("subscriptions", {
-      userId: userId as any,
-      plan: (overrides.plan ?? "free") as any,
-      status: (overrides.status ?? "active") as any,
-      startDate: overrides.startDate ?? now,
-      endDate: overrides.endDate ?? now + 30 * 24 * 60 * 60 * 1000,
-      paymentMethod: "bank_transfer",
-      amount: 80,
-      currency: "TND",
-      monthlyDownloadCount: 0,
-      downloadLimit: Infinity,
-      createdAt: now,
-      updatedAt: now,
-    });
-  });
-}
-
 // ============================================================================
-// getMyQuotas — accès payant obligatoire (pas d'accès gratuit permanent)
+// getMyQuotas — système de quota supprimé (accès illimité pour tous)
 // ============================================================================
 
-describe("getMyQuotas — palier gratuit vs forfait payant", () => {
+describe("getMyQuotas — système de quota supprimé", () => {
   let t: ReturnType<typeof convexTest>;
 
   beforeEach(() => {
     t = convexTest(schema, modules);
   });
 
-  it("sans abonnement actif : palier gratuit plafonné (1 projet, pas de téléchargements)", async () => {
+  it("accès illimité même sans abonnement", async () => {
     const userId = await createTestUser(t);
-    const userT = t.withIdentity({ subject: userId });
-
-    const quotas = await userT.query(api.subscriptions.getMyQuotas);
-
-    expect(quotas).not.toBeNull();
-    expect(quotas!.construction.limit).toBe(1); // palier gratuit plafonné (plus d'accès illimité)
-    expect(quotas!.investment.limit).toBe(1);
-    expect(quotas!.construction.downloads.allowed).toBe(false);
-    expect(quotas!.construction.reached).toBe(false); // 0 utilisé < 1
-  });
-
-  it("forfait Client payant (plan free, abonnement actif) : accès illimité", async () => {
-    const userId = await createTestUser(t);
-    await createSubscription(t, userId, { plan: "free", status: "active" });
     const userT = t.withIdentity({ subject: userId });
 
     const quotas = await userT.query(api.subscriptions.getMyQuotas);
 
     expect(quotas).not.toBeNull();
     expect(quotas!.construction.limit).toBe(Infinity);
-    expect(quotas!.investment.limit).toBe(Infinity);
-    expect(quotas!.construction.downloads.allowed).toBe(true);
+    expect(quotas!.construction.used).toBe(0);
     expect(quotas!.construction.reached).toBe(false);
+    expect(quotas!.construction.downloads.allowed).toBe(true);
+    expect(quotas!.investment.limit).toBe(Infinity);
+    expect(quotas!.investment.reached).toBe(false);
+  });
+});
+
+// ============================================================================
+// createSubscription — essai gratuit (tous profils, désactivé par défaut)
+// ============================================================================
+
+describe("createSubscription — essai gratuit", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
   });
 
-  it("abonnement expiré : retour au palier gratuit plafonné", async () => {
+  it("essai désactivé par défaut : virement → statut pending, pas d'essai", async () => {
     const userId = await createTestUser(t);
-    await createSubscription(t, userId, {
-      plan: "free",
-      status: "active",
-      endDate: Date.now() - 1000, // échéance dépassée → renouvellement requis
-    });
     const userT = t.withIdentity({ subject: userId });
 
-    const quotas = await userT.query(api.subscriptions.getMyQuotas);
+    const subId = await userT.mutation(api.subscriptions.createSubscription, {
+      plan: "free",
+      paymentMethod: "bank_transfer",
+      amount: 80,
+      currency: "TND",
+    });
 
-    expect(quotas!.construction.limit).toBe(1);
-    expect(quotas!.construction.downloads.allowed).toBe(false);
+    const sub = await t.run((ctx) => ctx.db.get(subId));
+    expect(sub!.status).toBe("pending");
+    expect(sub!.isTrial).toBeFalsy();
+  });
+
+  it("essai activé par l'admin : statut actif + isTrial pour le forfait Client (tous profils)", async () => {
+    const adminId = await createTestUser(t, { role: "admin" });
+    const adminT = t.withIdentity({ subject: adminId });
+    await adminT.mutation(api.subscriptions.adminUpdateTrialConfig, { enabled: true, durationDays: 60 });
+
+    const userId = await createTestUser(t);
+    const userT = t.withIdentity({ subject: userId });
+
+    const subId = await userT.mutation(api.subscriptions.createSubscription, {
+      plan: "free",
+      paymentMethod: "bank_transfer",
+      amount: 80,
+      currency: "TND",
+    });
+
+    const sub = await t.run((ctx) => ctx.db.get(subId));
+    expect(sub!.status).toBe("active");
+    expect(sub!.isTrial).toBe(true);
+
+    // Durée de l'essai : 60 jours
+    const days = ((sub!.endDate ?? 0) - sub!.startDate) / (24 * 60 * 60 * 1000);
+    expect(days).toBeGreaterThanOrEqual(59);
+    expect(days).toBeLessThanOrEqual(61);
   });
 });

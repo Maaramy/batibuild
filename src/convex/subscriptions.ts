@@ -22,7 +22,19 @@ export const getMySubscription = query({
       .order("desc")
       .first();
 
-    return subscription;
+    if (!subscription) return null;
+
+    // Renouvellement requis dès dépassement de la date de fin (ou essai terminé)
+    const now = Date.now();
+    const needsRenewal =
+      (subscription.status === "active" || subscription.status === "expired") &&
+      (!subscription.endDate || subscription.endDate < now);
+
+    return {
+      ...subscription,
+      needsRenewal,
+      isTrial: !!subscription.isTrial,
+    };
   },
 });
 
@@ -36,52 +48,28 @@ export const getMyQuotas = query({
     const user = await getCurrentUser(ctx);
     if (!user) return null;
 
-    const configs = await getPlanQuotaConfig(ctx);
-
+    // Système de quota supprimé : accès illimité pour tous les utilisateurs.
+    // La forme est conservée pour compatibilité (Dashboard, RequireQuota…).
     const sub = await getActiveSubscription(ctx, user._id);
-
     const plan = sub?.plan ?? "free";
-    const now = Date.now();
-    const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
-    // Toute souscription active (essai gratuit ou forfait payé — y compris le
-    // forfait Client, plan "free") donne un accès illimité. Sans souscription
-    // active (ou après expiration), l'utilisateur retombe sur le palier gratuit
-    // plafonné (1/1/1) et doit passer au paiement pour continuer.
-    const unlimited = !!isActive;
-
-    // Forfaits payés/essai = accès illimité ; palier gratuit = quota limité
-    const cUsed = unlimited
-      ? 0
-      : sub ? (sub.projectsUsed ?? 0) : await countUserDocs(ctx, user._id, "projects");
-    const iUsed = unlimited
-      ? 0
-      : sub ? (sub.investmentsUsed ?? 0) : await countUserDocs(ctx, user._id, "investments");
-
-    const cLimit = unlimited ? Infinity : (configs[plan] ?? configs.free).projects;
-    const iLimit = unlimited ? Infinity : (configs[plan] ?? configs.free).investments;
-
-    const downloadsBase = {
-      used: 0,
-      limit: Infinity,
-      allowed: unlimited,
-    };
+    const downloads = { used: 0, limit: Infinity, allowed: true };
 
     return {
       construction: {
         kind: "construction" as const,
         plan,
-        used: cUsed,
-        limit: cLimit,
-        reached: cUsed >= cLimit,
-        downloads: downloadsBase,
+        used: 0,
+        limit: Infinity,
+        reached: false,
+        downloads,
       },
       investment: {
         kind: "investment" as const,
         plan,
-        used: iUsed,
-        limit: iLimit,
-        reached: iUsed >= iLimit,
-        downloads: downloadsBase,
+        used: 0,
+        limit: Infinity,
+        reached: false,
+        downloads,
       },
     };
   },
@@ -142,60 +130,6 @@ export const getAllSubscriptionsWithUsers = query({
 // Quota helpers — forfaits à paiement unique (non mensuels)
 // ============================================================================
 
-/** Type de ressource soumise à quota. */
-export type QuotaKind = "projects" | "investments" | "downloads";
-
-export interface PlanQuota {
-  projects: number;
-  investments: number;
-  downloads: number;
-}
-
-/** Quotas par défaut par forfait. */
-export const DEFAULT_QUOTAS: Record<string, PlanQuota> = {
-  free: { projects: 1, investments: 1, downloads: 1 },
-  pro: { projects: 5, investments: 5, downloads: 5 },
-  expert: { projects: 20, investments: 20, downloads: 20 },
-};
-
-/** Lit les quotas par forfait depuis paymentConfig (fallback aux défauts). */
-export async function getPlanQuotaConfig(ctx: any): Promise<Record<string, PlanQuota>> {
-  const config = await ctx.db
-    .query("paymentConfig")
-    .order("desc")
-    .first();
-  return {
-    // Palier gratuit plafonné (1/1/1) : pas d'accès gratuit permanent.
-    // Le client doit passer au paiement (ou à l'essai gratuit) pour un accès
-    // illimité. Le plafond ignore les valeurs de config héritées (UNLIMITED)
-    // pour rester effectif même si une ancienne config existe en base.
-    // Pour ajuster le palier : modifier DEFAULT_QUOTAS.free ci-dessus.
-    free: {
-      projects: Math.min(config?.freeProjectLimit ?? DEFAULT_QUOTAS.free.projects, DEFAULT_QUOTAS.free.projects),
-      investments: Math.min(config?.freeInvestmentLimit ?? DEFAULT_QUOTAS.free.investments, DEFAULT_QUOTAS.free.investments),
-      downloads: Math.min(config?.freeDownloadLimit ?? DEFAULT_QUOTAS.free.downloads, DEFAULT_QUOTAS.free.downloads),
-    },
-    pro: {
-      projects: config?.proProjectLimit ?? DEFAULT_QUOTAS.pro.projects,
-      investments: config?.proInvestmentLimit ?? DEFAULT_QUOTAS.pro.investments,
-      downloads: config?.proDownloadLimit ?? DEFAULT_QUOTAS.pro.downloads,
-    },
-    expert: {
-      projects: config?.expertProjectLimit ?? DEFAULT_QUOTAS.expert.projects,
-      investments: config?.expertInvestmentLimit ?? DEFAULT_QUOTAS.expert.investments,
-      downloads: config?.expertDownloadLimit ?? DEFAULT_QUOTAS.expert.downloads,
-    },
-    // Supplier plan: suppliers don't consume construction/investment quotas,
-    // but the record may exist in the DB — provide safe defaults so
-    // getMyQuotas() doesn't crash when plan = "supplier".
-    supplier: {
-      projects: 0,
-      investments: 0,
-      downloads: 0,
-    },
-  };
-}
-
 type SubKind = "construction" | "investment";
 
 /**
@@ -211,57 +145,6 @@ async function getActiveSubscription(ctx: any, userId: any, _kind?: SubKind) {
   return subs.find((s: any) => s.status === "active") ?? null;
 }
 
-/** Type d'abonnement correspondant à un quota (tous couverts par le même forfait). */
-function subKindForQuota(kind: QuotaKind): SubKind | null {
-  if (kind === "projects") return "construction";
-  if (kind === "investments") return "investment";
-  return null;
-}
-
-const KIND_TO_SUB_FIELD: Record<QuotaKind, string> = {
-  projects: "projectsUsed",
-  investments: "investmentsUsed",
-  downloads: "monthlyDownloadCount",
-};
-
-async function countUserDocs(ctx: any, userId: any, kind: QuotaKind): Promise<number> {
-  if (kind === "projects") {
-    return (await ctx.db.query("projects").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect()).length;
-  }
-  if (kind === "investments") {
-    return (await ctx.db.query("investmentAnalyses").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect()).length;
-  }
-  return 0;
-}
-
-/**
- * Vérifie si l'utilisateur peut encore créer un élément du type demandé.
- * Les quotas sont comptés par abonnement (paiement unique) et par type
- * (construction / investissement).
- * Sans abonnement actif pour le type demandé, on retombe sur l'offre de
- * base (Start) comptée sur les documents.
- */
-export async function checkQuota(
-  _ctx: any,
-  _user: any,
-  _kind: QuotaKind,
-): Promise<{ allowed: boolean; limit: number; used: number; plan: string; reason: string }> {
-  return { allowed: true, limit: Infinity, used: 0, plan: "free", reason: "ok" };
-}
-
-/** Incrémente le compteur de quota de l'abonnement actif. */
-export async function consumeQuota(_ctx: any, _user: any, _kind: QuotaKind): Promise<void> {
-  // Quotas removed — no-op
-}
-
-/**
- * Décrémente le compteur de quota de l'abonnement actif.
- * Utilisé quand un administrateur supprime un document (projet, analyse) :
- * le quota consommé est libéré pour l'utilisateur concerné.
- */
-export async function releaseQuota(_ctx: any, _userId: any, _kind: QuotaKind, _count = 1): Promise<void> {
-  // Quotas removed — no-op
-}
 
 // ============================================================================
 // Download Limit Helpers
@@ -345,15 +228,22 @@ export const createSubscription = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
 
-    // Durée selon le type de plan
+    // Durée et statut selon le contexte (essai gratuit / paiement).
+    // Essai gratuit configurable à l'inscription — étendu à tous les profils
+    // (Client, Fournisseur, Expert) : 2 mois gratuits, puis passage au paiement
+    // obligatoire à l'issue de l'essai. Désactivé par défaut (trialEnabled=false).
     let duration = MONTHLY_DURATION;
-    // Fournisseur et Expert bénéficient d'un essai gratuit configurable à l'inscription
-    if ((args.plan === "supplier" || args.plan === "expert") && existing.length === 0) {
+    let status: "active" | "pending" = args.paymentMethod === "bank_transfer" ? "pending" : "active";
+    let isTrial = false;
+    if (existing.length === 0) {
       const config = await ctx.db.query("paymentConfig").order("desc").first();
-      const trialEnabled = config?.trialEnabled ?? true;
+      const trialEnabled = config?.trialEnabled ?? false;
       const trialDays = config?.trialDurationDays ?? 60;
       if (trialEnabled && trialDays > 0) {
-        duration = trialDays * 24 * 60 * 60 * 1000; // essai gratuit configurable
+        // Période d'essai gratuite (durée personnalisable par l'admin)
+        duration = trialDays * 24 * 60 * 60 * 1000;
+        status = "active";
+        isTrial = true;
       }
     }
 
@@ -367,7 +257,8 @@ export const createSubscription = mutation({
       userId: user._id,
       kind,
       plan: args.plan,
-      status: args.paymentMethod === "bank_transfer" ? "pending" : "active",
+      status,
+      isTrial,
       startDate: now,
       endDate: now + duration,
       paymentMethod: args.paymentMethod,
@@ -380,8 +271,8 @@ export const createSubscription = mutation({
       updatedAt: now,
     });
 
-    // Update user's subscription plan (only if not pending) — dernière formule achetée
-    if (args.paymentMethod !== "bank_transfer") {
+    // Update user's subscription plan (only if active — incl. essai gratuit)
+    if (status === "active") {
       await ctx.db.patch(user._id, {
         subscriptionPlan: args.plan,
         subscriptionEndDate: now + duration,
@@ -827,5 +718,241 @@ export const markReceiptVerified = mutation({
     }
 
     return { success: true, verified: args.verified };
+  },
+});
+
+/**
+ * Admin: met à jour le montant d'un abonnement.
+ * L'abonnement est automatiquement passé au statut « actif » (30 jours) et le
+ * client est notifié (et invité par email) à finaliser son paiement.
+ */
+export const adminUpdateSubscriptionAmount = mutation({
+  args: {
+    subscriptionId: v.id("subscriptions"),
+    amount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new Error("Abonnement introuvable");
+
+    const now = Date.now();
+    const amount = Math.max(0, Math.round(args.amount));
+
+    // La modification du montant réactive l'abonnement (30 jours) et met à jour
+    // le forfait utilisateur. Le client est ensuite invité à finaliser le paiement.
+    await ctx.db.patch(sub._id, {
+      amount,
+      currency: sub.currency || "TND",
+      status: "active",
+      endDate: now + MONTHLY_DURATION,
+      updatedAt: now,
+    });
+
+    await ctx.db.patch(sub.userId, {
+      subscriptionPlan: sub.plan,
+      subscriptionEndDate: now + MONTHLY_DURATION,
+    });
+
+    // Notification in-app invitant le client à finaliser son paiement
+    try {
+      await ctx.db.insert("notifications", {
+        userId: sub.userId,
+        type: "subscription",
+        title: "Finalisez votre paiement",
+        message: `Votre abonnement ${planLabel(sub.plan)} est actif. Veuillez régler le montant de ${amount} TND pour finaliser votre paiement.`,
+        read: false,
+        link: "/pricing",
+        createdAt: now,
+      });
+    } catch (e) {
+      // Notification optionnelle
+    }
+
+    // Email d'invitation à finaliser le paiement
+    const targetUser = await ctx.db.get(sub.userId);
+    if (targetUser?.email && targetUser.emailNotifications !== false) {
+      await scheduleEmailEvent(ctx, {
+        to: targetUser.email,
+        recipientName: targetUser.name || undefined,
+        templateKey: "payment_required",
+        vars: {
+          ...splitName(targetUser.name),
+          typeAbonnement: planLabel(sub.plan),
+          montant: `${amount} ${sub.currency || "TND"}`,
+          numeroFacture: `INV-${sub._id}`,
+          dateExpiration: formatDateFr(now + MONTHLY_DURATION),
+        },
+        dedupeKey: `payment_required:${targetUser.email}:${sub._id}:${now}`,
+        sendToAdmins: true,
+      });
+    }
+
+    // Journal d'activité (action d'approbation existante dans le schéma)
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "approve_subscription",
+        targetUserId: sub.userId,
+        details: `Montant de l'abonnement ${sub.plan} modifié à ${amount} TND — statut activé, paiement à finaliser`,
+        createdAt: now,
+      });
+    } catch (e) {
+      // Log optionnel
+    }
+
+    return { success: true };
+  },
+});
+
+/**
+ * Admin : renouveler manuellement un abonnement.
+ * Réactive l'abonnement pour 30 jours (à partir de maintenant) et notifie le
+ * client (notification in-app + email). Utilisé dès dépassement de la date de
+ * fin (renouvellement requis) ou à la fin d'une période d'essai.
+ */
+export const adminRenewSubscription = mutation({
+  args: {
+    subscriptionId: v.id("subscriptions"),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new Error("Abonnement introuvable");
+
+    const now = Date.now();
+    const endDate = now + MONTHLY_DURATION; // renouvellement mensuel (30 jours)
+
+    await ctx.db.patch(sub._id, {
+      status: "active",
+      isTrial: false,
+      startDate: now,
+      endDate,
+      projectsUsed: 0,
+      investmentsUsed: 0,
+      monthlyDownloadCount: 0,
+      updatedAt: now,
+    });
+
+    // Met à jour le forfait de l'utilisateur (renouvellement du même forfait)
+    await ctx.db.patch(sub.userId, {
+      subscriptionPlan: sub.plan,
+      subscriptionEndDate: endDate,
+    });
+
+    // Notification in-app
+    try {
+      await ctx.db.insert("notifications", {
+        userId: sub.userId,
+        type: "subscription",
+        title: "Abonnement renouvelé",
+        message: `Votre abonnement ${planLabel(sub.plan)} a été renouvelé. Il est actif jusqu'au ${formatDateFr(endDate)}.`,
+        read: false,
+        link: "/pricing",
+        createdAt: now,
+      });
+    } catch (e) {
+      // Notification optionnelle
+    }
+
+    // Email de confirmation de renouvellement
+    const targetUser = await ctx.db.get(sub.userId);
+    if (targetUser?.email && targetUser.emailNotifications !== false) {
+      await scheduleEmailEvent(ctx, {
+        to: targetUser.email,
+        recipientName: targetUser.name || undefined,
+        templateKey: "subscription_renewed",
+        vars: {
+          ...splitName(targetUser.name),
+          typeAbonnement: planLabel(sub.plan),
+          dateActivation: formatDateFr(now),
+          dateExpiration: formatDateFr(endDate),
+          montant: sub.amount ? `${sub.amount} ${sub.currency || "TND"}` : undefined,
+          numeroFacture: `INV-${sub._id}`,
+        },
+        dedupeKey: `subscription_renewed:${targetUser.email}:${sub._id}:${now}`,
+        sendToAdmins: true,
+      });
+    }
+
+    // Journal d'activité
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "approve_subscription",
+        targetUserId: sub.userId,
+        details: `Abonnement ${sub.plan} renouvelé par l'admin — actif jusqu'au ${formatDateFr(endDate)}`,
+        createdAt: now,
+      });
+    } catch (e) {
+      // Log optionnel
+    }
+
+    return { success: true, endDate };
+  },
+});
+
+/**
+ * Admin : configurer la période d'essai gratuite (personnalisée).
+ * - enabled : active/désactive l'essai gratuit à l'inscription (tous profils)
+ * - durationDays : durée de l'essai en jours (défaut 60 = 2 mois)
+ */
+export const adminUpdateTrialConfig = mutation({
+  args: {
+    enabled: v.boolean(),
+    durationDays: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const durationDays = Math.max(1, Math.min(365, Math.round(args.durationDays)));
+    const existingConfig = await ctx.db
+      .query("paymentConfig")
+      .order("desc")
+      .first();
+
+    const patch = {
+      trialEnabled: args.enabled,
+      trialDurationDays: durationDays,
+      updatedAt: Date.now(),
+    };
+
+    if (existingConfig) {
+      await ctx.db.patch(existingConfig._id, patch);
+    } else {
+      await ctx.db.insert("paymentConfig", {
+        bankName: "",
+        bankTitulaire: "",
+        bankRib: "",
+        bankIban: "",
+        bankSwift: "",
+        d17MerchantName: "",
+        d17Phone: "",
+        d17Email: "",
+        d17Notice: "",
+        proPrice: 0,
+        supplierPrice: 0,
+        expertPrice: 0,
+        currency: "TND",
+        ...patch,
+        updatedBy: admin._id,
+        createdAt: Date.now(),
+      } as any);
+    }
+
+    return { success: true, enabled: args.enabled, durationDays };
   },
 });
