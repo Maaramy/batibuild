@@ -37,7 +37,7 @@ type PlanId = "free" | "pro" | "expert" | "supplier";
 const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client", expert: "Expert", supplier: "Fournisseur" };
 
 const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean; trial?: boolean }[] = [
-  { id: "free", quota: -1, description: "Accès complet illimité pour tous vos projets", trial: true },
+  { id: "free", quota: -1, description: "Accès complet illimité pour tous vos projets" },
   { id: "supplier", quota: -1, description: "Vendez vos matériaux — 2 mois gratuits", trial: true },
   { id: "expert", quota: -1, description: "Offrez vos services d'expertise — 2 mois gratuits", popular: true, trial: true },
 ];
@@ -368,7 +368,7 @@ export default function PricingPage() {
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre abonnement</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
             Abonnement mensuel (30 jours) — renouvellement automatique. Chaque forfait inclut un accès complet
-            aux outils d'estimation, matériaux IA et téléchargements. Chaque profil (Client, Fournisseur, Expert) bénéficie de 2 mois gratuits à l'inscription.
+            aux outils d'estimation, matériaux IA et téléchargements. Fournisseur et Expert bénéficient de 2 mois gratuits à l'inscription.
           </p>
         </div>
 

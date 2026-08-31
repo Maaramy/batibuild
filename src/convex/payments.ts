@@ -16,16 +16,13 @@ const DEFAULT_PLAN_PRICING = {
   expertPrice: 120,
   supplierPrice: 120,
   currency: "TND",
-  // Pas d'accès gratuit permanent : sans abonnement actif, le client dispose
-  // d'un palier de découverte limité (1 projet / 1 analyse / 1 téléchargement)
-  // et doit passer au paiement (ou à l'essai gratuit) pour un accès illimité.
-  freeProjectLimit: 1,
+  freeProjectLimit: UNLIMITED,
   proProjectLimit: UNLIMITED,
   expertProjectLimit: UNLIMITED,
-  freeInvestmentLimit: 1,
+  freeInvestmentLimit: UNLIMITED,
   proInvestmentLimit: UNLIMITED,
   expertInvestmentLimit: UNLIMITED,
-  freeDownloadLimit: 1,
+  freeDownloadLimit: UNLIMITED,
   proDownloadLimit: UNLIMITED,
   expertDownloadLimit: UNLIMITED,
   trialEnabled: true,

@@ -125,12 +125,6 @@ export const adminUpdateUserPlan = mutation({
       throw new Error("Unauthorized: Admin access required");
     }
 
-    // Forfait Client supprimé de la gestion admin : le plan "free" (Client)
-    // n'est plus assignable. L'accès de base reste géré par les quotas gratuits.
-    if (args.plan === "free") {
-      throw new Error("Forfait Client supprimé — choisissez un autre forfait.");
-    }
-
     const now = Date.now();
     const planDuration = args.plan === "pro" ? 30 * 24 * 60 * 60 * 1000 : 365 * 24 * 60 * 60 * 1000;
 
