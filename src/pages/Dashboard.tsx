@@ -53,7 +53,6 @@ import {
   Percent,
   Gauge,
   ChevronDown,
-  Lock,
   RefreshCcw,
   Rocket,
   MessageSquare,
@@ -373,8 +372,6 @@ export default function Dashboard() {
     totalProjects: 0, completedProjects: 0, analyzingProjects: 0, draftProjects: 0,
     totalEstimatedCost: 0, averageCostPerProject: 0, recentProjects: [],
   };
-  const quotas = useQuery(api.subscriptions.getMyQuotas); // OK
-  const downloadInfo = useQuery(api.subscriptions.checkDownloadAllowed, {});
 
   // ── Role switch: supplier/expert profile queries ──
   const isSupplier = user?.userRole === "supplier";
@@ -413,36 +410,10 @@ export default function Dashboard() {
     api.quoteRequests.pendingCount,
     isSupplier ? {} : "skip",
   );
-  // ── Quotas par type (construction · investissement) ──
-  const construction = quotas?.construction;
-  const investment = quotas?.investment;
-  const constructionPlan = construction?.plan ?? "free";
-  const investmentPlan = investment?.plan ?? "free";
-
-  const usedProjects = stats.totalProjects;
-  const projectLimit = construction?.limit ?? 1;
-  // Affichage plafonné au quota du forfait : 1/1 (et non 2/1) quand la limite est dépassée.
-  const displayUsedProjects = Math.min(usedProjects, projectLimit);
-  const usagePercent = projectLimit >= 1000000 ? 0 : Math.min(100, Math.round((usedProjects / projectLimit) * 100));
-  const isNearLimit = usagePercent >= 80 && projectLimit < 1000000;
-  const projectsReached = (construction?.reached ?? false) || usedProjects >= projectLimit;
-
-  const investLimit = investment?.limit ?? 1;
-  const investUsagePct = investLimit >= 1000000 ? 0 : Math.min(100, Math.round((analyses.length / investLimit) * 100));
-  const investReached = investment?.reached ?? analyses.length >= investLimit;
-  const isInvestNearLimit = investUsagePct >= 80;
-
-  const anyNearLimit = isNearLimit || isInvestNearLimit;
-
-  // Téléchargements restants par type (forfaits construction / investissement)
-  const constructionDownloads = construction?.downloads;
-  const investmentDownloads = investment?.downloads;
-  const remainingDownloads = constructionDownloads ? Math.max(0, (constructionDownloads.limit ?? 0) - (constructionDownloads.used ?? 0)) : 0;
-  const downloadLimit = constructionDownloads?.limit ?? 0;
-  const isProAllowed = constructionDownloads?.allowed === true;
-  const remainingInvestDownloads = investmentDownloads ? Math.max(0, (investmentDownloads.limit ?? 0) - (investmentDownloads.used ?? 0)) : 0;
-  const investDownloadLimit = investmentDownloads?.limit ?? 0;
-  const isInvestDownloadAllowed = investmentDownloads?.allowed === true;
+  const projectsReached = false;
+  const investReached = false;
+  const anyNearLimit = false;
+  const constructionPlan = "free";
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
@@ -1097,14 +1068,14 @@ export default function Dashboard() {
           {/* Quick actions - horizontal scroll on mobile */}
           <div className="overflow-x-auto scrollbar-none -mx-3 sm:mx-0 px-3 sm:px-0">
             <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 min-w-max sm:min-w-0">
-              <Card className={`border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 active:scale-[0.98] shrink-0 w-[160px] sm:w-auto ${projectsReached ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                onClick={() => { if (!projectsReached) navigate("/dashboard/new"); }}>
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+                onClick={() => navigate("/dashboard/new")}>
                 <CardContent className="p-3 sm:p-4 flex items-center gap-3">
                   <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    {projectsReached ? <Lock className="h-4 w-4 sm:h-5 sm:w-5" /> : <Plus className="h-4 w-4 sm:h-5 sm:w-5" />}
+                    <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">{projectsReached ? "Limite atteinte" : "Nouveau projet"}</p>
+                    <p className="text-xs sm:text-sm font-medium truncate">Nouveau projet</p>
                     <p className="text-[10px] text-muted-foreground truncate">Estimation</p>
                   </div>
                 </CardContent>
@@ -1199,7 +1170,7 @@ export default function Dashboard() {
                       <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200/30 text-[8px] px-1.5 py-0">30 jours</Badge>
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground">
-                      Forfait <span className="font-semibold text-foreground">{PLAN_LABELS[constructionPlan] ?? "Client"}</span> · Accès illimité
+                      Forfait <span className="font-semibold text-foreground">"Client"</span> · Accès illimité
                     </p>
                   </div>
                 </div>
@@ -1211,94 +1182,14 @@ export default function Dashboard() {
                     className="h-7 gap-1 px-2.5 text-[10px] sm:text-xs"
                   >
                     <CreditCard className="h-3 w-3" />
-                    {constructionPlan === "free" ? "Passer à Pro" : "Renouveler"}
+                    "Abonnement"
                   </Button>
                 </div>
               </div>
 
-              {/* Subscription dates */}
-              {quotas?.construction?.plan !== "free" ? (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
-                    <p className="text-[9px] text-muted-foreground mb-1">Date de début</p>
-                    <p className="text-xs sm:text-sm font-semibold text-foreground">
-                      {new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR")}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/30 bg-card/40 px-3 py-2.5">
-                    <p className="text-[9px] text-muted-foreground mb-1">Date de fin</p>
-                    <p className="text-xs sm:text-sm font-semibold text-foreground">
-                      {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR")}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
-                  <p className="text-[10px] sm:text-xs text-primary/80">
-                    Passez à l'abonnement Client (80 TND/mois) pour un accès illimité à tous les outils.
-                  </p>
-                </div>
-              )}
+
             </CardContent>
           </Card>
-
-          {/* ── Quota warnings par type (presque atteinte / atteinte) ── */}
-          {(isNearLimit || projectsReached) && (
-            <div className="space-y-2.5">
-              {[
-                {
-                  show: isNearLimit || projectsReached,
-                  reached: projectsReached,
-                  type: "construction",
-                  plan: constructionPlan,
-                  title: projectsReached
-                    ? "Limite de projets de construction atteinte"
-                    : "Limite de projets de construction presque atteinte",
-                  body: projectsReached
-                    ? `Vous avez utilisé ${displayUsedProjects}/${projectLimit} projets de construction de votre forfait ${PLAN_LABELS[constructionPlan]}.`
-                    : `Vous avez utilisé ${usagePercent}% de votre limite de ${projectLimit} projets de construction.`,
-                },
-              ]
-                .filter((w) => w.show)
-                .map((w, i) => {
-                  const nextPlan = w.plan === "free" ? "pro" : w.plan === "pro" ? "expert" : null;
-                  return (
-                    <Card key={i} className="border border-amber-200/70 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-950/20 backdrop-blur-sm">
-                      <CardContent className="p-3 sm:p-4 flex items-start gap-2.5 sm:gap-3">
-                        <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 mt-0.5">
-                          <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs sm:text-sm font-semibold text-amber-800 dark:text-amber-300">{w.title}</p>
-                          <p className="text-[10px] sm:text-xs text-amber-700/80 dark:text-amber-400/80 mt-0.5">
-                            {w.body} {w.reached ? "Renouvelez vos quotas ou passez à une offre supérieure pour continuer." : "Pensez à renouveler ou à passer à une offre supérieure."}
-                          </p>
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            <Button
-                              size="sm"
-                              className="h-7 gap-1 text-[10px] sm:text-xs bg-amber-500 hover:bg-amber-600 text-white border-0"
-                              onClick={() => navigate("/dashboard/pricing")}>
-                              <RefreshCcw className="h-3 w-3" />
-                              Renouveler les quotas
-                            </Button>
-                            {nextPlan && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-[10px] sm:text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                                onClick={() => navigate(`/dashboard/pricing?plan=${nextPlan}`)}
-                              >
-                                Passer à {PLAN_LABELS[nextPlan]}
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-            </div>
-          )}
 
           {/* ── Évolution des coûts (Recharts) ── */}
           {costSeries.length >= 2 && (
@@ -1361,9 +1252,9 @@ export default function Dashboard() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-8 sm:h-9 w-full sm:w-36 lg:w-44 rounded-lg border border-border/40 bg-background pl-8 pr-2.5 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
                 </div>
-                <Button size="sm" className="gap-1 h-8 sm:h-9 text-xs sm:text-sm shrink-0" onClick={() => navigate("/dashboard/new")} disabled={projectsReached} title={projectsReached ? "Quota de projets de construction atteint" : undefined}>
-                  {projectsReached ? <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                  <span className="hidden xs:inline">{projectsReached ? "Limite atteinte" : "Nouveau"}</span>
+                <Button size="sm" className="gap-1 h-8 sm:h-9 text-xs sm:text-sm shrink-0" onClick={() => navigate("/dashboard/new")}>
+                  <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Nouveau</span>
                 </Button>
               </div>
             </CardHeader>
@@ -1395,9 +1286,9 @@ export default function Dashboard() {
                     </div>
                     <p className="text-sm sm:text-base font-medium mb-1">Aucun projet de construction</p>
                     <p className="text-[10px] sm:text-xs text-muted-foreground mb-3">Créez votre premier projet de construction</p>
-                    <Button size="sm" className="text-xs" onClick={() => navigate("/dashboard/new")} disabled={projectsReached} title={projectsReached ? "Quota de projets de construction atteint" : undefined}>
-                      {projectsReached ? <Lock className="h-3.5 w-3.5 mr-1" /> : <Plus className="h-3.5 w-3.5 mr-1" />}
-                      {projectsReached ? "Limite atteinte" : "Nouveau projet"}
+                    <Button size="sm" className="text-xs" onClick={() => navigate("/dashboard/new")}>
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Nouveau projet
                     </Button>
                   </div>
                 ) : (
@@ -1436,8 +1327,8 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Button size="sm" className="h-8 gap-1 text-xs sm:text-sm bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-600/25 hover:from-indigo-500 hover:to-blue-500" onClick={() => navigate("/dashboard/investments")} disabled={investReached} title={investReached ? "Quota d'analyses d'investissement atteint" : undefined}>
-                  {investReached ? <Lock className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />} {investReached ? "Limite atteinte" : "Nouvelle analyse"}
+                <Button size="sm" className="h-8 gap-1 text-xs sm:text-sm bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-600/25 hover:from-indigo-500 hover:to-blue-500" onClick={() => navigate("/dashboard/investments")}>
+                  <Plus className="h-3.5 w-3.5" /> Nouvelle analyse
                 </Button>
               </div>
             </CardHeader>
@@ -1463,12 +1354,11 @@ export default function Dashboard() {
                     size="sm"
                     className="gap-1.5 text-xs bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-600/25 hover:from-indigo-500 hover:to-blue-500 hover:shadow-indigo-600/40 transition-all active:scale-[0.97]"
                     onClick={() => navigate("/dashboard/investments")}
-                    disabled={investReached}
-                    title={investReached ? "Quota d'analyses d'investissement atteint" : undefined}
+
                   >
-                    {investReached ? <Lock className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
-                    {investReached ? "Limite atteinte" : "Lancer une analyse"}
-                    {!investReached && <ArrowUpRight className="h-3.5 w-3.5" />}
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Lancer une analyse
+                    <ArrowUpRight className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               ) : (

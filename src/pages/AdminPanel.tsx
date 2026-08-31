@@ -196,10 +196,7 @@ export default function AdminPanel() {
     // Abonnements mensuels (30 jours)
     constructionStartPrice: 80, constructionProPrice: 0, constructionExpertPrice: 120,
     supplierPrice: 120,
-    // Quotas par forfait (illimités pour les forfaits payants)
-    freeProjects: 1000000, proProjects: 1000000, expertProjects: 1000000,
-    freeInvestments: 1000000, proInvestments: 1000000, expertInvestments: 1000000,
-    freeDownloadLimit: 1000000, proDownloads: 1000000, expertDownloads: 1000000,
+
     // Essai gratuit
     trialEnabled: true,
     trialDurationDays: 60,
@@ -218,21 +215,13 @@ export default function AdminPanel() {
         constructionStartPrice: planForm.startPrice ?? 79,
         constructionProPrice: planForm.proPrice ?? 120,
         constructionExpertPrice: planForm.expertPrice ?? 320,
-        freeProjects: planForm.freeProjectLimit ?? 1,
-        proProjects: planForm.proProjectLimit ?? 5,
-        expertProjects: planForm.expertProjectLimit ?? 20,
-        freeInvestments: planForm.freeInvestmentLimit ?? 1,
-        proInvestments: planForm.proInvestmentLimit ?? 5,
-        expertInvestments: planForm.expertInvestmentLimit ?? 20,
-        freeDownloadLimit: planForm.freeDownloadLimit ?? 1,
-        proDownloads: planForm.proDownloadLimit ?? 5,
-        expertDownloads: planForm.expertDownloadLimit ?? 20,
+
         supplierPrice: planForm.supplierPrice ?? 120,
         trialEnabled: planForm.trialEnabled ?? true,
         trialDurationDays: planForm.trialDurationDays ?? 60,
       });
     }
-  }, [planForm?.startPrice, planForm?.proPrice, planForm?.expertPrice, planForm?.freeProjectLimit, planForm?.proProjectLimit, planForm?.expertProjectLimit, planForm?.freeInvestmentLimit, planForm?.proInvestmentLimit, planForm?.expertInvestmentLimit, planForm?.freeDownloadLimit, planForm?.proDownloadLimit, planForm?.expertDownloadLimit, planForm?.supplierPrice]);
+  }, [planForm?.startPrice, planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice]);
 
   // Sync payment form when config loads
   useEffect(() => {
@@ -4208,24 +4197,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         await updatePlanPricing({
                           plan: "free",
                           price: limitForm.constructionStartPrice,
-                          projectLimit: limitForm.freeProjects,
-                          investmentLimit: limitForm.freeInvestments,
-                          downloadLimit: limitForm.freeDownloadLimit,
                         } as any);
                         // Forfait Fournisseur
                         await updatePlanPricing({
                           plan: "supplier",
                           price: limitForm.supplierPrice,
-                          projectLimit: 100,
-                          downloadLimit: 100,
                         } as any);
                         // Forfait Expert
                         await updatePlanPricing({
                           plan: "expert",
                           price: limitForm.constructionExpertPrice,
-                          projectLimit: limitForm.expertProjects,
-                          investmentLimit: limitForm.expertInvestments,
-                          downloadLimit: limitForm.expertDownloads,
                         } as any);
                         // Essai gratuit (global)
                         await updatePlanPricing({

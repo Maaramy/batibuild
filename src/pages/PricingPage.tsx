@@ -81,7 +81,6 @@ export default function PricingPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const currentSubscription = useQuery(api.subscriptions.getMySubscription);
-  const quotas = useQuery(api.subscriptions.getMyQuotas);
   const createSubscription = useMutation(api.subscriptions.createSubscription);
   const [copying, setCopying] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
@@ -141,9 +140,7 @@ export default function PricingPage() {
   };
 
   const isPending = currentSubscription?.status === "pending";
-  const construction = quotas?.construction;
-  const investment = quotas?.investment;
-  const currentPlan = construction?.plan ?? "free";
+  const currentPlan = "free";
 
   const isCurrentPlan = (plan: PlanId) => currentPlan === plan && !isPending;
 
@@ -257,7 +254,7 @@ export default function PricingPage() {
     trial?: boolean,
   ) => {
     const isCurrent = isCurrentPlan(plan);
-    const reached = construction?.reached || investment?.reached;
+    const reached = false;
 
     return (
       <motion.div
@@ -667,7 +664,7 @@ export default function PricingPage() {
             </div>
           )}
 
-          {(construction?.reached || investment?.reached) && (
+          {false && (
             <div className="mt-4 px-4 py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
               <div className="flex items-start gap-2">
                 <RefreshCcw className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -676,8 +673,6 @@ export default function PricingPage() {
                     Abonnement expiré ? Renouvellez votre forfait mensuel.
                   </p>
                   <p className="text-[10px] text-emerald-700/70 mt-0.5">
-                    {construction?.reached && "Vos quotas de construction sont épuisés. "}
-                    {investment?.reached && "Vos quotas d'investissement sont épuisés. "}
                     Renouvelez le même forfait ou passez à une offre supérieure — abonnement mensuel renouvelable.
                   </p>
                 </div>

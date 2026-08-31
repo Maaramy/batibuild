@@ -536,7 +536,6 @@ export default function NewProject() {
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [validated, setValidated] = useState(false);
-  const [limitExceeded, setLimitExceeded] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const createProject = useMutation(api.projects.createProject);
@@ -653,12 +652,7 @@ export default function NewProject() {
       clearInterval(interval);
       console.error("Error:", error);
       const msg = error?.message || error?.toString() || "";
-      if (msg.includes("LIMITE_ATTEINTE")) {
-        const userMsg = msg.replace("LIMITE_ATTEINTE:", "");
-        setLimitExceeded(userMsg);
-      } else {
-        setErrors({ name: "Une erreur est survenue. Veuillez réessayer." });
-      }
+      setErrors({ name: "Une erreur est survenue. Veuillez réessayer." });
       setAnalyzing(false);
     }
   };
@@ -1102,62 +1096,7 @@ export default function NewProject() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-      {/* ── Limite atteinte Dialog ── */}
-      <AnimatePresence>
-        {limitExceeded && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-            onClick={() => setLimitExceeded(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-sm rounded-2xl border border-border/40 bg-background p-6 shadow-2xl text-center"
-            >
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10">
-                <AlertTriangle className="h-7 w-7 text-amber-500" />
-              </div>
-              <h3 className="text-lg font-bold mb-2">Limite atteinte</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground mb-6 leading-relaxed">
-                {limitExceeded}
-              </p>
-              <div className="flex flex-col gap-2.5">
-                <Button
-                  size="sm"
-                  className="h-10 text-xs gap-2 w-full"
-                  onClick={() => { setLimitExceeded(null); navigate("/dashboard/pricing"); }}
-                >
-                  <RefreshCcw className="h-4 w-4" />
-                  Renouveler les quotas
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 text-xs gap-2 w-full"
-                  onClick={() => { setLimitExceeded(null); navigate("/dashboard/pricing?plan=pro"); }}
-                >
-                  <Crown className="h-4 w-4" />
-                  Passer à l'offre Pro
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 text-xs w-full"
-                  onClick={() => { setLimitExceeded(null); navigate("/dashboard"); }}
-                >
-                  Retour au tableau de bord
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      
 
       {/* ── Header ── */}
       <header className="glass-header sticky top-0 z-20">

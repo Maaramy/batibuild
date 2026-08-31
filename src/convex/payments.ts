@@ -16,13 +16,13 @@ const DEFAULT_PLAN_PRICING = {
   expertPrice: 120,
   supplierPrice: 120,
   currency: "TND",
-  freeProjectLimit: UNLIMITED,
+  freeProjectLimit: 0,
   proProjectLimit: UNLIMITED,
   expertProjectLimit: UNLIMITED,
-  freeInvestmentLimit: UNLIMITED,
+  freeInvestmentLimit: 0,
   proInvestmentLimit: UNLIMITED,
   expertInvestmentLimit: UNLIMITED,
-  freeDownloadLimit: UNLIMITED,
+  freeDownloadLimit: 0,
   proDownloadLimit: UNLIMITED,
   expertDownloadLimit: UNLIMITED,
   trialEnabled: true,
@@ -56,13 +56,13 @@ export const getPlanPricing = query({
       proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
       expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
       supplierPrice: config.supplierPrice ?? DEFAULT_PLAN_PRICING.supplierPrice,
-      freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
+      freeProjectLimit: 0,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
-      freeInvestmentLimit: config.freeInvestmentLimit ?? DEFAULT_PLAN_PRICING.freeInvestmentLimit,
+      freeInvestmentLimit: 0,
       proInvestmentLimit: config.proInvestmentLimit ?? DEFAULT_PLAN_PRICING.proInvestmentLimit,
       expertInvestmentLimit: config.expertInvestmentLimit ?? DEFAULT_PLAN_PRICING.expertInvestmentLimit,
-      freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
+      freeDownloadLimit: 0,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
       trialEnabled: config.trialEnabled ?? DEFAULT_PLAN_PRICING.trialEnabled,
@@ -102,9 +102,6 @@ export const updatePlanPricing = mutation({
 
     if (plan === "free") {
       if (args.price !== undefined) patch.startPrice = args.price;
-      if (args.projectLimit !== undefined) patch.freeProjectLimit = args.projectLimit;
-      if (args.investmentLimit !== undefined) patch.freeInvestmentLimit = args.investmentLimit;
-      if (args.downloadLimit !== undefined) patch.freeDownloadLimit = args.downloadLimit;
     } else if (plan === "pro") {
       if (args.price !== undefined) patch.proPrice = args.price;
       if (args.projectLimit !== undefined) patch.proProjectLimit = args.projectLimit;
@@ -149,13 +146,13 @@ export const getPublicPricing = query({
       proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
       expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
       supplierPrice: config.supplierPrice ?? DEFAULT_PLAN_PRICING.supplierPrice,
-      freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
+      freeProjectLimit: 0,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
-      freeInvestmentLimit: config.freeInvestmentLimit ?? DEFAULT_PLAN_PRICING.freeInvestmentLimit,
+      freeInvestmentLimit: 0,
       proInvestmentLimit: config.proInvestmentLimit ?? DEFAULT_PLAN_PRICING.proInvestmentLimit,
       expertInvestmentLimit: config.expertInvestmentLimit ?? DEFAULT_PLAN_PRICING.expertInvestmentLimit,
-      freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
+      freeDownloadLimit: 0,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
       trialEnabled: config.trialEnabled ?? DEFAULT_PLAN_PRICING.trialEnabled,
