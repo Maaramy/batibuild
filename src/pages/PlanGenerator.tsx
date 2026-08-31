@@ -7,12 +7,16 @@ import {
   BadgeCheck,
   Boxes,
   Building2,
+  ChevronDown,
   Compass,
+  Download,
   Info,
   Layers3,
   Lightbulb,
   Loader2,
+  Maximize2,
   Ruler,
+  ScanLine,
   Sparkles,
 } from "lucide-react";
 
@@ -36,8 +40,12 @@ import {
 import type { FloorPlan, FloorPlanVariant } from "@/lib/floorPlanEngine";
 import { FloorPlan2D } from "@/components/floorplan/FloorPlan2D";
 import { FloorPlan3D } from "@/components/floorplan/FloorPlan3D";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { cn } from "@/lib/utils";
+import { analyzeFloorPlan } from "@/lib/planAnalysis";
+import type { FloorPlanAnalysis } from "@/lib/planAnalysis";
+import { downloadFloorPlanPdf } from "@/lib/floorPlanPdf";
 
 /** Durée fixe de l'écran de chargement : 3 secondes. */
 const LOADING_DURATION_MS = 3000;
@@ -203,7 +211,12 @@ export default function PlanGenerator() {
             {/* ── Grille des variantes ── */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
               {variants.map((variant, i) => (
-                <VariantCard key={variant.id} variant={variant} index={i} />
+                <VariantCard
+                  key={variant.id}
+                  variant={variant}
+                  index={i}
+                  projectName={project.name}
+                />
               ))}
             </div>
 
@@ -244,12 +257,42 @@ function SynthStat({
   );
 }
 
-function VariantCard({ variant, index }: { variant: FloorPlanVariant; index: number }) {
+function VariantCard({
+  variant,
+  index,
+  projectName,
+}: {
+  variant: FloorPlanVariant;
+  index: number;
+  projectName: string;
+}) {
   const [floorIdx, setFloorIdx] = useState(0);
   const [view, setView] = useState<"2d" | "3d">("2d");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const floor: FloorPlan = variant.floors[Math.min(floorIdx, variant.floors.length - 1)];
   const surfaces = useMemo(() => summarizeSurfaces(floor), [floor]);
+  const analysis = useMemo(() => analyzeFloorPlan(floor), [floor]);
+  const floorLabel = floor.level === 0 ? "Rez-de-chaussée" : `Niveau ${floor.level}`;
   const v = variant.validation;
+
+  const handleDownload = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      await downloadFloorPlanPdf({
+        plan: floor,
+        projectName,
+        variantName: variant.name,
+        floorLabel,
+      });
+    } catch (err) {
+      console.error("Erreur export PDF du plan :", err);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
 
   const scoreColor =
     v.score >= 90
@@ -323,10 +366,58 @@ function VariantCard({ variant, index }: { variant: FloorPlanVariant; index: num
 
           {/* Plan 2D ou 3D */}
           {view === "2d" ? (
-            <FloorPlan2D plan={floor} />
+            <div
+              className="relative group cursor-zoom-in"
+              role="button"
+              tabIndex={0}
+              aria-label="Afficher le plan 2D en plein écran"
+              onClick={() => setPreviewOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setPreviewOpen(true);
+                }
+              }}
+            >
+              <FloorPlan2D plan={floor} />
+              <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border bg-background/90 px-2 py-1 text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100">
+                <Maximize2 className="h-3 w-3" /> Plein écran
+              </span>
+            </div>
           ) : (
             <FloorPlan3D plan={floor} />
           )}
+
+          {/* Actions : export PDF + analyse */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDownload}
+              disabled={pdfBusy}
+            >
+              {pdfBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              {pdfBusy ? "Génération…" : "Télécharger PDF"}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setShowAnalysis((s) => !s)}
+            >
+              <ScanLine className="h-3.5 w-3.5" />
+              Analyse & optimisation
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform",
+                  showAnalysis && "rotate-180",
+                )}
+              />
+            </Button>
+          </div>
 
           {/* Fiche technique : tableau des surfaces */}
           <div className="rounded-lg border overflow-hidden">
@@ -400,8 +491,159 @@ function VariantCard({ variant, index }: { variant: FloorPlanVariant; index: num
               ))}
             </ul>
           )}
+
+          {/* Analyse & optimisation d'architecte */}
+          {showAnalysis && <AnalysisPanel analysis={analysis} floorLabel={floorLabel} />}
         </CardContent>
       </Card>
+
+      {/* Plein écran du plan 2D */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-none w-[calc(100vw-2rem)] h-[calc(100vh-2rem)] max-w-full p-4 sm:p-6 overflow-auto bg-transparent border-transparent">
+          <DialogTitle className="sr-only">
+            Plan 2D — {variant.name} · {floorLabel}
+          </DialogTitle>
+          <div className="flex items-center justify-between gap-2 mb-3 pr-10">
+            <p className="text-sm font-semibold tracking-tight truncate">
+              {variant.name} · {floorLabel} — Plan 2D
+            </p>
+          </div>
+          <div className="mx-auto w-full max-w-6xl">
+            <div className="rounded-md border bg-white p-2 shadow-sm">
+              <FloorPlan2D plan={floor} />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
+  );
+}
+
+// ── Panneau « Analyse & optimisation d'architecte » ─────────────────────────
+
+const ZONE_STYLE: Record<string, { label: string; dot: string }> = {
+  nuit: { label: "Zone nuit", dot: "bg-indigo-500" },
+  jour: { label: "Zone jour", dot: "bg-amber-500" },
+  service: { label: "Service / technique", dot: "bg-slate-500" },
+  circulation: { label: "Circulations", dot: "bg-zinc-400" },
+};
+
+const SEV_STYLE: Record<string, string> = {
+  info: "border-sky-500/25 bg-sky-500/[0.06] text-sky-600",
+  warning: "border-amber-500/25 bg-amber-500/[0.06] text-amber-600",
+  critical: "border-red-500/30 bg-red-500/[0.06] text-red-600",
+};
+
+function AnalysisPanel({
+  analysis,
+  floorLabel,
+}: {
+  analysis: FloorPlanAnalysis;
+  floorLabel: string;
+}) {
+  const a = analysis;
+  return (
+    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.03] px-3 py-3 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <ScanLine className="h-3.5 w-3.5 text-emerald-600" />
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+            Analyse & optimisation · {floorLabel}
+          </span>
+        </div>
+        <Badge
+          variant="outline"
+          className="text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+        >
+          Optimisation {a.score}/100
+        </Badge>
+      </div>
+
+      {/* Zonage */}
+      <div>
+        <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+          Zonage & circulation
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+          {a.zoning.groups
+            .filter((g) => g.rooms.length > 0)
+            .map((g) => (
+              <div key={g.kind} className="rounded-md border bg-background/70 px-2 py-1.5">
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("h-2 w-2 rounded-full", ZONE_STYLE[g.kind].dot)} />
+                  <span className="text-[10px] font-medium">{ZONE_STYLE[g.kind].label}</span>
+                  <span className="ml-auto text-[10px] font-semibold tabular-nums">
+                    {g.area.toFixed(1)} m²
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[9px] text-muted-foreground">
+                  {g.rooms.map((r) => r.label).join(" · ")}
+                </p>
+              </div>
+            ))}
+        </div>
+        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] text-muted-foreground">
+          <span>
+            Circulations :{" "}
+            <span className="font-semibold text-foreground tabular-nums">
+              {a.zoning.circulationM2.toFixed(1)} m² ({a.zoning.circulationPct.toFixed(0)}%)
+            </span>
+          </span>
+          <span>
+            Surface utile :{" "}
+            <span className="font-semibold text-foreground tabular-nums">
+              {a.zoning.usefulM2.toFixed(1)} m²
+            </span>
+          </span>
+        </div>
+      </div>
+
+      {/* Ergonomie + lumière */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-center">
+        <StatBox label="Haut. plafond" value={`${a.ergonomics.ceilingHeight.toFixed(2)} m`} />
+        <StatBox
+          label="Passage min."
+          value={`${(a.ergonomics.minPassage * 100).toFixed(0)} cm`}
+          ok={a.ergonomics.passable}
+        />
+        <StatBox label="Fenêtres" value={`${a.layout.totalWindows}`} />
+        <StatBox label="Portes" value={`${a.layout.totalDoors}`} />
+      </div>
+
+      {/* Recommandations */}
+      <div className="space-y-1.5">
+        {a.recommendations.map((r) => (
+          <div key={r.category + r.title} className={cn("rounded-md border px-2 py-1.5", SEV_STYLE[r.severity])}>
+            <p className="text-[10px] font-semibold leading-tight">{r.title}</p>
+            <p className="text-[10px] leading-relaxed opacity-90 mt-0.5">{r.detail}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StatBox({
+  label,
+  value,
+  ok,
+}: {
+  label: string;
+  value: string;
+  ok?: boolean;
+}) {
+  return (
+    <div className="rounded-md border bg-background/70 px-2 py-1.5">
+      <p className="text-[9px] text-muted-foreground uppercase tracking-wide truncate">{label}</p>
+      <p
+        className={cn(
+          "text-xs font-semibold tabular-nums",
+          ok === false && "text-red-600",
+          ok === true && "text-emerald-600",
+        )}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
