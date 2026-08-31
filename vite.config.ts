@@ -20,40 +20,38 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
-        // Consolidate heavy libs into fewer chunks to reduce peak memory
-        // during Rollup's gzip-computation phase (OOM fix).
+        // Manual chunks keep Rollup's peak memory bounded during the
+        // gzip-computation phase while heavy libs stay on their own lazy chunk.
         manualChunks: {
-          // Core framework (small, stable)
+          // Core framework (small, stable). Kept explicit so Rollup's peak
+          // memory stays bounded during the gzip-computation phase.
           'vendor-core': ['react', 'react-dom', 'react-router', 'convex'],
-          // Heavy 3-D / Excel libs that would otherwise bloat the main chunk
-          'vendor-heavy': ['three', 'xlsx', 'recharts', 'framer-motion'],
-          // UI component library (single chunk, tree-shaken)
+          // UI component library (single chunk, tree-shaken). Only packages
+          // that are actually imported are listed here.
           'vendor-ui': [
             '@radix-ui/react-accordion',
             '@radix-ui/react-alert-dialog',
             '@radix-ui/react-avatar',
             '@radix-ui/react-checkbox',
             '@radix-ui/react-collapsible',
-            '@radix-ui/react-context-menu',
             '@radix-ui/react-dialog',
             '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-hover-card',
             '@radix-ui/react-label',
-            '@radix-ui/react-menubar',
-            '@radix-ui/react-navigation-menu',
-            '@radix-ui/react-popover',
             '@radix-ui/react-progress',
-            '@radix-ui/react-radio-group',
             '@radix-ui/react-scroll-area',
             '@radix-ui/react-select',
             '@radix-ui/react-separator',
             '@radix-ui/react-slider',
             '@radix-ui/react-switch',
             '@radix-ui/react-tabs',
-            '@radix-ui/react-toggle',
-            '@radix-ui/react-toggle-group',
-            '@radix-ui/react-tooltip',
           ],
+          // three / xlsx / recharts / framer-motion are deliberately NOT
+          // grouped into a single vendor chunk: grouping them forced the whole
+          // package onto every page that touched motion (before it is tree-
+          // shaken). Leaving them to Rollup's default splitting creates a lazy
+          // chunk per heavy lib that only loads on the pages that use them:
+          //   · three  -> PlanGenerator (3D view)
+          //   · xlsx   -> AdminPanel (Excel export)
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
