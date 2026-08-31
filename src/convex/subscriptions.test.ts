@@ -124,6 +124,28 @@ describe("getMyQuotas — palier gratuit vs forfait payant", () => {
 });
 
 // ============================================================================
+// adminUpdateUserPlan — forfait Client supprimé de la gestion admin
+// ============================================================================
+
+describe("adminUpdateUserPlan — forfait Client supprimé", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  it("rejette l'assignation du plan 'free' (forfait Client)", async () => {
+    const adminId = await createTestUser(t, { role: "admin" });
+    const adminT = t.withIdentity({ subject: adminId });
+    const userId = await createTestUser(t);
+
+    await expect(
+      adminT.mutation(api.users.adminUpdateUserPlan, { userId: userId as any, plan: "free" }),
+    ).rejects.toThrow(/Forfait Client supprimé/);
+  });
+});
+
+// ============================================================================
 // createSubscription — essai gratuit pour tous les profils (dont Client)
 // ============================================================================
 
