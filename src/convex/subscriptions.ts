@@ -206,7 +206,9 @@ async function getActiveSubscription(ctx: any, userId: any, _kind?: SubKind) {
 function hasSubscriptionEntitlement(sub: any): boolean {
   if (!sub || sub.status !== "active" || (sub.endDate && sub.endDate <= Date.now())) return false;
   const knownPlan = sub.plan === "free" || sub.plan === "pro" || sub.plan === "expert" || sub.plan === "supplier";
-  return knownPlan && (sub.isTrial === true || (typeof sub.amount === "number" && sub.amount > 0));
+  // A trial is free to the user, but it still belongs to a paid plan. A
+  // legacy zero-priced record must never grant paid-plan entitlements.
+  return knownPlan && typeof sub.amount === "number" && Number.isFinite(sub.amount) && sub.amount > 0;
 }
 
 /** Type d'abonnement correspondant à un quota (tous couverts par le même forfait). */
@@ -334,10 +336,8 @@ export const checkDownloadAllowedFor = query({
 
 // Forfaits mensuels : durée de 30 jours — renouvellement mensuel.
 const MONTHLY_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 jours
-// Période d'essai gratuite pour Fournisseur/Expert : 2 mois.
+// L'essai est activé séparément via paymentConfig et sa durée est configurable.
 // Le Client est exclu : il doit effectuer son paiement à la souscription.
-const TRIAL_DURATION = 60 * 24 * 60 * 60 * 1000; // 60 jours
-
 /** Create or update subscription (abonnement mensuel, 30 jours) */
 export const createSubscription = mutation({
   args: {

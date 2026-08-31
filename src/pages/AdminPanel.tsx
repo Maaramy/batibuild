@@ -194,7 +194,7 @@ export default function AdminPanel() {
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
   const [limitForm, setLimitForm] = useState({
     // Abonnements mensuels (30 jours)
-    constructionStartPrice: 80, constructionProPrice: 0, constructionExpertPrice: 120,
+    constructionStartPrice: 80, constructionProPrice: 120, constructionExpertPrice: 120,
     supplierPrice: 120,
     // Quotas par forfait (illimités pour les forfaits payants)
     freeProjects: 1000000, proProjects: 1000000, expertProjects: 1000000,
@@ -215,19 +215,19 @@ export default function AdminPanel() {
   useEffect(() => {
     if (planForm) {
       setLimitForm({
-        constructionStartPrice: planForm.startPrice ?? 79,
+        constructionStartPrice: planForm.startPrice ?? 80,
         constructionProPrice: planForm.proPrice ?? 120,
-        constructionExpertPrice: planForm.expertPrice ?? 320,
-        freeProjects: planForm.freeProjectLimit ?? 1,
-        proProjects: planForm.proProjectLimit ?? 5,
-        expertProjects: planForm.expertProjectLimit ?? 20,
-        freeInvestments: planForm.freeInvestmentLimit ?? 1,
-        proInvestments: planForm.proInvestmentLimit ?? 5,
-        expertInvestments: planForm.expertInvestmentLimit ?? 20,
-        freeDownloadLimit: planForm.freeDownloadLimit ?? 1,
-        proDownloads: planForm.proDownloadLimit ?? 5,
-        expertDownloads: planForm.expertDownloadLimit ?? 20,
-        supplierPrice: planForm.supplierPrice ?? 120,
+        constructionExpertPrice: planForm.expertPrice ?? 120,
+        freeProjects: 0,
+        proProjects: planForm.proProjectLimit ?? 1000000,
+        expertProjects: planForm.expertProjectLimit ?? 1000000,
+        freeInvestments: 0,
+        proInvestments: planForm.proInvestmentLimit ?? 1000000,
+        expertInvestments: planForm.expertInvestmentLimit ?? 1000000,
+        freeDownloadLimit: 0,
+        proDownloads: planForm.proDownloadLimit ?? 1000000,
+        expertDownloads: planForm.expertDownloadLimit ?? 1000000,
+        supplierPrice: planForm.supplierPrice > 0 ? planForm.supplierPrice : 120,
         trialEnabled: planForm.trialEnabled ?? true,
         trialDurationDays: planForm.trialDurationDays ?? 60,
       });

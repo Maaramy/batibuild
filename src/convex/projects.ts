@@ -222,7 +222,7 @@ export const updatePlanLimits = mutation({
         d17Phone: "",
         d17Email: "",
         d17Notice: "",
-        proPrice: 79,
+        proPrice: 120,
         supplierPrice: 120,
         currency: "TND",
         freeProjectLimit: args.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,

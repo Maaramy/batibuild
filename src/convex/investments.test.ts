@@ -290,6 +290,25 @@ describe("API investments", () => {
 
   it("saveAnalysis → listAnalyses → getAnalysis → isolation → deleteAnalysis", async () => {
     const userId = await createUser("user@test.com");
+    await t.run(async (ctx) => {
+      const now = Date.now();
+      await ctx.db.insert("subscriptions", {
+        userId,
+        kind: "investment",
+        plan: "free",
+        status: "active",
+        startDate: now,
+        endDate: now + 30 * 24 * 60 * 60 * 1000,
+        paymentMethod: "test",
+        amount: 80,
+        currency: "TND",
+        isTrial: false,
+        monthlyDownloadCount: 0,
+        downloadLimit: 1000000,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
     const userT = t.withIdentity({ subject: userId });
 
     const results = runEngine(BASE_INPUT);

@@ -131,7 +131,18 @@ export const adminUpdateUserPlan = mutation({
     if (args.plan === "free") {
       throw new Error("Le forfait Client nécessite une validation de paiement.");
     }
-    const planDuration = args.plan === "pro" ? 30 * 24 * 60 * 60 * 1000 : 365 * 24 * 60 * 60 * 1000;
+
+    const paymentConfig = await ctx.db
+      .query("paymentConfig")
+      .order("desc")
+      .first();
+    const monthlyPrice = args.plan === "pro"
+      ? (paymentConfig?.proPrice && paymentConfig.proPrice > 0 ? paymentConfig.proPrice : 120)
+      : (paymentConfig?.expertPrice && paymentConfig.expertPrice > 0 ? paymentConfig.expertPrice : 120);
+    const planDuration = 30 * 24 * 60 * 60 * 1000;
+    const expertLimit = paymentConfig?.expertDownloadLimit ?? 100;
+    const proLimit = paymentConfig?.proDownloadLimit ?? 10;
+    const limit = args.plan === "expert" ? expertLimit : proLimit;
 
     await ctx.db.patch(args.userId, {
       subscriptionPlan: args.plan,
@@ -148,19 +159,12 @@ export const adminUpdateUserPlan = mutation({
     if (existingSub && existingSub.status === "active") {
       await ctx.db.patch(existingSub._id, {
         plan: args.plan,
+        amount: monthlyPrice,
+        currency: "TND",
         endDate: now + planDuration,
         updatedAt: now,
       });
     } else {
-      // Read dynamic download limits from payment config
-      const paymentConfig = await ctx.db
-        .query("paymentConfig")
-        .order("desc")
-        .first();
-      const expertLimit = paymentConfig?.expertDownloadLimit ?? 100;
-      const proLimit = paymentConfig?.proDownloadLimit ?? 10;
-      const limit = args.plan === "expert" ? expertLimit : args.plan === "pro" ? proLimit : 0;
-
       await ctx.db.insert("subscriptions", {
         userId: args.userId,
         plan: args.plan,
@@ -168,7 +172,7 @@ export const adminUpdateUserPlan = mutation({
         startDate: now,
         endDate: now + planDuration,
         paymentMethod: "admin",
-        amount: args.plan === "pro" ? 79 : args.plan === "expert" ? 320 : 0,
+        amount: monthlyPrice,
         currency: "TND",
         monthlyDownloadCount: 0,
         downloadLimit: limit,
