@@ -196,10 +196,10 @@ export default function AdminPanel() {
     // Abonnements mensuels (30 jours)
     constructionStartPrice: 80, constructionProPrice: 120, constructionExpertPrice: 120,
     supplierPrice: 120,
-    // Quotas par forfait (illimités pour les forfaits payants)
-    freeProjects: 1000000, proProjects: 1000000, expertProjects: 1000000,
-    freeInvestments: 1000000, proInvestments: 1000000, expertInvestments: 1000000,
-    freeDownloadLimit: 1000000, proDownloads: 1000000, expertDownloads: 1000000,
+    // Aucun quota gratuit : le Client doit valider son paiement.
+    freeProjects: 0, proProjects: 1000000, expertProjects: 1000000,
+    freeInvestments: 0, proInvestments: 1000000, expertInvestments: 1000000,
+    freeDownloadLimit: 0, proDownloads: 1000000, expertDownloads: 1000000,
     // Essai gratuit
     trialEnabled: true,
     trialDurationDays: 60,

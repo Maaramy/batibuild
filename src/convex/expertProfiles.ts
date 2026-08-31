@@ -11,7 +11,11 @@ const MONTHLY_DAYS = 30;
 
 async function getExpertPrice(ctx: any): Promise<number> {
   const config = await ctx.db.query("paymentConfig").order("desc").first();
-  return config?.expertPrice ?? 150;
+  const configuredPrice = config?.expertPrice;
+  // Un ancien tarif nul ou invalide ne doit jamais créer un abonnement gratuit.
+  return typeof configuredPrice === "number" && Number.isFinite(configuredPrice) && configuredPrice > 0
+    ? configuredPrice
+    : 120;
 }
 
 // ============================================================================
@@ -81,7 +85,11 @@ export const getRandomByProfession = query({
     const active = experts.filter(
       (e) =>
         e.isVisible &&
-        (e.subscriptionStatus === "active" || e.subscriptionStatus === "trial")
+        ((e.subscriptionStatus === "trial" && !!e.subscriptionEndDate && e.subscriptionEndDate > Date.now()) ||
+          (e.subscriptionStatus === "active" &&
+            typeof e.paymentAmount === "number" &&
+            Number.isFinite(e.paymentAmount) &&
+            e.paymentAmount > 0))
     );
     if (active.length === 0) return null;
 
@@ -103,13 +111,14 @@ export const getActiveExperts = query({
     return experts
       .filter((e) => e.isVisible)
       .filter((e) => {
-        if (
-          (e.subscriptionStatus === "active" || e.subscriptionStatus === "trial") &&
-          e.subscriptionEndDate && e.subscriptionEndDate < now
-        ) {
-          return false;
+        if (e.subscriptionStatus === "trial") {
+          return !!e.subscriptionEndDate && e.subscriptionEndDate > now;
         }
-        return true;
+        return e.subscriptionStatus === "active" &&
+          typeof e.paymentAmount === "number" &&
+          Number.isFinite(e.paymentAmount) &&
+          e.paymentAmount > 0 &&
+          (!e.subscriptionEndDate || e.subscriptionEndDate > now);
       })
       .map((e) => ({
         _id: e._id,
@@ -481,6 +490,13 @@ export const adminApproveExpertSubscription = mutation({
     if (!profile) throw new Error("Profil expert introuvable");
     if (profile.subscriptionStatus !== "pending")
       throw new Error("Ce profil n'a pas de demande en attente");
+    if (
+      typeof profile.paymentAmount !== "number" ||
+      !Number.isFinite(profile.paymentAmount) ||
+      profile.paymentAmount <= 0
+    ) {
+      throw new Error("Impossible d'activer un abonnement sans tarif positif.");
+    }
 
     const now = Date.now();
     const endDate = now + EXPERT_MONTHLY_DAYS * 24 * 60 * 60 * 1000;

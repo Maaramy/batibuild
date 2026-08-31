@@ -112,7 +112,7 @@ describe("getPlanPricing", () => {
     expect(result.proPrice).toBe(120);
     expect(result.expertPrice).toBe(120);
     expect(result.supplierPrice).toBe(120);
-    expect(result.freeProjectLimit).toBe(1000000);
+    expect(result.freeProjectLimit).toBe(0);
   });
 
   it("retourne les valeurs personnalisées depuis un paymentConfig existant", async () => {

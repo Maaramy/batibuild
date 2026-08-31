@@ -16,7 +16,11 @@ async function getSupplierPrice(ctx: any): Promise<number> {
     .query("paymentConfig")
     .order("desc")
     .first();
-  return config?.supplierPrice ?? 120;
+  const configuredPrice = config?.supplierPrice;
+  // Un ancien tarif nul ou invalide ne doit jamais créer un abonnement gratuit.
+  return typeof configuredPrice === "number" && Number.isFinite(configuredPrice) && configuredPrice > 0
+    ? configuredPrice
+    : 120;
 }
 
 // ============================================================================
@@ -88,15 +92,15 @@ export const getActiveSuppliers = query({
     return suppliers
       .filter((s) => s.isVisible)
       .filter((s) => {
-        // Filter out expired monthly
-        if (
-          s.subscriptionStatus === "active" &&
-          s.subscriptionEndDate &&
-          s.subscriptionEndDate < now
-        ) {
-          return false;
+        // Un abonnement actif doit avoir un montant positif : un ancien
+        // enregistrement à 0 TND ne peut pas rendre le profil visible.
+        if (s.subscriptionStatus === "active") {
+          return typeof s.paymentAmount === "number" &&
+            Number.isFinite(s.paymentAmount) &&
+            s.paymentAmount > 0 &&
+            (!s.subscriptionEndDate || s.subscriptionEndDate > now);
         }
-        return true;
+        return false;
       })
       .map((s) => ({
         _id: s._id,
@@ -361,6 +365,13 @@ export const adminApproveSupplierSubscription = mutation({
     if (!profile) throw new Error("Profil fournisseur introuvable");
     if (profile.subscriptionStatus !== "pending")
       throw new Error("Ce profil n'a pas de demande en attente");
+    if (
+      typeof profile.paymentAmount !== "number" ||
+      !Number.isFinite(profile.paymentAmount) ||
+      profile.paymentAmount <= 0
+    ) {
+      throw new Error("Impossible d'activer un abonnement sans tarif positif.");
+    }
 
     const now = Date.now();
     const endDate = now + MONTHLY_DAYS * 24 * 60 * 60 * 1000;
@@ -752,7 +763,13 @@ export const getRandomBySpecialty = query({
       .collect();
 
     const matching = allProfiles.filter(
-      (p) => p.isVisible && p.specialties.includes(args.specialty)
+      (p) =>
+        p.isVisible &&
+        typeof p.paymentAmount === "number" &&
+        Number.isFinite(p.paymentAmount) &&
+        p.paymentAmount > 0 &&
+        (!p.subscriptionEndDate || p.subscriptionEndDate > Date.now()) &&
+        p.specialties.includes(args.specialty)
     );
 
     if (matching.length === 0) return [];

@@ -3,10 +3,12 @@ import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 // ============================================================================
 // Payment Configuration
-// ============================================================================// Abonnements mensuels (30 jours) — accès complet pour les forfaits payants:
-//   Client  80 TND/mois  → accès complet illimité
+// ============================================================================
+// Abonnements mensuels (30 jours) — accès complet pour les forfaits payants:
+//   Client  80 TND/mois  → paiement requis après la création de la demande
 //   Fournisseur 120 TND/mois → 2 mois gratuits, puis paiement
 //   Expert 120 TND/mois → 2 mois gratuits, puis paiement
+// ============================================================================
 const UNLIMITED = 1000000;
 
 // Tarifs minimums métier. Une ancienne configuration à 0 TND ne doit jamais
@@ -70,13 +72,14 @@ export const getPlanPricing = query({
       proPrice: normalizePlanPrice("pro", config.proPrice),
       expertPrice: normalizePlanPrice("expert", config.expertPrice),
       supplierPrice: normalizePlanPrice("supplier", config.supplierPrice),
-      freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
+      // Le quota historique du forfait Client ne constitue jamais un accès.
+      freeProjectLimit: 0,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
-      freeInvestmentLimit: config.freeInvestmentLimit ?? DEFAULT_PLAN_PRICING.freeInvestmentLimit,
+      freeInvestmentLimit: 0,
       proInvestmentLimit: config.proInvestmentLimit ?? DEFAULT_PLAN_PRICING.proInvestmentLimit,
       expertInvestmentLimit: config.expertInvestmentLimit ?? DEFAULT_PLAN_PRICING.expertInvestmentLimit,
-      freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
+      freeDownloadLimit: 0,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
       trialEnabled: config.trialEnabled ?? DEFAULT_PLAN_PRICING.trialEnabled,
@@ -144,6 +147,7 @@ export const updatePlanPricing = mutation({
         ...DEFAULT_PLAN_PRICING,
         ...patch,
         updatedAt: Date.now(),
+        updatedBy: admin._id,
         createdAt: Date.now(),
       } as any);
     }
@@ -167,13 +171,14 @@ export const getPublicPricing = query({
       proPrice: normalizePlanPrice("pro", config.proPrice),
       expertPrice: normalizePlanPrice("expert", config.expertPrice),
       supplierPrice: normalizePlanPrice("supplier", config.supplierPrice),
-      freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
+      // Le quota historique du forfait Client ne constitue jamais un accès.
+      freeProjectLimit: 0,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
-      freeInvestmentLimit: config.freeInvestmentLimit ?? DEFAULT_PLAN_PRICING.freeInvestmentLimit,
+      freeInvestmentLimit: 0,
       proInvestmentLimit: config.proInvestmentLimit ?? DEFAULT_PLAN_PRICING.proInvestmentLimit,
       expertInvestmentLimit: config.expertInvestmentLimit ?? DEFAULT_PLAN_PRICING.expertInvestmentLimit,
-      freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
+      freeDownloadLimit: 0,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
       trialEnabled: config.trialEnabled ?? DEFAULT_PLAN_PRICING.trialEnabled,
@@ -242,6 +247,7 @@ export const updatePaymentConfig = mutation({
       await ctx.db.insert("paymentConfig", {
         ...DEFAULT_PLAN_PRICING,
         ...patch,
+        updatedBy: admin._id,
         createdAt: Date.now(),
       } as any);
     }
