@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { checkQuota, releaseQuota } from "./subscriptions";
+import { checkQuota, consumeQuota, releaseQuota } from "./subscriptions";
 import {
   projectCategoryValidator,
   projectStatusValidator,
@@ -150,12 +150,12 @@ export const compareProjects = query({
 // Plan Limits (configurable via Admin)
 // ============================================================================
 
-// Le forfait Client n'a aucun quota gratuit : un paiement validé est requis.
-// Les forfaits Pro et Expert disposent d'un accès complet après validation.
+// Forfaits à paiement unique — un seul forfait couvre les deux types :
+// Start 1 · Pro 5 · Expert 20 (projets, analyses et téléchargements PDF).
 const DEFAULT_PLAN_LIMITS = {
-  free: 0,
-  pro: 1000000,
-  expert: 1000000,
+  free: 1,
+  pro: 5,
+  expert: 20,
 };
 
 /** Get the current plan limits (construction, investissement, téléchargements) */
@@ -167,15 +167,15 @@ export const getPlanLimits = query({
       .first();
 
     return {
-      free: 0,
+      free: config?.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
       pro: config?.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
       expert: config?.expertProjectLimit ?? DEFAULT_PLAN_LIMITS.expert,
       // Investissements
-      freeInvestments: 0,
+      freeInvestments: config?.freeInvestmentLimit ?? DEFAULT_PLAN_LIMITS.free,
       proInvestments: config?.proInvestmentLimit ?? DEFAULT_PLAN_LIMITS.pro,
       expertInvestments: config?.expertInvestmentLimit ?? DEFAULT_PLAN_LIMITS.expert,
       // Téléchargements PDF (par type, mêmes quotas)
-      freeDownloads: 0,
+      freeDownloads: config?.freeDownloadLimit ?? DEFAULT_PLAN_LIMITS.free,
       proDownloads: config?.proDownloadLimit ?? DEFAULT_PLAN_LIMITS.pro,
       expertDownloads: config?.expertDownloadLimit ?? DEFAULT_PLAN_LIMITS.expert,
       updatedAt: config?.updatedAt ?? null,
@@ -222,10 +222,10 @@ export const updatePlanLimits = mutation({
         d17Phone: "",
         d17Email: "",
         d17Notice: "",
-        proPrice: 120,
+        proPrice: 79,
         supplierPrice: 120,
         currency: "TND",
-        freeProjectLimit: 0,
+        freeProjectLimit: args.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
         proProjectLimit: args.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
         expertProjectLimit: args.expertProjectLimit ?? DEFAULT_PLAN_LIMITS.expert,
         updatedAt: now,
@@ -270,11 +270,6 @@ export const createProject = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
-
-    const quota = await checkQuota(ctx, user, "projects");
-    if (!quota.allowed) {
-      throw new Error("PAYMENT_REQUIRED:Activez un abonnement Client avant de créer un projet.");
-    }
 
     const now = Date.now();
     const projectId = await ctx.db.insert("projects", {
@@ -826,14 +821,6 @@ export const simulateAnalysis = mutation({
         s.subscriptionStatus === "trial" &&
         s.trialStartDate &&
         s.trialStartDate + 7 * 24 * 60 * 60 * 1000 < now
-      ) {
-        return false;
-      }
-      if (
-        s.subscriptionStatus === "active" &&
-        typeof s.paymentAmount === "number" &&
-        (s.paymentAmount <= 0 ||
-          (s.subscriptionEndDate !== undefined && s.subscriptionEndDate < now))
       ) {
         return false;
       }

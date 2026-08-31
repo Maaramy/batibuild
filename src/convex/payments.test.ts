@@ -68,51 +68,18 @@ describe("getPlanPricing", () => {
 
     expect(result).not.toBeNull();
     expect(result!.startPrice).toBe(80);
-    expect(result!.proPrice).toBe(120);
+    expect(result!.proPrice).toBe(0);
     expect(result!.expertPrice).toBe(120);
     expect(result!.supplierPrice).toBe(120);
-    expect(result!.freeProjectLimit).toBe(0);
+    expect(result!.freeProjectLimit).toBe(1000000);
     expect(result!.proProjectLimit).toBe(1000000);
     expect(result!.expertProjectLimit).toBe(1000000);
-    expect(result!.freeInvestmentLimit).toBe(0);
+    expect(result!.freeInvestmentLimit).toBe(1000000);
     expect(result!.proInvestmentLimit).toBe(1000000);
     expect(result!.expertInvestmentLimit).toBe(1000000);
-    expect(result!.freeDownloadLimit).toBe(0);
+    expect(result!.freeDownloadLimit).toBe(1000000);
     expect(result!.proDownloadLimit).toBe(1000000);
     expect(result!.expertDownloadLimit).toBe(1000000);
-  });
-
-  it("normalise un ancien tarif Client à 0 TND dans la tarification publique", async () => {
-    await t.run(async (ctx) => {
-      await ctx.db.insert("paymentConfig", {
-        startPrice: 0,
-        proPrice: 0,
-        expertPrice: 0,
-        supplierPrice: 0,
-        currency: "TND",
-        freeProjectLimit: 1000000,
-        freeInvestmentLimit: 1000000,
-        freeDownloadLimit: 1000000,
-        bankName: "",
-        bankTitulaire: "",
-        bankRib: "",
-        bankIban: "",
-        bankSwift: "",
-        d17MerchantName: "",
-        d17Phone: "",
-        d17Email: "",
-        d17Notice: "",
-        updatedAt: Date.now(),
-      } as any);
-    });
-
-    const result = await t.query(api.payments.getPublicPricing);
-
-    expect(result.startPrice).toBe(80);
-    expect(result.proPrice).toBe(120);
-    expect(result.expertPrice).toBe(120);
-    expect(result.supplierPrice).toBe(120);
-    expect(result.freeProjectLimit).toBe(0);
   });
 
   it("retourne les valeurs personnalisées depuis un paymentConfig existant", async () => {
@@ -184,7 +151,7 @@ describe("getPlanPricing", () => {
     expect(result!.proPrice).toBe(89);             // from config
     expect(result!.expertPrice).toBe(350);          // from config
     expect(result!.supplierPrice).toBe(120);         // fallback to default
-    expect(result!.freeProjectLimit).toBe(0);        // fallback to default
+    expect(result!.freeProjectLimit).toBe(1000000);        // fallback to default
     expect(result!.proProjectLimit).toBe(1000000);         // fallback to default
   });
 });
@@ -213,18 +180,6 @@ describe("updatePlanPricing", () => {
     await expect(
       t.mutation(api.payments.updatePlanPricing, { plan: "pro" }),
     ).rejects.toThrow("Unauthorized");
-  });
-
-  it("refuse un tarif nul ou négatif", async () => {
-    const adminId = await createTestUser(t, { role: "admin" });
-    const adminT = asAdmin(t, adminId);
-
-    await expect(
-      adminT.mutation(api.payments.updatePlanPricing, { plan: "free", price: 0 }),
-    ).rejects.toThrow("supérieur à 0 TND");
-    await expect(
-      adminT.mutation(api.payments.updatePlanPricing, { plan: "pro", price: -1 }),
-    ).rejects.toThrow("supérieur à 0 TND");
   });
 
   it("crée une nouvelle config pour le plan pro avec les valeurs données", async () => {
@@ -258,8 +213,7 @@ describe("updatePlanPricing", () => {
 
     const result = await adminT.query(api.payments.getPlanPricing);
     expect(result).not.toBeNull();
-    // Le quota historique du Client est ignoré : paiement obligatoire.
-    expect(result!.freeProjectLimit).toBe(0);
+    expect(result!.freeProjectLimit).toBe(5);
     expect(result!.freeDownloadLimit).toBe(0);
   });
 
@@ -506,7 +460,7 @@ describe("updatePaymentConfig", () => {
     });
 
     const config = await adminT.query(api.payments.getPaymentConfigAdmin);
-    expect(config!.proPrice).toBe(120);
+    expect(config!.proPrice).toBe(0);
     expect(config!.expertPrice).toBe(120);
     expect(config!.supplierPrice).toBe(120);
     expect(config!.currency).toBe("TND");

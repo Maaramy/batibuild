@@ -34,10 +34,10 @@ const DEFAULT_PAYMENT = {
 //   Expert 120 TND/mois → 2 mois gratuits, puis paiement
 type PlanId = "free" | "pro" | "expert" | "supplier";
 
-const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client Pro", expert: "Expert", supplier: "Fournisseur" };
+const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client", expert: "Expert", supplier: "Fournisseur" };
 
 const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean; trial?: boolean }[] = [
-  { id: "free", quota: -1, description: "Accès complet après validation du paiement — 80 TND/mois" },
+  { id: "free", quota: -1, description: "Accès complet illimité pour tous vos projets" },
   { id: "supplier", quota: -1, description: "Vendez vos matériaux — 2 mois gratuits", trial: true },
   { id: "expert", quota: -1, description: "Offrez vos services d'expertise — 2 mois gratuits", popular: true, trial: true },
 ];
@@ -102,23 +102,9 @@ export default function PricingPage() {
   // Prix par forfait
   const priceFor = (plan: PlanId): number => {
     const c = paymentConfig as any;
-    const configuredPrice = plan === "free"
-      ? c?.startPrice
-      : plan === "pro"
-        ? c?.proPrice
-        : plan === "supplier"
-          ? c?.supplierPrice
-          : c?.expertPrice;
-    const fallback = plan === "free"
-      ? DEFAULT_PAYMENT.startPrice
-      : plan === "pro"
-        ? DEFAULT_PAYMENT.proPrice
-        : plan === "supplier"
-          ? DEFAULT_PAYMENT.supplierPrice
-          : DEFAULT_PAYMENT.expertPrice;
-    return typeof configuredPrice === "number" && Number.isFinite(configuredPrice) && configuredPrice > 0
-      ? configuredPrice
-      : fallback;
+    if (plan === "free") return c?.startPrice ?? DEFAULT_PAYMENT.startPrice;
+    if (plan === "pro") return c?.proPrice ?? DEFAULT_PAYMENT.proPrice;
+    return c?.expertPrice ?? DEFAULT_PAYMENT.expertPrice;
   };
 
   const currentPrice = priceFor(selectedPlan);
@@ -157,15 +143,7 @@ export default function PricingPage() {
   const isPending = currentSubscription?.status === "pending";
   const construction = quotas?.construction;
   const investment = quotas?.investment;
-  const hasValidSubscription = !!currentSubscription &&
-    currentSubscription.status === "active" &&
-    (!currentSubscription.endDate || currentSubscription.endDate > Date.now()) &&
-    typeof currentSubscription.amount === "number" &&
-    Number.isFinite(currentSubscription.amount) &&
-    currentSubscription.amount > 0;
-  // getMyQuotas() uses the free plan as a fallback. It must not make an
-  // unauthenticated/unpaid user appear to already own the Client plan.
-  const currentPlan = hasValidSubscription ? currentSubscription.plan : undefined;
+  const currentPlan = construction?.plan ?? "free";
 
   const isCurrentPlan = (plan: PlanId) => currentPlan === plan && !isPending;
 
@@ -384,12 +362,13 @@ export default function PricingPage() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
         <div className="text-center mb-8">
           <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Abonnement actuel : {currentPlan ? PLAN_LABELS[currentPlan] : "Aucun abonnement actif"}
+            Abonnement actuel : {PLAN_LABELS[currentPlan]}
             {isPending && " (En attente de validation)"}
           </Badge>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre abonnement</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
-            Abonnement mensuel (30 jours) — renouvellement après chaque échéance. Le forfait Client est activé uniquement après validation du paiement ; Fournisseur et Expert bénéficient de 2 mois gratuits à l'inscription.
+            Abonnement mensuel (30 jours) — renouvellement automatique. Chaque forfait inclut un accès complet
+            aux outils d'estimation, matériaux IA et téléchargements. Fournisseur et Expert bénéficient de 2 mois gratuits à l'inscription.
           </p>
         </div>
 
@@ -453,7 +432,7 @@ export default function PricingPage() {
 
           {/* Abonnement selector */}
           <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
-            {(["free", "supplier", "expert"] as PlanId[]).map((p) => (
+            {(["free", "pro", "expert"] as PlanId[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setSelectedPlan(p)}

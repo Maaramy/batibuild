@@ -4,41 +4,25 @@ import { getCurrentUser } from "./users";
 // ============================================================================
 // Payment Configuration
 // ============================================================================
-// Abonnements mensuels (30 jours) — accès complet pour les forfaits payants:
-//   Client  80 TND/mois  → paiement requis après la création de la demande
+
+// Abonnements mensuels (30 jours) — accès illimité pour les forfaits payants :
+//   Client  80 TND/mois  → accès complet illimité
 //   Fournisseur 120 TND/mois → 2 mois gratuits, puis paiement
 //   Expert 120 TND/mois → 2 mois gratuits, puis paiement
-// ============================================================================
 const UNLIMITED = 1000000;
-
-// Tarifs minimums métier. Une ancienne configuration à 0 TND ne doit jamais
-// transformer un abonnement en accès gratuit permanent:
-const MINIMUM_PLAN_PRICES: Record<string, number> = {
-  free: 80,
-  pro: 120,
-  expert: 120,
-  supplier: 120,
-};
-
-function normalizePlanPrice(plan: string, value: number | undefined): number {
-  const fallback = MINIMUM_PLAN_PRICES[plan] ?? 1;
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
-}
-
 const DEFAULT_PLAN_PRICING = {
   startPrice: 80,
-  proPrice: 120,
+  proPrice: 0,
   expertPrice: 120,
   supplierPrice: 120,
   currency: "TND",
-  // Aucun accès n'est accordé sans abonnement actif et paiement validé.
-  freeProjectLimit: 0,
+  freeProjectLimit: UNLIMITED,
   proProjectLimit: UNLIMITED,
   expertProjectLimit: UNLIMITED,
-  freeInvestmentLimit: 0,
+  freeInvestmentLimit: UNLIMITED,
   proInvestmentLimit: UNLIMITED,
   expertInvestmentLimit: UNLIMITED,
-  freeDownloadLimit: 0,
+  freeDownloadLimit: UNLIMITED,
   proDownloadLimit: UNLIMITED,
   expertDownloadLimit: UNLIMITED,
   trialEnabled: true,
@@ -68,18 +52,17 @@ export const getPlanPricing = query({
     if (!config) return DEFAULT_PLAN_PRICING;
 
     return {
-      startPrice: normalizePlanPrice("free", config.startPrice),
-      proPrice: normalizePlanPrice("pro", config.proPrice),
-      expertPrice: normalizePlanPrice("expert", config.expertPrice),
-      supplierPrice: normalizePlanPrice("supplier", config.supplierPrice),
-      // Le quota historique du forfait Client ne constitue jamais un accès.
-      freeProjectLimit: 0,
+      startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
+      proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
+      expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
+      supplierPrice: config.supplierPrice ?? DEFAULT_PLAN_PRICING.supplierPrice,
+      freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
-      freeInvestmentLimit: 0,
+      freeInvestmentLimit: config.freeInvestmentLimit ?? DEFAULT_PLAN_PRICING.freeInvestmentLimit,
       proInvestmentLimit: config.proInvestmentLimit ?? DEFAULT_PLAN_PRICING.proInvestmentLimit,
       expertInvestmentLimit: config.expertInvestmentLimit ?? DEFAULT_PLAN_PRICING.expertInvestmentLimit,
-      freeDownloadLimit: 0,
+      freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
       trialEnabled: config.trialEnabled ?? DEFAULT_PLAN_PRICING.trialEnabled,
@@ -105,10 +88,6 @@ export const updatePlanPricing = mutation({
     const admin = await getCurrentUser(ctx);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized: Admin access required");
-    }
-
-    if (args.price !== undefined && (!Number.isFinite(args.price) || args.price <= 0)) {
-      throw new Error("Le tarif mensuel doit être supérieur à 0 TND.");
     }
 
     const existingConfig = await ctx.db
@@ -141,17 +120,12 @@ export const updatePlanPricing = mutation({
     }
 
     if (existingConfig) {
-      await ctx.db.patch(existingConfig._id, {
-        ...patch,
-        updatedAt: Date.now(),
-        updatedBy: admin._id,
-      });
+      await ctx.db.patch(existingConfig._id, { ...patch, updatedAt: Date.now() });
     } else {
       await ctx.db.insert("paymentConfig", {
         ...DEFAULT_PLAN_PRICING,
         ...patch,
         updatedAt: Date.now(),
-        updatedBy: admin._id,
         createdAt: Date.now(),
       } as any);
     }
@@ -171,18 +145,17 @@ export const getPublicPricing = query({
     if (!config) return DEFAULT_PLAN_PRICING;
 
     return {
-      startPrice: normalizePlanPrice("free", config.startPrice),
-      proPrice: normalizePlanPrice("pro", config.proPrice),
-      expertPrice: normalizePlanPrice("expert", config.expertPrice),
-      supplierPrice: normalizePlanPrice("supplier", config.supplierPrice),
-      // Le quota historique du forfait Client ne constitue jamais un accès.
-      freeProjectLimit: 0,
+      startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
+      proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
+      expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
+      supplierPrice: config.supplierPrice ?? DEFAULT_PLAN_PRICING.supplierPrice,
+      freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
-      freeInvestmentLimit: 0,
+      freeInvestmentLimit: config.freeInvestmentLimit ?? DEFAULT_PLAN_PRICING.freeInvestmentLimit,
       proInvestmentLimit: config.proInvestmentLimit ?? DEFAULT_PLAN_PRICING.proInvestmentLimit,
       expertInvestmentLimit: config.expertInvestmentLimit ?? DEFAULT_PLAN_PRICING.expertInvestmentLimit,
-      freeDownloadLimit: 0,
+      freeDownloadLimit: config.freeDownloadLimit ?? DEFAULT_PLAN_PRICING.freeDownloadLimit,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
       trialEnabled: config.trialEnabled ?? DEFAULT_PLAN_PRICING.trialEnabled,
@@ -240,10 +213,7 @@ export const updatePaymentConfig = mutation({
       .order("desc")
       .first();
 
-    const patch: Record<string, any> = {
-      updatedAt: Date.now(),
-      updatedBy: admin._id,
-    };
+    const patch: Record<string, any> = { updatedAt: Date.now() };
     for (const [key, value] of Object.entries(args)) {
       if (value !== undefined) patch[key] = value;
     }
@@ -254,7 +224,6 @@ export const updatePaymentConfig = mutation({
       await ctx.db.insert("paymentConfig", {
         ...DEFAULT_PLAN_PRICING,
         ...patch,
-        updatedBy: admin._id,
         createdAt: Date.now(),
       } as any);
     }

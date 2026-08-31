@@ -194,12 +194,12 @@ export default function AdminPanel() {
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
   const [limitForm, setLimitForm] = useState({
     // Abonnements mensuels (30 jours)
-    constructionStartPrice: 80, constructionProPrice: 120, constructionExpertPrice: 120,
+    constructionStartPrice: 80, constructionProPrice: 0, constructionExpertPrice: 120,
     supplierPrice: 120,
-    // Aucun quota gratuit : le Client doit valider son paiement.
-    freeProjects: 0, proProjects: 1000000, expertProjects: 1000000,
-    freeInvestments: 0, proInvestments: 1000000, expertInvestments: 1000000,
-    freeDownloadLimit: 0, proDownloads: 1000000, expertDownloads: 1000000,
+    // Quotas par forfait (illimités pour les forfaits payants)
+    freeProjects: 1000000, proProjects: 1000000, expertProjects: 1000000,
+    freeInvestments: 1000000, proInvestments: 1000000, expertInvestments: 1000000,
+    freeDownloadLimit: 1000000, proDownloads: 1000000, expertDownloads: 1000000,
     // Essai gratuit
     trialEnabled: true,
     trialDurationDays: 60,
@@ -215,19 +215,19 @@ export default function AdminPanel() {
   useEffect(() => {
     if (planForm) {
       setLimitForm({
-        constructionStartPrice: planForm.startPrice ?? 80,
+        constructionStartPrice: planForm.startPrice ?? 79,
         constructionProPrice: planForm.proPrice ?? 120,
-        constructionExpertPrice: planForm.expertPrice ?? 120,
-        freeProjects: 0,
-        proProjects: planForm.proProjectLimit ?? 1000000,
-        expertProjects: planForm.expertProjectLimit ?? 1000000,
-        freeInvestments: 0,
-        proInvestments: planForm.proInvestmentLimit ?? 1000000,
-        expertInvestments: planForm.expertInvestmentLimit ?? 1000000,
-        freeDownloadLimit: 0,
-        proDownloads: planForm.proDownloadLimit ?? 1000000,
-        expertDownloads: planForm.expertDownloadLimit ?? 1000000,
-        supplierPrice: planForm.supplierPrice > 0 ? planForm.supplierPrice : 120,
+        constructionExpertPrice: planForm.expertPrice ?? 320,
+        freeProjects: planForm.freeProjectLimit ?? 1,
+        proProjects: planForm.proProjectLimit ?? 5,
+        expertProjects: planForm.expertProjectLimit ?? 20,
+        freeInvestments: planForm.freeInvestmentLimit ?? 1,
+        proInvestments: planForm.proInvestmentLimit ?? 5,
+        expertInvestments: planForm.expertInvestmentLimit ?? 20,
+        freeDownloadLimit: planForm.freeDownloadLimit ?? 1,
+        proDownloads: planForm.proDownloadLimit ?? 5,
+        expertDownloads: planForm.expertDownloadLimit ?? 20,
+        supplierPrice: planForm.supplierPrice ?? 120,
         trialEnabled: planForm.trialEnabled ?? true,
         trialDurationDays: planForm.trialDurationDays ?? 60,
       });
@@ -712,7 +712,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               </TabsTrigger>
               )}
               {canSee("limites") && (
-              <TabsTrigger value="limites" className="hidden data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+              <TabsTrigger value="limites" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <HardHat className="h-3.5 w-3.5" />
                 <span>Abonnements</span>
               </TabsTrigger>

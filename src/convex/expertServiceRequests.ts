@@ -29,12 +29,6 @@ export const create = mutation({
 
     const expert = await ctx.db.get(args.expertId);
     if (!expert) throw new Error("Expert introuvable");
-    if (
-      typeof expert.paymentAmount === "number" &&
-      (!Number.isFinite(expert.paymentAmount) || expert.paymentAmount <= 0)
-    ) {
-      throw new Error("Cet expert n'a pas un abonnement payé actif");
-    }
 
     const now = Date.now();
     const requestId = await ctx.db.insert("expertServiceRequests", {
@@ -89,12 +83,6 @@ export const respond = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .first();
     if (!profile) throw new Error("Profil expert introuvable");
-    if (
-      typeof profile.paymentAmount === "number" &&
-      (!Number.isFinite(profile.paymentAmount) || profile.paymentAmount <= 0)
-    ) {
-      throw new Error("Cet expert n'a pas un abonnement payé actif");
-    }
 
     const request = await ctx.db.get(args.serviceRequestId);
     if (!request) throw new Error("Demande introuvable");

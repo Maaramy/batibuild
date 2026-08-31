@@ -230,40 +230,6 @@ describe("expertProfiles.getMyProfile", () => {
     expect(profile!.effectiveStatus).toBe("inactive"); // trial→inactive
     expect(profile!.displayName).toBe("Ahmed Architecte");
   });
-
-  it("normalise un ancien tarif Expert à 0 TND avant de créer une demande", async () => {
-    const userId = await createTestUser(t);
-    const userT = asUser(t, userId);
-
-    await userT.mutation(api.expertProfiles.createProfile, baseProfileArgs);
-    await t.run(async (ctx) => {
-      await ctx.db.insert("paymentConfig", {
-        bankName: "",
-        bankTitulaire: "",
-        bankRib: "",
-        bankIban: "",
-        bankSwift: "",
-        d17MerchantName: "",
-        d17Phone: "",
-        d17Email: "",
-        d17Notice: "",
-        proPrice: 120,
-        supplierPrice: 120,
-        expertPrice: 0,
-        currency: "TND",
-        updatedAt: Date.now(),
-        updatedBy: userId as any,
-      });
-    });
-
-    await userT.mutation(api.expertProfiles.requestSubscription, {
-      paymentMethod: "d17",
-    });
-
-    const profile = await userT.query(api.expertProfiles.getMyProfile);
-    expect(profile!.subscriptionStatus).toBe("pending");
-    expect(profile!.paymentAmount).toBe(120);
-  });
 });
 
 // ============================================================================

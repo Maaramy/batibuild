@@ -25,12 +25,6 @@ export const sendResponse = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .first();
     if (!profile) throw new Error("Profil fournisseur introuvable");
-    if (
-      typeof profile.paymentAmount === "number" &&
-      (!Number.isFinite(profile.paymentAmount) || profile.paymentAmount <= 0)
-    ) {
-      throw new Error("Ce fournisseur n'a pas un abonnement payé actif");
-    }
 
     const quote = await ctx.db.get(args.quoteRequestId);
     if (!quote) throw new Error("Demande de devis introuvable");

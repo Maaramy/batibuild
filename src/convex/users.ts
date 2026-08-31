@@ -126,66 +126,51 @@ export const adminUpdateUserPlan = mutation({
     }
 
     const now = Date.now();
-    // Une modification administrative ne remplace pas une validation de
-    // paiement. Le Client, comme les autres forfaits, reste donc en attente.
-    if (args.plan === "free") {
-      throw new Error("Le forfait Client nécessite une validation de paiement.");
-    }
+    const planDuration = args.plan === "pro" ? 30 * 24 * 60 * 60 * 1000 : 365 * 24 * 60 * 60 * 1000;
 
-    const paymentConfig = await ctx.db
-      .query("paymentConfig")
-      .order("desc")
-      .first();
-    const monthlyPrice = args.plan === "pro"
-      ? (paymentConfig?.proPrice && paymentConfig.proPrice > 0 ? paymentConfig.proPrice : 120)
-      : args.plan === "expert"
-        ? (paymentConfig?.expertPrice && paymentConfig.expertPrice > 0 ? paymentConfig.expertPrice : 120)
-        : (paymentConfig?.supplierPrice && paymentConfig.supplierPrice > 0 ? paymentConfig.supplierPrice : 120);
-    const limit = args.plan === "expert"
-      ? paymentConfig?.expertDownloadLimit ?? 1000000
-      : args.plan === "pro"
-        ? paymentConfig?.proDownloadLimit ?? 1000000
-        : 0;
-
-    const existingSubs = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .collect();
-    for (const subscription of existingSubs) {
-      if (subscription.status === "active" || subscription.status === "pending") {
-        await ctx.db.patch(subscription._id, { status: "canceled", updatedAt: now });
-      }
-    }
-
-    // Keep the selected plan visible to the admin, but grant no entitlement
-    // until the normal receipt/payment approval mutation is completed.
     await ctx.db.patch(args.userId, {
       subscriptionPlan: args.plan,
-      subscriptionEndDate: undefined,
+      subscriptionEndDate: now + planDuration,
     });
 
-    await ctx.db.insert("subscriptions", {
-      userId: args.userId,
-      kind: "construction",
-      plan: args.plan,
-      status: "pending",
-      startDate: now,
-      paymentMethod: "admin",
-      amount: monthlyPrice,
-      currency: "TND",
-      monthlyDownloadCount: 0,
-      downloadLimit: limit,
-      createdAt: now,
-      updatedAt: now,
-    });
+    // Also update/create subscription record
+    const existingSub = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .first();
 
-    await logAdminAction(
-      ctx,
-      admin,
-      "update_user_plan",
-      { userId: args.userId },
-      `Demande de paiement créée pour le forfait ${args.plan}`,
-    );
+    if (existingSub && existingSub.status === "active") {
+      await ctx.db.patch(existingSub._id, {
+        plan: args.plan,
+        endDate: now + planDuration,
+        updatedAt: now,
+      });
+    } else {
+      // Read dynamic download limits from payment config
+      const paymentConfig = await ctx.db
+        .query("paymentConfig")
+        .order("desc")
+        .first();
+      const expertLimit = paymentConfig?.expertDownloadLimit ?? 100;
+      const proLimit = paymentConfig?.proDownloadLimit ?? 10;
+      const limit = args.plan === "expert" ? expertLimit : args.plan === "pro" ? proLimit : 0;
+
+      await ctx.db.insert("subscriptions", {
+        userId: args.userId,
+        plan: args.plan,
+        status: "active",
+        startDate: now,
+        endDate: now + planDuration,
+        paymentMethod: "admin",
+        amount: args.plan === "pro" ? 79 : args.plan === "expert" ? 320 : 0,
+        currency: "TND",
+        monthlyDownloadCount: 0,
+        downloadLimit: limit,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
   },
 });
 

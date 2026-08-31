@@ -357,28 +357,6 @@ describe("Moderator role", () => {
     ).rejects.toThrow("Unauthorized: Admin access required");
   });
 
-  it("crée une demande en attente pour une attribution admin, sans activer l'accès", async () => {
-    const adminId = await createTestUser(t, { role: "admin", email: "admin@test.com" });
-    const targetId = await createTestUser(t, { role: "user", email: "target@test.com" });
-
-    const adminT = asUser(t, adminId);
-    await adminT.mutation(api.users.adminUpdateUserPlan, {
-      userId: targetId as any,
-      plan: "supplier",
-    });
-
-    const target = await t.run(async (ctx) => ctx.db.get(targetId));
-    const subscriptions = await t.run(async (ctx) =>
-      (await ctx.db.query("subscriptions").collect()).filter((subscription) => subscription.userId === targetId),
-    );
-
-    expect(target!.subscriptionPlan).toBe("supplier");
-    expect(target!.subscriptionEndDate).toBeUndefined();
-    expect(subscriptions).toHaveLength(1);
-    expect(subscriptions[0].status).toBe("pending");
-    expect(subscriptions[0].amount).toBe(120);
-  });
-
   it("permet au modérateur de supprimer un utilisateur", async () => {
     const moderatorId = await createTestUser(t, { role: "moderator", email: "mod@test.com" });
     const targetId = await createTestUser(t, { role: "user", email: "user@test.com" });
