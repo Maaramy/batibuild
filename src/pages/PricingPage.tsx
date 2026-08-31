@@ -102,10 +102,23 @@ export default function PricingPage() {
   // Prix par forfait
   const priceFor = (plan: PlanId): number => {
     const c = paymentConfig as any;
-    if (plan === "free") return c?.startPrice ?? DEFAULT_PAYMENT.startPrice;
-    if (plan === "pro") return c?.proPrice ?? DEFAULT_PAYMENT.proPrice;
-    if (plan === "supplier") return c?.supplierPrice ?? DEFAULT_PAYMENT.supplierPrice;
-    return c?.expertPrice ?? DEFAULT_PAYMENT.expertPrice;
+    const configuredPrice = plan === "free"
+      ? c?.startPrice
+      : plan === "pro"
+        ? c?.proPrice
+        : plan === "supplier"
+          ? c?.supplierPrice
+          : c?.expertPrice;
+    const fallback = plan === "free"
+      ? DEFAULT_PAYMENT.startPrice
+      : plan === "pro"
+        ? DEFAULT_PAYMENT.proPrice
+        : plan === "supplier"
+          ? DEFAULT_PAYMENT.supplierPrice
+          : DEFAULT_PAYMENT.expertPrice;
+    return typeof configuredPrice === "number" && Number.isFinite(configuredPrice) && configuredPrice > 0
+      ? configuredPrice
+      : fallback;
   };
 
   const currentPrice = priceFor(selectedPlan);
@@ -147,7 +160,9 @@ export default function PricingPage() {
   const hasValidSubscription = !!currentSubscription &&
     currentSubscription.status === "active" &&
     (!currentSubscription.endDate || currentSubscription.endDate > Date.now()) &&
-    (currentSubscription.isTrial === true || (currentSubscription.amount ?? 0) > 0);
+    typeof currentSubscription.amount === "number" &&
+    Number.isFinite(currentSubscription.amount) &&
+    currentSubscription.amount > 0;
   // getMyQuotas() uses the free plan as a fallback. It must not make an
   // unauthenticated/unpaid user appear to already own the Client plan.
   const currentPlan = hasValidSubscription ? currentSubscription.plan : undefined;

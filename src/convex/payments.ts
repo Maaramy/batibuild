@@ -3,16 +3,14 @@ import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 // ============================================================================
 // Payment Configuration
-// ============================================================================
-
-// Abonnements mensuels (30 jours) — accès illimité pour les forfaits payants :
+// ============================================================================// Abonnements mensuels (30 jours) — accès complet pour les forfaits payants:
 //   Client  80 TND/mois  → accès complet illimité
 //   Fournisseur 120 TND/mois → 2 mois gratuits, puis paiement
 //   Expert 120 TND/mois → 2 mois gratuits, puis paiement
 const UNLIMITED = 1000000;
 
 // Tarifs minimums métier. Une ancienne configuration à 0 TND ne doit jamais
-// transformer un abonnement en accès gratuit permanent.
+// transformer un abonnement en accès gratuit permanent:
 const MINIMUM_PLAN_PRICES: Record<string, number> = {
   free: 80,
   pro: 120,

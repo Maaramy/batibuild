@@ -712,7 +712,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               </TabsTrigger>
               )}
               {canSee("limites") && (
-              <TabsTrigger value="limites" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+              <TabsTrigger value="limites" className="hidden" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <HardHat className="h-3.5 w-3.5" />
                 <span>Abonnements</span>
               </TabsTrigger>

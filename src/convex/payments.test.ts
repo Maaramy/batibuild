@@ -82,6 +82,39 @@ describe("getPlanPricing", () => {
     expect(result!.expertDownloadLimit).toBe(1000000);
   });
 
+  it("normalise un ancien tarif Client à 0 TND dans la tarification publique", async () => {
+    await t.run(async (ctx) => {
+      await ctx.db.insert("paymentConfig", {
+        startPrice: 0,
+        proPrice: 0,
+        expertPrice: 0,
+        supplierPrice: 0,
+        currency: "TND",
+        freeProjectLimit: 1000000,
+        freeInvestmentLimit: 1000000,
+        freeDownloadLimit: 1000000,
+        bankName: "",
+        bankTitulaire: "",
+        bankRib: "",
+        bankIban: "",
+        bankSwift: "",
+        d17MerchantName: "",
+        d17Phone: "",
+        d17Email: "",
+        d17Notice: "",
+        updatedAt: Date.now(),
+      } as any);
+    });
+
+    const result = await t.query(api.payments.getPublicPricing);
+
+    expect(result.startPrice).toBe(80);
+    expect(result.proPrice).toBe(120);
+    expect(result.expertPrice).toBe(120);
+    expect(result.supplierPrice).toBe(120);
+    expect(result.freeProjectLimit).toBe(1000000);
+  });
+
   it("retourne les valeurs personnalisées depuis un paymentConfig existant", async () => {
     const adminId = await createTestUser(t, { role: "admin" });
     const adminT = asAdmin(t, adminId);
