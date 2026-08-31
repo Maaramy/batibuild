@@ -193,8 +193,8 @@ export default function AdminPanel() {
   const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
   const [limitForm, setLimitForm] = useState({
-    // Abonnements mensuels (30 jours)
-    constructionStartPrice: 80, constructionProPrice: 0, constructionExpertPrice: 120,
+    // Abonnements mensuels (30 jours) — Fournisseur / Expert (forfait client supprimé)
+    constructionProPrice: 0, constructionExpertPrice: 120,
     supplierPrice: 120,
 
     // Essai gratuit
@@ -212,7 +212,6 @@ export default function AdminPanel() {
   useEffect(() => {
     if (planForm) {
       setLimitForm({
-        constructionStartPrice: planForm.startPrice ?? 79,
         constructionProPrice: planForm.proPrice ?? 120,
         constructionExpertPrice: planForm.expertPrice ?? 320,
 
@@ -221,7 +220,7 @@ export default function AdminPanel() {
         trialDurationDays: planForm.trialDurationDays ?? 60,
       });
     }
-  }, [planForm?.startPrice, planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice]);
+  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice]);
 
   // Sync payment form when config loads
   useEffect(() => {
@@ -2610,7 +2609,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
                 <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-sm">Abonnements & Revenus</CardTitle>
-                  <CardDescription className="text-[10px]">Start: {planForm?.startPrice ?? 79} TND | Pro: {planForm?.proPrice ?? 120} TND | Expert: {planForm?.expertPrice ?? 320} TND | Fournisseur: {planForm?.supplierPrice ?? 120} TND</CardDescription>
+                  <CardDescription className="text-[10px]">Expert: {planForm?.expertPrice ?? 320} TND | Fournisseur: {planForm?.supplierPrice ?? 120} TND</CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <div className="grid grid-cols-3 gap-2 mb-3">
@@ -3459,7 +3458,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                                 "text-muted-foreground"
                               )}
                             >
-                              <option value="free">Client</option>
                               <option value="pro">Client (Pro)</option>
                               <option value="expert">Expert</option>
                               <option value="supplier">Fournisseur</option>
@@ -4006,44 +4004,10 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <CardHeader>
                 <CardTitle className="text-base">Abonnements mensuels — prix et configuration</CardTitle>
                 <CardDescription className="text-xs">
-                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance.
-                  Si le tarif est réglé à 0 TND, le forfait devient illimité (accès gratuit permanent).
+                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance. Le client doit passer au paiement dès la création de compte.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* ═══ Forfait Client ═══ */}
-                <div className="p-5 rounded-xl bg-gradient-to-br from-slate-500/5 to-slate-500/0 border border-border/30 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-bold flex items-center gap-2">
-                        <User className="h-4 w-4 text-slate-500" />
-                        Forfait Client
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        80 TND/mois — Accès complet aux outils d'estimation
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] bg-slate-500/5">Client</Badge>
-                  </div>
-                  <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
-                    <p><strong className="text-foreground">Fonctionnalités :</strong> Téléchargement illimité de devis et accès complet aux outils d'estimation (coûts de construction, investissements, matériaux via IA, démarches et prix).</p>
-                    <p><strong className="text-foreground">Dashboard :</strong> Affichage de la date de début et de la date d'échéance.</p>
-                    <p><strong className="text-foreground">Règles :</strong> Renouvellement requis dès dépassement de la date de fin. Si le tarif est réglé à 0 TND, le forfait devient illimité (accès gratuit permanent).</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground">Prix mensuel (TND)</label>
-                      <Input
-                        type="number"
-                        value={limitForm.constructionStartPrice}
-                        onChange={(e) => setLimitForm({ ...limitForm, constructionStartPrice: parseFloat(e.target.value) })}
-                        className="h-8 w-full text-sm mt-1"
-                      />
-                      <p className="text-[9px] text-muted-foreground mt-0.5">0 = accès gratuit permanent</p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* ═══ Forfait Fournisseur ═══ */}
                 <div className="p-5 rounded-xl bg-gradient-to-br from-purple-500/5 to-purple-500/0 border border-purple-200/20 space-y-4">
                   <div className="flex items-center justify-between">
@@ -4193,11 +4157,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                     onClick={async () => {
                       setSavingLimits(true);
                       try {
-                        // Forfait Client
-                        await updatePlanPricing({
-                          plan: "free",
-                          price: limitForm.constructionStartPrice,
-                        } as any);
                         // Forfait Fournisseur
                         await updatePlanPricing({
                           plan: "supplier",
