@@ -812,6 +812,9 @@ const schema = defineSchema(
       ),
       startDate: v.number(),
       endDate: v.optional(v.number()),
+      // Essai gratuit à l'inscription : vrai si la période actuelle est une
+      // période d'essai (durée personnalisable via paymentConfig.trialDurationDays)
+      isTrial: v.optional(v.boolean()),
       paymentMethod: v.optional(v.string()),
       paymentId: v.optional(v.string()),
       amount: v.optional(v.number()),

@@ -321,7 +321,7 @@ function StatsCard({ icon: Icon, label, value, gradient, iconColor }: any) {
   );
 }
 
-const PLAN_LABELS: Record<string, string> = { free: "Gratuit", pro: "Client Pro", expert: "Expert", supplier: "Fournisseur" };
+const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client Pro", expert: "Expert", supplier: "Fournisseur" };
 
 // ============================================================================
 // Main Dashboard Component

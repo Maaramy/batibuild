@@ -50,14 +50,16 @@ export function formatDateFr(ts?: number | null): string {
 
 export function planLabel(plan?: string): string {
   switch (plan) {
+    case "free":
+      return "Client";
     case "pro":
-      return "Pro";
+      return "Client Pro";
+    case "supplier":
+      return "Fournisseur";
     case "expert":
       return "Expert";
-    case "free":
-      return "Start";
     case "monthly":
-      return "Fournisseur";
+      return "Fournisseur"; // héritage
     default:
       return plan || "—";
   }
