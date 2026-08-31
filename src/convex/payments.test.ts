@@ -258,7 +258,8 @@ describe("updatePlanPricing", () => {
 
     const result = await adminT.query(api.payments.getPlanPricing);
     expect(result).not.toBeNull();
-    expect(result!.freeProjectLimit).toBe(5);
+    // Le quota historique du Client est ignoré : paiement obligatoire.
+    expect(result!.freeProjectLimit).toBe(0);
     expect(result!.freeDownloadLimit).toBe(0);
   });
 

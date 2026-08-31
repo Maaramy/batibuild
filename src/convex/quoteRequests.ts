@@ -32,6 +32,12 @@ export const create = mutation({
     if (supplier.subscriptionStatus !== "active" && supplier.subscriptionStatus !== "trial") {
       throw new Error("Ce fournisseur n'est pas actif");
     }
+    if (
+      typeof supplier.paymentAmount === "number" &&
+      (!Number.isFinite(supplier.paymentAmount) || supplier.paymentAmount <= 0)
+    ) {
+      throw new Error("Ce fournisseur n'a pas un abonnement payé actif");
+    }
 
     const now = Date.now();
     const quoteId = await ctx.db.insert("quoteRequests", {

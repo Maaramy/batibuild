@@ -48,6 +48,14 @@ export const getMyProfile = query({
         : profile.subscriptionStatus;
     if (
       effectiveStatus === "active" &&
+      (typeof profile.paymentAmount !== "number" ||
+        !Number.isFinite(profile.paymentAmount) ||
+        profile.paymentAmount <= 0)
+    ) {
+      effectiveStatus = "inactive";
+    }
+    if (
+      effectiveStatus === "active" &&
       profile.subscriptionEndDate &&
       profile.subscriptionEndDate < now
     ) {
@@ -176,6 +184,12 @@ export const getSupplierById = query({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.supplierId);
     if (!profile || !profile.isVisible) return null;
+    const isPaid = profile.subscriptionStatus === "active" &&
+      typeof profile.paymentAmount === "number" &&
+      Number.isFinite(profile.paymentAmount) &&
+      profile.paymentAmount > 0 &&
+      (!profile.subscriptionEndDate || profile.subscriptionEndDate > Date.now());
+    if (!isPaid) return null;
     return {
       _id: profile._id,
       companyName: profile.companyName,

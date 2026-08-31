@@ -141,7 +141,11 @@ export const updatePlanPricing = mutation({
     }
 
     if (existingConfig) {
-      await ctx.db.patch(existingConfig._id, { ...patch, updatedAt: Date.now() });
+      await ctx.db.patch(existingConfig._id, {
+        ...patch,
+        updatedAt: Date.now(),
+        updatedBy: admin._id,
+      });
     } else {
       await ctx.db.insert("paymentConfig", {
         ...DEFAULT_PLAN_PRICING,
@@ -236,7 +240,10 @@ export const updatePaymentConfig = mutation({
       .order("desc")
       .first();
 
-    const patch: Record<string, any> = { updatedAt: Date.now() };
+    const patch: Record<string, any> = {
+      updatedAt: Date.now(),
+      updatedBy: admin._id,
+    };
     for (const [key, value] of Object.entries(args)) {
       if (value !== undefined) patch[key] = value;
     }

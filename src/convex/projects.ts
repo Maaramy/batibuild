@@ -150,12 +150,12 @@ export const compareProjects = query({
 // Plan Limits (configurable via Admin)
 // ============================================================================
 
-// Forfaits à paiement unique — un seul forfait couvre les deux types :
-// Start 1 · Pro 5 · Expert 20 (projets, analyses et téléchargements PDF).
+// Le forfait Client n'a aucun quota gratuit : un paiement validé est requis.
+// Les forfaits Pro et Expert disposent d'un accès complet après validation.
 const DEFAULT_PLAN_LIMITS = {
-  free: 1,
-  pro: 5,
-  expert: 20,
+  free: 0,
+  pro: 1000000,
+  expert: 1000000,
 };
 
 /** Get the current plan limits (construction, investissement, téléchargements) */
@@ -167,15 +167,15 @@ export const getPlanLimits = query({
       .first();
 
     return {
-      free: config?.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
+      free: 0,
       pro: config?.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
       expert: config?.expertProjectLimit ?? DEFAULT_PLAN_LIMITS.expert,
       // Investissements
-      freeInvestments: config?.freeInvestmentLimit ?? DEFAULT_PLAN_LIMITS.free,
+      freeInvestments: 0,
       proInvestments: config?.proInvestmentLimit ?? DEFAULT_PLAN_LIMITS.pro,
       expertInvestments: config?.expertInvestmentLimit ?? DEFAULT_PLAN_LIMITS.expert,
       // Téléchargements PDF (par type, mêmes quotas)
-      freeDownloads: config?.freeDownloadLimit ?? DEFAULT_PLAN_LIMITS.free,
+      freeDownloads: 0,
       proDownloads: config?.proDownloadLimit ?? DEFAULT_PLAN_LIMITS.pro,
       expertDownloads: config?.expertDownloadLimit ?? DEFAULT_PLAN_LIMITS.expert,
       updatedAt: config?.updatedAt ?? null,
@@ -225,7 +225,7 @@ export const updatePlanLimits = mutation({
         proPrice: 120,
         supplierPrice: 120,
         currency: "TND",
-        freeProjectLimit: args.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
+        freeProjectLimit: 0,
         proProjectLimit: args.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
         expertProjectLimit: args.expertProjectLimit ?? DEFAULT_PLAN_LIMITS.expert,
         updatedAt: now,
@@ -826,6 +826,14 @@ export const simulateAnalysis = mutation({
         s.subscriptionStatus === "trial" &&
         s.trialStartDate &&
         s.trialStartDate + 7 * 24 * 60 * 60 * 1000 < now
+      ) {
+        return false;
+      }
+      if (
+        s.subscriptionStatus === "active" &&
+        typeof s.paymentAmount === "number" &&
+        (s.paymentAmount <= 0 ||
+          (s.subscriptionEndDate !== undefined && s.subscriptionEndDate < now))
       ) {
         return false;
       }
