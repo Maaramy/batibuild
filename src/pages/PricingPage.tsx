@@ -29,15 +29,15 @@ const DEFAULT_PAYMENT = {
 };
 
 // Abonnements mensuels (30 jours) — accès illimité pour les forfaits payants :
-//   Client  80 TND/mois  → accès complet illimité
+//   Client Pro → accès complet illimité
 //   Fournisseur 120 TND/mois → 2 mois gratuits, puis paiement
 //   Expert 120 TND/mois → 2 mois gratuits, puis paiement
 type PlanId = "free" | "pro" | "expert" | "supplier";
 
-const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client", expert: "Expert", supplier: "Fournisseur" };
+const PLAN_LABELS: Record<string, string> = { free: "Gratuit", pro: "Client Pro", expert: "Expert", supplier: "Fournisseur" };
 
 const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean; trial?: boolean }[] = [
-  { id: "free", quota: -1, description: "Accès complet illimité pour tous vos projets", trial: true },
+  { id: "pro", quota: -1, description: "Accès complet illimité pour tous vos projets", trial: true },
   { id: "supplier", quota: -1, description: "Vendez vos matériaux — 2 mois gratuits", trial: true },
   { id: "expert", quota: -1, description: "Offrez vos services d'expertise — 2 mois gratuits", popular: true, trial: true },
 ];
@@ -77,7 +77,7 @@ function PaymentField({
 }
 
 export default function PricingPage() {
-  usePageSEO({ title: "Abonnements - batibuild App", description: "Choisissez votre abonnement mensuel batibuild App : Client, Fournisseur ou Expert — accès illimité, renouvellement mensuel." });
+  usePageSEO({ title: "Abonnements - batibuild App", description: "Choisissez votre abonnement mensuel batibuild App : Client Pro, Fournisseur ou Expert — accès illimité, renouvellement mensuel." });
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const currentSubscription = useQuery(api.subscriptions.getMySubscription);
@@ -96,7 +96,7 @@ export default function PricingPage() {
   const [searchParams] = useSearchParams();
   const [selectedPlan, setSelectedPlan] = useState<PlanId>(() => {
     const p = searchParams.get("plan");
-    return p === "expert" ? "expert" : p === "pro" ? "pro" : "free";
+    return p === "expert" ? "expert" : "pro";
   });
 
   // Prix par forfait
@@ -437,7 +437,7 @@ export default function PricingPage() {
 
           {/* Abonnement selector */}
           <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
-            {(["free", "pro", "expert"] as PlanId[]).map((p) => (
+            {(["pro", "expert"] as PlanId[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setSelectedPlan(p)}
