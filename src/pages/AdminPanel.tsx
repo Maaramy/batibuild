@@ -200,8 +200,8 @@ export default function AdminPanel() {
     freeProjects: 1000000, proProjects: 1000000, expertProjects: 1000000,
     freeInvestments: 1000000, proInvestments: 1000000, expertInvestments: 1000000,
     freeDownloadLimit: 1000000, proDownloads: 1000000, expertDownloads: 1000000,
-    // Essai gratuit
-    trialEnabled: true,
+    // Essai gratuit (désactivé par défaut)
+    trialEnabled: false,
     trialDurationDays: 60,
   });
   const [savingLimits, setSavingLimits] = useState(false);
@@ -228,7 +228,7 @@ export default function AdminPanel() {
         proDownloads: planForm.proDownloadLimit ?? 5,
         expertDownloads: planForm.expertDownloadLimit ?? 20,
         supplierPrice: planForm.supplierPrice ?? 120,
-        trialEnabled: planForm.trialEnabled ?? true,
+        trialEnabled: planForm.trialEnabled ?? false,
         trialDurationDays: planForm.trialDurationDays ?? 60,
       });
     }

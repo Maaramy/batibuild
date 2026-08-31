@@ -309,7 +309,7 @@ export const checkDownloadAllowedFor = query({
 
 // Forfaits mensuels : durée de 30 jours — renouvellement mensuel.
 const MONTHLY_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 jours
-// Période d'essai gratuite pour Fournisseur/Expert : 2 mois
+// Période d'essai gratuite (tous les profils : Client, Fournisseur, Expert) : 2 mois
 const TRIAL_DURATION = 60 * 24 * 60 * 60 * 1000; // 60 jours
 
 /** Create or update subscription (abonnement mensuel, 30 jours) */
@@ -338,10 +338,11 @@ export const createSubscription = mutation({
 
     // Durée selon le type de plan
     let duration = MONTHLY_DURATION;
-    // Fournisseur et Expert bénéficient d'un essai gratuit configurable à l'inscription
-    if ((args.plan === "supplier" || args.plan === "expert") && existing.length === 0) {
+    // Essai gratuit configurable à l'inscription — étendu à tous les profils
+    // (Client, Fournisseur, Expert). Désactivé par défaut (trialEnabled=false).
+    if (existing.length === 0) {
       const config = await ctx.db.query("paymentConfig").order("desc").first();
-      const trialEnabled = config?.trialEnabled ?? true;
+      const trialEnabled = config?.trialEnabled ?? false;
       const trialDays = config?.trialDurationDays ?? 60;
       if (trialEnabled && trialDays > 0) {
         duration = trialDays * 24 * 60 * 60 * 1000; // essai gratuit configurable
@@ -473,6 +474,95 @@ export const cancelSubscription = mutation({
     await ctx.db.patch(user._id, {
       subscriptionPlan: SUBSCRIPTION_PLANS.FREE,
     });
+  },
+});
+
+/**
+ * Admin: met à jour le montant d'un abonnement.
+ * L'abonnement est automatiquement passé au statut « actif » (30 jours) et le
+ * client est notifié (et invité par email) à finaliser son paiement.
+ */
+export const adminUpdateSubscriptionAmount = mutation({
+  args: {
+    subscriptionId: v.id("subscriptions"),
+    amount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new Error("Abonnement introuvable");
+
+    const now = Date.now();
+    const amount = Math.max(0, Math.round(args.amount));
+
+    // La modification du montant réactive l'abonnement (30 jours) et met à jour
+    // le forfait utilisateur. Le client est ensuite invité à finaliser le paiement.
+    await ctx.db.patch(sub._id, {
+      amount,
+      currency: sub.currency || "TND",
+      status: "active",
+      endDate: now + MONTHLY_DURATION,
+      updatedAt: now,
+    });
+
+    await ctx.db.patch(sub.userId, {
+      subscriptionPlan: sub.plan,
+      subscriptionEndDate: now + MONTHLY_DURATION,
+    });
+
+    // Notification in-app invitant le client à finaliser son paiement
+    try {
+      await ctx.db.insert("notifications", {
+        userId: sub.userId,
+        type: "subscription",
+        title: "Finalisez votre paiement",
+        message: `Votre abonnement ${planLabel(sub.plan)} est actif. Veuillez régler le montant de ${amount} TND pour finaliser votre paiement.`,
+        read: false,
+        link: "/pricing",
+        createdAt: now,
+      });
+    } catch (e) {
+      // Notification optionnelle
+    }
+
+    // Email d'invitation à finaliser le paiement
+    const targetUser = await ctx.db.get(sub.userId);
+    if (targetUser?.email && targetUser.emailNotifications !== false) {
+      await scheduleEmailEvent(ctx, {
+        to: targetUser.email,
+        recipientName: targetUser.name || undefined,
+        templateKey: "payment_required",
+        vars: {
+          ...splitName(targetUser.name),
+          typeAbonnement: planLabel(sub.plan),
+          montant: `${amount} ${sub.currency || "TND"}`,
+          numeroFacture: `INV-${sub._id}`,
+          dateExpiration: formatDateFr(now + MONTHLY_DURATION),
+        },
+        dedupeKey: `payment_required:${targetUser.email}:${sub._id}:${now}`,
+        sendToAdmins: true,
+      });
+    }
+
+    // Journal d'activité (action d'approbation existante dans le schéma)
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "approve_subscription",
+        targetUserId: sub.userId,
+        details: `Montant de l'abonnement ${sub.plan} modifié à ${amount} TND — statut activé, paiement à finaliser`,
+        createdAt: now,
+      });
+    } catch (e) {
+      // Log optionnel
+    }
+
+    return { success: true };
   },
 });
 

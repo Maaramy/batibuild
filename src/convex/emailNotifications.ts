@@ -32,6 +32,7 @@ export const emailEventValidator = v.union(
   v.literal("payment_rejected"),
   v.literal("subscription_suspended"),
   v.literal("subscription_canceled"),
+  v.literal("payment_required"),
 );
 
 // ----------------------------------------------------------------------------
@@ -85,7 +86,8 @@ export async function scheduleEmailEvent(
       | "payment_confirmed"
       | "payment_rejected"
       | "subscription_suspended"
-      | "subscription_canceled";
+      | "subscription_canceled"
+      | "payment_required";
     vars: EmailVars;
     dedupeKey?: string;
     sendToAdmins?: boolean;
