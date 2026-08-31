@@ -775,13 +775,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
             </TabsList>
           </div>
 
-          <div className="flex justify-end pb-1 -mt-1">
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => navigate("/dashboard/admin/subscriptions-amount")}>
-              <DollarSign className="h-3.5 w-3.5" />
-              Gérer les montants des abonnements
-            </Button>
-          </div>
-
           {/* ── Fournisseurs ── */}
             <TabsContent value="fournisseurs">
               <div className="space-y-4">
