@@ -21,23 +21,20 @@ const DEFAULT_PAYMENT = {
   d17Phone: "+216 XX XXX XXX",
   d17Email: "paiement@batibuild.app",
   d17Notice: "Envoyez le paiement via l'application D17 de La Poste Tunisienne",
-  startPrice: 80,
-  proPrice: 120,
   supplierPrice: 120,
   expertPrice: 120,
   currency: "TND",
 };
 
 // Abonnements mensuels (30 jours) — accès illimité pour les forfaits payants :
-//   Client  80 TND/mois  → accès complet illimité
 //   Fournisseur 120 TND/mois → 2 mois gratuits, puis paiement
 //   Expert 120 TND/mois → 2 mois gratuits, puis paiement
-type PlanId = "free" | "pro" | "expert" | "supplier";
+// (Le forfait Client a été supprimé — plus aucun accès gratuit permanent.)
+type PlanId = "expert" | "supplier";
 
-const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client", expert: "Expert", supplier: "Fournisseur" };
+const PLAN_LABELS: Record<string, string> = { expert: "Expert", supplier: "Fournisseur" };
 
 const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean; trial?: boolean }[] = [
-  { id: "free", quota: -1, description: "Accès complet illimité pour tous vos projets" },
   { id: "supplier", quota: -1, description: "Vendez vos matériaux — 2 mois gratuits", trial: true },
   { id: "expert", quota: -1, description: "Offrez vos services d'expertise — 2 mois gratuits", popular: true, trial: true },
 ];
@@ -95,14 +92,13 @@ export default function PricingPage() {
   const [searchParams] = useSearchParams();
   const [selectedPlan, setSelectedPlan] = useState<PlanId>(() => {
     const p = searchParams.get("plan");
-    return p === "expert" ? "expert" : p === "pro" ? "pro" : "free";
+    return p === "supplier" ? "supplier" : "expert";
   });
 
   // Prix par forfait
   const priceFor = (plan: PlanId): number => {
     const c = paymentConfig as any;
-    if (plan === "free") return c?.startPrice ?? DEFAULT_PAYMENT.startPrice;
-    if (plan === "pro") return c?.proPrice ?? DEFAULT_PAYMENT.proPrice;
+    if (plan === "supplier") return c?.supplierPrice ?? DEFAULT_PAYMENT.supplierPrice;
     return c?.expertPrice ?? DEFAULT_PAYMENT.expertPrice;
   };
 
@@ -140,7 +136,7 @@ export default function PricingPage() {
   };
 
   const isPending = currentSubscription?.status === "pending";
-  const currentPlan = "free";
+  const currentPlan: string | null = currentSubscription && !isPending ? (currentSubscription.plan as string) : null;
 
   const isCurrentPlan = (plan: PlanId) => currentPlan === plan && !isPending;
 
@@ -359,7 +355,7 @@ export default function PricingPage() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
         <div className="text-center mb-8">
           <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Abonnement actuel : {PLAN_LABELS[currentPlan]}
+            Abonnement actuel : {currentPlan ? PLAN_LABELS[currentPlan] : "Aucun"}
             {isPending && " (En attente de validation)"}
           </Badge>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre abonnement</h1>
@@ -428,8 +424,8 @@ export default function PricingPage() {
           </div>
 
           {/* Abonnement selector */}
-          <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
-            {(["free", "pro", "expert"] as PlanId[]).map((p) => (
+          <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
+            {(["supplier", "expert"] as PlanId[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setSelectedPlan(p)}
