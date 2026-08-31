@@ -10,19 +10,35 @@ import { getCurrentUser } from "./users";
 //   Fournisseur 120 TND/mois → 2 mois gratuits, puis paiement
 //   Expert 120 TND/mois → 2 mois gratuits, puis paiement
 const UNLIMITED = 1000000;
+
+// Tarifs minimums métier. Une ancienne configuration à 0 TND ne doit jamais
+// transformer un abonnement en accès gratuit permanent.
+const MINIMUM_PLAN_PRICES: Record<string, number> = {
+  free: 80,
+  pro: 120,
+  expert: 120,
+  supplier: 120,
+};
+
+function normalizePlanPrice(plan: string, value: number | undefined): number {
+  const fallback = MINIMUM_PLAN_PRICES[plan] ?? 1;
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
 const DEFAULT_PLAN_PRICING = {
   startPrice: 80,
-  proPrice: 0,
+  proPrice: 120,
   expertPrice: 120,
   supplierPrice: 120,
   currency: "TND",
-  freeProjectLimit: UNLIMITED,
+  // Aucun accès n'est accordé sans abonnement actif et paiement validé.
+  freeProjectLimit: 0,
   proProjectLimit: UNLIMITED,
   expertProjectLimit: UNLIMITED,
-  freeInvestmentLimit: UNLIMITED,
+  freeInvestmentLimit: 0,
   proInvestmentLimit: UNLIMITED,
   expertInvestmentLimit: UNLIMITED,
-  freeDownloadLimit: UNLIMITED,
+  freeDownloadLimit: 0,
   proDownloadLimit: UNLIMITED,
   expertDownloadLimit: UNLIMITED,
   trialEnabled: true,
@@ -52,10 +68,10 @@ export const getPlanPricing = query({
     if (!config) return DEFAULT_PLAN_PRICING;
 
     return {
-      startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
-      proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
-      expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
-      supplierPrice: config.supplierPrice ?? DEFAULT_PLAN_PRICING.supplierPrice,
+      startPrice: normalizePlanPrice("free", config.startPrice),
+      proPrice: normalizePlanPrice("pro", config.proPrice),
+      expertPrice: normalizePlanPrice("expert", config.expertPrice),
+      supplierPrice: normalizePlanPrice("supplier", config.supplierPrice),
       freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
@@ -88,6 +104,10 @@ export const updatePlanPricing = mutation({
     const admin = await getCurrentUser(ctx);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized: Admin access required");
+    }
+
+    if (args.price !== undefined && (!Number.isFinite(args.price) || args.price <= 0)) {
+      throw new Error("Le tarif mensuel doit être supérieur à 0 TND.");
     }
 
     const existingConfig = await ctx.db
@@ -145,10 +165,10 @@ export const getPublicPricing = query({
     if (!config) return DEFAULT_PLAN_PRICING;
 
     return {
-      startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
-      proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
-      expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
-      supplierPrice: config.supplierPrice ?? DEFAULT_PLAN_PRICING.supplierPrice,
+      startPrice: normalizePlanPrice("free", config.startPrice),
+      proPrice: normalizePlanPrice("pro", config.proPrice),
+      expertPrice: normalizePlanPrice("expert", config.expertPrice),
+      supplierPrice: normalizePlanPrice("supplier", config.supplierPrice),
       freeProjectLimit: config.freeProjectLimit ?? DEFAULT_PLAN_PRICING.freeProjectLimit,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,

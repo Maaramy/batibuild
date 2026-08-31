@@ -816,6 +816,7 @@ const schema = defineSchema(
       paymentId: v.optional(v.string()),
       amount: v.optional(v.number()),
       currency: v.optional(v.string()),
+      isTrial: v.optional(v.boolean()),
       monthlyDownloadCount: v.optional(v.number()),
       downloadLimit: v.optional(v.number()),
       projectsUsed: v.optional(v.number()),
