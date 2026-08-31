@@ -43,22 +43,17 @@ export const getMyQuotas = query({
     const plan = sub?.plan ?? "free";
     const now = Date.now();
     const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
-    // Toute souscription active (essai gratuit ou forfait payé — y compris le
-    // forfait Client, plan "free") donne un accès illimité. Sans souscription
-    // active (ou après expiration), l'utilisateur retombe sur le palier gratuit
-    // plafonné (1/1/1) et doit passer au paiement pour continuer.
-    const unlimited = !!isActive;
+    // Un abonnement actif n'est « illimité » que s'il est réellement payé
+    // (montant > 0) ou en période d'essai. Un tarif réglé à 0 TND ne donne pas
+    // d'accès illimité — pas d'accès gratuit permanent.
+    const unlimited = !!isActive && (sub?.amount ?? 0) > 0;
 
-    // Forfaits payés/essai = accès illimité ; palier gratuit = quota limité
-    const cUsed = unlimited
-      ? 0
-      : sub ? (sub.projectsUsed ?? 0) : await countUserDocs(ctx, user._id, "projects");
-    const iUsed = unlimited
-      ? 0
-      : sub ? (sub.investmentsUsed ?? 0) : await countUserDocs(ctx, user._id, "investments");
+    // Forfaits payés/essai = accès illimité ; sinon palier gratuit plafonné
+    const cUsed = unlimited ? 0 : await countUserDocs(ctx, user._id, "projects");
+    const iUsed = unlimited ? 0 : await countUserDocs(ctx, user._id, "investments");
 
-    const cLimit = unlimited ? Infinity : (configs[plan] ?? configs.free).projects;
-    const iLimit = unlimited ? Infinity : (configs[plan] ?? configs.free).investments;
+    const cLimit = unlimited ? Infinity : configs.free.projects;
+    const iLimit = unlimited ? Infinity : configs.free.investments;
 
     const downloadsBase = {
       used: 0,
@@ -345,15 +340,19 @@ export const createSubscription = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
 
-    // Durée selon le type de plan
+    // Durée et statut selon le contexte (essai gratuit / paiement).
+    // Tous les profils (Client, Fournisseur, Expert) bénéficient d'un essai
+    // gratuit configurable à l'inscription (première souscription uniquement).
     let duration = MONTHLY_DURATION;
-    // Fournisseur et Expert bénéficient d'un essai gratuit configurable à l'inscription
-    if ((args.plan === "supplier" || args.plan === "expert") && existing.length === 0) {
+    let status: "active" | "pending" = args.paymentMethod === "bank_transfer" ? "pending" : "active";
+    if (existing.length === 0) {
       const config = await ctx.db.query("paymentConfig").order("desc").first();
       const trialEnabled = config?.trialEnabled ?? true;
       const trialDays = config?.trialDurationDays ?? 60;
       if (trialEnabled && trialDays > 0) {
-        duration = trialDays * 24 * 60 * 60 * 1000; // essai gratuit configurable
+        // Période d'essai gratuite : accès immédiat sans paiement préalable
+        duration = trialDays * 24 * 60 * 60 * 1000;
+        status = "active";
       }
     }
 
@@ -367,7 +366,7 @@ export const createSubscription = mutation({
       userId: user._id,
       kind,
       plan: args.plan,
-      status: args.paymentMethod === "bank_transfer" ? "pending" : "active",
+      status,
       startDate: now,
       endDate: now + duration,
       paymentMethod: args.paymentMethod,
@@ -380,8 +379,8 @@ export const createSubscription = mutation({
       updatedAt: now,
     });
 
-    // Update user's subscription plan (only if not pending) — dernière formule achetée
-    if (args.paymentMethod !== "bank_transfer") {
+    // Update user's subscription plan (only if active — incl. essai gratuit)
+    if (status === "active") {
       await ctx.db.patch(user._id, {
         subscriptionPlan: args.plan,
         subscriptionEndDate: now + duration,
