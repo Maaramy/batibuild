@@ -22,19 +22,7 @@ export const getMySubscription = query({
       .order("desc")
       .first();
 
-    if (!subscription) return null;
-
-    // Renouvellement requis dès dépassement de la date de fin (ou essai terminé)
-    const now = Date.now();
-    const needsRenewal =
-      (subscription.status === "active" || subscription.status === "expired") &&
-      (!subscription.endDate || subscription.endDate < now);
-
-    return {
-      ...subscription,
-      needsRenewal,
-      isTrial: !!subscription.isTrial,
-    };
+    return subscription;
   },
 });
 
@@ -56,24 +44,22 @@ export const getMyQuotas = query({
     const isPaidPlan = plan === "pro" || plan === "expert" || plan === "supplier";
     const now = Date.now();
     const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
-    // Pendant la période d'essai gratuite, l'accès est illimité quel que soit le forfait
-    const unlimited = !!isActive && (isPaidPlan || !!sub?.isTrial);
 
-    // Forfaits payants (et période d'essai) = accès illimité ; sinon quota limité
-    const cUsed = unlimited
+    // Forfaits payants = accès illimité ; forfait gratuit = quota limité
+    const cUsed = isActive && isPaidPlan
       ? 0
       : sub ? (sub.projectsUsed ?? 0) : await countUserDocs(ctx, user._id, "projects");
-    const iUsed = unlimited
+    const iUsed = isActive && isPaidPlan
       ? 0
       : sub ? (sub.investmentsUsed ?? 0) : await countUserDocs(ctx, user._id, "investments");
 
-    const cLimit = unlimited ? Infinity : (configs[plan] ?? configs.free).projects;
-    const iLimit = unlimited ? Infinity : (configs[plan] ?? configs.free).investments;
+    const cLimit = isActive && isPaidPlan ? Infinity : (configs[plan] ?? configs.free).projects;
+    const iLimit = isActive && isPaidPlan ? Infinity : (configs[plan] ?? configs.free).investments;
 
     const downloadsBase = {
       used: 0,
       limit: Infinity,
-      allowed: unlimited,
+      allowed: isActive && isPaidPlan,
     };
 
     return {
@@ -323,7 +309,7 @@ export const checkDownloadAllowedFor = query({
 
 // Forfaits mensuels : durée de 30 jours — renouvellement mensuel.
 const MONTHLY_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 jours
-// Période d'essai gratuite (tous les profils : Client, Fournisseur, Expert) : 2 mois
+// Période d'essai gratuite pour Fournisseur/Expert : 2 mois
 const TRIAL_DURATION = 60 * 24 * 60 * 60 * 1000; // 60 jours
 
 /** Create or update subscription (abonnement mensuel, 30 jours) */
@@ -350,22 +336,15 @@ export const createSubscription = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
 
-    // Durée et statut selon le contexte (essai gratuit / paiement).
-    // Essai gratuit configurable à l'inscription — étendu à tous les profils
-    // (Client, Fournisseur, Expert) : 2 mois gratuits, puis passage au paiement
-    // obligatoire à l'issue de l'essai. Désactivé par défaut (trialEnabled=false).
+    // Durée selon le type de plan
     let duration = MONTHLY_DURATION;
-    let status: "active" | "pending" = args.paymentMethod === "bank_transfer" ? "pending" : "active";
-    let isTrial = false;
-    if (existing.length === 0) {
+    // Fournisseur et Expert bénéficient d'un essai gratuit configurable à l'inscription
+    if ((args.plan === "supplier" || args.plan === "expert") && existing.length === 0) {
       const config = await ctx.db.query("paymentConfig").order("desc").first();
-      const trialEnabled = config?.trialEnabled ?? false;
+      const trialEnabled = config?.trialEnabled ?? true;
       const trialDays = config?.trialDurationDays ?? 60;
       if (trialEnabled && trialDays > 0) {
-        // Période d'essai gratuite (durée personnalisable par l'admin)
-        duration = trialDays * 24 * 60 * 60 * 1000;
-        status = "active";
-        isTrial = true;
+        duration = trialDays * 24 * 60 * 60 * 1000; // essai gratuit configurable
       }
     }
 
@@ -379,8 +358,7 @@ export const createSubscription = mutation({
       userId: user._id,
       kind,
       plan: args.plan,
-      status,
-      isTrial,
+      status: args.paymentMethod === "bank_transfer" ? "pending" : "active",
       startDate: now,
       endDate: now + duration,
       paymentMethod: args.paymentMethod,
@@ -393,8 +371,8 @@ export const createSubscription = mutation({
       updatedAt: now,
     });
 
-    // Update user's subscription plan (only if active — incl. essai gratuit)
-    if (status === "active") {
+    // Update user's subscription plan (only if not pending) — dernière formule achetée
+    if (args.paymentMethod !== "bank_transfer") {
       await ctx.db.patch(user._id, {
         subscriptionPlan: args.plan,
         subscriptionEndDate: now + duration,
@@ -840,152 +818,5 @@ export const markReceiptVerified = mutation({
     }
 
     return { success: true, verified: args.verified };
-  },
-});
-
-/**
- * Admin : renouveler manuellement un abonnement.
- * Réactive l'abonnement pour 30 jours (à partir de maintenant) et notifie le
- * client (notification in-app + email). Utilisé dès dépassement de la date de
- * fin (renouvellement requis) ou à la fin d'une période d'essai.
- */
-export const adminRenewSubscription = mutation({
-  args: {
-    subscriptionId: v.id("subscriptions"),
-  },
-  handler: async (ctx, args) => {
-    const admin = await getCurrentUser(ctx);
-    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
-      throw new Error("Unauthorized: Admin access required");
-    }
-
-    const sub = await ctx.db.get(args.subscriptionId);
-    if (!sub) throw new Error("Abonnement introuvable");
-
-    const now = Date.now();
-    const endDate = now + MONTHLY_DURATION; // renouvellement mensuel (30 jours)
-
-    await ctx.db.patch(sub._id, {
-      status: "active",
-      isTrial: false,
-      startDate: now,
-      endDate,
-      projectsUsed: 0,
-      investmentsUsed: 0,
-      monthlyDownloadCount: 0,
-      updatedAt: now,
-    });
-
-    // Met à jour le forfait de l'utilisateur (renouvellement du même forfait)
-    await ctx.db.patch(sub.userId, {
-      subscriptionPlan: sub.plan,
-      subscriptionEndDate: endDate,
-    });
-
-    // Notification in-app
-    try {
-      await ctx.db.insert("notifications", {
-        userId: sub.userId,
-        type: "subscription",
-        title: "Abonnement renouvelé",
-        message: `Votre abonnement ${planLabel(sub.plan)} a été renouvelé. Il est actif jusqu'au ${formatDateFr(endDate)}.`,
-        read: false,
-        link: "/pricing",
-        createdAt: now,
-      });
-    } catch (e) {
-      // Notification optionnelle
-    }
-
-    // Email de confirmation de renouvellement
-    const targetUser = await ctx.db.get(sub.userId);
-    if (targetUser?.email && targetUser.emailNotifications !== false) {
-      await scheduleEmailEvent(ctx, {
-        to: targetUser.email,
-        recipientName: targetUser.name || undefined,
-        templateKey: "subscription_renewed",
-        vars: {
-          ...splitName(targetUser.name),
-          typeAbonnement: planLabel(sub.plan),
-          dateActivation: formatDateFr(now),
-          dateExpiration: formatDateFr(endDate),
-          montant: sub.amount ? `${sub.amount} ${sub.currency || "TND"}` : undefined,
-          numeroFacture: `INV-${sub._id}`,
-        },
-        dedupeKey: `subscription_renewed:${targetUser.email}:${sub._id}:${now}`,
-        sendToAdmins: true,
-      });
-    }
-
-    // Journal d'activité
-    try {
-      await ctx.db.insert("adminLogs", {
-        adminId: admin._id,
-        adminName: admin.name,
-        action: "approve_subscription",
-        targetUserId: sub.userId,
-        details: `Abonnement ${sub.plan} renouvelé par l'admin — actif jusqu'au ${formatDateFr(endDate)}`,
-        createdAt: now,
-      });
-    } catch (e) {
-      // Log optionnel
-    }
-
-    return { success: true, endDate };
-  },
-});
-
-/**
- * Admin : configurer la période d'essai gratuite (personnalisée).
- * - enabled : active/désactive l'essai gratuit à l'inscription (tous profils)
- * - durationDays : durée de l'essai en jours (défaut 60 = 2 mois)
- */
-export const adminUpdateTrialConfig = mutation({
-  args: {
-    enabled: v.boolean(),
-    durationDays: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
-      throw new Error("Unauthorized: Admin access required");
-    }
-
-    const durationDays = Math.max(1, Math.min(365, Math.round(args.durationDays)));
-    const existingConfig = await ctx.db
-      .query("paymentConfig")
-      .order("desc")
-      .first();
-
-    const patch = {
-      trialEnabled: args.enabled,
-      trialDurationDays: durationDays,
-      updatedAt: Date.now(),
-    };
-
-    if (existingConfig) {
-      await ctx.db.patch(existingConfig._id, patch);
-    } else {
-      await ctx.db.insert("paymentConfig", {
-        bankName: "",
-        bankTitulaire: "",
-        bankRib: "",
-        bankIban: "",
-        bankSwift: "",
-        d17MerchantName: "",
-        d17Phone: "",
-        d17Email: "",
-        d17Notice: "",
-        proPrice: 0,
-        supplierPrice: 0,
-        expertPrice: 0,
-        currency: "TND",
-        ...patch,
-        updatedBy: admin._id,
-        createdAt: Date.now(),
-      } as any);
-    }
-
-    return { success: true, enabled: args.enabled, durationDays };
   },
 });

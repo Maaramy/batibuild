@@ -25,8 +25,7 @@ const DEFAULT_PLAN_PRICING = {
   freeDownloadLimit: UNLIMITED,
   proDownloadLimit: UNLIMITED,
   expertDownloadLimit: UNLIMITED,
-  // Essai gratuit désactivé par défaut (opt-in via la config admin)
-  trialEnabled: false,
+  trialEnabled: true,
   trialDurationDays: 60,
   bankName: "",
   bankTitulaire: "",

@@ -32,7 +32,6 @@ export const emailEventValidator = v.union(
   v.literal("payment_rejected"),
   v.literal("subscription_suspended"),
   v.literal("subscription_canceled"),
-  v.literal("payment_required"),
 );
 
 // ----------------------------------------------------------------------------
@@ -50,16 +49,14 @@ export function formatDateFr(ts?: number | null): string {
 
 export function planLabel(plan?: string): string {
   switch (plan) {
-    case "free":
-      return "Client";
     case "pro":
-      return "Client Pro";
-    case "supplier":
-      return "Fournisseur";
+      return "Pro";
     case "expert":
       return "Expert";
+    case "free":
+      return "Start";
     case "monthly":
-      return "Fournisseur"; // héritage
+      return "Fournisseur";
     default:
       return plan || "—";
   }
@@ -88,8 +85,7 @@ export async function scheduleEmailEvent(
       | "payment_confirmed"
       | "payment_rejected"
       | "subscription_suspended"
-      | "subscription_canceled"
-      | "payment_required";
+      | "subscription_canceled";
     vars: EmailVars;
     dedupeKey?: string;
     sendToAdmins?: boolean;

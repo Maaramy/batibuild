@@ -29,15 +29,15 @@ const DEFAULT_PAYMENT = {
 };
 
 // Abonnements mensuels (30 jours) — accès illimité pour les forfaits payants :
-//   Client 80 TND/mois → accès complet illimité
+//   Client  80 TND/mois  → accès complet illimité
 //   Fournisseur 120 TND/mois → 2 mois gratuits, puis paiement
 //   Expert 120 TND/mois → 2 mois gratuits, puis paiement
 type PlanId = "free" | "pro" | "expert" | "supplier";
 
-const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client Pro", expert: "Expert", supplier: "Fournisseur" };
+const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client", expert: "Expert", supplier: "Fournisseur" };
 
 const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean; trial?: boolean }[] = [
-  { id: "free", quota: -1, description: "Accès complet illimité pour tous vos projets", trial: true },
+  { id: "free", quota: -1, description: "Accès complet illimité pour tous vos projets" },
   { id: "supplier", quota: -1, description: "Vendez vos matériaux — 2 mois gratuits", trial: true },
   { id: "expert", quota: -1, description: "Offrez vos services d'expertise — 2 mois gratuits", popular: true, trial: true },
 ];
@@ -96,7 +96,7 @@ export default function PricingPage() {
   const [searchParams] = useSearchParams();
   const [selectedPlan, setSelectedPlan] = useState<PlanId>(() => {
     const p = searchParams.get("plan");
-    return p === "expert" ? "expert" : "free";
+    return p === "expert" ? "expert" : p === "pro" ? "pro" : "free";
   });
 
   // Prix par forfait
@@ -104,14 +104,11 @@ export default function PricingPage() {
     const c = paymentConfig as any;
     if (plan === "free") return c?.startPrice ?? DEFAULT_PAYMENT.startPrice;
     if (plan === "pro") return c?.proPrice ?? DEFAULT_PAYMENT.proPrice;
-    if (plan === "supplier") return c?.supplierPrice ?? DEFAULT_PAYMENT.supplierPrice;
     return c?.expertPrice ?? DEFAULT_PAYMENT.expertPrice;
   };
 
   const currentPrice = priceFor(selectedPlan);
   const currency = paymentConfig?.currency || DEFAULT_PAYMENT.currency;
-  // Essai gratuit uniquement affiché si activé par l'admin (désactivé par défaut)
-  const trialActive = !!paymentConfig?.trialEnabled;
 
   const BANK_INFO: Record<string, string> = paymentConfig ? {
     bank: paymentConfig.bankName,
@@ -318,7 +315,7 @@ export default function PricingPage() {
             <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <span>Estimation IA aux prix tunisiens</span>
           </li>
-          {trial && trialActive && (
+          {trial && (
             <li className="flex items-start gap-2 text-sm">
               <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
               <span className="text-emerald-600 font-medium">2 mois gratuits à l'inscription</span>
@@ -371,9 +368,7 @@ export default function PricingPage() {
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre abonnement</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
             Abonnement mensuel (30 jours) — renouvellement automatique. Chaque forfait inclut un accès complet
-            aux outils d'estimation, matériaux IA et téléchargements. {trialActive
-              ? "Chaque profil (Client, Fournisseur, Expert) bénéficie d'un essai gratuit de 2 mois à l'inscription."
-              : "Un essai gratuit à l'inscription peut être activé par l'administrateur."}
+            aux outils d'estimation, matériaux IA et téléchargements. Fournisseur et Expert bénéficient de 2 mois gratuits à l'inscription.
           </p>
         </div>
 
@@ -437,7 +432,7 @@ export default function PricingPage() {
 
           {/* Abonnement selector */}
           <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
-            {(["free", "supplier", "expert"] as PlanId[]).map((p) => (
+            {(["free", "pro", "expert"] as PlanId[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setSelectedPlan(p)}

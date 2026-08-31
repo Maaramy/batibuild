@@ -15,10 +15,9 @@ export const EMAIL_EVENT_TYPES = [
   "subscription_renewed",
   "subscription_expired",
   "payment_confirmed",
-  "payment_rejected",  "subscription_suspended",
+  "payment_rejected",
+  "subscription_suspended",
   "subscription_canceled",
-  "payment_required",
-
 ] as const;
 
 export type EmailEventType = (typeof EMAIL_EVENT_TYPES)[number];
@@ -31,7 +30,6 @@ export const EMAIL_EVENT_LABELS: Record<EmailEventType, string> = {
   payment_rejected: "Paiement refusé",
   subscription_suspended: "Abonnement suspendu",
   subscription_canceled: "Abonnement annulé",
-  payment_required: "Paiement à finaliser",
 };
 
 export const EMAIL_VARIABLES = [
@@ -180,28 +178,6 @@ Vous pouvez à tout moment souscrire à nouveau à l'un de nos forfaits pour ret
 <br/><br/>
 L'équipe {{P}}`,
   },
-  {
-    key: "payment_required",
-    label: "Paiement à finaliser",
-    subject: "Votre abonnement est actif — finalisez votre paiement",
-    bodyHtml: `Bonjour {{Prénom}} {{Nom}},
-<br/><br/>
-Votre abonnement «&nbsp;{{TypeAbonnement}}&nbsp;» est désormais <strong>actif</strong>.
-<br/><br/>
-<table cellpadding="0" cellspacing="0" style="background:#f8f7ff;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #ece8ff;">
-  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Montant à régler :</td></tr>
-  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Montant}}</td></tr>
-  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Numéro de facture :</td></tr>
-  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{NuméroFacture}}</td></tr>
-  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Date d'expiration :</td></tr>
-  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{DateExpiration}}</td></tr>
-</table>
-Veuillez finaliser votre paiement via la page abonnements pour confirmer votre souscription.
-<br/><br/>
-<a href="{{LienConnexion}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Finaliser mon paiement</a>
-<br/><br/>
-L'équipe {{P}}`,
-  },
 ];
 
 // ----------------------------------------------------------------------------
@@ -247,7 +223,6 @@ export const adminSaveEmailTemplate = mutation({
       v.literal("payment_rejected"),
       v.literal("subscription_suspended"),
       v.literal("subscription_canceled"),
-      v.literal("payment_required"),
     ),
     subject: v.string(),
     bodyHtml: v.string(),
