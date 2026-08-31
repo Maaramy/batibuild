@@ -41,25 +41,29 @@ export const getMyQuotas = query({
     const sub = await getActiveSubscription(ctx, user._id);
 
     const plan = sub?.plan ?? "free";
-    const isPaidPlan = plan === "pro" || plan === "expert" || plan === "supplier";
     const now = Date.now();
     const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
+    // Toute souscription active (essai gratuit ou forfait payé — y compris le
+    // forfait Client, plan "free") donne un accès illimité. Sans souscription
+    // active (ou après expiration), l'utilisateur retombe sur le palier gratuit
+    // plafonné (1/1/1) et doit passer au paiement pour continuer.
+    const unlimited = !!isActive;
 
-    // Forfaits payants = accès illimité ; forfait gratuit = quota limité
-    const cUsed = isActive && isPaidPlan
+    // Forfaits payés/essai = accès illimité ; palier gratuit = quota limité
+    const cUsed = unlimited
       ? 0
       : sub ? (sub.projectsUsed ?? 0) : await countUserDocs(ctx, user._id, "projects");
-    const iUsed = isActive && isPaidPlan
+    const iUsed = unlimited
       ? 0
       : sub ? (sub.investmentsUsed ?? 0) : await countUserDocs(ctx, user._id, "investments");
 
-    const cLimit = isActive && isPaidPlan ? Infinity : (configs[plan] ?? configs.free).projects;
-    const iLimit = isActive && isPaidPlan ? Infinity : (configs[plan] ?? configs.free).investments;
+    const cLimit = unlimited ? Infinity : (configs[plan] ?? configs.free).projects;
+    const iLimit = unlimited ? Infinity : (configs[plan] ?? configs.free).investments;
 
     const downloadsBase = {
       used: 0,
       limit: Infinity,
-      allowed: isActive && isPaidPlan,
+      allowed: unlimited,
     };
 
     return {
@@ -161,10 +165,15 @@ export async function getPlanQuotaConfig(ctx: any): Promise<Record<string, PlanQ
     .order("desc")
     .first();
   return {
+    // Palier gratuit plafonné (1/1/1) : pas d'accès gratuit permanent.
+    // Le client doit passer au paiement (ou à l'essai gratuit) pour un accès
+    // illimité. Le plafond ignore les valeurs de config héritées (UNLIMITED)
+    // pour rester effectif même si une ancienne config existe en base.
+    // Pour ajuster le palier : modifier DEFAULT_QUOTAS.free ci-dessus.
     free: {
-      projects: config?.freeProjectLimit ?? DEFAULT_QUOTAS.free.projects,
-      investments: config?.freeInvestmentLimit ?? DEFAULT_QUOTAS.free.investments,
-      downloads: config?.freeDownloadLimit ?? DEFAULT_QUOTAS.free.downloads,
+      projects: Math.min(config?.freeProjectLimit ?? DEFAULT_QUOTAS.free.projects, DEFAULT_QUOTAS.free.projects),
+      investments: Math.min(config?.freeInvestmentLimit ?? DEFAULT_QUOTAS.free.investments, DEFAULT_QUOTAS.free.investments),
+      downloads: Math.min(config?.freeDownloadLimit ?? DEFAULT_QUOTAS.free.downloads, DEFAULT_QUOTAS.free.downloads),
     },
     pro: {
       projects: config?.proProjectLimit ?? DEFAULT_QUOTAS.pro.projects,

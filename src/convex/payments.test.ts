@@ -71,13 +71,15 @@ describe("getPlanPricing", () => {
     expect(result!.proPrice).toBe(0);
     expect(result!.expertPrice).toBe(120);
     expect(result!.supplierPrice).toBe(120);
-    expect(result!.freeProjectLimit).toBe(1000000);
+    // Pas d'accès gratuit permanent : le palier gratuit est plafonné (1/1/1),
+    // les forfaits payants restent illimités.
+    expect(result!.freeProjectLimit).toBe(1);
     expect(result!.proProjectLimit).toBe(1000000);
     expect(result!.expertProjectLimit).toBe(1000000);
-    expect(result!.freeInvestmentLimit).toBe(1000000);
+    expect(result!.freeInvestmentLimit).toBe(1);
     expect(result!.proInvestmentLimit).toBe(1000000);
     expect(result!.expertInvestmentLimit).toBe(1000000);
-    expect(result!.freeDownloadLimit).toBe(1000000);
+    expect(result!.freeDownloadLimit).toBe(1);
     expect(result!.proDownloadLimit).toBe(1000000);
     expect(result!.expertDownloadLimit).toBe(1000000);
   });
@@ -151,7 +153,7 @@ describe("getPlanPricing", () => {
     expect(result!.proPrice).toBe(89);             // from config
     expect(result!.expertPrice).toBe(350);          // from config
     expect(result!.supplierPrice).toBe(120);         // fallback to default
-    expect(result!.freeProjectLimit).toBe(1000000);        // fallback to default
+    expect(result!.freeProjectLimit).toBe(1);             // fallback plafonné (1)
     expect(result!.proProjectLimit).toBe(1000000);         // fallback to default
   });
 });
