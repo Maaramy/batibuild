@@ -18,7 +18,6 @@ import EmailSettings from "./EmailSettings";
 import EmailTemplates from "./EmailTemplates";
 import EmailHistory from "./EmailHistory";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
-import AdminSubscriptions from "@/components/admin/AdminSubscriptions";
 import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
@@ -668,15 +667,56 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 <span>Matériaux</span>
               </TabsTrigger>
               )}
-              <TabsTrigger value="abonnements" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
-                <CreditCard className="h-3.5 w-3.5" />
-                <span>Abonnements</span>
+              {canSee("virements") && (
+              <TabsTrigger value="virements" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Banknote className="h-3.5 w-3.5" />
+                <span>Virements</span>
                 {pendingSubs.length > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white shadow-sm">
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm">
                     {pendingSubs.length}
                   </span>
                 )}
               </TabsTrigger>
+              )}
+              <TabsTrigger value="recus" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <FileText className="h-3.5 w-3.5" />
+                <span>Reçus</span>
+              </TabsTrigger>
+              <TabsTrigger value="recusFournisseurs" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Receipt className="h-3.5 w-3.5" />
+                <span>Reçus Fournisseurs</span>
+                {allSuppliers.filter((s: any) => s.paymentProofUrl && !s.paymentProofVerified).length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white shadow-sm">
+                    {allSuppliers.filter((s: any) => s.paymentProofUrl && !s.paymentProofVerified).length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="recusExperts" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Receipt className="h-3 w-3" />
+                <span>Reçus Experts</span>
+              </TabsTrigger>
+              <TabsTrigger value="subscriptions" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <CreditCard className="h-3.5 w-3.5" />
+                <span>Abonnements</span>
+              </TabsTrigger>
+              {canSee("journal") && (
+              <TabsTrigger value="journal" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <NotebookPen className="h-3.5 w-3.5" />
+                <span>Journal</span>
+              </TabsTrigger>
+              )}
+              {canSee("paiement") && (
+              <TabsTrigger value="paiement" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Settings className="h-3.5 w-3.5" />
+                <span>Paiement</span>
+              </TabsTrigger>
+              )}
+              {canSee("limites") && (
+              <TabsTrigger value="limites" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <HardHat className="h-3.5 w-3.5" />
+                <span>Abonnements</span>
+              </TabsTrigger>
+              )}
               <TabsTrigger value="fournisseurs" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Building2 className="h-3.5 w-3.5" />
                 <span>Fournisseurs</span>
@@ -734,11 +774,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               )}
             </TabsList>
           </div>
-
-          {/* ── Abonnements (module réécrit) ── */}
-          <TabsContent value="abonnements">
-            <AdminSubscriptions />
-          </TabsContent>
 
           {/* ── Fournisseurs ── */}
             <TabsContent value="fournisseurs">

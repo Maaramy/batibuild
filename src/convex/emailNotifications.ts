@@ -30,7 +30,6 @@ export const emailEventValidator = v.union(
   v.literal("subscription_expired"),
   v.literal("payment_confirmed"),
   v.literal("payment_rejected"),
-  v.literal("payment_required"),
   v.literal("subscription_suspended"),
   v.literal("subscription_canceled"),
 );
@@ -50,16 +49,14 @@ export function formatDateFr(ts?: number | null): string {
 
 export function planLabel(plan?: string): string {
   switch (plan) {
-    case "free":
-      return "Client";
     case "pro":
-      return "Client Pro";
-    case "supplier":
-      return "Fournisseur";
+      return "Pro";
     case "expert":
       return "Expert";
+    case "free":
+      return "Start";
     case "monthly":
-      return "Fournisseur"; // héritage
+      return "Fournisseur";
     default:
       return plan || "—";
   }
@@ -87,7 +84,6 @@ export async function scheduleEmailEvent(
       | "subscription_expired"
       | "payment_confirmed"
       | "payment_rejected"
-      | "payment_required"
       | "subscription_suspended"
       | "subscription_canceled";
     vars: EmailVars;

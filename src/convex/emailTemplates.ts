@@ -16,7 +16,6 @@ export const EMAIL_EVENT_TYPES = [
   "subscription_expired",
   "payment_confirmed",
   "payment_rejected",
-  "payment_required",
   "subscription_suspended",
   "subscription_canceled",
 ] as const;
@@ -29,7 +28,6 @@ export const EMAIL_EVENT_LABELS: Record<EmailEventType, string> = {
   subscription_expired: "Abonnement expiré",
   payment_confirmed: "Paiement confirmé",
   payment_rejected: "Paiement refusé",
-  payment_required: "Paiement requis",
   subscription_suspended: "Abonnement suspendu",
   subscription_canceled: "Abonnement annulé",
 };
@@ -153,20 +151,6 @@ Cela peut être dû à un reçu manquant, illisible ou non conforme. Veuillez v�
 L'équipe {{P}}`,
   },
   {
-    key: "payment_required",
-    label: "Paiement requis",
-    subject: "Finalisez le paiement de votre abonnement",
-    bodyHtml: `Bonjour {{Prénom}} {{Nom}},
-<br/><br/>
-Votre abonnement «&nbsp;{{TypeAbonnement}}&nbsp;» est prêt. Pour continuer à utiliser la plateforme, veuillez finaliser le paiement de <strong>{{Montant}}</strong>.
-<br/><br/>
-Référence de facture : <strong>{{NumeroFacture}}</strong> — échéance : {{DateExpiration}}.
-<br/><br/>
-<a href="{{LienConnexion}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Finaliser mon paiement</a>
-<br/><br/>
-L'équipe {{P}}`,
-  },
-  {
     key: "subscription_suspended",
     label: "Abonnement suspendu",
     subject: "Votre abonnement a été suspendu",
@@ -237,7 +221,6 @@ export const adminSaveEmailTemplate = mutation({
       v.literal("subscription_expired"),
       v.literal("payment_confirmed"),
       v.literal("payment_rejected"),
-      v.literal("payment_required"),
       v.literal("subscription_suspended"),
       v.literal("subscription_canceled"),
     ),

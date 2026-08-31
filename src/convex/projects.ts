@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { checkQuota, consumeQuota, releaseQuota } from "./subscriptions";
 import {
   projectCategoryValidator,
   projectStatusValidator,
@@ -145,6 +146,96 @@ export const compareProjects = query({
   },
 });
 
+// ============================================================================
+// Plan Limits (configurable via Admin)
+// ============================================================================
+
+// Forfaits à paiement unique — un seul forfait couvre les deux types :
+// Start 1 · Pro 5 · Expert 20 (projets, analyses et téléchargements PDF).
+const DEFAULT_PLAN_LIMITS = {
+  free: 1,
+  pro: 5,
+  expert: 20,
+};
+
+/** Get the current plan limits (construction, investissement, téléchargements) */
+export const getPlanLimits = query({
+  handler: async (ctx) => {
+    const config = await ctx.db
+      .query("paymentConfig")
+      .order("desc")
+      .first();
+
+    return {
+      free: config?.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
+      pro: config?.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
+      expert: config?.expertProjectLimit ?? DEFAULT_PLAN_LIMITS.expert,
+      // Investissements
+      freeInvestments: config?.freeInvestmentLimit ?? DEFAULT_PLAN_LIMITS.free,
+      proInvestments: config?.proInvestmentLimit ?? DEFAULT_PLAN_LIMITS.pro,
+      expertInvestments: config?.expertInvestmentLimit ?? DEFAULT_PLAN_LIMITS.expert,
+      // Téléchargements PDF (par type, mêmes quotas)
+      freeDownloads: config?.freeDownloadLimit ?? DEFAULT_PLAN_LIMITS.free,
+      proDownloads: config?.proDownloadLimit ?? DEFAULT_PLAN_LIMITS.pro,
+      expertDownloads: config?.expertDownloadLimit ?? DEFAULT_PLAN_LIMITS.expert,
+      updatedAt: config?.updatedAt ?? null,
+    };
+  },
+});
+
+/** Update plan limits (admin only) */
+export const updatePlanLimits = mutation({
+  args: {
+    freeProjectLimit: v.optional(v.number()),
+    proProjectLimit: v.optional(v.number()),
+    expertProjectLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || user.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    const existing = await ctx.db
+      .query("paymentConfig")
+      .order("desc")
+      .first();
+
+    const now = Date.now();
+    const updates: Record<string, any> = { updatedAt: now, updatedBy: user._id };
+
+    if (args.freeProjectLimit !== undefined) updates.freeProjectLimit = args.freeProjectLimit;
+    if (args.proProjectLimit !== undefined) updates.proProjectLimit = args.proProjectLimit;
+    if (args.expertProjectLimit !== undefined) updates.expertProjectLimit = args.expertProjectLimit;
+
+    if (existing) {
+      await ctx.db.patch(existing._id, updates);
+    } else {
+      // Create paymentConfig with defaults + new limits
+      await ctx.db.insert("paymentConfig", {
+        bankName: "",
+        bankTitulaire: "",
+        bankRib: "",
+        bankIban: "",
+        bankSwift: "",
+        d17MerchantName: "",
+        d17Phone: "",
+        d17Email: "",
+        d17Notice: "",
+        proPrice: 79,
+        supplierPrice: 120,
+        currency: "TND",
+        freeProjectLimit: args.freeProjectLimit ?? DEFAULT_PLAN_LIMITS.free,
+        proProjectLimit: args.proProjectLimit ?? DEFAULT_PLAN_LIMITS.pro,
+        expertProjectLimit: args.expertProjectLimit ?? DEFAULT_PLAN_LIMITS.expert,
+        updatedAt: now,
+        updatedBy: user._id,
+      });
+    }
+
+    return { success: true };
+  },
+});
 
 // ============================================================================
 // Mutations
@@ -464,6 +555,8 @@ export const adminBatchDeleteProjects = mutation({
       const project = await ctx.db.get(projectId);
       if (project) {
         await ctx.db.delete(projectId);
+        // Libère le quota du propriétaire (projets construction)
+        try { await releaseQuota(ctx, project.userId, "projects", 1); } catch { /* non bloquant */ }
         deleted++;
       }
     }
