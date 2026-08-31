@@ -126,6 +126,11 @@ export const adminUpdateUserPlan = mutation({
     }
 
     const now = Date.now();
+    // Le forfait Client n'est jamais une activation gratuite côté admin.
+    // Il doit suivre le circuit de paiement de createSubscription.
+    if (args.plan === "free") {
+      throw new Error("Le forfait Client nécessite une validation de paiement.");
+    }
     const planDuration = args.plan === "pro" ? 30 * 24 * 60 * 60 * 1000 : 365 * 24 * 60 * 60 * 1000;
 
     await ctx.db.patch(args.userId, {

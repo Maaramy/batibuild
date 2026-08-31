@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { checkQuota, consumeQuota, releaseQuota } from "./subscriptions";
+import { checkQuota, releaseQuota } from "./subscriptions";
 import {
   projectCategoryValidator,
   projectStatusValidator,
@@ -270,6 +270,11 @@ export const createProject = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
+
+    const quota = await checkQuota(ctx, user, "projects");
+    if (!quota.allowed) {
+      throw new Error("PAYMENT_REQUIRED:Activez un abonnement Client avant de créer un projet.");
+    }
 
     const now = Date.now();
     const projectId = await ctx.db.insert("projects", {

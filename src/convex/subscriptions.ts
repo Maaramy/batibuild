@@ -27,8 +27,9 @@ export const getMySubscription = query({
 });
 
 /**
- * Quotas de l'utilisateur par type (construction · investissement).
- * Abonnement mensuel (30 jours) — accès illimité pour les forfaits payants.
+ * Accès par type (construction · investissement).
+ * Un forfait payant validé ou un essai actif donne un accès complet.
+ * Une souscription gratuite/à 0 TND ne donne jamais les droits du forfait.
  */
 export const getMyQuotas = query({
   args: {},
@@ -37,29 +38,27 @@ export const getMyQuotas = query({
     if (!user) return null;
 
     const configs = await getPlanQuotaConfig(ctx);
-
     const sub = await getActiveSubscription(ctx, user._id);
-
-    const plan = sub?.plan ?? "free";
-    const isPaidPlan = plan === "pro" || plan === "expert" || plan === "supplier";
+    const requestedPlan = sub?.plan ?? "free";
     const now = Date.now();
-    const isActive = sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
+    const isActive = !!sub && sub.status === "active" && (!sub.endDate || sub.endDate > now);
+    // "free" est le nom historique du forfait Client, facturé 80 TND.
+    // Tous les forfaits sont donc payants, sauf un essai explicitement marqué.
+    const isKnownPlan = requestedPlan === "free" || requestedPlan === "pro" || requestedPlan === "expert" || requestedPlan === "supplier";
+    const hasEntitlement = isActive && isKnownPlan &&
+      (sub?.amount ?? 0) > 0 &&
+      (sub?.isTrial === true || requestedPlan === "free" || requestedPlan === "pro" || requestedPlan === "expert" || requestedPlan === "supplier");
+    const plan = hasEntitlement ? requestedPlan : "free";
+    const entitledConfig = configs[plan] ?? configs.free;
 
-    // Forfaits payants = accès illimité ; forfait gratuit = quota limité
-    const cUsed = isActive && isPaidPlan
-      ? 0
-      : sub ? (sub.projectsUsed ?? 0) : await countUserDocs(ctx, user._id, "projects");
-    const iUsed = isActive && isPaidPlan
-      ? 0
-      : sub ? (sub.investmentsUsed ?? 0) : await countUserDocs(ctx, user._id, "investments");
-
-    const cLimit = isActive && isPaidPlan ? Infinity : (configs[plan] ?? configs.free).projects;
-    const iLimit = isActive && isPaidPlan ? Infinity : (configs[plan] ?? configs.free).investments;
-
+    const cUsed = hasEntitlement ? 0 : await countUserDocs(ctx, user._id, "projects");
+    const iUsed = hasEntitlement ? 0 : await countUserDocs(ctx, user._id, "investments");
+    const cLimit = hasEntitlement ? Infinity : entitledConfig.projects;
+    const iLimit = hasEntitlement ? Infinity : entitledConfig.investments;
     const downloadsBase = {
       used: 0,
-      limit: Infinity,
-      allowed: isActive && isPaidPlan,
+      limit: entitledConfig.downloads,
+      allowed: hasEntitlement,
     };
 
     return {
@@ -162,9 +161,11 @@ export async function getPlanQuotaConfig(ctx: any): Promise<Record<string, PlanQ
     .first();
   return {
     free: {
-      projects: config?.freeProjectLimit ?? DEFAULT_QUOTAS.free.projects,
-      investments: config?.freeInvestmentLimit ?? DEFAULT_QUOTAS.free.investments,
-      downloads: config?.freeDownloadLimit ?? DEFAULT_QUOTAS.free.downloads,
+      // Ne jamais réutiliser une ancienne limite élevée pour un compte
+      // sans abonnement validé : le Client doit d'abord payer.
+      projects: 0,
+      investments: 0,
+      downloads: 0,
     },
     pro: {
       projects: config?.proProjectLimit ?? DEFAULT_QUOTAS.pro.projects,
@@ -199,7 +200,13 @@ async function getActiveSubscription(ctx: any, userId: any, _kind?: SubKind) {
     .withIndex("by_user", (q: any) => q.eq("userId", userId))
     .order("desc")
     .collect();
-  return subs.find((s: any) => s.status === "active") ?? null;
+  return subs.find((s: any) => s.status === "active" && (!s.endDate || s.endDate > Date.now())) ?? null;
+}
+
+function hasSubscriptionEntitlement(sub: any): boolean {
+  if (!sub || sub.status !== "active" || (sub.endDate && sub.endDate <= Date.now())) return false;
+  const knownPlan = sub.plan === "free" || sub.plan === "pro" || sub.plan === "expert" || sub.plan === "supplier";
+  return knownPlan && (sub.isTrial === true || (typeof sub.amount === "number" && sub.amount > 0));
 }
 
 /** Type d'abonnement correspondant à un quota (tous couverts par le même forfait). */
@@ -233,11 +240,21 @@ async function countUserDocs(ctx: any, userId: any, kind: QuotaKind): Promise<nu
  * base (Start) comptée sur les documents.
  */
 export async function checkQuota(
-  _ctx: any,
-  _user: any,
-  _kind: QuotaKind,
+  ctx: any,
+  user: any,
+  kind: QuotaKind,
 ): Promise<{ allowed: boolean; limit: number; used: number; plan: string; reason: string }> {
-  return { allowed: true, limit: Infinity, used: 0, plan: "free", reason: "ok" };
+  const sub = await getActiveSubscription(ctx, user._id);
+  if (hasSubscriptionEntitlement(sub)) {
+    return { allowed: true, limit: Infinity, used: 0, plan: sub.plan, reason: "ok" };
+  }
+
+  const used = kind === "projects"
+    ? await countUserDocs(ctx, user._id, "projects")
+    : kind === "investments"
+      ? await countUserDocs(ctx, user._id, "investments")
+      : 0;
+  return { allowed: false, limit: 0, used, plan: "free", reason: "payment_required" };
 }
 
 /** Incrémente le compteur de quota de l'abonnement actif. */
@@ -274,8 +291,16 @@ export const consumeDownload = mutation({
   },
 });
 
-async function checkDownloadAllowedForKind(_ctx: any, _kind: SubKind) {
-  return { allowed: true, reason: "ok", limit: Infinity, used: 0 } as any;
+async function checkDownloadAllowedForKind(ctx: any, _kind: SubKind) {
+  const user = await getCurrentUser(ctx);
+  const sub = user ? await getActiveSubscription(ctx, user._id) : null;
+  const allowed = hasSubscriptionEntitlement(sub);
+  return {
+    allowed,
+    reason: allowed ? "ok" : "payment_required",
+    limit: allowed ? Infinity : 0,
+    used: 0,
+  } as any;
 }
 
 async function consumeDownloadForKind(_ctx: any, _kind: SubKind): Promise<void> {
@@ -309,7 +334,8 @@ export const checkDownloadAllowedFor = query({
 
 // Forfaits mensuels : durée de 30 jours — renouvellement mensuel.
 const MONTHLY_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 jours
-// Période d'essai gratuite pour Fournisseur/Expert : 2 mois
+// Période d'essai gratuite pour Fournisseur/Expert : 2 mois.
+// Le Client est exclu : il doit effectuer son paiement à la souscription.
 const TRIAL_DURATION = 60 * 24 * 60 * 60 * 1000; // 60 jours
 
 /** Create or update subscription (abonnement mensuel, 30 jours) */
@@ -336,15 +362,31 @@ export const createSubscription = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
 
-    // Durée selon le type de plan
+    // Le tarif est résolu côté serveur. Le navigateur ne peut pas choisir
+    // un montant nul pour obtenir les droits d'un forfait payant.
+    const config = await ctx.db.query("paymentConfig").order("desc").first();
+    const monthlyPrice =
+      args.plan === "free"
+        ? (config?.startPrice && config.startPrice > 0 ? config.startPrice : 80)
+        : args.plan === "pro"
+          ? (config?.proPrice && config.proPrice > 0 ? config.proPrice : 120)
+          : args.plan === "expert"
+            ? (config?.expertPrice && config.expertPrice > 0 ? config.expertPrice : 120)
+            : (config?.supplierPrice && config.supplierPrice > 0 ? config.supplierPrice : 120);
+
+    if (!Number.isFinite(monthlyPrice) || monthlyPrice <= 0) {
+      throw new Error("Le tarif mensuel doit être supérieur à 0 TND.");
+    }
+
     let duration = MONTHLY_DURATION;
-    // Fournisseur et Expert bénéficient d'un essai gratuit configurable à l'inscription
+    let isTrial = false;
+    // Seuls Fournisseur et Expert bénéficient d'un essai gratuit à l'inscription.
     if ((args.plan === "supplier" || args.plan === "expert") && existing.length === 0) {
-      const config = await ctx.db.query("paymentConfig").order("desc").first();
       const trialEnabled = config?.trialEnabled ?? true;
       const trialDays = config?.trialDurationDays ?? 60;
       if (trialEnabled && trialDays > 0) {
-        duration = trialDays * 24 * 60 * 60 * 1000; // essai gratuit configurable
+        duration = trialDays * 24 * 60 * 60 * 1000;
+        isTrial = true;
       }
     }
 
@@ -358,21 +400,24 @@ export const createSubscription = mutation({
       userId: user._id,
       kind,
       plan: args.plan,
-      status: args.paymentMethod === "bank_transfer" ? "pending" : "active",
+      // Un paiement manuel reste en attente. Seul l'essai explicitement
+      // accordé est actif avant validation par l'administrateur.
+      status: isTrial ? "active" : "pending",
       startDate: now,
       endDate: now + duration,
       paymentMethod: args.paymentMethod,
       paymentId: args.paymentId,
-      amount: args.amount,
-      currency: args.currency || "TND",
+      amount: monthlyPrice,
+      currency: "TND",
+      isTrial,
       monthlyDownloadCount: 0,
       downloadLimit: Infinity,
       createdAt: now,
       updatedAt: now,
     });
 
-    // Update user's subscription plan (only if not pending) — dernière formule achetée
-    if (args.paymentMethod !== "bank_transfer") {
+    // Le Client et les renouvellements restent inactifs jusqu'à validation.
+    if (isTrial) {
       await ctx.db.patch(user._id, {
         subscriptionPlan: args.plan,
         subscriptionEndDate: now + duration,
@@ -390,7 +435,7 @@ export const createSubscription = mutation({
             typeAbonnement: planLabel(args.plan),
             dateActivation: formatDateFr(now),
             dateExpiration: formatDateFr(now + duration),
-            montant: args.amount ? `${args.amount} ${args.currency || "TND"}` : undefined,
+            montant: `${monthlyPrice} TND`,
             numeroFacture: `INV-${subscriptionId}`,
           },
           dedupeKey: `${isRenewal ? "subscription_renewed" : "subscription_activated"}:${user.email}:${subscriptionId}`,
@@ -546,6 +591,9 @@ export const adminApproveSubscription = mutation({
     const sub = await ctx.db.get(args.subscriptionId);
     if (!sub) throw new Error("Abonnement introuvable");
     if (sub.status !== "pending") throw new Error("Cet abonnement n'est pas en attente");
+    if (typeof sub.amount !== "number" || sub.amount <= 0) {
+      throw new Error("Impossible d'activer un abonnement sans tarif positif.");
+    }
 
     const now = Date.now();
     const planDuration = MONTHLY_DURATION; // paiement mensuel (30 jours)

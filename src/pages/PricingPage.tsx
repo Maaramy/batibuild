@@ -34,10 +34,10 @@ const DEFAULT_PAYMENT = {
 //   Expert 120 TND/mois → 2 mois gratuits, puis paiement
 type PlanId = "free" | "pro" | "expert" | "supplier";
 
-const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client", expert: "Expert", supplier: "Fournisseur" };
+const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client Pro", expert: "Expert", supplier: "Fournisseur" };
 
 const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean; trial?: boolean }[] = [
-  { id: "free", quota: -1, description: "Accès complet illimité pour tous vos projets" },
+  { id: "free", quota: -1, description: "Accès complet après validation du paiement — 80 TND/mois" },
   { id: "supplier", quota: -1, description: "Vendez vos matériaux — 2 mois gratuits", trial: true },
   { id: "expert", quota: -1, description: "Offrez vos services d'expertise — 2 mois gratuits", popular: true, trial: true },
 ];
@@ -104,6 +104,7 @@ export default function PricingPage() {
     const c = paymentConfig as any;
     if (plan === "free") return c?.startPrice ?? DEFAULT_PAYMENT.startPrice;
     if (plan === "pro") return c?.proPrice ?? DEFAULT_PAYMENT.proPrice;
+    if (plan === "supplier") return c?.supplierPrice ?? DEFAULT_PAYMENT.supplierPrice;
     return c?.expertPrice ?? DEFAULT_PAYMENT.expertPrice;
   };
 
@@ -143,7 +144,13 @@ export default function PricingPage() {
   const isPending = currentSubscription?.status === "pending";
   const construction = quotas?.construction;
   const investment = quotas?.investment;
-  const currentPlan = construction?.plan ?? "free";
+  const hasValidSubscription = !!currentSubscription &&
+    currentSubscription.status === "active" &&
+    (!currentSubscription.endDate || currentSubscription.endDate > Date.now()) &&
+    (currentSubscription.isTrial === true || (currentSubscription.amount ?? 0) > 0);
+  // getMyQuotas() uses the free plan as a fallback. It must not make an
+  // unauthenticated/unpaid user appear to already own the Client plan.
+  const currentPlan = hasValidSubscription ? currentSubscription.plan : undefined;
 
   const isCurrentPlan = (plan: PlanId) => currentPlan === plan && !isPending;
 
@@ -362,13 +369,12 @@ export default function PricingPage() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
         <div className="text-center mb-8">
           <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Abonnement actuel : {PLAN_LABELS[currentPlan]}
+            Abonnement actuel : {currentPlan ? PLAN_LABELS[currentPlan] : "Aucun abonnement actif"}
             {isPending && " (En attente de validation)"}
           </Badge>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre abonnement</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
-            Abonnement mensuel (30 jours) — renouvellement automatique. Chaque forfait inclut un accès complet
-            aux outils d'estimation, matériaux IA et téléchargements. Fournisseur et Expert bénéficient de 2 mois gratuits à l'inscription.
+            Abonnement mensuel (30 jours) — renouvellement après chaque échéance. Le forfait Client est activé uniquement après validation du paiement ; Fournisseur et Expert bénéficient de 2 mois gratuits à l'inscription.
           </p>
         </div>
 
@@ -432,7 +438,7 @@ export default function PricingPage() {
 
           {/* Abonnement selector */}
           <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
-            {(["free", "pro", "expert"] as PlanId[]).map((p) => (
+            {(["free", "supplier", "expert"] as PlanId[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setSelectedPlan(p)}

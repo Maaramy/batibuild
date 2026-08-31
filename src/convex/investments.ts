@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { checkQuota, consumeQuota, releaseQuota } from "./subscriptions";
+import { checkQuota, releaseQuota } from "./subscriptions";
 import {
   INVESTMENT_TYPE_META,
   INVESTMENT_TYPES,
@@ -770,8 +770,6 @@ export const saveAnalysis = mutation({
       updatedAt: now,
     });
 
-    await consumeQuota(ctx, user, "investments");
-
     return id;
   },
 });
@@ -824,7 +822,6 @@ export const adminDeleteAnalyses = mutation({
       const doc = await ctx.db.get(id);
       if (doc) {
         await ctx.db.delete(id);
-        try { await releaseQuota(ctx, doc.userId, "investments", 1); } catch { /* non bloquant */ }
         deleted++;
       }
     }
@@ -841,7 +838,6 @@ export const adminDeleteAnalysis = mutation({
     const doc = await ctx.db.get(args.analysisId);
     if (!doc) throw new Error("Analyse introuvable");
     await ctx.db.delete(args.analysisId);
-    try { await releaseQuota(ctx, doc.userId, "investments", 1); } catch { /* non bloquant */ }
     return { deleted: 1 };
   },
 });
