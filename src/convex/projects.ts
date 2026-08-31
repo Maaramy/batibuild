@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { checkQuota, consumeQuota, releaseQuota } from "./subscriptions";
+
 import {
   projectCategoryValidator,
   projectStatusValidator,
@@ -555,8 +555,6 @@ export const adminBatchDeleteProjects = mutation({
       const project = await ctx.db.get(projectId);
       if (project) {
         await ctx.db.delete(projectId);
-        // Libère le quota du propriétaire (projets construction)
-        try { await releaseQuota(ctx, project.userId, "projects", 1); } catch { /* non bloquant */ }
         deleted++;
       }
     }
