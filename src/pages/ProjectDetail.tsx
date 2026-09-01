@@ -19,7 +19,6 @@ import { useParams, useNavigate } from "react-router";
 import { useState, useMemo, Fragment, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
-import { alignDqeToBase } from "@/lib/bimBreakdown";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -1054,24 +1053,23 @@ export default function ProjectDetail() {
                     })),
                   }))
                 : [];
-              // ── Alignement sur la grille (référence unique) ──
-              // Le « Quantitatif détaillé » est la référence des prix et des
-              // pourcentages. Les lots (parfois calibrés sur un budget incluant
-              // les imprévus) sont réalignés sur la base de la grille : le total
-              // du quantitatif = somme des catégories de « Répartition » et
-              // « Détail par catégorie » — strictement identique, sans ligne
-              // « Imprévus ».
-              const baseTotal = (scaledBreakdown ?? []).reduce(
-                (acc: number, b: any) => acc + (b.estimatedCost || 0),
-                0,
-              );
-              const dqeLotsAligned = alignDqeToBase(dqeLots, baseTotal).lots;
+              // Totaux DQE recalculés à partir des lots scalés
+              const dqeTotals = dqe?.totals ? {
+                materiaux: Math.round(dqe.totals.materiaux * scaleFactor),
+                mainOeuvre: Math.round(dqe.totals.mainOeuvre * scaleFactor),
+                equipements: Math.round(dqe.totals.equipements * scaleFactor),
+                transport: Math.round(dqe.totals.transport * scaleFactor),
+                etudes: Math.round(dqe.totals.etudes * scaleFactor),
+                total: Math.round(dqe.totals.total * scaleFactor),
+                costPerM2: Math.round(dqe.totals.costPerM2 * scaleFactor),
+              } : undefined;
 
               // ── Données BIM (fallback plat) ──
               const flatBreakdown = scaledBreakdown ?? [];
 
               // Prix moyen par région (référence comparative)
               const avgM2 = (ce as any)?.avgRegionPriceM2 ?? currentCostM2;
+              const totalBudg = currentTotal;
               const surfaceTot = project?.surface ? project.surface * (project.floors || 1) : 0;
 
               return (
@@ -1124,7 +1122,7 @@ export default function ProjectDetail() {
                           {hasDqeLots ? (
                             /* ══════ VUE HIÉRARCHIQUE DQE (étapes / sous-étapes) ══════ */
                             <div className="divide-y divide-border/10">
-                              {dqeLotsAligned.map((lot: any) => {
+                              {dqeLots.map((lot: any) => {
                                 const LotIcon = LOT_ICONS[lot.id] || Building2;
                                 const isOpen = openCat === lot.name || openCat === "__all_expanded";
 
@@ -1260,23 +1258,30 @@ export default function ProjectDetail() {
                               <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
                                 <div className="flex items-center gap-2 mb-1">
                                   <Wallet className="h-4 w-4 text-primary" />
-                                  <span className="text-xs font-bold text-primary">Coût total estimé</span>
+                                  <span className="text-xs font-bold text-primary">Coût total estimé TTC</span>
                                 </div>
-                                <p className="text-lg font-black tabular-nums text-primary">{fmt(baseTotal)}</p>
+                                <p className="text-lg font-black tabular-nums text-primary">{fmt(totalBudg)}</p>
                                 {surfaceTot > 0 && (
                                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                                    soit {fmt(currentCostM2)}/m² · {surfaceTot} m²
+                                    soit {fmt(currentCostM2)}/m² · {surfaceTot} m² · TVA 19% incluse
                                   </p>
                                 )}
-                                {/* Ventilation par catégorie — strictement identique à « Répartition » et « Détail par catégorie » */}
-                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2">
-                                  {(scaledBreakdown ?? []).map((b: any) => (
-                                    <span key={b.category} className="text-[9px] text-muted-foreground">
-                                      {b.label}: <span className="font-semibold text-foreground/80">{fmt(b.estimatedCost)}</span>
-                                      <span className="text-foreground/50"> ({b.percentage}%)</span>
-                                    </span>
-                                  ))}
-                                </div>
+                                {/* Ventilation par nature (DQE) */}
+                                {dqeTotals && (
+                                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2">
+                                    {([
+                                      ["materiaux", "Matériaux", dqeTotals.materiaux],
+                                      ["main_oeuvre", "Main-d'œuvre", dqeTotals.mainOeuvre],
+                                      ["equipements", "Outillage", dqeTotals.equipements],
+                                      ["transport", "Transport", dqeTotals.transport],
+                                      ["etudes", "Études", dqeTotals.etudes],
+                                    ] as const).filter(([, , v]) => v > 0).map(([key, label, val]) => (
+                                      <span key={key} className="text-[9px] text-muted-foreground">
+                                        {label}: <span className="font-semibold text-foreground/80">{fmt(val)}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               {/* Prix moyen par région */}
                               <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
@@ -1399,6 +1404,16 @@ export default function ProjectDetail() {
                       </div>
                     );
                   })}
+                </div>
+                <div className="mt-3 pt-3 border-t border-border/10">
+                  <div className="flex items-center justify-between text-xs mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5 text-amber-500" />
+                      <span className="font-medium">Imprévus</span>
+                    </div>
+                    <span className="font-bold">{fmt(Math.round(ce.contingencyBuffer * scaleFactor))}</span>
+                  </div>
+                  <Progress value={ce.contingencyPercentage} className="h-1.5 bg-amber-500/10 [&>div]:bg-amber-500" />
                 </div>
               </motion.div>
             </div>
