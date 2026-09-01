@@ -1942,23 +1942,6 @@ export default function ProjectDetail() {
               )}
             </SectionCard>
 
-            {/* ══ Contact ══ */}
-            <motion.div variants={fadeUp} custom={8}
-              className="rounded-xl border bg-card shadow-sm p-4 sm:p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Phone className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70">Pour plus d'informations contactez :</p>
-                  <p className="text-sm font-semibold mt-0.5">Maatougui Seifeddine</p>
-                  <p className="text-[11px] text-muted-foreground">Consultant &amp; Directeur régional (SAFI)</p>
-                  <a href="mailto:Maatougui.Seifeddine@batibuild.app" className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 mt-0.5">
-                    <Mail className="h-3 w-3" /> Maatougui.Seifeddine@batibuild.app
-                  </a>
-                </div>
-              </div>
-            </motion.div>
           </motion.div>
         )}
       </div>
