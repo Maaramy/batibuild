@@ -467,3 +467,123 @@ describe("updatePaymentConfig", () => {
     expect(config!.currency).toBe("TND");
   });
 });
+
+// ============================================================================
+// checkClientProAccess — switch « Offre gratuite » de l'admin
+// ============================================================================
+// Critère d'acceptation : quand l'administrateur active l'« Offre gratuite »
+// sur le forfait Client Pro (prix null), les services de la plateforme
+// (projets de construction, investissements, matériaux IA, plans
+// architecturaux, suivi de A à Z) sont automatiquement activés, sans paiement.
+
+describe("checkClientProAccess — Offre gratuite (switch admin)", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  async function createProUser(email: string, withPaidSub = false, expired = false) {
+    return t.run(async (ctx) => {
+      const now = Date.now();
+      const endDate = expired ? now - 1000 : now + 30 * 24 * 60 * 60 * 1000;
+      const userId = await ctx.db.insert("users", {
+        name: "Client Pro",
+        email,
+        role: "user",
+        status: "active",
+        subscriptionPlan: "pro",
+        image: undefined,
+        company: undefined,
+        phone: undefined,
+        subscriptionEndDate: withPaidSub ? endDate : undefined,
+        createdAt: now,
+        updatedAt: now,
+      });
+      if (withPaidSub) {
+        await ctx.db.insert("subscriptions", {
+          userId,
+          kind: "construction",
+          plan: "pro",
+          status: "active",
+          startDate: now - 1000,
+          endDate,
+          paymentMethod: "card",
+          paymentId: "pay-test",
+          amount: 80,
+          currency: "TND",
+          monthlyDownloadCount: 0,
+          downloadLimit: Infinity,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+      return userId;
+    });
+  }
+
+  it("client sans abonnement payant : accès refusé par défaut (forfait payant)", async () => {
+    const userId = await createProUser("client@test.com");
+    const userT = t.withIdentity({ subject: userId });
+
+    const access = await userT.query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(false);
+    expect(access.reason).toBe("no_subscription");
+  });
+
+  it("abonnement expiré : accès refusé (renouvellement obligatoire)", async () => {
+    const userId = await createProUser("expired@test.com", true, true);
+    const userT = t.withIdentity({ subject: userId });
+
+    const access = await userT.query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(false);
+    expect(access.reason).toBe("expired");
+  });
+
+  it("abonnement payant actif : accès accordé", async () => {
+    const userId = await createProUser("paid@test.com", true);
+    const userT = t.withIdentity({ subject: userId });
+
+    const access = await userT.query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(true);
+    expect(access.reason).toBe("ok");
+  });
+
+  it("switch « Offre gratuite » activé par l'admin : accès accordé sans paiement", async () => {
+    const adminId = await createTestUser(t, { role: "admin" });
+    const adminT = asAdmin(t, adminId);
+
+    // L'admin active l'offre gratuite sur Client Pro (prix null)
+    await adminT.mutation(api.payments.updatePlanPricing, {
+      plan: "pro",
+      price: null,
+    });
+
+    // Prix bien null en base (lu par getPublicPricing → helper d'accès)
+    const pricing = await adminT.query(api.payments.getPublicPricing);
+    expect(pricing.proPrice).toBeNull();
+
+    // Client Pro SANS abonnement payant → accès accordé automatiquement
+    const userId = await createProUser("freeclient@test.com");
+    const userT = t.withIdentity({ subject: userId });
+    const access = await userT.query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(true);
+    expect(access.reason).toBe("ok");
+  });
+
+  it("switch désactivé (prix payant) : l'accès redevient payant", async () => {
+    const adminId = await createTestUser(t, { role: "admin" });
+    const adminT = asAdmin(t, adminId);
+
+    await adminT.mutation(api.payments.updatePlanPricing, {
+      plan: "pro",
+      price: 80,
+    });
+
+    const userId = await createProUser("paidagain@test.com");
+    const userT = t.withIdentity({ subject: userId });
+    const access = await userT.query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(false);
+    expect(access.reason).toBe("no_subscription");
+  });
+});
