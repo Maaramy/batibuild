@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 import { toast } from "sonner";
 import { drawBatiLogo } from "./pdfLogo";
+import { buildTtcBreakdown } from "./bimBreakdown";
 
 applyAutotablePlugin(jsPDF);
 
@@ -303,8 +304,14 @@ export async function generateProjectPdf({
     doc.text("%", ml + cw * 0.55, y + 7, { align: "right" });
     doc.text("Montant", ml + cw * 0.75, y + 7, { align: "right" });
 
-    const sortedBD = [...breakdown].sort(
-      (a: any, b: any) => b.estimatedCost - a.estimatedCost,
+    // Ventilation alignée sur la page de résultats : les 6 catégories de la
+    // grille + « Imprévus & contingence », pourcentages calculés sur le coût
+    // total TTC (somme des % = 100, somme des montants = total affiché).
+    const fullBreakdown = buildTtcBreakdown(breakdown, totalCost);
+    const sortedBD = [...fullBreakdown].sort(
+      (a: any, b: any) =>
+        (a.category === "contingence" ? 1 : 0) - (b.category === "contingence" ? 1 : 0) ||
+        b.estimatedCost - a.estimatedCost,
     );
 
     y += 8.5;
@@ -319,47 +326,33 @@ export async function generateProjectPdf({
       doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
       doc.line(ml, y + 5, ml + cw, y + 5);
 
+      const isContingence = cat.category === "contingence";
+      const rowColor: [number, number, number] = isContingence
+        ? [180, 83, 9]
+        : (C.text as [number, number, number]);
+
       doc.setFontSize(6.5);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(C.text[0], C.text[1], C.text[2]);
+      doc.setTextColor(rowColor[0], rowColor[1], rowColor[2]);
       doc.text(cat.label, ml + 2, y + 3.5);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
-      doc.text(`${cat.percentage}%`, ml + cw * 0.55, y + 3.5, { align: "right" });
+      doc.text(`${cat.pctTTC}%`, ml + cw * 0.55, y + 3.5, { align: "right" });
 
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(C.text[0], C.text[1], C.text[2]);
+      doc.setTextColor(rowColor[0], rowColor[1], rowColor[2]);
       doc.text(fmtPdf(cat.estimatedCost), ml + cw * 0.75, y + 3.5, { align: "right" });
 
       // Colored bar
-      const barColor =
-        BIM_RGB[cat.category] || (C.primary as [number, number, number]);
+      const barColor = isContingence
+        ? [180, 83, 9]
+        : BIM_RGB[cat.category] || (C.primary as [number, number, number]);
       doc.setFillColor(barColor[0], barColor[1], barColor[2]);
-      doc.rect(ml + cw * 0.56, y + 1.5, cw * 0.17 * (cat.percentage / 100), 2.5, "F");
+      doc.rect(ml + cw * 0.56, y + 1.5, cw * 0.17 * (cat.pctTTC / 100), 2.5, "F");
 
       y += 5;
     });
-
-    // Contingency row
-    addPageIfNeeded(6);
-    doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
-    doc.line(ml, y, ml + cw, y);
-    doc.setFontSize(6.5);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(180, 83, 9);
-    doc.text("Imprévus", ml + 2, y + 3.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
-    doc.text(`${ce.contingencyPercentage}%`, ml + cw * 0.55, y + 3.5, { align: "right" });
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(180, 83, 9);
-    doc.text(
-      fmtPdf(Math.round(ce.contingencyBuffer * sf)),
-      ml + cw * 0.75,
-      y + 3.5,
-      { align: "right" },
-    );
 
     y += 10;
 
@@ -472,46 +465,36 @@ export async function generateProjectPdf({
       doc.text(`Quantitatif détaillé — Scénario ${scenarioLabel}`, ml, y);
       y += 2;
 
-      // Ventilation par nature (DQE totals)
-      const dqeTotals = dqe?.totals
-        ? {
-            materiaux: Math.round(dqe.totals.materiaux * dqeScaleFactor),
-            mainOeuvre: Math.round(dqe.totals.mainOeuvre * dqeScaleFactor),
-            equipements: Math.round(dqe.totals.equipements * dqeScaleFactor),
-            transport: Math.round(dqe.totals.transport * dqeScaleFactor),
-            etudes: Math.round(dqe.totals.etudes * dqeScaleFactor),
-            total: Math.round(dqe.totals.total * dqeScaleFactor),
-          }
-        : null;
+      // Ventilation par catégorie — strictement identique à la page de
+      // résultats (6 catégories de la grille + contingence, parts sur le TTC)
+      doc.setFontSize(6);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+      doc.text("Ventilation par catégorie (coût total TTC) :", ml, y + 4);
+      y += 2;
 
-      if (dqeTotals) {
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
-        doc.text("Ventilation par nature :", ml, y + 4);
-        y += 2;
-
-        const natureEntries: [string, number][] = [
-          ["materiaux", dqeTotals.materiaux],
-          ["main_oeuvre", dqeTotals.mainOeuvre],
-          ["equipements", dqeTotals.equipements],
-          ["transport", dqeTotals.transport],
-          ["etudes", dqeTotals.etudes],
-        ].filter(([, v]) => (v as number) > 0) as [string, number][];
-
-        const natureColW = cw / Math.min(natureEntries.length, 5);
-        natureEntries.forEach(([key, val], i) => {
-          const nx = ml + i * natureColW;
-          const nc = NATURE_COLORS[key] || C.textSecondary;
+      const catEntries = fullBreakdown.filter((b: any) => b.estimatedCost > 0);
+      const catRows = Array.from({ length: Math.ceil(catEntries.length / 4) }, (_, i) =>
+        catEntries.slice(i * 4, i * 4 + 4),
+      );
+      catRows.forEach((rowEntries: any[]) => {
+        const catColW = cw / rowEntries.length;
+        rowEntries.forEach((b: any, i: number) => {
+          const nx = ml + i * catColW;
+          const nc =
+            b.category === "contingence"
+              ? [180, 83, 9]
+              : BIM_RGB[b.category] || (C.primary as [number, number, number]);
           doc.setFillColor(nc[0], nc[1], nc[2]);
-          doc.roundedRect(nx, y + 5, natureColW - 2, 5, 0.5, 0.5, "F");
+          doc.roundedRect(nx, y + 5, catColW - 2, 5, 0.5, 0.5, "F");
           doc.setTextColor(255, 255, 255);
           doc.setFontSize(5.5);
           doc.setFont("helvetica", "bold");
-          doc.text(`${NATURE_LABELS[key] || key}: ${fmtPdf(val)}`, nx + 1.5, y + 8.2);
+          doc.text(`${b.label}: ${fmtPdf(b.estimatedCost)} (${b.pctTTC}%)`, nx + 1.5, y + 8.2);
         });
-        y += 13;
-      }
+        y += 7;
+      });
+      y += 6;
 
       // ── DQE LOTS (hierarchical) ──
       if (hasDqeLots) {

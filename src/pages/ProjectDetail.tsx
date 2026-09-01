@@ -19,6 +19,7 @@ import { useParams, useNavigate } from "react-router";
 import { useState, useMemo, Fragment, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
+import { buildTtcBreakdown } from "@/lib/bimBreakdown";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -50,23 +51,16 @@ import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const REGION_MULTIPLIER: Record<string, number> = {
-  tunis: 1.15, ariana: 1.10, ben_arous: 1.10, manouba: 1.05,
-  nabeul: 1.05, bizerte: 1.05, sousse: 1.10, monastir: 1.05, mahdia: 1.00,
-  sfax: 1.05, gabes: 1.00, medenine: 0.95, tataouine: 0.95,
-  gafsa: 0.95, tozeur: 0.95, kebili: 0.95, kairouan: 0.95,
-  kasserine: 0.90, sidi_bouzid: 0.90, beja: 0.95, jendouba: 0.90,
-  le_kef: 0.90, siliana: 0.90, zaghouan: 0.95,
-};
-
 const BIM_COLORS: Record<string, string> = {
   gros_oeuvre: "#3b82f6", second_oeuvre: "#f59e0b", equipements: "#8b5cf6",
   main_oeuvre: "#22c55e", transport: "#84cc16", etudes_imprevus: "#ef4444",
+  contingence: "#e11d48",
 };
 
 const BIM_ICONS: Record<string, any> = {
   gros_oeuvre: Building2, second_oeuvre: Paintbrush, equipements: Plug,
   main_oeuvre: Users, transport: Truck, etudes_imprevus: FileText,
+  contingence: Shield,
 };
 
 const COMPARE_REGIONS = [
@@ -430,6 +424,16 @@ export default function ProjectDetail() {
     [scaledBreakdown],
   );
 
+  // ── Ventilation TTC alignée ────────────────────────────────────────────────
+  // « Répartition », « Détail par catégorie » et « Quantitatif détaillé »
+  // partagent exactement les mêmes montants et pourcentages : les 6 catégories
+  // de la grille tarifaire + « Imprévus & contingence », parts calculées sur le
+  // coût total TTC (somme des montants = total affiché, somme des % = 100).
+  const breakdownFull = useMemo(
+    () => buildTtcBreakdown(scaledBreakdown, currentTotal),
+    [scaledBreakdown, currentTotal],
+  );
+
   // ── Meilleur fournisseur (prix minimum) par désignation du quantitatif ──
   // Résolu en direct depuis les offres fournisseurs (materialOffers) : le nom
   // du fournisseur le moins cher est affiché pour chaque poste matériau.
@@ -452,14 +456,25 @@ export default function ProjectDetail() {
     return map;
   }, [cheapestSuppliers]);
 
-  const { rMult, impactPct, baseCost, diff } = useMemo(() => {
-    const r = project?.region ? (REGION_MULTIPLIER[project.region] ?? 1) : 1;
-    const i = Math.round((r - 1) * 100);
-    const total = ce?.totalCost ?? 0;
-    const b = total > 0 ? Math.round(total / r) : 0;
-    const d = total > 0 ? total - b : 0;
-    return { rMult: r, impactPct: i, baseCost: b, diff: d };
-  }, [project?.region, ce]);
+  // Comparatif régional sur la GRILLE FIXE du classeur (aucune moyenne
+  // nationale ni ajustement automatique) — mêmes valeurs que le moteur BIM.
+  const regionCompare = useMemo(() => {
+    if (!project) return null;
+    const surface = project.surface ?? 150;
+    const floors = project.floors ?? inferFloorsFromCategory(project.category);
+    const finishLevel = (project as any).finish_level || "standard";
+    const category = normalizeLegacyCategory(project.category);
+    const base = runBIMEstimation(category, surface, floors, "medenine", finishLevel).costEstimate.totalCost;
+    const rows = COMPARE_REGIONS.map((r) => {
+      const total = runBIMEstimation(category, surface, floors, r.key, finishLevel).costEstimate.totalCost;
+      return { key: r.key, name: r.name, total, ratio: base > 0 ? total / base : 1 };
+    });
+    const sel = project.region ? rows.find((r) => r.key === project.region) ?? null : null;
+    const rMult = sel?.ratio ?? 1;
+    const impactPct = Math.round((rMult - 1) * 100);
+    const diff = sel ? sel.total - base : 0;
+    return { rows, base, rMult, impactPct, diff, sel };
+  }, [project]);
 
   // ── Loading / Skeleton ──────────────────────────────────────────────────
 
@@ -830,7 +845,7 @@ export default function ProjectDetail() {
                 <div className="mt-4 pt-3 border-t border-white/15 flex flex-wrap items-center gap-2 text-[10px] text-white/80">
                   <Percent className="h-3 w-3 text-amber-300" />
                   <span>{ce.contingencyPercentage}% réservé aux imprévus</span>
-                  <span className="font-semibold text-amber-200">({fmt(ce.contingencyBuffer)})</span>
+                  <span className="font-semibold text-amber-200">({fmt(Math.round(ce.contingencyBuffer * scaleFactor))})</span>
                 </div>
               </div>
             </motion.div>
@@ -857,33 +872,31 @@ export default function ProjectDetail() {
             </motion.div>
 
             {/* ═══ Region Impact ═══ */}
-            {project.region && (
+            {project.region && regionCompare && (
               <SectionCard icon={Map} title={`Impact région : ${REGION_LABELS[project.region] ?? project.region}`}
-                badge={`×${rMult}`}>
+                badge={`×${regionCompare.rMult.toFixed(2)}`}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", impactPct > 0 ? "bg-amber-100" : "bg-emerald-100")}>
-                        <TrendingUp className={cn("h-4 w-4", impactPct > 0 ? "text-amber-600" : "text-emerald-600")} />
+                      <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", regionCompare.impactPct > 0 ? "bg-amber-100" : "bg-emerald-100")}>
+                        <TrendingUp className={cn("h-4 w-4", regionCompare.impactPct > 0 ? "text-amber-600" : "text-emerald-600")} />
                       </div>
                       <p className="text-xs font-semibold">
-                        {impactPct > 0 ? `${impactPct}% plus cher` : `${Math.abs(impactPct)}% moins cher`}
+                        {regionCompare.impactPct > 0 ? `${regionCompare.impactPct}% plus cher` : `${Math.abs(regionCompare.impactPct)}% moins cher`}
                       </p>
                     </div>
                     <div className="space-y-1 text-xs">
-                      <div className="flex justify-between py-0.5"><span className="text-muted-foreground">Moyenne nationale</span><span className="font-medium">{fmt(baseCost)}</span></div>
-                      <div className="flex justify-between py-0.5"><span className="text-muted-foreground">Ajustement</span><span className={cn("font-medium", impactPct > 0 ? "text-amber-600" : "text-emerald-600")}>{impactPct > 0 ? "+" : ""}{fmt(diff)}</span></div>
-                      <div className="flex justify-between py-1 mt-1 border-t border-border/20"><span className="font-bold">Total avec région</span><span className="font-bold text-primary">{fmt(ce.totalCost)}</span></div>
+                      <div className="flex justify-between py-0.5"><span className="text-muted-foreground">Base de référence (Médenine)</span><span className="font-medium">{fmt(regionCompare.base)}</span></div>
+                      <div className="flex justify-between py-0.5"><span className="text-muted-foreground">Ajustement</span><span className={cn("font-medium", regionCompare.impactPct > 0 ? "text-amber-600" : "text-emerald-600")}>{regionCompare.impactPct > 0 ? "+" : ""}{fmt(regionCompare.diff)}</span></div>
+                      <div className="flex justify-between py-1 mt-1 border-t border-border/20"><span className="font-bold">Total avec région</span><span className="font-bold text-primary">{fmt(regionCompare.sel?.total ?? ce.totalCost)}</span></div>
                     </div>
                   </div>
                   <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
                     <p className="text-[10px] font-semibold text-muted-foreground mb-2">Comparatif par région</p>
                     <div className="space-y-1.5">
-                      {COMPARE_REGIONS.map((r) => {
-                        const rm = REGION_MULTIPLIER[r.key] ?? 1;
-                        const rc = Math.round(baseCost * rm);
-                        const maxRc = Math.round(baseCost * Math.max(...COMPARE_REGIONS.map((cr) => REGION_MULTIPLIER[cr.key] ?? 1)));
-                        const barW = (rc / maxRc) * 100;
+                      {regionCompare.rows.map((r) => {
+                        const maxRc = Math.max(...regionCompare.rows.map((cr) => cr.total));
+                        const barW = maxRc > 0 ? (r.total / maxRc) * 100 : 0;
                         const sel = r.key === project.region;
                         return (
                           <div key={r.key} className={cn("flex items-center gap-2 px-2 py-1 rounded-md transition-colors", sel && "bg-primary/5")}>
@@ -891,7 +904,7 @@ export default function ProjectDetail() {
                             <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
                               <div className={cn("h-full rounded-full transition-all", sel ? "bg-primary" : "bg-primary/20")} style={{ width: `${barW}%` }} />
                             </div>
-                            <span className="text-[10px] font-mono text-muted-foreground w-[60px] text-right">{fmt(rc)}</span>
+                            <span className="text-[10px] font-mono text-muted-foreground w-[60px] text-right">{fmt(r.total)}</span>
                           </div>
                         );
                       })}
@@ -1053,16 +1066,6 @@ export default function ProjectDetail() {
                     })),
                   }))
                 : [];
-              // Totaux DQE recalculés à partir des lots scalés
-              const dqeTotals = dqe?.totals ? {
-                materiaux: Math.round(dqe.totals.materiaux * scaleFactor),
-                mainOeuvre: Math.round(dqe.totals.mainOeuvre * scaleFactor),
-                equipements: Math.round(dqe.totals.equipements * scaleFactor),
-                transport: Math.round(dqe.totals.transport * scaleFactor),
-                etudes: Math.round(dqe.totals.etudes * scaleFactor),
-                total: Math.round(dqe.totals.total * scaleFactor),
-                costPerM2: Math.round(dqe.totals.costPerM2 * scaleFactor),
-              } : undefined;
 
               // ── Données BIM (fallback plat) ──
               const flatBreakdown = scaledBreakdown ?? [];
@@ -1263,25 +1266,18 @@ export default function ProjectDetail() {
                                 <p className="text-lg font-black tabular-nums text-primary">{fmt(totalBudg)}</p>
                                 {surfaceTot > 0 && (
                                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                                    soit {fmt(currentCostM2)}/m² · {surfaceTot} m² · TVA 19% incluse
+                                    soit {fmt(currentCostM2)}/m² · {surfaceTot} m² · imprévus {ce.contingencyPercentage} % inclus
                                   </p>
                                 )}
-                                {/* Ventilation par nature (DQE) */}
-                                {dqeTotals && (
-                                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2">
-                                    {([
-                                      ["materiaux", "Matériaux", dqeTotals.materiaux],
-                                      ["main_oeuvre", "Main-d'œuvre", dqeTotals.mainOeuvre],
-                                      ["equipements", "Outillage", dqeTotals.equipements],
-                                      ["transport", "Transport", dqeTotals.transport],
-                                      ["etudes", "Études", dqeTotals.etudes],
-                                    ] as const).filter(([, , v]) => v > 0).map(([key, label, val]) => (
-                                      <span key={key} className="text-[9px] text-muted-foreground">
-                                        {label}: <span className="font-semibold text-foreground/80">{fmt(val)}</span>
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
+                                {/* Ventilation par catégorie — strictement identique à « Répartition » */}
+                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2">
+                                  {breakdownFull.map((b: any) => (
+                                    <span key={b.category} className="text-[9px] text-muted-foreground">
+                                      {b.label}: <span className="font-semibold text-foreground/80">{fmt(b.estimatedCost)}</span>
+                                      <span className="text-foreground/50"> ({b.pctTTC}%)</span>
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
                               {/* Prix moyen par région */}
                               <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
@@ -1291,11 +1287,11 @@ export default function ProjectDetail() {
                                 </div>
                                 <p className="text-lg font-black tabular-nums text-foreground">{fmt(avgM2)}<span className="text-xs font-normal text-muted-foreground">/m²</span></p>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                                  Moyenne nationale 24 gouvernorats · Base marché Tunisie 2026
+                                  Base de référence fixe : Médenine · Grille tarifaire 2026
                                 </p>
                                 {project?.region && currentCostM2 !== avgM2 && (
                                   <p className={cn("text-[10px] font-medium mt-1", currentCostM2 > avgM2 ? "text-amber-600" : "text-emerald-600")}>
-                                    {currentCostM2 > avgM2 ? "▲" : "▼"} {Math.abs(Math.round((currentCostM2 / avgM2 - 1) * 100))}% vs moyenne nationale ({REGION_LABELS[project.region] ?? project.region})
+                                    {currentCostM2 > avgM2 ? "▲" : "▼"} {Math.abs(Math.round((currentCostM2 / avgM2 - 1) * 100))}% vs base de référence ({REGION_LABELS[project.region] ?? project.region})
                                   </p>
                                 )}
                               </div>
@@ -1346,8 +1342,8 @@ export default function ProjectDetail() {
                 <div className="h-[180px] sm:h-[210px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={scaledBreakdown} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="estimatedCost" nameKey="label">
-                        {scaledBreakdown.map((e: any) => <Cell key={e.label} fill={BIM_COLORS[e.category] ?? "#888"} />)}
+                      <Pie data={breakdownFull} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="estimatedCost" nameKey="label">
+                        {breakdownFull.map((e: any) => <Cell key={e.label} fill={BIM_COLORS[e.category] ?? "#888"} />)}
                       </Pie>
                       <Tooltip content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
@@ -1356,7 +1352,7 @@ export default function ProjectDetail() {
                           <div className="bg-background/95 backdrop-blur border border-border/40 rounded-lg p-2.5 text-xs shadow-lg">
                             <p className="font-semibold">{d.label}</p>
                             <p className="text-muted-foreground">{fmt(d.estimatedCost)}</p>
-                            <p className="text-muted-foreground">{d.percentage}% du total</p>
+                            <p className="text-muted-foreground">{d.pctTTC}% du total TTC</p>
                           </div>
                         );
                       }} />
@@ -1364,25 +1360,29 @@ export default function ProjectDetail() {
                   </ResponsiveContainer>
                 </div>
                 <div className="grid grid-cols-2 gap-1 mt-2 pt-3 border-t border-border/10">
-                  {scaledBreakdown.map((item: any) => {
+                  {breakdownFull.map((item: any) => {
                     const Icon = BIM_ICONS[item.category] ?? Layers;
                     return (
                       <div key={item.label} className="flex items-center gap-1.5 text-[10px] sm:text-xs">
                         <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[item.category] ?? "#888" }} />
                         <Icon className="h-3 w-3 text-muted-foreground/50 shrink-0 hidden sm:block" />
                         <span className="truncate">{item.label}</span>
-                        <span className="font-semibold ml-auto">{item.percentage}%</span>
+                        <span className="font-semibold ml-auto">{item.pctTTC}%</span>
                       </div>
                     );
                   })}
                 </div>
+                <p className="text-[9px] text-muted-foreground/60 mt-2">Parts calculées sur le coût total TTC (imprévus inclus)</p>
               </motion.div>
 
               <motion.div variants={fadeUp} custom={4} className="lg:col-span-3 rounded-xl border bg-card shadow-sm p-4">
                 <h3 className="text-sm font-semibold mb-1">Détail par catégorie</h3>
                 <p className="text-[10px] text-muted-foreground mb-3">Postes de travaux</p>
                 <div className="space-y-3">
-                  {[...scaledBreakdown].sort((a: any, b: any) => b.estimatedCost - a.estimatedCost).map((item: any, i: number) => {
+                  {[...breakdownFull].sort((a: any, b: any) =>
+                    (a.category === "contingence" ? 1 : 0) - (b.category === "contingence" ? 1 : 0) ||
+                    b.estimatedCost - a.estimatedCost
+                  ).map((item: any, i: number) => {
                     const Icon = BIM_ICONS[item.category] ?? Layers;
                     const color = BIM_COLORS[item.category] ?? "#888";
                     return (
@@ -1394,10 +1394,10 @@ export default function ProjectDetail() {
                             </div>
                             <span className="text-xs sm:text-sm font-medium truncate">{item.label}</span>
                           </div>
-                          <span className="text-xs sm:text-sm font-bold shrink-0 ml-2">{fmt(item.estimatedCost)} <span className="text-[9px] text-muted-foreground font-normal">({item.percentage}%)</span></span>
+                          <span className="text-xs sm:text-sm font-bold shrink-0 ml-2">{fmt(item.estimatedCost)} <span className="text-[9px] text-muted-foreground font-normal">({item.pctTTC}%)</span></span>
                         </div>
                         <div className="h-1.5 rounded-full bg-muted/30 overflow-hidden">
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${item.percentage}%` }}
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${item.pctTTC}%` }}
                             transition={{ duration: 0.5, delay: i * 0.06, ease: "easeOut" }}
                             className="h-full rounded-full" style={{ backgroundColor: color }} />
                         </div>
@@ -1406,14 +1406,10 @@ export default function ProjectDetail() {
                   })}
                 </div>
                 <div className="mt-3 pt-3 border-t border-border/10">
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Shield className="h-3.5 w-3.5 text-amber-500" />
-                      <span className="font-medium">Imprévus</span>
-                    </div>
-                    <span className="font-bold">{fmt(Math.round(ce.contingencyBuffer * scaleFactor))}</span>
-                  </div>
-                  <Progress value={ce.contingencyPercentage} className="h-1.5 bg-amber-500/10 [&>div]:bg-amber-500" />
+                  <p className="text-[10px] text-muted-foreground flex items-start gap-1.5">
+                    <Shield className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-px" />
+                    Imprévus &amp; contingence : {ce.contingencyPercentage} % du coût de base (hors imprévus) — les pourcentages ci-dessus sont calculés sur le coût total TTC.
+                  </p>
                 </div>
               </motion.div>
             </div>
