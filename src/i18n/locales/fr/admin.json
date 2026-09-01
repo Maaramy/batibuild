@@ -25,9 +25,9 @@
     "deleteConfirm": "Confirmer la suppression de cet utilisateur ?",
     "noUsers": "Aucun utilisateur trouvé",
     "filterAll": "Tous les plans",
-    "filterPro": "Pro",
+    "filterPro": "Client Pro",
     "filterExpert": "Expert",
-    "filterFree": "Start",
+    "filterFree": "Aucun",
     "search": "Rechercher un utilisateur..."
   },
   "subscriptions": {
@@ -117,7 +117,7 @@
   },
   "limits": {
     "title": "Limites des forfaits",
-    "freeProjects": "Projets Start",
+    "freeProjects": "Projets gratuits",
     "proProjects": "Projets Pro",
     "expertProjects": "Projets Expert",
     "proDownloads": "Téléchargements Pro (forfait)",

@@ -52,7 +52,7 @@ export default function ProfilePage() {
 
   const isAdmin = user?.role === "admin";
   const isPaid = user?.subscriptionPlan === "pro" || user?.subscriptionPlan === "expert";
-  const planLabel = user?.subscriptionPlan === "expert" ? "Expert" : user?.subscriptionPlan === "pro" ? "Pro" : "Start";
+  const planLabel = user?.subscriptionPlan === "expert" ? "Expert" : user?.subscriptionPlan === "supplier" ? "Fournisseur" : user?.subscriptionPlan === "pro" ? "Client Pro" : "Aucun";
 
   const currentRole = (user as any)?.userRole || "client";
 
@@ -100,7 +100,7 @@ export default function ProfilePage() {
     try {
       await setUserRole({ userRole: newRole as any });
       toast.success(`Profil mis à jour : ${
-        newRole === "supplier" ? "Fournisseur" : newRole === "expert" ? "Expert" : "Client"
+        newRole === "supplier" ? "Fournisseur" : newRole === "expert" ? "Expert" : "Client Pro"
       }`);
       // Reload to reflect changes
       window.location.reload();
@@ -299,12 +299,12 @@ export default function ProfilePage() {
                       ? "Fournisseur"
                       : currentRole === "expert"
                       ? "Expert"
-                      : "Client"}
+                      : "Client Pro"}
                   </Badge>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {([
-                    { value: "client", label: "Client", icon: User, desc: "Estimer un projet" },
+                    { value: "client", label: "Client Pro", icon: User, desc: "Estimer un projet" },
                     { value: "supplier", label: "Fournisseur", icon: Store, desc: "Vendre des matériaux" },
                     { value: "expert", label: "Expert", icon: Briefcase, desc: "Services d'expertise" },
                   ] as const).map((opt) => (

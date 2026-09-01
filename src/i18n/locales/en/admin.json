@@ -25,9 +25,9 @@
     "deleteConfirm": "Confirm deletion of this user?",
     "noUsers": "No users found",
     "filterAll": "All plans",
-    "filterPro": "Pro",
+    "filterPro": "Client Pro",
     "filterExpert": "Expert",
-    "filterFree": "Start",
+    "filterFree": "None",
     "search": "Search a user..."
   },
   "subscriptions": {

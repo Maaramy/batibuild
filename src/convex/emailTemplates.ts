@@ -36,7 +36,7 @@ export const EMAIL_VARIABLES = [
   { token: "{{Nom}}", label: "Nom du destinataire" },
   { token: "{{Prénom}}", label: "Prénom du destinataire" },
   { token: "{{NomEntreprise}}", label: "Nom de l'entreprise" },
-  { token: "{{TypeAbonnement}}", label: "Type d'abonnement (Start/Pro/Expert/Fournisseur)" },
+  { token: "{{TypeAbonnement}}", label: "Type d'abonnement (Client Pro/Fournisseur/Expert)" },
   { token: "{{DateActivation}}", label: "Date d'activation" },
   { token: "{{DateExpiration}}", label: "Date d'expiration" },
   { token: "{{Montant}}", label: "Montant payé" },

@@ -5,14 +5,15 @@ import { getCurrentUser } from "./users";
 // Payment Configuration
 // ============================================================================
 
-// Abonnements mensuels (30 jours) — accès illimité pour les forfaits payants :
-//   Client  80 TND/mois  → accès complet illimité
-//   Fournisseur 120 TND/mois → 2 mois gratuits, puis paiement
-//   Expert 120 TND/mois → 2 mois gratuits, puis paiement
+// Abonnements mensuels (30 jours) — trois catégories d'offres :
+//   Client Pro  80 TND/mois (par défaut payant — null = gratuit)
+//   Fournisseur 120 TND/mois (null = gratuit)
+//   Expert      120 TND/mois (null = gratuit)
+// Plus aucun essai gratuit : le paiement est requis dès l'inscription.
 const UNLIMITED = 1000000;
 const DEFAULT_PLAN_PRICING = {
   startPrice: 80,
-  proPrice: 0,
+  proPrice: 80, // Client Pro — payant par défaut
   expertPrice: 120,
   supplierPrice: 120,
   currency: "TND",
@@ -25,8 +26,6 @@ const DEFAULT_PLAN_PRICING = {
   freeDownloadLimit: 0,
   proDownloadLimit: UNLIMITED,
   expertDownloadLimit: UNLIMITED,
-  trialEnabled: true,
-  trialDurationDays: 60,
   bankName: "",
   bankTitulaire: "",
   bankRib: "",
@@ -53,9 +52,10 @@ export const getPlanPricing = query({
 
     return {
       startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
-      proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
-      expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
-      supplierPrice: config.supplierPrice ?? DEFAULT_PLAN_PRICING.supplierPrice,
+      // null = forfait gratuit ; la valeur par défaut (sans config) n'est PAS gratuite.
+      proPrice: config.proPrice ?? null,
+      expertPrice: config.expertPrice ?? null,
+      supplierPrice: config.supplierPrice ?? null,
       freeProjectLimit: 0,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
@@ -65,8 +65,6 @@ export const getPlanPricing = query({
       freeDownloadLimit: 0,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
-      trialEnabled: config.trialEnabled ?? DEFAULT_PLAN_PRICING.trialEnabled,
-      trialDurationDays: config.trialDurationDays ?? DEFAULT_PLAN_PRICING.trialDurationDays,
     };
   },
 });
@@ -75,12 +73,11 @@ export const getPlanPricing = query({
 export const updatePlanPricing = mutation({
   args: {
     plan: v.string(),
-    price: v.optional(v.number()),
+    // null = forfait gratuit (switch « Offre gratuite »)
+    price: v.optional(v.union(v.number(), v.null())),
     projectLimit: v.optional(v.number()),
     investmentLimit: v.optional(v.number()),
     downloadLimit: v.optional(v.number()),
-    trialEnabled: v.optional(v.boolean()),
-    trialDurationDays: v.optional(v.number()),
     // Rétrocompatibilité : un prix unique par forfait couvre tous les types
     type: v.optional(v.union(v.literal("construction"), v.literal("investment"))),
   },
@@ -96,13 +93,10 @@ export const updatePlanPricing = mutation({
       .first();
 
     const patch: Record<string, any> = {};
-    if (args.trialEnabled !== undefined) patch.trialEnabled = args.trialEnabled;
-    if (args.trialDurationDays !== undefined) patch.trialDurationDays = args.trialDurationDays;
     const plan = args.plan;
 
-    if (plan === "free") {
-      if (args.price !== undefined) patch.startPrice = args.price;
-    } else if (plan === "pro") {
+    if (plan === "free" || plan === "pro") {
+      // « pro » = Client Pro (Start remplacé par Client Pro).
       if (args.price !== undefined) patch.proPrice = args.price;
       if (args.projectLimit !== undefined) patch.proProjectLimit = args.projectLimit;
       if (args.investmentLimit !== undefined) patch.proInvestmentLimit = args.investmentLimit;
@@ -143,9 +137,10 @@ export const getPublicPricing = query({
 
     return {
       startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
-      proPrice: config.proPrice ?? DEFAULT_PLAN_PRICING.proPrice,
-      expertPrice: config.expertPrice ?? DEFAULT_PLAN_PRICING.expertPrice,
-      supplierPrice: config.supplierPrice ?? DEFAULT_PLAN_PRICING.supplierPrice,
+      // null = forfait gratuit ; la valeur par défaut (sans config) n'est PAS gratuite.
+      proPrice: config.proPrice ?? null,
+      expertPrice: config.expertPrice ?? null,
+      supplierPrice: config.supplierPrice ?? null,
       freeProjectLimit: 0,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
@@ -155,8 +150,6 @@ export const getPublicPricing = query({
       freeDownloadLimit: 0,
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
-      trialEnabled: config.trialEnabled ?? DEFAULT_PLAN_PRICING.trialEnabled,
-      trialDurationDays: config.trialDurationDays ?? DEFAULT_PLAN_PRICING.trialDurationDays,
       currency: config.currency ?? "TND",
       bankName: config.bankName,
       bankTitulaire: config.bankTitulaire,

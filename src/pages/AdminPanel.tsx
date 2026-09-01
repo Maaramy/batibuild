@@ -192,14 +192,16 @@ export default function AdminPanel() {
   const updatePlanPricing = useMutation(api.payments.updatePlanPricing);
   const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
+  // Abonnements mensuels (30 jours) — trois offres : Client Pro, Fournisseur, Expert.
+  // Prix null/0 = forfait gratuit (bascule « Offre gratuite » par forfait).
+  // Client Pro est payant par défaut (80 TND/mois) — plus aucun essai gratuit.
   const [limitForm, setLimitForm] = useState({
-    // Abonnements mensuels (30 jours) — Fournisseur / Expert (forfait client supprimé)
-    constructionProPrice: 0, constructionExpertPrice: 120,
+    clientProPrice: 80,
     supplierPrice: 120,
-
-    // Essai gratuit
-    trialEnabled: true,
-    trialDurationDays: 60,
+    expertPrice: 120,
+    clientProFree: false,
+    supplierFree: false,
+    expertFree: false,
   });
   const [savingLimits, setSavingLimits] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
@@ -211,13 +213,14 @@ export default function AdminPanel() {
   // Sync local form when config loads (prix uniques par forfait, appliqués aux deux types)
   useEffect(() => {
     if (planForm) {
+      const isFree = (p: number | null | undefined) => p == null || p === 0;
       setLimitForm({
-        constructionProPrice: planForm.proPrice ?? 120,
-        constructionExpertPrice: planForm.expertPrice ?? 320,
-
-        supplierPrice: planForm.supplierPrice ?? 120,
-        trialEnabled: planForm.trialEnabled ?? true,
-        trialDurationDays: planForm.trialDurationDays ?? 60,
+        clientProPrice: isFree(planForm.proPrice) ? 80 : planForm.proPrice,
+        supplierPrice: isFree(planForm.supplierPrice) ? 120 : planForm.supplierPrice,
+        expertPrice: isFree(planForm.expertPrice) ? 120 : planForm.expertPrice,
+        clientProFree: isFree(planForm.proPrice),
+        supplierFree: isFree(planForm.supplierPrice),
+        expertFree: isFree(planForm.expertPrice),
       });
     }
   }, [planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice]);
@@ -1313,7 +1316,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                           "bg-slate-500/10 text-slate-600"
                         )}>
                           {selectedUser.subscriptionPlan === "supplier" ? "Fournisseur" :
-                           selectedUser.subscriptionPlan === "expert" ? "Expert" : "Client"}
+                           selectedUser.subscriptionPlan === "expert" ? "Expert" : "Client Pro"}
                         </Badge>
                       </div>
                       <div>
@@ -1326,25 +1329,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                       </div>
                     </div>
 
-                    {/* Option Essai Gratuit */}
-                    {(selectedUser.subscriptionPlan === "supplier" || selectedUser.subscriptionPlan === "expert") && (
-                      <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-200/20">
-                        <h4 className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 mb-2">
-                          <Clock className="h-3.5 w-3.5" /> Essai gratuit
-                        </h4>
-                        <p className="text-[10px] text-muted-foreground mb-2">
-                          {selectedUser.subscriptionPlan === "supplier"
-                            ? "Forfait Fournisseur : 2 mois gratuits à l'inscription, puis 120 TND/mois."
-                            : "Forfait Expert : 2 mois gratuits à l'inscription, puis 120 TND/mois."}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <Badge className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">
-                            Essai : 60 jours
-                          </Badge>
-                          <span className="text-[9px] text-muted-foreground">Durée fixe — gérée dans Abonnements</span>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Profil */}
                     <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
@@ -1649,7 +1633,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                                     "bg-muted/30 text-muted-foreground"
                                   )}>
                                     {sub.kind === "investment" ? "Invest. · " : sub.kind === "construction" || !sub.kind ? "Constr. · " : ""}
-                                    {sub.plan === "pro" ? "Pro" : sub.plan === "expert" ? "Expert" : sub.plan}
+                                    {sub.plan === "pro" ? "Client Pro" : sub.plan === "expert" ? "Expert" : sub.plan === "supplier" ? "Fournisseur" : sub.plan}
                                   </Badge>
                                 </td>
                                 <td className="py-3 px-3 hidden lg:table-cell">
@@ -1857,7 +1841,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                             previewReceipt.plan === "supplier" ? "bg-amber-400/10 text-amber-600" :
                             "bg-muted/30 text-muted-foreground"
                           )}>
-                            {previewReceipt.plan === "pro" ? "Pro" : previewReceipt.plan === "expert" ? "Expert" : previewReceipt.plan}
+                            {previewReceipt.plan === "pro" ? "Client Pro" : previewReceipt.plan === "expert" ? "Expert" : previewReceipt.plan === "supplier" ? "Fournisseur" : previewReceipt.plan}
                           </Badge>
                         </div>
                         <div>
@@ -2609,7 +2593,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
                 <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-sm">Abonnements & Revenus</CardTitle>
-                  <CardDescription className="text-[10px]">Expert: {planForm?.expertPrice ?? 320} TND | Fournisseur: {planForm?.supplierPrice ?? 120} TND</CardDescription>
+                  <CardDescription className="text-[10px]">Client Pro: {planForm?.proPrice ?? 80} TND | Fournisseur: {planForm?.supplierPrice ?? 120} TND | Expert: {planForm?.expertPrice ?? 120} TND</CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <div className="grid grid-cols-3 gap-2 mb-3">
@@ -3408,7 +3392,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         <td className="py-2.5 px-2 text-center">
                           {isModerator ? (
                             <Badge className={cn("text-[9px]", u.userRole === "supplier" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" : u.userRole === "expert" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : "bg-muted/30 text-muted-foreground")}>
-                              {u.userRole === "supplier" ? "Fournisseur" : u.userRole === "expert" ? "Expert" : "Client"}
+                              {u.userRole === "supplier" ? "Fournisseur" : u.userRole === "expert" ? "Expert" : "Client Pro"}
                             </Badge>
                           ) : (
                             <select
@@ -3428,7 +3412,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                                 "text-muted-foreground"
                               )}
                             >
-                              <option value="client">Client</option>
+                              <option value="client">Client Pro</option>
                               <option value="supplier">Fournisseur</option>
                               <option value="expert">Expert</option>
                             </select>
@@ -3437,7 +3421,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         <td className="py-2.5 px-2 text-center">
                           {isModerator ? (
                             <Badge className={cn("text-[9px]", u.subscriptionPlan === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : u.subscriptionPlan === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : u.subscriptionPlan === "supplier" ? "bg-amber-400/10 text-amber-600 border-amber-200/30" : "bg-muted/30 text-muted-foreground")}>
-                              {u.subscriptionPlan === "supplier" ? "Fournisseur" : u.subscriptionPlan === "expert" ? "Expert" : u.subscriptionPlan === "pro" ? "Client" : "Client"}
+                              {u.subscriptionPlan === "supplier" ? "Fournisseur" : u.subscriptionPlan === "expert" ? "Expert" : u.subscriptionPlan === "pro" ? "Client Pro" : "Aucun"}
                             </Badge>
                           ) : (
                             <select
@@ -3458,7 +3442,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                                 "text-muted-foreground"
                               )}
                             >
-                              <option value="pro">Client (Pro)</option>
+                              <option value="pro">Client Pro</option>
                               <option value="expert">Expert</option>
                               <option value="supplier">Fournisseur</option>
                             </select>
@@ -3731,7 +3715,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                               sub.plan === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" :
                               "bg-muted/30 text-muted-foreground"
                             )}>
-                              {sub.plan === "pro" ? "Pro" : sub.plan === "expert" ? "Expert" : sub.plan}
+                              {sub.plan === "pro" ? "Client Pro" : sub.plan === "expert" ? "Expert" : sub.plan === "supplier" ? "Fournisseur" : sub.plan}
                             </Badge>
                           </td>
                           <td className="py-2.5 px-2 sm:px-3 text-center">
@@ -4008,6 +3992,59 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* ═══ Forfait Client Pro (Start remplacé par Client Pro) ═══ */}
+                <div className="p-5 rounded-xl bg-gradient-to-br from-blue-500/5 to-blue-500/0 border border-blue-200/20 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold flex items-center gap-2">
+                        <User className="h-4 w-4 text-blue-500" />
+                        Forfait Client Pro
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {limitForm.clientProFree ? "Gratuit" : `${limitForm.clientProPrice} TND/mois`} — Estimation complète de vos projets de construction
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {limitForm.clientProFree ? (
+                        <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Gratuit</Badge>
+                      ) : (
+                        <Badge className="text-[10px] bg-blue-500/10 text-blue-600 border-blue-200/30">Payant</Badge>
+                      )}
+                      <Badge variant="outline" className="text-[10px] bg-blue-500/5">Client Pro</Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
+                    <p><strong className="text-foreground">Fonctionnalités :</strong> Projets de construction illimités, estimation IA aux prix tunisiens, rapports PDF/Excel/CSV, assistant matériaux IA, analyses de rentabilité immobilière.</p>
+                    <p><strong className="text-foreground">Dashboard :</strong> Suivi de la date de début et de fin de validité. Renouvellement mensuel requis à l'échéance.</p>
+                    <p><strong className="text-foreground">Règle :</strong> Le client passe au paiement dès la création de compte — aucun essai gratuit.</p>
+                  </div>
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="w-40">
+                      <label className="text-xs text-muted-foreground">Prix mensuel (TND)</label>
+                      <Input
+                        type="number"
+                        value={limitForm.clientProPrice}
+                        disabled={limitForm.clientProFree}
+                        onChange={(e) => setLimitForm({ ...limitForm, clientProPrice: parseFloat(e.target.value) })}
+                        className="h-8 w-full text-sm mt-1"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 pb-0.5">
+                      <Switch
+                        checked={limitForm.clientProFree}
+                        onCheckedChange={(checked) =>
+                          setLimitForm((prev) => ({
+                            ...prev,
+                            clientProFree: checked,
+                            clientProPrice: checked ? prev.clientProPrice : prev.clientProPrice || 80,
+                          }))
+                        }
+                      />
+                      <span className="text-[11px] text-muted-foreground">Offre gratuite</span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* ═══ Forfait Fournisseur ═══ */}
                 <div className="p-5 rounded-xl bg-gradient-to-br from-purple-500/5 to-purple-500/0 border border-purple-200/20 space-y-4">
                   <div className="flex items-center justify-between">
@@ -4017,38 +4054,46 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         Forfait Fournisseur
                       </h3>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        120 TND/mois — Vendez vos matériaux sur la plateforme
+                        {limitForm.supplierFree ? "Gratuit" : `${limitForm.supplierPrice} TND/mois`} — Vendez vos matériaux sur la plateforme
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">2 mois gratuits</Badge>
+                      {limitForm.supplierFree ? (
+                        <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Gratuit</Badge>
+                      ) : (
+                        <Badge className="text-[10px] bg-purple-500/10 text-purple-600 border-purple-200/30">Payant</Badge>
+                      )}
                       <Badge variant="outline" className="text-[10px] bg-purple-500/5">Fournisseur</Badge>
                     </div>
                   </div>
                   <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
-                    <p><strong className="text-foreground">Période d'essai :</strong> 2 mois gratuits offerts à l'inscription. Passage au paiement obligatoire (120 TND/mois) à l'issue de l'essai.</p>
-                    <p><strong className="text-foreground">Dashboard :</strong> Suivi de la date de début et de fin de validité. Renouvellement nécessaire à l'échéance.</p>
                     <p><strong className="text-foreground">Fonctionnalités :</strong> Espace fournisseur complet — profil entreprise, réception des demandes de devis, statistiques, gestion des devis.</p>
+                    <p><strong className="text-foreground">Dashboard :</strong> Suivi de la date de début et de fin de validité. Renouvellement mensuel requis à l'échéance.</p>
+                    <p><strong className="text-foreground">Règle :</strong> Paiement requis dès l'inscription — aucun essai gratuit.</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="w-40">
                       <label className="text-xs text-muted-foreground">Prix mensuel (TND)</label>
                       <Input
                         type="number"
                         value={limitForm.supplierPrice}
+                        disabled={limitForm.supplierFree}
                         onChange={(e) => setLimitForm({ ...limitForm, supplierPrice: parseFloat(e.target.value) })}
                         className="h-8 w-full text-sm mt-1"
                       />
                     </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Durée essai gratuit (jours)</label>
-                      <Input
-                        type="number"
-                        value={60}
-                        disabled
-                        className="h-8 w-full text-sm mt-1 bg-muted/30"
+                    <div className="flex items-center gap-2 pb-0.5">
+                      <Switch
+                        checked={limitForm.supplierFree}
+                        onCheckedChange={(checked) =>
+                          setLimitForm((prev) => ({
+                            ...prev,
+                            supplierFree: checked,
+                            supplierPrice: checked ? prev.supplierPrice : prev.supplierPrice || 120,
+                          }))
+                        }
                       />
-                      <p className="text-[9px] text-muted-foreground mt-0.5">Fixé à 60 jours (2 mois)</p>
+                      <span className="text-[11px] text-muted-foreground">Offre gratuite</span>
                     </div>
                   </div>
                 </div>
@@ -4062,89 +4107,52 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         Forfait Expert
                       </h3>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        120 TND/mois — Offrez vos services d'expertise
+                        {limitForm.expertFree ? "Gratuit" : `${limitForm.expertPrice} TND/mois`} — Offrez vos services d'expertise
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">2 mois gratuits</Badge>
+                      {limitForm.expertFree ? (
+                        <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Gratuit</Badge>
+                      ) : (
+                        <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Payant</Badge>
+                      )}
                       <Badge variant="outline" className="text-[10px] bg-emerald-500/5">Expert</Badge>
                     </div>
                   </div>
                   <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
-                    <p><strong className="text-foreground">Période d'essai :</strong> 2 mois gratuits offerts à l'inscription. Passage au paiement obligatoire (120 TND/mois) à l'issue de l'essai.</p>
-                    <p><strong className="text-foreground">Dashboard :</strong> Suivi de la date de début et de fin de validité. Renouvellement nécessaire à l'échéance.</p>
                     <p><strong className="text-foreground">Fonctionnalités :</strong> Espace expert complet — profil métier (architecte, ingénieur, bureau d'études, promoteur), réception des demandes de service, statistiques, gestion des prestations.</p>
+                    <p><strong className="text-foreground">Dashboard :</strong> Suivi de la date de début et de fin de validité. Renouvellement mensuel requis à l'échéance.</p>
+                    <p><strong className="text-foreground">Règle :</strong> Paiement requis dès l'inscription — aucun essai gratuit.</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="w-40">
                       <label className="text-xs text-muted-foreground">Prix mensuel (TND)</label>
                       <Input
                         type="number"
-                        value={limitForm.constructionExpertPrice}
-                        onChange={(e) => setLimitForm({ ...limitForm, constructionExpertPrice: parseFloat(e.target.value) })}
+                        value={limitForm.expertPrice}
+                        disabled={limitForm.expertFree}
+                        onChange={(e) => setLimitForm({ ...limitForm, expertPrice: parseFloat(e.target.value) })}
                         className="h-8 w-full text-sm mt-1"
                       />
                     </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Durée essai gratuit (jours)</label>
-                      <Input
-                        type="number"
-                        value={60}
-                        disabled
-                        className="h-8 w-full text-sm mt-1 bg-muted/30"
+                    <div className="flex items-center gap-2 pb-0.5">
+                      <Switch
+                        checked={limitForm.expertFree}
+                        onCheckedChange={(checked) =>
+                          setLimitForm((prev) => ({
+                            ...prev,
+                            expertFree: checked,
+                            expertPrice: checked ? prev.expertPrice : prev.expertPrice || 120,
+                          }))
+                        }
                       />
-                      <p className="text-[9px] text-muted-foreground mt-0.5">Fixé à 60 jours (2 mois)</p>
+                      <span className="text-[11px] text-muted-foreground">Offre gratuite</span>
                     </div>
                   </div>
                 </div>
 
-                {/* ═══ Essai Gratuit (global) ═══ */}
-                <div className="p-5 rounded-xl bg-gradient-to-br from-sky-500/5 to-sky-500/0 border border-sky-200/20 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-600">
-                        <Clock className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold">Essai gratuit</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Activer ou désactiver la période d'essai gratuit pour les nouveaux Fournisseurs et Experts
-                        </p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={limitForm.trialEnabled}
-                      onCheckedChange={(checked) => setLimitForm({ ...limitForm, trialEnabled: checked })}
-                    />
-                  </div>
-                  {limitForm.trialEnabled && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-muted-foreground">Durée essai gratuit (jours)</label>
-                        <Input
-                          type="number"
-                          value={limitForm.trialDurationDays}
-                          onChange={(e) => setLimitForm({ ...limitForm, trialDurationDays: parseInt(e.target.value) || 0 })}
-                          className="h-8 w-full text-sm mt-1"
-                          min={0}
-                          max={365}
-                        />
-                        <p className="text-[9px] text-muted-foreground mt-0.5">
-                          {limitForm.trialDurationDays} jour(s) — soit ~{Math.round(limitForm.trialDurationDays / 30)} mois
-                        </p>
-                      </div>
-                      <div className="flex items-end">
-                        <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground w-full">
-                          <p><strong className="text-foreground">Règle :</strong> Les nouveaux Fournisseurs et Experts bénéficie de {limitForm.trialDurationDays} jours gratuits à l'inscription, puis passage au paiement obligatoire.</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {!limitForm.trialEnabled && (
-                    <div className="rounded-lg bg-amber-500/5 border border-amber-200/20 p-3 text-[11px] text-amber-600 dark:text-amber-400">
-                      <p>L'essai gratuit est <strong>désactivé</strong>. Les nouveaux Fournisseurs et Experts devront payer immédiatement leur abonnement.</p>
-                    </div>
-                  )}
+                <div className="rounded-lg bg-amber-500/5 border border-amber-200/20 p-3 text-[11px] text-amber-600 dark:text-amber-400">
+                  <p>L'essai gratuit a été <strong>supprimé</strong>. Chaque forfait est soit payant (prix défini ci-dessus), soit gratuit via son bouton « Offre gratuite ».</p>
                 </div>
 
                 {savingLimits ? (
@@ -4157,22 +4165,21 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                     onClick={async () => {
                       setSavingLimits(true);
                       try {
-                        // Forfait Fournisseur
+                        // Client Pro (Start remplacé par Client Pro)
+                        await updatePlanPricing({
+                          plan: "pro",
+                          price: limitForm.clientProFree ? null : limitForm.clientProPrice,
+                        });
+                        // Fournisseur
                         await updatePlanPricing({
                           plan: "supplier",
-                          price: limitForm.supplierPrice,
-                        } as any);
-                        // Forfait Expert
+                          price: limitForm.supplierFree ? null : limitForm.supplierPrice,
+                        });
+                        // Expert
                         await updatePlanPricing({
                           plan: "expert",
-                          price: limitForm.constructionExpertPrice,
-                        } as any);
-                        // Essai gratuit (global)
-                        await updatePlanPricing({
-                          plan: "free",
-                          trialEnabled: limitForm.trialEnabled,
-                          trialDurationDays: limitForm.trialDurationDays,
-                        } as any);
+                          price: limitForm.expertFree ? null : limitForm.expertPrice,
+                        });
                         toast.success("Abonnements mis à jour");
                       } catch (err: any) {
                         toast.error(err.message || "Erreur");

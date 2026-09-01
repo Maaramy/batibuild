@@ -6,7 +6,7 @@
   "popular": "شائع",
   "mostPopular": "الأكثر طلباً",
   "freePlan": {
-    "name": "Start",
+    "name": "عميل برو",
     "price": "79",
     "desc": "لمشروع أول",
     "features": {
@@ -18,7 +18,7 @@
     }
   },
   "proPlan": {
-    "name": "احترافي",
+    "name": "مورد",
     "price": "120",
     "desc": "لمحترفي البناء",
     "features": {

@@ -68,7 +68,8 @@ describe("getPlanPricing", () => {
 
     expect(result).not.toBeNull();
     expect(result!.startPrice).toBe(80);
-    expect(result!.proPrice).toBe(0);
+    // Client Pro est payant par défaut (80 TND/mois)
+    expect(result!.proPrice).toBe(80);
     expect(result!.expertPrice).toBe(120);
     expect(result!.supplierPrice).toBe(120);
     expect(result!.freeProjectLimit).toBe(0);
@@ -150,7 +151,7 @@ describe("getPlanPricing", () => {
     expect(result).not.toBeNull();
     expect(result!.proPrice).toBe(89);             // from config
     expect(result!.expertPrice).toBe(350);          // from config
-    expect(result!.supplierPrice).toBe(120);         // fallback to default
+    expect(result!.supplierPrice).toBeNull();       // null = forfait gratuit (absence de prix)
     expect(result!.freeProjectLimit).toBe(0);             // always 0 (no free quota)
     expect(result!.proProjectLimit).toBe(1000000);         // fallback to default
   });
@@ -460,7 +461,7 @@ describe("updatePaymentConfig", () => {
     });
 
     const config = await adminT.query(api.payments.getPaymentConfigAdmin);
-    expect(config!.proPrice).toBe(0);
+    expect(config!.proPrice).toBe(80);
     expect(config!.expertPrice).toBe(120);
     expect(config!.supplierPrice).toBe(120);
     expect(config!.currency).toBe("TND");

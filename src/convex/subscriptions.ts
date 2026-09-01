@@ -129,9 +129,8 @@ export const checkDownloadAllowedFor = query({
 // ============================================================================
 
 // Forfaits mensuels : durée de 30 jours — renouvellement mensuel.
+// Plus aucun essai gratuit : le paiement est requis dès l'inscription.
 const MONTHLY_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 jours
-// Période d'essai gratuite pour Fournisseur/Expert : 2 mois
-const TRIAL_DURATION = 60 * 24 * 60 * 60 * 1000; // 60 jours
 
 /** Create or update subscription (abonnement mensuel, 30 jours) */
 export const createSubscription = mutation({
@@ -157,17 +156,8 @@ export const createSubscription = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
 
-    // Durée selon le type de plan
-    let duration = MONTHLY_DURATION;
-    // Fournisseur et Expert bénéficient d'un essai gratuit configurable à l'inscription
-    if ((args.plan === "supplier" || args.plan === "expert") && existing.length === 0) {
-      const config = await ctx.db.query("paymentConfig").order("desc").first();
-      const trialEnabled = config?.trialEnabled ?? true;
-      const trialDays = config?.trialDurationDays ?? 60;
-      if (trialEnabled && trialDays > 0) {
-        duration = trialDays * 24 * 60 * 60 * 1000; // essai gratuit configurable
-      }
-    }
+    // Durée mensuelle (30 jours) pour tous les forfaits — essai gratuit supprimé
+    const duration = MONTHLY_DURATION;
 
     for (const sub of existing) {
       if (sub.status === "active") {
@@ -175,16 +165,21 @@ export const createSubscription = mutation({
       }
     }
 
+    // Forfait gratuit (montant null ou 0) : activation immédiate, sans paiement.
+    const isFreePlan = args.amount === null || args.amount === 0 || args.amount === undefined;
+    const status =
+      isFreePlan ? "active" : args.paymentMethod === "bank_transfer" ? "pending" : "active";
+
     const subscriptionId = await ctx.db.insert("subscriptions", {
       userId: user._id,
       kind,
       plan: args.plan,
-      status: args.paymentMethod === "bank_transfer" ? "pending" : "active",
+      status,
       startDate: now,
       endDate: now + duration,
-      paymentMethod: args.paymentMethod,
+      paymentMethod: isFreePlan ? undefined : args.paymentMethod,
       paymentId: args.paymentId,
-      amount: args.amount,
+      amount: isFreePlan ? 0 : args.amount,
       currency: args.currency || "TND",
       monthlyDownloadCount: 0,
       downloadLimit: Infinity,
@@ -193,7 +188,7 @@ export const createSubscription = mutation({
     });
 
     // Update user's subscription plan (only if not pending) — dernière formule achetée
-    if (args.paymentMethod !== "bank_transfer") {
+    if (status !== "pending") {
       await ctx.db.patch(user._id, {
         subscriptionPlan: args.plan,
         subscriptionEndDate: now + duration,
@@ -292,7 +287,7 @@ export const cancelSubscription = mutation({
     }
 
     await ctx.db.patch(user._id, {
-      subscriptionPlan: SUBSCRIPTION_PLANS.FREE,
+      subscriptionPlan: undefined,
     });
   },
 });

@@ -6,7 +6,7 @@
   "popular": "Popular",
   "mostPopular": "Most popular",
   "freePlan": {
-    "name": "Start",
+    "name": "Client Pro",
     "price": "79",
     "desc": "For a first project",
     "features": {
@@ -18,7 +18,7 @@
     }
   },
   "proPlan": {
-    "name": "Pro",
+    "name": "Fournisseur",
     "price": "120",
     "desc": "For construction professionals",
     "features": {
@@ -45,7 +45,7 @@
     }
   },
   "supplierPlan": {
-    "name": "Supplier",
+    "name": "Fournisseur",
     "price": "120",
     "desc": "For material suppliers",
     "features": {

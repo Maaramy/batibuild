@@ -53,8 +53,8 @@
   "remaining": "Il vous reste {{count}} téléchargement(s) ce mois-ci.",
   "subscribed": "Vous êtes abonné {{plan}}.",
   "plan": {
-    "free": "Start",
-    "pro": "Pro",
+    "free": "Aucun",
+    "pro": "Client Pro",
     "expert": "Expert"
   },
   "materialsUpdate": "Mise à jour des prix",

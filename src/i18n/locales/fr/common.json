@@ -122,8 +122,8 @@
     "remaining": "restant(s)"
   },
   "badge": {
-    "free": "Start",
-    "pro": "Pro",
+    "free": "Aucun",
+    "pro": "Client Pro",
     "expert": "Expert",
     "verified": "Vérifié",
     "pending": "En attente",

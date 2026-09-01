@@ -24,9 +24,11 @@ export const roleValidator = v.union(
 );
 export type Role = Infer<typeof roleValidator>;
 
+// Trois catégories d'offres : Client Pro (pro), Fournisseur (supplier), Expert (expert).
+// « free » correspond à l'absence de forfait (aucun abonnement actif).
 export const SUBSCRIPTION_PLANS = {
   FREE: "free",
-  PRO: "pro",
+  PRO: "pro", // Client Pro
   EXPERT: "expert",
 } as const;
 
@@ -942,8 +944,10 @@ const schema = defineSchema(
       d17Phone: v.string(),
       d17Email: v.string(),
       d17Notice: v.string(),
-      proPrice: v.number(),
-      supplierPrice: v.number(),
+      // Prix par forfait — null signifie que le forfait est gratuit.
+      // Client Pro = proPrice (par défaut payant), Fournisseur = supplierPrice, Expert = expertPrice.
+      proPrice: v.optional(v.number()),
+      supplierPrice: v.optional(v.number()),
       expertPrice: v.optional(v.number()),
       currency: v.string(),
       startPrice: v.optional(v.number()),

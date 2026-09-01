@@ -54,7 +54,7 @@
   },
   "limitDialog": {
     "title": "Limite atteinte",
-    "upgrade": "Passer à l'offre Pro",
+    "upgrade": "Passer à l'offre Client Pro",
     "backToDashboard": "Retour au tableau de bord"
   },
   "errors": {

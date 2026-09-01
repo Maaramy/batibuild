@@ -627,7 +627,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <Label className="text-sm font-medium" style={{ color: "var(--foreground)" }}>Vous êtes</Label>
                       <div className="grid grid-cols-3 gap-2 mt-1.5">
                         {([
-                          { value: "client" as const, label: "Client", icon: User, desc: "Estimer un projet" },
+                          { value: "client" as const, label: "Client Pro", icon: User, desc: "Estimer un projet" },
                           { value: "supplier" as const, label: "Fournisseur", icon: Store, desc: "Vendre des matériaux" },
                           { value: "expert" as const, label: "Expert", icon: Briefcase, desc: "Services d'expertise" },
                         ]).map((opt) => (
@@ -692,7 +692,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <Label className="text-sm font-medium" style={{ color: "var(--foreground)" }}>Vous êtes</Label>
                       <div className="grid grid-cols-3 gap-2 mt-1.5">
                         {([
-                          { value: "client" as const, label: "Client", icon: User, desc: "Estimer un projet" },
+                          { value: "client" as const, label: "Client Pro", icon: User, desc: "Estimer un projet" },
                           { value: "supplier" as const, label: "Fournisseur", icon: Store, desc: "Vendre des matériaux" },
                           { value: "expert" as const, label: "Expert", icon: Briefcase, desc: "Services d'expertise" },
                         ]).map((opt) => (

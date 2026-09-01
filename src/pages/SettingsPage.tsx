@@ -331,15 +331,15 @@ export default function SettingsPage() {
                 title="Abonnement"
                 description={
                   isPro
-                    ? "Vous êtes sur l'offre Pro"
-                    : "Passez à l'offre Pro pour plus de fonctionnalités"
+                    ? "Vous êtes sur l'offre Client Pro"
+                    : "Passez à l'offre Client Pro pour plus de fonctionnalités"
                 }
                 onClick={() => navigate("/dashboard/pricing")}
               >
                 {isPro && (
                   <Badge className="text-[9px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
                     <Crown className="h-3 w-3 mr-1" />
-                    Pro
+                    Client Pro
                   </Badge>
                 )}
               </SettingRow>

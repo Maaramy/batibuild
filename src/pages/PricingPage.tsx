@@ -21,22 +21,23 @@ const DEFAULT_PAYMENT = {
   d17Phone: "+216 XX XXX XXX",
   d17Email: "paiement@batibuild.app",
   d17Notice: "Envoyez le paiement via l'application D17 de La Poste Tunisienne",
+  proPrice: 80,
   supplierPrice: 120,
   expertPrice: 120,
   currency: "TND",
 };
 
-// Abonnements mensuels (30 jours) — accès illimité pour les forfaits payants :
-//   Fournisseur 120 TND/mois → 2 mois gratuits, puis paiement
-//   Expert 120 TND/mois → 2 mois gratuits, puis paiement
-// (Le forfait Client a été supprimé — plus aucun accès gratuit permanent.)
-type PlanId = "expert" | "supplier";
+// Abonnements mensuels (30 jours) — trois offres : Client Pro, Fournisseur, Expert.
+// Un prix null/0 en base signifie que le forfait est gratuit (bascule admin « Offre gratuite »).
+// Client Pro est payant par défaut — plus aucun essai gratuit.
+type PlanId = "pro" | "supplier" | "expert";
 
-const PLAN_LABELS: Record<string, string> = { expert: "Expert", supplier: "Fournisseur" };
+const PLAN_LABELS: Record<string, string> = { pro: "Client Pro", supplier: "Fournisseur", expert: "Expert" };
 
-const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean; trial?: boolean }[] = [
-  { id: "supplier", quota: -1, description: "Vendez vos matériaux — 2 mois gratuits", trial: true },
-  { id: "expert", quota: -1, description: "Offrez vos services d'expertise — 2 mois gratuits", popular: true, trial: true },
+const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean }[] = [
+  { id: "pro", quota: -1, description: "Estimez vos projets de construction — accès complet illimité" },
+  { id: "supplier", quota: -1, description: "Vendez vos matériaux sur la plateforme" },
+  { id: "expert", quota: -1, description: "Offrez vos services d'expertise", popular: true },
 ];
 
 function PaymentField({
@@ -92,14 +93,20 @@ export default function PricingPage() {
   const [searchParams] = useSearchParams();
   const [selectedPlan, setSelectedPlan] = useState<PlanId>(() => {
     const p = searchParams.get("plan");
-    return p === "supplier" ? "supplier" : "expert";
+    return p === "pro" ? "pro" : p === "supplier" ? "supplier" : "expert";
   });
 
-  // Prix par forfait
+  // Prix par forfait — null/0 signifie forfait gratuit
   const priceFor = (plan: PlanId): number => {
     const c = paymentConfig as any;
-    if (plan === "supplier") return c?.supplierPrice ?? DEFAULT_PAYMENT.supplierPrice;
-    return c?.expertPrice ?? DEFAULT_PAYMENT.expertPrice;
+    if (plan === "pro") return c?.proPrice == null ? DEFAULT_PAYMENT.proPrice : c?.proPrice;
+    if (plan === "supplier") return c?.supplierPrice == null ? DEFAULT_PAYMENT.supplierPrice : c?.supplierPrice;
+    return c?.expertPrice == null ? DEFAULT_PAYMENT.expertPrice : c?.expertPrice;
+  };
+  const isFreePlan = (plan: PlanId): boolean => {
+    const c = paymentConfig as any;
+    const p = plan === "pro" ? c?.proPrice : plan === "supplier" ? c?.supplierPrice : c?.expertPrice;
+    return p == null || p === 0;
   };
 
   const currentPrice = priceFor(selectedPlan);
@@ -154,17 +161,20 @@ export default function PricingPage() {
     }, 100);
 
     const planAmount = priceFor(planId);
+    const free = isFreePlan(planId);
 
-    // Forfait à paiement unique — un seul abonnement couvre tous les types
+    // Forfait mensuel — activation immédiate si gratuit, sinon paiement (virement/D17)
     await createSubscription({
       plan: planId,
-      paymentMethod: paymentMethod,
-      amount: planAmount,
+      paymentMethod: free ? undefined : paymentMethod,
+      amount: free ? 0 : planAmount,
       currency: paymentConfig?.currency ?? DEFAULT_PAYMENT.currency,
     });
 
     toast.success(
-      paymentMethod === "d17"
+      free
+        ? "Forfait gratuit activé avec succès !"
+        : paymentMethod === "d17"
         ? "Demande d'abonnement envoyée ! En attente de validation du paiement D17."
         : "Demande d'abonnement envoyée ! En attente de validation du virement."
     );
@@ -247,7 +257,6 @@ export default function PricingPage() {
     description: string,
     popular?: boolean,
     index = 0,
-    trial?: boolean,
   ) => {
     const isCurrent = isCurrentPlan(plan);
     const reached = false;
@@ -287,8 +296,14 @@ export default function PricingPage() {
         </div>
 
         <div className="mb-5">
-          <span className="text-4xl font-bold">{price}</span>
-          <span className="ml-1 text-sm text-muted-foreground">TND · /mois</span>
+          {price > 0 ? (
+            <>
+              <span className="text-4xl font-bold">{price}</span>
+              <span className="ml-1 text-sm text-muted-foreground">TND · /mois</span>
+            </>
+          ) : (
+            <span className="text-4xl font-bold text-emerald-600">Gratuit</span>
+          )}
         </div>
 
         <ul className="mb-8 space-y-3 flex-1">
@@ -308,12 +323,6 @@ export default function PricingPage() {
             <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <span>Estimation IA aux prix tunisiens</span>
           </li>
-          {trial && (
-            <li className="flex items-start gap-2 text-sm">
-              <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span className="text-emerald-600 font-medium">2 mois gratuits à l'inscription</span>
-            </li>
-          )}
         </ul>
 
         <Button
@@ -360,15 +369,15 @@ export default function PricingPage() {
           </Badge>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre abonnement</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
-            Abonnement mensuel (30 jours) — renouvellement automatique. Chaque forfait inclut un accès complet
-            aux outils d'estimation, matériaux IA et téléchargements. Fournisseur et Expert bénéficient de 2 mois gratuits à l'inscription.
+            Abonnement mensuel (30 jours) — renouvellement requis à l'échéance. Chaque forfait inclut un accès complet
+            aux outils d'estimation, matériaux IA et téléchargements. Plus aucun essai gratuit : le paiement est requis dès l'inscription.
           </p>
         </div>
 
         {/* ═══ Les 3 forfaits ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {PLANS.map((p, i) =>
-            renderPlanCard(p.id, priceFor(p.id), p.quota, p.description, p.popular, i, p.trial),
+            renderPlanCard(p.id, priceFor(p.id), p.quota, p.description, p.popular, i),
           )}
         </div>
 
@@ -425,7 +434,7 @@ export default function PricingPage() {
 
           {/* Abonnement selector */}
           <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
-            {(["supplier", "expert"] as PlanId[]).map((p) => (
+            {(["pro", "supplier", "expert"] as PlanId[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setSelectedPlan(p)}
@@ -441,6 +450,8 @@ export default function PricingPage() {
             ))}
           </div>
 
+          {currentPrice > 0 ? (
+          <>
           {/* Payment method selector — compact segmented control */}
           <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
             <button
@@ -671,6 +682,18 @@ export default function PricingPage() {
                   <p className="text-[10px] text-emerald-700/70 mt-0.5">
                     Renouvelez le même forfait ou passez à une offre supérieure — abonnement mensuel renouvelable.
                   </p>
+                </div>
+              </div>
+            </div>
+          )}
+            </>
+          ) : (
+            <div className="mt-4 px-4 py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
+              <div className="flex items-start gap-2">
+                <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-emerald-700">Ce forfait est gratuit — activation immédiate</p>
+                  <p className="text-[10px] text-emerald-600/70 mt-0.5">Aucun paiement requis. Votre abonnement sera activé instantanément.</p>
                 </div>
               </div>
             </div>

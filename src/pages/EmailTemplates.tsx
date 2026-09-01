@@ -60,7 +60,7 @@ const SAMPLE_VARS: Record<string, string> = {
   "{{Nom}}": "Ben Salah",
   "{{Prénom}}": "Ahmed",
   "{{NomEntreprise}}": "GALISKON PROJECT",
-  "{{TypeAbonnement}}": "Pro",
+  "{{TypeAbonnement}}": "Client Pro",
   "{{DateActivation}}": "3 août 2026",
   "{{DateExpiration}}": "2 septembre 2026",
   "{{Montant}}": "120 TND",

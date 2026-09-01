@@ -102,7 +102,7 @@ export const adminSetUserProfileRole = mutation({
     await ctx.db.patch(args.userId, { userRole: args.userRole });
 
     const targetUser = await ctx.db.get(args.userId);
-    const roleLabel = args.userRole === "supplier" ? "Fournisseur" : args.userRole === "expert" ? "Expert" : "Client";
+    const roleLabel = args.userRole === "supplier" ? "Fournisseur" : args.userRole === "expert" ? "Expert" : "Client Pro";
     await logAdminAction(
       ctx, admin, "update_user_role",
       { userId: args.userId, email: targetUser?.email },
@@ -126,7 +126,8 @@ export const adminUpdateUserPlan = mutation({
     }
 
     const now = Date.now();
-    const planDuration = args.plan === "pro" ? 30 * 24 * 60 * 60 * 1000 : 365 * 24 * 60 * 60 * 1000;
+    // Abonnements mensuels (30 jours) pour toutes les offres — essai gratuit supprimé
+    const planDuration = 30 * 24 * 60 * 60 * 1000;
 
     await ctx.db.patch(args.userId, {
       subscriptionPlan: args.plan,
@@ -163,7 +164,7 @@ export const adminUpdateUserPlan = mutation({
         startDate: now,
         endDate: now + planDuration,
         paymentMethod: "admin",
-        amount: args.plan === "pro" ? 79 : args.plan === "expert" ? 320 : 0,
+        amount: args.plan === "pro" ? 80 : args.plan === "expert" ? 120 : args.plan === "supplier" ? 120 : 0,
         currency: "TND",
         monthlyDownloadCount: 0,
         downloadLimit: limit,

@@ -54,7 +54,7 @@
   },
   "limitDialog": {
     "title": "Limit reached",
-    "upgrade": "Upgrade to Pro",
+    "upgrade": "Upgrade to Client Pro",
     "backToDashboard": "Back to dashboard"
   },
   "errors": {

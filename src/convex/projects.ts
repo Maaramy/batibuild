@@ -577,7 +577,7 @@ export const updatePredictiveInsights = mutation({
     // Only Pro / Expert (or admin) can store predictive insights
     const plan = user.subscriptionPlan ?? "free";
     if (plan !== "pro" && plan !== "expert" && user.role !== "admin") {
-      throw new Error("Offre Start : l'intelligence prédictive est réservée aux forfaits Pro et Expert");
+      throw new Error("L'intelligence prédictive est réservée aux forfaits Client Pro et Expert");
     }
 
     const project = await ctx.db.get(args.projectId);

@@ -320,7 +320,7 @@ function StatsCard({ icon: Icon, label, value, gradient, iconColor }: any) {
   );
 }
 
-const PLAN_LABELS: Record<string, string> = { free: "Client", pro: "Client", expert: "Expert", supplier: "Fournisseur" };
+const PLAN_LABELS: Record<string, string> = { free: "Aucun", pro: "Client Pro", expert: "Expert", supplier: "Fournisseur" };
 
 // ============================================================================
 // Main Dashboard Component
@@ -355,7 +355,7 @@ export default function Dashboard() {
     try {
       await setUserRole({ userRole: newRole as any });
       toast.success(`Profil mis à jour : ${
-        newRole === "supplier" ? "Fournisseur" : newRole === "expert" ? "Expert" : "Client"
+        newRole === "supplier" ? "Fournisseur" : newRole === "expert" ? "Expert" : "Client Pro"
       }`);
       window.location.reload();
     } catch (err) {
@@ -636,7 +636,7 @@ export default function Dashboard() {
                         : "bg-muted/40 text-muted-foreground"
                     }`}
                   >
-                    {user?.userRole === "supplier" ? "Fournisseur" : user?.userRole === "expert" ? "Expert" : "Client"}
+                    {user?.userRole === "supplier" ? "Fournisseur" : user?.userRole === "expert" ? "Expert" : "Client Pro"}
                   </Badge>
                 </div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
@@ -814,7 +814,7 @@ export default function Dashboard() {
               </div>
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 {([
-                  { value: "client", label: "Client", icon: User, desc: "Estimer un projet" },
+                  { value: "client", label: "Client Pro", icon: User, desc: "Estimer un projet" },
                   { value: "supplier", label: "Fournisseur", icon: Store, desc: "Vendre des matériaux" },
                   { value: "expert", label: "Expert", icon: Briefcase, desc: "Services d'expertise" },
                 ] as const).map((opt) => {
@@ -1170,7 +1170,7 @@ export default function Dashboard() {
                       <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200/30 text-[8px] px-1.5 py-0">30 jours</Badge>
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground">
-                      Forfait <span className="font-semibold text-foreground">"Client"</span> · Accès illimité
+                      Forfait <span className="font-semibold text-foreground">{PLAN_LABELS[user?.subscriptionPlan || "free"]}</span> · Accès illimité
                     </p>
                   </div>
                 </div>

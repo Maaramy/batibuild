@@ -6,7 +6,7 @@
   "popular": "Populaire",
   "mostPopular": "Le plus populaire",
   "freePlan": {
-    "name": "Start",
+    "name": "Client Pro",
     "price": "79",
     "desc": "Pour un premier projet",
     "features": {
@@ -18,7 +18,7 @@
     }
   },
   "proPlan": {
-    "name": "Pro",
+    "name": "Fournisseur",
     "price": "120",
     "desc": "Pour les professionnels de la construction",
     "features": {

@@ -25,9 +25,9 @@
     "deleteConfirm": "تأكيد حذف هذا المستخدم؟",
     "noUsers": "لم يتم العثور على مستخدمين",
     "filterAll": "جميع الخطط",
-    "filterPro": "احترافي",
+    "filterPro": "عميل برو",
     "filterExpert": "خبير",
-    "filterFree": "Start",
+    "filterFree": "بدون",
     "search": "البحث عن مستخدم..."
   },
   "subscriptions": {

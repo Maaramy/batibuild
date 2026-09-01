@@ -459,7 +459,7 @@ export default function ExpertDashboard() {
   }
 
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-    active: { label: "Abonné Pro", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: ShieldCheck },
+    active: { label: "Abonné actif", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: ShieldCheck },
     pending: { label: "En attente", color: "bg-amber-100 text-amber-700 border-amber-200", icon: Clock3 },
     inactive: { label: "Inactif", color: "bg-slate-100 text-slate-600 border-slate-200", icon: Briefcase },
     expired: { label: "Expiré", color: "bg-red-100 text-red-700 border-red-200", icon: AlertTriangle },
