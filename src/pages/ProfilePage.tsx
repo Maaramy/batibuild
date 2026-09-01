@@ -52,7 +52,7 @@ export default function ProfilePage() {
 
   const isAdmin = user?.role === "admin";
   const isPaid = user?.subscriptionPlan === "pro" || user?.subscriptionPlan === "expert";
-  const planLabel = user?.subscriptionPlan === "expert" ? "Expert" : user?.subscriptionPlan === "supplier" ? "Fournisseur" : user?.subscriptionPlan === "pro" ? "Client Pro" : "Aucun";
+  const planLabel = user?.subscriptionPlan === "expert" ? "Expert" : user?.subscriptionPlan === "supplier" ? "Fournisseur" : user?.subscriptionPlan === "pro" ? "Client Pro" : user?.userRole === "supplier" ? "Fournisseur" : user?.userRole === "expert" ? "Expert" : "Client Pro";
 
   const currentRole = (user as any)?.userRole || "client";
 

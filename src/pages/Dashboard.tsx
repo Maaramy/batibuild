@@ -320,7 +320,18 @@ function StatsCard({ icon: Icon, label, value, gradient, iconColor }: any) {
   );
 }
 
-const PLAN_LABELS: Record<string, string> = { free: "Aucun", pro: "Client Pro", expert: "Expert", supplier: "Fournisseur" };
+const PLAN_LABELS: Record<string, string> = { pro: "Client Pro", expert: "Expert", supplier: "Fournisseur" };
+
+// Nom du forfait actif : plan d'abonnement, sinon offre dérivée du profil utilisateur.
+function getActivePlanLabel(user?: { subscriptionPlan?: string | null; userRole?: string | null } | null): string {
+  const plan = user?.subscriptionPlan;
+  if (plan && plan !== "free") {
+    return PLAN_LABELS[plan] ?? "Client Pro";
+  }
+  if (user?.userRole === "supplier") return "Fournisseur";
+  if (user?.userRole === "expert") return "Expert";
+  return "Client Pro";
+}
 
 // ============================================================================
 // Main Dashboard Component
@@ -1170,7 +1181,7 @@ export default function Dashboard() {
                       <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200/30 text-[8px] px-1.5 py-0">30 jours</Badge>
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground">
-                      Forfait <span className="font-semibold text-foreground">{PLAN_LABELS[user?.subscriptionPlan || "free"]}</span> · Accès illimité
+                      Forfait <span className="font-semibold text-foreground">{getActivePlanLabel(user)}</span>
                     </p>
                   </div>
                 </div>
