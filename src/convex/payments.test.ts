@@ -604,3 +604,127 @@ describe("checkClientProAccess — Offre gratuite (switch admin)", () => {
     expect(access.reason).toBe("no_subscription");
   });
 });
+
+// ============================================================================
+// Espaces Fournisseur / Expert — activation automatique via le switch gratuit
+// ============================================================================
+// Critère d'acceptation : quand l'administrateur active l'« Offre gratuite »
+// sur le forfait Fournisseur ou Expert, l'espace correspondant est activé
+// automatiquement, sans abonnement payant.
+
+describe("Espaces Fournisseur / Expert — switch gratuit (activation automatique)", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  async function createUser(email: string) {
+    return t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        name: "Test",
+        email,
+        role: "user",
+        status: "active",
+        subscriptionPlan: "free",
+        image: undefined,
+        company: undefined,
+        phone: undefined,
+        subscriptionEndDate: undefined,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }),
+    );
+  }
+
+  async function createSupplierProfile(userId: any) {
+    return t.run(async (ctx) =>
+      ctx.db.insert("supplierProfiles", {
+        userId,
+        companyName: "Matériaux Test",
+        phone: "20123456",
+        email: "supplier@test.com",
+        address: "Tunis",
+        specialties: ["ciment"],
+        regions: ["tunis"],
+        plan: "none",
+        subscriptionStatus: "inactive",
+        isVisible: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }),
+    );
+  }
+
+  async function createExpertProfile(userId: any) {
+    return t.run(async (ctx) =>
+      ctx.db.insert("expertProfiles", {
+        userId,
+        profession: "architecte",
+        displayName: "Expert Test",
+        phone: "20123456",
+        email: "expert@test.com",
+        specialties: ["etudes"],
+        regions: ["tunis"],
+        plan: "none",
+        subscriptionStatus: "inactive",
+        isVisible: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }),
+    );
+  }
+
+  it("fournisseur sans abonnement : espace inactif par défaut", async () => {
+    const userId = await createUser("sup-inactive@test.com");
+    await createSupplierProfile(userId);
+    const userT = t.withIdentity({ subject: userId });
+
+    const profile = await userT.query(api.supplierProfiles.getMyProfile);
+    expect(profile!.effectiveStatus).toBe("inactive");
+
+    const active = await userT.query(api.supplierProfiles.getActiveSuppliers);
+    expect(active.some((s) => s.companyName === "Matériaux Test")).toBe(false);
+  });
+
+  it("switch gratuit Fournisseur activé : espace fournisseur activé automatiquement", async () => {
+    const adminId = await createTestUser(t, { role: "admin" });
+    const adminT = asAdmin(t, adminId);
+    await adminT.mutation(api.payments.updatePlanPricing, {
+      plan: "supplier",
+      price: null,
+    });
+
+    const userId = await createUser("sup-free@test.com");
+    await createSupplierProfile(userId);
+    const userT = t.withIdentity({ subject: userId });
+
+    const profile = await userT.query(api.supplierProfiles.getMyProfile);
+    expect(profile!.effectiveStatus).toBe("active");
+    expect(profile!.planFree).toBe(true);
+    expect(profile!.price).toBe(0);
+
+    const active = await userT.query(api.supplierProfiles.getActiveSuppliers);
+    expect(active.some((s) => s.companyName === "Matériaux Test")).toBe(true);
+  });
+
+  it("switch gratuit Expert activé : espace expert activé automatiquement", async () => {
+    const adminId = await createTestUser(t, { role: "admin" });
+    const adminT = asAdmin(t, adminId);
+    await adminT.mutation(api.payments.updatePlanPricing, {
+      plan: "expert",
+      price: null,
+    });
+
+    const userId = await createUser("exp-free@test.com");
+    await createExpertProfile(userId);
+    const userT = t.withIdentity({ subject: userId });
+
+    const profile = await userT.query(api.expertProfiles.getMyProfile);
+    expect(profile!.effectiveStatus).toBe("active");
+    expect(profile!.planFree).toBe(true);
+
+    const active = await userT.query(api.expertProfiles.getActiveExperts);
+    expect(active.some((e) => e.displayName === "Expert Test")).toBe(true);
+  });
+});

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { getFreePlanStatus } from "./access";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 
 // ============================================================================
@@ -11,7 +12,10 @@ const MONTHLY_DAYS = 30;
 
 async function getExpertPrice(ctx: any): Promise<number> {
   const config = await ctx.db.query("paymentConfig").order("desc").first();
-  return config?.expertPrice ?? 150;
+  const p = config?.expertPrice;
+  // null/0 = « Offre gratuite » (switch admin) → prix affiché 0
+  if (p === undefined) return 150;
+  return p === null || p === 0 ? 0 : p;
 }
 
 // ============================================================================
@@ -32,11 +36,20 @@ export const getMyProfile = query({
     if (!profile) return null;
 
     const now = Date.now();
+    // « Offre gratuite » (switch admin) : l'espace expert est activé
+    // automatiquement, sans abonnement payant ni expiration.
+    const free = await getFreePlanStatus(ctx);
+    const planFree = free.expertFree;
+
     let effectiveStatus =
       profile.subscriptionStatus === "trial"
         ? "inactive"
         : profile.subscriptionStatus;
+    if (planFree) {
+      effectiveStatus = "active";
+    }
     if (
+      !planFree &&
       effectiveStatus === "active" &&
       profile.subscriptionEndDate &&
       profile.subscriptionEndDate < now
@@ -45,14 +58,14 @@ export const getMyProfile = query({
     }
 
     let remainingDays = 0;
-    if (effectiveStatus === "active" && profile.subscriptionEndDate) {
+    if (effectiveStatus === "active" && profile.subscriptionEndDate && !planFree) {
       remainingDays = Math.max(
         0,
         Math.ceil((profile.subscriptionEndDate - now) / (24 * 60 * 60 * 1000))
       );
     }
 
-    return { ...profile, effectiveStatus, remainingDays };
+    return { ...profile, effectiveStatus, remainingDays, planFree };
   },
 });
 
@@ -78,10 +91,12 @@ export const getRandomByProfession = query({
       .withIndex("by_profession", (q) => q.eq("profession", args.profession as any))
       .collect();
 
-    const active = experts.filter(
-      (e) =>
-        e.isVisible &&
-        (e.subscriptionStatus === "active" || e.subscriptionStatus === "trial")
+    const free = await getFreePlanStatus(ctx);
+    const active = experts.filter((e) =>
+      free.expertFree
+        ? e.isVisible
+        : e.isVisible &&
+          (e.subscriptionStatus === "active" || e.subscriptionStatus === "trial")
     );
     if (active.length === 0) return null;
 
@@ -98,11 +113,14 @@ export const getRandomByProfession = query({
 export const getActiveExperts = query({
   handler: async (ctx) => {
     const now = Date.now();
+    const free = await getFreePlanStatus(ctx);
     const experts = await ctx.db.query("expertProfiles").collect();
 
     return experts
       .filter((e) => e.isVisible)
       .filter((e) => {
+        // « Offre gratuite » : tous les profils visibles sont actifs automatiquement
+        if (free.expertFree) return true;
         if (
           (e.subscriptionStatus === "active" || e.subscriptionStatus === "trial") &&
           e.subscriptionEndDate && e.subscriptionEndDate < now

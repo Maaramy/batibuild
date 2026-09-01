@@ -519,7 +519,7 @@ export default function ExpertDashboard() {
                         {effStatus === "active" && (
                           <Badge variant="secondary" className="text-[9px] gap-1 bg-emerald-50 text-emerald-600">
                             <CheckCircle2 className="h-2.5 w-2.5" />
-                            {remainingDays} j
+                            {(profile as any)?.planFree ? "Offre gratuite · Illimité" : `${remainingDays} j`}
                           </Badge>
                         )}
                         <button onClick={() => toggleVis()}

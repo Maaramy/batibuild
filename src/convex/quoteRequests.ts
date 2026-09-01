@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { getFreePlanStatus } from "./access";
 
 // ============================================================================
 // Mutations
@@ -29,7 +30,14 @@ export const create = mutation({
     // Verify supplier exists and is active
     const supplier = await ctx.db.get(args.supplierId);
     if (!supplier) throw new Error("Fournisseur introuvable");
-    if (supplier.subscriptionStatus !== "active" && supplier.subscriptionStatus !== "trial") {
+
+    // « Offre gratuite » (switch admin) : tous les fournisseurs visibles reçoivent des demandes
+    const free = await getFreePlanStatus(ctx);
+    if (
+      !free.supplierFree &&
+      supplier.subscriptionStatus !== "active" &&
+      supplier.subscriptionStatus !== "trial"
+    ) {
       throw new Error("Ce fournisseur n'est pas actif");
     }
 

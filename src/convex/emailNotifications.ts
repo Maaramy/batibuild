@@ -416,13 +416,18 @@ export const checkExpiredSubscriptions = internalMutation({
       }
     }
 
-    // Supplier profiles
+    // Supplier profiles — « Offre gratuite » (switch admin) : pas d'expiration
+    const pricingConfig = await ctx.db.query("paymentConfig").order("desc").first();
+    const supplierFree =
+      pricingConfig?.supplierPrice === null || pricingConfig?.supplierPrice === 0;
+
     const activeSuppliers = await ctx.db
       .query("supplierProfiles")
       .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "active"))
       .collect();
 
     for (const profile of activeSuppliers) {
+      if (supplierFree) continue;
       if (profile.subscriptionEndDate && profile.subscriptionEndDate < now) {
         expiredCount++;
         await ctx.db.patch(profile._id, {

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { getFreePlanStatus } from "./access";
 import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 
@@ -16,7 +17,10 @@ async function getSupplierPrice(ctx: any): Promise<number> {
     .query("paymentConfig")
     .order("desc")
     .first();
-  return config?.supplierPrice ?? 120;
+  const p = config?.supplierPrice;
+  // null/0 = « Offre gratuite » (switch admin) → prix affiché 0
+  if (p === undefined) return 120;
+  return p === null || p === 0 ? 0 : p;
 }
 
 // ============================================================================
@@ -36,13 +40,22 @@ export const getMyProfile = query({
 
     if (!profile) return null;
 
-    // Trial period removed — legacy trial profiles are treated as inactive
+    // Trial period removed — legacy trial profiles are treated as inactive.
+    // « Offre gratuite » (switch admin) : l'espace fournisseur est activé
+    // automatiquement, sans abonnement payant ni expiration.
     const now = Date.now();
+    const free = await getFreePlanStatus(ctx);
+    const planFree = free.supplierFree;
+
     let effectiveStatus =
       profile.subscriptionStatus === "trial"
         ? "inactive"
         : profile.subscriptionStatus;
+    if (planFree) {
+      effectiveStatus = "active";
+    }
     if (
+      !planFree &&
       effectiveStatus === "active" &&
       profile.subscriptionEndDate &&
       profile.subscriptionEndDate < now
@@ -50,9 +63,9 @@ export const getMyProfile = query({
       effectiveStatus = "expired";
     }
 
-    // Calculate remaining days
+    // Calculate remaining days (Illimité quand l'offre gratuite est active)
     let remainingDays = 0;
-    if (effectiveStatus === "active" && profile.subscriptionEndDate) {
+    if (effectiveStatus === "active" && profile.subscriptionEndDate && !planFree) {
       remainingDays = Math.max(
         0,
         Math.ceil(
@@ -68,8 +81,9 @@ export const getMyProfile = query({
       ),
       effectiveStatus,
       remainingDays,
+      planFree,
       plan: profile.plan || "none",
-      price: await getSupplierPrice(ctx),
+      price: planFree ? 0 : await getSupplierPrice(ctx),
     };
   },
 });
@@ -78,16 +92,22 @@ export const getMyProfile = query({
 export const getActiveSuppliers = query({
   handler: async (ctx) => {
     const now = Date.now();
-    const suppliers = await ctx.db
-      .query("supplierProfiles")
-      .withIndex("by_subscription", (q) =>
-        q.eq("subscriptionStatus", "active")
-      )
-      .collect();
+    const free = await getFreePlanStatus(ctx);
+
+    // « Offre gratuite » : tous les profils visibles sont actifs automatiquement
+    const suppliers = free.supplierFree
+      ? await ctx.db.query("supplierProfiles").collect()
+      : await ctx.db
+          .query("supplierProfiles")
+          .withIndex("by_subscription", (q) =>
+            q.eq("subscriptionStatus", "active")
+          )
+          .collect();
 
     return suppliers
       .filter((s) => s.isVisible)
       .filter((s) => {
+        if (free.supplierFree) return true;
         // Filter out expired monthly
         if (
           s.subscriptionStatus === "active" &&
@@ -586,9 +606,13 @@ export const checkSupplierNotifications = mutation({
     const now = Date.now();
     const DAY_MS = 24 * 60 * 60 * 1000;
 
+    const free = await getFreePlanStatus(ctx);
     const allSuppliers = await ctx.db.query("supplierProfiles").collect();
 
     for (const profile of allSuppliers) {
+      // « Offre gratuite » : pas d'expiration, espace toujours actif
+      if (free.supplierFree) continue;
+
       // Check active subscription ending in 3 days
       if (
         profile.subscriptionStatus === "active" &&

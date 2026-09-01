@@ -45,7 +45,8 @@ export default function ExpertStats() {
   const [period, setPeriod] = useState<"7d" | "30d" | "90d" | "year">("30d");
 
   const expertProfile = useQuery(api.expertProfiles.getMyProfile);
-  const isSubscribed = expertProfile?.subscriptionStatus === "active";
+  // effectiveStatus tient compte de l'« Offre gratuite » (switch admin)
+  const isSubscribed = (expertProfile as any)?.effectiveStatus === "active";
 
   // For now, show upgrade screen if not subscribed
   if (expertProfile === undefined) {

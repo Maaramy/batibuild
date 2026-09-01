@@ -501,7 +501,7 @@ export default function SupplierDashboard() {
                           {effStatus === "active" && (
                             <Badge variant="secondary" className="text-[9px] gap-1 bg-emerald-50 text-emerald-600">
                               <CheckCircle2 className="h-2.5 w-2.5" />
-                              {remainingDays} jour{remainingDays > 1 ? 's' : ''}
+                              {(profile as any)?.planFree ? "Offre gratuite · Illimité" : `${remainingDays} jour${remainingDays > 1 ? 's' : ''}`}
                             </Badge>
                           )}
                           <button onClick={() => toggleVis()}

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { requireClientProAccess } from "./access";
+import { requireClientProAccess, getFreePlanStatus } from "./access";
 import {
   projectCategoryValidator,
   projectStatusValidator,
@@ -716,39 +716,45 @@ export const simulateAnalysis = mutation({
     const supplierMap = new Map<string, any[]>();
 
     // ── Also fetch registered suppliers from the database ──
+    // « Offre gratuite » (switch admin) : tous les fournisseurs visibles sont
+    // recommandés automatiquement, sans abonnement actif.
     const now = Date.now();
-    const activeProfiles = await ctx.db
-      .query("supplierProfiles")
-      .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "active"))
-      .collect();
-
-    const trialProfiles = await ctx.db
-      .query("supplierProfiles")
-      .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "trial"))
-      .collect();
-
-    const allProfiles = [...activeProfiles, ...trialProfiles].filter(
-      (s) => s.isVisible
-    );
+    const free = await getFreePlanStatus(ctx);
+    const allProfiles = free.supplierFree
+      ? (await ctx.db.query("supplierProfiles").collect()).filter(
+          (s) => s.isVisible
+        )
+      : [
+          ...(await ctx.db
+            .query("supplierProfiles")
+            .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "active"))
+            .collect()),
+          ...(await ctx.db
+            .query("supplierProfiles")
+            .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "trial"))
+            .collect()),
+        ].filter((s) => s.isVisible);
 
     // Filter out expired trials/subscriptions
-    const validProfiles = allProfiles.filter((s) => {
-      if (
-        s.subscriptionStatus === "trial" &&
-        s.trialStartDate &&
-        s.trialStartDate + 7 * 24 * 60 * 60 * 1000 < now
-      ) {
-        return false;
-      }
-      if (
-        s.subscriptionStatus === "active" &&
-        s.subscriptionEndDate &&
-        s.subscriptionEndDate < now
-      ) {
-        return false;
-      }
-      return true;
-    });
+    const validProfiles = free.supplierFree
+      ? allProfiles
+      : allProfiles.filter((s) => {
+          if (
+            s.subscriptionStatus === "trial" &&
+            s.trialStartDate &&
+            s.trialStartDate + 7 * 24 * 60 * 60 * 1000 < now
+          ) {
+            return false;
+          }
+          if (
+            s.subscriptionStatus === "active" &&
+            s.subscriptionEndDate &&
+            s.subscriptionEndDate < now
+          ) {
+            return false;
+          }
+          return true;
+        });
 
     // Map registered suppliers to provider types via their specialties
     for (const profile of validProfiles) {

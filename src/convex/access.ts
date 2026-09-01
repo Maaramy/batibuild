@@ -29,6 +29,28 @@ export interface ClientProAccess {
 
 export const CLIENT_PRO_ACCESS_MARKER = "CLIENT_PRO_ACCESS:";
 
+/** État « Offre gratuite » (switch admin) pour chaque forfait — prix null ou 0. */
+export interface FreePlanStatus {
+  proFree: boolean;
+  supplierFree: boolean;
+  expertFree: boolean;
+}
+
+export async function getFreePlanStatus(ctx: any): Promise<FreePlanStatus> {
+  try {
+    const pricing = await ctx.runQuery(api.payments.getPublicPricing);
+    const isFree = (p: number | null | undefined) => p === null || p === 0;
+    return {
+      proFree: isFree(pricing?.proPrice),
+      supplierFree: isFree(pricing?.supplierPrice),
+      expertFree: isFree(pricing?.expertPrice),
+    };
+  } catch {
+    // Config illisible → règle payante par défaut
+    return { proFree: false, supplierFree: false, expertFree: false };
+  }
+}
+
 /** Message d'erreur standard renvoyé par les fonctions backend gatées. */
 export function clientProAccessError(service: string): Error {
   return new Error(
@@ -48,14 +70,9 @@ export async function getClientProAccess(ctx: any, user: any): Promise<ClientPro
   // Exception : l'administrateur a activé le « switch gratuit » sur Client Pro
   // (prix null ou 0 dans la config) → activation AUTOMATIQUE des services,
   // sans choix de forfait ni paiement, quel que soit le plan de l'utilisateur.
-  try {
-    const pricing = await ctx.runQuery(api.payments.getPublicPricing);
-    const proPrice = pricing?.proPrice;
-    if (proPrice === null || proPrice === 0) {
-      return { allowed: true, reason: "ok" };
-    }
-  } catch {
-    // Config illisible → on applique la règle payante par défaut
+  const free = await getFreePlanStatus(ctx);
+  if (free.proFree) {
+    return { allowed: true, reason: "ok" };
   }
 
   if (user.subscriptionPlan !== "pro") {
