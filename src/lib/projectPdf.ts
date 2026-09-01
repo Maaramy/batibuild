@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 import { toast } from "sonner";
 import { drawBatiLogo } from "./pdfLogo";
+import { computeBreakdownPct } from "./bimBreakdown";
 
 applyAutotablePlugin(jsPDF);
 
@@ -303,8 +304,20 @@ export async function generateProjectPdf({
     doc.text("%", ml + cw * 0.55, y + 7, { align: "right" });
     doc.text("Montant", ml + cw * 0.75, y + 7, { align: "right" });
 
-    const sortedBD = [...breakdown].sort(
-      (a: any, b: any) => b.estimatedCost - a.estimatedCost,
+    // Répartition recalculée depuis le « Quantitatif détaillé » (référence
+    // unique) : mêmes montants et pourcentages que les lots DQE, sans ligne
+    // « Imprévus ». Sans DQE (projet ancien), la grille BIM est utilisée.
+    const bdRows = dqe?.lots?.length
+      ? computeBreakdownPct(
+          dqe.lots.map((lot: any) => ({
+            label: lot.name,
+            amount: Math.round(lot.subtotal * dqeScaleFactor),
+          })),
+        ).map((r: any) => ({ label: r.label, amount: r.amount, pct: r.pct }))
+      : breakdown.map((b: any) => ({ label: b.label, amount: b.estimatedCost, pct: b.percentage }));
+
+    const sortedBD = [...bdRows].sort(
+      (a: any, b: any) => b.amount - a.amount,
     );
 
     y += 8.5;
@@ -326,40 +339,20 @@ export async function generateProjectPdf({
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
-      doc.text(`${cat.percentage}%`, ml + cw * 0.55, y + 3.5, { align: "right" });
+      doc.text(`${cat.pct}%`, ml + cw * 0.55, y + 3.5, { align: "right" });
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(C.text[0], C.text[1], C.text[2]);
-      doc.text(fmtPdf(cat.estimatedCost), ml + cw * 0.75, y + 3.5, { align: "right" });
+      doc.text(fmtPdf(cat.amount), ml + cw * 0.75, y + 3.5, { align: "right" });
 
       // Colored bar
       const barColor =
         BIM_RGB[cat.category] || (C.primary as [number, number, number]);
       doc.setFillColor(barColor[0], barColor[1], barColor[2]);
-      doc.rect(ml + cw * 0.56, y + 1.5, cw * 0.17 * (cat.percentage / 100), 2.5, "F");
+      doc.rect(ml + cw * 0.56, y + 1.5, cw * 0.17 * (cat.pct / 100), 2.5, "F");
 
       y += 5;
     });
-
-    // Contingency row
-    addPageIfNeeded(6);
-    doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
-    doc.line(ml, y, ml + cw, y);
-    doc.setFontSize(6.5);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(180, 83, 9);
-    doc.text("Imprévus", ml + 2, y + 3.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
-    doc.text(`${ce.contingencyPercentage}%`, ml + cw * 0.55, y + 3.5, { align: "right" });
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(180, 83, 9);
-    doc.text(
-      fmtPdf(Math.round(ce.contingencyBuffer * sf)),
-      ml + cw * 0.75,
-      y + 3.5,
-      { align: "right" },
-    );
 
     y += 10;
 
@@ -472,46 +465,35 @@ export async function generateProjectPdf({
       doc.text(`Quantitatif détaillé — Scénario ${scenarioLabel}`, ml, y);
       y += 2;
 
-      // Ventilation par nature (DQE totals)
-      const dqeTotals = dqe?.totals
-        ? {
-            materiaux: Math.round(dqe.totals.materiaux * dqeScaleFactor),
-            mainOeuvre: Math.round(dqe.totals.mainOeuvre * dqeScaleFactor),
-            equipements: Math.round(dqe.totals.equipements * dqeScaleFactor),
-            transport: Math.round(dqe.totals.transport * dqeScaleFactor),
-            etudes: Math.round(dqe.totals.etudes * dqeScaleFactor),
-            total: Math.round(dqe.totals.total * dqeScaleFactor),
-          }
-        : null;
+      // Ventilation par lot — strictement identique à la page de résultats
+      // (Répartition / Détail par catégorie / Quantitatif)
+      doc.setFontSize(6);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+      doc.text("Ventilation par lot (coût total) :", ml, y + 4);
+      y += 2;
 
-      if (dqeTotals) {
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
-        doc.text("Ventilation par nature :", ml, y + 4);
-        y += 2;
-
-        const natureEntries: [string, number][] = [
-          ["materiaux", dqeTotals.materiaux],
-          ["main_oeuvre", dqeTotals.mainOeuvre],
-          ["equipements", dqeTotals.equipements],
-          ["transport", dqeTotals.transport],
-          ["etudes", dqeTotals.etudes],
-        ].filter(([, v]) => (v as number) > 0) as [string, number][];
-
-        const natureColW = cw / Math.min(natureEntries.length, 5);
-        natureEntries.forEach(([key, val], i) => {
-          const nx = ml + i * natureColW;
-          const nc = NATURE_COLORS[key] || C.textSecondary;
+      const lotRowsPct = computeBreakdownPct(
+        dqeLots.map((lot: any) => ({ label: lot.name, amount: lot.subtotal })),
+      );
+      const lotRows = Array.from({ length: Math.ceil(lotRowsPct.length / 4) }, (_, i) =>
+        lotRowsPct.slice(i * 4, i * 4 + 4),
+      );
+      lotRows.forEach((rowEntries: any[]) => {
+        const catColW = cw / rowEntries.length;
+        rowEntries.forEach((b: any, i: number) => {
+          const nx = ml + i * catColW;
+          const nc = NATURE_COLORS[b.nature] || (C.primary as [number, number, number]);
           doc.setFillColor(nc[0], nc[1], nc[2]);
-          doc.roundedRect(nx, y + 5, natureColW - 2, 5, 0.5, 0.5, "F");
+          doc.roundedRect(nx, y + 5, catColW - 2, 5, 0.5, 0.5, "F");
           doc.setTextColor(255, 255, 255);
           doc.setFontSize(5.5);
           doc.setFont("helvetica", "bold");
-          doc.text(`${NATURE_LABELS[key] || key}: ${fmtPdf(val)}`, nx + 1.5, y + 8.2);
+          doc.text(`${b.label}: ${fmtPdf(b.amount)} (${b.pct}%)`, nx + 1.5, y + 8.2);
         });
-        y += 13;
-      }
+        y += 7;
+      });
+      y += 6;
 
       // ── DQE LOTS (hierarchical) ──
       if (hasDqeLots) {
