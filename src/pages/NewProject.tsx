@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
+import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { useMutation } from "convex/react";
 import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
@@ -1096,6 +1097,7 @@ export default function NewProject() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+        <ClientProPaywall>
       
 
       {/* ── Header ── */}
@@ -1204,6 +1206,7 @@ export default function NewProject() {
           </aside>
         </div>
       </div>
-    </main>
+            </ClientProPaywall>
+</main>
   );
 }

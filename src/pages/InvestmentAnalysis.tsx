@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
+import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { useQuery, useMutation, useAction } from "convex/react";
 import {
   Landmark,
@@ -626,6 +627,7 @@ export default function InvestmentAnalysis() {
 
   return (
     <main className="min-h-screen bg-background">
+        <ClientProPaywall>
       <div className="mx-auto max-w-[1400px] px-3 sm:px-5 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div className="min-w-0">
@@ -1518,7 +1520,8 @@ export default function InvestmentAnalysis() {
           </div>
         </div>
       </div>
-    </main>
+            </ClientProPaywall>
+</main>
   );
 }
 

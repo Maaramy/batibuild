@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
+import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { projectTypeLabel, inferFloorsFromCategory } from "@/convex/projectTypes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -115,6 +116,7 @@ export default function PlanGenerator() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
+        <ClientProPaywall>
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border/20 bg-background/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
@@ -227,7 +229,8 @@ export default function PlanGenerator() {
           </>
         )}
       </div>
-    </main>
+            </ClientProPaywall>
+</main>
   );
 }
 

@@ -271,21 +271,40 @@ describe("API investments", () => {
   });
 
   async function createUser(email: string) {
-    return t.run(async (ctx) =>
-      ctx.db.insert("users", {
+    return t.run(async (ctx) => {
+      const now = Date.now();
+      const userId = await ctx.db.insert("users", {
         name: "Test",
         email,
         role: "user",
         status: "active",
-        subscriptionPlan: "free",
+        subscriptionPlan: "pro",
         image: undefined,
         company: undefined,
         phone: undefined,
-        subscriptionEndDate: undefined,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }),
-    );
+        subscriptionEndDate: now + 30 * 24 * 60 * 60 * 1000,
+        createdAt: now,
+        updatedAt: now,
+      });
+      // Abonnement Client Pro payant actif (requis pour saveAnalysis)
+      await ctx.db.insert("subscriptions", {
+        userId,
+        kind: "construction",
+        plan: "pro",
+        status: "active",
+        startDate: now,
+        endDate: now + 30 * 24 * 60 * 60 * 1000,
+        paymentMethod: "card",
+        paymentId: "test-pay",
+        amount: 80,
+        currency: "TND",
+        monthlyDownloadCount: 0,
+        downloadLimit: Infinity,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return userId;
+    });
   }
 
   it("saveAnalysis → listAnalyses → getAnalysis → isolation → deleteAnalysis", async () => {

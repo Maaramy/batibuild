@@ -23,6 +23,7 @@ import {
   type StepStatus,
 } from "./roadmapEngine";
 import { getCurrentUser } from "./users";
+import { requireClientProAccess } from "./access";
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,9 @@ export const generateRoadmapForProject = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous pour générer une feuille de route.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
 
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Projet introuvable.");
@@ -130,6 +134,9 @@ export const deleteRoadmap = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await ctx.db.get(args.roadmapId);
     if (!doc) throw new Error("Feuille de route introuvable.");
     if (doc.userId !== user._id && user.role !== "admin") throw new Error("Accès refusé.");
@@ -218,6 +225,9 @@ export const togglePhaseItem = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
@@ -268,6 +278,9 @@ export const updatePlanningTask = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
@@ -296,6 +309,9 @@ export const setBudgetScenario = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
@@ -311,6 +327,9 @@ export const updateBudgetAllocation = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
@@ -336,6 +355,9 @@ export const addControlExpense = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
@@ -351,6 +373,9 @@ export const deleteControlExpense = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
@@ -365,6 +390,9 @@ export const addControlIssue = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
@@ -380,6 +408,9 @@ export const resolveControlIssue = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
@@ -395,6 +426,9 @@ export const addControlObservation = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
@@ -410,6 +444,9 @@ export const addControlPhoto = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
@@ -425,6 +462,9 @@ export const deleteControlPhoto = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
@@ -442,6 +482,9 @@ export const generateDocument = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const documents = r.documents.map((d) => (d.id === args.documentId ? { ...d, generatedAt: Date.now() } : d));

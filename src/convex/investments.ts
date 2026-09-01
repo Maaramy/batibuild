@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { requireClientProAccess } from "./access";
 import {
   INVESTMENT_TYPE_META,
   INVESTMENT_TYPES,
@@ -748,6 +749,8 @@ export const saveAnalysis = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
 
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Projets d'investissement");
 
     const now = Date.now();
     const id = await ctx.db.insert("investmentAnalyses", {

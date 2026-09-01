@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { LogoMark } from "@/components/Logo";
 import { api } from "@/convex/_generated/api";
+import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { useQuery, useMutation } from "convex/react";
 import {
   LayoutDashboard,
@@ -1076,6 +1077,7 @@ export default function Dashboard() {
           {/* ══════ CLIENT VIEW (standard dashboard) ══════ */}
           {viewMode === "client" && (
             <>
+              <ClientProPaywall>
           {/* Quick actions - horizontal scroll on mobile */}
           <div className="overflow-x-auto scrollbar-none -mx-3 sm:mx-0 px-3 sm:px-0">
             <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 min-w-max sm:min-w-0">
@@ -1391,6 +1393,7 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
+              </ClientProPaywall>
             </>
           )}
 

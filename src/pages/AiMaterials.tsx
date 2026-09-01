@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
+import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { projectTypeLabel } from "@/convex/projectTypes";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -212,6 +213,7 @@ export default function AiMaterials() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
+        <ClientProPaywall>
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border/20 bg-background/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-12 sm:h-14">
@@ -519,6 +521,7 @@ export default function AiMaterials() {
           </span>
         </div>
       </div>
-    </main>
+            </ClientProPaywall>
+</main>
   );
 }

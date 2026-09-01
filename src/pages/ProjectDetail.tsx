@@ -12,6 +12,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
+import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { useQuery, useMutation, useAction } from "convex/react";
 import type { InvestmentType } from "@/components/investment/shared";
 import { useParams, useNavigate } from "react-router";
@@ -300,12 +301,10 @@ export default function ProjectDetail() {
     };
   }, [project, ce, selectedScenario]);
 
-  // Predictive intelligence module (Pro/Expert only)
+  // Predictive intelligence module — abonnement Client Pro payant actif requis
   const insights = project?.predictiveInsights;
-  const isPremium =
-    currentUser?.subscriptionPlan === "pro" ||
-    currentUser?.subscriptionPlan === "expert" ||
-    currentUser?.role === "admin";
+  const clientAccess = useQuery(api.access.checkClientProAccess);
+  const isPremium = clientAccess?.allowed ?? false;
 
   const handleGeneratePredictive = async () => {
     if (!project || predictiveLoading) return;
@@ -316,13 +315,13 @@ export default function ProjectDetail() {
       toast.success("Analyse prédictive générée !");
     } catch (err: any) {
       const msg = err?.message || "Erreur lors de la génération de l'analyse";
-      const gated = msg.includes("OFFRE_GRATUITE");
+      const gated = msg.includes("CLIENT_PRO_ACCESS") || msg.includes("OFFRE_GRATUITE");
       setPredictiveError(
         gated
-          ? "Le module Intelligence prédictive est réservé aux abonnements Fournisseur et Expert."
+          ? "Le module Intelligence prédictive est réservé aux clients avec un abonnement Client Pro payant actif (renouvellement obligatoire en cas d'expiration)."
           : msg,
       );
-      toast.error(gated ? "Réservé aux abonnements Fournisseur et Expert" : msg);
+      toast.error(gated ? "Abonnement Client Pro actif requis pour ce module" : msg);
     } finally {
       setPredictiveLoading(false);
     }
@@ -481,6 +480,7 @@ export default function ProjectDetail() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.02] via-background to-background pb-24">
+        <ClientProPaywall>
       {/* Sticky Header */}
       <header className="glass-header sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 flex items-center justify-between h-12 sm:h-14">
@@ -2136,6 +2136,7 @@ export default function ProjectDetail() {
           </div>
         </DialogContent>
       </Dialog>
-    </main>
+            </ClientProPaywall>
+</main>
   );
 }

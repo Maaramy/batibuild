@@ -11,6 +11,7 @@ import {
   type InvestmentAiInsights,
 } from "./investmentTypes";
 import { normalizeInput, runEngine, fallbackInsights } from "./investments";
+import { requireClientProAccess } from "./access";
 
 // ============================================================================
 // Actions IA — Analyse de rentabilité immobilière & Assistant Investisseur
@@ -51,6 +52,9 @@ export const runAnalysis = action({
   handler: async (ctx, args) => {
     const user = await ctx.runQuery(api.users.currentUser);
     if (!user) throw new Error("Non connecté");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Projets d'investissement");
 
     const normalized = normalizeInput(args.input);
     const results = runEngine(normalized);
@@ -193,6 +197,9 @@ export const askInvestorAssistant = action({
   handler: async (ctx, args) => {
     const user = await ctx.runQuery(api.users.currentUser);
     if (!user) throw new Error("Non connecté");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Projets d'investissement");
     if (args.message.trim().length < 2) throw new Error("Message trop court");
 
     const baseSystemPrompt =

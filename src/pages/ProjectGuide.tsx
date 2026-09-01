@@ -4,6 +4,7 @@ import SiteDiagnostic from "@/components/SiteDiagnostic";
 import BudgetAllocation from "@/components/BudgetAllocation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { Button } from "@/components/ui/button";
@@ -558,6 +559,7 @@ export default function ProjectGuide() {
 
   return (
     <main className="min-h-screen bg-background pb-10">
+        <ClientProPaywall>
       <div className="mx-auto max-w-6xl px-3 sm:px-5 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* En-tête */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
@@ -1212,7 +1214,8 @@ export default function ProjectGuide() {
           <p className="text-[10px] leading-relaxed text-muted-foreground/70">{roadmap.disclaimer}</p>
         </div>
       </div>
-    </main>
+            </ClientProPaywall>
+</main>
   );
 }
 

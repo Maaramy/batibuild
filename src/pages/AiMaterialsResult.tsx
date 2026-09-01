@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { ArrowLeft, Loader2, Sparkles, ShieldCheck, Info, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
+import { ClientProPaywall } from "@/components/ClientProPaywall";
 import type { RecommendResult } from "@/convex/aiMaterialsEngine";
 import { AiAnalysisResults } from "@/components/ai/AiAnalysisResults";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -48,6 +49,7 @@ export default function AiMaterialsResult() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-24">
+        <ClientProPaywall>
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border/20 bg-background/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
@@ -137,6 +139,7 @@ export default function AiMaterialsResult() {
       <BottomNavBar actions={[
         { icon: <Store className="h-4 w-4" />, label: "Fournisseurs", onClick: () => navigate("/dashboard/suppliers-directory"), color: "text-emerald-500" },
       ]} />
-    </main>
+            </ClientProPaywall>
+</main>
   );
 }

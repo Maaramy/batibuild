@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { requireClientProAccess } from "./access";
 import {
   projectCategoryValidator,
   projectStatusValidator,
@@ -178,6 +179,9 @@ export const createProject = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Projets de construction");
 
     const now = Date.now();
     const projectId = await ctx.db.insert("projects", {
@@ -507,6 +511,9 @@ export const startAnalysis = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
 
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Projets de construction");
+
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
     if (project.userId !== user._id) throw new Error("Unauthorized");
@@ -619,6 +626,9 @@ export const simulateAnalysis = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) return;
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Estimation des coûts");
 
     const project = await ctx.db.get(args.projectId);
     if (!project) return;

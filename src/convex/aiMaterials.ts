@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { requireClientProAccess } from "./access";
 import {
   COPILOT_CATEGORIES,
   COPILOT_CATEGORY_BY_ID,
@@ -101,6 +102,10 @@ export const saveCopilotAnalysis = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Matériaux IA");
+
     return await ctx.db.insert("aiMaterialAnalyses", {
       userId: user._id,
       projectId: args.projectId,

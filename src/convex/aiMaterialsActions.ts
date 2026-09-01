@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 import { vly } from "../lib/vly-integrations";
+import { requireClientProAccess } from "./access";
 import { inferFloorsFromCategory } from "./projectTypes";
 import {
   COPILOT_CATEGORY_BY_ID,
@@ -94,6 +95,9 @@ export const recommendMaterials = action({
   handler: async (ctx, args): Promise<RecommendResult> => {
     const user = await ctx.runQuery(api.users.currentUser);
     if (!user) throw new Error("Non connecté");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Matériaux IA");
 
     let project: any = null;
     if (args.projectId) {
@@ -188,6 +192,10 @@ export const compareCopilotMaterials = action({
   handler: async (ctx, args) => {
     const user = await ctx.runQuery(api.users.currentUser);
     if (!user) throw new Error("Non connecté");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Matériaux IA");
+
     if (args.ids.length < 2 || args.ids.length > 5) {
       throw new Error("Sélectionnez entre 2 et 5 matériaux à comparer.");
     }
@@ -236,6 +244,10 @@ export const optimizeCopilotBudget = action({
   handler: async (ctx, args) => {
     const user = await ctx.runQuery(api.users.currentUser);
     if (!user) throw new Error("Non connecté");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Matériaux IA");
+
     const optimization = optimizeBudget({ result: args.result as RecommendResult, budgetAmount: args.budgetAmount });
     try {
       const aiRes = await vly.ai.completion({
@@ -276,6 +288,10 @@ export const improveCopilotPerformance = action({
   handler: async (ctx, args) => {
     const user = await ctx.runQuery(api.users.currentUser);
     if (!user) throw new Error("Non connecté");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Matériaux IA");
+
     return improvePerformance({ result: args.result as RecommendResult });
   },
 });
@@ -292,6 +308,10 @@ export const askMaterialsAssistant = action({
   handler: async (ctx, args) => {
     const user = await ctx.runQuery(api.users.currentUser);
     if (!user) throw new Error("Non connecté");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Matériaux IA");
+
     if (!args.question.trim()) throw new Error("Question vide");
 
     const context = [args.projectContext, args.analysisContext].filter(Boolean).join("\n");

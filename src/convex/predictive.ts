@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
+import { requireClientProAccess } from "./access";
 import { vly } from "../lib/vly-integrations";
 
 // ============================================================================
@@ -330,11 +331,8 @@ export const generatePredictiveInsights = action({
     const user = await ctx.runQuery(api.users.currentUser);
     if (!user) throw new Error("Non connecté");
 
-    // Pro / Expert only (admin bypass for testing)
-    const plan = user.subscriptionPlan ?? "free";
-    if (plan !== "pro" && plan !== "expert" && user.role !== "admin") {
-      throw new Error("OFFRE_GRATUITE:Le module Intelligence prédictive est réservé aux forfaits Pro et Expert.");
-    }
+    // Services Client Pro : abonnement payant actif requis (admin bypass)
+    await requireClientProAccess(ctx, user, "Intelligence prédictive");
 
     const project = await ctx.runQuery(api.projects.getProject, {
       projectId: args.projectId,
