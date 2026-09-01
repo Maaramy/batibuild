@@ -297,8 +297,6 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                               {meta.label}
                             </span>
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground">Qualité</span>
-                              <span className="text-sm font-bold tabular-nums">{(s as any).qualityScore10 ?? (s.scores.qualite / 10).toFixed(1)}<span className="text-[9px] text-muted-foreground">/10</span></span>
                               <span className="text-lg font-black tabular-nums">{s.scores.noteGlobale}<span className="text-[10px] text-muted-foreground">/100</span></span>
                             </div>
                           </div>
