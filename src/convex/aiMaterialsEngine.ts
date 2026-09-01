@@ -826,8 +826,6 @@ export function recommendForProject(input: {
       const contingencyCost = subtotal * CONTINGENCY_PCT;
       const base = subtotal + contingencyCost;
       const tva = base * TVA;
-      const minCost = qty.quantity * best.band.min * (1 + cat.posePct) * (1 + TRANSPORT_PCT + WASTE_PCT + ACCESSORIES_PCT) * (1 + CONTINGENCY_PCT) * (1 + TVA);
-      const maxCost = qty.quantity * best.band.max * (1 + cat.posePct) * (1 + TRANSPORT_PCT + WASTE_PCT + ACCESSORIES_PCT) * (1 + CONTINGENCY_PCT) * (1 + TVA);
 
       const { pros, cons } = prosCons(best.s, best.band, cat, catAvg);
       solutions.push({

@@ -1,8 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
@@ -14,16 +12,9 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import {
-ArrowLeft, Sparkles, HardHat, Loader2, Store, Scale, Check, Trash2, Clock, MapPin, Ruler, TrendingDown, TrendingUp, Minus, Wand2, ShieldCheck, RefreshCw, CircleDollarSign, Building2, Info, SlidersHorizontal
+ArrowLeft, Sparkles, HardHat, Loader2, Store, Scale, Check, Trash2, Clock, MapPin, Ruler, Wand2, ShieldCheck, RefreshCw, CircleDollarSign, Building2, Info
 } from "lucide-react";
-import {
-  COPILOT_CATEGORIES,
-  STANDING_LEVELS,
-  BUDGET_MODES,
-  MaterialScores,
-  ProjectContext,
-} from "@/convex/aiMaterialsEngine";
-import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
+import { ProjectContext } from "@/convex/aiMaterialsEngine";
 import { REGION_LABELS } from "@/lib/projectPdf";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -32,42 +23,8 @@ const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).jo
 const fmtTnd = (n: number) =>
   new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(n);
 
-const fmtNum = (n: number, digits = 2) =>
-  new Intl.NumberFormat("fr-TN", { maximumFractionDigits: digits }).format(n);
-
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-
-const PROFILE_META: Record<string, { label: string; color: string; icon: any; badge: string }> = {
-  economique: { label: "Économique", color: "emerald", icon: TrendingDown, badge: "Meilleur prix" },
-  equilibre: { label: "Équilibrée", color: "blue", icon: Minus, badge: "Meilleur rapport qualité/prix" },
-  premium: { label: "Premium", color: "violet", icon: TrendingUp, badge: "Meilleure performance" },
-};
-
-const PROFILE_TEXT: Record<string, string> = {
-  economique: "text-emerald-600 dark:text-emerald-400",
-  equilibre: "text-blue-600 dark:text-blue-400",
-  premium: "text-violet-600 dark:text-violet-400",
-};
-
-const CRITERIA: { key: keyof MaterialScores; label: string }[] = [
-  { key: "prix", label: "Prix" },
-  { key: "qualite", label: "Qualité" },
-  { key: "durabilite", label: "Durabilité" },
-  { key: "isolationThermique", label: "Isolation thermique" },
-  { key: "isolationAcoustique", label: "Isolation acoustique" },
-  { key: "resistance", label: "Résistance" },
-  { key: "entretien", label: "Entretien" },
-  { key: "disponibilite", label: "Disponibilité" },
-  { key: "impactEnvironnemental", label: "Impact environnemental" },
-];
-
-function scoreColor(score: number) {
-  if (score >= 80) return "text-emerald-600 dark:text-emerald-400";
-  if (score >= 60) return "text-blue-600 dark:text-blue-400";
-  if (score >= 40) return "text-amber-600 dark:text-amber-400";
-  return "text-rose-600 dark:text-rose-400";
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE — AI MATERIALS COPILOT
@@ -80,7 +37,7 @@ export default function AiMaterials() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const paramProject = params.get("project");
-  const { user } = useAuth();
+  useAuth();
   const projects = useQuery(api.projects.getUserProjects, {}) || [];
   const catStats = useQuery(api.aiMaterials.getCopilotCategories) || [];
   const analyses = useQuery(api.aiMaterials.getCopilotAnalyses) || [];
@@ -95,10 +52,7 @@ export default function AiMaterials() {
     floors: 1,
     region: "tunis",
     standing: "standard",
-    budgetMode: "moyen",
-    budgetAmount: 120000,
   });
-  const [priorities, setPriorities] = useState({ price: 50, quality: 50, isolation: 50, durability: 50, eco: 50 });
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
 
   // Pré-sélectionner uniquement les catégories correspondant aux résultats BIM réels
@@ -116,10 +70,7 @@ export default function AiMaterials() {
     }
   }, [catStats]);
 
-  const [useAI, setUseAI] = useState(true);
   const [enhance, setEnhance] = useState(true);
-  const copilotMaterialsQuery = useQuery(api.aiMaterials.getCopilotMaterials, { categories: selectedCats });
-  const catalog = copilotMaterialsQuery ?? null;
 
   // ── Résultats ──
   const [analyzing, setAnalyzing] = useState(false);
@@ -132,9 +83,7 @@ export default function AiMaterials() {
       surface: Number(form.surface) || 0,
       floors: Number(form.floors) || 1,
       standing: form.standing as ProjectContext["standing"],
-      budgetMode: form.budgetMode as ProjectContext["budgetMode"],
-      budgetAmount: Number(form.budgetAmount) || undefined,
-      priorities,
+      budgetMode: "moyen",
     };
     return {
       projectName: proj.name,
@@ -143,15 +92,11 @@ export default function AiMaterials() {
       surface: Number(proj.surface || form.surface) || 0,
       floors: Number(proj.floors || form.floors) || 1,
       standing: form.standing as ProjectContext["standing"],
-      budgetMode: form.budgetMode as ProjectContext["budgetMode"],
-      budgetAmount: Number(form.budgetAmount) || undefined,
-      priorities,
+      budgetMode: "moyen",
       rooms: { bathrooms: proj.bathrooms, kitchens: proj.kitchens, bedrooms: proj.bedrooms },
       terrainSurface: proj.surfaceTotale,
     };
-  }, [projects, projectId, form, priorities]);
-
-  const selectedProject = projects.find((p: any) => p._id === projectId) as any;
+  }, [projects, projectId, form]);
 
   const selectProject = (id: string) => {
     setProjectId(id);
@@ -182,7 +127,7 @@ export default function AiMaterials() {
       try {
         savedAnalysisId = await saveAnalysis({
           projectId: projectId as any,
-          input: { context: projectCtx, categories: selectedCats, useAI, enhance },
+          input: { context: projectCtx, categories: selectedCats, useAI: true, enhance },
           results: { recommend: res },
         });
         setSavedId(savedAnalysisId);
@@ -380,71 +325,19 @@ export default function AiMaterials() {
           </CardContent>
         </Card>
 
-        {/* ÉTAPE 3 — BUDGET & PRIORITÉS + ANALYSE */}
+        {/* ÉTAPE 3 — LANCER L'ANALYSE */}
         <Card className="border border-border/40 overflow-hidden rounded-xl">
           <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 text-xs font-bold">3</div>
               <div>
-                <CardTitle className="text-sm font-semibold">Mon budget & mes priorités</CardTitle>
-                <CardDescription className="text-[10px]">L'IA recherche le meilleur rapport valeur/prix — jamais le matériau le plus cher automatiquement</CardDescription>
+                <CardTitle className="text-sm font-semibold">Lancer l'analyse</CardTitle>
+                <CardDescription className="text-[10px]">L'IA utilise le budget moyen par défaut pour toutes les estimations</CardDescription>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-4 sm:p-5 space-y-4">
-            <div>
-              <label className="text-[10px] font-medium text-muted-foreground mb-2 block">Budget</label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                {BUDGET_MODES.map((b) => (
-                  <button key={b.id}
-                    onClick={() => setForm({ ...form, budgetMode: b.id })}
-                    className={cn(
-                      "rounded-xl border px-3 py-2 text-left transition-all cursor-pointer",
-                      form.budgetMode === b.id ? "border-violet-500/60 bg-violet-500/5 ring-1 ring-violet-500/20" : "border-border/40 hover:border-border hover:bg-muted/30",
-                    )}
-                  >
-                    <span className={cn("block text-xs font-semibold", form.budgetMode === b.id ? "text-violet-600 dark:text-violet-400" : "")}>{b.label}</span>
-                    <span className="block text-[9px] text-muted-foreground leading-tight mt-0.5">{b.hint}</span>
-                  </button>
-                ))}
-              </div>
-              {form.budgetMode === "personnalise" && (
-                <div className="mt-3 max-w-xs">
-                  <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Budget maximum (TND)</label>
-                  <Input type="number" min={1000} value={form.budgetAmount || ""}
-                    onChange={(e) => setForm({ ...form, budgetAmount: Number(e.target.value) })} className="h-9 text-sm rounded-lg" />
-                </div>
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                <label className="text-[10px] font-medium text-muted-foreground">Priorités (0-100) — l'assistant adapte ses recommandations</label>
-              </div>
-              <div className="grid sm:grid-cols-5 gap-3">
-                {([
-                  ["price", "Prix"],
-                  ["quality", "Qualité"],
-                  ["isolation", "Isolation"],
-                  ["durability", "Durabilité"],
-                  ["eco", "Écologie"],
-                ] as const).map(([key, label]) => (
-                  <div key={key}>
-                    <div className="flex justify-between text-[10px] mb-1">
-                      <span className="text-muted-foreground">{label}</span>
-                      <span className="font-semibold">{priorities[key]}</span>
-                    </div>
-                    <input
-                      type="range" min={0} max={100} step={5}
-                      value={priorities[key]}
-                      onChange={(e) => setPriorities({ ...priorities, [key]: Number(e.target.value) })}
-                      className="w-full accent-emerald-600 cursor-pointer"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 pt-1">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
               <label className="flex items-center gap-2 text-xs cursor-pointer">
                 <input type="checkbox" checked={enhance} onChange={(e) => setEnhance(e.target.checked)} className="accent-emerald-600" />
                 Enrichir les explications avec l'IA générative
