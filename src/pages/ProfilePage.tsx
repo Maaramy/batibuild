@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { useNavigate } from "react-router";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   ArrowLeft,
   ChevronRight,
@@ -38,6 +38,12 @@ export default function ProfilePage() {
   const [name, setName] = useState(user?.name || "");
   const [company, setCompany] = useState(user?.company || "");
   const [phone, setPhone] = useState(user?.phone || "");
+
+  useEffect(() => {
+    setName(user?.name || "");
+    setCompany(user?.company || "");
+    setPhone(user?.phone || "");
+  }, [user?.name, user?.company, user?.phone]);
   const [emailNotifs, setEmailNotifs] = useState(user?.emailNotifications ?? true);
   const [saving, setSaving] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
@@ -51,7 +57,7 @@ export default function ProfilePage() {
   const setUserRole = useMutation(api.users.setUserRole);
 
   const isAdmin = user?.role === "admin";
-  const isPaid = user?.subscriptionPlan === "pro" || user?.subscriptionPlan === "expert";
+  const isPaid = user?.subscriptionPlan === "pro" || user?.subscriptionPlan === "expert" || user?.subscriptionPlan === "supplier";
   const planLabel = user?.subscriptionPlan === "expert" ? "Expert" : user?.subscriptionPlan === "supplier" ? "Fournisseur" : user?.subscriptionPlan === "pro" ? "Client Pro" : user?.userRole === "supplier" ? "Fournisseur" : user?.userRole === "expert" ? "Expert" : "Client Pro";
 
   const currentRole = (user as any)?.userRole || "client";

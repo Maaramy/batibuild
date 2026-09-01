@@ -649,7 +649,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </div>
                     </motion.div>
                     <FormField label="Nom complet" id="reg-name" name="name" placeholder="Votre nom" icon={User} disabled={isLoading} required autoComplete="name" />
-                    <FormField label="Téléphone" id="reg-phone" name="phone" type="tel" placeholder="+216 XX XXX XXX" icon={Phone} disabled={isLoading} autoComplete="tel" />
+                    <FormField label="Téléphone" id="reg-phone" name="phone" type="tel" placeholder="+216 XX XXX XXX" icon={Phone} disabled={isLoading} required autoComplete="tel" />
                     <FormField label="Email" id="reg-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required autoComplete="email" />
                     <FormField label="Mot de passe" id="reg-password" name="password" type={regShowPw ? "text" : "password"} placeholder="Min. 8 caractères" icon={Lock} disabled={isLoading} required minLength={8} autoComplete="new-password">
                       <button type="button" onClick={() => setRegShowPw(!regShowPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-80" style={{ color: "var(--foreground)", opacity: 0.5 }} tabIndex={-1}>
@@ -718,7 +718,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     <FormField label="Nom complet" id="otp-name" name="name" placeholder="Votre nom" icon={User} disabled={isLoading} required autoComplete="name" />
                   )}
                   {tab === "register" && (
-                    <FormField label="Téléphone" id="otp-phone" name="phone" type="tel" placeholder="+216 XX XXX XXX" icon={Phone} disabled={isLoading} autoComplete="tel" />
+                    <FormField label="Téléphone" id="otp-phone" name="phone" type="tel" placeholder="+216 XX XXX XXX" icon={Phone} disabled={isLoading} required autoComplete="tel" />
                   )}
                   <FormField label="Email" id="otp-email" name="email" type="email" placeholder="exemple@email.com" icon={Mail} disabled={isLoading} required />
                   {error && <ErrorBanner message={error} />}
