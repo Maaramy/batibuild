@@ -3988,7 +3988,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <CardHeader>
                 <CardTitle className="text-base">Abonnements mensuels — prix et configuration</CardTitle>
                 <CardDescription className="text-xs">
-                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance. Le client doit passer au paiement dès la création de compte.
+                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance. Le client doit passer au paiement dès la création de compte, sauf si l'« Offre gratuite » est activée : dans ce cas, les services (projets de construction, investissements, matériaux IA, plans architecturaux, suivi de A à Z) sont activés automatiquement, sans choix de forfait.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -4152,7 +4152,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 </div>
 
                 <div className="rounded-lg bg-amber-500/5 border border-amber-200/20 p-3 text-[11px] text-amber-600 dark:text-amber-400">
-                  <p>L'essai gratuit a été <strong>supprimé</strong>. Chaque forfait est soit payant (prix défini ci-dessus), soit gratuit via son bouton « Offre gratuite ».</p>
+                  <p>L'essai gratuit a été <strong>supprimé</strong>. Chaque forfait est soit payant (prix défini ci-dessus), soit gratuit via son bouton « Offre gratuite » — l'activation des services est alors <strong>automatique</strong>, sans que le client ait à choisir un forfait.</p>
                 </div>
 
                 {savingLimits ? (

@@ -44,12 +44,10 @@ export async function getClientProAccess(ctx: any, user: any): Promise<ClientPro
   if (user.role === "admin" || user.role === "moderator") {
     return { allowed: true, reason: "ok" };
   }
-  if (user.subscriptionPlan !== "pro") {
-    return { allowed: false, reason: "not_client_pro" };
-  }
 
   // Exception : l'administrateur a activé le « switch gratuit » sur Client Pro
-  // (prix null ou 0 dans la config) → accès sans paiement.
+  // (prix null ou 0 dans la config) → activation AUTOMATIQUE des services,
+  // sans choix de forfait ni paiement, quel que soit le plan de l'utilisateur.
   try {
     const pricing = await ctx.runQuery(api.payments.getPublicPricing);
     const proPrice = pricing?.proPrice;
@@ -58,6 +56,10 @@ export async function getClientProAccess(ctx: any, user: any): Promise<ClientPro
     }
   } catch {
     // Config illisible → on applique la règle payante par défaut
+  }
+
+  if (user.subscriptionPlan !== "pro") {
+    return { allowed: false, reason: "not_client_pro" };
   }
 
   // Abonnement Client Pro payant, actif et non expiré

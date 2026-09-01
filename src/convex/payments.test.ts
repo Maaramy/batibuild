@@ -571,6 +571,23 @@ describe("checkClientProAccess — Offre gratuite (switch admin)", () => {
     expect(access.reason).toBe("ok");
   });
 
+  it("switch gratuit : activation automatique SANS choisir de forfait (compte sans plan)", async () => {
+    const adminId = await createTestUser(t, { role: "admin" });
+    const adminT = asAdmin(t, adminId);
+
+    await adminT.mutation(api.payments.updatePlanPricing, {
+      plan: "pro",
+      price: null,
+    });
+
+    // Compte créé via l'inscription : aucun forfait attribué (subscriptionPlan "free")
+    const userId = await createTestUser(t, { role: "user", email: "fresh@test.com" });
+    const userT = t.withIdentity({ subject: userId });
+    const access = await userT.query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(true);
+    expect(access.reason).toBe("ok");
+  });
+
   it("switch désactivé (prix payant) : l'accès redevient payant", async () => {
     const adminId = await createTestUser(t, { role: "admin" });
     const adminT = asAdmin(t, adminId);
