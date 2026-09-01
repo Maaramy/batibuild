@@ -1738,11 +1738,16 @@ export function runBIMEstimation(
   const pct = PROJECT_PCT[category] || [35, 30, 15, 10, 3, 7];
   const marketPrices = MARKET_PRICE_M2[category] || { eco: 1000, std: 1500, premium: 2500 };
 
-  // Nouveau système : prix régionaux directs (TND/m²) basés sur le marché tunisien 2026
+  // Grille tarifaire FIXE 2026 (feuille n°2 « Couts_24_gouv » du classeur) :
+  // valeurs EXACTES par gouvernorat et par scénario (Économique · Standard ·
+  // Haut standing). Aucune moyenne nationale ni ajustement automatique.
+  // Référence fixe si aucun gouvernorat n'est fourni : base Médenine (= 100 %
+  // dans le classeur).
+  const BASE_GRID_2026 = GOVERNORATE_LEVELS_2026["medenine"];
   const fLevel = finishLevel || "standard";
   const regionCosts = region ? (REGION_COST_M2[region] || null) : null;
 
-  // Prix de base par m² = prix régional OU moyenne nationale
+  // Prix de base par m² = valeur EXACTE de la grille régionale (ou base Médenine)
   let baseRegionM2: number;
   let baseRegionLabel: string;
   if (regionCosts) {
@@ -1751,24 +1756,28 @@ export function runBIMEstimation(
     else baseRegionM2 = regionCosts.std;
     baseRegionLabel = regionCosts.ecoRange + " / " + regionCosts.stdRange + " / " + regionCosts.premiumRange;
   } else {
-    if (fLevel === "economique") baseRegionM2 = NATIONAL_AVG.eco;
-    else if (fLevel === "premium") baseRegionM2 = NATIONAL_AVG.premium;
-    else baseRegionM2 = NATIONAL_AVG.std;
+    if (fLevel === "economique") baseRegionM2 = BASE_GRID_2026.eco;
+    else if (fLevel === "premium") baseRegionM2 = BASE_GRID_2026.hautStanding;
+    else baseRegionM2 = BASE_GRID_2026.std;
     baseRegionLabel = "";
   }
 
-  // Ratio du type de projet par rapport à une maison de référence
-  const maisonStd = MARKET_PRICE_M2["maison"]?.std || 1100;
+  // Ratio FIXE du type de projet (grille du classeur — base Médenine = 100 %,
+  // maison = 1,000). Ce n'est pas un ajustement automatique : c'est la grille
+  // tarifaire du document appliquée telle quelle entre types de projet.
+  const maisonStd = MARKET_PRICE_M2["maison"]?.std || 1800;
   const projectStd = marketPrices.std || 1500;
   const projectRatio = projectStd / maisonStd;
 
-  // Prix final par m² = prix régional × ratio du type de projet
+  // Prix final par m² = valeur EXACTE de la grille régionale × ratio fixe du
+  // type de projet (maison = 1 → le chiffre du classeur est reproduit tel quel).
   const finalPriceM2 = Math.round(baseRegionM2 * projectRatio);
 
   const tb = surface * (floors || 1);
 
-  // ── Nombre de pièces : impact sur le prix au m² ──
-  // Défauts réalistes : maison tunisienne type (~1 pièce / 35-45 m²)
+  // ── Nombre de pièces : impacte uniquement les QUANTITÉS du quantitatif
+  // (portes, WC, main-d'œuvre…) — jamais le prix au m², qui reste celui de la
+  // grille tarifaire fixe du classeur (aucun ajustement automatique).
   const bedrooms = rooms?.bedrooms ?? Math.max(1, Math.round(tb / 45));
   const bathrooms = rooms?.bathrooms ?? Math.max(1, Math.round(tb / 80));
   const kitchens = rooms?.kitchens ?? 1;
@@ -1780,10 +1789,10 @@ export function runBIMEstimation(
   // Référence : ~1 pièce pour 28 m² (logement tunisien type)
   const stdRooms = Math.max(3, Math.round(tb / 28));
   // Plus de pièces pour la même surface = plus de cloisons, portes & équipements
-  const roomsFactor = Math.min(1.12, Math.max(0.92, 1 + (totalRooms - stdRooms) * 0.02));
   const wallFactor = Math.min(1.25, Math.max(0.8, totalRooms / Math.max(1, stdRooms)));
 
-  const finalTotal = Math.round(finalPriceM2 * roomsFactor * tb);
+  // Coût total = grille exacte (TND/m²) × surface bâtie — aucune dérive possible
+  const finalTotal = Math.round(finalPriceM2 * tb);
   const costM2 = tb > 0 ? Math.round(finalTotal / tb) : 0;
 
   const keys = ["gros_oeuvre","second_oeuvre","equipements","main_oeuvre","transport","etudes_imprevus"];
@@ -1827,21 +1836,26 @@ export function runBIMEstimation(
     };
   });
 
-  const contingencyPct = 5;
+  // Contingence du classeur : 12 % appliquée EN SUS du coût de la grille. Le
+  // coût au m² affiché reste la valeur EXACTE du document — la contingence est
+  // une ligne distincte qui n'altère jamais le prix au m².
+  const contingencyPct = DEFAULT_CONTINGENCY_PCT;
   const buffer = Math.round(finalTotal * contingencyPct / 100);
   const totalWithBuffer = finalTotal + buffer;
-  const finalCostM2 = tb > 0 ? Math.round(totalWithBuffer / tb) : 0;
+  const finalCostM2 = costM2;
 
-  // Budget scenarios using region-specific prices
+  // Les 3 scénarios utilisent les valeurs EXACTES de la grille régionale :
+  //   Économique = lvl.eco · Standard = lvl.std · Premium = lvl.hautStanding
+  // (base Médenine si aucun gouvernorat fourni). Aucune moyenne nationale.
   const regionForScenarios = regionCosts || null;
-  const scenarioEcoPrice = regionForScenarios ? regionForScenarios.std * projectRatio : NATIONAL_AVG.std * projectRatio;
-  const scenarioStdPrice = regionForScenarios ? regionForScenarios.std * projectRatio : NATIONAL_AVG.std * projectRatio;
-  const scenarioPremiumPrice = regionForScenarios ? regionForScenarios.premium * projectRatio : NATIONAL_AVG.premium * projectRatio;
+  const scenarioEcoPrice = regionForScenarios ? regionForScenarios.eco * projectRatio : BASE_GRID_2026.eco * projectRatio;
+  const scenarioStdPrice = regionForScenarios ? regionForScenarios.std * projectRatio : BASE_GRID_2026.std * projectRatio;
+  const scenarioPremiumPrice = regionForScenarios ? regionForScenarios.premium * projectRatio : BASE_GRID_2026.hautStanding * projectRatio;
   const totalEco = Math.round(scenarioEcoPrice * tb);
   const totalPremium = Math.round(scenarioPremiumPrice * tb);
   const scenarios = {
     economique: { label:"Économique", totalCost: totalEco + Math.round(totalEco * contingencyPct / 100), costPerM2: Math.round(scenarioEcoPrice), multiplier: scenarioEcoPrice / scenarioStdPrice },
-    standard: { label:"Standard", totalCost: totalWithBuffer, costPerM2: finalCostM2, multiplier: 1.0 },
+    standard: { label:"Standard", totalCost: totalWithBuffer, costPerM2: Math.round(scenarioStdPrice), multiplier: 1.0 },
     premium: { label:"Premium", totalCost: totalPremium + Math.round(totalPremium * contingencyPct / 100), costPerM2: Math.round(scenarioPremiumPrice), multiplier: scenarioPremiumPrice / scenarioStdPrice },
   };
 
@@ -1888,14 +1902,18 @@ export function runBIMEstimation(
     }
   }
 
+  // Référence comparative FIXE (base Médenine du classeur — aucune moyenne nationale)
+  const fLevelGridKey = fLevel === "economique" ? "eco" : fLevel === "premium" ? "hautStanding" : "std";
+  const baseRefPriceM2 = BASE_GRID_2026[fLevelGridKey] * projectRatio;
+  const baseRefTotal = Math.round(baseRefPriceM2 * tb) + Math.round(Math.round(baseRefPriceM2 * tb) * contingencyPct / 100);
   const regionImpact = region ? {
     region,
     regionLabel: regionLabel || region,
     basePriceM2: finalPriceM2,
     priceRange: baseRegionLabel,
     totalWithRegion: totalWithBuffer,
-    totalNationalAvg: Math.round(NATIONAL_AVG[fLevel === "economique" ? "eco" : fLevel === "premium" ? "premium" : "std"] * projectRatio * tb) + buffer,
-    difference: totalWithBuffer - (Math.round(NATIONAL_AVG[fLevel === "economique" ? "eco" : fLevel === "premium" ? "premium" : "std"] * projectRatio * tb) + buffer),
+    totalNationalAvg: baseRefTotal,
+    difference: totalWithBuffer - baseRefTotal,
     regionTotals,
   } : undefined;
 
@@ -1908,8 +1926,8 @@ export function runBIMEstimation(
       contingencyBuffer: buffer,
       contingencyPercentage: contingencyPct,
       budgetScenarios: scenarios,
-      // Prix moyen TTC par m² toutes régions (référence comparative)
-      avgRegionPriceM2: Math.round(NATIONAL_AVG.std * projectRatio),
+      // Référence comparative fixe : standard de la base Médenine (grille du classeur)
+      avgRegionPriceM2: Math.round(BASE_GRID_2026.std * projectRatio),
     },
     aiAnalysis: {
       category: CATEGORY_LABEL[category] || category,

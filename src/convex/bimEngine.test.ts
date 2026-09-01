@@ -39,27 +39,23 @@ function findItem(breakdown: ReturnType<typeof getBreakdown>, namePart: string) 
 }
 
 describe("runBIMEstimation — impact du nombre de pièces", () => {
-  it("plus de pièces = coût total supérieur", () => {
+  it("le nombre de pièces ne modifie PAS le coût total (grille tarifaire stricte)", () => {
     const base = runBIMEstimation("maison", 150, 1, "tunis", "standard");
     const many = runBIMEstimation("maison", 150, 1, "tunis", "standard", MANY_ROOMS);
     const few = runBIMEstimation("maison", 150, 1, "tunis", "standard", FEW_ROOMS);
 
-    expect(many.costEstimate.totalCost).toBeGreaterThan(few.costEstimate.totalCost);
-    expect(many.costEstimate.totalCost).toBeGreaterThanOrEqual(base.costEstimate.totalCost);
-    expect(few.costEstimate.totalCost).toBeLessThanOrEqual(base.costEstimate.totalCost);
+    // Grille tarifaire fixe du classeur : le nombre de pièces n'ajuste jamais le total
+    expect(many.costEstimate.totalCost).toBe(base.costEstimate.totalCost);
+    expect(few.costEstimate.totalCost).toBe(base.costEstimate.totalCost);
   });
 
-  it("le nombre de pièces déclaré modifie le coût au m² (facteur borné)", () => {
+  it("le coût au m² reste la valeur EXACTE de la grille régionale (aucun ajustement)", () => {
     const many = runBIMEstimation("maison", 150, 1, "tunis", "standard", MANY_ROOMS);
     const few = runBIMEstimation("maison", 150, 1, "tunis", "standard", FEW_ROOMS);
 
-    expect(many.costEstimate.costPerSquareMeter).toBeGreaterThan(
-      few.costEstimate.costPerSquareMeter,
-    );
-    // Facteur max ±12% → le coût au m² reste dans une plage raisonnable
-    const fewCpm = few.costEstimate.costPerSquareMeter;
-    const manyCpm = many.costEstimate.costPerSquareMeter;
-    expect(manyCpm).toBeLessThanOrEqual(Math.round(fewCpm * 1.12) + 1);
+    // Tunis standard = 1 980 DT/m² (feuille « Couts_24_gouv »), quel que soit le nb de pièces
+    expect(many.costEstimate.costPerSquareMeter).toBe(few.costEstimate.costPerSquareMeter);
+    expect(many.costEstimate.costPerSquareMeter).toBe(1980);
   });
 
   it("les WC et douches suivent le nombre de salles de bain", () => {
@@ -124,6 +120,54 @@ describe("runBIMEstimation — impact du nombre de pièces", () => {
     expect(res.costEstimate.totalCost).toBeGreaterThan(0);
     expect(res.costEstimate.breakdown.length).toBe(6);
     expect(res.aiAnalysis.estimatedDuration).toMatch(/mois/);
+  });
+});
+
+describe("runBIMEstimation — grille tarifaire fixe 2026 (feuille « Couts_24_gouv »)", () => {
+  it("maison à Ariana : Économique 1 404 · Standard 1 944 · Premium 2 700 DT/m² (valeurs EXACTES)", () => {
+    const eco = runBIMEstimation("maison", 120, 1, "ariana", "economique");
+    const std = runBIMEstimation("maison", 120, 1, "ariana", "standard");
+    const prem = runBIMEstimation("maison", 120, 1, "ariana", "premium");
+
+    expect(eco.costEstimate.budgetScenarios.economique.costPerM2).toBe(1404);
+    expect(std.costEstimate.budgetScenarios.standard.costPerM2).toBe(1944);
+    expect(prem.costEstimate.budgetScenarios.premium.costPerM2).toBe(2700);
+
+    // Les 3 scénarios sont exposés identiquement sur chaque estimation
+    for (const res of [eco, std, prem]) {
+      const s = res.costEstimate.budgetScenarios;
+      expect(s.economique.costPerM2).toBe(1404);
+      expect(s.standard.costPerM2).toBe(1944);
+      expect(s.premium.costPerM2).toBe(2700);
+    }
+
+    // Le coût au m² principal (standard) = valeur exacte de la grille
+    expect(std.costEstimate.costPerSquareMeter).toBe(1944);
+  });
+
+  it("totaux = grille exacte × surface bâtie + contingence 12 % (ligne distincte)", () => {
+    const std = runBIMEstimation("maison", 120, 1, "ariana", "standard");
+    const base = 1944 * 120;
+    expect(std.costEstimate.totalCost).toBe(base + Math.round(base * 12 / 100));
+    expect(std.costEstimate.contingencyPercentage).toBe(12);
+  });
+
+  it("la grille exacte s'applique aux 24 gouvernorats (échantillons)", () => {
+    const tunis = runBIMEstimation("maison", 100, 1, "tunis", "economique");
+    expect(tunis.costEstimate.budgetScenarios.economique.costPerM2).toBe(1430);
+    const kasserine = runBIMEstimation("maison", 100, 1, "kasserine", "standard");
+    expect(kasserine.costEstimate.budgetScenarios.standard.costPerM2).toBe(1692);
+    const tataouine = runBIMEstimation("maison", 100, 1, "tataouine", "premium");
+    expect(tataouine.costEstimate.budgetScenarios.premium.costPerM2).toBe(2550);
+  });
+
+  it("sans gouvernorat : base Médenine du classeur (1 300 / 1 800 / 2 500), pas de moyenne nationale", () => {
+    const eco = runBIMEstimation("maison", 100, 1, undefined, "economique");
+    const std = runBIMEstimation("maison", 100, 1, undefined, "standard");
+    const prem = runBIMEstimation("maison", 100, 1, undefined, "premium");
+    expect(eco.costEstimate.budgetScenarios.economique.costPerM2).toBe(1300);
+    expect(std.costEstimate.budgetScenarios.standard.costPerM2).toBe(1800);
+    expect(prem.costEstimate.budgetScenarios.premium.costPerM2).toBe(2500);
   });
 });
 

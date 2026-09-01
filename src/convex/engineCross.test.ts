@@ -215,10 +215,9 @@ describe("Cohérence croisée BIM → DQE", () => {
     expect(sud.costEstimate.totalCost).toBeGreaterThan(centre.costEstimate.totalCost);
   });
 
-  it("sans région fournie, le budget s'appuie sur la moyenne nationale 1814 DT/m²", () => {
+  it("sans région fournie, le budget s'appuie sur la base Médenine (grille fixe 1 800 DT/m²)", () => {
     const res = runBIMEstimation("maison", 120, 1, undefined, "standard");
+    expect(res.costEstimate.budgetScenarios.standard.costPerM2).toBe(1800);
     expect(res.costEstimate.totalCost).toBeGreaterThan(0);
-    // La moyenne nationale utilisée en interne doit être celle de la feuille
-    expect(NATIONAL_AVG.std).toBe(1814);
   });
 });
