@@ -19,7 +19,6 @@ import { useParams, useNavigate } from "react-router";
 import { useState, useMemo, Fragment, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
-import { computeBreakdownPct } from "@/lib/bimBreakdown";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -68,63 +67,6 @@ const BIM_COLORS: Record<string, string> = {
 const BIM_ICONS: Record<string, any> = {
   gros_oeuvre: Building2, second_oeuvre: Paintbrush, equipements: Plug,
   main_oeuvre: Users, transport: Truck, etudes_imprevus: FileText,
-};
-
-const PIE_PALETTE = [
-  "#3b82f6", "#f59e0b", "#8b5cf6", "#22c55e", "#84cc16", "#ef4444",
-  "#06b6d4", "#ec4899", "#f97316", "#6366f1", "#14b8a6", "#a855f7",
-  "#eab308", "#0ea5e9", "#d946ef",
-];
-
-// Icônes des lots du « Quantitatif détaillé » (Répartition, Détail et tableau).
-const LOT_ICONS: Record<string, any> = {
-  frais_preliminaires: FileText,
-  gros_oeuvre: Building2,
-  second_oeuvre: Paintbrush,
-  amenagements_exterieurs: Map,
-  vrd: Truck,
-  depose_demolition: TriangleAlert,
-  depose: TriangleAlert,
-  maconnerie: Building2,
-  revetements: Layers,
-  plan_travail: Layers,
-  plomberie: Plug,
-  electricite: Plug,
-  etancheite: Layers,
-  carrelage: Layers,
-  sanitaires: Plug,
-  robinetterie: Plug,
-  preparation: Layers,
-  peinture: Paintbrush,
-  finition: Layers,
-  nettoyage: Layers,
-  meubles: Layers,
-  equipements: Plug,
-  ventilation: Plug,
-  structure: Building2,
-  filtration: Plug,
-  amenagements: Map,
-  main_oeuvre: Users,
-  terrassement: Building2,
-  charpente: Building2,
-  portes: Layers,
-  divers: Truck,
-  tableau: Plug,
-  cablage: Plug,
-  appareillage: Plug,
-  eclairage: Layers,
-  terre: Plug,
-  essais: Layers,
-  alimentation: Plug,
-  evacuation: Plug,
-  chauffe_eau: Plug,
-  cuisine_pro: Layers,
-  froid: Plug,
-  cvc: Plug,
-  facade: Layers,
-  cloisons: Layers,
-  menuiserie: Layers,
-  enseignes: Layers,
 };
 
 const COMPARE_REGIONS = [
@@ -480,29 +422,6 @@ export default function ProjectDetail() {
     const sel = scenarios[selectedScenario as keyof typeof scenarios];
     return sel?.costPerM2 || ce?.costPerSquareMeter || 0;
   }, [scenarios, selectedScenario, ce?.costPerSquareMeter]);
-
-  // ── Répartition / Détail recalculées depuis le « Quantitatif détaillé » ──
-  // Les lots DQE sont la référence unique des prix et des pourcentages :
-  // « Répartition » (camembert) et « Détail par catégorie » affichent
-  // exactement les mêmes montants que les lots du quantitatif, avec les
-  // pourcentages recalculés depuis ces montants (somme = 100 %). Sans DQE
-  // (projet ancien), la grille BIM est utilisée telle quelle.
-  const quantitatifBreakdown = useMemo(() => {
-    const dqe = (project as any)?.dqe as any;
-    if (!Array.isArray(dqe?.lots) || dqe.lots.length === 0) return null;
-    const lots = dqe.lots.map((lot: any) => ({
-      ...lot,
-      subtotal: Math.round(lot.subtotal * scaleFactor),
-      lines: (lot.lines ?? []).map((line: any) => ({
-        ...line,
-        total: Math.round(line.total * scaleFactor),
-        unitPrice: Math.round((line.total * scaleFactor) / Math.max(1, line.quantity) * 100) / 100,
-      })),
-    }));
-    return computeBreakdownPct(
-      lots.map((lot: any) => ({ ...lot, label: lot.name, amount: lot.subtotal })),
-    ).map((it: any) => ({ ...it, estimatedCost: it.amount, percentage: it.pct }));
-  }, [project, scaleFactor]);
 
   // Main-d'œuvre : 1 lot affiché sur la page de résultat.
 
@@ -1072,11 +991,78 @@ export default function ProjectDetail() {
                 etudes: { label: "Études & Permis", icon: FileText, color: "text-red-600" },
               };
               const NATURE_ORDER = ["materiaux", "main_oeuvre", "equipements", "transport", "etudes"];
+              const LOT_ICONS: Record<string, any> = {
+                frais_preliminaires: FileText,
+                gros_oeuvre: Building2,
+                second_oeuvre: Paintbrush,
+                amenagements_exterieurs: Map,
+                vrd: Truck,
+                depose_demolition: TriangleAlert,
+                depose: TriangleAlert,
+                maconnerie: Building2,
+                revetements: Layers,
+                plan_travail: Layers,
+                plomberie: Plug,
+                electricite: Plug,
+                etancheite: Layers,
+                carrelage: Layers,
+                sanitaires: Plug,
+                robinetterie: Plug,
+                preparation: Layers,
+                peinture: Paintbrush,
+                finition: Layers,
+                nettoyage: Layers,
+                meubles: Layers,
+                equipements: Plug,
+                ventilation: Plug,
+                structure: Building2,
+                filtration: Plug,
+                amenagements: Map,
+                main_oeuvre: Users,
+                terrassement: Building2,
+                charpente: Building2,
+                portes: Layers,
+                divers: Truck,
+                tableau: Plug,
+                cablage: Plug,
+                appareillage: Plug,
+                eclairage: Layers,
+                terre: Plug,
+                essais: Layers,
+                alimentation: Plug,
+                evacuation: Plug,
+                chauffe_eau: Plug,
+                cuisine_pro: Layers,
+                froid: Plug,
+                cvc: Plug,
+                facade: Layers,
+                cloisons: Layers,
+                menuiserie: Layers,
+                enseignes: Layers,
+              };
 
               // ── Données DQE (lots hiérarchiques) — calés sur le scénario ──
-              // Source unique : les mêmes lots alimentent « Répartition » et
-              // « Détail par catégorie » (prix et pourcentages identiques).
-              const dqeLots: any[] = quantitatifBreakdown ?? [];
+              const dqeLots: any[] = hasDqeLots
+                ? dqe.lots.map((lot: any) => ({
+                    ...lot,
+                    subtotal: Math.round(lot.subtotal * scaleFactor),
+                    lines: lot.lines?.map((line: any) => ({
+                      ...line,
+                      total: Math.round(line.total * scaleFactor),
+                      unitPrice: Math.round((line.total * scaleFactor) / Math.max(1, line.quantity) * 100) / 100,
+                    })),
+                  }))
+                : [];
+              // Totaux DQE recalculés à partir des lots scalés
+              const dqeTotals = dqe?.totals ? {
+                materiaux: Math.round(dqe.totals.materiaux * scaleFactor),
+                mainOeuvre: Math.round(dqe.totals.mainOeuvre * scaleFactor),
+                equipements: Math.round(dqe.totals.equipements * scaleFactor),
+                transport: Math.round(dqe.totals.transport * scaleFactor),
+                etudes: Math.round(dqe.totals.etudes * scaleFactor),
+                total: Math.round(dqe.totals.total * scaleFactor),
+                costPerM2: Math.round(dqe.totals.costPerM2 * scaleFactor),
+              } : undefined;
 
               // ── Données BIM (fallback plat) ──
               const flatBreakdown = scaledBreakdown ?? [];
@@ -1274,21 +1260,28 @@ export default function ProjectDetail() {
                                   <Wallet className="h-4 w-4 text-primary" />
                                   <span className="text-xs font-bold text-primary">Coût total estimé TTC</span>
                                 </div>
-                                <p className="text-lg font-black tabular-nums text-primary">{fmt(dqeLots.length > 0 ? dqeLots.reduce((acc: number, l: any) => acc + (l.subtotal || 0), 0) : totalBudg)}</p>
+                                <p className="text-lg font-black tabular-nums text-primary">{fmt(totalBudg)}</p>
                                 {surfaceTot > 0 && (
                                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                                    soit {fmt(Math.round((dqeLots.length > 0 ? dqeLots.reduce((acc: number, l: any) => acc + (l.subtotal || 0), 0) : totalBudg) / surfaceTot))}/m² · {surfaceTot} m²
+                                    soit {fmt(currentCostM2)}/m² · {surfaceTot} m² · TVA 19% incluse
                                   </p>
                                 )}
-                                {/* Ventilation par lot — strictement identique à « Répartition » et « Détail par catégorie » */}
-                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2">
-                                  {(quantitatifBreakdown ?? scaledBreakdown ?? []).map((b: any) => (
-                                    <span key={b.id ?? b.category} className="text-[9px] text-muted-foreground">
-                                      {b.label}: <span className="font-semibold text-foreground/80">{fmt(b.estimatedCost)}</span>
-                                      <span className="text-foreground/50"> ({b.percentage}%)</span>
-                                    </span>
-                                  ))}
-                                </div>
+                                {/* Ventilation par nature (DQE) */}
+                                {dqeTotals && (
+                                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2">
+                                    {([
+                                      ["materiaux", "Matériaux", dqeTotals.materiaux],
+                                      ["main_oeuvre", "Main-d'œuvre", dqeTotals.mainOeuvre],
+                                      ["equipements", "Outillage", dqeTotals.equipements],
+                                      ["transport", "Transport", dqeTotals.transport],
+                                      ["etudes", "Études", dqeTotals.etudes],
+                                    ] as const).filter(([, , v]) => v > 0).map(([key, label, val]) => (
+                                      <span key={key} className="text-[9px] text-muted-foreground">
+                                        {label}: <span className="font-semibold text-foreground/80">{fmt(val)}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               {/* Prix moyen par région */}
                               <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
@@ -1298,11 +1291,11 @@ export default function ProjectDetail() {
                                 </div>
                                 <p className="text-lg font-black tabular-nums text-foreground">{fmt(avgM2)}<span className="text-xs font-normal text-muted-foreground">/m²</span></p>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                                  Base de référence fixe : Médenine · Grille tarifaire 2026
+                                  Moyenne nationale 24 gouvernorats · Base marché Tunisie 2026
                                 </p>
                                 {project?.region && currentCostM2 !== avgM2 && (
                                   <p className={cn("text-[10px] font-medium mt-1", currentCostM2 > avgM2 ? "text-amber-600" : "text-emerald-600")}>
-                                    {currentCostM2 > avgM2 ? "▲" : "▼"} {Math.abs(Math.round((currentCostM2 / avgM2 - 1) * 100))}% vs base de référence ({REGION_LABELS[project.region] ?? project.region})
+                                    {currentCostM2 > avgM2 ? "▲" : "▼"} {Math.abs(Math.round((currentCostM2 / avgM2 - 1) * 100))}% vs moyenne nationale ({REGION_LABELS[project.region] ?? project.region})
                                   </p>
                                 )}
                               </div>
@@ -1349,14 +1342,12 @@ export default function ProjectDetail() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
               <motion.div variants={fadeUp} custom={3} className="lg:col-span-2 rounded-xl border bg-card shadow-sm p-4">
                 <h3 className="text-sm font-semibold mb-1">Répartition</h3>
-                <p className="text-[10px] text-muted-foreground mb-3">{quantitatifBreakdown ? "Par lot de travaux (quantitatif détaillé)" : "Par catégorie de coût"}</p>
+                <p className="text-[10px] text-muted-foreground mb-3">Par catégorie de coût</p>
                 <div className="h-[180px] sm:h-[210px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={quantitatifBreakdown ?? scaledBreakdown} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="estimatedCost" nameKey="label">
-                        {(quantitatifBreakdown ?? scaledBreakdown).map((e: any, i: number) => (
-                          <Cell key={e.label ?? e.id} fill={e.category ? (BIM_COLORS[e.category] ?? "#888") : PIE_PALETTE[i % PIE_PALETTE.length]} />
-                        ))}
+                      <Pie data={scaledBreakdown} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="estimatedCost" nameKey="label">
+                        {scaledBreakdown.map((e: any) => <Cell key={e.label} fill={BIM_COLORS[e.category] ?? "#888"} />)}
                       </Pie>
                       <Tooltip content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
@@ -1373,12 +1364,11 @@ export default function ProjectDetail() {
                   </ResponsiveContainer>
                 </div>
                 <div className="grid grid-cols-2 gap-1 mt-2 pt-3 border-t border-border/10">
-                  {(quantitatifBreakdown ?? scaledBreakdown).map((item: any, i: number) => {
-                    const Icon = item.category ? (BIM_ICONS[item.category] ?? Layers) : (LOT_ICONS[item.id] ?? Layers);
-                    const color = item.category ? (BIM_COLORS[item.category] ?? "#888") : PIE_PALETTE[i % PIE_PALETTE.length];
+                  {scaledBreakdown.map((item: any) => {
+                    const Icon = BIM_ICONS[item.category] ?? Layers;
                     return (
-                      <div key={item.label ?? item.id} className="flex items-center gap-1.5 text-[10px] sm:text-xs">
-                        <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                      <div key={item.label} className="flex items-center gap-1.5 text-[10px] sm:text-xs">
+                        <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[item.category] ?? "#888" }} />
                         <Icon className="h-3 w-3 text-muted-foreground/50 shrink-0 hidden sm:block" />
                         <span className="truncate">{item.label}</span>
                         <span className="font-semibold ml-auto">{item.percentage}%</span>
@@ -1390,13 +1380,13 @@ export default function ProjectDetail() {
 
               <motion.div variants={fadeUp} custom={4} className="lg:col-span-3 rounded-xl border bg-card shadow-sm p-4">
                 <h3 className="text-sm font-semibold mb-1">Détail par catégorie</h3>
-                <p className="text-[10px] text-muted-foreground mb-3">{quantitatifBreakdown ? "Lots du quantitatif détaillé" : "Postes de travaux"}</p>
+                <p className="text-[10px] text-muted-foreground mb-3">Postes de travaux</p>
                 <div className="space-y-3">
-                  {[...(quantitatifBreakdown ?? scaledBreakdown)].sort((a: any, b: any) => b.estimatedCost - a.estimatedCost).map((item: any, i: number) => {
-                    const Icon = item.category ? (BIM_ICONS[item.category] ?? Layers) : (LOT_ICONS[item.id] ?? Layers);
-                    const color = item.category ? (BIM_COLORS[item.category] ?? "#888") : PIE_PALETTE[i % PIE_PALETTE.length];
+                  {[...scaledBreakdown].sort((a: any, b: any) => b.estimatedCost - a.estimatedCost).map((item: any, i: number) => {
+                    const Icon = BIM_ICONS[item.category] ?? Layers;
+                    const color = BIM_COLORS[item.category] ?? "#888";
                     return (
-                      <div key={item.label ?? item.id}>
+                      <div key={item.label}>
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <div className="flex h-5 w-5 items-center justify-center rounded shrink-0" style={{ backgroundColor: color + "18" }}>
@@ -1414,6 +1404,16 @@ export default function ProjectDetail() {
                       </div>
                     );
                   })}
+                </div>
+                <div className="mt-3 pt-3 border-t border-border/10">
+                  <div className="flex items-center justify-between text-xs mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5 text-amber-500" />
+                      <span className="font-medium">Imprévus</span>
+                    </div>
+                    <span className="font-bold">{fmt(Math.round(ce.contingencyBuffer * scaleFactor))}</span>
+                  </div>
+                  <Progress value={ce.contingencyPercentage} className="h-1.5 bg-amber-500/10 [&>div]:bg-amber-500" />
                 </div>
               </motion.div>
             </div>
@@ -1942,6 +1942,23 @@ export default function ProjectDetail() {
               )}
             </SectionCard>
 
+            {/* ══ Contact ══ */}
+            <motion.div variants={fadeUp} custom={8}
+              className="rounded-xl border bg-card shadow-sm p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Phone className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70">Pour plus d'informations contactez :</p>
+                  <p className="text-sm font-semibold mt-0.5">Maatougui Seifeddine</p>
+                  <p className="text-[11px] text-muted-foreground">Consultant &amp; Directeur régional (SAFI)</p>
+                  <a href="mailto:Maatougui.Seifeddine@batibuild.app" className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 mt-0.5">
+                    <Mail className="h-3 w-3" /> Maatougui.Seifeddine@batibuild.app
+                  </a>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </div>

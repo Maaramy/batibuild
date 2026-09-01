@@ -26,6 +26,8 @@ import {
   Star,
   FileSpreadsheet,
   ChevronRight,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { toast } from "sonner";
@@ -370,6 +372,24 @@ export default function InvestmentResults() {
           />
         )}
 
+        {/* ══ Contact ══ */}
+        {run && (
+          <div className="rounded-2xl border border-border/40 bg-card/60 px-4 sm:px-5 py-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                <Phone className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70">Pour plus d'informations contactez :</p>
+                <p className="text-sm font-semibold mt-0.5">Maatougui Rami</p>
+                <p className="text-[11px] text-muted-foreground">CEO - Fondateur</p>
+                <a href="mailto:rami.maatougui@batibuild.app" className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 mt-0.5">
+                  <Mail className="h-3 w-3" /> rami.maatougui@batibuild.app
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ═══ Share dialog ═══ */}
