@@ -6,7 +6,6 @@ import { api } from "./_generated/api";
 import { vly } from "../lib/vly-integrations";
 import { requireClientProAccess } from "./access";
 import { inferFloorsFromCategory } from "./projectTypes";
-import { crossValidateMaterials as crossValidateMaterialsEngine } from "./aiMaterialsCrossval";
 import {
   COPILOT_CATEGORY_BY_ID,
   matchCategoryMaterials,
@@ -354,34 +353,6 @@ export const getAssistantProjectContext = action({
   args: { result: v.optional(v.any()), context: v.optional(v.any()) },
   handler: async (ctx, args) => {
     return buildAssistantContext(args.result as RecommendResult | null, args.context as ProjectContext | null);
-  },
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CROSS-VALIDATION OFFLINE (DQE × BIM grid × AI result)
-// Re-derives the 3 scenarios from the fixed 2026 tariff grid and the DQE
-// lot structure — deterministic, no AI calls, no national averages.
-// ═══════════════════════════════════════════════════════════════════════════
-export const crossValidateMaterials = action({
-  args: {
-    result: v.any(),            // RecommendResult from recommendMaterials
-    region: v.optional(v.string()),
-    surface: v.number(),
-    floors: v.optional(v.number()),
-    category: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const user = await ctx.runQuery(api.users.currentUser);
-    if (!user) throw new Error("Non connecté");
-    await requireClientProAccess(ctx, user, "Matériaux IA");
-
-    return crossValidateMaterialsEngine({
-      result: args.result as RecommendResult,
-      region: args.region,
-      surface: args.surface,
-      floors: args.floors ?? 1,
-      category: args.category,
-    });
   },
 });
 
