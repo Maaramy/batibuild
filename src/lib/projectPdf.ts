@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 import { toast } from "sonner";
 import { drawBatiLogo } from "./pdfLogo";
+import { alignDqeToBase } from "./bimBreakdown";
 
 applyAutotablePlugin(jsPDF);
 
@@ -341,26 +342,6 @@ export async function generateProjectPdf({
       y += 5;
     });
 
-    // Contingency row
-    addPageIfNeeded(6);
-    doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
-    doc.line(ml, y, ml + cw, y);
-    doc.setFontSize(6.5);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(180, 83, 9);
-    doc.text("Imprévus", ml + 2, y + 3.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
-    doc.text(`${ce.contingencyPercentage}%`, ml + cw * 0.55, y + 3.5, { align: "right" });
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(180, 83, 9);
-    doc.text(
-      fmtPdf(Math.round(ce.contingencyBuffer * sf)),
-      ml + cw * 0.75,
-      y + 3.5,
-      { align: "right" },
-    );
-
     y += 10;
 
     // ═══ BUDGET SCENARIOS COMPARISON ═══════════════════════════════
@@ -460,7 +441,15 @@ export async function generateProjectPdf({
         }))
       : [];
 
-    const hasDqeLots = dqeLots.length > 0;
+    // Alignement sur la grille (référence unique) : le total du quantitatif
+    // doit être strictement identique à la répartition / détail, sans Imprévus.
+    const dqeBaseTotal = breakdown.reduce(
+      (acc: number, b: any) => acc + (b.estimatedCost || 0),
+      0,
+    );
+    const dqeLotsAligned = alignDqeToBase(dqeLots, dqeBaseTotal).lots;
+
+    const hasDqeLots = dqeLotsAligned.length > 0;
     const hasFlatItems = breakdown.some((b: any) => b.items?.length > 0);
 
     if (hasDqeLots || hasFlatItems) {
@@ -472,50 +461,37 @@ export async function generateProjectPdf({
       doc.text(`Quantitatif détaillé — Scénario ${scenarioLabel}`, ml, y);
       y += 2;
 
-      // Ventilation par nature (DQE totals)
-      const dqeTotals = dqe?.totals
-        ? {
-            materiaux: Math.round(dqe.totals.materiaux * dqeScaleFactor),
-            mainOeuvre: Math.round(dqe.totals.mainOeuvre * dqeScaleFactor),
-            equipements: Math.round(dqe.totals.equipements * dqeScaleFactor),
-            transport: Math.round(dqe.totals.transport * dqeScaleFactor),
-            etudes: Math.round(dqe.totals.etudes * dqeScaleFactor),
-            total: Math.round(dqe.totals.total * dqeScaleFactor),
-          }
-        : null;
+      // Ventilation par catégorie — strictement identique à la page de
+      // résultats (Répartition / Détail par catégorie / Quantitatif)
+      doc.setFontSize(6);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+      doc.text("Ventilation par catégorie (coût total) :", ml, y + 4);
+      y += 2;
 
-      if (dqeTotals) {
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
-        doc.text("Ventilation par nature :", ml, y + 4);
-        y += 2;
-
-        const natureEntries: [string, number][] = [
-          ["materiaux", dqeTotals.materiaux],
-          ["main_oeuvre", dqeTotals.mainOeuvre],
-          ["equipements", dqeTotals.equipements],
-          ["transport", dqeTotals.transport],
-          ["etudes", dqeTotals.etudes],
-        ].filter(([, v]) => (v as number) > 0) as [string, number][];
-
-        const natureColW = cw / Math.min(natureEntries.length, 5);
-        natureEntries.forEach(([key, val], i) => {
-          const nx = ml + i * natureColW;
-          const nc = NATURE_COLORS[key] || C.textSecondary;
+      const catEntries = breakdown.filter((b: any) => b.estimatedCost > 0);
+      const catRows = Array.from({ length: Math.ceil(catEntries.length / 4) }, (_, i) =>
+        catEntries.slice(i * 4, i * 4 + 4),
+      );
+      catRows.forEach((rowEntries: any[]) => {
+        const catColW = cw / rowEntries.length;
+        rowEntries.forEach((b: any, i: number) => {
+          const nx = ml + i * catColW;
+          const nc = BIM_RGB[b.category] || (C.primary as [number, number, number]);
           doc.setFillColor(nc[0], nc[1], nc[2]);
-          doc.roundedRect(nx, y + 5, natureColW - 2, 5, 0.5, 0.5, "F");
+          doc.roundedRect(nx, y + 5, catColW - 2, 5, 0.5, 0.5, "F");
           doc.setTextColor(255, 255, 255);
           doc.setFontSize(5.5);
           doc.setFont("helvetica", "bold");
-          doc.text(`${NATURE_LABELS[key] || key}: ${fmtPdf(val)}`, nx + 1.5, y + 8.2);
+          doc.text(`${b.label}: ${fmtPdf(b.estimatedCost)} (${b.percentage}%)`, nx + 1.5, y + 8.2);
         });
-        y += 13;
-      }
+        y += 7;
+      });
+      y += 6;
 
       // ── DQE LOTS (hierarchical) ──
       if (hasDqeLots) {
-        dqeLots.forEach((lot: any) => {
+        dqeLotsAligned.forEach((lot: any) => {
           addPageIfNeeded(14);
 
           // Lot header
