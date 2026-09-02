@@ -346,10 +346,7 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                     })}
                   </div>
 
-                  {/* ── Top 5 articles recommandés pour cette catégorie ── */}
-                  <CategoryTopArticles articles={cat.topArticles ?? []} />
-
-                  {/* ── Fournisseur recommandé pour cette catégorie ── */}
+                  {/* ── Fournisseur recommandé pour cette catégorie (sous la section Équilibrée) ── */}
                   {(() => {
                     const equilibreSol = cat.solutions.find((s) => s.profile === "equilibre");
                     if (!equilibreSol) return null;
@@ -370,6 +367,9 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                       </div>
                     );
                   })()}
+
+                  {/* ── Top 5 articles recommandés pour cette catégorie ── */}
+                  <CategoryTopArticles articles={cat.topArticles ?? []} />
                 </CardContent>
               </Card>
             </motion.div>
