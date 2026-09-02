@@ -61,31 +61,6 @@ export type ProjectContext = {
   priorities?: Record<PriorityKey, number>; // 0-100
   rooms?: { bathrooms?: number; kitchens?: number; bedrooms?: number };
   terrainSurface?: number; // m² du terrain
-  /** Données réelles du projet (DQE, BIM) pré-résolues côté action — voir aiMaterialsCopilot. */
-  copilot?: CopilotInput;
-};
-
-/**
- * Données internes du projet injectées dans le moteur (spécification §2, §57).
- * L'action extrait ces données via le connecteur aiMaterialsCopilot ; le moteur
- * les consomme sans dépendre du connecteur (pas de cycle d'imports).
- */
-export type CopilotInput = {
-  /** Quantités réelles par catégorie (PRIORITÉ 1 BIM, PRIORITÉ 2 DQE), déjà filtrées par unité compatible. */
-  overrides: Record<string, { quantity: number; unit: string; designation: string; source: "BIM" | "DQE"; confidence: number }>;
-  /** Transparence « Données utilisées pour l'analyse » (§6). */
-  dataSources: { source: string; detail: string; status: "disponible" | "partiel" | "indisponible" }[];
-  /** Contrôle de cohérence BIM vs DQE (§15). */
-  consistency: { categoryId: string; label: string; bimQuantity: number; bimUnit: string; dqeQuantity: number; dqeUnit: string; deltaPct: number; verdict: "ecart_acceptable" | "ecart_probable" | "anomalie_potentielle"; explanation: string }[];
-  /** Anomalies détectées (§16). */
-  anomalies: { severity: "haute" | "moyenne" | "basse"; categoryId?: string; title: string; description: string }[];
-  /** Score de fiabilité global (§39). */
-  confidence: number;
-  projectName?: string;
-  projectCategory?: string;
-  surface?: number;
-  region?: string;
-  floors?: number;
 };
 
 export type CatalogMaterial = {
@@ -295,39 +270,6 @@ export function estimateQuantity(categoryId: string, ctx: ProjectContext): Quant
     case "amenagement_exterieur": return { quantity: round2(terrain * 0.35), unitLabel: "m²" };
     default: return { quantity: 1, unitLabel: "unité" };
   }
-}
-
-/**
- * Quantité de la catégorie selon la hiérarchie de fiabilité (§10) :
- *   1. Quantité réelle BIM (injectée via ctx.copilot) → 2. Quantité DQE → 3. règle surface.
- * La source et la confiance suivent la quantité ; jamais de donnée inventée.
- */
-export type EngineQuantity = {
-  quantity: number;
-  unitLabel: string;
-  source: "BIM" | "DQE" | "calculée";
-  confidence: number; // 0-100
-  designation?: string;
-};
-
-export function engineQuantity(categoryId: string, ctx: ProjectContext): EngineQuantity {
-  const o = ctx.copilot?.overrides?.[categoryId];
-  if (o) {
-    return {
-      quantity: o.quantity,
-      unitLabel: o.unit,
-      source: o.source,
-      confidence: o.confidence,
-      designation: o.designation,
-    };
-  }
-  const rule = estimateQuantity(categoryId, ctx);
-  return {
-    quantity: rule.quantity,
-    unitLabel: rule.unitLabel,
-    source: "calculée",
-    confidence: 60,
-  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -640,12 +582,6 @@ export type Solution = {
     band: PriceBand;
     quantity: number;
     quantityUnit: string;
-    /** Source de la quantité : « BIM », « DQE » ou « calculée » (règles surface) */
-    quantitySource?: "BIM" | "DQE" | "calculée";
-    /** Confiance de la quantité (0-100) : 95 BIM, 90 DQE, 60 calculée */
-    quantityConfidence?: number;
-    /** Désignation réelle source (ligne DQE / item BIM) */
-    sourceDesignation?: string;
     materialCost: number; // TND (probable)
     poseCost: number;
     transportCost: number;
@@ -719,12 +655,6 @@ export type RecommendResult = {
   };
   cost: CostSummary;
   missingData: string[]; // données non disponibles (signalées, jamais inventées)
-  // ── Données internes du projet (présentes quand ctx.copilot est fourni) ──
-  dataSources?: CopilotInput["dataSources"];
-  consistency?: CopilotInput["consistency"];
-  anomalies?: CopilotInput["anomalies"];
-  analysisConfidence?: number;
-  project?: { name?: string; type?: string; surface?: number; region?: string; floors?: number };
 };
 
 const PROFILE_LABEL: Record<Profile, string> = {
@@ -823,7 +753,7 @@ export function recommendForProject(input: {
 
     const profiles: Profile[] = ["economique", "equilibre", "premium"];
     const solutions: Solution[] = [];
-    const qty = engineQuantity(cat.id, ctx);
+    const qty = estimateQuantity(cat.id, ctx);
 
     // Sélection par profil (indépendante), puis résolution des doublons :
     // chaque profil reçoit un matériau distinct, en gardant pour chaque
@@ -911,10 +841,6 @@ export function recommendForProject(input: {
           band: best.band,
           quantity: qty.quantity,
           quantityUnit: qty.unitLabel,
-          // Traçabilité de la quantité (§10, §50) : source réelle (BIM/DQE) ou calculée
-          quantitySource: qty.source,
-          quantityConfidence: qty.confidence,
-          sourceDesignation: qty.designation,
           materialCost: round0(materialCost),
           poseCost: round0(poseCost),
           transportCost: round0(transportCost),
@@ -1026,17 +952,10 @@ export function recommendForProject(input: {
     `(${Math.round(built)} m², ${ctx.standing || "standing standard"}, budget ${BUDGET_MODES.find((b) => b.id === ctx.budgetMode)?.label.toLowerCase() || ctx.budgetMode}), ` +
     `la solution ${picked.profileLabel.toLowerCase()} (« ${picked.material.name} ») offre le meilleur compromis entre prix, ` +
     `performance et disponibilité sur le marché tunisien (score ${picked.scores.noteGlobale}/100). ` +
-    `${ctx.copilot?.overrides && Object.keys(ctx.copilot.overrides).length > 0
-      ? "Les quantités reposent sur les données réelles du projet " +
-        (Object.values(ctx.copilot.overrides).some((o) => o.source === "BIM")
-          ? "(BIM Engine et DQE), jamais sur une moyenne nationale. "
-          : "(DQE), jamais sur une moyenne nationale. ")
-      : "Les quantités sont calculées à partir de la surface et du nombre de niveaux selon les règles du marché tunisien. "
-    }` +
     `Cette recommandation est une aide à la décision fondée sur les prix du catalogue 2026 et les offres fournisseurs recensées ; ` +
     `elle ne remplace pas la validation d'un ingénieur ou d'un architecte, en particulier pour les éléments structurels.`;
 
-  const result: RecommendResult = {
+  return {
     generatedAt: Date.now(),
     context: ctx,
     categories,
@@ -1052,20 +971,6 @@ export function recommendForProject(input: {
     cost,
     missingData,
   };
-  if (ctx.copilot) {
-    result.dataSources = ctx.copilot.dataSources;
-    result.consistency = ctx.copilot.consistency;
-    result.anomalies = ctx.copilot.anomalies;
-    result.analysisConfidence = ctx.copilot.confidence;
-    result.project = {
-      name: ctx.copilot.projectName,
-      type: ctx.copilot.projectCategory,
-      surface: ctx.copilot.surface,
-      region: ctx.copilot.region,
-      floors: ctx.copilot.floors,
-    };
-  }
-  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
