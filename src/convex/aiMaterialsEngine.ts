@@ -50,6 +50,8 @@ export type ProjectContext = {
   projectName?: string;
   projectCategory?: string; // maison, villa, appartement…
   region?: string;
+  /** Zone climatique déduite du gouvernorat (§5-6) — donnée de contexte, n'influence pas les prix. */
+  climateZone?: string;
   city?: string;
   quarter?: string;
   surface: number; // m² construits
@@ -619,9 +621,35 @@ export type CategoryResult = {
   candidatesCount: number;
   coverage: boolean; // true si au moins une offre/prix recensé
   solutions: Solution[];
+  /** Top 5 des articles les plus pertinents pour le projet (spéc. §30-31) — classement déterministe. */
+  topArticles: TopArticle[];
   bestValue: Profile; // meilleur rapport qualité/prix
   /** Meilleur fournisseur de la catégorie : offre la moins chère (fiabilité en cas d'égalité) pour la solution recommandée. */
   bestSupplier: BestSupplier | null;
+};
+
+/** Article du « Top 5 » d'une catégorie — données réelles du projet, jamais inventées. */
+export type TopArticle = {
+  rank: number; // 1..5
+  id: string;
+  name: string;
+  brand?: string;
+  unit: string;
+  /** Prix de marché le plus fiable disponible (moyenne offre fournisseur sinon prix catalogue). */
+  unitPrice: number;
+  /** Source du prix (libellé FR) : Fournisseur / Marché 2026 / Estimation… */
+  priceSource: string;
+  /** Indice de confiance du prix (0-100). */
+  confidence: number;
+  /** Quantité sélectionnée pour le projet dans cette catégorie. */
+  quantity: number;
+  quantityUnit: string;
+  /** Prix TTC = prix unitaire × quantité × (1 + TVA) — même formule que la grille de prix. */
+  totalTTC: number;
+  /** Score de pertinence (profil équilibré, mêmes pondérations que les solutions). */
+  score: number;
+  /** Fournisseurs recensés pour l'article. */
+  suppliers: { name: string; price: number; unit: string; governorate?: string; reliabilityIndex?: number }[];
 };
 
 export type CostSummary = {
