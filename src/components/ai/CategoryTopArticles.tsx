@@ -94,6 +94,31 @@ export type TopArticleRow = {
   suppliers: { name: string; price: number; governorate?: string }[];
 };
 
+/**
+ * Rend une ligne du Top 5 robuste aux analyses enregistrées avant le
+ * classement moteur (champs absents ou de forme différente) : jamais de crash
+ * sur un `suppliers` manquant, des quantités non numériques, etc.
+ */
+function normalizeTopArticle(r: Partial<TopArticleRow>): TopArticleRow {
+  const name = r.name || "Article non renseigné";
+  return {
+    rank: typeof r.rank === "number" && r.rank > 0 ? Math.round(r.rank) : 1,
+    materialId: r.materialId || `${name}-${r.rank ?? 0}`,
+    name,
+    brand: r.brand,
+    unit: r.unit || "unité",
+    unitPrice: typeof r.unitPrice === "number" && isFinite(r.unitPrice) ? r.unitPrice : 0,
+    quantity: typeof r.quantity === "number" && isFinite(r.quantity) ? r.quantity : 0,
+    quantityUnit: r.quantityUnit || r.unit || "unité",
+    totalTTC: typeof r.totalTTC === "number" && isFinite(r.totalTTC) ? r.totalTTC : 0,
+    score: typeof r.score === "number" && isFinite(r.score) ? r.score : 0,
+    priceSource: r.priceSource || "Catalogue des prix — base 2026",
+    suppliers: Array.isArray(r.suppliers)
+      ? r.suppliers.filter((s) => s && typeof s.name === "string")
+      : [],
+  };
+}
+
 interface CategoryTopArticlesProps {
   categoryId: string;
   categoryLabel: string;
@@ -124,13 +149,16 @@ export function CategoryTopArticles({
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
 
+  // Lignes normalisées : tolère les analyses enregistrées avant le Top 5 moteur.
+  const safeRows = useMemo(() => rows.map(normalizeTopArticle), [rows]);
+
   // Fournisseurs pertinents par article :
   // 1) ceux recensés pour l'article (offres de la base, correspondance par nom),
   // 2) sinon repli sur les spécialités de la catégorie.
   const targetsByArticle = useMemo(() => {
-    if (!rows || !activeSuppliers) return new Map<string, ActiveSupplier[]>();
+    if (safeRows.length === 0 || !activeSuppliers) return new Map<string, ActiveSupplier[]>();
     const map = new Map<string, ActiveSupplier[]>();
-    for (const r of rows) {
+    for (const r of safeRows) {
       const targets: ActiveSupplier[] = [];
       for (const s of r.suppliers) {
         const hit = activeSuppliers.find((p) => normName(p.companyName) === normName(s.name));
@@ -146,7 +174,7 @@ export function CategoryTopArticles({
       map.set(r.materialId, targets);
     }
     return map;
-  }, [rows, activeSuppliers, categoryId]);
+  }, [safeRows, activeSuppliers, categoryId]);
 
   const suppliersLoading = activeSuppliers === undefined;
   const listUrl =
@@ -188,7 +216,7 @@ export function CategoryTopArticles({
     }
   };
 
-  if (!rows || rows.length === 0) return null;
+  if (safeRows.length === 0) return null;
 
   const selectedTargets = selected ? targetsByArticle.get(selected.materialId) ?? [] : [];
 
@@ -229,7 +257,7 @@ export function CategoryTopArticles({
               </tr>
             </thead>
             <tbody>
-              {rows.map((a) => {
+              {safeRows.map((a) => {
                 const hasTargets = (targetsByArticle.get(a.materialId) ?? []).length > 0;
                 return (
                   <tr key={a.materialId} className="border-b border-border/10 last:border-0">
@@ -278,7 +306,7 @@ export function CategoryTopArticles({
 
         {/* ── Cartes mobile (< md) ── */}
         <div className="md:hidden divide-y divide-border/10">
-          {rows.map((a) => {
+          {safeRows.map((a) => {
             const hasTargets = (targetsByArticle.get(a.materialId) ?? []).length > 0;
             return (
               <div key={a.materialId} className="px-3 py-3">
