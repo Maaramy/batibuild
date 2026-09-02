@@ -7,6 +7,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useQuery, useMutation } from "convex/react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -43,6 +44,10 @@ export default function SupplierQuotes() {
 
   const quotes = useQuery(api.quoteRequests.getBySupplier);
   const sendResponse = useMutation(api.quoteResponses.sendResponse);
+  const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const filtered = quotes?.filter((q) =>
     statusFilter === "all" ? true : q.status === statusFilter
@@ -50,24 +55,61 @@ export default function SupplierQuotes() {
 
   const pendingCount = quotes?.filter((q) => q.status === "pending").length ?? 0;
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return;
+    if (file.type !== "application/pdf" && !file.type.startsWith("image/")) {
+      toast.error("Format accepté : PDF ou image (JPG, PNG)");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux (max 5 Mo)");
+      e.target.value = "";
+      return;
+    }
+    setAttachmentFile(file);
+    e.target.value = "";
+  };
+
   const handleSendResponse = async () => {
     if (!selectedQuote || !responseMessage.trim()) return;
     try {
       setSending(true);
+      // Upload de la pièce jointe (devis PDF / photo) si sélectionnée
+      let attachmentStorageId: Id<"_storage"> | undefined;
+      let attachmentFileName: string | undefined;
+      if (attachmentFile) {
+        setUploading(true);
+        const uploadUrl = await generateUploadUrl();
+        const result = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": attachmentFile.type },
+          body: attachmentFile,
+        });
+        if (!result.ok) throw new Error("Échec de l'upload de la pièce jointe");
+        const { storageId } = await result.json();
+        attachmentStorageId = storageId;
+        attachmentFileName = attachmentFile.name;
+      }
       await sendResponse({
         quoteRequestId: selectedQuote._id,
         message: responseMessage,
         totalAmount: responseAmount ? Number(responseAmount) : undefined,
+        attachmentStorageId,
+        attachmentFileName,
       });
-      toast.success("Devis envoyé avec succès !");
+      toast.success(attachmentFile ? "Devis envoyé avec pièce jointe !" : "Devis envoyé avec succès !");
       setShowResponseDialog(false);
       setResponseMessage("");
       setResponseAmount("");
+      setAttachmentFile(null);
       setSelectedQuote(null);
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'envoi");
     } finally {
       setSending(false);
+      setUploading(false);
     }
   };
 
@@ -265,6 +307,37 @@ export default function SupplierQuotes() {
               />
             </div>
 
+            <div>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                Pièce jointe — devis PDF ou photo (optionnel)
+              </label>
+              {attachmentFile ? (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg border border-emerald-200/50 bg-emerald-50/40">
+                  <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span className="text-xs font-medium truncate flex-1">{attachmentFile.name}</span>
+                  <span className="text-[9px] text-muted-foreground shrink-0">{Math.round(attachmentFile.size / 1024)} Ko</span>
+                  <button
+                    onClick={() => setAttachmentFile(null)}
+                    className="text-muted-foreground hover:text-red-500 transition-colors cursor-pointer"
+                    title="Retirer la pièce jointe"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 p-3 rounded-lg border border-dashed border-border/50 hover:border-primary/40 hover:bg-primary/[0.03] transition-all cursor-pointer text-xs text-muted-foreground">
+                  <Package className="h-3.5 w-3.5" />
+                  Choisir un fichier (PDF, JPG, PNG — max 5 Mo)
+                  <input
+                    type="file"
+                    accept="application/pdf,image/png,image/jpeg"
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
+                </label>
+              )}
+            </div>
+
             <div className="flex gap-2 justify-end">
               <Button variant="ghost" size="sm" className="text-xs" onClick={() => setShowResponseDialog(false)}>
                 <X className="h-3 w-3 mr-1" /> Annuler
@@ -272,11 +345,11 @@ export default function SupplierQuotes() {
               <Button
                 size="sm"
                 className="gap-1.5 text-xs"
-                disabled={sending || !responseMessage.trim()}
+                disabled={sending || uploading || !responseMessage.trim()}
                 onClick={handleSendResponse}
               >
-                {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                Envoyer
+                {sending || uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                {uploading ? "Envoi du fichier…" : "Envoyer"}
               </Button>
             </div>
           </div>

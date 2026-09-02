@@ -430,6 +430,19 @@ export default function ProjectDetail() {
     [scaledBreakdown],
   );
 
+  // Matériaux du projet (quantités DQE/BIM) injectés automatiquement dans les demandes de devis
+  const quoteMaterials = useMemo(() => {
+    const out: { name: string; quantity: number; unit: string }[] = [];
+    for (const b of scaledBreakdown ?? []) {
+      if (b.category === "main_oeuvre") continue;
+      for (const it of b.items ?? []) {
+        if (!it.name || typeof it.quantity !== "number" || it.quantity <= 0) continue;
+        out.push({ name: it.name, quantity: it.quantity, unit: it.unit ?? "" });
+      }
+    }
+    return out.slice(0, 20);
+  }, [scaledBreakdown]);
+
   // ── Meilleur fournisseur (prix minimum) par désignation du quantitatif ──
   // Résolu en direct depuis les offres fournisseurs (materialOffers) : le nom
   // du fournisseur le moins cher est affiché pour chaque poste matériau.
@@ -1865,9 +1878,9 @@ export default function ProjectDetail() {
                 <SupplierRecommendedCard
                   categoryKey={ai.category}
                   categoryLabel={ai.category}
-                  materials={[]}
+                  materials={quoteMaterials}
                   projectId={project._id}
-                  projectName={ai.category}
+                  projectName={project.name}
                   currentUserId={currentUser?._id as string | undefined}
                 />
               </div>
