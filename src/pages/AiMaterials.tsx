@@ -198,7 +198,7 @@ export default function AiMaterials() {
             <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight">Quel est le meilleur matériau pour mon projet ?</h2>
             <p className="mt-1.5 text-xs sm:text-sm text-emerald-100/80 max-w-2xl">
               L'IA analyse le catalogue 2026 et les offres fournisseurs pour vous proposer 3 solutions
-              (Économique · Équilibrée · Premium), le coût total estimé, les fournisseurs au meilleur prix
+              (Standard · Équilibrée · Premium), le coût total estimé, les fournisseurs au meilleur prix
               et l'optimisation de votre budget — adaptés au climat et au marché tunisien.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">

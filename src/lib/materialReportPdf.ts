@@ -31,7 +31,7 @@ const PROFILE_COLORS: Record<string, [number, number, number]> = {
 };
 
 const PROFILE_LABEL: Record<string, string> = {
-  economique: "Économique",
+  economique: "Standard",
   equilibre: "Équilibrée",
   premium: "Premium",
 };
