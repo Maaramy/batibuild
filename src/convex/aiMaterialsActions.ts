@@ -17,7 +17,16 @@ import {
   buildAssistantContext,
   RecommendResult,
   ProjectContext,
+  CopilotInput,
 } from "./aiMaterialsEngine";
+import {
+  detectProjectCategories,
+  projectDataSources,
+  bimDqeConsistency,
+  detectProjectAnomalies,
+  analysisConfidenceScore,
+  resolveProjectQuantity,
+} from "./aiMaterialsCopilot";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AI MATERIALS COPILOT — Actions IA (fichier « use node »).
@@ -128,9 +137,45 @@ export const recommendMaterials = action({
     };
 
     const { materials, offers } = await loadMarketData(ctx);
+
+    // ── Données internes du projet : BIM Engine + DQE + historique (§2, §57) ──
+    // Le Copilot exploite en priorité les quantités réelles du projet ; les
+    // catégories sont auto-détectées quand le client n'en envoie pas. Jamais de
+    // donnée inventée : chaque quantité porte sa source (BIM/DQE/calculée).
+    let categories = args.categories;
+    if (project) {
+      const detected = detectProjectCategories(project);
+      if (categories.length === 0 && detected.length > 0) categories = detected;
+      const overrides: CopilotInput["overrides"] = {};
+      for (const catId of categories) {
+        const q = resolveProjectQuantity(catId, context, project);
+        if (q.override) {
+          overrides[catId] = {
+            quantity: q.quantity,
+            unit: q.unitLabel,
+            designation: q.designation || "",
+            source: q.source === "PROJET" ? "DQE" : (q.source as "BIM" | "DQE"),
+            confidence: q.confidence,
+          };
+        }
+      }
+      context.copilot = {
+        overrides,
+        dataSources: projectDataSources(project),
+        consistency: bimDqeConsistency(project),
+        anomalies: detectProjectAnomalies(project),
+        confidence: analysisConfidenceScore(project),
+        projectName: project.name,
+        projectCategory: project.category,
+        surface: project.surface,
+        region: project.region,
+        floors: project.floors,
+      };
+    }
+
     let result = recommendForProject({
       context,
-      categories: args.categories,
+      categories,
       materials,
       offers,
     });
