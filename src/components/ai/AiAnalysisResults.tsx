@@ -14,10 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
-import type { RecommendResult, MaterialScores, TopArticle } from "@/convex/aiMaterialsEngine";
+import type { RecommendResult, MaterialScores } from "@/convex/aiMaterialsEngine";
 import { generateMaterialReportPdf } from "@/lib/materialReportPdf";
-import { CategoryTopArticles } from "@/components/ai/CategoryTopArticles";
-import { useAuth } from "@/hooks/use-auth";
+import { CategoryUsedArticles, type UsedArticleRow } from "@/components/ai/CategoryUsedArticles";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -62,11 +61,37 @@ function scoreColor(score: number) {
   return "text-rose-600 dark:text-rose-400";
 }
 
+// Articles réellement intégrés au projet pour une catégorie : on reprend les
+// matériaux retenus dans les solutions (économique / équilibrée / premium),
+// dédoublonnés par article (un même article peut servir plusieurs variantes).
+function usedArticlesFor(cat: RecommendResult["categories"][number]): UsedArticleRow[] {
+  const seen = new Map<string, UsedArticleRow>();
+  for (const s of cat.solutions) {
+    const prev = seen.get(s.material.id);
+    if (!prev) {
+      seen.set(s.material.id, {
+        id: s.material.id,
+        name: s.material.name,
+        brand: s.material.brand,
+        unit: s.material.unit,
+        unitPrice: s.material.band.avg,
+        quantity: s.material.quantity,
+        quantityUnit: s.material.quantityUnit,
+        totalTTC: s.material.totalCost,
+        score: s.scores.noteGlobale,
+        profiles: [s.profile],
+      });
+    } else if (!prev.profiles.includes(s.profile)) {
+      prev.profiles.push(s.profile);
+    }
+  }
+  return [...seen.values()];
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉSULTATS DE L'ANALYSE MATÉRIAUX IA (page dédiée)
 // ═══════════════════════════════════════════════════════════════════════════
 export function AiAnalysisResults({ result }: { result: RecommendResult }) {
-  const { user } = useAuth();
   const optimizeCopilotBudget = useAction(api.aiMaterialsActions.optimizeCopilotBudget);
   const improveCopilotPerformance = useAction(api.aiMaterialsActions.improveCopilotPerformance);
   const deleteAnalysis = useMutation(api.aiMaterials.deleteCopilotAnalysis);
@@ -248,24 +273,7 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
           const bestPerf = [...cat.solutions].sort(
             (a, b) => b.scores.isolationThermique + b.scores.isolationAcoustique - (a.scores.isolationThermique + a.scores.isolationAcoustique),
           )[0];
-          // Top 5 « articles les plus utilisés » : classement IA du moteur, ou repli
-          // sur les solutions (analyses antérieures sans topArticles).
-          const topArticles: TopArticle[] = cat.topArticles?.length
-            ? cat.topArticles
-            : [...cat.solutions]
-                .sort((a, b) => b.scores.noteGlobale - a.scores.noteGlobale)
-                .map((s, i) => ({
-                  rank: i + 1,
-                  materialId: s.material.id,
-                  name: s.material.name,
-                  brand: s.material.brand,
-                  unit: s.material.unit,
-                  unitPrice: s.material.band.avg,
-                  quantity: s.material.quantity,
-                  quantityUnit: s.material.quantityUnit,
-                  totalTTC: s.material.totalCost,
-                  score: s.scores.noteGlobale,
-                }));
+          const usedArticles = usedArticlesFor(cat);
           return (
             <motion.div key={cat.categoryId} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="border border-border/40 overflow-hidden rounded-xl">
@@ -365,13 +373,10 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                     })}
                   </div>
 
-                  {/* ── Top 5 articles les plus utilisés + Demande de devis ── */}
-                  <CategoryTopArticles
-                    categoryId={cat.categoryId}
+                  {/* ── Articles réellement utilisés dans le projet ── */}
+                  <CategoryUsedArticles
                     categoryLabel={cat.label}
-                    articles={topArticles}
-                    projectName={result.context?.projectName}
-                    currentUserId={user?._id as string | undefined}
+                    rows={usedArticles}
                   />
                 </CardContent>
               </Card>
