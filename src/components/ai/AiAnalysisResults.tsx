@@ -342,9 +342,6 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                               ))}
                             </div>
                           )}
-                          <p className="mt-2 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 border-t border-border/20 pt-1.5">
-                            Coût total estimé TTC : {fmtTnd(s.material.totalCost)}
-                          </p>
                         </div>
                       );
                     })}
