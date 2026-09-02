@@ -14,10 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
-import type { RecommendResult, MaterialScores } from "@/convex/aiMaterialsEngine";
+import { COPILOT_CATEGORY_BY_ID, type RecommendResult, type MaterialScores } from "@/convex/aiMaterialsEngine";
 import { generateMaterialReportPdf } from "@/lib/materialReportPdf";
-import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
-import { useAuth } from "@/hooks/use-auth";
+import { CategoryUsedArticles, type UsedArticleRow } from "@/components/ai/CategoryUsedArticles";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -62,11 +61,31 @@ function scoreColor(score: number) {
   return "text-rose-600 dark:text-rose-400";
 }
 
+// Articles réellement intégrés au projet pour une catégorie : on reprend les
+// matériaux retenus dans les solutions, dédoublonnés par article.
+function usedArticlesFor(cat: RecommendResult["categories"][number]): UsedArticleRow[] {
+  const seen = new Map<string, UsedArticleRow>();
+  for (const s of cat.solutions) {
+    if (seen.has(s.material.id)) continue;
+    seen.set(s.material.id, {
+      id: s.material.id,
+      name: s.material.name,
+      brand: s.material.brand,
+      unit: s.material.unit,
+      unitPrice: s.material.band.avg,
+      quantity: s.material.quantity,
+      quantityUnit: s.material.quantityUnit,
+      totalTTC: s.material.totalCost,
+      score: s.scores.noteGlobale,
+    });
+  }
+  return [...seen.values()];
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉSULTATS DE L'ANALYSE MATÉRIAUX IA (page dédiée)
 // ═══════════════════════════════════════════════════════════════════════════
 export function AiAnalysisResults({ result }: { result: RecommendResult }) {
-  const { user } = useAuth();
   const optimizeCopilotBudget = useAction(api.aiMaterialsActions.optimizeCopilotBudget);
   const improveCopilotPerformance = useAction(api.aiMaterialsActions.improveCopilotPerformance);
   const deleteAnalysis = useMutation(api.aiMaterials.deleteCopilotAnalysis);
@@ -347,27 +366,13 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                     })}
                   </div>
 
-                  {/* ── Fournisseur recommandé pour cette catégorie ── */}
-                  {(() => {
-                    const equilibreSol = cat.solutions.find((s) => s.profile === "equilibre");
-                    if (!equilibreSol) return null;
-                    const mat = equilibreSol.material;
-                    const mats = [{
-                      name: mat.name,
-                      quantity: mat.quantity ?? 0,
-                      unit: mat.quantityUnit ?? "",
-                    }];
-                    return (
-                      <div className="mt-3">
-                        <SupplierRecommendedCard
-                          categoryKey={cat.categoryId}
-                          categoryLabel={cat.label}
-                          materials={mats}
-                          currentUserId={user?._id as string | undefined}
-                        />
-                      </div>
-                    );
-                  })()}
+                  {/* ── Articles réellement utilisés dans le projet ── */}
+                  <CategoryUsedArticles
+                    categoryLabel={cat.label}
+                    rows={usedArticlesFor(cat)}
+                    count={cat.candidatesCount}
+                    catalogCategories={COPILOT_CATEGORY_BY_ID[cat.categoryId]?.catalogCategories ?? []}
+                  />
                 </CardContent>
               </Card>
             </motion.div>

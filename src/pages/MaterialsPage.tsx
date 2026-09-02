@@ -16,7 +16,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useAuth } from "@/hooks/use-auth";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useState, useMemo } from "react";
 import {
   ArrowLeft, Search, HardHat, RefreshCw, Loader2,
@@ -85,8 +85,13 @@ export default function MaterialsPage() {
   usePageSEO({ title: "Prix des matériaux 2026 - batibuild App", description: "Base de données des matériaux de construction en Tunisie 2026 : références consolidées, prix observés en ligne, publications 2026 et estimations indicatives." });
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("all");
+  // ?cat=a,b : filtre initial depuis un lien profond (liste complète d'une
+  // catégorie du Copilot matériaux : une catégorie couvre plusieurs slugs officiels).
+  const [activeCategory, setActiveCategory] = useState(
+    () => searchParams.get("cat") || "all",
+  );
   const [refreshing, setRefreshing] = useState(false);
 
   const materialPrices = useQuery(api.materials.getMaterialPrices, {}) || [];
@@ -171,15 +176,23 @@ export default function MaterialsPage() {
     return map;
   }, [materialPrices]);
 
+  const activeCategorySet = useMemo(
+    () => (activeCategory === "all" ? null : new Set(activeCategory.split(","))),
+    [activeCategory],
+  );
+  const isActiveCategory = (slug: string) =>
+    activeCategory === "all" || (activeCategorySet?.has(slug) ?? false);
+
   const filteredMaterials = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return materialPrices.filter((m: any) => {
       const matchesSearch = !q || m.name.toLowerCase().includes(q) || (m.subcategory || "").toLowerCase().includes(q);
+      const normalized = normalizeMaterialCategory(m.category);
       const matchesCategory =
-        activeCategory === "all" || normalizeMaterialCategory(m.category) === activeCategory;
+        !activeCategorySet || activeCategorySet.has(normalized);
       return matchesSearch && matchesCategory;
     });
-  }, [materialPrices, searchQuery, activeCategory]);
+  }, [materialPrices, searchQuery, activeCategorySet]);
 
   const activeFilteredGrouped = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -393,7 +406,7 @@ export default function MaterialsPage() {
                         onClick={() => setActiveCategory(c.slug)}
                         className={cn(
                           "border-b border-border/5 cursor-pointer transition-colors",
-                          activeCategory === c.slug ? "bg-primary/5" : "hover:bg-muted/10",
+                          isActiveCategory(c.slug) ? "bg-primary/5" : "hover:bg-muted/10",
                         )}
                       >
                         <td className="py-2.5 px-4">
@@ -481,7 +494,7 @@ export default function MaterialsPage() {
                 onClick={() => setActiveCategory(c.slug)}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0 border",
-                  activeCategory === c.slug
+                  isActiveCategory(c.slug)
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background text-muted-foreground border-border/40 hover:border-border hover:bg-muted/30",
                 )}
