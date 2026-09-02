@@ -763,26 +763,38 @@ export const getRandomBySpecialty = query({
   args: {
     specialty: v.string(),
     limit: v.optional(v.number()),
+    fallbackToAny: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 1;
 
-    // Get all active suppliers matching this specialty
+    // Get all active or trial suppliers
     const allProfiles = await ctx.db
       .query("supplierProfiles")
-      .withIndex("by_subscription", (q) =>
-        q.eq("subscriptionStatus", "active")
-      )
       .collect();
 
-    const matching = allProfiles.filter(
-      (p) => p.isVisible && p.specialties.includes(args.specialty)
+    const visible = allProfiles.filter(
+      (p) =>
+        p.isVisible &&
+        (p.subscriptionStatus === "active" || p.subscriptionStatus === "trial")
     );
 
-    if (matching.length === 0) return [];
+    // 1. Try exact specialty match
+    const matching = visible.filter(
+      (p) => p.specialties.includes(args.specialty)
+    );
 
-    // Shuffle and return requested limit
-    const shuffled = [...matching].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, limit);
+    if (matching.length > 0) {
+      const shuffled = [...matching].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, limit);
+    }
+
+    // 2. Fallback: any visible supplier when no specialty matches
+    if (args.fallbackToAny && visible.length > 0) {
+      const shuffled = [...visible].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, limit);
+    }
+
+    return [];
   },
 });

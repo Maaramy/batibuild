@@ -71,10 +71,10 @@ export function SupplierRecommendedCard({
     setEditableMaterials(materials);
   }, [materials]);
 
-  // Fetch random registered supplier for this specialty
+  // Fetch random registered supplier for this specialty (fallback to any if no match)
   const supplier = useQuery(
     api.supplierProfiles.getRandomBySpecialty,
-    { specialty: categoryKey, limit: 1 }
+    { specialty: categoryKey, limit: 1, fallbackToAny: true }
   );
 
   const createQuoteRequest = useMutation(api.quoteRequests.create);
