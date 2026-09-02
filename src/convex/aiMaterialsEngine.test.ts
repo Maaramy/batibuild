@@ -281,3 +281,63 @@ describe("fallbackChatAnswer & contexte", () => {
     expect(text).toContain("ariana");
   });
 });
+
+describe("Top 5 articles par catégorie", () => {
+  const run = () =>
+    recommendForProject({
+      context: ctx,
+      categories: ["isolation_thermique", "carrelage"],
+      materials: mats,
+      offers,
+    });
+
+  it("classe jusqu'à 5 articles par catégorie, rangs 1..n, scores décroissants", () => {
+    const res = run();
+    expect(res.categories.length).toBeGreaterThan(0);
+    for (const cat of res.categories) {
+      expect(cat.topArticles.length).toBeGreaterThan(0);
+      expect(cat.topArticles.length).toBeLessThanOrEqual(5);
+      expect(cat.topArticles.length).toBeLessThanOrEqual(cat.candidatesCount);
+      const ids = new Set(cat.topArticles.map((a) => a.materialId));
+      expect(ids.size).toBe(cat.topArticles.length);
+      cat.topArticles.forEach((a, i) => {
+        expect(a.rank).toBe(i + 1);
+        expect(a.unitPrice).toBeGreaterThan(0);
+        expect(a.totalTTC).toBeGreaterThan(0);
+        expect(a.name.length).toBeGreaterThan(0);
+        if (i > 0) expect(a.score).toBeLessThanOrEqual(cat.topArticles[i - 1].score);
+      });
+    }
+  });
+
+  it("utilise la quantité du projet pour la catégorie et le coût TTC est cohérent", () => {
+    const res = run();
+    for (const cat of res.categories) {
+      const q = estimateQuantity(cat.categoryId, ctx);
+      for (const a of cat.topArticles) {
+        expect(a.quantity).toBe(q.quantity);
+        expect(a.quantityUnit).toBe(q.unitLabel);
+        // TTC = quantité × prix unitaire avec pose/transport/déchets/imprévus/TVA
+        expect(a.totalTTC).toBeGreaterThan(a.unitPrice * a.quantity);
+        expect(a.totalTTC).toBeLessThan(a.unitPrice * a.quantity * 2);
+      }
+    }
+  });
+
+  it("est déterministe : deux analyses identiques donnent le même classement", () => {
+    const a = run();
+    const b = run();
+    expect(b.categories.map((c) => c.topArticles)).toEqual(
+      a.categories.map((c) => c.topArticles),
+    );
+  });
+
+  it("le n°1 du classement correspond au meilleur score équilibré de la catégorie", () => {
+    const res = run();
+    for (const cat of res.categories) {
+      const best = cat.topArticles[0];
+      const top = cat.topArticles.reduce((m, a) => (a.score > m.score ? a : m), best);
+      expect(best.materialId).toBe(top.materialId);
+    }
+  });
+});

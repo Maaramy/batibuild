@@ -120,6 +120,7 @@ export const getActiveSuppliers = query({
       })
       .map((s) => ({
         _id: s._id,
+        userId: s.userId,
         companyName: s.companyName,
         phone: s.phone,
         email: s.email,

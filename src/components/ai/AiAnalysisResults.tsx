@@ -14,9 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
-import type { RecommendResult, MaterialScores } from "@/convex/aiMaterialsEngine";
+import type { RecommendResult, MaterialScores, TopArticle } from "@/convex/aiMaterialsEngine";
 import { generateMaterialReportPdf } from "@/lib/materialReportPdf";
-import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
+import { CategoryTopArticles } from "@/components/ai/CategoryTopArticles";
 import { useAuth } from "@/hooks/use-auth";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -248,6 +248,24 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
           const bestPerf = [...cat.solutions].sort(
             (a, b) => b.scores.isolationThermique + b.scores.isolationAcoustique - (a.scores.isolationThermique + a.scores.isolationAcoustique),
           )[0];
+          // Top 5 « articles les plus utilisés » : classement IA du moteur, ou repli
+          // sur les solutions (analyses antérieures sans topArticles).
+          const topArticles: TopArticle[] = cat.topArticles?.length
+            ? cat.topArticles
+            : [...cat.solutions]
+                .sort((a, b) => b.scores.noteGlobale - a.scores.noteGlobale)
+                .map((s, i) => ({
+                  rank: i + 1,
+                  materialId: s.material.id,
+                  name: s.material.name,
+                  brand: s.material.brand,
+                  unit: s.material.unit,
+                  unitPrice: s.material.band.avg,
+                  quantity: s.material.quantity,
+                  quantityUnit: s.material.quantityUnit,
+                  totalTTC: s.material.totalCost,
+                  score: s.scores.noteGlobale,
+                }));
           return (
             <motion.div key={cat.categoryId} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="border border-border/40 overflow-hidden rounded-xl">
@@ -347,27 +365,14 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                     })}
                   </div>
 
-                  {/* ── Fournisseur recommandé pour cette catégorie ── */}
-                  {(() => {
-                    const equilibreSol = cat.solutions.find((s) => s.profile === "equilibre");
-                    if (!equilibreSol) return null;
-                    const mat = equilibreSol.material;
-                    const mats = [{
-                      name: mat.name,
-                      quantity: mat.quantity ?? 0,
-                      unit: mat.quantityUnit ?? "",
-                    }];
-                    return (
-                      <div className="mt-3">
-                        <SupplierRecommendedCard
-                          categoryKey={cat.categoryId}
-                          categoryLabel={cat.label}
-                          materials={mats}
-                          currentUserId={user?._id as string | undefined}
-                        />
-                      </div>
-                    );
-                  })()}
+                  {/* ── Top 5 articles les plus utilisés + Demande de devis ── */}
+                  <CategoryTopArticles
+                    categoryId={cat.categoryId}
+                    categoryLabel={cat.label}
+                    articles={topArticles}
+                    projectName={result.context?.projectName}
+                    currentUserId={user?._id as string | undefined}
+                  />
                 </CardContent>
               </Card>
             </motion.div>
