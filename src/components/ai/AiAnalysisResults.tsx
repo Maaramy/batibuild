@@ -14,9 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
-import { COPILOT_CATEGORY_BY_ID, type RecommendResult, type MaterialScores } from "@/convex/aiMaterialsEngine";
+import type { RecommendResult, MaterialScores } from "@/convex/aiMaterialsEngine";
 import { generateMaterialReportPdf } from "@/lib/materialReportPdf";
-import { CategoryTopArticles, type TopArticleRow } from "@/components/ai/CategoryTopArticles";
+import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
+import { useAuth } from "@/hooks/use-auth";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -61,37 +62,11 @@ function scoreColor(score: number) {
   return "text-rose-600 dark:text-rose-400";
 }
 
-// Top 5 articles recommandés d'une catégorie. Pour les analyses enregistrées
-// avant l'ajout du classement moteur, repli déterministe sur les solutions
-// (dédoublonnage par article, classement par score, maximum 5).
-const TVA_2026 = 0.19; // aligné sur le moteur (src/convex/aiMaterialsEngine.ts)
-function topArticlesFor(cat: RecommendResult["categories"][number]): TopArticleRow[] {
-  if (cat.topArticles && cat.topArticles.length > 0) return cat.topArticles;
-  const seen = new Map<string, TopArticleRow>();
-  for (const s of cat.solutions) {
-    if (seen.has(s.material.id)) continue;
-    seen.set(s.material.id, {
-      rank: seen.size + 1,
-      materialId: s.material.id,
-      name: s.material.name,
-      brand: s.material.brand,
-      unit: s.material.unit,
-      unitPrice: s.material.band.avg,
-      quantity: s.material.quantity,
-      quantityUnit: s.material.quantityUnit,
-      totalTTC: Math.round(s.material.quantity * s.material.band.avg * (1 + TVA_2026)),
-      score: s.scores.noteGlobale,
-      priceSource: s.suppliers.length > 0 ? `Marché — ${s.suppliers.length} fournisseur(s)` : "Catalogue des prix — base 2026",
-      suppliers: s.suppliers.map((sup) => ({ name: sup.name, price: sup.price })),
-    });
-  }
-  return [...seen.values()].sort((a, b) => b.score - a.score).slice(0, 5);
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉSULTATS DE L'ANALYSE MATÉRIAUX IA (page dédiée)
 // ═══════════════════════════════════════════════════════════════════════════
 export function AiAnalysisResults({ result }: { result: RecommendResult }) {
+  const { user } = useAuth();
   const optimizeCopilotBudget = useAction(api.aiMaterialsActions.optimizeCopilotBudget);
   const improveCopilotPerformance = useAction(api.aiMaterialsActions.improveCopilotPerformance);
   const deleteAnalysis = useMutation(api.aiMaterials.deleteCopilotAnalysis);
@@ -372,15 +347,27 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                     })}
                   </div>
 
-                  {/* ── Top 5 articles recommandés ── */}
-                  <CategoryTopArticles
-                    categoryId={cat.categoryId}
-                    categoryLabel={cat.label}
-                    rows={topArticlesFor(cat)}
-                    count={cat.candidatesCount}
-                    catalogCategories={COPILOT_CATEGORY_BY_ID[cat.categoryId]?.catalogCategories ?? []}
-                    projectName={result.context.projectName}
-                  />
+                  {/* ── Fournisseur recommandé pour cette catégorie ── */}
+                  {(() => {
+                    const equilibreSol = cat.solutions.find((s) => s.profile === "equilibre");
+                    if (!equilibreSol) return null;
+                    const mat = equilibreSol.material;
+                    const mats = [{
+                      name: mat.name,
+                      quantity: mat.quantity ?? 0,
+                      unit: mat.quantityUnit ?? "",
+                    }];
+                    return (
+                      <div className="mt-3">
+                        <SupplierRecommendedCard
+                          categoryKey={cat.categoryId}
+                          categoryLabel={cat.label}
+                          materials={mats}
+                          currentUserId={user?._id as string | undefined}
+                        />
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </motion.div>
