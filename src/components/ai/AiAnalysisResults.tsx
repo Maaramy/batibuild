@@ -257,7 +257,7 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Badge variant="outline" className="text-[9px] gap-1">
-                        <CircleDot className="h-2.5 w-2.5 text-emerald-600" /> Meilleur rapport qualité/prix : {PROFILE_META[cat.bestValue]?.label}
+                        <CircleDot className="h-2.5 w-2.5 text-emerald-600" /> Meilleur rapport qualité/prix{cat.bestValue === "equilibre" ? " : Équilibrée" : ""}
                       </Badge>
                       {cat.bestSupplier ? (
                         <Badge variant="outline" className="text-[9px] gap-1 border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400">
@@ -285,11 +285,13 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                               <Sparkles className="h-2.5 w-2.5" /> Recommandé par IA
                             </Badge>
                           )}
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={cn("text-xs font-bold uppercase tracking-wide", PROFILE_TEXT[s.profile])}>
-                              {meta.label}
-                            </span>
-                            <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
+                            {s.profile === "equilibre" && (
+                              <span className={cn("text-xs font-bold uppercase tracking-wide", PROFILE_TEXT[s.profile])}>
+                                {meta.label}
+                              </span>
+                            )}
+                            <div className="ml-auto flex items-center gap-2">
                               <span className="text-lg font-black tabular-nums">{s.scores.noteGlobale}<span className="text-[10px] text-muted-foreground">/100</span></span>
                             </div>
                           </div>
