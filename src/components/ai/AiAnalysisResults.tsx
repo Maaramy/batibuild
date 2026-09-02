@@ -132,13 +132,6 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                 Rapport PDF
               </Button>
             </div>
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h3 className="text-base sm:text-xl font-extrabold tracking-tight">
-                Solution {result.recommendation.solution === "economique" ? "A" : result.recommendation.solution === "equilibre" ? "B" : "C"} — {PROFILE_META[result.recommendation.solution]?.label}
-              </h3>
-              <span className="text-xs text-muted-foreground">· {result.recommendation.materialName} ({result.recommendation.categoryLabel})</span>
-            </div>
-            <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-3xl">{result.recommendation.explanation}</p>
             <div className="mt-3 grid sm:grid-cols-2 gap-3">
               {result.recommendation.advantages.length > 0 && (
                 <ul className="space-y-1">
