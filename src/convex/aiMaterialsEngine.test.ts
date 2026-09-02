@@ -9,6 +9,8 @@ import {
   compareMaterials,
   fallbackChatAnswer,
   buildAssistantContext,
+  buildTopArticles,
+  TOP_ARTICLES_LIMIT,
   CatalogMaterial,
   Offer,
   ProjectContext,
@@ -57,6 +59,71 @@ describe("matchCategoryMaterials", () => {
   it("ne renvoie rien pour une catégorie absente du jeu de données", () => {
     const res = matchCategoryMaterials(COPILOT_CATEGORY_BY_ID["panneaux_solaires"], mats);
     expect(res).toHaveLength(0);
+  });
+});
+
+describe("buildTopArticles", () => {
+  const offersByProduct = new Map<string, Offer[]>([
+    ["m-isol-1", offers.filter((o) => o.productId === "m-isol-1")],
+    ["m-isol-2", offers.filter((o) => o.productId === "m-isol-2")],
+  ]);
+  const cat = COPILOT_CATEGORY_BY_ID["isolation_thermique"];
+  const candidates = matchCategoryMaterials(cat, mats);
+  const bands = candidates.map((m) => ({ avg: m.unitPrice }));
+  const catMin = Math.min(...bands.map((b) => b.avg));
+  const catMax = Math.max(...bands.map((b) => b.avg));
+
+  it("retourne au plus 5 articles classés par score décroissant", () => {
+    const top = buildTopArticles({ cat, candidates, offersByProduct, ctx, catMinPrice: catMin, catMaxPrice: catMax });
+    expect(top.length).toBeLessThanOrEqual(TOP_ARTICLES_LIMIT);
+    expect(top.length).toBeGreaterThan(0);
+    for (let i = 1; i < top.length; i++) {
+      expect(top[i].score).toBeLessThanOrEqual(top[i - 1].score);
+    }
+    expect(top[0].rank).toBe(1);
+  });
+
+  it("utilise le prix fournisseur quand disponible, sinon le prix catalogue (jamais inventé)", () => {
+    const top = buildTopArticles({ cat, candidates, offersByProduct, ctx, catMinPrice: catMin, catMaxPrice: catMax });
+    const withOffers = top.find((a) => a.id === "m-isol-1");
+    const withoutOffers = top.find((a) => a.id === "m-isol-3");
+    expect(withOffers).toBeDefined();
+    expect(withOffers?.priceSource).toBe("Fournisseur");
+    expect(withOffers?.unitPrice).toBeCloseTo(89, 2); // moyenne des offres (une seule offre → avgPrice)
+    if (withoutOffers) {
+      expect(withoutOffers.priceSource).toBe("Marché 2026");
+      expect(withoutOffers.unitPrice).toBeCloseTo(28, 2); // prix catalogue exact
+    }
+  });
+
+  it("calcule le TTC selon la formule : unitaire × quantité × (1 + TVA)", () => {
+    const qty = estimateQuantity("isolation_thermique", ctx).quantity;
+    const top = buildTopArticles({ cat, candidates, offersByProduct, ctx, catMinPrice: catMin, catMaxPrice: catMax });
+    for (const a of top) {
+      expect(a.totalTTC).toBeCloseTo(a.unitPrice * qty * 1.19, 0);
+      expect(a.quantity).toBe(qty);
+      expect(a.quantityUnit).toBe("m²");
+    }
+  });
+
+  it("renvoie un tableau vide quand la quantité estimée est nulle (ex : piscine hors villa)", () => {
+    const piscine = COPILOT_CATEGORY_BY_ID["piscine"];
+    const top = buildTopArticles({
+      cat: piscine,
+      candidates: matchCategoryMaterials(piscine, mats),
+      offersByProduct: new Map(),
+      ctx: { ...ctx, projectCategory: "maison" },
+      catMinPrice: 100,
+      catMaxPrice: 200,
+    });
+    expect(top).toHaveLength(0);
+  });
+
+  it("inclut les fournisseurs recensés triés par prix croissant", () => {
+    const top = buildTopArticles({ cat, candidates, offersByProduct, ctx, catMinPrice: catMin, catMaxPrice: catMax });
+    const a = top.find((x) => x.id === "m-isol-1");
+    expect(a?.suppliers.length).toBeGreaterThan(0);
+    expect(a?.suppliers[0].name).toBe("Distri A");
   });
 });
 

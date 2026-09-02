@@ -741,6 +741,92 @@ function buildJustification(profile: Profile, best: Pick, cat: CopilotCategory):
   return parts.join(" ");
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TOP 5 ARTICLES PAR CATÉGORIE (§30-31) — déterministe, données réelles
+// ─────────────────────────────────────────────────────────────────────────────
+/** Nombre d'articles affichés par catégorie (spécification : Top 5). */
+export const TOP_ARTICLES_LIMIT = 5;
+
+/**
+ * Construit le Top 5 des articles les plus pertinents pour le projet.
+ *
+ * Sources de prix autorisées (jamais d'invention) :
+ *  - offres fournisseurs recensées (avgPrice) → source « Fournisseur » ;
+ *  - sinon prix catalogue (unitPrice) → source « Marché 2026 ».
+ * Prix TTC = prix unitaire × quantité sélectionnée × (1 + TVA) —
+ * même formule que la grille de coûts (TVA 19 %).
+ */
+export function buildTopArticles(input: {
+  cat: CopilotCategory;
+  candidates: CatalogMaterial[];
+  offersByProduct: Map<string, Offer[]>;
+  ctx: ProjectContext;
+  catMinPrice: number;
+  catMaxPrice: number;
+}): TopArticle[] {
+  const { cat, candidates, offersByProduct, ctx, catMinPrice, catMaxPrice } = input;
+  const qty = estimateQuantity(cat.id, ctx);
+  if (qty.quantity <= 0) return [];
+
+  const scored = candidates.map((m) => {
+    const offers = offersByProduct.get(m._id) || [];
+    const hasOffers = offers.length > 0;
+    // Prix unitaire : moyenne des offres fournisseurs (prix le plus fiable), sinon prix catalogue.
+    const unitPrice = hasOffers
+      ? offers.reduce((s, o) => s + o.avgPrice, 0) / offers.length
+      : m.unitPrice;
+    const scored = scoreMaterial(m, offers, cat, "equilibre", ctx, catMinPrice, catMaxPrice);
+    const note = scored?.scores.noteGlobale ?? 0;
+    // Bonus de confirmation marché (+2) : article effectivement recensé chez des
+    // fournisseurs — départage déterministe des quasi-égalités de score.
+    const marketBonus = offers.length > 0 ? 2 : 0;
+    return {
+      m,
+      offers,
+      hasOffers,
+      unitPrice,
+      note: clamp(note + marketBonus, 0, 100),
+    };
+  })
+    .filter((r) => r.unitPrice > 0 && r.note > 0)
+    .sort((a, b) => b.note - a.note || a.unitPrice - b.unitPrice || normOffer(a.m.name).localeCompare(normOffer(b.m.name)))
+    .slice(0, TOP_ARTICLES_LIMIT);
+
+  return scored.map((r, i) => ({
+    rank: i + 1,
+    id: r.m._id,
+    name: r.m.name,
+    brand: r.m.brand,
+    unit: r.m.unit,
+    unitPrice: round2(r.unitPrice),
+    priceSource: r.hasOffers ? "Fournisseur" : "Marché 2026",
+    confidence: round0(
+      clamp(
+        (r.m.confidenceIndex ?? 0.5) * 100 * 0.7 +
+        (r.hasOffers ? 30 : 0) +
+        Math.min(10, r.offers.length * 3),
+        0,
+        100,
+      ),
+    ),
+    quantity: qty.quantity,
+    quantityUnit: qty.unitLabel,
+    // Prix TTC = prix unitaire × quantité × (1 + TVA) — spécification §Top 5.
+    totalTTC: round0(r.unitPrice * qty.quantity * (1 + TVA)),
+    score: clamp(r.note, 0, 100),
+    suppliers: [...r.offers]
+      .sort((a, b) => a.minPrice - b.minPrice || (b.reliabilityIndex ?? 0) - (a.reliabilityIndex ?? 0))
+      .slice(0, 4)
+      .map((o) => ({
+        name: o.supplier,
+        price: o.minPrice,
+        unit: o.unit || r.m.unit,
+        governorate: o.governorate,
+        reliabilityIndex: o.reliabilityIndex,
+      })),
+  }));
+}
+
 export function recommendForProject(input: {
   context: ProjectContext;
   categories: string[];
@@ -929,6 +1015,14 @@ export function recommendForProject(input: {
       candidatesCount: candidates.length,
       coverage: solutions.some((s) => s.suppliers.length > 0),
       solutions,
+      topArticles: buildTopArticles({
+        cat,
+        candidates,
+        offersByProduct,
+        ctx,
+        catMinPrice: catMin,
+        catMaxPrice: catMax,
+      }),
       bestValue,
       bestSupplier,
     });

@@ -17,6 +17,7 @@ import { api } from "@/convex/_generated/api";
 import type { RecommendResult, MaterialScores } from "@/convex/aiMaterialsEngine";
 import { generateMaterialReportPdf } from "@/lib/materialReportPdf";
 import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
+import { CategoryTopArticles } from "@/components/ai/CategoryTopArticles";
 import { useAuth } from "@/hooks/use-auth";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -344,6 +345,9 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                       );
                     })}
                   </div>
+
+                  {/* ── Top 5 articles recommandés pour cette catégorie ── */}
+                  <CategoryTopArticles articles={cat.topArticles ?? []} />
 
                   {/* ── Fournisseur recommandé pour cette catégorie ── */}
                   {(() => {
