@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { COPILOT_CATEGORY_BY_ID, type RecommendResult, type MaterialScores } from "@/convex/aiMaterialsEngine";
 import { generateMaterialReportPdf } from "@/lib/materialReportPdf";
-import { CategoryUsedArticles, type UsedArticleRow } from "@/components/ai/CategoryUsedArticles";
+import { CategoryTopArticles, type TopArticleRow } from "@/components/ai/CategoryTopArticles";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -61,25 +61,31 @@ function scoreColor(score: number) {
   return "text-rose-600 dark:text-rose-400";
 }
 
-// Articles réellement intégrés au projet pour une catégorie : on reprend les
-// matériaux retenus dans les solutions, dédoublonnés par article.
-function usedArticlesFor(cat: RecommendResult["categories"][number]): UsedArticleRow[] {
-  const seen = new Map<string, UsedArticleRow>();
+// Top 5 articles recommandés d'une catégorie. Pour les analyses enregistrées
+// avant l'ajout du classement moteur, repli déterministe sur les solutions
+// (dédoublonnage par article, classement par score, maximum 5).
+const TVA_2026 = 0.19; // aligné sur le moteur (src/convex/aiMaterialsEngine.ts)
+function topArticlesFor(cat: RecommendResult["categories"][number]): TopArticleRow[] {
+  if (cat.topArticles && cat.topArticles.length > 0) return cat.topArticles;
+  const seen = new Map<string, TopArticleRow>();
   for (const s of cat.solutions) {
     if (seen.has(s.material.id)) continue;
     seen.set(s.material.id, {
-      id: s.material.id,
+      rank: seen.size + 1,
+      materialId: s.material.id,
       name: s.material.name,
       brand: s.material.brand,
       unit: s.material.unit,
       unitPrice: s.material.band.avg,
       quantity: s.material.quantity,
       quantityUnit: s.material.quantityUnit,
-      totalTTC: s.material.totalCost,
+      totalTTC: Math.round(s.material.quantity * s.material.band.avg * (1 + TVA_2026)),
       score: s.scores.noteGlobale,
+      priceSource: s.suppliers.length > 0 ? `Marché — ${s.suppliers.length} fournisseur(s)` : "Catalogue des prix — base 2026",
+      suppliers: s.suppliers.map((sup) => ({ name: sup.name, price: sup.price })),
     });
   }
-  return [...seen.values()];
+  return [...seen.values()].sort((a, b) => b.score - a.score).slice(0, 5);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -366,12 +372,14 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                     })}
                   </div>
 
-                  {/* ── Articles réellement utilisés dans le projet ── */}
-                  <CategoryUsedArticles
+                  {/* ── Top 5 articles recommandés ── */}
+                  <CategoryTopArticles
+                    categoryId={cat.categoryId}
                     categoryLabel={cat.label}
-                    rows={usedArticlesFor(cat)}
+                    rows={topArticlesFor(cat)}
                     count={cat.candidatesCount}
                     catalogCategories={COPILOT_CATEGORY_BY_ID[cat.categoryId]?.catalogCategories ?? []}
+                    projectName={result.context.projectName}
                   />
                 </CardContent>
               </Card>

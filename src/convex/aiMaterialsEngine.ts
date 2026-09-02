@@ -612,6 +612,28 @@ export type BestSupplier = {
   availability?: string;
 };
 
+/** Article du « Top 5 recommandé » d'une catégorie (classement IA par pertinence projet). */
+export type TopArticle = {
+  rank: number; // 1..5
+  materialId: string;
+  name: string;
+  brand?: string;
+  unit: string;
+  /** Prix de marché le plus fiable disponible (TND / unité). */
+  unitPrice: number;
+  /** Quantité retenue pour le projet (BIM / DQE / estimation du moteur). */
+  quantity: number;
+  quantityUnit: string;
+  /** Prix TTC = Prix unitaire × quantité sélectionnée × (1 + TVA). */
+  totalTTC: number;
+  /** Score de pertinence IA 0-100 (pondérations profil équilibré). */
+  score: number;
+  /** Source du prix affiché (transparence). */
+  priceSource: string;
+  /** Fournisseurs recensés pour cet article (offres de la base). */
+  suppliers: { name: string; price: number; governorate?: string }[];
+};
+
 export type CategoryResult = {
   categoryId: string;
   label: string;
@@ -619,6 +641,8 @@ export type CategoryResult = {
   candidatesCount: number;
   coverage: boolean; // true si au moins une offre/prix recensé
   solutions: Solution[];
+  /** Top 5 des articles les plus pertinents pour le projet (classement IA déterministe). */
+  topArticles: TopArticle[];
   bestValue: Profile; // meilleur rapport qualité/prix
   /** Meilleur fournisseur de la catégorie : offre la moins chère (fiabilité en cas d'égalité) pour la solution recommandée. */
   bestSupplier: BestSupplier | null;
@@ -894,6 +918,40 @@ export function recommendForProject(input: {
       }
     }
 
+    // ── Top 5 articles recommandés (pertinence projet, déterministe) ──
+    // Classement : score IA du profil équilibré (mêmes pondérations que les
+    // solutions), puis prix unitaire croissant, puis nom (stabilité stricte).
+    const rankedCands: { m: CatalogMaterial; note: number; band: PriceBand; suppliers: Offer[] }[] = [];
+    for (const m of candidates) {
+      const scored = scoreMaterial(m, offersByProduct.get(m._id) || [], cat, "equilibre", ctx, catMin, catMax, undefined);
+      if (!scored) continue;
+      rankedCands.push({ m, note: scored.scores.noteGlobale, band: scored.band, suppliers: scored.suppliers });
+    }
+    rankedCands.sort(
+      (a, b) => b.note - a.note || a.band.avg - b.band.avg || normOffer(a.m.name).localeCompare(normOffer(b.m.name)),
+    );
+    const topArticles: TopArticle[] = rankedCands.slice(0, 5).map((r, i) => ({
+      rank: i + 1,
+      materialId: r.m._id,
+      name: r.m.name,
+      brand: r.m.brand,
+      unit: r.m.unit,
+      unitPrice: round2(r.band.avg),
+      quantity: qty.quantity,
+      quantityUnit: qty.unitLabel,
+      totalTTC: round0(qty.quantity * r.band.avg * (1 + TVA)),
+      score: r.note,
+      priceSource:
+        r.suppliers.length > 0
+          ? `Marché — ${r.suppliers.length} fournisseur${r.suppliers.length > 1 ? "s" : ""} recensé${r.suppliers.length > 1 ? "s" : ""}`
+          : r.m.priceQuality === "observé_en_ligne"
+            ? "Prix observé en ligne — catalogue 2026"
+            : r.m.priceQuality === "publication_2026"
+              ? "Publication 2026 — barème officiel"
+              : "Catalogue des prix — base 2026",
+      suppliers: r.suppliers.slice(0, 4).map((o) => ({ name: o.supplier, price: o.minPrice, governorate: o.governorate })),
+    }));
+
     categories.push({
       categoryId: cat.id,
       label: cat.label,
@@ -901,6 +959,7 @@ export function recommendForProject(input: {
       candidatesCount: candidates.length,
       coverage: solutions.some((s) => s.suppliers.length > 0),
       solutions,
+      topArticles,
       bestValue,
       bestSupplier,
     });

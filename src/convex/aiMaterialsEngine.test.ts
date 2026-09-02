@@ -281,3 +281,82 @@ describe("fallbackChatAnswer & contexte", () => {
     expect(text).toContain("ariana");
   });
 });
+
+describe("Top 5 articles recommandés par catégorie", () => {
+  it("produit au plus 5 articles par catégorie, rangs et scores ordonnés", () => {
+    const res = recommendForProject({
+      context: ctx,
+      categories: ["isolation_thermique", "carrelage"],
+      materials: mats,
+      offers,
+    });
+    expect(res.categories.length).toBeGreaterThan(0);
+    for (const cat of res.categories) {
+      expect(cat.topArticles.length).toBeGreaterThan(0);
+      expect(cat.topArticles.length).toBeLessThanOrEqual(5);
+      cat.topArticles.forEach((a, i) => {
+        expect(a.rank).toBe(i + 1);
+        if (i > 0) expect(a.score).toBeLessThanOrEqual(cat.topArticles[i - 1].score);
+      });
+    }
+  });
+
+  it("calcule le prix TTC = prix unitaire × quantité × (1 + TVA)", () => {
+    const res = recommendForProject({
+      context: ctx,
+      categories: ["isolation_thermique"],
+      materials: mats,
+      offers,
+    });
+    const cat = res.categories[0];
+    const qty = estimateQuantity("isolation_thermique", ctx);
+    for (const a of cat.topArticles) {
+      expect(a.quantity).toBe(qty.quantity);
+      expect(a.quantityUnit).toBe(qty.unitLabel);
+      expect(a.totalTTC).toBeCloseTo(a.unitPrice * qty.quantity * 1.19, 0);
+    }
+  });
+
+  it("est déterministe (recalcul strictement identique)", () => {
+    const run = () =>
+      recommendForProject({ context: ctx, categories: ["carrelage"], materials: mats, offers });
+    const a = run();
+    const b = run();
+    expect(a.categories[0].topArticles.map((t) => t.materialId)).toEqual(
+      b.categories[0].topArticles.map((t) => t.materialId),
+    );
+    expect(a.categories[0].topArticles.map((t) => t.totalTTC)).toEqual(
+      b.categories[0].topArticles.map((t) => t.totalTTC),
+    );
+  });
+
+  it("classement IA : le n°1 est le candidat le mieux noté en profil équilibré", () => {
+    const res = recommendForProject({
+      context: ctx,
+      categories: ["carrelage"],
+      materials: mats,
+      offers,
+    });
+    const cat = res.categories[0];
+    const eq = cat.solutions.find((s) => s.profile === "equilibre");
+    expect(eq).toBeTruthy();
+    // Par définition du classement : le Top 1 porte le meilleur score équilibré
+    expect(cat.topArticles[0].score).toBe(Math.max(...cat.topArticles.map((t) => t.score)));
+    // La solution équilibrée retenue par le moteur figure bien dans le Top 5
+    expect(cat.topArticles.some((t) => t.materialId === eq!.material.id)).toBe(true);
+  });
+
+  it("transmet les fournisseurs recensés de l'article", () => {
+    const res = recommendForProject({
+      context: ctx,
+      categories: ["isolation_thermique"],
+      materials: mats,
+      offers,
+    });
+    const top = res.categories[0].topArticles;
+    const row = top.find((t) => t.materialId === "m-isol-1");
+    expect(row).toBeTruthy();
+    expect(row!.suppliers.some((s) => s.name === "Distri A")).toBe(true);
+    expect(row!.priceSource).toContain("fournisseur");
+  });
+});
