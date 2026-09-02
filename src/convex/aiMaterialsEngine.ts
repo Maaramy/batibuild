@@ -612,25 +612,6 @@ export type BestSupplier = {
   availability?: string;
 };
 
-/** Article classé dans le Top 5 de sa catégorie (classement IA déterministe). */
-export type TopArticle = {
-  /** Rang dans le classement IA (1 = article le plus pertinent). */
-  rank: number;
-  materialId: string;
-  name: string;
-  brand?: string;
-  unit: string;
-  /** Prix unitaire probable (TND / unité). */
-  unitPrice: number;
-  /** Quantité retenue pour le projet sélectionné (catégorie). */
-  quantity: number;
-  quantityUnit: string;
-  /** Coût total TTC (quantité × prix, pose, transport, déchets, accessoires, imprévus, TVA). */
-  totalTTC: number;
-  /** Score de pertinence IA (0-100) — base du classement. */
-  score: number;
-};
-
 export type CategoryResult = {
   categoryId: string;
   label: string;
@@ -638,8 +619,6 @@ export type CategoryResult = {
   candidatesCount: number;
   coverage: boolean; // true si au moins une offre/prix recensé
   solutions: Solution[];
-  /** Top 5 des articles les plus pertinents de la catégorie pour le projet (classement IA). */
-  topArticles: TopArticle[];
   bestValue: Profile; // meilleur rapport qualité/prix
   /** Meilleur fournisseur de la catégorie : offre la moins chère (fiabilité en cas d'égalité) pour la solution recommandée. */
   bestSupplier: BestSupplier | null;
@@ -775,47 +754,6 @@ export function recommendForProject(input: {
     const profiles: Profile[] = ["economique", "equilibre", "premium"];
     const solutions: Solution[] = [];
     const qty = estimateQuantity(cat.id, ctx);
-
-    // ── Top 5 « articles les plus utilisés » — classement IA déterministe ──
-    // Chaque article candidat est noté avec le profil équilibré (meilleur rapport
-    // qualité/prix) dans le contexte du projet ; les 5 meilleurs sont conservés.
-    const rankedTop: Omit<TopArticle, "rank">[] = [];
-    for (const m of candidates) {
-      const scored = scoreMaterial(
-        m,
-        offersByProduct.get(m._id) || [],
-        cat,
-        "equilibre",
-        ctx,
-        catMin,
-        catMax,
-        ctx.budgetMode === "personnalise" ? budgetCap : undefined,
-      );
-      if (!scored) continue;
-      const materialCost = qty.quantity * scored.band.avg;
-      const poseCost = materialCost * cat.posePct;
-      const transportCost = materialCost * TRANSPORT_PCT;
-      const wasteCost = materialCost * WASTE_PCT;
-      const accessoriesCost = materialCost * ACCESSORIES_PCT;
-      const subtotal = materialCost + poseCost + transportCost + wasteCost + accessoriesCost;
-      const base = subtotal + subtotal * CONTINGENCY_PCT;
-      const tva = base * TVA;
-      rankedTop.push({
-        materialId: m._id,
-        name: m.name,
-        brand: m.brand,
-        unit: m.unit,
-        unitPrice: scored.band.avg,
-        quantity: qty.quantity,
-        quantityUnit: qty.unitLabel,
-        totalTTC: round0(base + tva),
-        score: scored.scores.noteGlobale,
-      });
-    }
-    rankedTop.sort(
-      (a, b) => b.score - a.score || a.unitPrice - b.unitPrice || a.name.localeCompare(b.name),
-    );
-    const topArticles: TopArticle[] = rankedTop.slice(0, 5).map((t, i) => ({ ...t, rank: i + 1 }));
 
     // Sélection par profil (indépendante), puis résolution des doublons :
     // chaque profil reçoit un matériau distinct, en gardant pour chaque
@@ -963,7 +901,6 @@ export function recommendForProject(input: {
       candidatesCount: candidates.length,
       coverage: solutions.some((s) => s.suppliers.length > 0),
       solutions,
-      topArticles,
       bestValue,
       bestSupplier,
     });
