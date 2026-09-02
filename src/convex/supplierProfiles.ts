@@ -767,17 +767,30 @@ export const getRandomBySpecialty = query({
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 1;
+    const now = Date.now();
+    const free = await getFreePlanStatus(ctx);
 
-    // Get all active or trial suppliers
+    // Même politique d'éligibilité que quoteRequests.create et getActiveSuppliers :
+    //  - « Offre gratuite » activée (switch admin) : tous les profils visibles
+    //  - Sinon : abonnements actifs (non expirés) ou essai
     const allProfiles = await ctx.db
       .query("supplierProfiles")
       .collect();
 
-    const visible = allProfiles.filter(
-      (p) =>
-        p.isVisible &&
-        (p.subscriptionStatus === "active" || p.subscriptionStatus === "trial")
-    );
+    const visible = allProfiles.filter((p) => {
+      if (!p.isVisible) return false;
+      if (free.supplierFree) return true;
+      if (p.subscriptionStatus !== "active" && p.subscriptionStatus !== "trial") return false;
+      // Exclure les abonnements actifs expirés (comme getActiveSuppliers)
+      if (
+        p.subscriptionStatus === "active" &&
+        p.subscriptionEndDate &&
+        p.subscriptionEndDate < now
+      ) {
+        return false;
+      }
+      return true;
+    });
 
     // 1. Try exact specialty match
     const matching = visible.filter(

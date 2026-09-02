@@ -1,8 +1,9 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
@@ -63,13 +64,19 @@ export function SupplierRecommendedCard({
   const [showQuoteDialog, setShowQuoteDialog] = useState(false);
   const [quoteMessage, setQuoteMessage] = useState("");
   const [sending, setSending] = useState(false);
-  // Editable materials state — initialized from props
+  // Editable materials state — (re)initialized when the quote dialog opens
   const [editableMaterials, setEditableMaterials] = useState<MaterialQty[]>(materials);
+  // Selected material flags — checked by default, user can uncheck to exclude
+  const [selectedMaterials, setSelectedMaterials] = useState<boolean[]>(materials.map(() => true));
 
-  // Sync when materials prop changes
-  useEffect(() => {
+  const selectedCount = selectedMaterials.filter(Boolean).length;
+
+  const openQuoteDialog = () => {
+    // Always start from the current analysis quantities (pre-calculated, editable)
     setEditableMaterials(materials);
-  }, [materials]);
+    setSelectedMaterials(materials.map(() => true));
+    setShowQuoteDialog(true);
+  };
 
   // Fetch random registered supplier for this specialty (fallback to any if no match)
   const supplier = useQuery(
@@ -91,6 +98,12 @@ export function SupplierRecommendedCard({
       toast.error("Vous ne pouvez pas vous envoyer un devis à vous-même.");
       return;
     }
+    // Only send the materials the user selected
+    const selected = editableMaterials.filter((_, i) => selectedMaterials[i]);
+    if (selected.length === 0) {
+      toast.error("Sélectionnez au moins un matériau pour la demande de devis.");
+      return;
+    }
     try {
       setSending(true);
       await createQuoteRequest({
@@ -98,7 +111,7 @@ export function SupplierRecommendedCard({
         projectId: projectId as any,
         projectName,
         category: categoryLabel,
-        materials: editableMaterials,
+        materials: selected,
         message: quoteMessage || undefined,
       });
       toast.success("Demande de devis envoyée avec succès !");
@@ -114,6 +127,12 @@ export function SupplierRecommendedCard({
   const updateMaterialQty = (index: number, qty: number) => {
     setEditableMaterials((prev) =>
       prev.map((m, i) => (i === index ? { ...m, quantity: Math.max(0, qty) } : m))
+    );
+  };
+
+  const toggleMaterial = (index: number) => {
+    setSelectedMaterials((prev) =>
+      prev.map((v, i) => (i === index ? !v : v))
     );
   };
 
@@ -150,7 +169,7 @@ export function SupplierRecommendedCard({
             </div>
             <div className="flex gap-1.5 mt-3">
               <a
-                href={`tel:${s.phone.replace(/[^\\d+]/g, "")}`}
+                href={`tel:${s.phone.replace(/[^\d+]/g, "")}`}
                 className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/[0.04] px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/10 hover:border-primary/30 active:scale-[0.98] transition-all"
               >
                 <Phone className="h-2.5 w-2.5" /> Contacter
@@ -168,7 +187,7 @@ export function SupplierRecommendedCard({
                     toast.error("Vous ne pouvez pas vous envoyer un devis à vous-même.");
                     return;
                   }
-                  setShowQuoteDialog(true);
+                  openQuoteDialog();
                 }}
                 disabled={!!isOwnProfile}
                 title={isOwnProfile ? "Vous ne pouvez pas vous envoyer un devis à vous-même" : undefined}
@@ -197,38 +216,68 @@ export function SupplierRecommendedCard({
             {/* Editable Materials summary */}
             {editableMaterials.length > 0 && (
               <div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Matériaux du projet (quantités modifiables)
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Matériaux du projet (sélection + quantités modifiables)
+                  </p>
+                  <span className="text-[9px] font-medium text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5">
+                    {selectedCount}/{editableMaterials.length} sélectionné{selectedCount > 1 ? "s" : ""}
+                  </span>
+                </div>
                 <div className="rounded-xl border border-border/30 overflow-hidden">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-muted/30 border-b border-border/20">
-                        <th className="text-left py-2 px-3 font-medium text-muted-foreground">Désignation</th>
+                        <th className="text-left py-2 px-3 font-medium text-muted-foreground w-8">
+                          <span className="sr-only">Sélectionner</span>
+                        </th>
+                        <th className="text-left py-2 px-1 font-medium text-muted-foreground">Désignation</th>
                         <th className="text-right py-2 px-3 font-medium text-muted-foreground w-24">Quantité</th>
                         <th className="text-right py-2 px-3 font-medium text-muted-foreground">Unité</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {editableMaterials.map((m, i) => (
-                        <tr key={i} className="border-b border-border/10 last:border-0">
-                          <td className="py-1.5 px-3 font-medium">{m.name}</td>
-                          <td className="py-1.5 px-3">
-                            <Input
-                              type="number"
-                              min={0}
-                              step="any"
-                              value={m.quantity}
-                              onChange={(e) => updateMaterialQty(i, parseFloat(e.target.value) || 0)}
-                              className="h-7 w-full text-right text-xs tabular-nums px-2 py-0"
-                            />
-                          </td>
-                          <td className="py-1.5 px-3 text-right text-muted-foreground">{m.unit}</td>
-                        </tr>
-                      ))}
+                      {editableMaterials.map((m, i) => {
+                        const checked = selectedMaterials[i] ?? false;
+                        return (
+                          <tr
+                            key={i}
+                            className={`border-b border-border/10 last:border-0 transition-colors ${
+                              checked ? "" : "opacity-45 bg-muted/20"
+                            }`}
+                          >
+                            <td className="py-1.5 pl-3 pr-0">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={() => toggleMaterial(i)}
+                                aria-label={`Sélectionner ${m.name}`}
+                                className="cursor-pointer"
+                              />
+                            </td>
+                            <td className="py-1.5 px-1 font-medium">{m.name}</td>
+                            <td className="py-1.5 px-3">
+                              <Input
+                                type="number"
+                                min={0}
+                                step="any"
+                                value={m.quantity}
+                                disabled={!checked}
+                                onChange={(e) => updateMaterialQty(i, parseFloat(e.target.value) || 0)}
+                                className="h-7 w-full text-right text-xs tabular-nums px-2 py-0"
+                              />
+                            </td>
+                            <td className="py-1.5 px-3 text-right text-muted-foreground">{m.unit}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
+                {selectedCount === 0 && (
+                  <p className="mt-1.5 text-[10px] text-amber-600">
+                    Sélectionnez au moins un matériau pour envoyer la demande.
+                  </p>
+                )}
               </div>
             )}
 
@@ -275,7 +324,7 @@ export function SupplierRecommendedCard({
               <Button
                 size="sm"
                 className="gap-1.5 text-xs"
-                disabled={sending}
+                disabled={sending || (editableMaterials.length > 0 && selectedCount === 0)}
                 onClick={handleRequestQuote}
               >
                 {sending ? (
