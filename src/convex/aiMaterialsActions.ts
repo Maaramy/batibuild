@@ -119,11 +119,7 @@ export const recommendMaterials = action({
       terrainSurface: args.context?.terrainSurface ?? project?.surfaceTotale,
       priorities: args.context?.priorities || { price: 50, quality: 50, isolation: 50, durability: 50, eco: 50 },
       standing: args.context?.standing || "standard",
-      // Budget moyen appliqué systématiquement : les estimations ne dépendent
-      // plus d'un choix client (l'option « Mon budget & mes priorités » a été
-      // supprimée). On écrase tout budget fourni par le client.
-      budgetMode: "moyen",
-      budgetAmount: undefined,
+      budgetMode: args.context?.budgetMode || "moyen",
       year: args.context?.year || new Date().getFullYear(),
     };
 
