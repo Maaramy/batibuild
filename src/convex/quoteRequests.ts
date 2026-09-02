@@ -152,24 +152,7 @@ export const getMyRequests = query({
       .order("desc")
       .collect();
 
-    // Jointure fournisseur (nom/coordonnées) pour affichage côté client
-    return await Promise.all(
-      requests.map(async (r) => {
-        const sup = r.supplierId ? await ctx.db.get(r.supplierId) : null;
-        return {
-          ...r,
-          supplier: sup
-            ? {
-                _id: sup._id,
-                companyName: sup.companyName,
-                phone: sup.phone ?? "",
-                email: sup.email ?? "",
-                address: sup.address ?? "",
-              }
-            : null,
-        };
-      }),
-    );
+    return requests;
   },
 });
 
