@@ -206,3 +206,53 @@ export const pendingCount = query({
     return pending.filter((r) => r.status === "pending").length;
   },
 });
+
+/** Count unread (not yet consulted) requests for a supplier — drives the red badge */
+export const unreadCount = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return 0;
+
+    const profile = await ctx.db
+      .query("supplierProfiles")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!profile) return 0;
+
+    const all = await ctx.db
+      .query("quoteRequests")
+      .withIndex("by_supplier", (q) => q.eq("supplierId", profile._id))
+      .collect();
+
+    return all.filter((r) => r.readAt === undefined).length;
+  },
+});
+
+/** Mark all of the supplier's quote requests as consulted (clears the red badge) */
+export const markAllRead = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return;
+
+    const profile = await ctx.db
+      .query("supplierProfiles")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+    if (!profile) return;
+
+    const all = await ctx.db
+      .query("quoteRequests")
+      .withIndex("by_supplier", (q) => q.eq("supplierId", profile._id))
+      .collect();
+
+    const now = Date.now();
+    for (const r of all) {
+      if (r.readAt === undefined) {
+        await ctx.db.patch(r._id, { readAt: now });
+      }
+    }
+  },
+});

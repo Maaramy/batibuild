@@ -1214,6 +1214,7 @@ const schema = defineSchema(
         v.literal("responded"),
         v.literal("closed"),
       ),
+      readAt: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
@@ -1308,6 +1309,7 @@ const schema = defineSchema(
         v.literal("responded"),
         v.literal("closed"),
       ),
+      readAt: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })

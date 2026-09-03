@@ -403,3 +403,73 @@ describe("quoteRequests.pendingCount", () => {
     expect(count).toBe(0);
   });
 });
+
+// ============================================================================
+// unreadCount & markAllRead — badge de notification
+// ============================================================================
+
+describe("quoteRequests.unreadCount / markAllRead", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  async function seedQuotes(count: number) {
+    const supplierUserId = await createTestUser(t);
+    const supplierId = await createTestSupplierProfile(t, supplierUserId);
+    const buyerId = await createTestUser(t, { name: "Buyer", email: "buyer@test.com" });
+    const buyerT = asUser(t, buyerId);
+    const supplierT = asUser(t, supplierUserId);
+
+    for (let i = 0; i < count; i++) {
+      await buyerT.mutation(api.quoteRequests.create, {
+        supplierId: supplierId as any,
+        category: "ciment",
+        materials: [{ name: "Item", quantity: 1, unit: "kg" }],
+      });
+    }
+    return { supplierT };
+  }
+
+  it("counts every new request as unread before consultation", async () => {
+    const { supplierT } = await seedQuotes(2);
+    const count = await supplierT.query(api.quoteRequests.unreadCount, {});
+    expect(count).toBe(2);
+  });
+
+  it("markAllRead clears the unread badge once consulted", async () => {
+    const { supplierT } = await seedQuotes(2);
+    await supplierT.mutation(api.quoteRequests.markAllRead, {});
+
+    const count = await supplierT.query(api.quoteRequests.unreadCount, {});
+    expect(count).toBe(0);
+
+    // All requests now carry a readAt timestamp
+    const requests = await supplierT.query(api.quoteRequests.getBySupplier, {});
+    expect(requests).toHaveLength(2);
+    for (const r of requests) {
+      expect(typeof r.readAt).toBe("number");
+    }
+  });
+
+  it("markAllRead is idempotent and only stamps unread requests", async () => {
+    const { supplierT } = await seedQuotes(1);
+    await supplierT.mutation(api.quoteRequests.markAllRead, {});
+    const first = await supplierT.query(api.quoteRequests.getBySupplier, {});
+    const firstReadAt = first[0].readAt;
+
+    // A second run must not overwrite the read timestamp
+    await supplierT.mutation(api.quoteRequests.markAllRead, {});
+    const second = await supplierT.query(api.quoteRequests.getBySupplier, {});
+    expect(second[0].readAt).toBe(firstReadAt);
+  });
+
+  it("returns 0 for a user without supplier profile", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+
+    const count = await userT.query(api.quoteRequests.unreadCount, {});
+    expect(count).toBe(0);
+  });
+});

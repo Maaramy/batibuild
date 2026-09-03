@@ -406,3 +406,75 @@ describe("expertServiceRequests.pendingCount", () => {
     expect(count).toBe(0);
   });
 });
+
+// ============================================================================
+// unreadCount & markAllRead — badge de notification
+// ============================================================================
+
+describe("expertServiceRequests.unreadCount / markAllRead", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  async function seedRequests(count: number) {
+    const expertUserId = await createTestUser(t);
+    const expertId = await createTestExpertProfile(t, expertUserId);
+    const clientUserId = await createTestUser(t, { email: "client@test.com" });
+    const clientT = asUser(t, clientUserId);
+    const expertT = asUser(t, expertUserId);
+
+    for (let i = 0; i < count; i++) {
+      await clientT.mutation(api.expertServiceRequests.create, {
+        expertId: expertId as any,
+        requestType: "devis" as const,
+        serviceType: "architecture",
+        description: `Request ${i}`,
+        userPhone: "+216 99 000 000",
+        userEmail: "client@test.com",
+        userName: "Client",
+      });
+    }
+    return { expertT };
+  }
+
+  it("counts every new request as unread before consultation", async () => {
+    const { expertT } = await seedRequests(2);
+    const count = await expertT.query(api.expertServiceRequests.unreadCount);
+    expect(count).toBe(2);
+  });
+
+  it("markAllRead clears the unread badge once consulted", async () => {
+    const { expertT } = await seedRequests(2);
+    await expertT.mutation(api.expertServiceRequests.markAllRead);
+
+    const count = await expertT.query(api.expertServiceRequests.unreadCount);
+    expect(count).toBe(0);
+
+    const requests = await expertT.query(api.expertServiceRequests.getByExpert);
+    expect(requests).toHaveLength(2);
+    for (const r of requests) {
+      expect(typeof r.readAt).toBe("number");
+    }
+  });
+
+  it("markAllRead is idempotent and only stamps unread requests", async () => {
+    const { expertT } = await seedRequests(1);
+    await expertT.mutation(api.expertServiceRequests.markAllRead);
+    const first = await expertT.query(api.expertServiceRequests.getByExpert);
+    const firstReadAt = first[0].readAt;
+
+    await expertT.mutation(api.expertServiceRequests.markAllRead);
+    const second = await expertT.query(api.expertServiceRequests.getByExpert);
+    expect(second[0].readAt).toBe(firstReadAt);
+  });
+
+  it("returns 0 for user without expert profile", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+
+    const count = await userT.query(api.expertServiceRequests.unreadCount);
+    expect(count).toBe(0);
+  });
+});

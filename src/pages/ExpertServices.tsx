@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -39,6 +39,14 @@ export default function ExpertServices() {
 
   const requests = useQuery(api.expertServiceRequests.getByExpert);
   const respond = useMutation(api.expertServiceRequests.respond);
+  const markAllRead = useMutation(api.expertServiceRequests.markAllRead);
+
+  // Dès que la page des demandes est consultée, on efface le badge rouge
+  useEffect(() => {
+    if (requests && requests.some((r) => r.readAt === undefined)) {
+      markAllRead();
+    }
+  }, [requests, markAllRead]);
 
   const filtered = requests?.filter((r) =>
     statusFilter === "all" ? true : r.status === statusFilter

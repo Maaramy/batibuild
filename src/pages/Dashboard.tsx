@@ -413,15 +413,16 @@ export default function Dashboard() {
     api.supplierStats.getSupplierKPIs,
     isSupplier ? { period: "30d" } : "skip",
   );
-  // ── Badges temps réel : demandes en attente ──
-  const expertPending = useQuery(
-    api.expertServiceRequests.pendingCount,
+  // ── Badges temps réel : demandes non consultées ──
+  const expertUnread = useQuery(
+    api.expertServiceRequests.unreadCount,
     isExpert ? {} : "skip",
   );
-  const supplierPending = useQuery(
-    api.quoteRequests.pendingCount,
+  const supplierUnread = useQuery(
+    api.quoteRequests.unreadCount,
     isSupplier ? {} : "skip",
   );
+  const totalUnread = (supplierUnread ?? 0) + (expertUnread ?? 0);
   const projectsReached = false;
   const investReached = false;
   const anyNearLimit = false;
@@ -536,19 +537,19 @@ export default function Dashboard() {
             ] : []),
             // Professional features — parent + submenu
             ...(viewMode === "supplier" ? [
-              { icon: Store, label: "Espace fournisseur", isExpandable: true, badge: supplierPending ?? 0, onClick: () => { setProMenuOpen(!proMenuOpen); } },
+              { icon: Store, label: "Espace fournisseur", isExpandable: true, badge: supplierUnread ?? 0, onClick: () => { setProMenuOpen(!proMenuOpen); } },
             ] : []),
             ...(viewMode === "expert" ? [
-              { icon: Briefcase, label: "Espace expert", isExpandable: true, badge: expertPending ?? 0, onClick: () => { setProMenuOpen(!proMenuOpen); } },
+              { icon: Briefcase, label: "Espace expert", isExpandable: true, badge: expertUnread ?? 0, onClick: () => { setProMenuOpen(!proMenuOpen); } },
             ] : []),
             // Sub-menu items (shown when expanded)
             ...(viewMode === "supplier" && proMenuOpen ? [
-              { icon: FileText, label: "Devis reçus", isSubItem: true, badge: supplierPending ?? 0, onClick: () => { navigate("/dashboard/supplier/quotes"); setMobileSidebarOpen(false); } },
+              { icon: FileText, label: "Devis reçus", isSubItem: true, badge: supplierUnread ?? 0, onClick: () => { navigate("/dashboard/supplier/quotes"); setMobileSidebarOpen(false); } },
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/supplier/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil fournisseur", isSubItem: true, onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
             ] : []),
             ...(viewMode === "expert" && proMenuOpen ? [
-              { icon: FileText, label: "Devis reçus", isSubItem: true, badge: expertPending ?? 0, onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
+              { icon: FileText, label: "Devis reçus", isSubItem: true, badge: expertUnread ?? 0, onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
@@ -662,9 +663,23 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-              <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={totalUnread > 0 ? `${totalUnread} nouvelle(s) demande(s) de devis` : "Notifications"}
+                className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 relative cursor-pointer"
+                onClick={() => {
+                  if (viewMode === "supplier" && hasSupplierProfile) navigate("/dashboard/supplier/quotes");
+                  else if (viewMode === "expert" && hasExpertProfile) navigate("/dashboard/expert/services");
+                  else navigate("/dashboard/messages");
+                }}
+              >
                 <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-primary" />
+                {totalUnread > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] sm:text-[9px] font-bold text-white animate-in zoom-in-50">
+                    {totalUnread > 9 ? "9+" : totalUnread}
+                  </span>
+                )}
               </Button>
               {mounted && (
                 <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

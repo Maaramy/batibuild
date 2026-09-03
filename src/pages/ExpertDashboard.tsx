@@ -234,6 +234,7 @@ export default function ExpertDashboard() {
   const navigate = useNavigate();
   const profile = useQuery(api.expertProfiles.getMyProfile);
   const hasProfile = useQuery(api.expertProfiles.hasExpertProfile);
+  const unreadCount = useQuery(api.expertServiceRequests.unreadCount);
   const paymentConfig = useQuery(api.payments.getPublicPricing);
   const createProfile = useMutation(api.expertProfiles.createProfile);
   const updateProfile = useMutation(api.expertProfiles.updateProfile);
@@ -539,10 +540,15 @@ export default function ExpertDashboard() {
                     <div className="flex items-center gap-1.5 mt-3 flex-wrap">
                       <button
                         onClick={() => navigate("/dashboard/expert/services")}
-                        className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                        className="relative flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
                       >
                         <FileText className="h-3 w-3" />
                         Devis
+                        {(unreadCount ?? 0) > 0 && (
+                          <span className="absolute -top-1.5 -right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-0.5 text-[7px] font-bold text-white shadow-sm">
+                            {unreadCount! > 9 ? "9+" : unreadCount}
+                          </span>
+                        )}
                       </button>
                       <button
                         onClick={() => navigate("/dashboard")}

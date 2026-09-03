@@ -9,7 +9,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useQuery, useMutation } from "convex/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -45,9 +45,17 @@ export default function SupplierQuotes() {
   const quotes = useQuery(api.quoteRequests.getBySupplier);
   const sendResponse = useMutation(api.quoteResponses.sendResponse);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+  const markAllRead = useMutation(api.quoteRequests.markAllRead);
 
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // Dès que la page des demandes est consultée, on efface le badge rouge
+  useEffect(() => {
+    if (quotes && quotes.some((q) => q.readAt === undefined)) {
+      markAllRead();
+    }
+  }, [quotes, markAllRead]);
 
   const filtered = quotes?.filter((q) =>
     statusFilter === "all" ? true : q.status === statusFilter
