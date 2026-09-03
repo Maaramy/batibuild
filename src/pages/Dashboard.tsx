@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { LogoMark } from "@/components/Logo";
+import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { useQuery, useMutation } from "convex/react";
@@ -916,11 +917,12 @@ export default function Dashboard() {
                   <Card className="border-border/40 bg-background/50">
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/10">
-                          <span className="text-base font-bold text-primary/80">
-                            {(supplierProfile?.companyName || "?").split(/\s+/).filter(Boolean).map((w: string) => w.charAt(0).toUpperCase()).slice(0, 2).join("")}
-                          </span>
-                        </div>
+                        <AvatarWithInitials
+                          logo={supplierProfile?.logo}
+                          name={supplierProfile?.companyName || "Fournisseur"}
+                          size="md"
+                          className="h-12 w-12 text-sm"
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold truncate">{supplierProfile?.companyName}</p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -1023,11 +1025,12 @@ export default function Dashboard() {
                   <Card className="border-border/40 bg-background/50">
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-violet-50 border border-violet-200">
-                          <span className="text-base font-bold text-violet-600">
-                            {(expertProfile?.displayName || "?").split(/\s+/).filter(Boolean).map((w: string) => w.charAt(0).toUpperCase()).slice(0, 2).join("")}
-                          </span>
-                        </div>
+                        <AvatarWithInitials
+                          logo={expertProfile?.logo}
+                          name={expertProfile?.displayName || "Expert"}
+                          size="md"
+                          className="h-12 w-12 text-sm"
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold truncate">{expertProfile?.displayName}</p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
