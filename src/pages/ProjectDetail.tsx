@@ -20,7 +20,6 @@ import { useState, useMemo, Fragment, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { BottomNavBar } from "@/components/BottomNavBar";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
@@ -46,7 +45,6 @@ import {
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -136,7 +134,6 @@ export default function ProjectDetail() {
     title: project ? `Devis ${project.name} - batibuild App` : "Détail du projet - batibuild App",
     description: project ? `Devis estimatif pour ${project.name}. Coût total, matériaux et analyse IA.` : "Consultez le détail de votre projet de construction.",
   });
-  const { user: currentUser } = useAuth();
   const allProjects = useQuery(api.projects.getUserProjects, {});
   
   // Calculate project counter: index of current project in all user projects
@@ -429,19 +426,6 @@ export default function ProjectDetail() {
     () => scaledBreakdown?.reduce((s: number, b: any) => s + (b.items?.length || 0), 0) ?? 0,
     [scaledBreakdown],
   );
-
-  // Matériaux du projet (quantités DQE/BIM) injectés automatiquement dans les demandes de devis
-  const quoteMaterials = useMemo(() => {
-    const out: { name: string; quantity: number; unit: string }[] = [];
-    for (const b of scaledBreakdown ?? []) {
-      if (b.category === "main_oeuvre") continue;
-      for (const it of b.items ?? []) {
-        if (!it.name || typeof it.quantity !== "number" || it.quantity <= 0) continue;
-        out.push({ name: it.name, quantity: it.quantity, unit: it.unit ?? "" });
-      }
-    }
-    return out.slice(0, 20);
-  }, [scaledBreakdown]);
 
   // ── Meilleur fournisseur (prix minimum) par désignation du quantitatif ──
   // Résolu en direct depuis les offres fournisseurs (materialOffers) : le nom
@@ -1871,20 +1855,6 @@ export default function ProjectDetail() {
               </div>
             )}
 
-            {/* ═══ Recommendations ═══ */}
-            {/* Fournisseur recommandé pour la catégorie du projet */}
-            {ai.category && (
-              <div className="mb-2">
-                <SupplierRecommendedCard
-                  categoryKey={ai.category}
-                  categoryLabel={ai.category}
-                  materials={quoteMaterials}
-                  projectId={project._id}
-                  projectName={project.name}
-                  currentUserId={currentUser?._id as string | undefined}
-                />
-              </div>
-            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {project.optimizationTips && project.optimizationTips.length > 0 && (
                 <motion.div variants={fadeUp} custom={8}

@@ -8,15 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Store, Search, MapPin, Phone, Mail,
-  Globe, ChevronDown, ChevronUp, X, Filter,
-  MessageSquare, FileText, Eye, EyeOff, Loader2, MapPinned,
+  ChevronDown, X, Filter, CheckCircle2, FileText, Loader2, Send,
 } from "lucide-react";
-import { AvatarWithInitials } from "@/components/AvatarWithInitials";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
 
@@ -64,11 +64,14 @@ export default function SuppliersDirectory() {
   const [search, setSearch] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("");
   const [selectedRegion, setSelectedRegion] = useState<string>("");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [ratingSupplier, setRatingSupplier] = useState<any>(null);
   const [myRating, setMyRating] = useState(0);
   const [sendingRating, setSendingRating] = useState(false);
+  const [devisSupplier, setDevisSupplier] = useState<any>(null);
+  const [devisMessage, setDevisMessage] = useState("");
+  const [sendingDevis, setSendingDevis] = useState(false);
   const rateSupplier = useMutation(api.ratings.rateSupplier);
+  const createQuoteRequest = useMutation(api.quoteRequests.create);
   const { user } = useAuth();
 
   // Build unique specialties & regions from data
@@ -110,6 +113,39 @@ export default function SuppliersDirectory() {
 
   const activeFilterCount =
     (selectedSpecialty ? 1 : 0) + (selectedRegion ? 1 : 0) + (search ? 1 : 0);
+
+  const openQuoteDialog = (s: any) => {
+    if (!user) {
+      navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    setDevisMessage("");
+    setDevisSupplier(s);
+  };
+
+  const handleSendQuote = async () => {
+    if (!devisSupplier) return;
+    if (user?._id && devisSupplier.userId && user._id === devisSupplier.userId) {
+      toast.error("Vous ne pouvez pas vous envoyer un devis à vous-même.");
+      return;
+    }
+    setSendingDevis(true);
+    try {
+      await createQuoteRequest({
+        supplierId: devisSupplier._id as any,
+        category: devisSupplier.specialties?.[0] ?? "général",
+        materials: [],
+        message: devisMessage || undefined,
+      });
+      toast.success("Demande de devis envoyée avec succès !");
+      setDevisSupplier(null);
+      setDevisMessage("");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erreur lors de l'envoi");
+    } finally {
+      setSendingDevis(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
@@ -286,155 +322,209 @@ export default function SuppliersDirectory() {
           </div>
         )}
 
-        {/* ── Supplier cards ── */}
+        {/* ── Supplier cards (design de la carte fournisseur recommandée) ── */}
         {suppliers !== undefined && filtered.length > 0 && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((s) => {
-              const isExpanded = expandedId === s._id;
+              const isOwnProfile = user?._id && s.userId && user._id === s.userId;
               return (
-                <Card
+                <div
                   key={s._id}
-                  className="border border-border/40 overflow-hidden rounded-xl hover:border-emerald-500/30 transition-colors"
+                  className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/[0.03] to-background p-3.5 hover:border-primary/30 transition-colors"
                 >
-                  <CardContent className="p-4 space-y-3">
-                    {/* Header */}
-                    <div className="flex items-start gap-3">
-                      <AvatarWithInitials
-                        logo={s.logo}
-                        name={s.companyName}
-                        size="md"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-semibold leading-tight truncate">
-                          {s.companyName}
-                        </h3>
-                        <SupplierRatingInline supplierId={s._id} />
-                        {s.description && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2 leading-snug">
-                            {s.description}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Address */}
-                    {s.address && (
-                      <div className="flex items-start gap-1.5 text-[9px] text-muted-foreground">
-                        <MapPinned className="h-3 w-3 shrink-0 mt-0.5" />
-                        <span className="line-clamp-1">{s.address}</span>
-                      </div>
-                    )}
-
-                    {/* Specialties */}
-                    <div className="flex flex-wrap gap-1">
-                      {s.specialties.slice(0, isExpanded ? 20 : 4).map((sp) => (
-                        <Badge
-                          key={sp}
-                          variant="secondary"
-                          className="text-[8px] h-4 px-1.5 leading-none"
-                        >
-                          {SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp}
-                        </Badge>
-                      ))}
-                      {!isExpanded && s.specialties.length > 4 && (
-                        <Badge
-                          variant="outline"
-                          className="text-[8px] h-4 px-1.5 leading-none"
-                        >
-                          +{s.specialties.length - 4}
-                        </Badge>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary overflow-hidden">
+                      {s.logo ? (
+                        <img src={s.logo} alt={s.companyName} className="h-full w-full object-cover" />
+                      ) : (
+                        <Store className="h-5 w-5" />
                       )}
                     </div>
-
-                    {/* Regions */}
-                    {s.regions && s.regions.length > 0 && (
-                      <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        <span className="truncate">
-                          {s.regions
-                            .slice(0, isExpanded ? 10 : 3)
-                            .map((r) => REGION_LABELS[r] ?? r)
-                            .join(", ")}
-                          {!isExpanded && s.regions.length > 3 && ` +${s.regions.length - 3}`}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-foreground truncate">{s.companyName}</p>
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full shrink-0">
+                          <CheckCircle2 className="h-2 w-2" /> Vérifié
                         </span>
                       </div>
-                    )}
-
-                    {/* Contact (expandable) */}
-                    {isExpanded && (
-                      <div className="space-y-1.5 pt-1 border-t border-border/20">
-                        <a
-                          href={`tel:${s.phone}`}
-                          className="flex items-center gap-1.5 text-[10px] text-foreground hover:text-emerald-600 transition-colors"
-                        >
-                          <Phone className="h-3 w-3 shrink-0" />
-                          {s.phone}
-                        </a>
-                        <a
-                          href={`mailto:${s.email}`}
-                          className="flex items-center gap-1.5 text-[10px] text-foreground hover:text-emerald-600 transition-colors"
-                        >
-                          <Mail className="h-3 w-3 shrink-0" />
-                          {s.email}
-                        </a>
-                        {s.address && (
-                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                            <MapPin className="h-3 w-3 shrink-0" />
-                            {s.address}
-                          </div>
-                        )}
-                        {s.website && (
-                          <a
-                            href={s.website.startsWith("http") ? s.website : `https://${s.website}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-[10px] text-foreground hover:text-emerald-600 transition-colors"
-                          >
-                            <Globe className="h-3 w-3 shrink-0" />
-                            {s.website}
-                          </a>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Action buttons */}
-                    <div className="flex flex-col gap-1.5 pt-1">
-                      <a
-                        href={s.phone ? `tel:${s.phone}` : undefined}
-                        className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2.5 text-[11px] font-medium text-white hover:bg-emerald-700 transition-all"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        Demande de devis
-                      </a>
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={() => {
-                            if (!user) {
-                              navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
-                              return;
-                            }
-                            setRatingSupplier(s);
-                            setMyRating(0);
-                          }}
-                          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-[10px] font-medium text-amber-700 hover:bg-amber-500/10 transition-all"
-                        >
-                          ⭐ Noter
-                        </button>
-                        <button
-                          onClick={() => navigate(`/dashboard/supplier-profile/${s._id}`)}
-                          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background px-2.5 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-                        >
-                          Voir profil
-                        </button>
-                      </div>
+                      <SupplierRatingInline supplierId={s._id} />
+                      {s.description && (
+                        <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-snug">
+                          {s.description}
+                        </p>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+
+                  {/* Contact row */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Phone className="h-2.5 w-2.5" /> {s.phone}
+                    </span>
+                    {s.email && (
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Mail className="h-2.5 w-2.5" /> {s.email}
+                      </span>
+                    )}
+                    {s.address && (
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1 min-w-0">
+                        <MapPin className="h-2.5 w-2.5 shrink-0" />
+                        <span className="truncate">{s.address}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Spécialités */}
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {s.specialties.slice(0, 3).map((sp) => (
+                      <Badge key={sp} variant="secondary" className="text-[9px]">
+                        {SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp}
+                      </Badge>
+                    ))}
+                    {s.specialties.length > 3 && (
+                      <Badge variant="outline" className="text-[9px]">
+                        +{s.specialties.length - 3}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Régions */}
+                  {s.regions && s.regions.length > 0 && (
+                    <div className="flex items-center gap-1 text-[9px] text-muted-foreground mt-1">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        {s.regions.slice(0, 3).map((r) => REGION_LABELS[r] ?? r).join(", ")}
+                        {s.regions.length > 3 && ` +${s.regions.length - 3}`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Actions principales */}
+                  <div className="flex gap-1.5 mt-3">
+                    <a
+                      href={`tel:${s.phone.replace(/[^\d+]/g, "")}`}
+                      className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/[0.04] px-2.5 py-1.5 text-[10px] font-medium text-primary hover:bg-primary/10 hover:border-primary/30 active:scale-[0.98] transition-all"
+                    >
+                      <Phone className="h-2.5 w-2.5" /> Contacter
+                    </a>
+                    <button
+                      onClick={() => openQuoteDialog(s)}
+                      disabled={!!isOwnProfile}
+                      title={isOwnProfile ? "Vous ne pouvez pas vous envoyer un devis à vous-même" : undefined}
+                      className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-[10px] font-medium active:scale-[0.98] transition-all cursor-pointer ${
+                        isOwnProfile
+                          ? "border-muted bg-muted/30 text-muted-foreground cursor-not-allowed opacity-60"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300"
+                      }`}
+                    >
+                      <FileText className="h-2.5 w-2.5" /> Demander un devis
+                    </button>
+                  </div>
+
+                  {/* Actions secondaires */}
+                  <div className="flex gap-1.5 mt-1.5">
+                    <button
+                      onClick={() => {
+                        if (!user) {
+                          navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+                          return;
+                        }
+                        setRatingSupplier(s);
+                        setMyRating(0);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5 text-[10px] font-medium text-amber-700 hover:bg-amber-500/10 transition-all cursor-pointer"
+                    >
+                      ⭐ Noter
+                    </button>
+                    <button
+                      onClick={() => navigate(`/dashboard/supplier-profile/${s._id}`)}
+                      className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all cursor-pointer"
+                    >
+                      Voir profil
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Demande de devis Dialog */}
+      <Dialog open={!!devisSupplier} onOpenChange={(o) => { if (!o) setDevisSupplier(null); }}>
+        <DialogContent className="sm:max-w-lg rounded-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              Demande de devis — {devisSupplier?.companyName}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Vos coordonnées seront transmises automatiquement au fournisseur.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* User contact info (auto-transmitted) */}
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Vos coordonnées (transmises automatiquement)
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="rounded-lg border border-border/20 bg-muted/10 px-3 py-2 min-w-0">
+                  <p className="text-[9px] text-muted-foreground">Nom</p>
+                  <p className="text-xs font-medium truncate">{user?.name || "—"}</p>
+                </div>
+                <div className="rounded-lg border border-border/20 bg-muted/10 px-3 py-2 min-w-0">
+                  <p className="text-[9px] text-muted-foreground">Téléphone</p>
+                  <p className="text-xs font-medium truncate">{user?.phone || "—"}</p>
+                </div>
+                <div className="rounded-lg border border-border/20 bg-muted/10 px-3 py-2 min-w-0">
+                  <p className="text-[9px] text-muted-foreground">Email</p>
+                  <p className="text-xs font-medium truncate">{user?.email || "—"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Message */}
+            <div>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                Message optionnel
+              </label>
+              <Textarea
+                value={devisMessage}
+                onChange={(e) => setDevisMessage(e.target.value)}
+                placeholder="Décrivez vos besoins spécifiques..."
+                className="text-xs min-h-[80px] rounded-xl"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+                onClick={() => setDevisSupplier(null)}
+              >
+                Annuler
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5 text-xs"
+                disabled={sendingDevis}
+                onClick={handleSendQuote}
+              >
+                {sendingDevis ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Send className="h-3 w-3" />
+                )}
+                Envoyer la demande
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Rating Dialog */}
       <Dialog open={!!ratingSupplier} onOpenChange={(o) => { if (!o) setRatingSupplier(null); }}>
