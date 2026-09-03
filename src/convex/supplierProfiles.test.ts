@@ -234,3 +234,87 @@ describe("supplierProfiles.getRandomBySpecialty", () => {
     expect(result[0].companyName).toBe("Inactif mais visible");
   });
 });
+
+// ============================================================================
+// Logo persistence & legacy URL repair
+// ============================================================================
+
+function asUser(t: ReturnType<typeof convexTest>, userId: string) {
+  return t.withIdentity({ subject: userId });
+}
+
+describe("supplierProfiles logo persistence", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  const logoArgs = {
+    companyName: "ACME Matériaux",
+    phone: "+216 99 444 444",
+    email: "acme@test.com",
+    address: "Tunis",
+    specialties: ["ciment"],
+    regions: ["tunis"],
+  };
+
+  it("stores a raw logo URL (backward compat)", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+
+    await userT.mutation(api.supplierProfiles.createProfile, {
+      ...logoArgs,
+      logo: "https://cdn.example/logo.png",
+    });
+
+    const profile = await userT.query(api.supplierProfiles.getMyProfile);
+    expect(profile!.logo).toBe("https://cdn.example/logo.png");
+  });
+
+  it("does not wipe the logo when updating unrelated fields", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+
+    await userT.mutation(api.supplierProfiles.createProfile, {
+      ...logoArgs,
+      logo: "https://cdn.example/logo.png",
+    });
+    await userT.mutation(api.supplierProfiles.updateProfile, {
+      phone: "+216 99 555 555",
+    });
+
+    const profile = await userT.query(api.supplierProfiles.getMyProfile);
+    expect(profile!.logo).toBe("https://cdn.example/logo.png");
+  });
+
+  it("clearLogo removes the stored logo", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+
+    await userT.mutation(api.supplierProfiles.createProfile, {
+      ...logoArgs,
+      logo: "https://cdn.example/logo.png",
+    });
+    await userT.mutation(api.supplierProfiles.updateProfile, {
+      clearLogo: true,
+    });
+
+    const profile = await userT.query(api.supplierProfiles.getMyProfile);
+    expect(profile!.logo).toBeUndefined();
+  });
+
+  it("legacy /api/storage logos survive profile reads without crashing", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+
+    await userT.mutation(api.supplierProfiles.createProfile, {
+      ...logoArgs,
+      logo: "https://app.example/api/storage/abc123",
+    });
+
+    const profile = await userT.query(api.supplierProfiles.getMyProfile);
+    // Either healed to a real storage URL or kept as-is — never lost.
+    expect(typeof profile!.logo).toBe("string");
+  });
+});

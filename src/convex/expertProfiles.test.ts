@@ -317,3 +317,74 @@ describe("expertProfiles.deleteProfile", () => {
     expect(profile).toBeUndefined();
   });
 });
+
+// ============================================================================
+// Logo persistence & legacy URL repair
+// ============================================================================
+
+describe("expertProfiles logo persistence", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  it("stores a raw logo URL (backward compat)", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+
+    await userT.mutation(api.expertProfiles.createProfile, {
+      ...baseProfileArgs,
+      logo: "https://cdn.example/logo.png",
+    });
+
+    const profile = await userT.query(api.expertProfiles.getMyProfile);
+    expect(profile!.logo).toBe("https://cdn.example/logo.png");
+  });
+
+  it("does not wipe the logo when updating unrelated fields", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+
+    await userT.mutation(api.expertProfiles.createProfile, {
+      ...baseProfileArgs,
+      logo: "https://cdn.example/logo.png",
+    });
+    await userT.mutation(api.expertProfiles.updateProfile, {
+      phone: "+216 99 333 333",
+    });
+
+    const profile = await userT.query(api.expertProfiles.getMyProfile);
+    expect(profile!.logo).toBe("https://cdn.example/logo.png");
+  });
+
+  it("clearLogo removes the stored logo", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+
+    await userT.mutation(api.expertProfiles.createProfile, {
+      ...baseProfileArgs,
+      logo: "https://cdn.example/logo.png",
+    });
+    await userT.mutation(api.expertProfiles.updateProfile, {
+      clearLogo: true,
+    });
+
+    const profile = await userT.query(api.expertProfiles.getMyProfile);
+    expect(profile!.logo).toBeUndefined();
+  });
+
+  it("legacy /api/storage logos survive profile reads without crashing", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+
+    await userT.mutation(api.expertProfiles.createProfile, {
+      ...baseProfileArgs,
+      logo: "https://app.example/api/storage/abc123",
+    });
+
+    const profile = await userT.query(api.expertProfiles.getMyProfile);
+    // Either healed to a real storage URL or kept as-is — never lost.
+    expect(typeof profile!.logo).toBe("string");
+  });
+});

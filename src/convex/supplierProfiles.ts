@@ -23,6 +23,29 @@ async function getSupplierPrice(ctx: any): Promise<number> {
   return p === null || p === 0 ? 0 : p;
 }
 
+/**
+ * Legacy logos were saved as `${window.location.origin}/api/storage/<storageId>`,
+ * which never resolves on the app host (no /api proxy). Detect that pattern on
+ * read and re-resolve the real Convex storage URL. Queries are read-only, so the
+ * healed URL is persisted on the next profile save (see updateProfile).
+ */
+const BROKEN_STORAGE_URL_RE = /\/api\/storage\/([A-Za-z0-9]+)(?:[?#]|$)/;
+
+async function repairLogoUrl(
+  ctx: any,
+  logo: string | undefined
+): Promise<string | undefined> {
+  if (!logo) return undefined;
+  const match = logo.match(BROKEN_STORAGE_URL_RE);
+  if (!match) return logo;
+  try {
+    const url = await ctx.storage.getUrl(match[1] as any);
+    return url || logo;
+  } catch {
+    return logo;
+  }
+}
+
 // ============================================================================
 // Queries
 // ============================================================================
@@ -76,6 +99,7 @@ export const getMyProfile = query({
 
     return {
       ...profile,
+      logo: await repairLogoUrl(ctx, profile.logo),
       specialtiesLabels: profile.specialties.map(
         (s) => SUPPLIER_SPECIALTIES_LABELS[s] || s
       ),
@@ -104,7 +128,7 @@ export const getActiveSuppliers = query({
           )
           .collect();
 
-    return suppliers
+    const visible = suppliers
       .filter((s) => s.isVisible)
       .filter((s) => {
         if (free.supplierFree) return true;
@@ -117,8 +141,11 @@ export const getActiveSuppliers = query({
           return false;
         }
         return true;
-      })
-      .map((s) => ({
+      });
+
+    const result = [];
+    for (const s of visible) {
+      result.push({
         _id: s._id,
         userId: s.userId,
         companyName: s.companyName,
@@ -127,11 +154,13 @@ export const getActiveSuppliers = query({
         address: s.address,
         website: s.website,
         description: s.description,
-        logo: s.logo,
+        logo: await repairLogoUrl(ctx, s.logo),
         specialties: s.specialties,
         regions: s.regions,
         plan: s.plan,
-      }));
+      });
+    }
+    return result;
   },
 });
 
@@ -165,6 +194,7 @@ export const getAllSupplierProfiles = query({
         const user = await ctx.db.get(profile.userId);
         return {
           ...profile,
+          logo: await repairLogoUrl(ctx, profile.logo),
           subscriptionStatus:
             profile.subscriptionStatus === "trial" ? "inactive" : profile.subscriptionStatus,
           specialtiesLabels: profile.specialties.map(
@@ -224,6 +254,7 @@ export const createProfile = mutation({
     website: v.optional(v.string()),
     description: v.optional(v.string()),
     logo: v.optional(v.string()),
+    logoStorageId: v.optional(v.id("_storage")),
     specialties: v.array(v.string()),
     regions: v.array(v.string()),
   },
@@ -239,6 +270,14 @@ export const createProfile = mutation({
 
     if (existing) throw new Error("Vous avez déjà un profil fournisseur");
 
+    // Resolve the storage ID to a real storage URL (client-side-built URLs are broken)
+    let logo = args.logo;
+    if (args.logoStorageId) {
+      const url = await ctx.storage.getUrl(args.logoStorageId);
+      if (!url) throw new Error("Impossible de récupérer le logo");
+      logo = url;
+    }
+
     const now = Date.now();
     const profileId = await ctx.db.insert("supplierProfiles", {
       userId: user._id,
@@ -248,7 +287,7 @@ export const createProfile = mutation({
       address: args.address,
       website: args.website,
       description: args.description,
-      logo: args.logo,
+      logo,
       specialties: args.specialties,
       regions: args.regions,
       plan: "none",
@@ -272,6 +311,8 @@ export const updateProfile = mutation({
     website: v.optional(v.string()),
     description: v.optional(v.string()),
     logo: v.optional(v.string()),
+    logoStorageId: v.optional(v.id("_storage")),
+    clearLogo: v.optional(v.boolean()),
     specialties: v.optional(v.array(v.string())),
     regions: v.optional(v.array(v.string())),
   },
@@ -293,7 +334,20 @@ export const updateProfile = mutation({
     if (args.address !== undefined) updates.address = args.address;
     if (args.website !== undefined) updates.website = args.website;
     if (args.description !== undefined) updates.description = args.description;
-    if (args.logo !== undefined) updates.logo = args.logo;
+    // Logo: clearLogo > logoStorageId (server-resolved URL) > legacy raw URL.
+    // When no logo arg is given, heal a legacy broken logo URL on save.
+    if (args.clearLogo) {
+      updates.logo = undefined; // db.patch removes fields set to undefined
+    } else if (args.logoStorageId) {
+      const url = await ctx.storage.getUrl(args.logoStorageId);
+      if (!url) throw new Error("Impossible de récupérer le logo");
+      updates.logo = url;
+    } else if (args.logo !== undefined) {
+      updates.logo = args.logo;
+    } else {
+      const repaired = await repairLogoUrl(ctx, profile.logo);
+      if (repaired !== profile.logo) updates.logo = repaired;
+    }
     if (args.specialties !== undefined) updates.specialties = args.specialties;
     if (args.regions !== undefined) updates.regions = args.regions;
 
@@ -357,9 +411,11 @@ export const uploadSupplierPaymentProof = mutation({
     if (profile.subscriptionStatus !== "pending")
       throw new Error("Aucune demande de paiement en attente");
 
+    // Resolve the real storage URL server-side — client-built URLs are broken
+    const resolvedUrl = (await ctx.storage.getUrl(args.storageId)) || args.url;
     await ctx.db.patch(profile._id, {
       paymentProofStorageId: args.storageId,
-      paymentProofUrl: args.url,
+      paymentProofUrl: resolvedUrl,
       paymentProofFileName: args.fileName || "reçu_paiement",
       paymentProofUploadedAt: Date.now(),
       updatedAt: Date.now(),
@@ -798,17 +854,19 @@ export const getRandomBySpecialty = query({
       (p) => p.specialties.includes(args.specialty)
     );
 
-    if (matching.length > 0) {
-      const shuffled = [...matching].sort(() => Math.random() - 0.5);
-      return shuffled.slice(0, limit);
-    }
+    const selected = matching.length > 0
+      ? [...matching].sort(() => Math.random() - 0.5).slice(0, limit)
+      : args.fallbackToAny && visible.length > 0
+        ? [...visible].sort(() => Math.random() - 0.5).slice(0, limit)
+        : [];
 
-    // 2. Fallback: any visible supplier when no specialty matches
-    if (args.fallbackToAny && visible.length > 0) {
-      const shuffled = [...visible].sort(() => Math.random() - 0.5);
-      return shuffled.slice(0, limit);
+    const withLogo = [];
+    for (const p of selected) {
+      withLogo.push({
+        ...p,
+        logo: await repairLogoUrl(ctx, p.logo),
+      });
     }
-
-    return [];
+    return withLogo;
   },
 });

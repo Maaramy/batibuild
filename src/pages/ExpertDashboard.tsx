@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useQuery, useMutation } from "convex/react";
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router";
@@ -264,6 +265,8 @@ export default function ExpertDashboard() {
   const [website, setWebsite] = useState("");
   const [description, setDescription] = useState("");
   const [logo, setLogo] = useState<string | undefined>(undefined);
+  const [logoStorageId, setLogoStorageId] = useState<Id<"_storage"> | undefined>(undefined);
+  const [logoCleared, setLogoCleared] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
@@ -281,6 +284,8 @@ export default function ExpertDashboard() {
       setWebsite(profile.website || "");
       setDescription(profile.description || "");
       setLogo((profile as any).logo || undefined);
+      setLogoStorageId(undefined);
+      setLogoCleared(false);
       setSelectedSpecialties(profile.specialties || []);
       setSelectedRegions((profile as any).regions || []);
     }
@@ -319,7 +324,9 @@ export default function ExpertDashboard() {
           displayName, companyName, phone, email,
           address, website: website || undefined,
           description: description || undefined,
-          logo: logo || undefined,
+          logo: logoStorageId ? undefined : logo || undefined,
+          logoStorageId,
+          clearLogo: logoCleared ? true : undefined,
           specialties: selectedSpecialties, regions: selectedRegions,
         });
         toast.success("Profil mis à jour !");
@@ -330,12 +337,15 @@ export default function ExpertDashboard() {
           displayName, companyName, phone, email,
           address, website: website || undefined,
           description: description || undefined,
-          logo: logo || undefined,
+          logo: logoStorageId ? undefined : logo || undefined,
+          logoStorageId,
           specialties: selectedSpecialties, regions: selectedRegions,
         });
         toast.success("Profil expert créé !");
         setIsEditing(false);
       }
+      setLogoStorageId(undefined);
+      setLogoCleared(false);
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'enregistrement");
     } finally {
@@ -419,8 +429,11 @@ export default function ExpertDashboard() {
       });
       if (!result.ok) throw new Error("Échec de l'upload");
       const { storageId } = await result.json();
-      const fileUrl = `${window.location.origin}/api/storage/${storageId}`;
-      setLogo(fileUrl);
+      // Keep the storage ID and preview the file locally — the real storage URL
+      // is resolved server-side when the profile is saved.
+      setLogoStorageId(storageId as Id<"_storage">);
+      setLogoCleared(false);
+      setLogo(URL.createObjectURL(file));
       toast.success("Logo ajouté ! Enregistrez pour confirmer.");
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'upload du logo");
@@ -777,7 +790,7 @@ export default function ExpertDashboard() {
                           <input type="file" accept="image/*" onChange={handleUploadLogo} disabled={!isEditing} className="hidden" />
                         </label>
                         {logo && isEditing && (
-                          <button type="button" onClick={() => setLogo(undefined)} className="text-[10px] text-destructive hover:underline text-left">
+                          <button type="button" onClick={() => { setLogo(undefined); setLogoStorageId(undefined); setLogoCleared(true); }} className="text-[10px] text-destructive hover:underline text-left">
                             Supprimer le logo
                           </button>
                         )}
@@ -985,7 +998,7 @@ export default function ExpertDashboard() {
                           <input type="file" accept="image/*" onChange={handleUploadLogo} className="hidden" />
                         </label>
                         {logo && (
-                          <button type="button" onClick={() => setLogo(undefined)} className="text-[10px] text-destructive hover:underline text-left">
+                          <button type="button" onClick={() => { setLogo(undefined); setLogoStorageId(undefined); setLogoCleared(true); }} className="text-[10px] text-destructive hover:underline text-left">
                             Supprimer le logo
                           </button>
                         )}

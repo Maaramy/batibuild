@@ -18,6 +18,29 @@ async function getExpertPrice(ctx: any): Promise<number> {
   return p === null || p === 0 ? 0 : p;
 }
 
+/**
+ * Legacy logos were saved as `${window.location.origin}/api/storage/<storageId>`,
+ * which never resolves on the app host (no /api proxy). Detect that pattern on
+ * read and re-resolve the real Convex storage URL. Queries are read-only, so the
+ * healed URL is persisted on the next profile save (see updateProfile).
+ */
+const BROKEN_STORAGE_URL_RE = /\/api\/storage\/([A-Za-z0-9]+)(?:[?#]|$)/;
+
+async function repairLogoUrl(
+  ctx: any,
+  logo: string | undefined
+): Promise<string | undefined> {
+  if (!logo) return undefined;
+  const match = logo.match(BROKEN_STORAGE_URL_RE);
+  if (!match) return logo;
+  try {
+    const url = await ctx.storage.getUrl(match[1] as any);
+    return url || logo;
+  } catch {
+    return logo;
+  }
+}
+
 // ============================================================================
 // Queries
 // ============================================================================
@@ -65,7 +88,13 @@ export const getMyProfile = query({
       );
     }
 
-    return { ...profile, effectiveStatus, remainingDays, planFree };
+    return {
+      ...profile,
+      logo: await repairLogoUrl(ctx, profile.logo),
+      effectiveStatus,
+      remainingDays,
+      planFree,
+    };
   },
 });
 
@@ -105,7 +134,11 @@ export const getRandomByProfession = query({
       const j = Math.floor(Math.random() * (i + 1));
       [active[i], active[j]] = [active[j], active[i]];
     }
-    return active[0];
+    const picked = active[0];
+    return {
+      ...picked,
+      logo: await repairLogoUrl(ctx, picked.logo),
+    };
   },
 });
 
@@ -116,7 +149,7 @@ export const getActiveExperts = query({
     const free = await getFreePlanStatus(ctx);
     const experts = await ctx.db.query("expertProfiles").collect();
 
-    return experts
+    const visible = experts
       .filter((e) => e.isVisible)
       .filter((e) => {
         // « Offre gratuite » : tous les profils visibles sont actifs automatiquement
@@ -128,8 +161,11 @@ export const getActiveExperts = query({
           return false;
         }
         return true;
-      })
-      .map((e) => ({
+      });
+
+    const result = [];
+    for (const e of visible) {
+      result.push({
         _id: e._id,
         displayName: e.displayName,
         companyName: e.companyName,
@@ -138,12 +174,14 @@ export const getActiveExperts = query({
         address: e.address,
         website: e.website,
         description: e.description,
-        logo: e.logo,
+        logo: await repairLogoUrl(ctx, e.logo),
         profession: e.profession,
         specialties: e.specialties,
         regions: e.regions,
         plan: e.plan,
-      }));
+      });
+    }
+    return result;
   },
 });
 
@@ -193,6 +231,7 @@ export const createProfile = mutation({
     website: v.optional(v.string()),
     description: v.optional(v.string()),
     logo: v.optional(v.string()),
+    logoStorageId: v.optional(v.id("_storage")),
     specialties: v.array(v.string()),
     regions: v.array(v.string()),
   },
@@ -206,6 +245,14 @@ export const createProfile = mutation({
       .first();
     if (existing) throw new Error("Profil expert déjà existant");
 
+    // Resolve the storage ID to a real storage URL (client-side-built URLs are broken)
+    let logo = args.logo;
+    if (args.logoStorageId) {
+      const url = await ctx.storage.getUrl(args.logoStorageId);
+      if (!url) throw new Error("Impossible de récupérer le logo");
+      logo = url;
+    }
+
     const now = Date.now();
     const profileId = await ctx.db.insert("expertProfiles", {
       userId: user._id,
@@ -217,7 +264,7 @@ export const createProfile = mutation({
       address: args.address,
       website: args.website,
       description: args.description,
-      logo: args.logo,
+      logo,
       specialties: args.specialties,
       regions: args.regions,
       plan: "none",
@@ -265,6 +312,8 @@ export const updateProfile = mutation({
     website: v.optional(v.string()),
     description: v.optional(v.string()),
     logo: v.optional(v.string()),
+    logoStorageId: v.optional(v.id("_storage")),
+    clearLogo: v.optional(v.boolean()),
     specialties: v.optional(v.array(v.string())),
     regions: v.optional(v.array(v.string())),
   },
@@ -287,7 +336,20 @@ export const updateProfile = mutation({
     if (args.address !== undefined) updates.address = args.address;
     if (args.website !== undefined) updates.website = args.website;
     if (args.description !== undefined) updates.description = args.description;
-    if (args.logo !== undefined) updates.logo = args.logo;
+    // Logo: clearLogo > logoStorageId (server-resolved URL) > legacy raw URL.
+    // When no logo arg is given, heal a legacy broken logo URL on save.
+    if (args.clearLogo) {
+      updates.logo = undefined; // db.patch removes fields set to undefined
+    } else if (args.logoStorageId) {
+      const url = await ctx.storage.getUrl(args.logoStorageId);
+      if (!url) throw new Error("Impossible de récupérer le logo");
+      updates.logo = url;
+    } else if (args.logo !== undefined) {
+      updates.logo = args.logo;
+    } else {
+      const repaired = await repairLogoUrl(ctx, profile.logo);
+      if (repaired !== profile.logo) updates.logo = repaired;
+    }
     if (args.specialties !== undefined) updates.specialties = args.specialties;
     if (args.regions !== undefined) updates.regions = args.regions;
 
@@ -358,9 +420,11 @@ export const uploadExpertPaymentProof = mutation({
       .first();
     if (!profile) throw new Error("Profil expert introuvable");
 
+    // Resolve the real storage URL server-side — client-built URLs are broken
+    const resolvedUrl = (await ctx.storage.getUrl(args.storageId)) || args.url;
     await ctx.db.patch(profile._id, {
       paymentProofStorageId: args.storageId,
-      paymentProofUrl: args.url,
+      paymentProofUrl: resolvedUrl,
       paymentProofFileName: args.fileName,
       paymentProofUploadedAt: Date.now(),
       updatedAt: Date.now(),
