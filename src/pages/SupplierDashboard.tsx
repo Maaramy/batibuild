@@ -496,7 +496,7 @@ export default function SupplierDashboard() {
                     <div className="flex items-start gap-3">
                       {logo ? (
                         <div className="h-14 w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden shadow-sm">
-                          <img src={logo} alt={profile.companyName} className="h-full w-full object-cover" />
+                          <img src={logo} alt={profile.companyName} className="h-full w-full object-contain p-1" />
                         </div>
                       ) : (
                         <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/10 shadow-sm`}>
@@ -809,7 +809,7 @@ export default function SupplierDashboard() {
                     <div className="flex items-center gap-3">
                       <div className="h-14 w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden flex items-center justify-center">
                         {logo ? (
-                          <img src={logo} alt="Logo" className="h-full w-full object-cover" />
+                          <img src={logo} alt="Logo" className="h-full w-full object-contain p-1" />
                         ) : (
                           <Building2 className="h-6 w-6 text-muted-foreground/50" />
                         )}
@@ -991,7 +991,7 @@ export default function SupplierDashboard() {
                     <div className="flex items-center gap-3">
                       <div className="h-14 w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden flex items-center justify-center">
                         {logo ? (
-                          <img src={logo} alt="Logo" className="h-full w-full object-cover" />
+                          <img src={logo} alt="Logo" className="h-full w-full object-contain p-1" />
                         ) : (
                           <span className="text-lg font-black text-muted-foreground/40">
                             {(companyName || "?")

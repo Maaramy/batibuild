@@ -335,7 +335,7 @@ export default function SuppliersDirectory() {
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary overflow-hidden">
                       {s.logo ? (
-                        <img src={s.logo} alt={s.companyName} className="h-full w-full object-cover" />
+                        <img src={s.logo} alt={s.companyName} className="h-full w-full object-contain p-1" />
                       ) : (
                         <Store className="h-5 w-5" />
                       )}

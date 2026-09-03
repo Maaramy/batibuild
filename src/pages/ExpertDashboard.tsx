@@ -57,7 +57,7 @@ const BUREAU_ETUDES_SPECIALTIES = [
 const INGENIEUR_SPECIALTIES = [
   "genie_civil", "structure_beton", "structure_acier",
   "installation_thermique", "installation_sanitaire",
-  "installation_electrique", "cvc", "s排水",
+  "installation_electrique", "cvc", "assainissement",
   "ignifugation", "etancheite", "acoustique",
 ];
 
@@ -108,7 +108,7 @@ const SPECIALTY_LABELS: Record<string, string> = {
   structure_acier: "Structure acier", installation_thermique: "Installations thermiques",
   installation_sanitaire: "Installations sanitaires",
   installation_electrique: "Installations électriques",
-  cvc: "CVC", s排水: "Assainissement",
+  cvc: "CVC", assainissement: "Assainissement",
   ignifugation: "Ignifugation", etancheite: "Étanchéité", acoustique: "Acoustique",
   promotion_immobiliere: "Promotion immobilière", viabilisation: "Viabilisation",
   commercialisation: "Commercialisation", gestion_projet: "Gestion de projet",
@@ -511,7 +511,7 @@ export default function ExpertDashboard() {
                   <div className="flex items-start gap-3">
                     {logo ? (
                       <div className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden shadow-sm">
-                        <img src={logo} alt={profile.displayName} className="h-full w-full object-cover" />
+                        <img src={logo} alt={profile.displayName} className="h-full w-full object-contain p-1" />
                       </div>
                     ) : (
                       <div className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-violet-50 border border-violet-200 shadow-sm">
@@ -776,7 +776,7 @@ export default function ExpertDashboard() {
                     <div className="flex items-center gap-3">
                       <div className="relative h-14 w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden">
                         {logo ? (
-                          <img src={logo} alt="Logo" className="h-full w-full object-cover" />
+                          <img src={logo} alt="Logo" className="h-full w-full object-contain p-1" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center">
                             <ImageIcon className="h-5 w-5 text-muted-foreground shrink-0" />
@@ -984,7 +984,7 @@ export default function ExpertDashboard() {
                     <div className="flex items-center gap-3">
                       <div className="relative h-14 w-14 shrink-0 rounded-xl border border-border/40 bg-muted/20 overflow-hidden">
                         {logo ? (
-                          <img src={logo} alt="Logo" className="h-full w-full object-cover" />
+                          <img src={logo} alt="Logo" className="h-full w-full object-contain p-1" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center">
                             <ImageIcon className="h-5 w-5 text-muted-foreground shrink-0" />
