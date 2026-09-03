@@ -478,3 +478,75 @@ describe("expertServiceRequests.unreadCount / markAllRead", () => {
     expect(count).toBe(0);
   });
 });
+
+// ============================================================================
+// Réponses côté client — getMyResponses / responsesUnreadCount / responsesMarkAllRead
+// ============================================================================
+
+describe("expertServiceRequests responses (client badge)", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  async function seedResponses(count: number) {
+    const expertUserId = await createTestUser(t, { email: "expert@test.com" });
+    const expertId = await createTestExpertProfile(t, expertUserId);
+    const clientUserId = await createTestUser(t, { email: "client@test.com" });
+    const clientT = asUser(t, clientUserId);
+    const expertT = asUser(t, expertUserId);
+
+    const res = await clientT.mutation(api.expertServiceRequests.create, {
+      expertId: expertId as any,
+      requestType: "devis" as const,
+      serviceType: "architecture",
+      description: "Demande test",
+      userPhone: "+216 99 000 000",
+      userEmail: "client@test.com",
+      userName: "Client",
+    });
+
+    for (let i = 0; i < count; i++) {
+      await expertT.mutation(api.expertServiceRequests.respond, {
+        serviceRequestId: res.requestId,
+        message: `Réponse ${i}`,
+      });
+    }
+    return { clientT };
+  }
+
+  it("getMyResponses returns expert responses addressed to the client", async () => {
+    const { clientT } = await seedResponses(2);
+    const responses = await clientT.query(api.expertServiceRequests.getMyResponses);
+    expect(responses).toHaveLength(2);
+  });
+
+  it("responsesUnreadCount counts responses not yet consulted by the client", async () => {
+    const { clientT } = await seedResponses(2);
+    const count = await clientT.query(api.expertServiceRequests.responsesUnreadCount);
+    expect(count).toBe(2);
+  });
+
+  it("responsesMarkAllRead clears the badge once the Messagerie is consulted", async () => {
+    const { clientT } = await seedResponses(2);
+    await clientT.mutation(api.expertServiceRequests.responsesMarkAllRead);
+
+    const count = await clientT.query(api.expertServiceRequests.responsesUnreadCount);
+    expect(count).toBe(0);
+
+    const responses = await clientT.query(api.expertServiceRequests.getMyResponses);
+    for (const r of responses) {
+      expect(typeof r.readAt).toBe("number");
+    }
+  });
+
+  it("returns 0 unread when the client received no expert response", async () => {
+    const clientUserId = await createTestUser(t, { email: "lonely@test.com" });
+    const clientT = asUser(t, clientUserId);
+
+    const count = await clientT.query(api.expertServiceRequests.responsesUnreadCount);
+    expect(count).toBe(0);
+    expect(await clientT.query(api.expertServiceRequests.getMyResponses)).toHaveLength(0);
+  });
+});

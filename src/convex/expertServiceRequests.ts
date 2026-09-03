@@ -163,6 +163,55 @@ export const getResponses = query({
   },
 });
 
+/** Get all expert responses received by the current user (client Messagerie) */
+export const getMyResponses = query({
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return [];
+
+    return await ctx.db
+      .query("expertServiceResponses")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .collect();
+  },
+});
+
+/** Count expert responses not yet consulted by the current user (client badge) */
+export const responsesUnreadCount = query({
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return 0;
+
+    const responses = await ctx.db
+      .query("expertServiceResponses")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+
+    return responses.filter((r) => r.readAt === undefined).length;
+  },
+});
+
+/** Mark all expert responses received by the current user as consulted */
+export const responsesMarkAllRead = mutation({
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return;
+
+    const responses = await ctx.db
+      .query("expertServiceResponses")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const now = Date.now();
+    for (const r of responses) {
+      if (r.readAt === undefined) {
+        await ctx.db.patch(r._id, { readAt: now });
+      }
+    }
+  },
+});
+
 /** Get pending requests count for expert badge */
 export const pendingCount = query({
   handler: async (ctx) => {

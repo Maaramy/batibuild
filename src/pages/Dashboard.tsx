@@ -422,7 +422,13 @@ export default function Dashboard() {
     api.quoteRequests.unreadCount,
     isSupplier ? {} : "skip",
   );
-  const totalUnread = (supplierUnread ?? 0) + (expertUnread ?? 0);
+  // ── Badges côté client : réponses fournisseurs / experts non consultées ──
+  const supplierResponsesUnread = useQuery(api.quoteResponses.unreadCount);
+  const expertResponsesUnread = useQuery(
+    api.expertServiceRequests.responsesUnreadCount,
+  );
+  const clientUnread = (supplierResponsesUnread ?? 0) + (expertResponsesUnread ?? 0);
+  const totalUnread = (supplierUnread ?? 0) + (expertUnread ?? 0) + clientUnread;
   const projectsReached = false;
   const investReached = false;
   const anyNearLimit = false;
@@ -553,7 +559,7 @@ export default function Dashboard() {
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
-            { icon: MessageSquare, label: "Messagerie", onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
+            { icon: MessageSquare, label: "Messagerie", badge: clientUnread, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
           ];
@@ -669,6 +675,12 @@ export default function Dashboard() {
                 aria-label={totalUnread > 0 ? `${totalUnread} nouvelle(s) demande(s) de devis` : "Notifications"}
                 className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 relative cursor-pointer"
                 onClick={() => {
+                  const proUnread = (supplierUnread ?? 0) + (expertUnread ?? 0);
+                  // Réponses fournisseur/expert non lues → messagerie d'abord
+                  if (clientUnread > 0 && proUnread === 0) {
+                    navigate("/dashboard/messages");
+                    return;
+                  }
                   if (viewMode === "supplier" && hasSupplierProfile) navigate("/dashboard/supplier/quotes");
                   else if (viewMode === "expert" && hasExpertProfile) navigate("/dashboard/expert/services");
                   else navigate("/dashboard/messages");

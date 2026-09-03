@@ -272,3 +272,70 @@ describe("quoteResponses.getMyResponses", () => {
     expect(responses[0].userId).toBe(buyerId);
   });
 });
+
+// ============================================================================
+// unreadCount & markAllRead — badge de notification côté client
+// ============================================================================
+
+describe("quoteResponses.unreadCount / markAllRead", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  async function sendResponses(count: number) {
+    const supplierUserId = await createTestUser(t, { email: "sup@test.com" });
+    const supplierId = await createTestSupplierProfile(t, supplierUserId);
+    const buyerId = await createTestUser(t, { email: "buyer@test.com" });
+    const quoteId = await createTestQuote(t, buyerId, supplierId);
+    const supplierT = asUser(t, supplierUserId);
+    const buyerT = asUser(t, buyerId);
+
+    for (let i = 0; i < count; i++) {
+      await supplierT.mutation(api.quoteResponses.sendResponse, {
+        quoteRequestId: quoteId,
+        message: `Réponse ${i}`,
+      });
+    }
+    return { buyerT, buyerId };
+  }
+
+  it("counts supplier responses not yet consulted by the buyer", async () => {
+    const { buyerT } = await sendResponses(2);
+    const count = await buyerT.query(api.quoteResponses.unreadCount, {});
+    expect(count).toBe(2);
+  });
+
+  it("markAllRead clears the badge once the buyer consults the Messagerie", async () => {
+    const { buyerT } = await sendResponses(2);
+    await buyerT.mutation(api.quoteResponses.markAllRead, {});
+
+    const count = await buyerT.query(api.quoteResponses.unreadCount, {});
+    expect(count).toBe(0);
+
+    const responses = await buyerT.query(api.quoteResponses.getMyResponses, {});
+    expect(responses).toHaveLength(2);
+    for (const r of responses) {
+      expect(typeof r.readAt).toBe("number");
+    }
+  });
+
+  it("markAllRead is idempotent and does not overwrite readAt", async () => {
+    const { buyerT } = await sendResponses(1);
+    await buyerT.mutation(api.quoteResponses.markAllRead, {});
+    const first = await buyerT.query(api.quoteResponses.getMyResponses, {});
+    const firstReadAt = first[0].readAt;
+
+    await buyerT.mutation(api.quoteResponses.markAllRead, {});
+    const second = await buyerT.query(api.quoteResponses.getMyResponses, {});
+    expect(second[0].readAt).toBe(firstReadAt);
+  });
+
+  it("returns 0 for a buyer who received no response", async () => {
+    const buyerId = await createTestUser(t, { email: "lonely@test.com" });
+    const buyerT = asUser(t, buyerId);
+    const count = await buyerT.query(api.quoteResponses.unreadCount, {});
+    expect(count).toBe(0);
+  });
+});

@@ -1232,6 +1232,7 @@ const schema = defineSchema(
       attachmentUrl: v.optional(v.string()),
       attachmentStorageId: v.optional(v.id("_storage")),
       attachmentFileName: v.optional(v.string()),
+      readAt: v.optional(v.number()),
       createdAt: v.number(),
     })
       .index("by_quote", ["quoteRequestId"])
@@ -1327,6 +1328,7 @@ const schema = defineSchema(
       attachmentUrl: v.optional(v.string()),
       attachmentStorageId: v.optional(v.id("_storage")),
       attachmentFileName: v.optional(v.string()),
+      readAt: v.optional(v.number()),
       createdAt: v.number(),
     })
       .index("by_request", ["serviceRequestId"])

@@ -114,3 +114,40 @@ export const getMyResponses = query({
     return responses;
   },
 });
+
+/** Count responses from suppliers not yet consulted by the current user (client badge) */
+export const unreadCount = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return 0;
+
+    const responses = await ctx.db
+      .query("quoteResponses")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+
+    return responses.filter((r) => r.readAt === undefined).length;
+  },
+});
+
+/** Mark all supplier responses received by the current user as consulted */
+export const markAllRead = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return;
+
+    const responses = await ctx.db
+      .query("quoteResponses")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const now = Date.now();
+    for (const r of responses) {
+      if (r.readAt === undefined) {
+        await ctx.db.patch(r._id, { readAt: now });
+      }
+    }
+  },
+});
