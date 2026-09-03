@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { ArrowLeft, Loader2, Sparkles, ShieldCheck, Info, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
+import { categorySpecialties } from "@/lib/supplierMatch";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import type { RecommendResult } from "@/convex/aiMaterialsEngine";
 import { AiAnalysisResults } from "@/components/ai/AiAnalysisResults";
@@ -46,6 +47,18 @@ export default function AiMaterialsResult() {
   );
 
   const result: RecommendResult | null = (analysis?.results?.recommend as RecommendResult) ?? null;
+
+  // Lien annuaire pré-filtré : région du projet + spécialités fournisseurs
+  // correspondant aux catégories de matériaux analysées.
+  const suppliersDirectoryHref = (() => {
+    if (!result) return "/dashboard/suppliers-directory";
+    const params = new URLSearchParams();
+    params.set("from", "materials");
+    if (result.context?.region) params.set("region", result.context.region);
+    const specs = categorySpecialties(result.categories.map((c) => c.categoryId));
+    if (specs.length > 0) params.set("specialty", specs.join(","));
+    return `/dashboard/suppliers-directory?${params.toString()}`;
+  })();
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-24">
@@ -119,7 +132,7 @@ export default function AiMaterialsResult() {
           </div>
         ) : (
           /* ── Résultats (structure et design conservés) ── */
-          <AiAnalysisResults result={result} />
+          <AiAnalysisResults result={result} analysisRegion={result.context?.region} />
         )}
 
         {/* Pied de page */}
@@ -137,7 +150,7 @@ export default function AiMaterialsResult() {
 
       {/* ── Bottom Navigation Bar ── */}
       <BottomNavBar actions={[
-        { icon: <Store className="h-4 w-4" />, label: "Fournisseurs", onClick: () => navigate("/dashboard/suppliers-directory"), color: "text-emerald-500" },
+        { icon: <Store className="h-4 w-4" />, label: "Fournisseurs", onClick: () => navigate(suppliersDirectoryHref), color: "text-emerald-500" },
       ]} />
             </ClientProPaywall>
 </main>

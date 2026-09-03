@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Store, Search, MapPin, Phone, Mail,
-  ChevronDown, X, Filter, CheckCircle2, FileText, Loader2, Send,
+  ChevronDown, X, Filter, CheckCircle2, FileText, Loader2, Send, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
@@ -60,10 +60,10 @@ export default function SuppliersDirectory() {
   const navigate = useNavigate();
   const suppliers = useQuery(api.supplierProfiles.getActiveSuppliers);
 
-  // Filters
+  // Filtres pilotés par l'URL : l'annuaire peut être ouvert pré-filtré depuis
+  // une analyse de matériaux (?from=materials&specialty=…&region=…).
   const [search, setSearch] = useState("");
-  const [selectedSpecialty, setSelectedSpecialty] = useState<string>("");
-  const [selectedRegion, setSelectedRegion] = useState<string>("");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [ratingSupplier, setRatingSupplier] = useState<any>(null);
   const [myRating, setMyRating] = useState(0);
   const [sendingRating, setSendingRating] = useState(false);
@@ -93,6 +93,51 @@ export default function SuppliersDirectory() {
     return [...set].sort();
   }, [suppliers]);
 
+  // Spécialités / région appliquées automatiquement (source de vérité = URL)
+  const fromMaterials = searchParams.get("from") === "materials";
+  const autoSpecialties = useMemo(
+    () =>
+      (searchParams.get("specialty") ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    [searchParams],
+  );
+  const autoSpecialtiesKey = autoSpecialties.join(",");
+  const selectedRegion = searchParams.get("region") ?? "";
+  // La première spécialité appliquée est affichée dans la liste déroulante,
+  // les suivantes restent visibles sous forme de badges (filtre « au moins une »).
+  const selectedSpecialty =
+    autoSpecialties.find((sp) => availableSpecialties.includes(sp)) ??
+    autoSpecialties[0] ??
+    "";
+
+  /** Met à jour les filtres dans l'URL (remplace les anciens états locaux). */
+  const setFilters = (patch: {
+    specialty?: string[] | null;
+    region?: string | null;
+    from?: string | null;
+  }) => {
+    const next = new URLSearchParams(searchParams);
+    if (patch.specialty !== undefined) {
+      next.delete("specialty");
+      if (patch.specialty && patch.specialty.length > 0) {
+        next.set("specialty", patch.specialty.join(","));
+      }
+    }
+    if (patch.region !== undefined) {
+      next.delete("region");
+      if (patch.region) next.set("region", patch.region);
+    }
+    if (patch.from !== undefined) {
+      next.delete("from");
+      if (patch.from) next.set("from", patch.from);
+    }
+    // Dès qu'il ne reste plus de filtre issu de l'analyse, on retire la mention.
+    if (!next.get("specialty") && !next.get("region")) next.delete("from");
+    setSearchParams(next, { replace: true });
+  };
+
   // Filtered suppliers
   const filtered = useMemo(() => {
     if (!suppliers) return [];
@@ -103,16 +148,21 @@ export default function SuppliersDirectory() {
         const haystack = `${s.companyName} ${s.description ?? ""} ${s.specialties.join(" ")}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
-      // Specialty filter
-      if (selectedSpecialty && !s.specialties.includes(selectedSpecialty)) return false;
+      // Specialty filter (au moins une spécialité appliquée doit correspondre)
+      if (
+        autoSpecialties.length > 0 &&
+        !autoSpecialties.some((sp) => s.specialties.includes(sp))
+      ) {
+        return false;
+      }
       // Region filter
       if (selectedRegion && !(s.regions ?? []).includes(selectedRegion)) return false;
       return true;
     });
-  }, [suppliers, search, selectedSpecialty, selectedRegion]);
+  }, [suppliers, search, autoSpecialtiesKey, selectedRegion]);
 
   const activeFilterCount =
-    (selectedSpecialty ? 1 : 0) + (selectedRegion ? 1 : 0) + (search ? 1 : 0);
+    (autoSpecialties.length > 0 ? 1 : 0) + (selectedRegion ? 1 : 0) + (search ? 1 : 0);
 
   const openQuoteDialog = (s: any) => {
     if (!user) {
@@ -204,7 +254,12 @@ export default function SuppliersDirectory() {
                 <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <select
                   value={selectedSpecialty}
-                  onChange={(e) => setSelectedSpecialty(e.target.value)}
+                  onChange={(e) =>
+                    setFilters({
+                      specialty: e.target.value ? [e.target.value] : [],
+                      from: null, // l'utilisateur reprend la main sur les filtres
+                    })
+                  }
                   className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-8 text-sm appearance-none"
                 >
                   <option value="">Toutes spécialités</option>
@@ -222,7 +277,12 @@ export default function SuppliersDirectory() {
                 <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <select
                   value={selectedRegion}
-                  onChange={(e) => setSelectedRegion(e.target.value)}
+                  onChange={(e) =>
+                    setFilters({
+                      region: e.target.value || null,
+                      from: null, // l'utilisateur reprend la main sur les filtres
+                    })
+                  }
                   className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-8 text-sm appearance-none"
                 >
                   <option value="">Toutes régions</option>
@@ -248,18 +308,24 @@ export default function SuppliersDirectory() {
                     </button>
                   </Badge>
                 )}
-                {selectedSpecialty && (
-                  <Badge variant="secondary" className="text-[9px] gap-1 h-5 px-1.5">
-                    {SUPPLIER_SPECIALTIES_LABELS[selectedSpecialty] ?? selectedSpecialty}
-                    <button onClick={() => setSelectedSpecialty("")}>
+                {autoSpecialties.map((sp) => (
+                  <Badge key={sp} variant="secondary" className="text-[9px] gap-1 h-5 px-1.5">
+                    {SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp}
+                    <button
+                      onClick={() =>
+                        setFilters({
+                          specialty: autoSpecialties.filter((x) => x !== sp),
+                        })
+                      }
+                    >
                       <X className="h-2.5 w-2.5" />
                     </button>
                   </Badge>
-                )}
+                ))}
                 {selectedRegion && (
                   <Badge variant="secondary" className="text-[9px] gap-1 h-5 px-1.5">
                     {REGION_LABELS[selectedRegion] ?? selectedRegion}
-                    <button onClick={() => setSelectedRegion("")}>
+                    <button onClick={() => setFilters({ region: null })}>
                       <X className="h-2.5 w-2.5" />
                     </button>
                   </Badge>
@@ -267,8 +333,7 @@ export default function SuppliersDirectory() {
                 <button
                   onClick={() => {
                     setSearch("");
-                    setSelectedSpecialty("");
-                    setSelectedRegion("");
+                    setFilters({ specialty: [], region: null, from: null });
                   }}
                   className="text-[9px] text-primary hover:underline"
                 >
@@ -278,6 +343,39 @@ export default function SuppliersDirectory() {
             )}
           </CardContent>
         </Card>
+
+        {/* ── Bandeau filtres appliqués depuis l'analyse de matériaux ── */}
+        {fromMaterials && (autoSpecialties.length > 0 || selectedRegion) && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-3.5 py-2.5 text-[10px]">
+            <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="text-muted-foreground min-w-0 flex-1">
+              Fournisseurs filtrés automatiquement d'après votre analyse de matériaux :
+              {autoSpecialties.length > 0 && (
+                <>
+                  {" "}spécialité(s){" "}
+                  <b className="text-foreground">
+                    {autoSpecialties.map((sp) => SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp).join(", ")}
+                  </b>
+                </>
+              )}
+              {selectedRegion && (
+                <>
+                  {" · région "}
+                  <b className="text-foreground">{REGION_LABELS[selectedRegion] ?? selectedRegion}</b>
+                </>
+              )}
+            </span>
+            <button
+              onClick={() => {
+                setSearch("");
+                setFilters({ specialty: [], region: null, from: null });
+              }}
+              className="text-[10px] font-medium text-primary hover:underline shrink-0 cursor-pointer"
+            >
+              Tout afficher
+            </button>
+          </div>
+        )}
 
         {/* ── Loading state ── */}
         {suppliers === undefined && (
@@ -301,23 +399,46 @@ export default function SuppliersDirectory() {
               Aucun fournisseur trouvé
             </h2>
             <p className="text-xs text-muted-foreground mt-1.5 max-w-sm">
-              {activeFilterCount > 0
-                ? "Essayez de modifier vos filtres ou d'élargir votre recherche."
-                : "Aucun fournisseur actif n'est encore inscrit sur la plateforme."}
+              {fromMaterials && activeFilterCount > 0
+                ? "Aucun fournisseur inscrit ne correspond aux spécialités/région de votre analyse. Élargissez la recherche pour voir plus de résultats."
+                : activeFilterCount > 0
+                  ? "Essayez de modifier vos filtres ou d'élargir votre recherche."
+                  : "Aucun fournisseur actif n'est encore inscrit sur la plateforme."}
             </p>
             {activeFilterCount > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="mt-3 text-xs"
-                onClick={() => {
-                  setSearch("");
-                  setSelectedSpecialty("");
-                  setSelectedRegion("");
-                }}
-              >
-                Réinitialiser les filtres
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+                {autoSpecialties.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs"
+                    onClick={() => setFilters({ specialty: [] })}
+                  >
+                    Toutes spécialités
+                  </Button>
+                )}
+                {selectedRegion && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs"
+                    onClick={() => setFilters({ region: null })}
+                  >
+                    Toutes régions
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs"
+                  onClick={() => {
+                    setSearch("");
+                    setFilters({ specialty: [], region: null, from: null });
+                  }}
+                >
+                  Réinitialiser les filtres
+                </Button>
+              </div>
             )}
           </div>
         )}

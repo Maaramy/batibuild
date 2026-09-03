@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { useMutation, useAction } from "convex/react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -17,6 +18,7 @@ import { api } from "@/convex/_generated/api";
 import type { RecommendResult, MaterialScores } from "@/convex/aiMaterialsEngine";
 import { generateMaterialReportPdf } from "@/lib/materialReportPdf";
 import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
+import { categorySpecialties } from "@/lib/supplierMatch";
 import { CategoryTopArticles } from "@/components/ai/CategoryTopArticles";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -66,7 +68,15 @@ function scoreColor(score: number) {
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉSULTATS DE L'ANALYSE MATÉRIAUX IA (page dédiée)
 // ═══════════════════════════════════════════════════════════════════════════
-export function AiAnalysisResults({ result }: { result: RecommendResult }) {
+export function AiAnalysisResults({
+  result,
+  analysisRegion,
+}: {
+  result: RecommendResult;
+  /** Région (code) du projet analysé — pré-remplit le filtre région de l'annuaire. */
+  analysisRegion?: string;
+}) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const optimizeCopilotBudget = useAction(api.aiMaterialsActions.optimizeCopilotBudget);
   const improveCopilotPerformance = useAction(api.aiMaterialsActions.improveCopilotPerformance);
@@ -364,6 +374,31 @@ export function AiAnalysisResults({ result }: { result: RecommendResult }) {
                           materials={mats}
                           currentUserId={user?._id as string | undefined}
                         />
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── Annuaire pré-filtré : région du projet + spécialité de la catégorie ── */}
+                  {(() => {
+                    const specs = categorySpecialties([cat.categoryId]);
+                    if (specs.length === 0) return null;
+                    const params = new URLSearchParams();
+                    params.set("from", "materials");
+                    params.set("specialty", specs.join(","));
+                    if (analysisRegion) params.set("region", analysisRegion);
+                    return (
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 gap-1.5 text-[10px] font-medium text-primary border-primary/25 hover:bg-primary/5"
+                          onClick={() =>
+                            navigate(`/dashboard/suppliers-directory?${params.toString()}`)
+                          }
+                        >
+                          <Store className="h-3 w-3" />
+                          Voir tous les fournisseurs — {cat.label}
+                        </Button>
                       </div>
                     );
                   })()}
