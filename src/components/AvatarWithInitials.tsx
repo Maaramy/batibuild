@@ -45,7 +45,7 @@ export function AvatarWithInitials({
     return (
       <div
         className={cn(
-          "relative shrink-0 overflow-hidden rounded-xl ring-1 ring-border/30",
+          "relative shrink-0 overflow-hidden rounded-full ring-1 ring-border/30",
           sizeClasses[size],
           className,
         )}
@@ -53,7 +53,7 @@ export function AvatarWithInitials({
         <img
           src={logo}
           alt={name}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-contain p-0.5"
           onError={() => setImgError(true)}
         />
       </div>
@@ -63,7 +63,7 @@ export function AvatarWithInitials({
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-xl font-bold tracking-tight ring-1",
+        "flex shrink-0 items-center justify-center rounded-full font-bold tracking-tight ring-1",
         sizeClasses[size],
         colors[colorIndex],
         className,

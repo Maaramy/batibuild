@@ -333,7 +333,7 @@ export default function SuppliersDirectory() {
                   className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/[0.03] to-background p-3.5 hover:border-primary/30 transition-colors"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary overflow-hidden">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary overflow-hidden">
                       {s.logo ? (
                         <img src={s.logo} alt={s.companyName} className="h-full w-full object-contain p-1" />
                       ) : (
