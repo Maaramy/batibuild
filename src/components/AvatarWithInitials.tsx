@@ -45,7 +45,9 @@ export function AvatarWithInitials({
     return (
       <div
         className={cn(
-          "relative shrink-0 overflow-hidden rounded-full ring-1 ring-border/30",
+          // Full-bleed circular logo: the image fills the entire circle so no
+          // background color shows around or behind it.
+          "relative shrink-0 overflow-hidden rounded-full bg-white dark:bg-neutral-900",
           sizeClasses[size],
           className,
         )}
@@ -53,7 +55,7 @@ export function AvatarWithInitials({
         <img
           src={logo}
           alt={name}
-          className="h-full w-full object-contain p-0.5"
+          className="h-full w-full object-cover"
           onError={() => setImgError(true)}
         />
       </div>
