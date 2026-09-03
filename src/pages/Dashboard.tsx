@@ -956,10 +956,10 @@ export default function Dashboard() {
                     <CardContent className="p-3">
                       <div className="grid grid-cols-2 gap-2">
                         {[
-                          { label: "Vues du profil", value: "0", icon: Eye, color: "text-blue-600 bg-blue-50" },
-                          { label: "Demandes reçues", value: "0", icon: MessageSquare, color: "text-violet-600 bg-violet-50" },
-                          { label: "Réponses envoyées", value: "0", icon: MousePointerClick, color: "text-emerald-600 bg-emerald-50" },
-                          { label: "Taux de réponse", value: "0", icon: TrendingUp, color: "text-amber-600 bg-amber-50" },
+                          { label: "Vues du profil", value: supplierKPIs?.views ?? 0, icon: Eye, color: "text-blue-600 bg-blue-50" },
+                          { label: "Demandes reçues", value: supplierKPIs?.requestsReceived ?? 0, icon: MessageSquare, color: "text-violet-600 bg-violet-50" },
+                          { label: "Réponses envoyées", value: supplierKPIs?.responsesSent ?? 0, icon: MousePointerClick, color: "text-emerald-600 bg-emerald-50" },
+                          { label: "Taux de réponse", value: supplierKPIs ? `${supplierKPIs.responseRate}%` : "0%", icon: TrendingUp, color: "text-amber-600 bg-amber-50" },
                         ].map((kpi) => (
                           <div key={kpi.label} className="flex items-center gap-2 rounded-xl border border-border/30 bg-muted/10 px-3 py-2.5">
                             <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${kpi.color}`}>

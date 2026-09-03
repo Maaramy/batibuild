@@ -58,10 +58,35 @@ export const getSupplierKPIs = query({
 
     const events = allEvents.filter((e) => e.date >= startTs);
 
+    // ── Vues du profil (analytics "view" events, ex. page publique du profil) ──
     const views = events.filter((e) => e.eventType === "view").length;
     const clicks = events.filter((e) => e.eventType === "click").length;
     const contacts = events.filter((e) => e.eventType === "contact").length;
     const ctr = views > 0 ? Math.round((clicks / views) * 1000) / 10 : 0;
+
+    // ── Demandes reçues (vraies demandes de devis reçues sur la période) ──
+    const allRequests = await ctx.db
+      .query("quoteRequests")
+      .withIndex("by_supplier", (q) => q.eq("supplierId", supplierId))
+      .collect();
+    const requestsReceived = allRequests.filter(
+      (r) => r.createdAt >= startTs,
+    ).length;
+
+    // ── Réponses envoyées (vraies réponses aux devis sur la période) ──
+    const allResponses = await ctx.db
+      .query("quoteResponses")
+      .withIndex("by_supplier", (q) => q.eq("supplierId", supplierId))
+      .collect();
+    const responsesSent = allResponses.filter(
+      (r) => r.createdAt >= startTs,
+    ).length;
+
+    // ── Taux de réponse = réponses / demandes reçues ──
+    const responseRate =
+      requestsReceived > 0
+        ? Math.round((responsesSent / requestsReceived) * 100)
+        : 0;
 
     // Average rating
     const ratings = await ctx.db
@@ -78,7 +103,17 @@ export const getSupplierKPIs = query({
           ) / 10
         : 0;
 
-    return { views, clicks, contacts, ctr, avgRating, totalRatings: recentRatings.length };
+    return {
+      views,
+      clicks,
+      contacts,
+      ctr,
+      requestsReceived,
+      responsesSent,
+      responseRate,
+      avgRating,
+      totalRatings: recentRatings.length,
+    };
   },
 });
 

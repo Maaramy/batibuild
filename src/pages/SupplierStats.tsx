@@ -294,8 +294,10 @@ export default function SupplierStats() {
   }
 
   const totalViews = kpis?.views ?? 0;
-  const totalClicks = kpis?.clicks ?? 0;
-  const allEmpty = kpis && !hasData && totalViews === 0 && totalClicks === 0;
+  const totalRequests = kpis?.requestsReceived ?? 0;
+  const totalResponses = kpis?.responsesSent ?? 0;
+  const allEmpty =
+    kpis && !hasData && totalViews === 0 && totalRequests === 0 && totalResponses === 0;
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 px-3 py-4 sm:px-5">
@@ -384,21 +386,21 @@ export default function SupplierStats() {
         />
         <KpiCard
           label="Demandes reçues"
-          value={kpis?.contacts ?? 0}
+          value={kpis?.requestsReceived ?? 0}
           icon={Inbox}
           color="#10b981"
           loading={!kpis}
         />
         <KpiCard
           label="Réponses envoyées"
-          value={kpis?.clicks ?? 0}
+          value={kpis?.responsesSent ?? 0}
           icon={Send}
           color="#8b5cf6"
           loading={!kpis}
         />
         <KpiCard
           label="Taux de réponse"
-          value={kpis?.ctr ?? 0}
+          value={kpis?.responseRate ?? 0}
           icon={Percent}
           suffix="%"
           color="#f59e0b"
@@ -774,8 +776,10 @@ export function SupplierStatsInline() {
   }
 
   const totalViews = kpis?.views ?? 0;
-  const totalClicks = kpis?.clicks ?? 0;
-  const allEmpty = kpis && !hasData && totalViews === 0 && totalClicks === 0;
+  const totalRequests = kpis?.requestsReceived ?? 0;
+  const totalResponses = kpis?.responsesSent ?? 0;
+  const allEmpty =
+    kpis && !hasData && totalViews === 0 && totalRequests === 0 && totalResponses === 0;
 
   return (
     <div className="space-y-3">
@@ -820,9 +824,9 @@ export function SupplierStatsInline() {
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <KpiCard label="Vues du profil" value={kpis?.views ?? 0} icon={Eye} color="#3b82f6" loading={!kpis} />
-        <KpiCard label="Demandes reçues" value={kpis?.contacts ?? 0} icon={Inbox} color="#10b981" loading={!kpis} />
-        <KpiCard label="Réponses envoyées" value={kpis?.clicks ?? 0} icon={Send} color="#8b5cf6" loading={!kpis} />
-        <KpiCard label="Taux de réponse" value={kpis?.ctr ?? 0} icon={Percent} suffix="%" color="#f59e0b" loading={!kpis} />
+        <KpiCard label="Demandes reçues" value={kpis?.requestsReceived ?? 0} icon={Inbox} color="#10b981" loading={!kpis} />
+        <KpiCard label="Réponses envoyées" value={kpis?.responsesSent ?? 0} icon={Send} color="#8b5cf6" loading={!kpis} />
+        <KpiCard label="Taux de réponse" value={kpis?.responseRate ?? 0} icon={Percent} suffix="%" color="#f59e0b" loading={!kpis} />
       </div>
 
       {/* ── Empty State ── */}
