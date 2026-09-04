@@ -18,7 +18,7 @@ import EmailSettings from "./EmailSettings";
 import EmailTemplates from "./EmailTemplates";
 import EmailHistory from "./EmailHistory";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -44,18 +44,14 @@ import {
   BarChart3,
   Building2,
   Check,
-  ChevronRight,
   Cpu,
-  DollarSign,
   Edit,
   HardHat,
   Loader2,
-  MoreHorizontal,
   Plus,
   Save,
   Search,
   Settings,
-  Sparkles,
   Trash2,
   TrendingUp,
   User,
@@ -64,7 +60,6 @@ import {
   X,
   Package,
   Shield,
-  UserCheck,
   Banknote,
   ThumbsUp,
   ThumbsDown,
@@ -93,9 +88,7 @@ import {
   Receipt,
   Landmark,
   Newspaper,
-  Database,
 } from "lucide-react";
-import { motion } from "framer-motion";
 
 // ============================================================================
 // Admin Panel
@@ -127,14 +120,12 @@ export default function AdminPanel() {
   });
   const [editingMaterial, setEditingMaterial] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
-  const [resettingCatalog, setResettingCatalog] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ updated: number; created: number; errors: string[]; total: number } | null>(null);
   const [showImportZone, setShowImportZone] = useState(false);
   const [userSearch, setUserSearch] = useState("");
   const [subSearch, setSubSearch] = useState("");
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
-  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const [batchDeletingProjects, setBatchDeletingProjects] = useState(false);
   const [investmentSearch, setInvestmentSearch] = useState("");
   const [selectedAnalysisIds, setSelectedAnalysisIds] = useState<Set<string>>(new Set());
@@ -245,7 +236,6 @@ export default function AdminPanel() {
   const createMaterial = useMutation(api.materials.createMaterialPrice);
   const updateMaterial = useMutation(api.materials.updateMaterialPrice);
   const deleteMaterial = useMutation(api.materials.deleteMaterialPrice);
-  const resetMaterialPrices = useMutation(api.materials.resetMaterialPrices);
   const bulkUpdateMaterialPrices = useMutation(api.materials.bulkUpdateMaterialPrices);
 
   // Handle user deletion
@@ -336,18 +326,6 @@ export default function AdminPanel() {
       </main>
     );
   }
-
-  const handleResetCatalog = async () => {
-    if (!isAdmin) return;
-    setResettingCatalog(true);
-    try {
-      const result = await resetMaterialPrices();
-      toast.success(`Catalogue 2026 chargé : ${result.seeded} références (${result.deleted} anciennes supprimées)`);
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de la réinitialisation du catalogue");
-    }
-    setResettingCatalog(false);
-  };
 
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

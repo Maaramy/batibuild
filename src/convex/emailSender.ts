@@ -10,22 +10,6 @@ import { vly } from "../lib/vly-integrations";
 // Node-only email actions (SMTP via nodemailer, VLY API fallback)
 // ============================================================================
 
-function decryptSmtpPassword(enc: string): string {
-  try {
-    const key = (process.env.EMAIL_ENC_KEY || "budgetbati-email-secret-2026").slice(0, 32);
-    const decoded = Buffer.from(enc, "base64").toString("utf8");
-    let out = "";
-    for (let i = 0; i < decoded.length; i++) {
-      out += String.fromCharCode(
-        decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length),
-      );
-    }
-    return decodeURIComponent(out);
-  } catch {
-    return "";
-  }
-}
-
 /** Perform the actual network send (SMTP or VLY), then record the result */
 export const sendEmailAction = internalAction({
   args: {

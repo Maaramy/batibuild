@@ -309,9 +309,6 @@ export default function SupplierDashboard() {
     }
   };
 
-  // Mode "relecture" : les coordonnées de paiement restent affichées tant que la demande est en attente
-  const paymentMethodForReview = (profile as any)?.paymentMethod || supplierPaymentMethod;
-
   const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;

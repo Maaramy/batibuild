@@ -8,8 +8,6 @@ import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 // Constants
 // ============================================================================
 
-const MONTHLY_DAYS = 30;
-
 async function getExpertPrice(ctx: any): Promise<number> {
   const config = await ctx.db.query("paymentConfig").order("desc").first();
   const p = config?.expertPrice;

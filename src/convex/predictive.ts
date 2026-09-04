@@ -104,7 +104,7 @@ const normName = (s: string) =>
 // catégories génériques : chaque matériau important du projet reçoit sa propre
 // prévision, avec son prix unitaire actuel en référence et la tendance marché
 // observée sur les offres fournisseurs lorsqu'elle est disponible.
-function fallbackInsights(project: any, ce: any, market?: MarketContext): PredictiveInsights {
+function fallbackInsights(_project: any, ce: any, market?: MarketContext): PredictiveInsights {
   const breakdown: any[] = ce?.breakdown || [];
 
   // Postes matériaux réels (hors main-d'œuvre, transport, études/imprévus)

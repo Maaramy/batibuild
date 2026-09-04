@@ -35,8 +35,6 @@ import {
   Building2,
   Search,
   ArrowUpRight,
-  Users,
-  Download,
   Moon,
   Sun,
   CreditCard,
@@ -55,10 +53,8 @@ import {
   Percent,
   Gauge,
   ChevronDown,
-  RefreshCcw,
   Rocket,
   MessageSquare,
-  ArrowLeftRight,
   Link,
   Eye,
   MousePointerClick,
@@ -430,11 +426,6 @@ export default function Dashboard() {
   );
   const clientUnread = (supplierResponsesUnread ?? 0) + (expertResponsesUnread ?? 0);
   const totalUnread = (supplierUnread ?? 0) + (expertUnread ?? 0) + clientUnread;
-  const projectsReached = false;
-  const investReached = false;
-  const anyNearLimit = false;
-  const constructionPlan = "free";
-
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
   const costSeries = useMemo(() => {

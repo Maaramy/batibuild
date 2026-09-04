@@ -92,16 +92,6 @@ const DAY_KINDS = new Set<RoomKind>([
   "attente",
 ]);
 const CIRCULATION_KINDS = new Set<RoomKind>(["couloir", "escalier", "hall"]);
-const SERVICE_KINDS = new Set<RoomKind>([
-  "cuisine_pro",
-  "plonge",
-  "chambre_froide",
-  "stockage",
-  "logistique",
-  "vestiaire",
-  "sanitaire",
-  "reunion",
-]);
 
 const HABITABLE_KINDS = new Set<RoomKind>([
   "chambre",

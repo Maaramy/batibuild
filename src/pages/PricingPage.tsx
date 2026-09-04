@@ -253,7 +253,7 @@ export default function PricingPage() {
   const renderPlanCard = (
     plan: PlanId,
     price: number,
-    quota: number,
+    _quota: number,
     description: string,
     popular?: boolean,
     index = 0,

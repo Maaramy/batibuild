@@ -256,7 +256,7 @@ export function Kpi({ icon: Icon, label, value, sub, tone = "text-foreground" }:
   );
 }
 
-export function NumField({ label, value, onChange, suffix, step = 1, hint, valid, required, labelExtra }: {
+export function NumField({ label, value, onChange, suffix, hint, valid, required, labelExtra }: {
   label: string; value: number | undefined; onChange: (v: number | undefined) => void;
   suffix?: string; step?: number; hint?: ReactNode; valid?: boolean; required?: boolean; labelExtra?: ReactNode;
 }) {

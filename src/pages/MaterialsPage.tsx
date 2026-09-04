@@ -1,29 +1,15 @@
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { api } from "@/convex/_generated/api";
-import { useQuery, useMutation } from "convex/react";
-import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "convex/react";
 import { useNavigate } from "react-router";
 import { useState, useMemo } from "react";
 import {
-  ArrowLeft, Search, HardHat, RefreshCw, Loader2,
+  ArrowLeft, Search, HardHat, RefreshCw,
   Database, Eye, BadgeCheck, FileText, ShieldCheck,
   Package, Truck, CheckCircle2, AlertTriangle, CalendarDays, Info, BarChart3,
 } from "lucide-react";
-import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import {
@@ -83,11 +69,9 @@ const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).jo
 
 export default function MaterialsPage() {
   usePageSEO({ title: "Prix des matériaux 2026 - batibuild App", description: "Base de données des matériaux de construction en Tunisie 2026 : références consolidées, prix observés en ligne, publications 2026 et estimations indicatives." });
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
-  const [refreshing, setRefreshing] = useState(false);
 
   const materialPrices = useQuery(api.materials.getMaterialPrices, {}) || [];
   const categoryStats = useQuery(api.materials.getMaterialCategories) || [];
@@ -112,36 +96,6 @@ export default function MaterialsPage() {
       "estimation_indicative": byQuality["estimation_indicative"] ?? 0,
     };
   }, [materialPrices]);
-  const refreshPrices = useMutation(api.materials.refreshMaterialPrices);
-  const resetPrices = useMutation(api.materials.resetMaterialPrices);
-
-  const isAdmin = user?.role === "admin";
-  const [resetting, setResetting] = useState(false);
-
-  const handleRefreshPrices = async () => {
-    if (!isAdmin) return;
-    setRefreshing(true);
-    try {
-      const result = await refreshPrices();
-      toast.success(`${result.updated} / ${result.total} prix mis à jour avec les fluctuations du marché`);
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de la mise à jour");
-    }
-    setRefreshing(false);
-  };
-
-  const handleResetCatalog = async () => {
-    if (!isAdmin) return;
-    setResetting(true);
-    try {
-      const result = await resetPrices();
-      toast.success(`Catalogue 2026 chargé : ${result.seeded} références (${result.deleted} anciennes supprimées)`);
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de la réinitialisation");
-    }
-    setResetting(false);
-  };
-
   const statsByCategory = useMemo(() => {
     const map: Record<string, any> = {};
     for (const s of categoryStats) {

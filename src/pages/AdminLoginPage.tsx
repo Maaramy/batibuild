@@ -7,7 +7,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
-  ArrowLeft,
   HardHat,
   Loader2,
   Lock,
@@ -19,13 +18,9 @@ import {
   LogIn,
   MapPin,
   UserPlus,
-  Crown,
   CheckCircle2,
   Sparkles,
   Database,
-  Building2,
-  Ruler,
-  Star,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";

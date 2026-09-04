@@ -120,7 +120,7 @@ describe("expertStats — getExpertKPIs", () => {
 
   it("retourne des compteurs à 0 quand aucun événement n'existe", async () => {
     const userId = await createUser(t);
-    const expertId = await createExpertProfile(t, userId);
+    await createExpertProfile(t, userId);
 
     const kpis = (await asUser(t, userId).run(async (ctx) => {
       return ctx.runQuery(api.expertStats.getExpertKPIs, { period: "30d" });

@@ -1,9 +1,8 @@
-import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   Building2,
   ChartBar,
-  ChevronRight,
   Cpu,
   FileText,
   HardHat,
@@ -11,65 +10,32 @@ import {
   Layers,
   Menu,
   Moon,
-  PaintBucket,
-  Ruler,
   Sun,
   TrendingUp,
   Upload,
-  Users,
   X,
-  Zap,
   Check,
   Star,
-  Shield,
-  BarChart3,
-  Download,
-  Globe,
-  CreditCard,
-  MessageSquare,
   Sparkles,
-  Play,
   Calculator,
-  MapPin,
-  Search,
-  DollarSign,
   ClipboardList,
-  Loader2,
-  Phone,
-  Mail,
   Store,
-  Truck,
-  Wrench,
-  PhoneCall,
-  Building,
-  Factory,
-  Briefcase,
-  BadgeCheck,
-  Printer,
   Table2,
-  ScrollText,
-  Stamp,
   ChevronDown,
-  ChevronUp,
   Eye,
-  Hammer,
-  Package,
-  Warehouse,
   Landmark,
   Percent,
   CalendarClock,
   Gauge,
   Bot,
-  Wallet,
 } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -803,7 +769,6 @@ function HowItWorksSection() {
   }, [isPaused, steps.length]);
 
   const current = steps[activeStep];
-  const StepIcon = current.icon;
   const navigate = useNavigate();
 
   return (

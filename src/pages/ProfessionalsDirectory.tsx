@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Users, Search, MapPin, Phone, Mail,
-  Globe, ChevronDown, ChevronUp, X, Briefcase, Building2, FileText,
+  Globe, ChevronDown, X, Briefcase, FileText,
   Loader2, MapPinned,
 } from "lucide-react";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
@@ -40,13 +40,6 @@ const PROFESSION_LABELS: Record<string, string> = {
   electricien: "Électricien",
 };
 
-const PROFESSION_ICONS: Record<string, typeof Building2> = {
-  architecte: Building2,
-  bureau_etudes: Briefcase,
-  ingenieur: Building2,
-  promoteur_immobilier: Building2,
-};
-
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function ProfessionalsDirectory() {
@@ -69,7 +62,7 @@ export default function ProfessionalsDirectory() {
   const [search, setSearch] = useState("");
   const [selectedProfession, setSelectedProfession] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, _setExpandedId] = useState<string | null>(null);
   const [devisExpert, setDevisExpert] = useState<any>(null);
   const [ratingExpert, setRatingExpert] = useState<any>(null);
   const [myExpertRating, setMyExpertRating] = useState(0);
@@ -248,7 +241,6 @@ export default function ProfessionalsDirectory() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((e) => {
               const isExpanded = expandedId === e._id;
-              const Icon = PROFESSION_ICONS[e.profession] ?? Users;
               return (
                 <Card key={e._id} className="border border-border/40 overflow-hidden rounded-xl hover:border-amber-500/30 transition-colors">
                   <CardContent className="p-4 space-y-3">

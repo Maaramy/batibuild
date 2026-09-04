@@ -1,12 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { useMutation } from "convex/react";
@@ -15,7 +12,7 @@ import { useNavigate } from "react-router";
 import {
   ArrowLeft, Upload, FileText, Map, Pen, Ruler,
   Loader2, Check, X, Building2, ChevronRight, ChevronDown, HardHat, Image,
-  FileUp, MapPin, AlertCircle, Crown, AlertTriangle, RefreshCcw,
+  FileUp, MapPin, AlertCircle, AlertTriangle,
   CircleCheck,
   Home, Building, Briefcase, Store, Package,
   DoorOpen, Layers, Palmtree,
@@ -26,7 +23,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BIM_CATEGORIES, BIM_CATEGORY_LABELS } from "@/convex/bimEngine";
-import { inferFloorsFromCategory, SINGLE_LEVEL_TYPES } from "@/convex/projectTypes";
+import { inferFloorsFromCategory } from "@/convex/projectTypes";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
@@ -114,11 +111,8 @@ function VerticalStepper({
   completedSteps: Set<StepKey>;
   onStepClick: (key: StepKey) => void;
 }) {
-  const order = steps.map((s) => s.key);
-  const curIdx = order.indexOf(currentStep);
-
   // Which steps actually appear in the flow (skip upload if manual)
-  const visibleSteps = steps.filter((s) => {
+  const visibleSteps = steps.filter(() => {
     // upload step can be conditionally hidden — but we keep it visible in stepper
     return true;
   });
@@ -126,7 +120,6 @@ function VerticalStepper({
   return (
     <nav className="flex flex-col gap-0" aria-label="Progression du projet">
       {visibleSteps.map((step, i) => {
-        const idx = order.indexOf(step.key);
         const done = completedSteps.has(step.key);
         const active = step.key === currentStep;
         const future = !done && !active;
@@ -283,8 +276,6 @@ function ProjectSummary({
   // ── Category color ──
   const catColor = CATEGORY_COLORS[selectedCategory] || DEFAULT_CATEGORY_COLOR;
   const catHsl = `${catColor.hue} ${catColor.sat}% ${catColor.light}%`;
-  const catHslBg = `${catColor.hue} ${catColor.sat}% ${catColor.light + 40}%`;
-
   const totalFields = 7;
   const filledFields = items.length;
   const progress = Math.min(Math.round((filledFields / totalFields) * 100), 100);
@@ -652,7 +643,6 @@ export default function NewProject() {
     } catch (error: any) {
       clearInterval(interval);
       console.error("Error:", error);
-      const msg = error?.message || error?.toString() || "";
       setErrors({ name: "Une erreur est survenue. Veuillez réessayer." });
       setAnalyzing(false);
     }

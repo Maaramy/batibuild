@@ -45,8 +45,6 @@ export const EMAIL_VARIABLES = [
   { token: "{{NomPlateforme}}", label: "Nom de la plateforme" },
 ] as const;
 
-const P = "{{NomPlateforme}}";
-
 export interface DefaultTemplate {
   key: EmailEventType;
   label: string;

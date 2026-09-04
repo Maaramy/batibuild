@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,7 +25,6 @@ import {
   Camera,
   CheckCircle2,
   CheckSquare,
-  ChevronDown,
   Circle,
   ClipboardCheck,
   Clock,
@@ -53,7 +50,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
-import type { Roadmap, RoadmapProjectInput, RoadmapPhase, PhaseItem } from "@/convex/roadmapEngine";
+import type { Roadmap, RoadmapProjectInput, PhaseItem } from "@/convex/roadmapEngine";
 import { exportRoadmapPdf } from "@/lib/roadmapReportPdf";
 
 const fmtTnd = (n: number) =>
@@ -239,7 +236,7 @@ function PhaseIcon({ name, className }: { name: string; className?: string }) {
   return <Icon className={className} />;
 }
 
-function PhaseList({ items, phaseId, onToggle }: { items: PhaseItem[]; phaseId: string; onToggle: (itemId: string) => void }) {
+function PhaseList({ items, phaseId: _phaseId, onToggle }: { items: PhaseItem[]; phaseId: string; onToggle: (itemId: string) => void }) {
   if (!items.length) return <p className="text-xs text-muted-foreground/70 py-2">Aucun élément.</p>;
   return (
     <div className="space-y-1">

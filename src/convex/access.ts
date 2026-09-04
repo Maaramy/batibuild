@@ -1,4 +1,3 @@
-import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { api } from "./_generated/api";

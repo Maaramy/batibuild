@@ -25,7 +25,7 @@ import {
   ShieldCheck, Trash2, AlertTriangle, Clock3,
   Banknote, Smartphone, Landmark, UserRound, Upload,
   Wallet, FileText, Briefcase, Ruler, HardHat, Store,
-  Wrench, Zap, ImageIcon, X,
+  Wrench, Zap, ImageIcon,
 } from "lucide-react";
 
 // ============================================================================
@@ -252,8 +252,8 @@ export default function ExpertDashboard() {
   const [expertPaymentMethod, setExpertPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
   const [showPaymentChoice, setShowPaymentChoice] = useState(false);
   const [showPaymentInfo, setShowPaymentInfo] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [_uploading, setUploading] = useState(false);
+  const [_uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
 
   const [profession, setProfession] = useState<string>("architecte");

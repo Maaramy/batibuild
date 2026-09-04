@@ -54,7 +54,7 @@ export function generateMaterialReportPdf(input: {
   performance?: any; // PerformanceImprovement
   comparison?: any; // MaterialComparison
 }) {
-  const { result, optimization, performance, comparison } = input;
+  const { result, optimization, performance, comparison: _comparison } = input;
   const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();

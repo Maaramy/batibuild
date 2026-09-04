@@ -76,7 +76,6 @@ export default function UserMessages() {
     }
   }
 
-  const pendingCount = quotes?.filter((q) => q.status === "pending").length ?? 0;
   const unreadSupplierCount = allResponses?.filter((r) => r.readAt === undefined).length ?? 0;
   const unreadExpertCount = expertResponses?.filter((r) => r.readAt === undefined).length ?? 0;
   const totalUnread = unreadSupplierCount + unreadExpertCount;

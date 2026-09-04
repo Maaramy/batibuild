@@ -139,7 +139,7 @@ describe("quoteResponses.sendResponse", () => {
     const otherSupplierUserId = await createTestUser(t, {
       email: "other@test.com",
     });
-    const otherSupplierId = await createTestSupplierProfile(
+    await createTestSupplierProfile(
       t,
       otherSupplierUserId,
     );

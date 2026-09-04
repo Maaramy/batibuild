@@ -146,20 +146,6 @@ function ErrorBanner({ message }: { message: string }) {
   );
 }
 
-// Divider
-function Divider({ label }: { label: string }) {
-  return (
-    <div className="relative my-5">
-      <div className="absolute inset-0 flex items-center">
-        <span className="w-full border-t" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 10%, transparent)" }} />
-      </div>
-      <div className="relative flex justify-center text-xs uppercase">
-        <span className="bg-card/80 px-2" style={{ color: "var(--foreground)", opacity: 0.5 }}>{label}</span>
-      </div>
-    </div>
-  );
-}
-
 // Success check animation
 function SuccessCheck({ message, subtitle, actionLabel, onAction }: {
   message: string; subtitle: string; actionLabel: string; onAction: () => void;
@@ -458,7 +444,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsLoading(false);
   };
 
-  const switchToOtp = () => { setAuthMode("otp"); setStep("email"); resetError(); setForgotPassword(false); };
   const switchToPassword = () => { setAuthMode("password"); setStep("email"); resetError(); setForgotPassword(false); };
 
   // -- Loading state --

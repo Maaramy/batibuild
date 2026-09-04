@@ -1,8 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -14,9 +12,8 @@ import {
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { useQuery, useMutation, useAction } from "convex/react";
-import type { InvestmentType } from "@/components/investment/shared";
 import { useParams, useNavigate } from "react-router";
-import { useState, useMemo, Fragment, useRef, useEffect } from "react";
+import { useState, useMemo, Fragment, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
 import { toast } from "sonner";
@@ -26,7 +23,6 @@ import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hoo
 import { runBIMEstimation } from "@/convex/bimEngine";
 
 import {
-  projectTypeLabel,
   investmentTypeForProject,
   inferFloorsFromCategory,
   normalizeLegacyCategory,
@@ -36,11 +32,11 @@ import {
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
   Target, TrendingUp, TriangleAlert, Users, Globe,
   PiggyBank, Sparkles, Wallet, Gauge,
-  ChevronDown, ChevronUp, ChevronsUpDown, Check, CheckCheck, Info,
+  ChevronDown, ChevronUp, Check, CheckCheck, Info,
   Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
   Percent, ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
-  LockKeyhole, RefreshCw, BedDouble, Rocket, LayoutGrid,
+  LockKeyhole, RefreshCw, Rocket, LayoutGrid,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -146,7 +142,6 @@ export default function ProjectDetail() {
   const toggleFav = useMutation(api.projects.toggleFavorite);
   const startAnalysis = useMutation(api.projects.startAnalysis);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
-  const checkDownloadAllowed = useQuery(api.subscriptions.checkDownloadAllowed);
   const consumeDownload = useMutation(api.subscriptions.consumeDownload);
   const generatePredictive = useAction(api.predictive.generatePredictiveInsights);
   const [predictiveLoading, setPredictiveLoading] = useState(false);
@@ -988,56 +983,6 @@ export default function ProjectDetail() {
                 etudes: { label: "Études & Permis", icon: FileText, color: "text-red-600" },
               };
               const NATURE_ORDER = ["materiaux", "main_oeuvre", "equipements", "transport", "etudes"];
-              const LOT_ICONS: Record<string, any> = {
-                frais_preliminaires: FileText,
-                gros_oeuvre: Building2,
-                second_oeuvre: Paintbrush,
-                amenagements_exterieurs: Map,
-                vrd: Truck,
-                depose_demolition: TriangleAlert,
-                depose: TriangleAlert,
-                maconnerie: Building2,
-                revetements: Layers,
-                plan_travail: Layers,
-                plomberie: Plug,
-                electricite: Plug,
-                etancheite: Layers,
-                carrelage: Layers,
-                sanitaires: Plug,
-                robinetterie: Plug,
-                preparation: Layers,
-                peinture: Paintbrush,
-                finition: Layers,
-                nettoyage: Layers,
-                meubles: Layers,
-                equipements: Plug,
-                ventilation: Plug,
-                structure: Building2,
-                filtration: Plug,
-                amenagements: Map,
-                main_oeuvre: Users,
-                terrassement: Building2,
-                charpente: Building2,
-                portes: Layers,
-                divers: Truck,
-                tableau: Plug,
-                cablage: Plug,
-                appareillage: Plug,
-                eclairage: Layers,
-                terre: Plug,
-                essais: Layers,
-                alimentation: Plug,
-                evacuation: Plug,
-                chauffe_eau: Plug,
-                cuisine_pro: Layers,
-                froid: Plug,
-                cvc: Plug,
-                facade: Layers,
-                cloisons: Layers,
-                menuiserie: Layers,
-                enseignes: Layers,
-              };
-
               // ── Données DQE (lots hiérarchiques) — calés sur le scénario ──
               const dqeLots: any[] = hasDqeLots
                 ? dqe.lots.map((lot: any) => ({
@@ -1120,7 +1065,6 @@ export default function ProjectDetail() {
                             /* ══════ VUE HIÉRARCHIQUE DQE (étapes / sous-étapes) ══════ */
                             <div className="divide-y divide-border/10">
                               {dqeLots.map((lot: any) => {
-                                const LotIcon = LOT_ICONS[lot.id] || Building2;
                                 const isOpen = openCat === lot.name || openCat === "__all_expanded";
 
                                 // Grouper les lignes par nature

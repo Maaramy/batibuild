@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Hook that adds multiple layers of screenshot protection to a target element.

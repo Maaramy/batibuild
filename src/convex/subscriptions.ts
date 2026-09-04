@@ -1,8 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { internal } from "./_generated/api";
 import { getCurrentUser } from "./users";
-import { subscriptionPlanValidator, SUBSCRIPTION_PLANS } from "./schema";
+import { subscriptionPlanValidator } from "./schema";
 import { scheduleEmailEvent, formatDateFr, planLabel, splitName } from "./emailNotifications";
 
 // ============================================================================

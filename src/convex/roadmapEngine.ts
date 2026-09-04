@@ -480,7 +480,7 @@ function buildBudgetScenarios(
   });
 }
 
-function buildAllocationRows(ce: RoadmapProjectInput["costEstimate"], totalCost: number, region?: string): BudgetRow[] {
+function buildAllocationRows(ce: RoadmapProjectInput["costEstimate"], totalCost: number, _region?: string): BudgetRow[] {
   const breakdown = ce?.breakdown ?? [];
   const rows: BudgetRow[] = [];
   for (const b of breakdown) {
@@ -853,7 +853,7 @@ export function buildPredictions(
   project: RoadmapProjectInput,
   scenarios: BudgetScenario[],
   planning: PlanningTask[],
-  construction: ConstructionStep[],
+  _construction: ConstructionStep[],
 ): Predictions {
   const standard = scenarios[1]?.totalCost ?? 0;
   const premium = scenarios[2]?.totalCost ?? standard * 1.3;

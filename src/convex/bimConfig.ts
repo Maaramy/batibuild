@@ -294,12 +294,11 @@ export const refreshBIMDataMonthly = internalMutation({
     }
 
     // ── 3. Market intelligence sync (seed is done via the manual admin button) ──
-    let marketSync: any = null;
+    // Non-blocking: market layer failures must not break the BIM refresh
     try {
-      marketSync = await ctx.runMutation(internal.marketData.runMarketSyncInternal, {});
-    } catch (e) {
-      // Non-blocking: market layer failures must not break the BIM refresh
-      marketSync = { error: (e as Error).message };
+      await ctx.runMutation(internal.marketData.runMarketSyncInternal, {});
+    } catch {
+      // ignore market layer failures
     }
 
     // ── 4. Log the automatic update ──

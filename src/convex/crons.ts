@@ -1,6 +1,5 @@
 import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
-import { mutation } from "./_generated/server";
 
 const crons = cronJobs();
 

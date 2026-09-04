@@ -142,22 +142,6 @@ export const getPostById = query({
 // Admin mutations
 // ============================================================================
 
-type PostFields = {
-  title: string;
-  slug?: string;
-  excerpt: string;
-  contentHtml: string;
-  coverStorageId?: string;
-  category: string;
-  tags?: string[];
-  status: "draft" | "published";
-  featured?: boolean;
-  seoTitle?: string;
-  seoDescription?: string;
-  seoKeywords?: string;
-  seoOgImage?: string;
-};
-
 /** Resolve a cover image: given an optional storage id, return its public URL. */
 async function resolveCover(
   ctx: any,

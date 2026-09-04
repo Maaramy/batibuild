@@ -9,7 +9,6 @@ import {
   Lock,
   Mail,
   MapPin,
-  Phone,
   ScrollText,
   Shield,
   Trash2,

@@ -562,9 +562,6 @@ function fitProgram(items: ProgramItem[], available: number): ProgramItem[] {
   for (let guard = 0; guard < 50; guard++) {
     const sumTargets = kept.reduce((s, i) => s + i.target, 0);
     const scale = available / sumTargets;
-    const smallest = kept.reduce((worst, i) =>
-      i.target * scale < worst.target * scale ? i : worst,
-    );
     const belowMin = kept.some((i) => i.target * scale < i.min);
     if (!belowMin) break;
     // Retire la pièce sous sa surface minimale de plus faible priorité
@@ -584,7 +581,7 @@ function fitProgram(items: ProgramItem[], available: number): ProgramItem[] {
 /** Tolérance géométrique (les coordonnées sont arrondies au mm). */
 const TOL = 0.002;
 
-function addOpenings(level: FloorPlan, isGroundFloor: boolean, rng: () => number): void {
+function addOpenings(level: FloorPlan, isGroundFloor: boolean, _rng: () => number): void {
   const rooms = level.rooms;
 
   // Portes : chaque pièce reçoit une porte sur son partage le plus long
@@ -778,15 +775,6 @@ function round3(n: number): number {
 }
 
 // ── Validation spatiale ─────────────────────────────────────────────────────
-
-function overlaps(a: PlanRoom, b: PlanRoom): boolean {
-  return (
-    a.x + a.w > b.x + EPS &&
-    b.x + b.w > a.x + EPS &&
-    a.y + a.h > b.y + EPS &&
-    b.y + b.h > a.y + EPS
-  );
-}
 
 export function validatePlan(
   variant: FloorPlanVariant,

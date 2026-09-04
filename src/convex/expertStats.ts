@@ -17,17 +17,6 @@ function getStartTs(period: string, customStart?: number): number {
   return Date.now() - ms;
 }
 
-async function resolveExpertId(ctx: any) {
-  const user = await getCurrentUser(ctx);
-  if (!user) throw new Error("Non authentifié");
-  const profile = await ctx.db
-    .query("expertProfiles")
-    .withIndex("by_user", (q: any) => q.eq("userId", user._id))
-    .first();
-  if (!profile) throw new Error("Profil expert introuvable");
-  return profile._id;
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // QUERIES — Real-time KPIs
 // ═══════════════════════════════════════════════════════════════════════════
@@ -59,8 +48,6 @@ export const getExpertKPIs = query({
 
     const events = allEvents.filter((e) => e.date >= startTs);
     const views = events.filter((e) => e.eventType === "view").length;
-    const contacts = events.filter((e) => e.eventType === "contact").length;
-
     // ── Requests received (expertServiceRequests) ──
     const allRequests = await ctx.db
       .query("expertServiceRequests")

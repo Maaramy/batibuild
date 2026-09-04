@@ -347,7 +347,7 @@ export const askMaterialsAssistant = action({
 // ═══════════════════════════════════════════════════════════════════════════
 export const getAssistantProjectContext = action({
   args: { result: v.optional(v.any()), context: v.optional(v.any()) },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     return buildAssistantContext(args.result as RecommendResult | null, args.context as ProjectContext | null);
   },
 });

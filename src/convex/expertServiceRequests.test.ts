@@ -234,7 +234,7 @@ describe("expertServiceRequests.respond", () => {
     const otherExpertUserId = await createTestUser(t, {
       email: "other@test.com",
     });
-    const otherExpertId = await createTestExpertProfile(
+    await createTestExpertProfile(
       t,
       otherExpertUserId,
     );

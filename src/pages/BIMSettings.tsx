@@ -19,7 +19,6 @@ import {
   Save,
   TrendingUp,
   TrendingDown,
-  Store,
   PackageSearch,
   AlertTriangle,
   MapPin,

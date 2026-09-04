@@ -694,7 +694,7 @@ export const getComparison = query({
     region: v.string(),
     horizonYears: v.optional(v.number()),
   },
-  handler: (ctx, args) => {
+  handler: (_ctx, args) => {
     const input = normalizeInput({
       investmentType: "appartement",
       purchasePrice: Math.max(1, args.budget),

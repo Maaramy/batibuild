@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useMutation, useAction } from "convex/react";
+import { useAction } from "convex/react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import {
@@ -80,7 +80,6 @@ export function AiAnalysisResults({
   const { user } = useAuth();
   const optimizeCopilotBudget = useAction(api.aiMaterialsActions.optimizeCopilotBudget);
   const improveCopilotPerformance = useAction(api.aiMaterialsActions.improveCopilotPerformance);
-  const deleteAnalysis = useMutation(api.aiMaterials.deleteCopilotAnalysis);
 
   const [optimization, setOptimization] = useState<any>(null);
   const [performance, setPerformance] = useState<any>(null);

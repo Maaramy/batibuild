@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useNavigate } from "react-router";
-import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,20 +20,6 @@ const PERIODS = [
   { value: "90d", label: "90 jours" },
   { value: "year", label: "Année" },
 ] as const;
-
-const COLORS = ["#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444"];
-
-function getStartTs(period: string): number {
-  const now = Date.now();
-  const day = 24 * 60 * 60 * 1000;
-  switch (period) {
-    case "7d": return now - 7 * day;
-    case "30d": return now - 30 * day;
-    case "90d": return now - 90 * day;
-    case "year": return now - 365 * day;
-    default: return now - 30 * day;
-  }
-}
 
 // ============================================================================
 // Component

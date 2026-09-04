@@ -544,7 +544,7 @@ export function scoreMaterial(
 // ─────────────────────────────────────────────────────────────────────────────
 // PROS / CONS
 // ─────────────────────────────────────────────────────────────────────────────
-function prosCons(scores: MaterialScores, band: PriceBand, cat: CopilotCategory, catAvg: number): { pros: string[]; cons: string[] } {
+function prosCons(scores: MaterialScores, band: PriceBand, _cat: CopilotCategory, catAvg: number): { pros: string[]; cons: string[] } {
   const pros: string[] = [];
   const cons: string[] = [];
   if (scores.prix >= 75) pros.push("Prix compétitif dans sa catégorie");

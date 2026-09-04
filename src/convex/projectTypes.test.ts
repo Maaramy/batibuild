@@ -95,7 +95,6 @@ describe("PROJECT_TYPES — catalogue officiel (21 types)", () => {
   });
 
   it("chaque type officiel est couvert par le mapping vers investissement", () => {
-    const investmentWithoutTerrain = INVESTMENT_TYPES.filter((t) => t !== "terrain");
     // Tous les types officiels ont un équivalent d'investissement
     for (const t of PROJECT_TYPES) {
       expect(investmentTypeForProject(t), t).toBeDefined();

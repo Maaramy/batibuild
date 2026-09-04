@@ -298,7 +298,7 @@ describe("Moderator role", () => {
   });
 
   it("permet au modérateur de lister tous les utilisateurs", async () => {
-    const adminId = await createTestUser(t, { role: "admin", email: "admin@test.com" });
+    await createTestUser(t, { role: "admin", email: "admin@test.com" });
     const moderatorId = await createTestUser(t, { role: "moderator", email: "mod@test.com" });
     await createTestUser(t, { role: "user", email: "user@test.com" });
 
