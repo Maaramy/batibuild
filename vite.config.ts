@@ -10,6 +10,14 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Importing from the "lucide-react" barrel pulls ~1,900 icon modules
+      // into the build graph and made the production build OOM-kill in
+      // memory-limited sandboxes. Alias the bare package specifier (string
+      // form, same as "@", which the build pipeline preserves) to a shim that
+      // re-exports only the icons actually used. The shim imports its icons
+      // via RELATIVE paths into node_modules so this prefix alias never
+      // rewrites its own imports.
+      "lucide-react": path.resolve(__dirname, "./src/lib/lucide-shim.js"),
     },
     // Force a single copy of React across all packages (including vlyPlugin).
     // Without this, @vly-ai/integrations can resolve its own React copy,
@@ -18,6 +26,10 @@ export default defineConfig({
   },
   build: {
     sourcemap: false,
+    // Skip the per-chunk gzip/brotli size pass: it holds every rendered
+    // chunk in memory at once and was a peak-memory driver in memory-limited
+    // build sandboxes (see comment below on manualChunks).
+    reportCompressedSize: false,
     rollupOptions: {
       output: {
         // Manual chunks keep Rollup's peak memory bounded during the
