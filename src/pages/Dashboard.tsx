@@ -62,6 +62,7 @@ import {
   Link,
   Eye,
   MousePointerClick,
+  Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -532,6 +533,7 @@ export default function Dashboard() {
           const inClientMode = viewMode === "client";
           return [
             { icon: LayoutDashboard, label: "Tableau de bord", active: true, onClick: () => setMobileSidebarOpen(false) },
+            { icon: Play, label: "Charger démo", tag: "Démo", onClick: () => { navigate("/dashboard/demo"); setMobileSidebarOpen(false); } },
             // Client features — only visible in client mode
             ...(inClientMode ? [
               { icon: Plus, label: "Nouveau projet", onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
@@ -582,6 +584,11 @@ export default function Dashboard() {
                 )}
               </div>
               <span className="flex-1 text-left truncate">{item.label}</span>
+              {'tag' in item && typeof item.tag === 'string' && (
+                <span className="shrink-0 rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                  {item.tag}
+                </span>
+              )}
               {'badge' in item && typeof item.badge === 'number' && item.badge > 0 && (
                 <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
                   {item.badge > 9 ? '9+' : item.badge}
