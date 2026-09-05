@@ -524,14 +524,14 @@ export default function ProjectDetail() {
 
         const navActions = isExpertOnly
           ? [
-              { icon: <HardHat className="h-4 w-4" />, label: "Consulter expert / entreprise", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), variant: "black" },
+              { icon: <HardHat className="h-4 w-4" />, label: "Consulter expert / entreprise", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), variant: "black" as const },
             ]
           : [
               { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
               { icon: <LayoutGrid className="h-4 w-4" />, label: "Plans IA", onClick: () => navigate(`/dashboard/plans/${project._id}`), color: "text-violet-500" },
               { icon: <Rocket className="h-4 w-4" />, label: "Guide A-Z", onClick: () => navigate(`/dashboard/guide?project=${project._id}`), color: "text-cyan-500" },
               { icon: <TrendingUp className="h-4 w-4" />, label: "ROI", onClick: () => { const type = investmentTypeForProject(project.category ?? "appartement"); navigate(`/dashboard/investments?type=${type}&project=${project._id}`, { state: { prefill: investmentPrefill, projectId: project._id } }); }, color: "text-emerald-500" },
-              { icon: <Users className="h-4 w-4" />, label: "Expert", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
+              { icon: <Users className="h-4 w-4" />, label: "Consulter expert / entreprise", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), variant: "black" as const },
             ];
         return <BottomNavBar actions={navActions} />;
       })()}
