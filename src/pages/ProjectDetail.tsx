@@ -36,7 +36,7 @@ import {
   Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
   Percent, ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
-  LockKeyhole, RefreshCw, Rocket, LayoutGrid,
+  LockKeyhole, RefreshCw, Rocket, LayoutGrid, HardHat,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -524,7 +524,7 @@ export default function ProjectDetail() {
 
         const navActions = isExpertOnly
           ? [
-              { icon: <Users className="h-4 w-4" />, label: "Consulter expert / entreprise", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
+              { icon: <HardHat className="h-4 w-4" />, label: "Consulter expert / entreprise", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), variant: "black" },
             ]
           : [
               { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
