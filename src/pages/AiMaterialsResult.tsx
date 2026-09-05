@@ -150,7 +150,7 @@ export default function AiMaterialsResult() {
 
       {/* ── Bottom Navigation Bar ── */}
       <BottomNavBar actions={[
-        { icon: <Store className="h-4 w-4" />, label: "Voir la liste fournisseurs", onClick: () => navigate(suppliersDirectoryHref), variant: "black" },
+        { icon: <Store className="h-4 w-4" />, label: "Fournisseurs", onClick: () => navigate(suppliersDirectoryHref), color: "text-emerald-500" },
       ]} />
             </ClientProPaywall>
 </main>

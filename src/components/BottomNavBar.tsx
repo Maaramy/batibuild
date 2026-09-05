@@ -7,8 +7,6 @@ interface BottomNavAction {
   color?: string;
   active?: boolean;
   disabled?: boolean;
-  /** Renders the action as a solid black button (dedicated CTA style). */
-  variant?: "default" | "black";
 }
 
 interface BottomNavBarProps {
@@ -36,22 +34,12 @@ export function BottomNavBar({ actions, className }: BottomNavBarProps) {
             disabled={a.disabled}
             className={cn(
               "flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 min-w-0 flex-1",
-              a.variant === "black"
-                ? "bg-black text-white border border-white/10 shadow-sm hover:bg-neutral-800"
-                : a.disabled
-                  ? "opacity-40 cursor-not-allowed"
-                  : "hover:bg-muted/50",
-              a.disabled && "opacity-40 cursor-not-allowed",
-              a.variant !== "black" && (a.color ?? "text-muted-foreground"),
+              a.disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-muted/50",
+              a.color ?? "text-muted-foreground",
             )}
             title={a.label}
           >
-            <div
-              className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-lg",
-                a.variant === "black" ? "bg-white/15" : "bg-muted/30",
-              )}
-            >
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted/30">
               {a.icon}
             </div>
             <span className="truncate leading-tight max-w-full">{a.label}</span>
