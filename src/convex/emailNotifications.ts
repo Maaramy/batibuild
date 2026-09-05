@@ -22,6 +22,13 @@ export type EmailVars = {
   numeroFacture?: string;
   lienConnexion?: string;
   nomPlateforme?: string;
+  // Variables des flux de demande de devis / service
+  nomProjet?: string;
+  typeProjet?: string;
+  entreprise?: string;
+  detailsDemande?: string;
+  montantDevis?: string;
+  message?: string;
 };
 
 export const emailEventValidator = v.union(
@@ -32,6 +39,10 @@ export const emailEventValidator = v.union(
   v.literal("payment_rejected"),
   v.literal("subscription_suspended"),
   v.literal("subscription_canceled"),
+  v.literal("quote_request_sent"),
+  v.literal("service_request_sent"),
+  v.literal("quote_received"),
+  v.literal("service_received"),
 );
 
 // ----------------------------------------------------------------------------
@@ -87,7 +98,11 @@ export async function scheduleEmailEvent(
       | "payment_confirmed"
       | "payment_rejected"
       | "subscription_suspended"
-      | "subscription_canceled";
+      | "subscription_canceled"
+      | "quote_request_sent"
+      | "service_request_sent"
+      | "quote_received"
+      | "service_received";
     vars: EmailVars;
     dedupeKey?: string;
     sendToAdmins?: boolean;
@@ -118,6 +133,12 @@ function renderTokens(text: string, vars: Record<string, string>): string {
       NuméroFacture: vars.numeroFacture || "",
       LienConnexion: vars.lienConnexion || "#",
       NomPlateforme: vars.nomPlateforme || "batibuild App",
+      NomProjet: vars.nomProjet || "",
+      TypeProjet: vars.typeProjet || "",
+      Entreprise: vars.entreprise || "",
+      DétailsDemande: vars.detailsDemande || "",
+      MontantDevis: vars.montantDevis || "",
+      Message: vars.message || "",
     };
     return lookup[key] !== undefined ? lookup[key] : m;
   });
@@ -179,6 +200,12 @@ export const processEmailEvent = internalMutation({
         numeroFacture: v.optional(v.string()),
         lienConnexion: v.optional(v.string()),
         nomPlateforme: v.optional(v.string()),
+        nomProjet: v.optional(v.string()),
+        typeProjet: v.optional(v.string()),
+        entreprise: v.optional(v.string()),
+        detailsDemande: v.optional(v.string()),
+        montantDevis: v.optional(v.string()),
+        message: v.optional(v.string()),
       }),
     ),
     dedupeKey: v.optional(v.string()),
@@ -277,6 +304,12 @@ export const processEmailEvent = internalMutation({
       numeroFacture: vars.numeroFacture || "",
       lienConnexion: loginLink,
       nomPlateforme: platformName,
+      nomProjet: vars.nomProjet || "",
+      typeProjet: vars.typeProjet || "",
+      entreprise: vars.entreprise || "",
+      detailsDemande: vars.detailsDemande || "",
+      montantDevis: vars.montantDevis || "",
+      message: vars.message || "",
     };
 
     const subject = renderTokens(template.subject, resolvedVars);

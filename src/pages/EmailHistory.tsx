@@ -39,6 +39,12 @@ const EVENT_LABELS: Record<string, string> = {
   payment_rejected: "Paiement refusé",
   subscription_suspended: "Abonnement suspendu",
   subscription_canceled: "Abonnement annulé",
+  // Flux sortant — demandes envoyées
+  quote_request_sent: "Demande de devis",
+  service_request_sent: "Demande de service",
+  // Flux entrant — réponses reçues
+  quote_received: "Devis reçu",
+  service_received: "Service reçu",
 };
 
 const STATUS_META: Record<string, { label: string; cls: string; dot: string }> = {

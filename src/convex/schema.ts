@@ -1012,7 +1012,11 @@ const schema = defineSchema(
         v.literal("payment_confirmed"),
         v.literal("payment_rejected"),
         v.literal("subscription_suspended"),
-        v.literal("subscription_canceled")
+        v.literal("subscription_canceled"),
+        v.literal("quote_request_sent"),
+        v.literal("service_request_sent"),
+        v.literal("quote_received"),
+        v.literal("service_received")
       ),
       label: v.string(),
       subject: v.string(),

@@ -18,6 +18,12 @@ export const EMAIL_EVENT_TYPES = [
   "payment_rejected",
   "subscription_suspended",
   "subscription_canceled",
+  // Flux sortant — demandes envoyées aux fournisseurs et experts
+  "quote_request_sent",
+  "service_request_sent",
+  // Flux entrant — réponses reçues des fournisseurs et experts
+  "quote_received",
+  "service_received",
 ] as const;
 
 export type EmailEventType = (typeof EMAIL_EVENT_TYPES)[number];
@@ -30,6 +36,10 @@ export const EMAIL_EVENT_LABELS: Record<EmailEventType, string> = {
   payment_rejected: "Paiement refusé",
   subscription_suspended: "Abonnement suspendu",
   subscription_canceled: "Abonnement annulé",
+  quote_request_sent: "Demande de devis",
+  service_request_sent: "Demande de service",
+  quote_received: "Devis reçu",
+  service_received: "Service reçu",
 };
 
 export const EMAIL_VARIABLES = [
@@ -43,6 +53,13 @@ export const EMAIL_VARIABLES = [
   { token: "{{NuméroFacture}}", label: "Numéro de facture" },
   { token: "{{LienConnexion}}", label: "Lien de connexion à la plateforme" },
   { token: "{{NomPlateforme}}", label: "Nom de la plateforme" },
+  // Variables des flux de demande de devis / service
+  { token: "{{NomProjet}}", label: "Nom du projet concerné" },
+  { token: "{{TypeProjet}}", label: "Type de projet (maison, villa, rénovation…)" },
+  { token: "{{Entreprise}}", label: "Entreprise / professionnel sollicité (fournisseur, expert)" },
+  { token: "{{DétailsDemande}}", label: "Détails de la demande (matériaux, description…)" },
+  { token: "{{MontantDevis}}", label: "Montant du devis / de la proposition" },
+  { token: "{{Message}}", label: "Message de la réponse (fournisseur / expert)" },
 ] as const;
 
 export interface DefaultTemplate {
@@ -176,6 +193,94 @@ Vous pouvez à tout moment souscrire à nouveau à l'un de nos forfaits pour ret
 <br/><br/>
 L'équipe {{P}}`,
   },
+
+  // ── Flux sortant : demandes envoyées aux fournisseurs et experts ──
+  {
+    key: "quote_request_sent",
+    label: "Demande de devis",
+    subject: "Nouvelle demande de devis — {{NomProjet}}",
+    bodyHtml: `Bonjour {{Entreprise}},
+<br/><br/>
+Un client a envoyé une <strong>demande de devis</strong> pour le projet «&nbsp;{{NomProjet}}&nbsp;» ({{TypeProjet}}).
+<br/><br/>
+<table cellpadding="0" cellspacing="0" style="background:#f8f7ff;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #ece8ff;">
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Client :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Prénom}} {{Nom}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Détails de la demande :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{DétailsDemande}}</td></tr>
+</table>
+Connectez-vous à votre espace fournisseur pour consulter la demande en détail et y répondre.
+<br/><br/>
+<a href="{{LienConnexion}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Répondre à la demande</a>
+<br/><br/>
+L'équipe {{NomPlateforme}}`,
+  },
+  {
+    key: "service_request_sent",
+    label: "Demande de service",
+    subject: "Nouvelle demande de service — {{NomProjet}}",
+    bodyHtml: `Bonjour {{Entreprise}},
+<br/><br/>
+Un client a envoyé une <strong>demande de service</strong> pour le projet «&nbsp;{{NomProjet}}&nbsp;» ({{TypeProjet}}).
+<br/><br/>
+<table cellpadding="0" cellspacing="0" style="background:#f8f7ff;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #ece8ff;">
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Client :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Prénom}} {{Nom}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Détails de la demande :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{DétailsDemande}}</td></tr>
+</table>
+Connectez-vous à votre espace expert pour consulter la demande en détail et proposer votre service.
+<br/><br/>
+<a href="{{LienConnexion}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Proposer mon service</a>
+<br/><br/>
+L'équipe {{NomPlateforme}}`,
+  },
+
+  // ── Flux entrant : réponses reçues des fournisseurs et experts ──
+  {
+    key: "quote_received",
+    label: "Devis reçu",
+    subject: "Votre devis pour « {{NomProjet}} » est disponible",
+    bodyHtml: `Bonjour {{Prénom}} {{Nom}},
+<br/><br/>
+{{Entreprise}} a répondu à votre <strong>demande de devis</strong> pour le projet «&nbsp;{{NomProjet}}&nbsp;» ({{TypeProjet}}).
+<br/><br/>
+<table cellpadding="0" cellspacing="0" style="background:#f8f7ff;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #ece8ff;">
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Entreprise :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Entreprise}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Montant proposé :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{MontantDevis}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Message :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{Message}}</td></tr>
+</table>
+Consultez la proposition complète et contactez le fournisseur directement depuis votre espace.
+<br/><br/>
+<a href="{{LienConnexion}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Voir mon devis</a>
+<br/><br/>
+L'équipe {{NomPlateforme}}`,
+  },
+  {
+    key: "service_received",
+    label: "Service reçu",
+    subject: "{{Entreprise}} a répondu à votre demande de service",
+    bodyHtml: `Bonjour {{Prénom}} {{Nom}},
+<br/><br/>
+{{Entreprise}} a répondu à votre <strong>demande de service</strong> pour le projet «&nbsp;{{NomProjet}}&nbsp;» ({{TypeProjet}}).
+<br/><br/>
+<table cellpadding="0" cellspacing="0" style="background:#f8f7ff;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #ece8ff;">
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Professionnel :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Entreprise}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Montant estimé :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{MontantDevis}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Message :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{Message}}</td></tr>
+</table>
+Consultez la proposition et contactez le professionnel directement depuis votre espace.
+<br/><br/>
+<a href="{{LienConnexion}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Voir ma réponse</a>
+<br/><br/>
+L'équipe {{NomPlateforme}}`,
+  },
 ];
 
 // ----------------------------------------------------------------------------
@@ -221,6 +326,10 @@ export const adminSaveEmailTemplate = mutation({
       v.literal("payment_rejected"),
       v.literal("subscription_suspended"),
       v.literal("subscription_canceled"),
+      v.literal("quote_request_sent"),
+      v.literal("service_request_sent"),
+      v.literal("quote_received"),
+      v.literal("service_received"),
     ),
     subject: v.string(),
     bodyHtml: v.string(),

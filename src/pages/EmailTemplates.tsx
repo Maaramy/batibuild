@@ -24,17 +24,42 @@ const EMAIL_VARIABLES = [
   { token: "{{NuméroFacture}}", label: "Numéro de facture" },
   { token: "{{LienConnexion}}", label: "Lien de connexion" },
   { token: "{{NomPlateforme}}", label: "Nom de la plateforme" },
+  { token: "{{NomProjet}}", label: "Nom du projet" },
+  { token: "{{TypeProjet}}", label: "Type de projet" },
+  { token: "{{Entreprise}}", label: "Entreprise / professionnel" },
+  { token: "{{DétailsDemande}}", label: "Détails de la demande" },
+  { token: "{{MontantDevis}}", label: "Montant du devis" },
+  { token: "{{Message}}", label: "Message de la réponse" },
 ];
 
-const EVENT_KEYS = [
-  "subscription_activated",
-  "subscription_renewed",
-  "subscription_expired",
-  "payment_confirmed",
-  "payment_rejected",
-  "subscription_suspended",
-  "subscription_canceled",
+// Groupes d'événements affichés dans la liste « Événements »
+const EVENT_GROUPS = [
+  {
+    label: "Abonnements & paiements",
+    hint: undefined,
+    keys: [
+      "subscription_activated",
+      "subscription_renewed",
+      "subscription_expired",
+      "payment_confirmed",
+      "payment_rejected",
+      "subscription_suspended",
+      "subscription_canceled",
+    ],
+  },
+  {
+    label: "Flux sortant · Demandes envoyées",
+    hint: "Sollicitations envoyées aux fournisseurs et experts",
+    keys: ["quote_request_sent", "service_request_sent"],
+  },
+  {
+    label: "Flux entrant · Réponses reçues",
+    hint: "Propositions reçues des fournisseurs et experts",
+    keys: ["quote_received", "service_received"],
+  },
 ] as const;
+
+const EVENT_KEYS = EVENT_GROUPS.flatMap((g) => g.keys);
 
 const EVENT_LABELS: Record<string, string> = {
   subscription_activated: "Abonnement activé",
@@ -44,6 +69,12 @@ const EVENT_LABELS: Record<string, string> = {
   payment_rejected: "Paiement refusé",
   subscription_suspended: "Abonnement suspendu",
   subscription_canceled: "Abonnement annulé",
+  // Flux sortant — demandes envoyées
+  quote_request_sent: "Demande de devis",
+  service_request_sent: "Demande de service",
+  // Flux entrant — réponses reçues
+  quote_received: "Devis reçu",
+  service_received: "Service reçu",
 };
 
 const EVENT_DESCRIPTIONS: Record<string, string> = {
@@ -54,6 +85,12 @@ const EVENT_DESCRIPTIONS: Record<string, string> = {
   payment_rejected: "Envoyé quand un paiement / reçu est refusé",
   subscription_suspended: "Envoyé quand un compte / abonnement est suspendu",
   subscription_canceled: "Envoyé quand un abonnement est annulé",
+  // Flux sortant — demandes envoyées
+  quote_request_sent: "Envoyé au fournisseur quand un client demande un devis",
+  service_request_sent: "Envoyé à l'expert quand un client demande un service",
+  // Flux entrant — réponses reçues
+  quote_received: "Envoyé au client quand le fournisseur renvoie son devis",
+  service_received: "Envoyé au client quand l'expert renvoie sa proposition",
 };
 
 const SAMPLE_VARS: Record<string, string> = {
@@ -67,6 +104,12 @@ const SAMPLE_VARS: Record<string, string> = {
   "{{NuméroFacture}}": "INV-123456",
   "{{LienConnexion}}": "https://batibuild.app/login",
   "{{NomPlateforme}}": "batibuild App",
+  "{{NomProjet}}": "Villa moderne à Hammamet",
+  "{{TypeProjet}}": "Villa",
+  "{{Entreprise}}": "BTP Tunisie SARL",
+  "{{DétailsDemande}}": "Ciment 250 sacs, fer à béton 2 t, main-d'œuvre gros œuvre",
+  "{{MontantDevis}}": "48 500 TND",
+  "{{Message}}": "Bonjour, merci pour votre demande. Nous vous proposons un devis détaillé ci-joint.",
 };
 
 export default function EmailTemplates() {
@@ -162,23 +205,43 @@ export default function EmailTemplates() {
         <Card className="lg:col-span-2 border border-border/50 bg-gradient-to-br from-background/80 to-background/50 backdrop-blur-sm h-fit">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Événements</CardTitle>
+            <CardDescription className="text-xs">
+              Modèles par type d'événement — {EVENT_KEYS.length} au total
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-1">
-            {EVENT_KEYS.map((key) => (
-              <button
-                key={key}
-                onClick={() => setSelectedKey(key)}
-                className={`w-full rounded-lg border p-2.5 text-left transition-all ${
-                  selectedKey === key
-                    ? "border-primary/40 bg-primary/10 shadow-sm"
-                    : "border-border/30 bg-muted/10 hover:bg-muted/20"
-                }`}
-              >
-                <p className="text-xs font-semibold">{EVENT_LABELS[key]}</p>
-                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
-                  {EVENT_DESCRIPTIONS[key]}
-                </p>
-              </button>
+          <CardContent className="space-y-4">
+            {EVENT_GROUPS.map((group) => (
+              <div key={group.label} className="space-y-1.5">
+                <div className="flex items-center gap-2 pt-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                    {group.label}
+                  </p>
+                  <div className="h-px flex-1 bg-border/30" />
+                </div>
+                {group.hint && (
+                  <p className="text-[10px] leading-tight text-muted-foreground/60">
+                    {group.hint}
+                  </p>
+                )}
+                <div className="space-y-1">
+                  {group.keys.map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedKey(key)}
+                      className={`w-full rounded-lg border p-2.5 text-left transition-all ${
+                        selectedKey === key
+                          ? "border-primary/40 bg-primary/10 shadow-sm"
+                          : "border-border/30 bg-muted/10 hover:bg-muted/20"
+                      }`}
+                    >
+                      <p className="text-xs font-semibold">{EVENT_LABELS[key]}</p>
+                      <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                        {EVENT_DESCRIPTIONS[key]}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </CardContent>
         </Card>
