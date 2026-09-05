@@ -23,9 +23,10 @@ import {
   Database,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { toast } from "sonner";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 export default function AdminLoginPage() {
   const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
@@ -46,6 +47,11 @@ export default function AdminLoginPage() {
 
   const [seeding, setSeeding] = useState(false);
   const [seedMessages, setSeedMessages] = useState<string[]>([]);
+
+  // E-mail OTP validation step (password sign-up / sign-in now require a verified e-mail)
+  const [otpStep, setOtpStep] = useState<{ email: string; mode: "register" | "login" } | null>(null);
+  const [otp, setOtp] = useState("");
+  const pendingAdminRef = useRef<{ fd: FormData; mode: "register" | "login" } | null>(null);
 
   // Determine if this is first-time setup (no admin exists yet)
   useEffect(() => {
@@ -68,28 +74,35 @@ export default function AdminLoginPage() {
     }
   }, [authLoading, isAuthenticated, user, navigate, setupMode]);
 
+  // Wait for auth to propagate, then promote to admin (register mode only)
+  const finalizeAdminRegister = async () => {
+    await new Promise((r) => setTimeout(r, 1000));
+    try {
+      await makeMeAdmin();
+    } catch (err: any) {
+      console.warn("Promotion note:", err.message);
+    }
+    setSetupMode("success");
+  };
+
   // Handle register + optionally promote to admin
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
+    const formData = new FormData(e.currentTarget);
+    formData.set("flow", "signUp");
     try {
-      const formData = new FormData(e.currentTarget);
-      formData.set("flow", "signUp");
-      await signIn("password", formData);
-
-      // Wait for auth to propagate
-      await new Promise((r) => setTimeout(r, 1000));
-
-      // Try to promote to admin if no admin exists yet
-      try {
-        await makeMeAdmin();
-      } catch (err: any) {
-        console.warn("Promotion note:", err.message);
+      const result = await signIn("password", formData);
+      if (!result.signingIn) {
+        // E-mail validation required — show the OTP step
+        pendingAdminRef.current = { fd: formData, mode: "register" };
+        setOtpStep({ email, mode: "register" });
+        setIsLoading(false);
+        return;
       }
-
-      setSetupMode("success");
+      await finalizeAdminRegister();
       setIsLoading(false);
     } catch (err: any) {
       const msg = err?.message || "";
@@ -100,7 +113,13 @@ export default function AdminLoginPage() {
           fd.set("email", email);
           fd.set("password", password);
           fd.set("flow", "signIn");
-          await signIn("password", fd);
+          const result = await signIn("password", fd);
+          if (!result.signingIn) {
+            pendingAdminRef.current = { fd, mode: "login" };
+            setOtpStep({ email, mode: "login" });
+            setIsLoading(false);
+            return;
+          }
           await new Promise((r) => setTimeout(r, 1000));
           try {
             await makeMeAdmin();
@@ -125,7 +144,14 @@ export default function AdminLoginPage() {
     try {
       const formData = new FormData(e.currentTarget);
       formData.set("flow", "signIn");
-      await signIn("password", formData);
+      const result = await signIn("password", formData);
+      if (!result.signingIn) {
+        // E-mail not validated yet — show the OTP step
+        pendingAdminRef.current = { fd: formData, mode: "login" };
+        setOtpStep({ email, mode: "login" });
+        setIsLoading(false);
+        return;
+      }
 
       setTimeout(() => {
         navigate("/dashboard/admin");
@@ -136,6 +162,57 @@ export default function AdminLoginPage() {
           ? "Email ou mot de passe incorrect."
           : "Erreur de connexion. Vérifiez vos identifiants."
       );
+    }
+    setIsLoading(false);
+  };
+
+  // Verify the e-mail OTP code, then finish the register/login flow
+  const handleOtpVerify = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!otpStep) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.set("email", otpStep.email);
+      fd.set("code", otp);
+      fd.set("flow", "email-verification");
+      await signIn("password", fd);
+      const mode = otpStep.mode;
+      pendingAdminRef.current = null;
+      setOtpStep(null);
+      setOtp("");
+      if (mode === "register") {
+        await finalizeAdminRegister();
+      } else {
+        setTimeout(() => {
+          navigate("/dashboard/admin");
+        }, 500);
+      }
+    } catch {
+      setError("Code incorrect ou expiré. Vérifiez votre e-mail.");
+      setOtp("");
+    }
+    setIsLoading(false);
+  };
+
+  const handleResendAdminOtp = async () => {
+    if (!otpStep) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const base = pendingAdminRef.current?.fd;
+      if (!base) {
+        setIsLoading(false);
+        return;
+      }
+      const fd = new FormData();
+      base.forEach((value, key) => fd.set(key, value));
+      fd.set("flow", "signIn");
+      await signIn("password", fd);
+      toast.success("Un nouveau code vient d'être envoyé par e-mail.");
+    } catch {
+      setError("Échec d'envoi du code. Veuillez réessayer.");
     }
     setIsLoading(false);
   };
@@ -386,7 +463,78 @@ export default function AdminLoginPage() {
             </CardHeader>
 
             <CardContent className="p-6 pt-4">
-              {setupMode !== "success" && (                  <form
+              {otpStep ? (
+                <form onSubmit={handleOtpVerify} className="space-y-4">
+                  <div className="text-center mb-4">
+                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 mx-auto bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 border border-emerald-500/10">
+                      <Mail className="h-6 w-6 text-emerald-400" />
+                    </div>
+                    <CardTitle className="text-white text-lg">Vérifiez votre e-mail</CardTitle>
+                    <p className="text-sm text-slate-400 mt-1">
+                      Un code de validation a été envoyé à{" "}
+                      <strong className="text-slate-200">{otpStep.email}</strong>
+                    </p>
+                  </div>
+                  <div className="flex justify-center">
+                    <InputOTP value={otp} onChange={setOtp} maxLength={6} disabled={isLoading}>
+                      <InputOTPGroup>
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          <InputOTPSlot key={i} index={i} />
+                        ))}
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2 text-sm py-2.5 px-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400"
+                    >
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>{error}</span>
+                    </motion.div>
+                  )}
+                  <Button
+                    type="submit"
+                    disabled={isLoading || otp.length !== 6}
+                    className="w-full h-11 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white border-0 shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition-all duration-200"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Vérification...
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="mr-2 h-4 w-4" />
+                        Vérifier le code
+                      </>
+                    )}
+                  </Button>
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={handleResendAdminOtp}
+                      disabled={isLoading}
+                      className="text-xs text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
+                    >
+                      Renvoyer le code
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOtpStep(null);
+                        setOtp("");
+                        pendingAdminRef.current = null;
+                        setError(null);
+                      }}
+                      className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      ← Retour
+                    </button>
+                  </div>
+                </form>
+              ) : setupMode !== "success" ? (                  <form
                   onSubmit={setupMode === "register" ? handleRegister : handleLogin}
                   className="space-y-4"
                 >
@@ -565,7 +713,7 @@ export default function AdminLoginPage() {
                     </div>
                   )}
                 </form>
-              )}
+              ) : null}
             </CardContent>
           </Card>
 

@@ -40,7 +40,11 @@ All convex authentication functions are already set up. The auth currently uses 
 
 The email OTP configuration is defined in `src/convex/auth/emailOtp.ts`. DO NOT MODIFY THIS FILE.
 
-Also, DO NOT MODIFY THESE AUTH FILES: `src/convex/auth.config.ts` and `src/convex/auth.ts`.
+Also, DO NOT MODIFY `src/convex/auth.config.ts`. In `src/convex/auth.ts`, the
+`Password` provider is configured with `verify: emailOtp`, so any new password
+sign-up (and any not-yet-verified sign-in) requires validating the e-mail with
+the 6-digit OTP code sent through the same relay as the quick login — the
+account stays locked until the code is verified (flow `"email-verification"`).
 
 ## Using Convex Auth on the backend
 

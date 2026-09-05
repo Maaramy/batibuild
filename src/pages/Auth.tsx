@@ -305,6 +305,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const resetPasswordMutation = useMutation(api.users.resetPassword);
   const pendingProfileRef = useRef<{name: string; phone: string; userRole: string} | null>(null);
   const profileSavingRef = useRef(false);
+  // Keeps the password sign-in params while the user validates their e-mail by OTP
+  const pendingPasswordRef = useRef<FormData | null>(null);
 
   // Save profile after auth is confirmed (avoids race condition with signIn)
   useEffect(() => {
@@ -371,11 +373,39 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     e.preventDefault(); setIsLoading(true); resetError();
     try {
       const fd = new FormData(e.currentTarget);
-      await signIn("email-otp", fd);
+      if (pendingPasswordRef.current) {
+        // Password account awaiting e-mail validation (signup or unverified login)
+        fd.set("flow", "email-verification");
+        await signIn("password", fd);
+        pendingPasswordRef.current = null;
+      } else {
+        // Quick email-OTP sign in
+        await signIn("email-otp", fd);
+      }
       // If role was saved during registration, redirect accordingly
       const roleRedirect = userRole === "supplier" ? "/dashboard/supplier" : userRole === "expert" ? "/dashboard/expert" : redirect;
       navigate(roleRedirect);
     } catch { setError("Le code est incorrect."); setOtp(""); }
+    setIsLoading(false);
+  };
+
+  // -- OTP: resend the code --
+  const handleResendOtp = async () => {
+    setIsLoading(true); resetError();
+    try {
+      if (pendingPasswordRef.current) {
+        // Re-send through the password provider (the account already exists)
+        const fd = new FormData();
+        pendingPasswordRef.current.forEach((value, key) => fd.set(key, value));
+        fd.set("flow", "signIn");
+        await signIn("password", fd);
+      } else if (typeof step === "object" && "email" in step) {
+        const fd = new FormData();
+        fd.set("email", step.email);
+        await signIn("email-otp", fd);
+      }
+      toast.success("Un nouveau code vient d'être envoyé par e-mail.");
+    } catch { setError("Échec d'envoi du code. Veuillez réessayer."); }
     setIsLoading(false);
   };
 
@@ -385,7 +415,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     try {
       const fd = new FormData(e.currentTarget);
       fd.set("flow", "signIn");
-      await signIn("password", fd);
+      const result = await signIn("password", fd);
+      if (!result.signingIn) {
+        // E-mail not validated yet — ask for the OTP before allowing access
+        pendingPasswordRef.current = fd;
+        setOtp("");
+        setStep({ email: fd.get("email") as string });
+        setIsLoading(false);
+        return;
+      }
       // Redirect will be handled by the useEffect watching currentUser
       navigate(redirect);
     } catch { setError("Email ou mot de passe incorrect."); }
@@ -407,11 +445,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     if (pw.length < 8) { setError("8 caractères minimum."); setIsLoading(false); return; }
     try {
       fd.set("flow", "signUp");
-      await signIn("password", fd);
+      const result = await signIn("password", fd);
       // Store profile data for useEffect to save once auth is confirmed
       const phone = fd.get("phone") as string;
       const name = fd.get("name") as string;
       pendingProfileRef.current = { name: name || "", phone: phone || "", userRole };
+      if (!result.signingIn) {
+        // New accounts must validate their e-mail with the OTP code sent by e-mail
+        pendingPasswordRef.current = fd;
+        setOtp("");
+        setStep({ email: fd.get("email") as string });
+        setIsLoading(false);
+        return;
+      }
       // Redirect based on selected role
       const roleRedirect = userRole === "supplier" ? "/dashboard/supplier" : userRole === "expert" ? "/dashboard/expert" : redirect;
       navigate(roleRedirect);
@@ -444,7 +490,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsLoading(false);
   };
 
-  const switchToPassword = () => { setAuthMode("password"); setStep("email"); resetError(); setForgotPassword(false); };
+  const switchToPassword = () => { setAuthMode("password"); setStep("email"); resetError(); setForgotPassword(false); pendingPasswordRef.current = null; };
 
   // -- Loading state --
   if (authLoading) {
@@ -489,7 +535,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   : <>Vérifier le code<ArrowRight className="ml-2 h-4 w-4" /></>}
               </Button>
               <div className="mt-4 text-center space-y-2">
-                <button type="button" onClick={() => setStep("email")} className="text-sm hover:underline font-medium" style={{ color: "var(--foreground)" }}>Renvoyer le code</button>
+                <button type="button" onClick={handleResendOtp} disabled={isLoading} className="text-sm hover:underline font-medium disabled:opacity-50" style={{ color: "var(--foreground)" }}>Renvoyer le code</button>
                 <br />
                 <button type="button" onClick={() => { switchToPassword(); setStep("email"); }} className="text-sm hover:underline" style={{ color: "var(--foreground)", opacity: 0.6 }}>← Mot de passe</button>
               </div>
