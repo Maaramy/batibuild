@@ -26,6 +26,11 @@ import {
   BarChart3,
   Store,
   Briefcase,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Lock,
+  CheckCircle2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -55,6 +60,47 @@ export default function ProfilePage() {
   const updateProfile = useMutation(api.users.updateProfile);
   const updateProfileImage = useMutation(api.users.updateProfileImage);
   const setUserRole = useMutation(api.users.setUserRole);
+  const changePassword = useMutation(api.users.changePassword);
+
+  // Change password form state
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmNewPw, setConfirmNewPw] = useState("");
+  const [savingPw, setSavingPw] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmNewPw, setShowConfirmNewPw] = useState(false);
+  const [pwChanged, setPwChanged] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!currentPw || !newPw || !confirmNewPw) {
+      toast.error("Veuillez remplir tous les champs.");
+      return;
+    }
+    if (newPw.length < 8) {
+      toast.error("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+      return;
+    }
+    if (newPw !== confirmNewPw) {
+      toast.error("Les nouveaux mots de passe ne correspondent pas.");
+      return;
+    }
+    setSavingPw(true);
+    try {
+      await changePassword({ currentPassword: currentPw, newPassword: newPw });
+      setCurrentPw("");
+      setNewPw("");
+      setConfirmNewPw("");
+      setPwChanged(true);
+      toast.success("Mot de passe mis à jour");
+      setTimeout(() => setPwChanged(false), 4000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors du changement de mot de passe");
+    }
+    setSavingPw(false);
+  };
+
+  const pwInputClass = "h-10 rounded-xl pr-10";
 
   const isAdmin = user?.role === "admin";
   const isPaid = user?.subscriptionPlan === "pro" || user?.subscriptionPlan === "expert" || user?.subscriptionPlan === "supplier";
@@ -244,6 +290,112 @@ export default function ProfilePage() {
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {saving ? "Enregistrement..." : "Enregistrer"}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Sécurité — Mot de passe */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }}>
+          <Card className="border border-border/40 bg-card/60 shadow-soft">
+            <CardHeader className="p-5 sm:p-6 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-emerald-500/10 text-primary">
+                  <KeyRound className="h-4 w-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm">Sécurité</CardTitle>
+                  <CardDescription className="text-[11px]">
+                    Modifier votre mot de passe
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 sm:p-6 pt-2 space-y-4">
+              <div className="space-y-1.5">
+                <label className="label-overline flex items-center gap-1.5">
+                  <Lock className="h-3 w-3" /> Mot de passe actuel
+                </label>
+                <div className="relative">
+                  <Input
+                    type={showCurrentPw ? "text" : "password"}
+                    value={currentPw}
+                    onChange={(e) => setCurrentPw(e.target.value)}
+                    placeholder="Votre mot de passe actuel"
+                    autoComplete="current-password"
+                    className={pwInputClass}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPw(!showCurrentPw)}
+                    aria-label={showCurrentPw ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+                    tabIndex={-1}
+                  >
+                    {showCurrentPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="label-overline flex items-center gap-1.5">
+                    <Lock className="h-3 w-3" /> Nouveau mot de passe
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showNewPw ? "text" : "password"}
+                      value={newPw}
+                      onChange={(e) => setNewPw(e.target.value)}
+                      placeholder="Min. 8 caractères"
+                      autoComplete="new-password"
+                      className={pwInputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPw(!showNewPw)}
+                      aria-label={showNewPw ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+                      tabIndex={-1}
+                    >
+                      {showNewPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="label-overline flex items-center gap-1.5">
+                    <Lock className="h-3 w-3" /> Confirmer
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showConfirmNewPw ? "text" : "password"}
+                      value={confirmNewPw}
+                      onChange={(e) => setConfirmNewPw(e.target.value)}
+                      placeholder="Répéter le nouveau mot de passe"
+                      autoComplete="new-password"
+                      className={pwInputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmNewPw(!showConfirmNewPw)}
+                      aria-label={showConfirmNewPw ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+                      tabIndex={-1}
+                    >
+                      {showConfirmNewPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Button onClick={handleChangePassword} disabled={savingPw} className="btn-gradient h-10 gap-1.5 text-xs text-white">
+                  {savingPw ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                  {savingPw ? "Mise à jour..." : "Changer le mot de passe"}
+                </Button>
+                {pwChanged && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Mot de passe mis à jour
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>

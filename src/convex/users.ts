@@ -622,6 +622,62 @@ export const resetPassword = mutation({
   },
 });
 
+/**
+ * Change the current user's password (requires the current password).
+ * Used from the "Mon Profil" page. Only works for accounts that have a
+ * password provider (users who registered/sign in with e-mail + password).
+ */
+export const changePassword = mutation({
+  args: {
+    currentPassword: v.string(),
+    newPassword: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Non connecté");
+
+    if (args.newPassword.length < 8) {
+      throw new Error("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+    }
+    if (args.newPassword === args.currentPassword) {
+      throw new Error("Le nouveau mot de passe doit être différent de l'actuel.");
+    }
+
+    // Find the auth account bound to the password provider
+    const authAccounts = await ctx.db
+      .query("authAccounts")
+      .filter((q) => q.eq(q.field("userId"), user._id))
+      .collect();
+
+    const passwordAccount = authAccounts.find((a) => a.provider === "password");
+
+    if (!passwordAccount) {
+      throw new Error("Aucun compte mot de passe trouvé. Utilisez la connexion rapide par email.");
+    }
+
+    const currentHash = (passwordAccount as any).passwordHash as string | undefined;
+    if (!currentHash) {
+      throw new Error("Aucun mot de passe enregistré sur ce compte.");
+    }
+
+    // Verify the current password before allowing the change
+    const valid = await bcrypt.compare(args.currentPassword, currentHash);
+    if (!valid) {
+      throw new Error("Le mot de passe actuel est incorrect.");
+    }
+
+    // Hash and store the new password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(args.newPassword, salt);
+
+    await ctx.db.patch(passwordAccount._id, {
+      passwordHash,
+    } as any);
+
+    return { success: true };
+  },
+});
+
 // ============================================================================
 // Admin Action Logging Helper
 // ============================================================================
