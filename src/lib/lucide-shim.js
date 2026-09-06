@@ -117,7 +117,6 @@ export { default as Layers3 } from "../../node_modules/lucide-react/dist/esm/ico
 export { default as LayoutDashboard } from "../../node_modules/lucide-react/dist/esm/icons/layout-dashboard.js";
 export { default as LayoutGrid } from "../../node_modules/lucide-react/dist/esm/icons/layout-grid.js";
 export { default as Lightbulb } from "../../node_modules/lucide-react/dist/esm/icons/lightbulb.js";
-export { default as LifeBuoy } from "../../node_modules/lucide-react/dist/esm/icons/life-buoy.js";
 export { default as Link } from "../../node_modules/lucide-react/dist/esm/icons/link.js";
 export { default as Link2 } from "../../node_modules/lucide-react/dist/esm/icons/link-2.js";
 export { default as List } from "../../node_modules/lucide-react/dist/esm/icons/list.js";

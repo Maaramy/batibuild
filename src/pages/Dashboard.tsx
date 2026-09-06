@@ -51,7 +51,7 @@ import {
   Landmark,
   Wallet,
   Sparkles,
-  LifeBuoy,
+  Headset,
   MapPin,
   Percent,
   Gauge,
@@ -556,7 +556,7 @@ export default function Dashboard() {
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
             { icon: MessageSquare, label: "Messagerie", badge: clientUnread, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
-            { icon: LifeBuoy, label: "Support", onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
+            { icon: Headset, label: "Support", onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
           ];
