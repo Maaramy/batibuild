@@ -233,6 +233,68 @@ describe("updateProfile", () => {
 
     expect(result).toEqual({ success: true });
   });
+
+  // ── Horodatage centralisé (date de création / dernière modification) ──
+
+  it("conserve la date de création et met à jour updatedAt à chaque enregistrement", async () => {
+    const userId = await createTestUser(t, {
+      name: "Test",
+      email: "user@test.com",
+    });
+    const userT = asUser(t, userId);
+
+    const before = await t.run(async (ctx) => ctx.db.get(userId));
+
+    // Petite attente pour garantir un timestamp strictement postérieur
+    await new Promise((r) => setTimeout(r, 5));
+
+    await userT.mutation(api.users.updateProfile, {
+      name: "Nom mis à jour",
+      phone: "+216 22 111 222",
+    });
+
+    const after = await t.run(async (ctx) => ctx.db.get(userId));
+    expect(after!.name).toBe("Nom mis à jour");
+    expect(after!.phone).toBe("+216 22 111 222");
+    // La date de création ne change pas
+    expect(after!.createdAt).toBe(before!.createdAt);
+    // La date de dernière modification avance
+    expect(after!.updatedAt!).toBeGreaterThan(before!.updatedAt!);
+  });
+
+  it("rétro-remplit createdAt depuis _creationTime pour les comptes existants sans date", async () => {
+    // Compte legacy (créé avant la collecte centralisée) : pas de champ createdAt
+    const userId = await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        name: "Legacy",
+        email: "legacy@test.com",
+        role: "user",
+        status: "active",
+        subscriptionPlan: "free",
+        image: undefined,
+        company: undefined,
+        phone: undefined,
+        subscriptionEndDate: undefined,
+        updatedAt: Date.now(),
+      }),
+    );
+    const userT = asUser(t, userId);
+
+    const legacy = await t.run(async (ctx) => ctx.db.get(userId));
+    expect(legacy!.createdAt).toBeUndefined();
+
+    await userT.mutation(api.users.updateProfile, {
+      name: "Legacy Complété",
+      phone: "+216 55 555 555",
+    });
+
+    const updated = await t.run(async (ctx) => ctx.db.get(userId));
+    // createdAt est déduit de _creationTime (source unique de vérité)
+    expect(updated!.createdAt).toBe(updated!._creationTime);
+    expect(updated!.name).toBe("Legacy Complété");
+    expect(updated!.phone).toBe("+216 55 555 555");
+    expect(updated!.updatedAt!).toBeGreaterThanOrEqual(updated!.createdAt!);
+  });
 });
 
 // ============================================================================
