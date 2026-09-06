@@ -24,6 +24,9 @@ export const EMAIL_EVENT_TYPES = [
   // Flux entrant — réponses reçues des fournisseurs et experts
   "quote_received",
   "service_received",
+  // Support & Messagerie
+  "support_ticket_created",
+  "support_reply",
 ] as const;
 
 export type EmailEventType = (typeof EMAIL_EVENT_TYPES)[number];
@@ -40,6 +43,8 @@ export const EMAIL_EVENT_LABELS: Record<EmailEventType, string> = {
   service_request_sent: "Demande de service",
   quote_received: "Devis reçu",
   service_received: "Service reçu",
+  support_ticket_created: "Nouvelle demande de support",
+  support_reply: "Réponse du support",
 };
 
 export const EMAIL_VARIABLES = [
@@ -281,6 +286,50 @@ Consultez la proposition et contactez le professionnel directement depuis votre 
 <br/><br/>
 L'équipe {{NomPlateforme}}`,
   },
+
+  // ── Support & Messagerie ──
+  {
+    key: "support_ticket_created",
+    label: "Nouvelle demande de support",
+    subject: "Nouvelle demande de support — {{NomProjet}}",
+    bodyHtml: `Bonjour,
+<br/><br/>
+Un utilisateur a créé une <strong>demande de support</strong> sur la plateforme.
+<br/><br/>
+<table cellpadding="0" cellspacing="0" style="background:#f8f7ff;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #ece8ff;">
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Utilisateur :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Prénom}} {{Nom}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Catégorie :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{TypeProjet}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Priorité :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{Message}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Sujet et message :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{DétailsDemande}}</td></tr>
+</table>
+Connectez-vous à l'espace d'administration pour consulter la demande et y répondre.
+<br/><br/>
+<a href="{{LienConnexion}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Ouvrir l'espace support</a>
+<br/><br/>
+L'équipe {{NomPlateforme}}`,
+  },
+  {
+    key: "support_reply",
+    label: "Réponse du support",
+    subject: "L'équipe support a répondu à votre demande",
+    bodyHtml: `Bonjour {{Prénom}} {{Nom}},
+<br/><br/>
+L'équipe support a répondu à votre demande «&nbsp;<strong>{{NomProjet}}</strong>&nbsp;» (statut : {{DétailsDemande}}).
+<br/><br/>
+<table cellpadding="0" cellspacing="0" style="background:#f8f7ff;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #ece8ff;">
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Réponse du support :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{Message}}</td></tr>
+</table>
+Connectez-vous à votre espace pour consulter la conversation complète et poursuivre l'échange.
+<br/><br/>
+<a href="{{LienConnexion}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Voir la conversation</a>
+<br/><br/>
+L'équipe {{NomPlateforme}}`,
+  },
 ];
 
 // ----------------------------------------------------------------------------
@@ -330,6 +379,8 @@ export const adminSaveEmailTemplate = mutation({
       v.literal("service_request_sent"),
       v.literal("quote_received"),
       v.literal("service_received"),
+      v.literal("support_ticket_created"),
+      v.literal("support_reply"),
     ),
     subject: v.string(),
     bodyHtml: v.string(),

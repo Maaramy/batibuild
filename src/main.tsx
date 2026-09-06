@@ -42,6 +42,7 @@ const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
 const SupplierStats = lazy(() => import("./pages/SupplierStats.tsx"));
 const SupplierQuotes = lazy(() => import("./pages/SupplierQuotes.tsx"));
 const UserMessages = lazy(() => import("./pages/UserMessages.tsx"));
+const SupportPage = lazy(() => import("./pages/SupportPage.tsx"));
 const ExpertDashboard = lazy(() => import("./pages/ExpertDashboard.tsx"));
 const ExpertServices = lazy(() => import("./pages/ExpertServices.tsx"));
 const ExpertStats = lazy(() => import("./pages/ExpertStats.tsx"));
@@ -327,6 +328,14 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <UserMessages />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/support"
+                  element={
+                    <RequireAuth>
+                      <SupportPage />
                     </RequireAuth>
                   }
                 />

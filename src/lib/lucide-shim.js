@@ -222,3 +222,10 @@ export { default as X } from "../../node_modules/lucide-react/dist/esm/icons/x.j
 export { default as XCircle } from "../../node_modules/lucide-react/dist/esm/icons/x-circle.js";
 export { default as XIcon } from "../../node_modules/lucide-react/dist/esm/icons/x.js";
 export { default as Zap } from "../../node_modules/lucide-react/dist/esm/icons/zap.js";
+export { default as LifeBuoy } from "../../node_modules/lucide-react/dist/esm/icons/life-buoy.js";
+export { default as MessageSquarePlus } from "../../node_modules/lucide-react/dist/esm/icons/message-square-plus.js";
+export { default as Paperclip } from "../../node_modules/lucide-react/dist/esm/icons/paperclip.js";
+export { default as Ticket } from "../../node_modules/lucide-react/dist/esm/icons/ticket.js";
+export { default as Headset } from "../../node_modules/lucide-react/dist/esm/icons/headset.js";
+export { default as CircleAlert } from "../../node_modules/lucide-react/dist/esm/icons/circle-alert.js";
+export { default as CircleCheck } from "../../node_modules/lucide-react/dist/esm/icons/circle-check.js";

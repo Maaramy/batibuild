@@ -43,6 +43,8 @@ export const emailEventValidator = v.union(
   v.literal("service_request_sent"),
   v.literal("quote_received"),
   v.literal("service_received"),
+  v.literal("support_ticket_created"),
+  v.literal("support_reply"),
 );
 
 // ----------------------------------------------------------------------------
@@ -102,7 +104,9 @@ export async function scheduleEmailEvent(
       | "quote_request_sent"
       | "service_request_sent"
       | "quote_received"
-      | "service_received";
+      | "service_received"
+      | "support_ticket_created"
+      | "support_reply";
     vars: EmailVars;
     dedupeKey?: string;
     sendToAdmins?: boolean;

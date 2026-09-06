@@ -793,6 +793,9 @@ const schema = defineSchema(
         v.literal("subscription"),
         v.literal("report_ready"),
         v.literal("system"),
+        v.literal("support_ticket_created"),
+        v.literal("support_reply"),
+        v.literal("support_ticket_resolved"),
       ),
       title: v.string(),
       message: v.string(),
@@ -802,6 +805,53 @@ const schema = defineSchema(
     })
       .index("by_user", ["userId"])
       .index("by_user_read", ["userId", "read"]),
+
+    // ── Support & Messagerie ──────────────────────────────────────────────────
+    // Tickets de demande de support créés par les utilisateurs.
+    supportTickets: defineTable({
+      userId: v.id("users"),
+      subject: v.string(),
+      category: v.union(
+        v.literal("technical"),
+        v.literal("account"),
+        v.literal("billing"),
+        v.literal("project"),
+        v.literal("feature"),
+        v.literal("other"),
+      ),
+      priority: v.union(
+        v.literal("low"),
+        v.literal("normal"),
+        v.literal("high"),
+        v.literal("urgent"),
+      ),
+      status: v.union(
+        v.literal("open"),
+        v.literal("in_progress"),
+        v.literal("resolved"),
+        v.literal("closed"),
+      ),
+      createdAt: v.number(),
+      lastActivityAt: v.number(),
+      // Compteurs de messages non lus (temps réel, par côté)
+      userUnreadCount: v.optional(v.number()),
+      adminUnreadCount: v.optional(v.number()),
+    })
+      .index("by_user", ["userId"])
+      .index("by_status", ["status"]),
+
+    // Messages d'une conversation de support (liés à un ticket).
+    supportMessages: defineTable({
+      ticketId: v.id("supportTickets"),
+      senderId: v.id("users"),
+      senderRole: v.union(v.literal("user"), v.literal("support")),
+      body: v.string(),
+      attachmentStorageId: v.optional(v.id("_storage")),
+      attachmentName: v.optional(v.string()),
+      attachmentType: v.optional(v.string()),
+      attachmentSize: v.optional(v.number()),
+      createdAt: v.number(),
+    }).index("by_ticket", ["ticketId"]),
 
     subscriptions: defineTable({
       userId: v.id("users"),
@@ -1017,7 +1067,9 @@ const schema = defineSchema(
         v.literal("quote_request_sent"),
         v.literal("service_request_sent"),
         v.literal("quote_received"),
-        v.literal("service_received")
+        v.literal("service_received"),
+        v.literal("support_ticket_created"),
+        v.literal("support_reply")
       ),
       label: v.string(),
       subject: v.string(),
