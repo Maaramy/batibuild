@@ -15,6 +15,7 @@ import { LogoMark } from "@/components/Logo";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
+import { AnnouncementCarousel } from "@/components/announcements/AnnouncementCarousel";
 import { useQuery, useMutation } from "convex/react";
 import {
   LayoutDashboard,
@@ -375,6 +376,7 @@ export default function Dashboard() {
 
   useEffect(() => setMounted(true), []);
 
+  const announcements = useQuery(api.announcements.getAnnouncementsForUser) || [];
   const projects = useQuery(api.projects.getUserProjects, {}) || [];
   const analyses = useQuery(api.investments.listAnalyses) || [];
   const stats = useQuery(api.projects.getProjectStats) || {
@@ -835,6 +837,13 @@ export default function Dashboard() {
               ) : null}
             </>
           )}
+
+          {/* ══════ ANNONCES (communications de l'équipe) ══════ */}
+          <AnnouncementCarousel
+            announcements={announcements}
+            title="Annonces"
+            description="Communications officielles de la plateforme"
+          />
 
           {/* ══════ PROFILE TYPE SELECTOR ══════ */}
           <Card className="border border-border/40 bg-card/60 shadow-soft">

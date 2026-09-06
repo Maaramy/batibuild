@@ -18,6 +18,7 @@ import EmailSettings from "./EmailSettings";
 import EmailTemplates from "./EmailTemplates";
 import EmailHistory from "./EmailHistory";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
+import { AnnouncementList } from "@/components/admin/announcements/AnnouncementList";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -88,6 +89,7 @@ import {
   Receipt,
   Landmark,
   Newspaper,
+  Megaphone,
 } from "lucide-react";
 
 // ============================================================================
@@ -733,6 +735,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <TabsTrigger value="historique" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Activity className="h-3.5 w-3.5" />
                 <span>Historique E-mails</span>
+              </TabsTrigger>
+              )}
+              {canSee("annonces") && (
+              <TabsTrigger value="annonces" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Megaphone className="h-3.5 w-3.5" />
+                <span>Annonces</span>
               </TabsTrigger>
               )}
               {canSee("analytics") && (
@@ -4585,6 +4593,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 )}
               </div>
             </TabsContent>
+
+          {/* ── Annonces (communications) ── */}
+          {canSee("annonces") && (
+          <TabsContent value="annonces">
+            <AnnouncementList />
+          </TabsContent>
+          )}
 
           {/* ── Analytics (Real-time geolocation tracking) ── */}
           {canSee("analytics") && (

@@ -1361,6 +1361,51 @@ const schema = defineSchema(
       .index("by_expert_date", ["expertId", "date"])
       .index("by_expert_type", ["expertId", "eventType"]),
 
+    // ── Announcements (admin broadcast messages shown in Dashboard) ──
+    announcements: defineTable({
+      title: v.string(),
+      content: v.string(),
+      type: v.union(
+        v.literal("information"),
+        v.literal("news"),
+        v.literal("important"),
+        v.literal("urgent"),
+        v.literal("maintenance"),
+      ),
+      priority: v.number(),
+      imageUrl: v.optional(v.string()),
+      status: v.union(
+        v.literal("draft"),
+        v.literal("scheduled"),
+        v.literal("published"),
+        v.literal("expired"),
+        v.literal("disabled"),
+      ),
+      isActive: v.boolean(),
+      startDate: v.optional(v.number()),
+      endDate: v.optional(v.number()),
+      targetType: v.union(
+        v.literal("all"),
+        v.literal("company"),
+        v.literal("role"),
+        v.literal("user"),
+      ),
+      // Pas de table « companies » : le ciblage société utilise le champ
+      // textuel users.company (raison sociale déclarée par l'utilisateur).
+      targetCompanyNames: v.optional(v.array(v.string())),
+      targetRoles: v.optional(v.array(v.string())),
+      targetUserIds: v.optional(v.array(v.id("users"))),
+      displayOrder: v.optional(v.number()),
+      createdBy: v.id("users"),
+      authorName: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_status_active", ["status", "isActive"])
+      .index("by_type", ["type"])
+      .index("by_created", ["createdAt"])
+      .index("by_order", ["displayOrder"]),
+
     // ── Connection logs (real-time analytics) ──────────────────────
     connectionLogs: defineTable({
       sessionId: v.string(),
