@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { CalendarDays, UserRound } from "lucide-react";
+import { CalendarDays, UserRound, ExternalLink } from "lucide-react";
 import { AnnouncementBadge } from "./AnnouncementBadge";
 import { AnnouncementAvatar } from "./AnnouncementAvatar";
 import {
@@ -25,6 +25,8 @@ interface Props {
 export function AnnouncementCard({ announcement: a, onClick, compact, className }: Props) {
   const meta = ANNOUNCEMENT_TYPE_META[a.type] ?? ANNOUNCEMENT_TYPE_META.information;
   const Icon = meta.icon;
+  const externalUrl =
+    a.type === "annonce" && a.externalUrl?.trim() ? a.externalUrl.trim() : undefined;
 
   return (
     <article
@@ -79,12 +81,30 @@ export function AnnouncementCard({ announcement: a, onClick, compact, className 
             <UserRound className="h-3 w-3 shrink-0" />
             <span className="truncate">{authorName(a)}</span>
           </span>
-          {!compact && (
-            <span className="ml-auto inline-flex items-center gap-0.5 font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-              Lire
-              <Icon className="h-3 w-3" />
-            </span>
-          )}
+          <span className="ml-auto flex shrink-0 items-center gap-2">
+            {externalUrl && (
+              <a
+                href={externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className={cn(
+                  "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold whitespace-nowrap transition-all active:scale-95",
+                  "border-amber-500/40 bg-amber-400/20 text-amber-900 hover:bg-amber-400/30 hover:border-amber-500/60",
+                  "dark:border-amber-300/40 dark:bg-amber-400/20 dark:text-amber-100 dark:hover:bg-amber-400/30 dark:hover:border-amber-300/60",
+                )}
+              >
+                <ExternalLink className="h-3 w-3" />
+                Visitez
+              </a>
+            )}
+            {!compact && (
+              <span className="inline-flex items-center gap-0.5 font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                Lire
+                <Icon className="h-3 w-3" />
+              </span>
+            )}
+          </span>
         </div>
       </div>
     </article>

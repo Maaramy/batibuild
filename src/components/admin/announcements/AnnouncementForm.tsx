@@ -12,12 +12,13 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
-import { CalendarClock, Target, UserRound, Building2, Layers } from "lucide-react";
+import { CalendarClock, Target, UserRound, Building2, Layers, ExternalLink } from "lucide-react";
 import { AnnouncementImageUpload } from "./AnnouncementImageUpload";
 import {
   ANNOUNCEMENT_TYPE_META,
   ANNOUNCEMENT_TYPES,
   TYPE_PRIORITY,
+  isValidExternalUrl,
   type AnnouncementType,
 } from "../../announcements/meta";
 
@@ -30,6 +31,8 @@ export interface AnnouncementFormValues {
   imageUrl: string;
   /** Storage id d'un fichier fraîchement téléversé (résolu à l'enregistrement). */
   imageStorageId?: string;
+  /** Lien externe vers un site / une page (affiché pour le type « Annonce »). */
+  externalUrl: string;
   publishMode: "draft" | "now" | "scheduled";
   startDate: string; // datetime-local (local time)
   endDate: string; // datetime-local (local time)
@@ -46,6 +49,7 @@ export const EMPTY_FORM: AnnouncementFormValues = {
   priority: TYPE_PRIORITY.information,
   imageUrl: "",
   imageStorageId: undefined,
+  externalUrl: "",
   publishMode: "now",
   startDate: "",
   endDate: "",
@@ -217,6 +221,34 @@ export function AnnouncementForm({ value, onChange, users, initialImageUrl, disa
             </Select>
           </Field>
         </div>
+
+        {value.type === "annonce" && (
+          <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3">
+            <Field label="Lien externe / URL de destination (optionnel)">
+              <div className="relative">
+                <ExternalLink className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-amber-600 dark:text-amber-400" />
+                <Input
+                  type="url"
+                  value={value.externalUrl}
+                  onChange={(e) => set({ externalUrl: e.target.value })}
+                  placeholder="https://www.example.com/page-annonce"
+                  maxLength={500}
+                  className="h-9 pl-8 text-sm"
+                  disabled={disabled}
+                />
+              </div>
+              {value.externalUrl.trim() && !isValidExternalUrl(value.externalUrl) ? (
+                <p className="text-[10px] font-medium text-red-500">
+                  URL invalide — elle doit commencer par https:// ou http://.
+                </p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground/70">
+                  Un bouton « Visitez » ouvrira ce lien dans un nouvel onglet depuis le Dashboard.
+                </p>
+              )}
+            </Field>
+          </div>
+        )}
 
         <Field label="Image ou icône optionnelle">
           <AnnouncementImageUpload

@@ -1377,6 +1377,7 @@ const schema = defineSchema(
       priority: v.number(),
       imageUrl: v.optional(v.string()),
       imageStorageId: v.optional(v.id("_storage")),
+      externalUrl: v.optional(v.string()),
       status: v.union(
         v.literal("draft"),
         v.literal("scheduled"),

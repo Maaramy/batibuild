@@ -20,7 +20,7 @@ import {
   type AnnouncementFormValues,
 } from "./AnnouncementForm";
 import { AnnouncementPreview } from "./AnnouncementPreview";
-import { TYPE_PRIORITY, type AnnouncementLike } from "../../announcements/meta";
+import { TYPE_PRIORITY, isValidExternalUrl, type AnnouncementLike } from "../../announcements/meta";
 
 export type EditorMode = "create" | "edit" | "duplicate";
 
@@ -41,6 +41,7 @@ function valuesFromAnnouncement(a: AnnouncementLike): AnnouncementFormValues {
     priority: a.priority ?? TYPE_PRIORITY[a.type] ?? 1,
     imageUrl: a.imageUrl ?? "",
     imageStorageId: undefined,
+    externalUrl: a.externalUrl ?? "",
     publishMode:
       a.status === "draft" || (a.status === "scheduled" && !hasFutureStart)
         ? "draft"
@@ -113,6 +114,12 @@ export function AnnouncementEditor({ open, mode, announcement, onClose, onSaved 
       type: values.type,
       priority: values.priority,
       imageUrl: values.imageUrl || undefined,
+      externalUrl:
+        values.type === "annonce" &&
+        values.externalUrl.trim() &&
+        isValidExternalUrl(values.externalUrl)
+          ? values.externalUrl.trim()
+          : undefined,
       status,
       resolvedStatus: status,
       isActive: values.publishMode !== "draft",
@@ -144,6 +151,13 @@ export function AnnouncementEditor({ open, mode, announcement, onClose, onSaved 
       return "Sélectionnez au moins une société.";
     if (values.targetType === "user" && values.targetUserIds.length === 0)
       return "Sélectionnez au moins un utilisateur.";
+    if (
+      values.type === "annonce" &&
+      values.externalUrl.trim() &&
+      !isValidExternalUrl(values.externalUrl)
+    ) {
+      return "Le lien externe doit être une URL valide commençant par https:// ou http://.";
+    }
     return null;
   };
 
@@ -161,6 +175,12 @@ export function AnnouncementEditor({ open, mode, announcement, onClose, onSaved 
       priority: values.priority,
       imageUrl: values.imageUrl.trim() || undefined,
       ...(values.imageStorageId ? { imageStorageId: values.imageStorageId as any } : {}),
+      externalUrl:
+        values.type === "annonce" &&
+        values.externalUrl.trim() &&
+        isValidExternalUrl(values.externalUrl)
+          ? values.externalUrl.trim()
+          : undefined,
       publishMode: values.publishMode,
       startDate: localInputToTs(values.startDate),
       endDate: localInputToTs(values.endDate),

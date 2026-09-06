@@ -70,6 +70,8 @@ const announcementInputValidator = v.object({
   imageUrl: v.optional(v.string()),
   /** Storage id of a newly uploaded image/icon (resolved server-side on save). */
   imageStorageId: v.optional(v.id("_storage")),
+  /** Lien externe (type « Annonce » uniquement) : URL http(s) valide. */
+  externalUrl: v.optional(v.string()),
   publishMode: v.union(
     v.literal("draft"),
     v.literal("now"),
@@ -95,6 +97,7 @@ type AnnouncementInput = {
   priority: number;
   imageUrl?: string;
   imageStorageId?: Id<"_storage">;
+  externalUrl?: string;
   publishMode: "draft" | "now" | "scheduled";
   startDate?: number;
   endDate?: number;
@@ -171,6 +174,25 @@ async function resolveImage(
     imageUrl: input.imageUrl,
     imageStorageId: input.imageUrl ? existing?.imageStorageId : undefined,
   };
+}
+
+/**
+ * Lien externe — réservé au type « Annonce ». Seules les URLs http(s)
+ * valides sont conservées ; tout autre valeur est ignorée.
+ */
+function resolveExternalUrl(type: AnnouncementType, url?: string): string | undefined {
+  if (type !== "annonce") return undefined;
+  const candidate = (url ?? "").trim();
+  if (!candidate) return undefined;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return candidate;
+    }
+  } catch {
+    // URL invalide → ignorée
+  }
+  return undefined;
 }
 
 /** Compute status / isActive / dates from the form input. */
@@ -325,6 +347,7 @@ export const createAnnouncement = mutation({
       priority: input.priority,
       imageUrl: image.imageUrl,
       imageStorageId: image.imageStorageId,
+      externalUrl: resolveExternalUrl(input.type, input.externalUrl),
       status: fields.status,
       isActive: fields.isActive,
       startDate: fields.startDate,
@@ -359,6 +382,7 @@ export const updateAnnouncement = mutation({
       priority: input.priority,
       imageUrl: image.imageUrl,
       imageStorageId: image.imageStorageId,
+      externalUrl: resolveExternalUrl(input.type, input.externalUrl),
       status: fields.status,
       isActive: fields.isActive,
       startDate: fields.startDate,

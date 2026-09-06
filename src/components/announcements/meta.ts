@@ -30,6 +30,8 @@ export interface AnnouncementLike {
   type: AnnouncementType;
   priority: number;
   imageUrl?: string;
+  /** Lien externe vers un site / une page (type « Annonce »). */
+  externalUrl?: string;
   status: AnnouncementStatus;
   isActive: boolean;
   startDate?: number;
@@ -174,4 +176,19 @@ export function formatAnnouncementDate(ts?: number, withTime = false): string {
 
 export function authorName(a: AnnouncementLike): string {
   return a.authorName || "Équipe batibuild";
+}
+
+/**
+ * URL valide pour un lien externe : champ optionnel (vide accepté), sinon
+ * doit commencer par http:// ou https://.
+ */
+export function isValidExternalUrl(url?: string): boolean {
+  const candidate = (url ?? "").trim();
+  if (!candidate) return true;
+  try {
+    const parsed = new URL(candidate);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
