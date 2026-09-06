@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -643,18 +644,33 @@ export default function SupportPage() {
 
       {/* Dialog nouvelle demande */}
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain p-4 gap-3 sm:p-6 sm:gap-4 sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 pr-6 text-base leading-tight sm:text-lg">
-              <MessageSquarePlus className="h-5 w-5 shrink-0 text-primary" />
-              Nouvelle demande de support
-            </DialogTitle>
-            <DialogDescription className="pr-6">
+        <DialogContent
+          showCloseButton={false}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="flex flex-col top-3 translate-y-0 w-[calc(100%-1.5rem)] max-w-[calc(100%-1.5rem)] max-h-[calc(100dvh-1.5rem)] overflow-hidden rounded-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] gap-2 sm:top-[50%] sm:translate-y-[-50%] sm:w-full sm:max-w-lg sm:max-h-[calc(100dvh-4rem)] sm:rounded-lg sm:p-6 sm:gap-4"
+        >
+          <DialogHeader className="shrink-0 gap-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <DialogTitle className="flex items-center gap-2 text-base leading-tight sm:text-lg">
+                <MessageSquarePlus className="h-5 w-5 shrink-0 text-primary" />
+                Nouvelle demande de support
+              </DialogTitle>
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label="Fermer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </DialogClose>
+            </div>
+            <DialogDescription className="text-left">
               Décrivez votre demande — l'équipe support vous répondra directement ici.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-1 sm:space-y-3.5">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain py-1 sm:space-y-3.5">
             <div className="space-y-1.5">
               <label className="text-xs font-medium">Sujet de la demande *</label>
               <Input
@@ -760,7 +776,7 @@ export default function SupportPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 pt-1">
+          <DialogFooter className="shrink-0 gap-2 border-t border-border/50 pt-3 sm:border-0 sm:pt-1">
             <Button
               variant="outline"
               onClick={() => setNewOpen(false)}
