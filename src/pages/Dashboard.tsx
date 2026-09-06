@@ -532,7 +532,6 @@ export default function Dashboard() {
               { icon: Plus, label: "Nouveau projet", onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
               { icon: Rocket, label: "Démarche de construction", onClick: () => { navigate("/dashboard/guide"); setMobileSidebarOpen(false); } },
               { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
-              { icon: BarChart3, label: "Comparer", onClick: () => setMobileSidebarOpen(false) },
               { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
               { icon: Sparkles, label: "Assistant Matériaux IA", onClick: () => { navigate("/dashboard/ai-materials"); setMobileSidebarOpen(false); } },
               { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
@@ -844,10 +843,10 @@ export default function Dashboard() {
             </>
           )}
 
-          {/* ══════ ANNONCES (communications de l'équipe) ══════ */}
+          {/* ══════ COMMUNICATIONS (équipe BatiBuild) ══════ */}
           <AnnouncementCarousel
             announcements={announcements}
-            title="Annonces"
+            title="Communications"
             description="Communications officielles de la plateforme"
           />
 

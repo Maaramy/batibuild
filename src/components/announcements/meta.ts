@@ -30,7 +30,7 @@ export interface AnnouncementLike {
   type: AnnouncementType;
   priority: number;
   imageUrl?: string;
-  /** Lien externe vers un site / une page (type « Annonce »). */
+  /** Lien externe vers un site / une page (type « Advertisement »). */
   externalUrl?: string;
   status: AnnouncementStatus;
   isActive: boolean;
@@ -80,7 +80,7 @@ export const ANNOUNCEMENT_TYPE_META: Record<
   }
 > = {
   annonce: {
-    label: "Annonce",
+    label: "Advertisement",
     emoji: "🟡",
     icon: Megaphone,
     badge: "bg-amber-400/20 text-amber-900 border-amber-500/40 dark:bg-amber-400/20 dark:text-amber-100 dark:border-amber-300/40",
@@ -172,10 +172,6 @@ export function formatAnnouncementDate(ts?: number, withTime = false): string {
   } catch {
     return "—";
   }
-}
-
-export function authorName(a: AnnouncementLike): string {
-  return a.authorName || "Équipe batibuild";
 }
 
 /**

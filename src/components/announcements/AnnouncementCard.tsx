@@ -1,11 +1,9 @@
 import { cn } from "@/lib/utils";
-import { CalendarDays, UserRound, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { AnnouncementBadge } from "./AnnouncementBadge";
 import { AnnouncementAvatar } from "./AnnouncementAvatar";
 import {
   ANNOUNCEMENT_TYPE_META,
-  authorName,
-  formatAnnouncementDate,
   type AnnouncementLike,
 } from "./meta";
 
@@ -73,14 +71,6 @@ export function AnnouncementCard({ announcement: a, onClick, compact, className 
         </p>
 
         <div className="mt-auto flex items-center gap-3 pt-2 text-[10px] text-muted-foreground/80">
-          <span className="inline-flex items-center gap-1">
-            <CalendarDays className="h-3 w-3" />
-            {formatAnnouncementDate(a.startDate ?? a.createdAt)}
-          </span>
-          <span className="inline-flex items-center gap-1 truncate">
-            <UserRound className="h-3 w-3 shrink-0" />
-            <span className="truncate">{authorName(a)}</span>
-          </span>
           <span className="ml-auto flex shrink-0 items-center gap-2">
             {externalUrl && (
               <a

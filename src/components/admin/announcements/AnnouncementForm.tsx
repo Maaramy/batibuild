@@ -31,7 +31,7 @@ export interface AnnouncementFormValues {
   imageUrl: string;
   /** Storage id d'un fichier fraîchement téléversé (résolu à l'enregistrement). */
   imageStorageId?: string;
-  /** Lien externe vers un site / une page (affiché pour le type « Annonce »). */
+  /** Lien externe vers un site / une page (affiché pour le type « Advertisement »). */
   externalUrl: string;
   publishMode: "draft" | "now" | "scheduled";
   startDate: string; // datetime-local (local time)
@@ -158,7 +158,7 @@ export function AnnouncementForm({ value, onChange, users, initialImageUrl, disa
           <Layers className="h-3 w-3" /> Informations principales
         </p>
 
-        <Field label="Titre de l'annonce" required>
+        <Field label="Titre de la communication" required>
           <Input
             value={value.title}
             onChange={(e) => set({ title: e.target.value })}
@@ -173,7 +173,7 @@ export function AnnouncementForm({ value, onChange, users, initialImageUrl, disa
           <Textarea
             value={value.content}
             onChange={(e) => set({ content: e.target.value })}
-            placeholder="Décrivez le contenu de l'annonce…"
+            placeholder="Décrivez le contenu de la communication…"
             rows={4}
             className="text-sm"
             disabled={disabled}
@@ -181,7 +181,7 @@ export function AnnouncementForm({ value, onChange, users, initialImageUrl, disa
         </Field>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Type d'annonce" required>
+          <Field label="Type de communication" required>
             <Select
               value={value.type}
               onValueChange={(t) =>
@@ -231,7 +231,7 @@ export function AnnouncementForm({ value, onChange, users, initialImageUrl, disa
                   type="url"
                   value={value.externalUrl}
                   onChange={(e) => set({ externalUrl: e.target.value })}
-                  placeholder="https://www.example.com/page-annonce"
+                  placeholder="https://www.example.com/page-advertisement"
                   maxLength={500}
                   className="h-9 pl-8 text-sm"
                   disabled={disabled}
@@ -243,7 +243,7 @@ export function AnnouncementForm({ value, onChange, users, initialImageUrl, disa
                 </p>
               ) : (
                 <p className="text-[10px] text-muted-foreground/70">
-                  Un bouton « Visitez » ouvrira ce lien dans un nouvel onglet depuis le Dashboard.
+                  Un bouton « Visitez » ouvrira ce lien dans un nouvel onglet depuis le tableau de bord des utilisateurs.
                 </p>
               )}
             </Field>

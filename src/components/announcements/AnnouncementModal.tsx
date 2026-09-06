@@ -6,13 +6,11 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { CalendarDays, UserRound, Megaphone, ExternalLink } from "lucide-react";
+import { Megaphone, ExternalLink } from "lucide-react";
 import { AnnouncementBadge } from "./AnnouncementBadge";
 import { AnnouncementAvatar } from "./AnnouncementAvatar";
 import {
   ANNOUNCEMENT_TYPE_META,
-  authorName,
-  formatAnnouncementDate,
   type AnnouncementLike,
 } from "./meta";
 
@@ -43,7 +41,7 @@ export function AnnouncementModal({ announcement: a, onClose }: Props) {
             )}
             <div className="min-w-0">
               <DialogTitle className="text-base leading-snug pt-1">{a.title}</DialogTitle>
-              <DialogDescription className="sr-only">Détail de l'annonce</DialogDescription>
+              <DialogDescription className="sr-only">Détail de la communication</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -51,19 +49,6 @@ export function AnnouncementModal({ announcement: a, onClose }: Props) {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <AnnouncementBadge type={a.type} />
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-              <CalendarDays className="h-3 w-3" />
-              Publiée le {formatAnnouncementDate(a.startDate ?? a.createdAt)}
-            </span>
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-              <UserRound className="h-3 w-3" />
-              {authorName(a)}
-            </span>
-            {a.endDate && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/70">
-                · Jusqu'au {formatAnnouncementDate(a.endDate)}
-              </span>
-            )}
           </div>
 
           <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">

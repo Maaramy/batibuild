@@ -37,7 +37,7 @@ export const TYPE_PRIORITY: Record<AnnouncementType, number> = {
 };
 
 export const ANNOUNCEMENT_TYPE_LABELS: Record<AnnouncementType, string> = {
-  annonce: "Annonce",
+  annonce: "Advertisement",
   information: "Information",
   news: "Nouveauté",
   important: "Important",
@@ -70,7 +70,7 @@ const announcementInputValidator = v.object({
   imageUrl: v.optional(v.string()),
   /** Storage id of a newly uploaded image/icon (resolved server-side on save). */
   imageStorageId: v.optional(v.id("_storage")),
-  /** Lien externe (type « Annonce » uniquement) : URL http(s) valide. */
+  /** Lien externe (type « Advertisement » uniquement) : URL http(s) valide. */
   externalUrl: v.optional(v.string()),
   publishMode: v.union(
     v.literal("draft"),
@@ -177,7 +177,7 @@ async function resolveImage(
 }
 
 /**
- * Lien externe — réservé au type « Annonce ». Seules les URLs http(s)
+ * Lien externe — réservé au type « Advertisement ». Seules les URLs http(s)
  * valides sont conservées ; tout autre valeur est ignorée.
  */
 function resolveExternalUrl(type: AnnouncementType, url?: string): string | undefined {
@@ -369,7 +369,7 @@ export const updateAnnouncement = mutation({
   handler: async (ctx, { id, input }) => {
     await requireAdmin(ctx);
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Annonce introuvable");
+    if (!existing) throw new Error("Communication introuvable");
 
     const now = Date.now();
     const fields = resolveWriteFields(input, now);
@@ -401,7 +401,7 @@ export const deleteAnnouncement = mutation({
   handler: async (ctx, { id }) => {
     await requireAdmin(ctx);
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Annonce introuvable");
+    if (!existing) throw new Error("Communication introuvable");
     if (existing.imageStorageId) {
       await ctx.storage.delete(existing.imageStorageId).catch(() => undefined);
     }
@@ -414,7 +414,7 @@ export const activateAnnouncement = mutation({
   handler: async (ctx, { id }) => {
     await requireAdmin(ctx);
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Annonce introuvable");
+    if (!existing) throw new Error("Communication introuvable");
     const now = Date.now();
     const status = resolveStatus("published", true, existing.startDate, existing.endDate, now);
     await ctx.db.patch(id, { isActive: true, status, updatedAt: now });
@@ -426,7 +426,7 @@ export const deactivateAnnouncement = mutation({
   handler: async (ctx, { id }) => {
     await requireAdmin(ctx);
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Annonce introuvable");
+    if (!existing) throw new Error("Communication introuvable");
     await ctx.db.patch(id, { isActive: false, status: "disabled", updatedAt: Date.now() });
   },
 });
@@ -436,7 +436,7 @@ export const duplicateAnnouncement = mutation({
   handler: async (ctx, { id }) => {
     await requireAdmin(ctx);
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Annonce introuvable");
+    if (!existing) throw new Error("Communication introuvable");
     const now = Date.now();
     return await ctx.db.insert("announcements", {
       title: `${existing.title} (copie)`,

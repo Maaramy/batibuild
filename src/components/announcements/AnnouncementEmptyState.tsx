@@ -7,11 +7,11 @@ interface Props {
 }
 
 /**
- * Friendly empty state for the announcements section (dashboard) or the
+ * Friendly empty state for the communications section (dashboard) or the
  * filtered admin list.
  */
 export function AnnouncementEmptyState({
-  title = "Aucune annonce pour le moment",
+  title = "Aucune communication pour le moment",
   description = "Les communications de l'équipe batibuild apparaîtront ici.",
   compact,
 }: Props) {

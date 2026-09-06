@@ -7,8 +7,8 @@ interface Props {
 }
 
 /**
- * Type pill for an announcement (Information / Nouveauté / Important /
- * Urgent / Maintenance) with a distinct color and icon.
+ * Type pill for a communication (Advertisement / Information / Nouveauté /
+ * Important / Urgent / Maintenance) with a distinct color and icon.
  */
 export function AnnouncementBadge({ type, className }: Props) {
   const meta = ANNOUNCEMENT_TYPE_META[type] ?? ANNOUNCEMENT_TYPE_META.information;

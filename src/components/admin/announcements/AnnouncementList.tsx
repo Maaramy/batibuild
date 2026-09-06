@@ -66,7 +66,7 @@ const DEFAULT_FILTERS: AnnouncementFiltersState = {
 };
 
 /**
- * Gestion des annonces — list + filters + drag & drop + row actions.
+ * Gestion des communications — list + filters + drag & drop + row actions.
  */
 export function AnnouncementList() {
   const announcements = useQuery(api.announcements.getAnnouncements) || [];
@@ -90,7 +90,7 @@ export function AnnouncementList() {
       if (filters.type !== "all" && a.type !== filters.type) return false;
       if (filters.status !== "all" && a.resolvedStatus !== filters.status) return false;
       if (q) {
-        const hay = `${a.title} ${a.content} ${a.authorName ?? ""}`.toLowerCase();
+        const hay = `${a.title} ${a.content}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -108,10 +108,10 @@ export function AnnouncementList() {
     try {
       if (a.resolvedStatus === "disabled" || !a.isActive) {
         await activateAnnouncement({ id: a._id as any });
-        toast.success("Annonce activée");
+        toast.success("Communication activée");
       } else {
         await deactivateAnnouncement({ id: a._id as any });
-        toast.success("Annonce désactivée");
+        toast.success("Communication désactivée");
       }
     } catch (err: any) {
       toast.error(err.message || "Erreur");
@@ -124,7 +124,7 @@ export function AnnouncementList() {
     setBusyId(a._id);
     try {
       await duplicateAnnouncement({ id: a._id as any });
-      toast.success("Annonce dupliquée (brouillon)");
+      toast.success("Communication dupliquée (brouillon)");
     } catch (err: any) {
       toast.error(err.message || "Erreur");
     } finally {
@@ -135,7 +135,7 @@ export function AnnouncementList() {
   const handleDelete = async (a: AnnouncementLike) => {
     try {
       await deleteAnnouncement({ id: a._id as any });
-      toast.success("Annonce supprimée");
+      toast.success("Communication supprimée");
     } catch (err: any) {
       toast.error(err.message || "Erreur");
     }
@@ -171,9 +171,9 @@ export function AnnouncementList() {
             <Megaphone className="h-4.5 w-4.5" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold leading-tight">Gestion des annonces</h2>
+            <h2 className="text-lg font-semibold leading-tight">Gestion des communications</h2>
             <p className="text-xs text-muted-foreground">
-              {announcements.length} annonce(s) · {announcements.filter((a) => a.resolvedStatus === "published").length} visible(s)
+              {announcements.length} communication(s) · {announcements.filter((a) => a.resolvedStatus === "published").length} visible(s)
             </p>
           </div>
         </div>
@@ -183,7 +183,7 @@ export function AnnouncementList() {
           onClick={() => openEditor("create")}
         >
           <Plus className="h-3.5 w-3.5" />
-          Créer une annonce
+          Créer une communication
         </Button>
       </div>
 
@@ -195,13 +195,13 @@ export function AnnouncementList() {
         <AnnouncementEmptyState
           title={
             announcements.length === 0
-              ? "Aucune annonce"
-              : "Aucune annonce ne correspond aux filtres"
+              ? "Aucune communication"
+              : "Aucune communication ne correspond aux filtres"
           }
           description={
             announcements.length === 0
-              ? "Créez votre première annonce pour communiquer avec vos utilisateurs."
-              : "Modifiez la recherche ou les filtres pour afficher d'autres annonces."
+              ? "Créez votre première communication pour communiquer avec vos utilisateurs."
+              : "Modifiez la recherche ou les filtres pour afficher d'autres communications."
           }
         />
       ) : (
@@ -216,7 +216,6 @@ export function AnnouncementList() {
                 <th className="text-center py-3 px-3 font-medium text-muted-foreground text-xs">Statut</th>
                 <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Publication</th>
                 <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Expiration</th>
-                <th className="text-left py-3 px-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Auteur</th>
                 <th className="text-right py-3 px-3 font-medium text-muted-foreground text-xs">Actions</th>
               </tr>
             </thead>
@@ -281,11 +280,6 @@ export function AnnouncementList() {
                       {a.endDate ? formatAnnouncementDate(a.endDate) : "—"}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 hidden lg:table-cell">
-                    <span className="text-[11px] text-muted-foreground truncate max-w-[120px] block">
-                      {a.authorName || "Équipe batibuild"}
-                    </span>
-                  </td>
                   <td className="py-2.5 px-3">
                     <div className="flex items-center justify-end gap-0.5">
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Voir" onClick={() => setViewing(a)}>
@@ -321,7 +315,7 @@ export function AnnouncementList() {
                         </AlertDialogTrigger>
                         <AlertDialogContent className="rounded-2xl">
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Supprimer cette annonce ?</AlertDialogTitle>
+                            <AlertDialogTitle>Supprimer cette communication ?</AlertDialogTitle>
                             <AlertDialogDescription>
                               « {a.title} » sera définitivement supprimée. Cette action est irréversible.
                             </AlertDialogDescription>

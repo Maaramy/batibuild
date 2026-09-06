@@ -87,7 +87,7 @@ interface Props {
 }
 
 /**
- * Upload d'image / icône d'annonce : remplace la saisie manuelle d'une URL.
+ * Upload d'image / icône de communication : remplace la saisie manuelle d'une URL.
  * Sélection depuis la galerie / les fichiers, Drag & Drop sur desktop,
  * validation (type + taille), optimisation automatique, aperçu immédiat et
  * actions Changer / Supprimer / Annuler.
@@ -133,7 +133,7 @@ export function AnnouncementImageUpload({ url, storageId, initialUrl, onChange, 
       const data = (await res.json()) as { storageId?: string };
       if (!data.storageId) throw new Error("Réponse du serveur invalide.");
       commit({ imageUrl: URL.createObjectURL(optimized), imageStorageId: data.storageId });
-      toast.success("Image prête — enregistrez l'annonce pour l'appliquer.");
+      toast.success("Image prête — enregistrez la communication pour l'appliquer.");
     } catch (err: any) {
       toast.error(err.message || "Erreur lors du téléversement de l'image.");
     } finally {
@@ -151,7 +151,7 @@ export function AnnouncementImageUpload({ url, storageId, initialUrl, onChange, 
       <div className="space-y-2">
         <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-3">
           <div className="relative shrink-0">
-            <AnnouncementAvatar src={url} alt="Aperçu de l'image de l'annonce" />
+            <AnnouncementAvatar src={url} alt="Aperçu de l'image de la communication" />
             {uploading && (
               <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/70 backdrop-blur-[1px]">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -163,7 +163,7 @@ export function AnnouncementImageUpload({ url, storageId, initialUrl, onChange, 
               {uploading ? "Téléversement en cours…" : "Image / icône ajoutée"}
             </p>
             <p className="text-[10px] leading-relaxed text-muted-foreground/70">
-              Aperçu du rendu final : affichée en cercle, à gauche du titre de l'annonce (32 px mobile · 40 px bureau).
+              Aperçu du rendu final : affichée en cercle, à gauche du titre de la communication (32 px mobile · 40 px bureau).
             </p>
           </div>
         </div>

@@ -11,7 +11,6 @@ import { Loader2, Save, X, CopyPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useAuth } from "@/hooks/use-auth";
 import {
   AnnouncementForm,
   EMPTY_FORM,
@@ -61,7 +60,6 @@ function valuesFromAnnouncement(a: AnnouncementLike): AnnouncementFormValues {
  * Create / edit / duplicate dialog with live preview.
  */
 export function AnnouncementEditor({ open, mode, announcement, onClose, onSaved }: Props) {
-  const { user } = useAuth();
   const [values, setValues] = useState<AnnouncementFormValues>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
@@ -109,8 +107,8 @@ export function AnnouncementEditor({ open, mode, announcement, onClose, onSaved 
           : "published";
     return {
       _id: "preview",
-      title: values.title || "Titre de l'annonce",
-      content: values.content || "Contenu de l'annonce…",
+      title: values.title || "Titre de la communication",
+      content: values.content || "Contenu de la communication…",
       type: values.type,
       priority: values.priority,
       imageUrl: values.imageUrl || undefined,
@@ -129,9 +127,8 @@ export function AnnouncementEditor({ open, mode, announcement, onClose, onSaved 
       targetCompanyNames: values.targetCompanyNames,
       targetRoles: values.targetRoles,
       targetUserIds: values.targetUserIds,
-      authorName: user?.name || "Équipe batibuild",
     };
-  }, [values, user?.name]);
+  }, [values]);
 
   const validate = (): string | null => {
     if (!values.title.trim()) return "Le titre est obligatoire.";
@@ -196,10 +193,10 @@ export function AnnouncementEditor({ open, mode, announcement, onClose, onSaved 
     try {
       if (mode === "edit" && announcement) {
         await updateAnnouncement({ id: announcement._id as any, input });
-        toast.success("Annonce mise à jour");
+        toast.success("Communication mise à jour");
       } else {
         await createAnnouncement({ input });
-        toast.success(mode === "duplicate" ? "Annonce dupliquée" : "Annonce créée");
+        toast.success(mode === "duplicate" ? "Communication dupliquée" : "Communication créée");
       }
       onSaved();
       onClose();
@@ -222,10 +219,10 @@ export function AnnouncementEditor({ open, mode, announcement, onClose, onSaved 
             ) : (
               <span className="text-primary">📢</span>
             )}
-            {mode === "create" ? "Créer une annonce" : mode === "edit" ? "Modifier l'annonce" : "Dupliquer l'annonce"}
+            {mode === "create" ? "Créer une communication" : mode === "edit" ? "Modifier la communication" : "Dupliquer la communication"}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Formulaire de création ou de modification d'une annonce
+            Formulaire de création ou de modification d'une communication
           </DialogDescription>
         </DialogHeader>
 

@@ -25,7 +25,7 @@ interface Props {
 export function AnnouncementCarousel({
   announcements,
   intervalSeconds = 5,
-  title = "Annonces",
+  title = "Communications",
   description,
   className,
 }: Props) {
@@ -138,7 +138,7 @@ export function AnnouncementCarousel({
             <button
               type="button"
               onClick={() => go(-1)}
-              aria-label="Annonce précédente"
+              aria-label="Communication précédente"
               className="absolute left-1.5 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border border-border/50 bg-background/90 text-foreground/70 shadow-sm backdrop-blur-sm transition-all hover:bg-background hover:text-foreground active:scale-95"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -146,7 +146,7 @@ export function AnnouncementCarousel({
             <button
               type="button"
               onClick={() => go(1)}
-              aria-label="Annonce suivante"
+              aria-label="Communication suivante"
               className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border border-border/50 bg-background/90 text-foreground/70 shadow-sm backdrop-blur-sm transition-all hover:bg-background hover:text-foreground active:scale-95"
             >
               <ChevronRight className="h-4 w-4" />
@@ -159,7 +159,7 @@ export function AnnouncementCarousel({
                   key={a._id}
                   type="button"
                   onClick={() => setIndex(i)}
-                  aria-label={`Aller à l'annonce ${i + 1}`}
+                  aria-label={`Aller à la communication ${i + 1}`}
                   aria-current={i === index}
                   className={cn(
                     "h-1.5 rounded-full transition-all duration-300",
