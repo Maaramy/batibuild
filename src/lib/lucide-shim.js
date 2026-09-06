@@ -228,4 +228,3 @@ export { default as Paperclip } from "../../node_modules/lucide-react/dist/esm/i
 export { default as Ticket } from "../../node_modules/lucide-react/dist/esm/icons/ticket.js";
 export { default as Headset } from "../../node_modules/lucide-react/dist/esm/icons/headset.js";
 export { default as CircleAlert } from "../../node_modules/lucide-react/dist/esm/icons/circle-alert.js";
-export { default as CircleCheck } from "../../node_modules/lucide-react/dist/esm/icons/circle-check.js";
