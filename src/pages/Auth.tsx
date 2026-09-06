@@ -45,6 +45,21 @@ function getRedirect(returnTo: string | null, fallback = "/dashboard") {
   return returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : fallback;
 }
 
+// Validation commune des champs d'inscription : le nom complet et le numéro
+// de téléphone sont obligatoires et contrôlés AVANT la création du compte.
+function registrationFieldsError(fd: FormData): string | null {
+  const name = String(fd.get("name") || "").trim();
+  const phone = String(fd.get("phone") || "").trim();
+  if (name.length < 2) {
+    return "Veuillez renseigner votre nom complet.";
+  }
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 8 || digits.length > 15) {
+    return "Veuillez renseigner un numéro de téléphone valide.";
+  }
+  return null;
+}
+
 // Animation presets
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -355,13 +370,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setIsLoading(false);
       return;
     }
+    const fd = new FormData(e.currentTarget);
+    if (tab === "register") {
+      const invalid = registrationFieldsError(fd);
+      if (invalid) { setError(invalid); setIsLoading(false); return; }
+    }
     try {
-      const fd = new FormData(e.currentTarget);
       await signIn("email-otp", fd);
       if (tab === "register") {
-        const name = fd.get("name") as string;
-        const phone = fd.get("phone") as string;
-        pendingProfileRef.current = { name: name || "", phone: phone || "", userRole };
+        const name = String(fd.get("name") || "").trim();
+        const phone = String(fd.get("phone") || "").trim();
+        pendingProfileRef.current = { name, phone, userRole };
       }
       setStep({ email: fd.get("email") as string });
     } catch { setError("Échec d'envoi du code."); }
@@ -443,13 +462,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     const cpw = fd.get("confirmPassword") as string;
     if (pw !== cpw) { setError("Les mots de passe ne correspondent pas."); setIsLoading(false); return; }
     if (pw.length < 8) { setError("8 caractères minimum."); setIsLoading(false); return; }
+    const invalidReg = registrationFieldsError(fd);
+    if (invalidReg) { setError(invalidReg); setIsLoading(false); return; }
     try {
       fd.set("flow", "signUp");
       const result = await signIn("password", fd);
       // Store profile data for useEffect to save once auth is confirmed
-      const phone = fd.get("phone") as string;
-      const name = fd.get("name") as string;
-      pendingProfileRef.current = { name: name || "", phone: phone || "", userRole };
+      const phone = String(fd.get("phone") || "").trim();
+      const name = String(fd.get("name") || "").trim();
+      pendingProfileRef.current = { name, phone, userRole };
       if (!result.signingIn) {
         // New accounts must validate their e-mail with the OTP code sent by e-mail
         pendingPasswordRef.current = fd;

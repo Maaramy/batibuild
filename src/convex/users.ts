@@ -70,6 +70,7 @@ export const adminUpdateUserRole = mutation({
 
     await ctx.db.patch(args.userId, {
       role: args.role,
+      updatedAt: Date.now(),
     });
 
     const targetUser = await ctx.db.get(args.userId);
@@ -99,7 +100,7 @@ export const adminSetUserProfileRole = mutation({
       throw new Error("Unauthorized: Admin access required");
     }
 
-    await ctx.db.patch(args.userId, { userRole: args.userRole });
+    await ctx.db.patch(args.userId, { userRole: args.userRole, updatedAt: Date.now() });
 
     const targetUser = await ctx.db.get(args.userId);
     const roleLabel = args.userRole === "supplier" ? "Fournisseur" : args.userRole === "expert" ? "Expert" : "Client Pro";
@@ -132,6 +133,7 @@ export const adminUpdateUserPlan = mutation({
     await ctx.db.patch(args.userId, {
       subscriptionPlan: args.plan,
       subscriptionEndDate: now + planDuration,
+      updatedAt: now,
     });
 
     // Also update/create subscription record
@@ -189,11 +191,18 @@ export const updateProfile = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
 
+    const now = Date.now();
     const patch: Record<string, any> = {};
-    if (args.name !== undefined) patch.name = args.name;
-    if (args.company !== undefined) patch.company = args.company;
-    if (args.phone !== undefined) patch.phone = args.phone;
+    if (args.name !== undefined) patch.name = args.name.trim();
+    if (args.company !== undefined) patch.company = args.company.trim();
+    if (args.phone !== undefined) patch.phone = args.phone.trim();
     if (args.emailNotifications !== undefined) patch.emailNotifications = args.emailNotifications;
+
+    // Horodatage centralisé : créé une fois (depuis _creationTime si absent
+    // pour les comptes plus anciens), puis dernière modification à chaque
+    // enregistrement du profil.
+    if (!user.createdAt) patch.createdAt = user._creationTime;
+    patch.updatedAt = now;
 
     await ctx.db.patch(user._id, patch);
     return { success: true };
@@ -218,7 +227,7 @@ export const setUserRole = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
-    await ctx.db.patch(user._id, { userRole: args.userRole });
+    await ctx.db.patch(user._id, { userRole: args.userRole, updatedAt: Date.now() });
     return { success: true };
   },
 });
@@ -244,7 +253,7 @@ export const updateProfileImage = mutation({
     const imageUrl = await ctx.storage.getUrl(args.storageId);
     if (!imageUrl) throw new Error("Impossible de récupérer l'image");
 
-    await ctx.db.patch(user._id, { image: imageUrl });
+    await ctx.db.patch(user._id, { image: imageUrl, updatedAt: Date.now() });
     return { url: imageUrl };
   },
 });

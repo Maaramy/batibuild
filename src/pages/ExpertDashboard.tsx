@@ -12,6 +12,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useQuery, useMutation } from "convex/react";
@@ -487,6 +488,7 @@ export default function ExpertDashboard() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-muted/20 pb-8">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        <ProfileCompletionBanner />
         {/* Header */}
         <div className="flex items-center gap-2">
           <button onClick={() => navigate("/dashboard")}

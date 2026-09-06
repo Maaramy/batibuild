@@ -16,6 +16,7 @@ import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { AnnouncementCarousel } from "@/components/announcements/AnnouncementCarousel";
+import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import { useQuery, useMutation } from "convex/react";
 import {
   LayoutDashboard,
@@ -734,6 +735,9 @@ export default function Dashboard() {
         </header>
 
         <div className="p-3 sm:p-5 lg:p-6 xl:p-8 space-y-3 sm:space-y-4 lg:space-y-6">
+          {/* ══════ PROFIL INCOMPLET (nom / téléphone manquants) ══════ */}
+          <ProfileCompletionBanner />
+
           {/* ══════ NOTIFICATION BANNERS (Supplier / Expert) ══════ */}
           {isSupplier && (
             <>

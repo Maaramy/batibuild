@@ -3435,7 +3435,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                           )}
                         </td>
                         <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
-                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString("fr-FR") : "—"}
+                          {(u.createdAt ?? (u as any)._creationTime)
+                            ? new Date(u.createdAt ?? (u as any)._creationTime).toLocaleDateString("fr-FR")
+                            : "—"}
                         </td>
                         <td className="py-2.5 px-2 text-right">
                           <div className="flex items-center justify-end gap-1">

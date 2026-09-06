@@ -418,6 +418,7 @@ const schema = defineSchema(
         v.literal("expert"),
       )),
       createdAt: v.optional(v.number()),
+      updatedAt: v.optional(v.number()),
     })
       .index("email", ["email"])
       .index("subscriptionPlan", ["subscriptionPlan"]),

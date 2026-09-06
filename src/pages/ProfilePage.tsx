@@ -31,6 +31,7 @@ import {
   EyeOff,
   Lock,
   CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -136,9 +137,20 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
+    // Le nom complet et le téléphone sont la source centralisée utilisée sur
+    // toute la plateforme : on empêche leur suppression accidentelle.
+    if (!name.trim()) {
+      toast.error("Le nom complet est obligatoire.");
+      return;
+    }
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (phoneDigits.length < 8 || phoneDigits.length > 15) {
+      toast.error("Veuillez saisir un numéro de téléphone valide.");
+      return;
+    }
     setSaving(true);
     try {
-      await updateProfile({ name, company, phone, emailNotifications: emailNotifs });
+      await updateProfile({ name: name.trim(), company, phone: phone.trim(), emailNotifications: emailNotifs });
       toast.success("Profil mis à jour");
     } catch (err) {
       toast.error("Erreur lors de la mise à jour");
@@ -236,10 +248,20 @@ export default function ProfilePage() {
               </div>
             </CardHeader>
             <CardContent className="p-5 sm:p-6 pt-0 space-y-4">
+              {(!user?.name?.trim() || !user?.phone?.trim()) && (
+                <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 dark:border-amber-800/30 dark:bg-amber-950/30">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                  <p className="text-xs text-foreground">
+                    Votre profil est incomplet : renseignez votre <strong>nom complet</strong> et votre{" "}
+                    <strong>numéro de téléphone</strong>. Ces informations sont utilisées sur toute la
+                    plateforme (projets, devis, paiements, notifications).
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="label-overline flex items-center gap-1.5">
-                    <User className="h-3 w-3" /> Nom complet
+                    <User className="h-3 w-3" /> Nom complet <span className="text-destructive">*</span>
                   </label>
                   <Input
                     value={name}
@@ -272,7 +294,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="label-overline flex items-center gap-1.5">
-                    <Phone className="h-3 w-3" /> Téléphone
+                    <Phone className="h-3 w-3" /> Téléphone <span className="text-destructive">*</span>
                   </label>
                   <Input
                     value={phone}
