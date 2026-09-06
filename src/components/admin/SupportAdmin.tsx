@@ -540,7 +540,7 @@ export default function SupportAdmin() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {messages.map((m) => {
+                    {(messages ?? []).map((m) => {
                       const fromUser = m.senderRole === "user";
                       return (
                         <div key={m._id} className={cn("flex gap-2.5", fromUser ? "justify-start" : "justify-end")}>

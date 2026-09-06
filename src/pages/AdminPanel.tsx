@@ -18,6 +18,7 @@ import EmailSettings from "./EmailSettings";
 import EmailTemplates from "./EmailTemplates";
 import EmailHistory from "./EmailHistory";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
+import SupportAdmin from "@/components/admin/SupportAdmin";
 import { AnnouncementList } from "@/components/admin/announcements/AnnouncementList";
 import { useState, useEffect } from "react";
 import {
@@ -90,6 +91,7 @@ import {
   Landmark,
   Newspaper,
   Megaphone,
+  Headset,
 } from "lucide-react";
 
 // ============================================================================
@@ -99,7 +101,9 @@ import {
 export default function AdminPanel() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("dashboard");
+  // Agent support : ouvre directement le module Support & Messagerie
+  const isSupportAgentRole = user?.role === ("support_agent" as any);
+  const [activeTab, setActiveTab] = useState(isSupportAgentRole ? "support" : "dashboard");
   const [recusFilter, setRecusFilter] = useState<string>("all");
   const [supplierRecusFilter, setSupplierRecusFilter] = useState<string>("all");
   const [expertSearch, setExpertSearch] = useState("");
@@ -294,12 +298,16 @@ export default function AdminPanel() {
   // Roles with access to the admin panel
   const isAdmin = user?.role === "admin";
   const isModerator = user?.role === "moderator";
-  // Tabs the moderator role can access
-  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs", "experts"];
-  const canSee = (tab: string) => isAdmin || MODERATOR_TABS.includes(tab);
+  // Onglets accessibles au modérateur (le module support est accessible à tout le staff)
+  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs", "experts", "support"];
+  // Agent support : accès uniquement au module Support & Messagerie
+  const canSee = (tab: string) =>
+    isAdmin ||
+    MODERATOR_TABS.includes(tab) ||
+    (isSupportAgentRole && tab === "support");
 
-  // Check if user is admin/moderator
-  if (user && !isAdmin && !isModerator) {
+  // Check if user is admin/moderator/support agent
+  if (user && !isAdmin && !isModerator && !isSupportAgentRole) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
         <div>
@@ -326,6 +334,9 @@ export default function AdminPanel() {
           </Card>
         </div>
       </main>
+  );
+}
+
     );
   }
 
@@ -747,6 +758,17 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <TabsTrigger value="analytics" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Globe className="h-3.5 w-3.5" />
                 <span>Analytics</span>
+              </TabsTrigger>
+              )}
+              {canSee("support") && (
+              <TabsTrigger value="support" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Headset className="h-3.5 w-3.5" />
+                <span>Support</span>
+                {supportUnread > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm">
+                    {supportUnread}
+                  </span>
+                )}
               </TabsTrigger>
               )}
             </TabsList>

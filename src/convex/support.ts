@@ -584,14 +584,14 @@ export const adminUnreadTotal = query({
   handler: async (ctx) => {
     const agent = await getSupportAgent(ctx);
     if (!agent || !isSupportAgent(agent)) return 0;
-    const tickets = await ctx.db
-      .query("supportTickets")
-      .withIndex("by_status", (q: any) => q.eq("status", "open"))
-      .collect();
-    return tickets.reduce(
-      (s: number, t: Doc<"supportTickets">) => s + (t.adminUnreadCount ?? 0),
-      0,
-    );
+    const tickets = await ctx.db.query("supportTickets").collect();
+    // Compteur temps réel : messages non lus sur tous les tickets non fermés
+    return tickets
+      .filter((t: Doc<"supportTickets">) => t.status !== "closed")
+      .reduce(
+        (s: number, t: Doc<"supportTickets">) => s + (t.adminUnreadCount ?? 0),
+        0,
+      );
   },
 });
 
