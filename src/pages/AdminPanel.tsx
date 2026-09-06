@@ -146,6 +146,8 @@ export default function AdminPanel() {
   const pendingSubs = useQuery(api.subscriptions.getPendingSubscriptions) || [];
   const allSubsWithUsers = useQuery(api.subscriptions.getAllSubscriptionsWithUsers) || [];
   const allUsers = useQuery(api.users.getAllUsers) || [];
+  // Compteur temps réel de messages non lus dans le module Support (badge onglet)
+  const supportUnread = useQuery(api.support.adminUnreadTotal) || 0;
 
   const approveSub = useMutation(api.subscriptions.adminApproveSubscription);
   const rejectSub = useMutation(api.subscriptions.adminRejectSubscription);
@@ -334,9 +336,6 @@ export default function AdminPanel() {
           </Card>
         </div>
       </main>
-  );
-}
-
     );
   }
 
