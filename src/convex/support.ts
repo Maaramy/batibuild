@@ -198,7 +198,6 @@ export const adminGetTickets = query({
           userPhone: u?.phone ?? null,
           userImage: u?.image ?? null,
           userCompany: u?.company ?? null,
-          messageCount: lastMessage ? undefined : 0,
           lastMessageBody: lastMessage?.body ?? null,
         };
       }),

@@ -2,6 +2,14 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, mutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { roleValidator, subscriptionPlanValidator } from "./schema";
+
+/** Libellés FR des rôles système (journal admin). */
+const ROLE_LOG_LABELS: Record<string, string> = {
+  admin: "Administrateur",
+  moderator: "Modérateur",
+  support_agent: "Agent support",
+  user: "Utilisateur",
+};
 import bcrypt from "bcryptjs";
 import { P, runBIMEstimation } from "./bimEngine";
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
@@ -77,7 +85,7 @@ export const adminUpdateUserRole = mutation({
     await logAdminAction(
       ctx, admin, "update_user_role",
       { userId: args.userId, email: targetUser?.email },
-      `Rôle changé en ${args.role === "admin" ? "Administrateur" : "Utilisateur"}`,
+      `Rôle changé en ${ROLE_LOG_LABELS[args.role] ?? args.role}`,
     );
   },
 });

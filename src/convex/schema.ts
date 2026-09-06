@@ -14,15 +14,24 @@ import {
 export const ROLES = {
   ADMIN: "admin",
   MODERATOR: "moderator",
+  SUPPORT_AGENT: "support_agent",
   USER: "user",
 } as const;
 
 export const roleValidator = v.union(
   v.literal(ROLES.ADMIN),
   v.literal(ROLES.MODERATOR),
+  v.literal(ROLES.SUPPORT_AGENT),
   v.literal(ROLES.USER),
 );
 export type Role = Infer<typeof roleValidator>;
+
+export const ROLE_LABELS: Record<Role, string> = {
+  admin: "Admin",
+  moderator: "Modérateur",
+  support_agent: "Agent support",
+  user: "Utilisateur",
+};
 
 // Trois catégories d'offres : Client Pro (pro), Fournisseur (supplier), Expert (expert).
 // « free » correspond à l'absence de forfait (aucun abonnement actif).
