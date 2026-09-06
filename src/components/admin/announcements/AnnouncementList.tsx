@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AnnouncementBadge } from "../../announcements/AnnouncementBadge";
+import { AnnouncementAvatar } from "../../announcements/AnnouncementAvatar";
 import { AnnouncementModal } from "../../announcements/AnnouncementModal";
 import { AnnouncementEmptyState } from "../../announcements/AnnouncementEmptyState";
 import { AnnouncementStatusBadge } from "./AnnouncementStatusBadge";
@@ -239,17 +240,26 @@ export function AnnouncementList() {
                     <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
                   </td>
                   <td className="py-2.5 px-3">
-                    <div className="min-w-0">
-                      <p className="font-medium text-xs truncate max-w-[240px]">{a.title}</p>
-                      <p className="text-[10px] text-muted-foreground/70 truncate max-w-[240px]">
-                        {a.targetType === "all"
-                          ? "Tous les utilisateurs"
-                          : a.targetType === "role"
-                            ? `Rôles : ${(a.targetRoles ?? []).join(", ")}`
-                            : a.targetType === "company"
-                              ? `Sociétés : ${(a.targetCompanyNames ?? []).slice(0, 2).join(", ")}${(a.targetCompanyNames ?? []).length > 2 ? "…" : ""}`
-                              : `Utilisateurs : ${(a.targetUserIds ?? []).length}`}
-                      </p>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {a.imageUrl && (
+                        <AnnouncementAvatar
+                          src={a.imageUrl}
+                          alt={a.title}
+                          className="h-8 w-8 ring-1 ring-border/50 shadow-none sm:h-8 sm:w-8"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-xs truncate max-w-[200px]">{a.title}</p>
+                        <p className="text-[10px] text-muted-foreground/70 truncate max-w-[200px]">
+                          {a.targetType === "all"
+                            ? "Tous les utilisateurs"
+                            : a.targetType === "role"
+                              ? `Rôles : ${(a.targetRoles ?? []).join(", ")}`
+                              : a.targetType === "company"
+                                ? `Sociétés : ${(a.targetCompanyNames ?? []).slice(0, 2).join(", ")}${(a.targetCompanyNames ?? []).length > 2 ? "…" : ""}`
+                                : `Utilisateurs : ${(a.targetUserIds ?? []).length}`}
+                        </p>
+                      </div>
                     </div>
                   </td>
                   <td className="py-2.5 px-3">

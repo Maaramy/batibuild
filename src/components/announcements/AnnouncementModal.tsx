@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { CalendarDays, UserRound, Megaphone } from "lucide-react";
 import { AnnouncementBadge } from "./AnnouncementBadge";
+import { AnnouncementAvatar } from "./AnnouncementAvatar";
 import {
   ANNOUNCEMENT_TYPE_META,
   authorName,
@@ -31,25 +32,22 @@ export function AnnouncementModal({ announcement: a, onClose }: Props) {
     <Dialog open={!!a} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg rounded-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Icon className="h-4.5 w-4.5" />
-            </span>
-            <div>
-              <DialogTitle className="text-base leading-tight">{a.title}</DialogTitle>
+          <div className="flex items-start gap-3">
+            {a.imageUrl ? (
+              <AnnouncementAvatar src={a.imageUrl} alt={a.title} className="mt-1" />
+            ) : (
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Icon className="h-4.5 w-4.5" />
+              </span>
+            )}
+            <div className="min-w-0">
+              <DialogTitle className="text-base leading-snug pt-1">{a.title}</DialogTitle>
               <DialogDescription className="sr-only">Détail de l'annonce</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="space-y-4">
-          {a.imageUrl && (
-            <img
-              src={a.imageUrl}
-              alt=""
-              className="h-44 w-full rounded-xl border border-border/40 object-cover"
-            />
-          )}
           <div className="flex flex-wrap items-center gap-2">
             <AnnouncementBadge type={a.type} />
             <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">

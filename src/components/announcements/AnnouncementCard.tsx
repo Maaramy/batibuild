@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { CalendarDays, UserRound } from "lucide-react";
 import { AnnouncementBadge } from "./AnnouncementBadge";
+import { AnnouncementAvatar } from "./AnnouncementAvatar";
 import {
   ANNOUNCEMENT_TYPE_META,
   authorName,
@@ -18,12 +19,12 @@ interface Props {
 
 /**
  * Single announcement card — used inside the carousel and in previews.
- * Shows the type badge, title, short content, publication date and author.
+ * The optional image / logo is shown as a compact circular icon on the left of
+ * the title (32px mobile, 40px desktop), above the content and meta row.
  */
 export function AnnouncementCard({ announcement: a, onClick, compact, className }: Props) {
   const meta = ANNOUNCEMENT_TYPE_META[a.type] ?? ANNOUNCEMENT_TYPE_META.information;
   const Icon = meta.icon;
-  const showImage = !compact && a.imageUrl;
 
   return (
     <article
@@ -35,17 +36,6 @@ export function AnnouncementCard({ announcement: a, onClick, compact, className 
         className,
       )}
     >
-      {showImage && (
-        <div className="relative h-28 w-full overflow-hidden">
-          <img
-            src={a.imageUrl}
-            alt=""
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-card/90 to-transparent" />
-        </div>
-      )}
-
       <div className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
         <div className="flex items-center justify-between gap-2">
           <AnnouncementBadge type={a.type} />
@@ -61,9 +51,20 @@ export function AnnouncementCard({ announcement: a, onClick, compact, className 
           )}
         </div>
 
-        <h3 className="text-sm sm:text-base font-bold leading-snug tracking-tight text-foreground line-clamp-2">
-          {a.title}
-        </h3>
+        {a.imageUrl && (
+          <div className="flex items-center gap-3">
+            <AnnouncementAvatar src={a.imageUrl} alt={a.title} />
+            <h3 className="min-w-0 flex-1 text-sm sm:text-base font-bold leading-snug tracking-tight text-foreground line-clamp-2">
+              {a.title}
+            </h3>
+          </div>
+        )}
+
+        {!a.imageUrl && (
+          <h3 className="text-sm sm:text-base font-bold leading-snug tracking-tight text-foreground line-clamp-2">
+            {a.title}
+          </h3>
+        )}
 
         <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
           {a.content}
@@ -78,10 +79,12 @@ export function AnnouncementCard({ announcement: a, onClick, compact, className 
             <UserRound className="h-3 w-3 shrink-0" />
             <span className="truncate">{authorName(a)}</span>
           </span>
-          <span className="ml-auto inline-flex items-center gap-0.5 font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-            Lire
-            <Icon className="h-3 w-3" />
-          </span>
+          {!compact && (
+            <span className="ml-auto inline-flex items-center gap-0.5 font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+              Lire
+              <Icon className="h-3 w-3" />
+            </span>
+          )}
         </div>
       </div>
     </article>

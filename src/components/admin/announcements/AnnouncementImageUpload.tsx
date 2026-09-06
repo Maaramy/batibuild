@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
+import { AnnouncementAvatar } from "../../announcements/AnnouncementAvatar";
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
 const ACCEPT_ATTR = "image/png,image/jpeg,image/webp,image/svg+xml";
@@ -148,17 +149,23 @@ export function AnnouncementImageUpload({ url, storageId, initialUrl, onChange, 
   if (url) {
     return (
       <div className="space-y-2">
-        <div className="relative overflow-hidden rounded-xl border border-border/60 bg-muted/20">
-          <img
-            src={url}
-            alt="Aperçu de l'image de l'annonce"
-            className="h-36 w-full object-cover"
-          />
-          {uploading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            </div>
-          )}
+        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+          <div className="relative shrink-0">
+            <AnnouncementAvatar src={url} alt="Aperçu de l'image de l'annonce" />
+            {uploading && (
+              <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/70 backdrop-blur-[1px]">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-foreground">
+              {uploading ? "Téléversement en cours…" : "Image / icône ajoutée"}
+            </p>
+            <p className="text-[10px] leading-relaxed text-muted-foreground/70">
+              Aperçu du rendu final : affichée en cercle, à gauche du titre de l'annonce (32 px mobile · 40 px bureau).
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <button
