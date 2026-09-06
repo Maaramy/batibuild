@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 import { CalendarClock, Target, UserRound, Building2, Layers } from "lucide-react";
+import { AnnouncementImageUpload } from "./AnnouncementImageUpload";
 import {
   ANNOUNCEMENT_TYPE_META,
   ANNOUNCEMENT_TYPES,
@@ -25,7 +26,10 @@ export interface AnnouncementFormValues {
   content: string;
   type: AnnouncementType;
   priority: number;
+  /** Image affichée : URL existante (base) ou aperçu local d'un nouvel upload. */
   imageUrl: string;
+  /** Storage id d'un fichier fraîchement téléversé (résolu à l'enregistrement). */
+  imageStorageId?: string;
   publishMode: "draft" | "now" | "scheduled";
   startDate: string; // datetime-local (local time)
   endDate: string; // datetime-local (local time)
@@ -41,6 +45,7 @@ export const EMPTY_FORM: AnnouncementFormValues = {
   type: "information",
   priority: TYPE_PRIORITY.information,
   imageUrl: "",
+  imageStorageId: undefined,
   publishMode: "now",
   startDate: "",
   endDate: "",
@@ -77,6 +82,8 @@ interface Props {
   onChange: (next: AnnouncementFormValues) => void;
   /** All users (used for company & user targeting). */
   users: { _id: string; name?: string; email?: string; company?: string }[];
+  /** Image d'origine à l'ouverture (cible du bouton « Annuler » de l'uploader). */
+  initialImageUrl?: string;
   disabled?: boolean;
 }
 
@@ -120,7 +127,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
  * Announcement form — controlled. Fields: main info, publication schedule,
  * targeting. Used by AnnouncementEditor (create / edit / duplicate).
  */
-export function AnnouncementForm({ value, onChange, users, disabled }: Props) {
+export function AnnouncementForm({ value, onChange, users, initialImageUrl, disabled }: Props) {
   const set = (patch: Partial<AnnouncementFormValues>) => onChange({ ...value, ...patch });
 
   const companies = useMemo(() => {
@@ -211,12 +218,14 @@ export function AnnouncementForm({ value, onChange, users, disabled }: Props) {
           </Field>
         </div>
 
-        <Field label="Image ou icône optionnelle (URL)">
-          <Input
-            value={value.imageUrl}
-            onChange={(e) => set({ imageUrl: e.target.value })}
-            placeholder="https://…/image.png"
-            className="h-9 text-sm"
+        <Field label="Image ou icône optionnelle">
+          <AnnouncementImageUpload
+            url={value.imageUrl}
+            storageId={value.imageStorageId}
+            initialUrl={initialImageUrl}
+            onChange={(patch) =>
+              set({ imageUrl: patch.imageUrl, imageStorageId: patch.imageStorageId })
+            }
             disabled={disabled}
           />
         </Field>

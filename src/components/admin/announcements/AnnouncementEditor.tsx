@@ -40,6 +40,7 @@ function valuesFromAnnouncement(a: AnnouncementLike): AnnouncementFormValues {
     type: a.type,
     priority: a.priority ?? TYPE_PRIORITY[a.type] ?? 1,
     imageUrl: a.imageUrl ?? "",
+    imageStorageId: undefined,
     publishMode:
       a.status === "draft" || (a.status === "scheduled" && !hasFutureStart)
         ? "draft"
@@ -90,6 +91,9 @@ export function AnnouncementEditor({ open, mode, announcement, onClose, onSaved 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, announcement]);
+
+  // Image d'origine au moment de l'ouverture (mode « Annuler » de l'uploader).
+  const initialImageUrl = mode === "create" ? "" : (announcement?.imageUrl ?? "");
 
   const preview = useMemo<AnnouncementLike | null>(() => {
     if (!values.title && !values.content) return null;
@@ -156,6 +160,7 @@ export function AnnouncementEditor({ open, mode, announcement, onClose, onSaved 
       type: values.type,
       priority: values.priority,
       imageUrl: values.imageUrl.trim() || undefined,
+      ...(values.imageStorageId ? { imageStorageId: values.imageStorageId as any } : {}),
       publishMode: values.publishMode,
       startDate: localInputToTs(values.startDate),
       endDate: localInputToTs(values.endDate),
@@ -206,7 +211,13 @@ export function AnnouncementEditor({ open, mode, announcement, onClose, onSaved 
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 overflow-y-auto flex-1">
           <div className="p-5 border-b lg:border-b-0 lg:border-r border-border/40">
-            <AnnouncementForm value={values} onChange={setValues} users={users} disabled={saving} />
+            <AnnouncementForm
+              value={values}
+              onChange={setValues}
+              users={users}
+              initialImageUrl={initialImageUrl}
+              disabled={saving}
+            />
           </div>
           <div className="p-5 bg-muted/20">
             <AnnouncementPreview announcement={preview} />

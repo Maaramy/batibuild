@@ -64,6 +64,8 @@ const announcementInputValidator = v.object({
   type: announcementTypeValidator,
   priority: v.number(),
   imageUrl: v.optional(v.string()),
+  /** Storage id of a newly uploaded image/icon (resolved server-side on save). */
+  imageStorageId: v.optional(v.id("_storage")),
   publishMode: v.union(
     v.literal("draft"),
     v.literal("now"),
@@ -88,6 +90,7 @@ type AnnouncementInput = {
   type: AnnouncementType;
   priority: number;
   imageUrl?: string;
+  imageStorageId?: Id<"_storage">;
   publishMode: "draft" | "now" | "scheduled";
   startDate?: number;
   endDate?: number;
@@ -130,6 +133,40 @@ export function resolveStatus(
   if (endDate !== undefined && now > endDate) return "expired";
   if (startDate !== undefined && now < startDate) return "scheduled";
   return "published";
+}
+
+/**
+ * Resolve the image to persist.
+ * - A new upload (imageStorageId) → resolve its public URL, delete any
+ *   previously stored file, persist the new storage id.
+ * - No image / removal (imageUrl empty, no storage id) → clear everything,
+ *   deleting the previously stored file if any.
+ * - Otherwise (legacy URL kept) → keep the URL and any existing storage id.
+ */
+async function resolveImage(
+  ctx: MutationCtx,
+  input: AnnouncementInput,
+  existing?: AnnouncementDoc,
+): Promise<{ imageUrl?: string; imageStorageId?: Id<"_storage"> }> {
+  if (input.imageStorageId) {
+    const url = await ctx.storage.getUrl(input.imageStorageId);
+    if (existing?.imageStorageId) {
+      await ctx.storage.delete(existing.imageStorageId).catch(() => undefined);
+    }
+    return {
+      imageUrl: url ?? undefined,
+      imageStorageId: input.imageStorageId,
+    };
+  }
+
+  if (!input.imageUrl && existing?.imageStorageId) {
+    await ctx.storage.delete(existing.imageStorageId).catch(() => undefined);
+  }
+
+  return {
+    imageUrl: input.imageUrl,
+    imageStorageId: input.imageUrl ? existing?.imageStorageId : undefined,
+  };
 }
 
 /** Compute status / isActive / dates from the form input. */
@@ -275,13 +312,15 @@ export const createAnnouncement = mutation({
     const admin = await requireAdmin(ctx);
     const now = Date.now();
     const fields = resolveWriteFields(input, now);
+    const image = await resolveImage(ctx, input);
 
     return await ctx.db.insert("announcements", {
       title: input.title,
       content: input.content,
       type: input.type,
       priority: input.priority,
-      imageUrl: input.imageUrl,
+      imageUrl: image.imageUrl,
+      imageStorageId: image.imageStorageId,
       status: fields.status,
       isActive: fields.isActive,
       startDate: fields.startDate,
@@ -307,13 +346,15 @@ export const updateAnnouncement = mutation({
 
     const now = Date.now();
     const fields = resolveWriteFields(input, now);
+    const image = await resolveImage(ctx, input, existing);
 
     await ctx.db.patch(id, {
       title: input.title,
       content: input.content,
       type: input.type,
       priority: input.priority,
-      imageUrl: input.imageUrl,
+      imageUrl: image.imageUrl,
+      imageStorageId: image.imageStorageId,
       status: fields.status,
       isActive: fields.isActive,
       startDate: fields.startDate,
@@ -333,6 +374,9 @@ export const deleteAnnouncement = mutation({
     await requireAdmin(ctx);
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Annonce introuvable");
+    if (existing.imageStorageId) {
+      await ctx.storage.delete(existing.imageStorageId).catch(() => undefined);
+    }
     await ctx.db.delete(id);
   },
 });
