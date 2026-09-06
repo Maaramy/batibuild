@@ -1,4 +1,5 @@
 import {
+  Megaphone,
   Info,
   Sparkles,
   AlertTriangle,
@@ -8,6 +9,7 @@ import {
 } from "lucide-react";
 
 export type AnnouncementType =
+  | "annonce"
   | "information"
   | "news"
   | "important"
@@ -45,6 +47,7 @@ export interface AnnouncementLike {
 }
 
 export const ANNOUNCEMENT_TYPES = [
+  "annonce",
   "information",
   "news",
   "important",
@@ -55,6 +58,7 @@ export const ANNOUNCEMENT_TYPES = [
 export const TYPE_PRIORITY: Record<AnnouncementType, number> = {
   urgent: 5,
   important: 4,
+  annonce: 3,
   news: 3,
   maintenance: 2,
   information: 1,
@@ -73,6 +77,14 @@ export const ANNOUNCEMENT_TYPE_META: Record<
     chip: string;
   }
 > = {
+  annonce: {
+    label: "Annonce",
+    emoji: "🟡",
+    icon: Megaphone,
+    badge: "bg-amber-400/20 text-amber-900 border-amber-500/40 dark:bg-amber-400/20 dark:text-amber-100 dark:border-amber-300/40",
+    accent: "border-l-amber-500",
+    chip: "bg-amber-400/20 text-amber-800 dark:bg-amber-400/20 dark:text-amber-100",
+  },
   information: {
     label: "Information",
     emoji: "🔵",

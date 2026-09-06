@@ -1367,6 +1367,7 @@ const schema = defineSchema(
       title: v.string(),
       content: v.string(),
       type: v.union(
+        v.literal("annonce"),
         v.literal("information"),
         v.literal("news"),
         v.literal("important"),

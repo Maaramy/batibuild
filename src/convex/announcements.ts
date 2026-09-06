@@ -8,6 +8,7 @@ import { getCurrentUser } from "./users";
 // ============================================================================
 
 export const ANNOUNCEMENT_TYPES = [
+  "annonce",
   "information",
   "news",
   "important",
@@ -29,12 +30,14 @@ export type AnnouncementStatus = (typeof ANNOUNCEMENT_STATUSES)[number];
 export const TYPE_PRIORITY: Record<AnnouncementType, number> = {
   urgent: 5,
   important: 4,
+  annonce: 3,
   news: 3,
   maintenance: 2,
   information: 1,
 };
 
 export const ANNOUNCEMENT_TYPE_LABELS: Record<AnnouncementType, string> = {
+  annonce: "Annonce",
   information: "Information",
   news: "Nouveauté",
   important: "Important",
@@ -51,6 +54,7 @@ export const ANNOUNCEMENT_STATUS_LABELS: Record<AnnouncementStatus, string> = {
 };
 
 const announcementTypeValidator = v.union(
+  v.literal("annonce"),
   v.literal("information"),
   v.literal("news"),
   v.literal("important"),
