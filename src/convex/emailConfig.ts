@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalQuery } from "./_generated/server";
 import { getCurrentUser } from "./users";
 
 // ============================================================================
@@ -58,7 +58,7 @@ export function decryptPassword(enc: string): string {
 // Queries
 // ----------------------------------------------------------------------------
 
-/** Get email configuration (admin only, password decrypted for display) */
+/** Get email configuration (admin only). Le mot de passe n'est jamais renvoyé. */
 export const getEmailConfigAdmin = query({
   args: {},
   handler: async (ctx) => {
@@ -76,7 +76,10 @@ export const getEmailConfigAdmin = query({
       smtpPort: config.smtpPort ?? DEFAULT_EMAIL_CONFIG.smtpPort,
       smtpSecurity: config.smtpSecurity ?? DEFAULT_EMAIL_CONFIG.smtpSecurity,
       smtpUser: config.smtpUser ?? "",
-      smtpPassword: config.smtpPasswordEnc ? decryptPassword(config.smtpPasswordEnc) : "",
+      // Secret handling : le mot de passe n'est JAMAIS renvoyé au client.
+      // Le frontend ne connaît que son existence (pour l'UX) et laisse le
+      // champ vide pour conserver la valeur enregistrée.
+      hasPassword: !!config.smtpPasswordEnc,
       signature: config.signature ?? "",
       logoUrl: config.logoUrl ?? "",
       primaryColor: config.primaryColor ?? DEFAULT_EMAIL_CONFIG.primaryColor,
@@ -86,6 +89,38 @@ export const getEmailConfigAdmin = query({
       loginLink: config.loginLink ?? "",
       configured: true,
       updatedAt: config.updatedAt,
+    };
+  },
+});
+
+// ----------------------------------------------------------------------------
+// Internal (server → action) queries
+// ----------------------------------------------------------------------------
+
+/**
+ * Internal — charge la configuration SMTP côté serveur (déchiffrée) pour les
+ * actions Node (test SMTP, envois). Réservé aux administrateurs : retourne
+ * null pour tout autre appelant. Le mot de passe ne transite jamais par le
+ * client ni par les arguments d'une action publique.
+ */
+export const getSmtpConfigInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") return null;
+
+    const config = await ctx.db.query("emailConfig").order("desc").first();
+    if (!config) return null;
+
+    return {
+      senderName: config.senderName ?? DEFAULT_EMAIL_CONFIG.senderName,
+      senderEmail: config.senderEmail ?? "",
+      replyTo: config.replyTo ?? "",
+      smtpHost: config.smtpHost ?? "",
+      smtpPort: config.smtpPort ?? DEFAULT_EMAIL_CONFIG.smtpPort,
+      smtpSecurity: config.smtpSecurity ?? DEFAULT_EMAIL_CONFIG.smtpSecurity,
+      smtpUser: config.smtpUser ?? "",
+      smtpPassword: config.smtpPasswordEnc ? decryptPassword(config.smtpPasswordEnc) : "",
     };
   },
 });

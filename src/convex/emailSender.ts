@@ -2,7 +2,7 @@
 
 import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
-import { internal, api } from "./_generated/api";
+import { internal } from "./_generated/api";
 import nodemailer from "nodemailer";
 import { vly } from "../lib/vly-integrations";
 
@@ -10,7 +10,24 @@ import { vly } from "../lib/vly-integrations";
 // Node-only email actions (SMTP via nodemailer, VLY API fallback)
 // ============================================================================
 
-/** Perform the actual network send (SMTP or VLY), then record the result */
+type SmtpSecurity = "ssl" | "tls" | "none";
+
+type SmtpSettings = {
+  host: string;
+  port: number;
+  security: SmtpSecurity;
+  user: string;
+  pass: string;
+  senderName: string;
+  senderEmail: string;
+  replyTo?: string;
+  source: "db" | "env";
+};
+
+/**
+ * Perform the actual network send (SMTP or VLY), then record the result.
+ * (Used by the automatic notification pipeline.)
+ */
 export const sendEmailAction = internalAction({
   args: {
     historyId: v.id("emailHistory"),
@@ -52,7 +69,12 @@ export const sendEmailAction = internalAction({
         });
         ok = true;
       } catch (err: any) {
-        error = `SMTP : ${err?.message || "erreur inconnue"}`;
+        error = classifySmtpError(err, {
+          host: args.smtpHost,
+          port: args.smtpPort ?? (args.smtpSecurity === "ssl" ? 465 : 587),
+          user: args.smtpUser || "",
+          pass: args.smtpPassword || "",
+        }).message;
       }
     } else {
       try {
@@ -84,70 +106,179 @@ export const sendEmailAction = internalAction({
   },
 });
 
-/** Test the SMTP configuration by sending a real test email (admin only) */
-export const adminTestSmtp = action({
-  args: {
-    senderName: v.string(),
-    senderEmail: v.string(),
-    replyTo: v.optional(v.string()),
-    smtpHost: v.optional(v.string()),
-    smtpPort: v.optional(v.number()),
-    smtpSecurity: v.optional(v.union(v.literal("ssl"), v.literal("tls"), v.literal("none"))),
-    smtpUser: v.optional(v.string()),
-    smtpPassword: v.optional(v.string()),
-    testEmail: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const user = await ctx.runQuery(api.users.currentUser);
-    if (!user || user.role !== "admin") {
-      return { success: false, message: "Accès administrateur requis" };
-    }
+/**
+ * Résout les réglages SMTP effectifs :
+ *   1. Variables d'environnement Convex (SMTP_HOST, SMTP_PORT, SMTP_USER,
+ *      SMTP_PASSWORD, SMTP_FROM, SMTP_SECURE) si SMTP_HOST est définie.
+ *   2. Sinon la configuration e-mail enregistrée en base (lue côté serveur,
+ *      mot de passe déchiffré dans l'action — jamais sur le client).
+ */
+function resolveSmtpSettings(dbConfig: {
+  senderName?: string;
+  senderEmail?: string;
+  replyTo?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecurity?: SmtpSecurity;
+  smtpUser?: string;
+  smtpPassword?: string;
+} | null): { settings?: SmtpSettings | null; error?: string } {
+  const envHost = (process.env.SMTP_HOST || "").trim();
 
-    const host = args.smtpHost?.trim();
-    if (!host || !args.senderEmail) {
+  if (envHost) {
+    let security: SmtpSecurity = "tls";
+    const envSecurity = (process.env.SMTP_SECURE || "").toLowerCase();
+    if (envSecurity === "ssl" || envSecurity === "true" || envSecurity === "465") {
+      security = "ssl";
+    } else if (envSecurity === "none" || envSecurity === "false") {
+      security = "none";
+    }
+    const envPortRaw = (process.env.SMTP_PORT || "").trim();
+    const envPort = envPortRaw ? Number(envPortRaw) : security === "ssl" ? 465 : 587;
+    const senderEmail = (process.env.SMTP_FROM || dbConfig?.senderEmail || "").trim();
+
+    if (!senderEmail) {
       return {
-        success: false,
-        message: "Renseignez au minimum le serveur SMTP et l'adresse de l'expéditeur.",
+        error:
+          "Configuration SMTP incomplète : SMTP_FROM (adresse de l'expéditeur) est manquante.",
+      };
+    }
+    if (!Number.isInteger(envPort) || envPort <= 0 || envPort > 65535) {
+      return {
+        error: `Configuration SMTP incomplète : SMTP_PORT « ${envPortRaw || envPort} » est invalide (attendu : 25, 465, 587, 2525…).`,
       };
     }
 
-    const port = args.smtpPort || (args.smtpSecurity === "ssl" ? 465 : 587);
-    const secure = args.smtpSecurity === "ssl";
+    return {
+      settings: {
+        host: envHost,
+        port: envPort,
+        security,
+        user: (process.env.SMTP_USER || "").trim(),
+        pass: process.env.SMTP_PASSWORD || "",
+        senderName: (process.env.SMTP_FROM_NAME || dbConfig?.senderName || "batibuild App").trim(),
+        senderEmail,
+        replyTo: dbConfig?.replyTo || undefined,
+        source: "env",
+      },
+    };
+  }
 
-    try {
-      const transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: args.smtpUser
-          ? { user: args.smtpUser, pass: args.smtpPassword || "" }
-          : undefined,
-        tls: args.smtpSecurity === "tls" ? { rejectUnauthorized: false } : undefined,
-        connectionTimeout: 15000,
-        greetingTimeout: 15000,
-        socketTimeout: 20000,
-      });
+  if (!dbConfig) {
+    return { error: "Aucune configuration SMTP enregistrée. Définissez-la ci-dessus puis enregistrez." };
+  }
 
-      await transporter.sendMail({
-        from: `"${args.senderName || "batibuild App"}" <${args.senderEmail}>`,
-        to: args.testEmail,
-        replyTo: args.replyTo || undefined,
-        subject: "✅ Test de configuration e-mail — batibuild App",
-        html: buildTestEmailHtml(args.senderName || "batibuild App"),
-      });
+  const host = (dbConfig.smtpHost || "").trim();
+  const senderEmail = (dbConfig.senderEmail || "").trim();
+  const user = (dbConfig.smtpUser || "").trim();
+  const pass = dbConfig.smtpPassword || "";
+  const security: SmtpSecurity = dbConfig.smtpSecurity || "tls";
+  const port = dbConfig.smtpPort && dbConfig.smtpPort > 0
+    ? dbConfig.smtpPort
+    : security === "ssl" ? 465 : 587;
 
-      return {
-        success: true,
-        message: `Connexion SMTP réussie (${host}:${port}). Un e-mail de test a été envoyé à ${args.testEmail}.`,
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        message: `Échec de la connexion SMTP : ${err?.message || "erreur inconnue"}`,
-      };
-    }
-  },
-});
+  if (!host) {
+    return { error: "Configuration SMTP incomplète : SMTP_HOST est manquant." };
+  }
+  if (!senderEmail) {
+    return {
+      error: "Configuration SMTP incomplète : adresse de l'expéditeur (SMTP_FROM) manquante.",
+    };
+  }
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    return { error: `Configuration SMTP incomplète : SMTP_PORT « ${port} » est invalide.` };
+  }
+  if (user && !pass) {
+    return {
+      error: `Configuration SMTP incomplète : SMTP_PASSWORD manquant pour l'utilisateur « ${user} ».`,
+    };
+  }
+
+  return {
+    settings: {
+      host,
+      port,
+      security,
+      user,
+      pass,
+      senderName: dbConfig.senderName || "batibuild App",
+      senderEmail,
+      replyTo: dbConfig.replyTo || undefined,
+      source: "db",
+    },
+  };
+}
+
+/**
+ * Transforme une erreur nodemailer/réseau en message français exploitable.
+ * Ne contient jamais le mot de passe SMTP.
+ */
+export function classifySmtpError(
+  err: any,
+  cfg: { host: string; port: number; user?: string; pass?: string; senderEmail?: string },
+): { code: string; message: string } {
+  const raw = (err?.message || err?.code || String(err || "")).toString();
+  const msg = sanitizeSmtpMessage(raw, cfg.user || "", cfg.pass || "");
+  const lower = msg.toLowerCase();
+
+  const has = (...needles: string[]) => needles.some((n) => lower.includes(n));
+
+  let code = "SMTP_ERROR";
+  let message: string;
+
+  if (has("enotfound", "eai_again", "getaddrinfo", "dns", "n'est pas résolu", "resolve")) {
+    code = "DNS_FAILURE";
+    message = `Impossible de résoudre le serveur SMTP « ${cfg.host} » (erreur DNS). Vérifiez le nom d'hôte.`;
+  } else if (has("econnrefused", "refus")) {
+    code = "CONNECTION_REFUSED";
+    message = `Le serveur SMTP a refusé la connexion sur ${cfg.host}:${cfg.port}. Vérifiez l'adresse et le port (SSL : 465, TLS/STARTTLS : 587).`;
+  } else if (has("etimedout", "timeout", "délai", "timed out", "esockettimedout")) {
+    code = "TIMEOUT";
+    message = `Délai dépassé lors de la connexion à ${cfg.host}:${cfg.port}. Le serveur ne répond pas (réseau ou pare-feu).`;
+  } else if (has("ehostunreach", "enetunreach", "network is unreachable", "unreachable")) {
+    code = "HOST_UNREACHABLE";
+    message = `Le serveur SMTP ${cfg.host} est injoignable depuis le serveur. Vérifiez le réseau, le pare-feu et le nom d'hôte.`;
+  } else if (has("econnreset", "epipe", "socket hang up", "connexion a été réinitialisée", "closed")) {
+    code = "CONNECTION_RESET";
+    message = `La connexion SMTP vers ${cfg.host}:${cfg.port} a été interrompue par le serveur. Réessayez ou changez le type de sécurité.`;
+  } else if (
+    has("invalid login", "535", "534", "authentication", "authentification", "5.7.8", "5.7.14", "bad credentials")
+  ) {
+    code = "AUTH_FAILED";
+    message = "Authentification SMTP échouée. Vérifiez le nom d'utilisateur (SMTP_USER) et le mot de passe (SMTP_PASSWORD).";
+  } else if (
+    has("self signed", "certificate", "ssl routines", "wrong version number", "tls", "ssl", "sockettarget", "unable to verify")
+  ) {
+    code = "TLS_FAILURE";
+    message = `Échec de la liaison TLS/SSL avec ${cfg.host}:${cfg.port}. Vérifiez le type de sécurité (SSL 465, TLS/STARTTLS 587) et les certificats du serveur.`;
+  } else if (has("550", "553", "554", "sender", "expéditeur", "not allowed", "spam", "relay")) {
+    code = "SENDER_REJECTED";
+    message = `Le serveur SMTP a refusé l'expéditeur. Vérifiez que « ${cfg.senderEmail || cfg.host} » est un domaine autorisé sur ce serveur (anti-spam / relay).`;
+  } else if (has("message failed", "recipient", "destinataire", "user unknown", "mailbox")) {
+    code = "RECIPIENT_REJECTED";
+    message = "Le serveur SMTP a refusé le destinataire de l'e-mail de test. Vérifiez l'adresse saisie.";
+  } else {
+    message = `Échec de la connexion SMTP sur ${cfg.host}:${cfg.port} — ${msg || "erreur inconnue"}`;
+  }
+
+  // Journal serveur détaillé (sans secret)
+  console.error(
+    `[emailSender] ${code} sur ${cfg.host}:${cfg.port} — ${msg}`,
+  );
+  return { code, message };
+}
+
+/** Retire toute trace du mot de passe / utilisateur d'un message d'erreur */
+function sanitizeSmtpMessage(raw: string, user: string, pass: string): string {
+  let out = raw;
+  if (user) out = out.split(user).join("***");
+  if (pass && pass.length >= 4) out = out.split(pass).join("***");
+  return out;
+}
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+}
 
 function buildTestEmailHtml(senderName: string) {
   return `<!DOCTYPE html>
@@ -171,3 +302,151 @@ function buildTestEmailHtml(senderName: string) {
 </body>
 </html>`;
 }
+
+/**
+ * Test de la configuration SMTP (administrateur uniquement).
+ *
+ * Design :
+ *  - Le client n'envoie QUE l'adresse de test : aucun secret SMTP ne transite
+ *    par le navigateur ni par les arguments de l'action.
+ *  - La configuration est relue côté serveur (base de données ou variables
+ *    d'environnement Convex SMTP_*).
+ *  - La connexion est vérifiée (transporter.verify) AVANT l'envoi, puis
+ *    l'e-mail de test est réellement envoyé.
+ *  - Tout le handler est protégé : une erreur ne peut jamais remonter brute
+ *    au client (« Server Error ») — elle est toujours convertie en un message
+ *    structuré et exploitable.
+ */
+export const adminTestSmtp = action({
+  args: {
+    testEmail: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      // 1. Vérification admin + lecture de la config SMTP enregistrée
+      let dbConfig: DbConfigResult | null = null;
+      try {
+        dbConfig = await ctx.runQuery(internal.emailConfig.getSmtpConfigInternal);
+      } catch (e: any) {
+        console.error(
+          "[adminTestSmtp] Impossible de lire la configuration e-mail :",
+          sanitizeSmtpMessage(e?.message || String(e), "", ""),
+        );
+        return {
+          success: false,
+          code: "CONFIG_READ_ERROR",
+          message:
+            "Impossible de lire la configuration e-mail enregistrée. Vérifiez vos droits administrateur, puis réessayez.",
+        };
+      }
+
+      if (!dbConfig) {
+        return {
+          success: false,
+          code: "UNAUTHORIZED",
+          message: "Accès administrateur requis pour tester la configuration SMTP.",
+        };
+      }
+
+      // 2. Adresse de test valide
+      const testEmail = (args.testEmail || "").trim();
+      if (!testEmail) {
+        return {
+          success: false,
+          code: "MISSING_TEST_EMAIL",
+          message: "Indiquez l'adresse e-mail qui doit recevoir l'e-mail de test.",
+        };
+      }
+      if (!isValidEmail(testEmail)) {
+        return {
+          success: false,
+          code: "INVALID_TEST_EMAIL",
+          message: `L'adresse de test « ${testEmail} » est invalide.`,
+        };
+      }
+
+      // 3. Résolution + validation complète de la config (env Convex ou base)
+      const { settings, error } = resolveSmtpSettings(dbConfig);
+      if (error || !settings) {
+        return { success: false, code: "INCOMPLETE_CONFIG", message: error || "Configuration SMTP incomplète." };
+      }
+
+      const transporter = nodemailer.createTransport({
+        host: settings.host,
+        port: settings.port,
+        secure: settings.security === "ssl",
+        auth: settings.user
+          ? { user: settings.user, pass: settings.pass }
+          : undefined,
+        tls: settings.security === "tls" ? { rejectUnauthorized: false } : undefined,
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 25000,
+      });
+
+      // 4a. Phase connexion : vérifie DNS + TCP + TLS + authentification
+      try {
+        await transporter.verify();
+      } catch (err: any) {
+        const { code, message } = classifySmtpError(err, {
+          host: settings.host,
+          port: settings.port,
+          user: settings.user,
+          pass: settings.pass,
+        });
+        return { success: false, code, message };
+      }
+
+      // 4b. Phase envoi : e-mail de test réel
+      try {
+        await transporter.sendMail({
+          from: `"${settings.senderName}" <${settings.senderEmail}>`,
+          to: testEmail,
+          replyTo: settings.replyTo || undefined,
+          subject: "✅ Test de configuration e-mail — batibuild App",
+          html: buildTestEmailHtml(settings.senderName),
+        });
+      } catch (err: any) {
+        const { code, message } = classifySmtpError(err, {
+          host: settings.host,
+          port: settings.port,
+          user: settings.user,
+          pass: settings.pass,
+        });
+        return { success: false, code, message };
+      }
+
+      return {
+        success: true,
+        code: "SENT",
+        message: "E-mail de test envoyé avec succès.",
+        detail: `Connexion SMTP réussie sur ${settings.host}:${settings.port}. L'e-mail de test a été envoyé depuis ${settings.senderEmail} vers ${testEmail}.`,
+      };
+    } catch (err: any) {
+      // Filet de sécurité : ne JAMAIS laisser une erreur brute remonter au client
+      console.error(
+        "[adminTestSmtp] Erreur inattendue :",
+        sanitizeSmtpMessage(err?.message || String(err || "erreur inconnue"), "", ""),
+      );
+      return {
+        success: false,
+        code: "UNEXPECTED",
+        message:
+          "Le test SMTP n'a pas pu aboutir en raison d'une erreur interne. Réessayez ; si le problème persiste, vérifiez les logs serveur.",
+      };
+    }
+  },
+});
+
+// Type de la config renvoyée par la query interne (évite d'importer
+// emailConfig dans ce module Node).
+type DbConfigResult = {
+  senderName?: string;
+  senderEmail?: string;
+  replyTo?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecurity?: SmtpSecurity;
+  smtpUser?: string;
+  smtpPassword?: string;
+};

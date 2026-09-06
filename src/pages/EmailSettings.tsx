@@ -60,6 +60,9 @@ export default function EmailSettings() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [testEmail, setTestEmail] = useState("");
+  // Instantané de la configuration enregistrée (détecte les modifications
+  // non sauvegardées avant un test).
+  const [savedConfig, setSavedConfig] = useState<any>(null);
 
   useEffect(() => {
     if (config) {
@@ -71,7 +74,9 @@ export default function EmailSettings() {
         smtpPort: config.smtpPort ?? 587,
         smtpSecurity: config.smtpSecurity ?? "tls",
         smtpUser: config.smtpUser ?? "",
-        smtpPassword: config.smtpPassword ?? "",
+        // Jamais pré-rempli : le mot de passe SMTP n'est pas renvoyé par le
+        // serveur. L'admin ne le saisit que lorsqu'il veut le changer.
+        smtpPassword: "",
         signature: config.signature ?? "",
         logoUrl: config.logoUrl ?? "",
         primaryColor: config.primaryColor ?? "#7c3aed",
@@ -79,6 +84,16 @@ export default function EmailSettings() {
         autoEnabled: config.autoEnabled ?? true,
         notifyAdminCc: config.notifyAdminCc ?? true,
         loginLink: config.loginLink ?? "",
+      });
+      setSavedConfig({
+        senderName: config.senderName ?? "",
+        senderEmail: config.senderEmail ?? "",
+        replyTo: config.replyTo ?? "",
+        smtpHost: config.smtpHost ?? "",
+        smtpPort: config.smtpPort ?? 587,
+        smtpSecurity: config.smtpSecurity ?? "tls",
+        smtpUser: config.smtpUser ?? "",
+        hasPassword: config.hasPassword ?? false,
       });
       if (!testEmail) setTestEmail(user?.email || "");
     }
@@ -94,50 +109,111 @@ export default function EmailSettings() {
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
 
+  // Payload d'enregistrement. Le mot de passe n'est envoyé que s'il a été
+  // re-saisi — sinon le serveur conserve la valeur chiffrée en base.
+  const savePayload = () => ({
+    senderName: form.senderName,
+    senderEmail: form.senderEmail,
+    replyTo: form.replyTo || undefined,
+    smtpHost: form.smtpHost || undefined,
+    smtpPort: form.smtpPort ? Number(form.smtpPort) : undefined,
+    smtpSecurity: form.smtpSecurity,
+    smtpUser: form.smtpUser || undefined,
+    smtpPassword: form.smtpPassword || undefined,
+    signature: form.signature || undefined,
+    logoUrl: form.logoUrl || undefined,
+    primaryColor: form.primaryColor || undefined,
+    accentColor: form.accentColor || undefined,
+    autoEnabled: form.autoEnabled,
+    notifyAdminCc: form.notifyAdminCc,
+    loginLink: form.loginLink || undefined,
+  });
+
+  const hasPendingSmtpChanges =
+    !!savedConfig &&
+    (["senderName", "senderEmail", "replyTo", "smtpHost", "smtpPort", "smtpSecurity", "smtpUser"]
+      .some((k) => String(form?.[k] ?? "") !== String(savedConfig?.[k] ?? "")) ||
+      (form?.smtpPassword?.length ?? 0) > 0);
+  // Un mot de passe est-il déjà enregistré ? (jamais affiché — simple indicateur)
+  const hasStoredPassword = !!savedConfig?.hasPassword;
+
   const handleTest = async () => {
-    if (!testEmail) {
+    if (!testEmail.trim()) {
       toast.error("Indiquez l'adresse de réception du test");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(testEmail.trim())) {
+      toast.error("L'adresse e-mail de test est invalide.");
       return;
     }
     setTesting(true);
     setTestResult(null);
     try {
-      const res = await testSmtp({ ...form, testEmail });
+      // Le test s'exécute côté serveur sur la configuration ENREGISTRÉE
+      // (le mot de passe ne transite jamais par le navigateur) : si des
+      // champs SMTP ont été modifiés sans être enregistrés, on enregistre
+      // d'abord automatiquement, puis on teste.
+      if (hasPendingSmtpChanges) {
+        try {
+          await saveConfig(savePayload());
+          setSavedConfig({
+            senderName: form.senderName ?? "",
+            senderEmail: form.senderEmail ?? "",
+            replyTo: form.replyTo ?? "",
+            smtpHost: form.smtpHost ?? "",
+            smtpPort: form.smtpPort ? Number(form.smtpPort) : 587,
+            smtpSecurity: form.smtpSecurity ?? "tls",
+            smtpUser: form.smtpUser ?? "",
+            hasPassword: form.smtpPassword ? true : (savedConfig?.hasPassword ?? false),
+          });
+          if (form.smtpPassword) set("smtpPassword", "");
+          toast.info("Configuration enregistrée — test lancé avec ces paramètres");
+        } catch (err: any) {
+          toast.error(err.message || "Impossible d'enregistrer la configuration avant le test");
+          setTesting(false);
+          return;
+        }
+      }
+
+      const res = await testSmtp({ testEmail: testEmail.trim() });
       setTestResult(res);
-      if (res.success) toast.success("✅ " + res.message);
-      else toast.error(res.message);
+      if (res?.success) toast.success(res.message || "E-mail de test envoyé avec succès");
+      else toast.error(res?.message || "Échec du test SMTP");
     } catch (err: any) {
-      setTestResult({ success: false, message: err.message || "Erreur inconnue" });
-      toast.error(err.message || "Erreur lors du test SMTP");
+      const raw = (err?.message || "").toString();
+      // Ne jamais afficher un simple « Server Error » : toujours un message clair
+      const friendly =
+        raw && !/server error/i.test(raw)
+          ? raw
+          : "Le test SMTP n'a pas pu aboutir. Vérifiez que le serveur SMTP est accessible depuis Internet, enregistrez la configuration, puis réessayez.";
+      setTestResult({ success: false, code: "CALL_ERROR", message: friendly });
+      toast.error(friendly);
+    } finally {
+      setTesting(false);
     }
-    setTesting(false);
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await saveConfig({
-        senderName: form.senderName,
-        senderEmail: form.senderEmail,
-        replyTo: form.replyTo || undefined,
-        smtpHost: form.smtpHost || undefined,
-        smtpPort: form.smtpPort ? Number(form.smtpPort) : undefined,
-        smtpSecurity: form.smtpSecurity,
-        smtpUser: form.smtpUser || undefined,
-        smtpPassword: form.smtpPassword || undefined,
-        signature: form.signature || undefined,
-        logoUrl: form.logoUrl || undefined,
-        primaryColor: form.primaryColor || undefined,
-        accentColor: form.accentColor || undefined,
-        autoEnabled: form.autoEnabled,
-        notifyAdminCc: form.notifyAdminCc,
-        loginLink: form.loginLink || undefined,
-      });
+      await saveConfig(savePayload());
       toast.success("✅ Configuration e-mail enregistrée");
+      setSavedConfig({
+        senderName: form.senderName ?? "",
+        senderEmail: form.senderEmail ?? "",
+        replyTo: form.replyTo ?? "",
+        smtpHost: form.smtpHost ?? "",
+        smtpPort: form.smtpPort ? Number(form.smtpPort) : 587,
+        smtpSecurity: form.smtpSecurity ?? "tls",
+        smtpUser: form.smtpUser ?? "",
+        hasPassword: form.smtpPassword ? true : (savedConfig?.hasPassword ?? false),
+      });
+      if (form.smtpPassword) set("smtpPassword", "");
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
@@ -234,16 +310,30 @@ export default function EmailSettings() {
                   <Input value={form.smtpUser} onChange={(e) => set("smtpUser", e.target.value)} placeholder="contact@batibuild.app" className={inputCls + " pl-9"} />
                 </div>
               </Field>
-              <Field label="Mot de passe SMTP" hint="Chiffré avant stockage en base">
+              <Field
+                label="Mot de passe SMTP"
+                hint={
+                  form.smtpPassword
+                    ? "Sera chiffré et enregistré lors de l'enregistrement"
+                    : hasStoredPassword
+                      ? "Mot de passe enregistré — laisser vide pour le conserver (jamais renvoyé ni affiché)"
+                      : "Optionnel — nécessaire si le serveur exige une authentification"
+                }
+              >
                 <div className="relative">
                   <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                   <Input
                     type={showPassword ? "text" : "password"}
                     value={form.smtpPassword}
                     onChange={(e) => set("smtpPassword", e.target.value)}
-                    placeholder="••••••••"
+                    placeholder={hasStoredPassword ? "•••••••• (enregistré — non affiché)" : "••••••••"}
                     className={inputCls + " pl-9 pr-9"}
                   />
+                  {hasStoredPassword && !form.smtpPassword && (
+                    <span className="absolute right-9 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-600 whitespace-nowrap">
+                      <ShieldCheck className="h-3 w-3" /> Enregistré
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
@@ -268,7 +358,7 @@ export default function EmailSettings() {
                   className="gap-2 w-full sm:w-auto"
                 >
                   {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  {testing ? "Test en cours…" : "Tester la configuration"}
+                  {testing ? "Test en cours…" : "Tester la configuration SMTP"}
                 </Button>
               </div>
             </div>
@@ -289,7 +379,17 @@ export default function EmailSettings() {
                   ) : (
                     <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
                   )}
-                  <span>{testResult.message}</span>
+                  <div className="min-w-0">
+                    <p className="font-semibold leading-snug">{testResult.message}</p>
+                    {testResult.detail && (
+                      <p className="mt-1 text-[11px] leading-relaxed opacity-85">{testResult.detail}</p>
+                    )}
+                    {!testResult.success && testResult.code && (
+                      <p className="mt-1 text-[10px] uppercase tracking-wide opacity-50">
+                        Référence : {testResult.code}
+                      </p>
+                    )}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
