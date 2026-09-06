@@ -643,18 +643,18 @@ export default function SupportPage() {
 
       {/* Dialog nouvelle demande */}
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain p-4 gap-3 sm:p-6 sm:gap-4 sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MessageSquarePlus className="h-5 w-5 text-primary" />
+            <DialogTitle className="flex items-center gap-2 pr-6 text-base leading-tight sm:text-lg">
+              <MessageSquarePlus className="h-5 w-5 shrink-0 text-primary" />
               Nouvelle demande de support
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="pr-6">
               Décrivez votre demande — l'équipe support vous répondra directement ici.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3.5 py-1">
+          <div className="space-y-3 py-1 sm:space-y-3.5">
             <div className="space-y-1.5">
               <label className="text-xs font-medium">Sujet de la demande *</label>
               <Input
@@ -662,6 +662,7 @@ export default function SupportPage() {
                 value={form.subject}
                 onChange={(e) => setForm({ ...form, subject: e.target.value })}
                 maxLength={120}
+                className="h-10 sm:h-9"
               />
             </div>
 
@@ -672,7 +673,7 @@ export default function SupportPage() {
                   value={form.category}
                   onValueChange={(v) => setForm({ ...form, category: v })}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="h-10 w-full sm:h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -690,7 +691,7 @@ export default function SupportPage() {
                   value={form.priority}
                   onValueChange={(v) => setForm({ ...form, priority: v })}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="h-10 w-full sm:h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -710,7 +711,7 @@ export default function SupportPage() {
                 placeholder="Décrivez votre demande en détail..."
                 value={form.message}
                 onChange={(e) => setForm({ ...form, message: e.target.value })}
-                className="min-h-[110px]"
+                className="min-h-[100px] sm:min-h-[110px]"
               />
             </div>
 
@@ -749,7 +750,7 @@ export default function SupportPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="w-full gap-2 border-dashed"
+                  className="h-10 w-full gap-2 border-dashed sm:h-8"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Paperclip className="h-3.5 w-3.5" />
@@ -759,11 +760,19 @@ export default function SupportPage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNewOpen(false)}>
+          <DialogFooter className="gap-2 pt-1">
+            <Button
+              variant="outline"
+              onClick={() => setNewOpen(false)}
+              className="h-11 w-full sm:h-9 sm:w-auto"
+            >
               Annuler
             </Button>
-            <Button onClick={() => void handleCreate()} disabled={creating}>
+            <Button
+              onClick={() => void handleCreate()}
+              disabled={creating}
+              className="h-11 w-full sm:h-9 sm:w-auto"
+            >
               {creating ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
