@@ -273,9 +273,11 @@ function Navbar() {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled || mobileOpen
-          ? "glass-strong shadow-sm"
-          : "bg-transparent"
+        mobileOpen
+          ? "bg-background shadow-md"
+          : scrolled
+            ? "glass-strong shadow-sm"
+            : "bg-transparent"
       }`}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -327,7 +329,7 @@ function Navbar() {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
-          className="bg-background border-t border-border/50 md:hidden"
+          className="bg-background border-t border-border/10 md:hidden shadow-lg"
         >
           <div className="px-4 py-4 space-y-3">
             <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Fonctionnalités</a>
