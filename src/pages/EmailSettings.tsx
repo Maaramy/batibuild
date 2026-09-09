@@ -23,6 +23,8 @@ import {
   ImageUp,
   CheckCircle2,
   XCircle,
+  AlertTriangle,
+  Info,
   Signature,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -53,11 +55,14 @@ export default function EmailSettings() {
   const config = useQuery(api.emailConfig.getEmailConfigAdmin);
   const saveConfig = useMutation(api.emailConfig.adminSaveEmailConfig);
   const testSmtp = useAction(api.emailSender.adminTestSmtp);
+  const checkDeliverability = useAction(api.emailSender.adminCheckEmailDeliverability);
 
   const [form, setForm] = useState<any>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [checkingDeliv, setCheckingDeliv] = useState(false);
+  const [delivResult, setDelivResult] = useState<any>(null);
   const [testResult, setTestResult] = useState<any>(null);
   const [testEmail, setTestEmail] = useState("");
   // Instantané de la configuration enregistrée (détecte les modifications
@@ -137,6 +142,31 @@ export default function EmailSettings() {
   // Un mot de passe est-il déjà enregistré ? (jamais affiché — simple indicateur)
   const hasStoredPassword = !!savedConfig?.hasPassword;
 
+  // Enregistre d'abord les modifications SMTP en attente (le test et l'audit
+  // s'exécutent côté serveur sur la configuration ENREGISTRÉE — le mot de
+  // passe ne transite jamais par le navigateur).
+  const persistPendingChanges = async (): Promise<boolean> => {
+    if (!hasPendingSmtpChanges) return true;
+    try {
+      await saveConfig(savePayload());
+      setSavedConfig({
+        senderName: form.senderName ?? "",
+        senderEmail: form.senderEmail ?? "",
+        replyTo: form.replyTo ?? "",
+        smtpHost: form.smtpHost ?? "",
+        smtpPort: form.smtpPort ? Number(form.smtpPort) : 587,
+        smtpSecurity: form.smtpSecurity ?? "tls",
+        smtpUser: form.smtpUser ?? "",
+        hasPassword: form.smtpPassword ? true : (savedConfig?.hasPassword ?? false),
+      });
+      if (form.smtpPassword) set("smtpPassword", "");
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Impossible d'enregistrer la configuration avant l'opération");
+      return false;
+    }
+  };
+
   const handleTest = async () => {
     if (!testEmail.trim()) {
       toast.error("Indiquez l'adresse de réception du test");
@@ -149,30 +179,15 @@ export default function EmailSettings() {
     setTesting(true);
     setTestResult(null);
     try {
-      // Le test s'exécute côté serveur sur la configuration ENREGISTRÉE
-      // (le mot de passe ne transite jamais par le navigateur) : si des
-      // champs SMTP ont été modifiés sans être enregistrés, on enregistre
+      // Le test s'exécute côté serveur sur la configuration ENREGISTRÉE : si
+      // des champs SMTP ont été modifiés sans être enregistrés, on enregistre
       // d'abord automatiquement, puis on teste.
       if (hasPendingSmtpChanges) {
-        try {
-          await saveConfig(savePayload());
-          setSavedConfig({
-            senderName: form.senderName ?? "",
-            senderEmail: form.senderEmail ?? "",
-            replyTo: form.replyTo ?? "",
-            smtpHost: form.smtpHost ?? "",
-            smtpPort: form.smtpPort ? Number(form.smtpPort) : 587,
-            smtpSecurity: form.smtpSecurity ?? "tls",
-            smtpUser: form.smtpUser ?? "",
-            hasPassword: form.smtpPassword ? true : (savedConfig?.hasPassword ?? false),
-          });
-          if (form.smtpPassword) set("smtpPassword", "");
-          toast.info("Configuration enregistrée — test lancé avec ces paramètres");
-        } catch (err: any) {
-          toast.error(err.message || "Impossible d'enregistrer la configuration avant le test");
+        if (!(await persistPendingChanges())) {
           setTesting(false);
           return;
         }
+        toast.info("Configuration enregistrée — test lancé avec ces paramètres");
       }
 
       const res = await testSmtp({ testEmail: testEmail.trim() });
@@ -190,6 +205,39 @@ export default function EmailSettings() {
       toast.error(friendly);
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleCheckDeliverability = async () => {
+    setCheckingDeliv(true);
+    setDelivResult(null);
+    try {
+      // L'audit porte sur le domaine de l'expéditeur enregistré : on sauvegarde
+      // d'abord les éventuelles modifications en attente.
+      if (hasPendingSmtpChanges) {
+        if (!(await persistPendingChanges())) {
+          setCheckingDeliv(false);
+          return;
+        }
+      }
+      const res = await checkDeliverability();
+      setDelivResult(res);
+      if (res?.success) {
+        if (res.allOk) toast.success("Délivrabilité DNS conforme");
+        else toast.info("Des points de délivrabilité restent à corriger");
+      } else {
+        toast.error(res?.message || "Audit de délivrabilité impossible");
+      }
+    } catch (err: any) {
+      const raw = (err?.message || "").toString();
+      const friendly =
+        raw && !/server error/i.test(raw)
+          ? raw
+          : "L'audit de délivrabilité n'a pas pu aboutir. Réessayez dans quelques instants.";
+      setDelivResult({ success: false, message: friendly });
+      toast.error(friendly);
+    } finally {
+      setCheckingDeliv(false);
     }
   };
 
@@ -393,6 +441,94 @@ export default function EmailSettings() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Audit de délivrabilité (éviter la boîte spam) */}
+            <div className="mt-4 border-t border-border/50 pt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground">Éviter la boîte spam</p>
+                  <p className="text-[11px] text-muted-foreground/60">
+                    Vérifie les enregistrements DNS (MX, SPF, DKIM, DMARC) du domaine de l'expéditeur
+                  </p>
+                </div>
+                <Button
+                  onClick={handleCheckDeliverability}
+                  disabled={checkingDeliv}
+                  variant="outline"
+                  className="gap-2 w-full sm:w-auto"
+                >
+                  {checkingDeliv ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4" />
+                  )}
+                  {checkingDeliv ? "Vérification…" : "Vérifier la délivrabilité"}
+                </Button>
+              </div>
+
+              <AnimatePresence>
+                {delivResult && delivResult.success && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="mt-3 space-y-2 rounded-lg border border-border/50 bg-muted/30 p-3 text-xs"
+                  >
+                    <p className="font-semibold text-muted-foreground">
+                      Domaine : {delivResult.domain}{" "}
+                      {delivResult.allOk ? (
+                        <span className="text-emerald-600">· conforme</span>
+                      ) : (
+                        <span className="text-amber-600">· actions requises</span>
+                      )}
+                    </p>
+                    {[
+                      ["MX", delivResult.checks?.mx],
+                      ["SPF", delivResult.checks?.spf],
+                      ["DKIM", delivResult.checks?.dkim],
+                      ["DMARC", delivResult.checks?.dmarc],
+                      ["Alignement", delivResult.checks?.alignment],
+                    ].map(([label, check]: any) => (
+                      <div key={label} className="flex items-start gap-2">
+                        {check?.status === "ok" ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-600" />
+                        ) : check?.status === "warn" ? (
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
+                        ) : check?.status === "fail" ? (
+                          <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-red-500" />
+                        ) : (
+                          <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground/60" />
+                        )}
+                        <p className="min-w-0 leading-relaxed">
+                          <span className="font-semibold">{label}</span> — {check?.detail}
+                        </p>
+                      </div>
+                    ))}
+                    {delivResult.recommendations?.length > 0 && (
+                      <div className="mt-2 space-y-1 rounded-md border border-border/50 bg-background p-2.5">
+                        <p className="font-semibold text-muted-foreground">Recommandations DNS</p>
+                        {delivResult.recommendations.map((r: string, i: number) => (
+                          <pre key={i} className="whitespace-pre-wrap font-sans text-[11px] leading-relaxed text-muted-foreground/80">
+                            {r}
+                          </pre>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+                {delivResult && !delivResult.success && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-700"
+                  >
+                    <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <p className="min-w-0">{delivResult.message}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </CardContent>
         </Card>
       </div>
