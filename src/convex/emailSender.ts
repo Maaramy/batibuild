@@ -107,6 +107,124 @@ export const sendEmailAction = internalAction({
 });
 
 /**
+ * Envoi du code de vérification e-mail (OTP) — SMTP administrateur UNIQUEMENT.
+ *
+ * Utilisé par le provider email-otp (auth) pour l'inscription, la vérification
+ * d'adresse e-mail, la connexion par code et le mot de passe oublié.
+ *
+ * Règles :
+ *  - La configuration est lue exclusivement depuis les variables
+ *    d'environnement Convex SMTP_* (SMTP_HOST, SMTP_PORT, SMTP_USER,
+ *    SMTP_PASSWORD, SMTP_FROM, SMTP_FROM_NAME, SMTP_SECURE). Aucun recours au
+ *    service d'e-mail Freebuff ni à un autre transport : si SMTP n'est pas
+ *    configuré, l'envoi échoue proprement avec un message explicite.
+ *  - From et Reply-To = l'adresse administrateur SMTP (SMTP_FROM).
+ *  - To = l'adresse e-mail de l'utilisateur (jamais exposée côté client ici).
+ *  - Le mot de passe SMTP ne figure jamais dans les erreurs ni les logs
+ *    (sanitisation systématique).
+ */
+export const sendOtpEmail = internalAction({
+  args: {
+    to: v.string(),
+    code: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const envHost = (process.env.SMTP_HOST || "").trim();
+    if (!envHost) {
+      return {
+        ok: false,
+        code: "SMTP_NOT_CONFIGURED",
+        message:
+          "L'envoi du code de vérification nécessite une configuration SMTP administrateur. Ajoutez les variables SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_FROM_NAME et SMTP_SECURE dans les secrets du projet, puis réessayez.",
+      };
+    }
+
+    // Réutilise la résolution existante (variables SMTP_* uniquement — la
+    // configuration en base est réservée aux administrateurs et indisponible
+    // avant authentification).
+    const { settings, error } = resolveSmtpSettings(null);
+    if (error || !settings) {
+      return {
+        ok: false,
+        code: "SMTP_CONFIG_INVALID",
+        message:
+          error ||
+          "Configuration SMTP incomplète. Vérifiez les variables d'environnement SMTP_* du projet.",
+      };
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: settings.host,
+      port: settings.port,
+      secure: settings.security === "ssl",
+      auth: settings.user
+        ? { user: settings.user, pass: settings.pass }
+        : undefined,
+      tls: settings.security === "tls" ? { rejectUnauthorized: false } : undefined,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 25000,
+    });
+
+    const from = `"${settings.senderName}" <${settings.senderEmail}>`;
+    const replyTo = settings.replyTo || settings.senderEmail;
+    const subject = `Votre code de vérification — ${settings.senderName}`;
+
+    try {
+      await transporter.sendMail({
+        from,
+        to: args.to,
+        replyTo,
+        subject,
+        html: buildOtpEmailHtml(settings.senderName, args.code),
+        text:
+          `Votre code de vérification ${settings.senderName} est : ${args.code}\n\n` +
+          `Ce code expire dans 15 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.`,
+      });
+      return { ok: true, code: "SENT" };
+    } catch (err: any) {
+      const { code, message } = classifySmtpError(err, {
+        host: settings.host,
+        port: settings.port,
+        user: settings.user,
+        pass: settings.pass,
+        senderEmail: settings.senderEmail,
+      });
+      return { ok: false, code, message };
+    }
+  },
+});
+
+/** Corps HTML de l'e-mail de code de vérification (identité batibuild). */
+function buildOtpEmailHtml(senderName: string, code: string): string {
+  return `<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f4f4f6;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:560px;margin:24px auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="background:linear-gradient(135deg,#059669,#0ea5e9);padding:28px 32px;">
+      <span style="font-size:20px;font-weight:800;color:#ffffff;">${senderName}</span>
+    </div>
+    <div style="padding:32px;">
+      <h1 style="margin:0 0 8px;color:#111827;font-size:18px;">Votre code de vérification</h1>
+      <p style="margin:0 0 20px;color:#4b5563;font-size:14px;line-height:1.6;">
+        Utilisez le code ci-dessous pour confirmer votre adresse e-mail :
+      </p>
+      <div style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:10px;padding:20px;text-align:center;">
+        <span style="font-size:32px;font-weight:800;letter-spacing:8px;color:#059669;">${code}</span>
+      </div>
+      <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;line-height:1.6;">
+        Ce code expire dans 15 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.
+      </p>
+    </div>
+    <div style="background:#f9fafb;padding:18px 32px;text-align:center;color:#9ca3af;font-size:12px;border-top:1px solid #eef0f3;">
+      © ${new Date().getFullYear()} ${senderName} — Cet e-mail vous a été envoyé automatiquement.
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
  * Résout les réglages SMTP effectifs :
  *   1. Variables d'environnement Convex (SMTP_HOST, SMTP_PORT, SMTP_USER,
  *      SMTP_PASSWORD, SMTP_FROM, SMTP_SECURE) si SMTP_HOST est définie.
