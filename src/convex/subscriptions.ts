@@ -25,6 +25,21 @@ export const getMySubscription = query({
   },
 });
 
+/** All of the current user's subscriptions (used by access checks called from actions, which have no ctx.db). */
+export const getUserSubscriptions = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return [];
+
+    return await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .collect();
+  },
+});
+
 
 /** Get all subscriptions (admin only, returns empty if not admin) */
 export const getAllSubscriptions = query({

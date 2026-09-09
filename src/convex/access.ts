@@ -80,10 +80,16 @@ export async function getClientProAccess(ctx: any, user: any): Promise<ClientPro
 
   // Abonnement Client Pro payant, actif et non expiré
   const now = Date.now();
-  const subs = await ctx.db
-    .query("subscriptions")
-    .withIndex("by_user", (q: any) => q.eq("userId", user._id))
-    .collect();
+  // Les actions n'ont PAS accès à ctx.db → on passe par une query publique.
+  let subs: any[] = [];
+  if (ctx.db) {
+    subs = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .collect();
+  } else {
+    subs = (await ctx.runQuery(api.subscriptions.getUserSubscriptions)) || [];
+  }
 
   const proSub = subs
     .filter((s: any) => s.plan === "pro")

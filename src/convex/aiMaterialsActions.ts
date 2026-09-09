@@ -28,6 +28,27 @@ import {
 
 const asArray = (x: any): any[] => (Array.isArray(x) ? x : []);
 
+// ── Garde de sérialisation ──────────────────────────────────────────────────
+// Garantit que la valeur renvoyée au client est un Convex value valide :
+// NaN/±Infinity → 0 (Convex refuse de sérialiser ces nombres) et `undefined`
+// dans un tableau → null (les champs d'objet `undefined` sont ignorés par le
+// sérialiseur). Cela évite le « Server Error » en cas de donnée de marché
+// inattendue, le repli déterministe restant toujours renvoyé.
+function sanitizeValue(v: any): any {
+  if (typeof v === "number") {
+    return Number.isFinite(v) ? v : 0;
+  }
+  if (Array.isArray(v)) {
+    return v.map((x) => (x === undefined ? null : sanitizeValue(x)));
+  }
+  if (v && typeof v === "object") {
+    const out: Record<string, any> = {};
+    for (const k of Object.keys(v)) out[k] = sanitizeValue(v[k]);
+    return out;
+  }
+  return v;
+}
+
 const stripFences = (t: string) =>
   t.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
 
@@ -180,7 +201,7 @@ export const recommendMaterials = action({
       }
     }
 
-    return result;
+    return sanitizeValue(result);
   },
 });
 
@@ -227,12 +248,12 @@ export const compareCopilotMaterials = action({
       });
       if (aiRes.success && aiRes.data?.choices?.[0]?.message?.content) {
         const parsed = JSON.parse(stripFences(aiRes.data.choices[0].message.content));
-        return { ...comparison, narrative: String(parsed?.narrative || "") };
+        return sanitizeValue({ ...comparison, narrative: String(parsed?.narrative || "") });
       }
     } catch {
       // ignore
     }
-    return { ...comparison, narrative: "" };
+    return sanitizeValue({ ...comparison, narrative: "" });
   },
 });
 

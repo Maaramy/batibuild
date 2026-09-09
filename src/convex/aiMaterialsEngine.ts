@@ -476,16 +476,25 @@ function weightsFor(profile: Profile, ctx: ProjectContext, budgetMode: BudgetMod
 export type PriceBand = { min: number; avg: number; max: number };
 
 function priceBandFor(m: CatalogMaterial, offers: Offer[]): PriceBand {
+  const isFiniteNum = (n: number | undefined | null): n is number =>
+    typeof n === "number" && Number.isFinite(n);
   if (offers.length > 0) {
-    const mins = offers.map((o) => o.minPrice);
-    const avgs = offers.map((o) => o.avgPrice);
-    const maxs = offers.map((o) => o.maxPrice);
-    return {
-      min: Math.min(...mins),
-      avg: avgs.reduce((a, b) => a + b, 0) / avgs.length,
-      max: Math.max(...maxs),
-    };
+    const valid = offers.filter((o) =>
+      isFiniteNum(o.minPrice) && isFiniteNum(o.avgPrice) && isFiniteNum(o.maxPrice),
+    );
+    if (valid.length > 0) {
+      const mins = valid.map((o) => o.minPrice as number);
+      const avgs = valid.map((o) => o.avgPrice as number);
+      const maxs = valid.map((o) => o.maxPrice as number);
+      return {
+        min: Math.min(...mins),
+        avg: avgs.reduce((a, b) => a + b, 0) / avgs.length,
+        max: Math.max(...maxs),
+      };
+    }
   }
+  // Prix catalogue illisible → bande NaN (exclue ensuite par scoreMaterial).
+  if (!isFiniteNum(m.unitPrice)) return { min: NaN, avg: NaN, max: NaN };
   return {
     min: round2(m.unitPrice * 0.95),
     avg: m.unitPrice,
@@ -511,7 +520,9 @@ export function scoreMaterial(
   budgetCap?: number,
 ): { scores: MaterialScores; band: PriceBand; suppliers: Offer[] } | null {
   const band = priceBandFor(m, offers);
-  if (band.avg <= 0) return null;
+  // Garde anti-NaN : une donnée de prix illisible (undefined/null/NaN) doit
+  // exclure le matériau plutôt que de polluer les scores et coûts.
+  if (!Number.isFinite(band.avg) || band.avg <= 0) return null;
   if (budgetCap && band.avg > budgetCap) return null;
 
   const prices = {
@@ -861,9 +872,12 @@ export function recommendForProject(input: {
       continue;
     }
     const bands = candidates.map((m) => priceBandFor(m, offersByProduct.get(m._id) || []));
-    const catMin = Math.min(...bands.map((b) => b.avg));
-    const catMax = Math.max(...bands.map((b) => b.avg));
-    const catAvg = bands.reduce((a, b) => a + b.avg, 0) / bands.length;
+    // On n'agrège que les bandes valides : un prix corrompu (NaN) ne doit pas
+    // polluer les bornes de la catégorie (sinon scores/coûts deviennent NaN).
+    const validBands = bands.filter((b) => Number.isFinite(b.avg));
+    const catMin = Math.min(...validBands.map((b) => b.avg));
+    const catMax = Math.max(...validBands.map((b) => b.avg));
+    const catAvg = validBands.reduce((a, b) => a + b.avg, 0) / validBands.length;
 
     const profiles: Profile[] = ["economique", "equilibre", "premium"];
     const solutions: Solution[] = [];
@@ -1060,6 +1074,30 @@ export function recommendForProject(input: {
 
   // ── Recommandation finale ──
   const allSolutions = categories.flatMap((c) => c.solutions.map((s) => ({ ...s, cat: c.label, catId: c.categoryId })));
+  // Repli sûr : aucune solution exploitable (données de marché corrompues ou
+  // absentes) → résultat dégradé au lieu de crasher ; aucun prix n'est inventé.
+  if (allSolutions.length === 0) {
+    missingData.push(
+      "Aucune donnée de prix exploitable pour les catégories sélectionnées. Vérifiez la base des prix puis relancez l'analyse.",
+    );
+    return {
+      generatedAt: Date.now(),
+      context: ctx,
+      categories,
+      recommendation: {
+        solution: "equilibre",
+        score: 0,
+        materialName: "",
+        categoryLabel: "",
+        explanation: "Impossible de recommander : aucune donnée de prix exploitable dans la base.",
+        advantages: [],
+        limits: [],
+      },
+      cost,
+      missingData,
+    };
+  }
+
   const picked =
     ctx.budgetMode === "limite" || ctx.budgetMode === "economique"
       ? allSolutions.find((s) => s.profile === "economique") || allSolutions[0]
