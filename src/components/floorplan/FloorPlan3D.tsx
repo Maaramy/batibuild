@@ -481,14 +481,14 @@ function makeLabelTexture(label: string, area: number) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   let fontSize = 58;
-  ctx.font = `700 ${fontSize}px Figtree, system-ui, sans-serif`;
+  ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
   while (ctx.measureText(label.toUpperCase()).width > wBox - 36 && fontSize > 26) {
     fontSize -= 4;
-    ctx.font = `700 ${fontSize}px Figtree, system-ui, sans-serif`;
+    ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
   }
   ctx.fillText(label.toUpperCase(), canvas.width / 2, canvas.height / 2 - 24);
   ctx.fillStyle = "#57534e";
-  ctx.font = `500 44px Figtree, system-ui, sans-serif`;
+  ctx.font = `500 44px Inter, system-ui, sans-serif`;
   ctx.fillText(`${area.toFixed(2)} m²`, canvas.width / 2, canvas.height / 2 + 42);
   const texture = new THREE.CanvasTexture(canvas);
   texture.anisotropy = 4;
