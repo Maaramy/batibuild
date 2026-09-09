@@ -45,6 +45,15 @@ function getRedirect(returnTo: string | null, fallback = "/dashboard") {
   return returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : fallback;
 }
 
+// Récupère le message d'erreur réel renvoyé par le serveur (AuthError de
+// Convex Auth, qui propage le message de l'action d'envoi de code) au lieu
+// d'afficher un message générique. Repli sûr si le message est vide ou brut.
+function authErrorMessage(err: unknown, fallback: string): string {
+  const msg = err instanceof Error && err.message ? err.message.trim() : "";
+  if (!msg || msg.includes("Server Error")) return fallback;
+  return msg;
+}
+
 // Validation commune des champs d'inscription : le nom complet et le numéro
 // de téléphone sont obligatoires et contrôlés AVANT la création du compte.
 function registrationFieldsError(fd: FormData): string | null {
@@ -383,7 +392,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         pendingProfileRef.current = { name, phone, userRole };
       }
       setStep({ email: fd.get("email") as string });
-    } catch { setError("Échec d'envoi du code."); }
+    } catch (e) { setError(authErrorMessage(e, "Échec d'envoi du code.")); }
     setIsLoading(false);
   };
 
@@ -404,7 +413,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       // If role was saved during registration, redirect accordingly
       const roleRedirect = userRole === "supplier" ? "/dashboard/supplier" : userRole === "expert" ? "/dashboard/expert" : redirect;
       navigate(roleRedirect);
-    } catch { setError("Le code est incorrect."); setOtp(""); }
+    } catch (e) { setError(authErrorMessage(e, "Le code est incorrect.")); setOtp(""); }
     setIsLoading(false);
   };
 
@@ -424,7 +433,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         await signIn("email-otp", fd);
       }
       toast.success("Un nouveau code vient d'être envoyé par e-mail.");
-    } catch { setError("Échec d'envoi du code. Veuillez réessayer."); }
+    } catch (e) { setError(authErrorMessage(e, "Échec d'envoi du code. Veuillez réessayer.")); }
     setIsLoading(false);
   };
 
@@ -445,7 +454,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       }
       // Redirect will be handled by the useEffect watching currentUser
       navigate(redirect);
-    } catch { setError("Email ou mot de passe incorrect."); }
+    } catch (e) { setError(authErrorMessage(e, "Email ou mot de passe incorrect.")); }
     setIsLoading(false);
   };
 
@@ -483,7 +492,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       const roleRedirect = userRole === "supplier" ? "/dashboard/supplier" : userRole === "expert" ? "/dashboard/expert" : redirect;
       navigate(roleRedirect);
     }
-    catch { setError("Erreur lors de l'inscription."); }
+    catch (e) { setError(authErrorMessage(e, "Erreur lors de l'inscription.")); }
     setIsLoading(false);
   };
 
@@ -496,7 +505,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setResetEmail(email);
       await signIn("email-otp", fd);
       setResetStep("otp");
-    } catch { setError("Échec d'envoi du code."); }
+    } catch (e) { setError(authErrorMessage(e, "Échec d'envoi du code.")); }
     setIsLoading(false);
   };
 
