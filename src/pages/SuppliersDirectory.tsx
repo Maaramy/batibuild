@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Store, Search, MapPin, Phone, Mail,
-  ChevronDown, X, Filter, CheckCircle2, FileText, Loader2, Send, Sparkles,
+  ChevronDown, X, Filter, CheckCircle2, FileText, Loader2, Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
@@ -52,7 +52,7 @@ const REGION_LABELS: Record<string, string> = {
 
 export default function SuppliersDirectory() {
   usePageSEO({
-    title: "Annuaire des Fournisseurs - batibuild App",
+    title: "Liste des fournisseurs - batibuild App",
     description:
       "Trouvez les meilleurs fournisseurs de matériaux de construction en Tunisie. Filtrez par spécialité, catégorie et région.",
   });
@@ -215,7 +215,7 @@ export default function SuppliersDirectory() {
             </div>
             <div className="min-w-0">
               <h1 className="text-xs font-semibold leading-tight">
-                Annuaire des Fournisseurs
+                Liste des fournisseurs
               </h1>
               <p className="text-[8px] text-muted-foreground leading-tight">
                 {suppliers ? `${filtered.length} fournisseur(s) trouvé(s)` : "Chargement…"}
@@ -343,39 +343,6 @@ export default function SuppliersDirectory() {
             )}
           </CardContent>
         </Card>
-
-        {/* ── Bandeau filtres appliqués depuis l'analyse de matériaux ── */}
-        {fromMaterials && (autoSpecialties.length > 0 || selectedRegion) && (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-3.5 py-2.5 text-[10px]">
-            <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span className="text-muted-foreground min-w-0 flex-1">
-              Fournisseurs filtrés automatiquement d'après votre analyse de matériaux :
-              {autoSpecialties.length > 0 && (
-                <>
-                  {" "}spécialité(s){" "}
-                  <b className="text-foreground">
-                    {autoSpecialties.map((sp) => SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp).join(", ")}
-                  </b>
-                </>
-              )}
-              {selectedRegion && (
-                <>
-                  {" · région "}
-                  <b className="text-foreground">{REGION_LABELS[selectedRegion] ?? selectedRegion}</b>
-                </>
-              )}
-            </span>
-            <button
-              onClick={() => {
-                setSearch("");
-                setFilters({ specialty: [], region: null, from: null });
-              }}
-              className="text-[10px] font-medium text-primary hover:underline shrink-0 cursor-pointer"
-            >
-              Tout afficher
-            </button>
-          </div>
-        )}
 
         {/* ── Loading state ── */}
         {suppliers === undefined && (
