@@ -38,7 +38,7 @@
 **Font Family:**
 ```css
 :root {
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 /* Arabic (RTL) */
 [lang="ar"] {
@@ -801,7 +801,7 @@ To transfer this design system to a new project, copy these CSS variables into y
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 :root {
@@ -879,7 +879,7 @@ To transfer this design system to a new project, copy these CSS variables into y
   }
   body {
     @apply bg-background text-foreground;
-    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-family: "Figtree", ui-sans-serif, system-ui, -apple-system, sans-serif;
   }
   button:not([disabled]),
   [role="button"]:not([disabled]) {
@@ -908,7 +908,7 @@ To transfer this design system to a new project, copy these CSS variables into y
 
 8. **Radix primitives:** All interactive UI components are built on Radix UI primitives with shadcn/ui styling.
 
-9. **Inter font:** Single font family throughout. Weights: normal (400), medium (500), semibold (600), bold (700).
+9. **Figtree font:** Single font family throughout (style Airbnb Cereal — géométrique, arrondie, friendly). Weights: normal (400), medium (500), semibold (600), bold (700), extra-bold (800).
 
 10. **Minimal visual noise:** Clean borders, generous spacing, muted colors for secondary content. No heavy decorative elements except subtle glass effects and gradient text for hero sections.
 
