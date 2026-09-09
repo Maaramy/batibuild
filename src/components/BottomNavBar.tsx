@@ -36,6 +36,8 @@ export function BottomNavBar({ actions, className }: BottomNavBarProps) {
               "flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-[9px] sm:text-[10px] font-medium transition-all active:scale-95 min-w-0 flex-1",
               a.disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-muted/50",
               a.color ?? "text-muted-foreground",
+              "text-black dark:text-white font-bold",
+              "[&_svg]:stroke-black [&_svg]:dark:stroke-white",
             )}
             title={a.label}
           >
