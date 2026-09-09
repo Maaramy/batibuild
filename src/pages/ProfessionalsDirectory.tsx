@@ -13,9 +13,10 @@ import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Users, Search, MapPin, Phone, Mail,
   Globe, ChevronDown, X, Briefcase, FileText,
-  Loader2, MapPinned,
+  Loader2, Layers, Building2,
 } from "lucide-react";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
+import { profileCardClass, VerifiedBadge, TrophyLine, MetricRow, DetailRow } from "@/components/ProfileCardBits";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
 import { PROJECT_TYPE_LABELS } from "@/convex/projectTypes";
 import { toast } from "sonner";
@@ -62,7 +63,7 @@ export default function ProfessionalsDirectory() {
   const [search, setSearch] = useState("");
   const [selectedProfession, setSelectedProfession] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
-  const [expandedId, _setExpandedId] = useState<string | null>(null);
+  // (les coordonnées des experts sont toujours affichées sur la carte)
   const [devisExpert, setDevisExpert] = useState<any>(null);
   const [ratingExpert, setRatingExpert] = useState<any>(null);
   const [myExpertRating, setMyExpertRating] = useState(0);
@@ -240,146 +241,102 @@ export default function ProfessionalsDirectory() {
         {experts !== undefined && filtered.length > 0 && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((e) => {
-              const isExpanded = expandedId === e._id;
               return (
-                <Card key={e._id} className="border border-border/40 overflow-hidden rounded-xl hover:border-amber-500/30 transition-colors">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <AvatarWithInitials
-                        logo={e.logo}
-                        name={e.displayName}
-                        size="md"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-semibold leading-tight truncate">{e.displayName}</h3>
-                        <ExpertRatingInline expertId={e._id} />
-                        {e.companyName && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{e.companyName}</p>
-                        )}
-                        {e.description && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2 leading-snug">{e.description}</p>
-                        )}
+                <Card key={e._id} className={profileCardClass}>
+                  <CardContent className="p-4">
+                    {/* ── En-tête : avatar + identité (gauche) · métriques (droite) ── */}
+                    <div className="flex gap-3">
+                      <div className="flex w-[34%] shrink-0 flex-col items-center gap-1 text-center">
+                        <div className="relative">
+                          <AvatarWithInitials logo={e.logo} name={e.displayName} size="lg" />
+                          <VerifiedBadge />
+                        </div>
+                        <h3 className="line-clamp-2 text-sm font-bold leading-tight">{e.displayName}</h3>
+                        <TrophyLine>{PROFESSION_LABELS[e.profession] ?? e.profession}</TrophyLine>
+                      </div>
+
+                      {/* Métriques empilées, séparées par de fines lignes */}
+                      <div className="flex-1 min-w-0 self-start divide-y divide-border/60 overflow-hidden rounded-xl border border-border/30 bg-muted/10">
+                        <ExpertCardMetrics expertId={e._id} specialtyCount={e.specialties.length} />
                       </div>
                     </div>
 
-                    {/* Address */}
-                    {e.address && (
-                      <div className="flex items-start gap-1.5 text-[9px] text-muted-foreground">
-                        <MapPinned className="h-3 w-3 shrink-0 mt-0.5" />
-                        <span className="line-clamp-1">{e.address}</span>
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-1">
-                      <Badge variant="outline" className="text-[8px] h-4 px-1.5 leading-none">
-                        {PROFESSION_LABELS[e.profession] ?? e.profession}
-                      </Badge>
-                      {e.specialties.slice(0, isExpanded ? 20 : 3).map((sp) => (
-                        <Badge key={sp} variant="secondary" className="text-[8px] h-4 px-1.5 leading-none">
-                          {SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp}
-                        </Badge>
-                      ))}
-                      {!isExpanded && e.specialties.length > 3 && (
-                        <Badge variant="outline" className="text-[8px] h-4 px-1.5 leading-none">
-                          +{e.specialties.length - 3}
-                        </Badge>
+                    {/* ── Détails ── */}
+                    <div className="mt-3 space-y-1.5 border-t border-border/30 pt-3">
+                      {e.description && (
+                        <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">{e.description}</p>
+                      )}
+                      {e.companyName && <DetailRow icon={Building2} label={e.companyName} />}
+                      <DetailRow
+                        icon={Layers}
+                        label={`Spécialités : ${e.specialties.map((sp) => SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp).join(", ")}`}
+                      />
+                      {e.address && <DetailRow icon={MapPin} label={e.address} />}
+                      <DetailRow icon={Phone} label={e.phone} />
+                      {e.email && <DetailRow icon={Mail} label={e.email} />}
+                      {e.website && (
+                        <DetailRow
+                          icon={Globe}
+                          label={e.website.startsWith("http") ? e.website : `https://${e.website}`}
+                        />
                       )}
                     </div>
 
-                    {e.regions && e.regions.length > 0 && (
-                      <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        <span className="truncate">
-                          {e.regions.slice(0, isExpanded ? 10 : 3).map((r) => REGION_LABELS[r] ?? r).join(", ")}
-                          {!isExpanded && e.regions.length > 3 && ` +${e.regions.length - 3}`}
-                        </span>
-                      </div>
-                    )}
-
-                    {isExpanded && (
-                      <div className="space-y-1.5 pt-1 border-t border-border/20">
-                        <a href={`tel:${e.phone}`} className="flex items-center gap-1.5 text-[10px] hover:text-amber-600 transition-colors">
-                          <Phone className="h-3 w-3 shrink-0" />{e.phone}
-                        </a>
-                        <a href={`mailto:${e.email}`} className="flex items-center gap-1.5 text-[10px] hover:text-amber-600 transition-colors">
-                          <Mail className="h-3 w-3 shrink-0" />{e.email}
-                        </a>
-                        {e.address && (
-                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                            <MapPin className="h-3 w-3 shrink-0" />{e.address}
-                          </div>
-                        )}
-                        {e.website && (
-                          <a href={e.website.startsWith("http") ? e.website : `https://${e.website}`}
-                            target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-[10px] hover:text-amber-600 transition-colors">
-                            <Globe className="h-3 w-3 shrink-0" />{e.website}
-                          </a>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Action buttons */}
-                    <div className="flex flex-col gap-1.5 pt-1">
-                      <div className="flex gap-1.5">
-                        <a
-                          href={e.phone ? `tel:${e.phone}` : undefined}
-                          className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-2.5 text-[10px] font-medium text-amber-700 hover:bg-amber-500/10 transition-all"
-                        >
-                          <Phone className="h-3.5 w-3.5" />
-                          Contacter
-                        </a>
-                        <button
-                          onClick={() => {
-                            if (!user) {
-                              navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
-                              return;
-                            }
-                            setDevisExpert(e);
-                            const ce = project?.costEstimate;
-                            const scenarios = ce?.budgetScenarios as Record<string, { totalCost: number }> | undefined;
-                            const sel = scenarios?.[scenarioParam] ?? scenarios?.standard;
-                            const categoryLabel = project?.category ? (PROJECT_TYPE_LABELS[project.category as keyof typeof PROJECT_TYPE_LABELS] ?? project.category) : "";
-                            setDevisForm({
-                              requestType: "devis",
-                              description: project ? `Projet ${categoryLabel} — ${project.surface ?? ""}m² — ${project.region ? (REGION_LABELS[project.region] ?? project.region) : ""}` : "",
-                              projectType: project?.category ?? "",
-                              totalTTC: sel ? String(Math.round(sel.totalCost)) : "",
-                              surface: project?.surface ? String(project.surface) : "",
-                              region: project?.region ?? "",
-                              userPhone: user?.phone ?? "",
-                              userEmail: user?.email ?? "",
-                              userName: user?.name ?? "",
-                            });
-                          }}
-                          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2.5 text-[11px] font-medium text-white hover:bg-emerald-700 transition-all"
-                        >
-                          <FileText className="h-3.5 w-3.5" />
-                          Envoyer une demande
-                        </button>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={() => {
-                            if (!user) {
-                              navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
-                              return;
-                            }
-                            setRatingExpert(e);
-                            setMyExpertRating(0);
-                          }}
-                          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-[10px] font-medium text-amber-700 hover:bg-amber-500/10 transition-all"
-                        >
-                          ⭐ Noter
-                        </button>
-                        <button
-                          onClick={() => navigate(`/dashboard/expert-profile/${e._id}`)}
-                          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border/40 bg-background px-2.5 py-2 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-                        >
-                          Voir profil
-                        </button>
-                      </div>
+                    {/* ── Actions ── */}
+                    <div className="mt-3 flex gap-1.5">
+                      <a
+                        href={e.phone ? `tel:${e.phone}` : undefined}
+                        className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-border/40 bg-background px-2 py-2 text-[10px] font-medium text-foreground transition-colors hover:bg-muted/50"
+                      >
+                        <Phone className="h-3 w-3" /> Contacter
+                      </a>
+                      <button
+                        onClick={() => {
+                          if (!user) {
+                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+                            return;
+                          }
+                          setDevisExpert(e);
+                          const ce = project?.costEstimate;
+                          const scenarios = ce?.budgetScenarios as Record<string, { totalCost: number }> | undefined;
+                          const sel = scenarios?.[scenarioParam] ?? scenarios?.standard;
+                          const categoryLabel = project?.category ? (PROJECT_TYPE_LABELS[project.category as keyof typeof PROJECT_TYPE_LABELS] ?? project.category) : "";
+                          setDevisForm({
+                            requestType: "devis",
+                            description: project ? `Projet ${categoryLabel} — ${project.surface ?? ""}m² — ${project.region ? (REGION_LABELS[project.region] ?? project.region) : ""}` : "",
+                            projectType: project?.category ?? "",
+                            totalTTC: sel ? String(Math.round(sel.totalCost)) : "",
+                            surface: project?.surface ? String(project.surface) : "",
+                            region: project?.region ?? "",
+                            userPhone: user?.phone ?? "",
+                            userEmail: user?.email ?? "",
+                            userName: user?.name ?? "",
+                          });
+                        }}
+                        className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2 py-2 text-[10px] font-medium text-white transition-colors hover:bg-emerald-700"
+                      >
+                        <FileText className="h-3 w-3" /> Devis
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (!user) {
+                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+                            return;
+                          }
+                          setRatingExpert(e);
+                          setMyExpertRating(0);
+                        }}
+                        className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2 py-2 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-500/10 cursor-pointer"
+                      >
+                        ⭐ Noter
+                      </button>
                     </div>
+                    <button
+                      onClick={() => navigate(`/dashboard/expert-profile/${e._id}`)}
+                      className="mt-1.5 flex w-full items-center justify-center rounded-xl bg-muted py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/70 cursor-pointer"
+                    >
+                      Voir profil
+                    </button>
                   </CardContent>
                 </Card>
               );
@@ -583,10 +540,17 @@ export default function ProfessionalsDirectory() {
   );
 }
 
-// ── Inline Rating Display ─────────────────────────────────────────────────
+// ── Métriques de la carte expert (maquette : évaluations · note · spécialités) ──
 
-function ExpertRatingInline({ expertId }: { expertId: string }) {
+function ExpertCardMetrics({ expertId, specialtyCount }: { expertId: string; specialtyCount: number }) {
   const rating = useQuery(api.ratings.getExpertAverage, { expertId: expertId as any });
-  if (!rating || rating.count === 0) return null;
-  return <StarRating value={rating.avg} count={rating.count} size="xs" className="mt-0.5" />;
+  const count = rating?.count ?? 0;
+  const avg = rating?.avg ?? null;
+  return (
+    <>
+      <MetricRow value={count} label="évaluations" />
+      <MetricRow value={avg !== null ? `${avg.toFixed(2).replace(".", ",")} ★` : "—"} label="note globale" />
+      <MetricRow value={specialtyCount} label="spécialités" />
+    </>
+  );
 }

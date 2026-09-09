@@ -15,10 +15,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Store, Search, MapPin, Phone, Mail,
-  ChevronDown, X, Filter, CheckCircle2, FileText, Loader2, Send,
+  ChevronDown, X, Filter, FileText, Loader2, Send, Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
+import { profileCardClass, VerifiedBadge, TrophyLine, MetricRow, DetailRow } from "@/components/ProfileCardBits";
 
 // ── Region labels ────────────────────────────────────────────────────────────
 
@@ -416,119 +417,86 @@ export default function SuppliersDirectory() {
             {filtered.map((s) => {
               const isOwnProfile = user?._id && s.userId && user._id === s.userId;
               return (
-                <div
-                  key={s._id}
-                  className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/[0.03] to-background p-3.5 hover:border-primary/30 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={s.logo
-                      ? "flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full"
-                      : "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary overflow-hidden"}>
-                      {s.logo ? (
-                        <img src={s.logo} alt={s.companyName} className="h-full w-full object-cover" />
-                      ) : (
-                        <Store className="h-5 w-5" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-foreground truncate">{s.companyName}</p>
-                        <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full shrink-0">
-                          <CheckCircle2 className="h-2 w-2" /> Vérifié
-                        </span>
+                <div key={s._id} className={profileCardClass}>
+                  <div className="p-4">
+                    {/* ── En-tête : avatar + identité (gauche) · métriques (droite) ── */}
+                    <div className="flex gap-3">
+                      <div className="flex w-[34%] shrink-0 flex-col items-center gap-1 text-center">
+                        <div className="relative">
+                          <div
+                            className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-full ${
+                              s.logo ? "" : "bg-primary/10 text-primary"
+                            }`}
+                          >
+                            {s.logo ? (
+                              <img src={s.logo} alt={s.companyName} className="h-full w-full object-cover" />
+                            ) : (
+                              <Store className="h-6 w-6" />
+                            )}
+                          </div>
+                          <VerifiedBadge />
+                        </div>
+                        <h3 className="line-clamp-2 text-sm font-bold leading-tight">{s.companyName}</h3>
+                        <TrophyLine>Vérifié</TrophyLine>
                       </div>
-                      <SupplierRatingInline supplierId={s._id} />
+
+                      {/* Métriques empilées, séparées par de fines lignes */}
+                      <div className="flex-1 min-w-0 self-start divide-y divide-border/60 overflow-hidden rounded-xl border border-border/30 bg-muted/10">
+                        <SupplierCardMetrics supplierId={s._id} specialtyCount={s.specialties.length} />
+                      </div>
+                    </div>
+
+                    {/* ── Détails ── */}
+                    <div className="mt-3 space-y-1.5 border-t border-border/30 pt-3">
                       {s.description && (
-                        <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-snug">
-                          {s.description}
-                        </p>
+                        <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">{s.description}</p>
                       )}
+                      <DetailRow
+                        icon={Layers}
+                        label={`Spécialités : ${s.specialties.map((sp) => SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp).join(", ")}`}
+                      />
+                      {s.address && <DetailRow icon={MapPin} label={s.address} />}
+                      <DetailRow icon={Phone} label={s.phone} />
+                      {s.email && <DetailRow icon={Mail} label={s.email} />}
                     </div>
-                  </div>
 
-                  {/* Contact row */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                      <Phone className="h-2.5 w-2.5" /> {s.phone}
-                    </span>
-                    {s.email && (
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <Mail className="h-2.5 w-2.5" /> {s.email}
-                      </span>
-                    )}
-                    {s.address && (
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1 min-w-0">
-                        <MapPin className="h-2.5 w-2.5 shrink-0" />
-                        <span className="truncate">{s.address}</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Spécialités */}
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    {s.specialties.slice(0, 3).map((sp) => (
-                      <Badge key={sp} variant="secondary" className="text-[9px]">
-                        {SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp}
-                      </Badge>
-                    ))}
-                    {s.specialties.length > 3 && (
-                      <Badge variant="outline" className="text-[9px]">
-                        +{s.specialties.length - 3}
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Régions */}
-                  {s.regions && s.regions.length > 0 && (
-                    <div className="flex items-center gap-1 text-[9px] text-muted-foreground mt-1">
-                      <MapPin className="h-3 w-3 shrink-0" />
-                      <span className="truncate">
-                        {s.regions.slice(0, 3).map((r) => REGION_LABELS[r] ?? r).join(", ")}
-                        {s.regions.length > 3 && ` +${s.regions.length - 3}`}
-                      </span>
+                    {/* ── Actions ── */}
+                    <div className="mt-3 flex gap-1.5">
+                      <a
+                        href={`tel:${s.phone.replace(/[^\d+]/g, "")}`}
+                        className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-border/40 bg-background px-2 py-1.5 text-[10px] font-medium text-foreground transition-colors hover:bg-muted/50"
+                      >
+                        <Phone className="h-2.5 w-2.5" /> Contacter
+                      </a>
+                      <button
+                        onClick={() => openQuoteDialog(s)}
+                        disabled={!!isOwnProfile}
+                        title={isOwnProfile ? "Vous ne pouvez pas vous envoyer un devis à vous-même" : undefined}
+                        className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-colors cursor-pointer ${
+                          isOwnProfile
+                            ? "border-muted bg-muted/30 text-muted-foreground cursor-not-allowed opacity-60"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                        }`}
+                      >
+                        <FileText className="h-2.5 w-2.5" /> Devis
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (!user) {
+                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+                            return;
+                          }
+                          setRatingSupplier(s);
+                          setMyRating(0);
+                        }}
+                        className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2 py-1.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-500/10 cursor-pointer"
+                      >
+                        ⭐ Noter
+                      </button>
                     </div>
-                  )}
-
-                  {/* Actions principales */}
-                  <div className="flex gap-1.5 mt-3">
-                    <a
-                      href={`tel:${s.phone.replace(/[^\d+]/g, "")}`}
-                      className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/[0.04] px-2.5 py-1.5 text-[10px] font-medium text-primary hover:bg-primary/10 hover:border-primary/30 active:scale-[0.98] transition-all"
-                    >
-                      <Phone className="h-2.5 w-2.5" /> Contacter
-                    </a>
-                    <button
-                      onClick={() => openQuoteDialog(s)}
-                      disabled={!!isOwnProfile}
-                      title={isOwnProfile ? "Vous ne pouvez pas vous envoyer un devis à vous-même" : undefined}
-                      className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-[10px] font-medium active:scale-[0.98] transition-all cursor-pointer ${
-                        isOwnProfile
-                          ? "border-muted bg-muted/30 text-muted-foreground cursor-not-allowed opacity-60"
-                          : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300"
-                      }`}
-                    >
-                      <FileText className="h-2.5 w-2.5" /> Demander un devis
-                    </button>
-                  </div>
-
-                  {/* Actions secondaires */}
-                  <div className="flex gap-1.5 mt-1.5">
-                    <button
-                      onClick={() => {
-                        if (!user) {
-                          navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
-                          return;
-                        }
-                        setRatingSupplier(s);
-                        setMyRating(0);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5 text-[10px] font-medium text-amber-700 hover:bg-amber-500/10 transition-all cursor-pointer"
-                    >
-                      ⭐ Noter
-                    </button>
                     <button
                       onClick={() => navigate(`/dashboard/supplier-profile/${s._id}`)}
-                      className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all cursor-pointer"
+                      className="mt-1.5 flex w-full items-center justify-center rounded-xl bg-muted py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/70 cursor-pointer"
                     >
                       Voir profil
                     </button>
@@ -654,10 +622,17 @@ export default function SuppliersDirectory() {
   );
 }
 
-// ── Inline Rating Display ─────────────────────────────────────────────────
+// ── Métriques de la carte fournisseur (maquette : évaluations · note · spécialités) ──
 
-function SupplierRatingInline({ supplierId }: { supplierId: string }) {
+function SupplierCardMetrics({ supplierId, specialtyCount }: { supplierId: string; specialtyCount: number }) {
   const rating = useQuery(api.ratings.getSupplierAverage, { supplierId: supplierId as any });
-  if (!rating || rating.count === 0) return null;
-  return <StarRating value={rating.avg} count={rating.count} size="xs" className="mt-0.5" />;
+  const count = rating?.count ?? 0;
+  const avg = rating?.avg ?? null;
+  return (
+    <>
+      <MetricRow value={count} label="évaluations" />
+      <MetricRow value={avg !== null ? `${avg.toFixed(2).replace(".", ",")} ★` : "—"} label="note globale" />
+      <MetricRow value={specialtyCount} label="spécialités" />
+    </>
+  );
 }
