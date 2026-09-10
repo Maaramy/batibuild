@@ -5,7 +5,7 @@
 #   - workflow_dispatch (Actions → Run workflow)
 #
 # Artefacts téléchargeables après le run :
-#   - Batibuild-debug.apk      (signé clé debug — tests rapides)
+#   - Batibuild-debug.apk      (signé clé debug — tests rapides sur téléphone)
 #   - Batibuild-release.apk    (signé clé Release si les secrets sont définis,
 #                               sinon clé debug — installation manuelle)
 #   - Batibuild-release.aab    (Google Play — nécessite la vraie clé Release)
@@ -17,6 +17,12 @@
 #
 # Sans ces secrets, le build fonctionne quand même (release signé clé debug).
 # Le projet natif android/ est commité — aucun prebuild nécessaire en CI.
+#
+# Note ABI : les builds CI ciblent arm64-v8a + armeabi-v7a (téléphones réels).
+# C'est la moitié du travail natif → build ~2× plus rapide et beaucoup moins
+# de mémoire. En local (`bun run apk:debug`), les 4 ABI restent actives pour
+# les émulateurs x86_64. Pour forcer toutes les ABI en CI, retirez le
+# drapeau -PreactNativeArchitectures ci-dessous.
 
 name: Android — APK & AAB
 
@@ -38,10 +44,18 @@ permissions:
 jobs:
   build-android:
     name: APK debug + release + AAB
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    env:
+      # Mémoire pour Metro/export:embed (bundling JS) — évite les OOM node
+      NODE_OPTIONS: "--max-old-space-size=8192"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node 22 (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -63,13 +77,29 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-${{ runner.os }}-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/gradle/wrapper/gradle-wrapper.properties', 'mobile/package.json', 'mobile/bun.lock') }}
           restore-keys: |
             gradle-${{ runner.os }}-
 
       - name: Install dependencies
         working-directory: mobile
         run: bun install --frozen-lockfile
+
+      - name: Diagnostics
+        working-directory: mobile/android
+        run: |
+          echo "── Java ──"
+          java -version
+          echo "── Node ──"
+          node --version
+          echo "── Bun ──"
+          bun --version
+          echo "── Android SDK ──"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME" 2>/dev/null || true
+          echo "── Gradle (wrapper) ──"
+          chmod +x ./gradlew
+          ./gradlew --version
 
       - name: Décoder le keystore Release (secrets optionnels)
         id: keystore
@@ -90,8 +120,13 @@ jobs:
       - name: Build APK debug + APK release + AAB release
         working-directory: mobile/android
         run: |
-          chmod +x ./gradlew
-          ./gradlew assembleDebug assembleRelease bundleRelease --no-daemon
+          ./gradlew \
+            assembleDebug assembleRelease bundleRelease \
+            -PreactNativeArchitectures=arm64-v8a,armeabi-v7a \
+            -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m" \
+            --no-daemon \
+            --console=plain \
+            --stacktrace
 
       - name: Préparer les artefacts nommés
         run: |
@@ -99,6 +134,7 @@ jobs:
           cp mobile/android/app/build/outputs/apk/debug/app-debug.apk /tmp/dist/Batibuild-debug.apk
           cp mobile/android/app/build/outputs/apk/release/app-release.apk /tmp/dist/Batibuild-release.apk
           cp mobile/android/app/build/outputs/bundle/release/app-release.aab /tmp/dist/Batibuild-release.aab
+          ls -lh /tmp/dist
 
       - name: Upload APK debug
         uses: actions/upload-artifact@v4

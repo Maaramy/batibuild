@@ -129,6 +129,22 @@ Chaque fichier est téléchargeable dans l'onglet **Artifacts** du run
 (30 jours). Secrets GitHub optionnels : `KEYSTORE_BASE64` (keystore encodé en
 base64), `KEYSTORE_PASSWORD`, `KEYSTORE_ALIAS`.
 
+Environnement de build (versionné dans le workflow) :
+
+- `ubuntu-24.04` · **Node 22 LTS** (requis par Expo SDK 57) · **Java 17**
+  (Temurin) · Android SDK via `android-actions/setup-android@v3` · Bun.
+- **ABI limitées à `arm64-v8a,armeabi-v7a`** (téléphones réels) : le build
+  CI est ~2× plus rapide et beaucoup moins gourmand en mémoire que les
+  4 ABI. En local (`bun run apk:debug`), les 4 ABI restent actives pour les
+  émulateurs x86_64. Pour forcer les 4 ABI en CI, retirez le drapeau
+  `-PreactNativeArchitectures` de l'étape « Build » du workflow.
+- Mémoire : tas Gradle `-Xmx4096m` + `NODE_OPTIONS=--max-old-space-size=8192`
+  (Metro/export:embed) pour éviter les OOM qui tuent le build tardivement.
+- L'étape « Diagnostics » affiche Java/Node/Bun/SDK/Gradle avant le build, et
+  le build passe `--stacktrace` : si un futur run échoue, la première erreur
+  réelle se trouve dans la section **« Build APK debug + APK release + AAB »**
+  du log, sous `What went wrong:`.
+
 ### 6b. `.github/workflows/mobile-build.yml` — EAS (cloud)
 
 - **Manuel** (`workflow_dispatch`) : choix `android` / `ios` / `all` et profil
