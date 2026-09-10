@@ -45,6 +45,12 @@
           "backgroundColor": "#06251B"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "80953a76-6804-4fb1-8742-21844bd47912"
+      }
+    },
+    "owner": "galiskon-llc"
   }
 }

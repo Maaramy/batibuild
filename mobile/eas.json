@@ -24,16 +24,13 @@
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
-      },
-      "ios": {
-        "buildType": "app-store-connect"
       }
     }
   },
   "submit": {
     "production": {
       "android": {
-        "serviceAccountKeyFile": "./secrets/google-play-service-account.json"
+        "serviceAccountKeyPath": "./secrets/google-play-service-account.json"
       },
       "ios": {
         "appleId": "PLACEHOLDER_YOUR_APPLE_ID@example.com",
