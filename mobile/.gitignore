@@ -16,6 +16,11 @@ ios/*.xcworkspace/xcuserdata/
 *.apk
 *.aab
 
+# CNG : les projets natifs sont régénérés par `expo prebuild` (et par EAS Build
+# à chaque build) depuis app.json — ils ne sont pas commités.
+android/
+ios/
+
 # Secrets
 secrets/
 *.jks

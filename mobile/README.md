@@ -135,13 +135,18 @@ bunx eas-cli submit -p ios --profile production      # → TestFlight / App Stor
 
 Descriptions iOS complètes dans `app.json` → `ios.infoPlist`.
 
-## 9. CI — Build automatique de l'APK (GitHub Actions + EAS)
+## 9. CI — Build automatique Android + iOS (GitHub Actions + EAS)
 
-Un workflow est fourni : `.github/workflows/eas-build-android.yml`.
+Un workflow est fourni : `.github/workflows/mobile-build.yml`.
 
-**Comportement** : à chaque `push` (toutes branches) — et manuellement via l'onglet
-Actions — le projet est typechecké, puis l'APK est construit sur EAS Build et
-**téléchargé dans les Artifacts du run** (`batibuild-apk-<sha>`).
+**Comportement** :
+- **Manuel** (onglet Actions → *Run workflow*) : choix de la plateforme
+  (`android` / `ios` / `all`) et du profil (`preview` / `production`).
+- **Push sur `main`** (fichiers `mobile/**` uniquement) : typecheck + build
+  Android **preview** (APK installable), téléchargé dans les **Artifacts du run**.
+
+Le projet est d'abord typechecké (job `typecheck` — échoue vite, sans
+consommer de crédits EAS), puis construit sur EAS Build par plateforme.
 
 ### Mise en place (une seule fois)
 
@@ -158,17 +163,20 @@ Actions — le projet est typechecké, puis l'APK est construit sur EAS Build et
    ```
    Si cette étape n'est pas faite, le workflow exécute `eas init` automatiquement
    (nécessite uniquement `EXPO_TOKEN`).
-4. Push une modification → l'APK apparaît dans les Artifacts du run.
+4. Push une modification sur `main` (ou lancement manuel) → l'artefact apparaît
+   dans les Artifacts du run.
 
-### Personnalisation
+### Notes CI
 
-- **Restreindre aux push sur `main`** : dans le workflow, remplacer
-  `branches: ["**"]` par `branches: ["main"]`.
-- **Limiter la conso de crédits EAS** : le job `typecheck` échoue vite en cas
-  d'erreur TS, avant de déclencher le build cloud.
-- **Build iOS en CI** : ajouter un job avec
-  `eas build --platform ios --profile production --non-interactive --no-wait`
-  (nécessite `EXPO_APPLE_TEAM_ID` et un compte Apple Developer).
+- **iOS preview** : build simulateur — aucun compte Apple Developer requis.
+- **iOS production** : EAS gère les certificats/provisioning via le compte
+  Apple Developer lié au compte Expo ; sans credentials Apple dans EAS, ce
+  build échouera proprement (voir `MOBILE_SETUP.md`).
+- **Crédits EAS** : limités (plan gratuit ≈ 30 builds/mois) — c'est pourquoi
+  le push `main` ne déclenche que le profil *preview* Android.
+- **URL de la plateforme** : définie une seule fois dans `src/config.ts`
+  (surcharge possible via `EXPO_PUBLIC_WEB_APP_URL`, voir `.env.example`
+  et `MOBILE_SETUP.md`).
 
 ## 10. Notes & dépannage
 

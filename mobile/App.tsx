@@ -44,13 +44,18 @@ export default function App() {
     setPhase("onboarding");
   }, []);
 
+  const handleResetGuide = useCallback(() => {
+    // Dev/test only: clears the persisted flag so the guide shows again on next launch.
+    setOnboardingCompleted(false).then(() => setPhase("onboarding"));
+  }, []);
+
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
       <View style={styles.root}>
         {phase === "splash" && <SplashScreenView />}
         {phase === "onboarding" && <OnboardingScreen onDone={handleOnboardingDone} />}
-        {phase === "webview" && <WebViewScreen onShowGuide={handleShowGuide} />}
+        {phase === "webview" && <WebViewScreen onShowGuide={handleShowGuide} onResetGuide={handleResetGuide} />}
       </View>
     </SafeAreaProvider>
   );

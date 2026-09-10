@@ -20,25 +20,7 @@ import Constants from "expo-constants";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 import { Logo } from "../components/Logo";
 import { COLORS } from "../theme";
-
-const WEB_URL: string =
-  ((Constants.expoConfig?.extra as { webUrl?: string } | undefined)?.webUrl) ??
-  "https://budgetbati.freebuff.app/";
-
-function getHost(url: string): string {
-  const m = url.match(/^https?:\/\/([^/?#]+)/i);
-  return m ? m[1].toLowerCase() : "";
-}
-
-const APP_HOST = getHost(WEB_URL);
-
-/** Is this URL part of the BatiBuild app (stays inside the WebView)? */
-function isAppUrl(url: string): boolean {
-  const host = getHost(url);
-  if (!host) return false;
-  // Same host or any *.freebuff.app deployment host (dev/preview/prod aliases).
-  return host === APP_HOST || host.endsWith(".freebuff.app");
-}
+import { WEB_APP_URL, isAppUrl } from "../config";
 
 /** Override navigator.share in the WebView so the native share sheet opens (Android WebView has no share API). */
 const SHARE_BRIDGE_SCRIPT = `
@@ -88,9 +70,10 @@ function guessMime(name: string): string {
 
 type Props = {
   onShowGuide: () => void;
+  onResetGuide: () => void;
 };
 
-export default function WebViewScreen({ onShowGuide }: Props) {
+export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   const insets = useSafeAreaInsets();
   const scheme = useColorScheme();
   const dark = scheme === "dark";
@@ -300,7 +283,7 @@ export default function WebViewScreen({ onShowGuide }: Props) {
           <WebView
             key={reloadKey}
             ref={webRef}
-            source={{ uri: WEB_URL }}
+            source={{ uri: WEB_APP_URL }}
             originWhitelist={["http://*", "https://*", "blob:*", "data:*"]}
             // Session / storage / cache persistence
             sharedCookiesEnabled
@@ -373,6 +356,15 @@ export default function WebViewScreen({ onShowGuide }: Props) {
               style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.7 }]}
             >
               <Text style={styles.modalActionText}>Voir le guide</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                closeSettings();
+                onResetGuide();
+              }}
+              style={({ pressed }) => [styles.modalAction, styles.modalActionDev, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.modalActionDevText}>Réinitialiser le guide (test)</Text>
             </Pressable>
             <Pressable onPress={closeSettings} style={({ pressed }) => [styles.modalClose, pressed && { opacity: 0.7 }]}>
               <Text style={[styles.modalCloseText, dark && styles.modalMsgDark]}>Fermer</Text>
@@ -549,6 +541,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: COLORS.brand700,
+  },
+  modalActionDev: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: COLORS.line,
+  },
+  modalActionDevText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.muted,
   },
   modalClose: {
     marginTop: 12,

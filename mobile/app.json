@@ -6,13 +6,7 @@
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "scheme": "batibuild",
-    "newArchEnabled": true,
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#06251B"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.batibuild.app",
@@ -51,9 +45,6 @@
           "backgroundColor": "#06251B"
         }
       ]
-    ],
-    "extra": {
-      "webUrl": "https://budgetbati.freebuff.app/"
-    }
+    ]
   }
 }
