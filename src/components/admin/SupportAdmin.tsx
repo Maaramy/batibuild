@@ -21,15 +21,19 @@ import {
   Clock,
   Filter,
   Headset,
+  Hourglass,
   Inbox,
   Loader2,
   Lock,
+  NotebookPen,
   Paperclip,
   Search,
   Send,
   Trash2,
+  UserCheck,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 // ── Labels & styles (identiques à la page utilisateur) ──────────────────────
@@ -44,8 +48,9 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<string, { label: string; cls: string; icon: any }> = {
-  open: { label: "Ouvert", cls: "bg-amber-500/10 text-amber-600 border-amber-500/25", icon: Clock },
+  open: { label: "Nouveau", cls: "bg-amber-500/10 text-amber-600 border-amber-500/25", icon: Clock },
   in_progress: { label: "En cours", cls: "bg-blue-500/10 text-blue-600 border-blue-500/25", icon: Send },
+  awaiting_user: { label: "En attente utilisateur", cls: "bg-violet-500/10 text-violet-600 border-violet-500/25", icon: Hourglass },
   resolved: { label: "Résolu", cls: "bg-emerald-500/10 text-emerald-600 border-emerald-500/25", icon: CircleCheck },
   closed: { label: "Fermé", cls: "bg-muted text-muted-foreground border-border", icon: Lock },
 };
@@ -91,14 +96,20 @@ export default function SupportAdmin() {
   const tickets = useQuery(api.support.adminGetTickets, {});
   const stats = useQuery(api.support.adminGetStats, {});
   const unreadTotal = useQuery(api.support.adminUnreadTotal, {});
+  const agents = useQuery(api.support.adminGetSupportAgents, {});
 
   const adminReply = useMutation(api.support.adminReply);
   const adminUpdateTicket = useMutation(api.support.adminUpdateTicket);
   const adminDeleteTicket = useMutation(api.support.adminDeleteTicket);
+  const assignSupportTicket = useMutation(api.support.assignSupportTicket);
+  const addInternalSupportNote = useMutation(api.support.addInternalSupportNote);
   const markTicketRead = useMutation(api.support.markTicketRead);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
 
-  const [selectedId, setSelectedId] = useState<Id<"supportTickets"> | null>(null);
+  // Ouverture directe d'un ticket depuis une notification (?tab=support&ticket=...)
+  const [searchParams] = useSearchParams();
+  const urlTicket = searchParams.get("ticket") as Id<"supportTickets"> | null;
+  const [selectedId, setSelectedId] = useState<Id<"supportTickets"> | null>(urlTicket);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -107,9 +118,15 @@ export default function SupportAdmin() {
   const [attachment, setAttachment] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
 
   const messages = useQuery(
     api.support.getTicketMessages,
+    selectedId ? { ticketId: selectedId } : "skip",
+  );
+  const notes = useQuery(
+    api.support.getInternalSupportNotes,
     selectedId ? { ticketId: selectedId } : "skip",
   );
 
@@ -203,6 +220,36 @@ export default function SupportAdmin() {
     }
   };
 
+  const handleAssign = async (assignedTo: string) => {
+    if (!selected) return;
+    try {
+      await assignSupportTicket({
+        ticketId: selected._id,
+        assignedTo: (assignedTo || undefined) as any,
+      });
+      toast.success("Ticket assigné");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'assignation");
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!selected || !noteText.trim()) return;
+    setAddingNote(true);
+    try {
+      await addInternalSupportNote({
+        ticketId: selected._id,
+        body: noteText,
+      });
+      setNoteText("");
+      toast.success("Note interne ajoutée");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'ajout de la note");
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!selected) return;
     setDeleting(true);
@@ -238,11 +285,11 @@ export default function SupportAdmin() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         {[
           { label: "Total", value: stats?.total, icon: Inbox, cls: "text-muted-foreground" },
-          { label: "Ouverts", value: stats?.open, icon: Clock, cls: "text-amber-600" },
+          { label: "Nouveaux", value: stats?.open, icon: Clock, cls: "text-amber-600" },
           { label: "En cours", value: stats?.inProgress, icon: Send, cls: "text-blue-600" },
+          { label: "En attente", value: stats?.awaitingUser, icon: Hourglass, cls: "text-violet-600" },
           { label: "Résolus", value: stats?.resolved, icon: CircleCheck, cls: "text-emerald-600" },
           { label: "Fermés", value: stats?.closed, icon: Lock, cls: "text-muted-foreground" },
-          { label: "Urgents", value: stats?.urgent, icon: CircleAlert, cls: "text-red-600" },
         ].map((s) => (
           <Card key={s.label} className="border-border/40 shadow-sm">
             <CardContent className="p-3 flex items-center gap-2.5">
@@ -344,7 +391,11 @@ export default function SupportAdmin() {
               <div className="p-6 text-center">
                 <Inbox className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
                 <p className="text-xs text-muted-foreground">
-                  {tickets ? "Aucune demande ne correspond aux filtres" : "Chargement..."}
+                  {tickets === undefined
+                    ? "Chargement..."
+                    : tickets.length === 0
+                      ? "Aucune demande de support"
+                      : "Aucune demande ne correspond aux filtres"}
                 </p>
               </div>
             ) : (
@@ -369,7 +420,7 @@ export default function SupportAdmin() {
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-mono text-muted-foreground">
-                        #{t._id.slice(-6)}
+                        #{t.ticketNumber ?? `SUP-${t._id.slice(-6)}`}
                       </span>
                       {unread > 0 && (
                         <span className="h-4 min-w-4 px-1 rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center">
@@ -428,7 +479,7 @@ export default function SupportAdmin() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono text-muted-foreground">
-                        #{selected._id.slice(-6)}
+                        #{selected.ticketNumber ?? `SUP-${selected._id.slice(-6)}`}
                       </span>
                       <Badge variant="outline" className={cn("text-[10px]", STATUS_STYLES[selected.status].cls)}>
                         {STATUS_STYLES[selected.status].label}
@@ -459,13 +510,22 @@ export default function SupportAdmin() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-7 text-[11px] gap-1 text-violet-600 border-violet-500/30 hover:bg-violet-500/10"
+                      onClick={() => void handleStatusChange("awaiting_user")}
+                    >
+                      <Hourglass className="h-3.5 w-3.5" />
+                      En attente
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="h-7 text-[11px] gap-1"
                       onClick={() => void handleStatusChange("closed")}
                     >
                       <Lock className="h-3.5 w-3.5" />
                       Fermer
                     </Button>
-                    {selected.status === "closed" && (
+                    {(selected.status === "closed" || selected.status === "resolved") && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -507,9 +567,26 @@ export default function SupportAdmin() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 ml-auto">
+                  <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+                    <Select
+                      value={selected.assignedTo ?? ""}
+                      onValueChange={(v) => void handleAssign(v)}
+                    >
+                      <SelectTrigger className="h-7 w-[150px] text-[11px]">
+                        <UserCheck className="h-3 w-3 mr-1 text-muted-foreground" />
+                        <SelectValue placeholder="Assigner à..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Non assigné</SelectItem>
+                        {(agents ?? []).map((a) => (
+                          <SelectItem key={a._id} value={a._id}>
+                            {a.name || a.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Select value={selected.status} onValueChange={handleStatusChange}>
-                      <SelectTrigger className="h-7 w-[120px] text-[11px]">
+                      <SelectTrigger className="h-7 w-[130px] text-[11px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -559,7 +636,7 @@ export default function SupportAdmin() {
                             )}
                           >
                             <p className="text-[10px] font-medium opacity-75 mb-1">
-                              {fromUser ? selected.userName ?? "Utilisateur" : "Équipe Support"} ·{" "}
+                              {fromUser ? selected.userName ?? "Utilisateur" : (m.senderName ?? "Équipe Support")} ·{" "}
                               {fmtDateTime(m.createdAt)}
                             </p>
                             {m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
@@ -591,6 +668,57 @@ export default function SupportAdmin() {
                     <div ref={bottomRef} />
                   </div>
                 )}
+              </div>
+
+              {/* Notes internes (visibles uniquement par l'équipe support) */}
+              <div className="border-t border-border/50 bg-muted/20">
+                <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+                    <Lock className="h-3.5 w-3.5" />
+                    Notes internes
+                    {notes && notes.length > 0 && (
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px]">{notes.length}</span>
+                    )}
+                  </div>
+                  <span className="text-[9px] text-muted-foreground/70">jamais visible par l'utilisateur</span>
+                </div>
+                {notes && notes.length > 0 && (
+                  <div className="px-4 pb-2 space-y-1.5 max-h-32 overflow-y-auto">
+                    {notes.map((n) => (
+                      <div key={n._id} className="rounded-lg bg-amber-500/5 border border-amber-500/15 px-3 py-2 text-[11px]">
+                        <p className="text-[9px] font-semibold text-amber-600/80 mb-0.5 flex items-center gap-1">
+                          <NotebookPen className="h-2.5 w-2.5" />
+                          {n.authorName ?? "Support"} · {fmtDateTime(n.createdAt)}
+                        </p>
+                        <p className="whitespace-pre-wrap break-words text-muted-foreground">{n.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="px-4 pb-3 flex gap-2">
+                  <Input
+                    placeholder="Ajouter une note interne..."
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    className="h-8 text-[11px]"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void handleAddNote();
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[11px] gap-1 shrink-0"
+                    disabled={addingNote || !noteText.trim()}
+                    onClick={() => void handleAddNote()}
+                  >
+                    {addingNote ? <Loader2 className="h-3 w-3 animate-spin" /> : <NotebookPen className="h-3 w-3" />}
+                    Ajouter
+                  </Button>
+                </div>
               </div>
 
               {/* Réponse */}

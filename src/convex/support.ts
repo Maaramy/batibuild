@@ -27,6 +27,7 @@ export const TICKET_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export const TICKET_STATUSES = [
   "open",
   "in_progress",
+  "awaiting_user",
   "resolved",
   "closed",
 ] as const;
@@ -57,8 +58,9 @@ export const TICKET_STATUS_LABELS: Record<
   (typeof TICKET_STATUSES)[number],
   string
 > = {
-  open: "Ouvert",
+  open: "Nouveau",
   in_progress: "En cours",
+  awaiting_user: "En attente utilisateur",
   resolved: "Résolu",
   closed: "Fermé",
 };
@@ -155,13 +157,19 @@ export const getTicketMessages = query({
       .collect();
 
     // Résolution serveur des URL de pièces jointes (stockage Convex)
+    // + nom de l'expéditeur (pour afficher l'auteur exact côté admin).
     return await Promise.all(
-      msgs.map(async (m: Doc<"supportMessages">) => ({
-        ...m,
-        attachmentUrl: m.attachmentStorageId
-          ? ((await ctx.storage.getUrl(m.attachmentStorageId)) ?? undefined)
-          : undefined,
-      })),
+      msgs.map(async (m: Doc<"supportMessages">) => {
+        const sender =
+          m.senderRole === "support" ? await ctx.db.get(m.senderId) : null;
+        return {
+          ...m,
+          attachmentUrl: m.attachmentStorageId
+            ? ((await ctx.storage.getUrl(m.attachmentStorageId)) ?? undefined)
+            : undefined,
+          senderName: m.senderRole === "user" ? undefined : (sender?.name ?? "Équipe Support"),
+        };
+      }),
     );
   },
 });
@@ -186,6 +194,7 @@ export const adminGetTickets = query({
     return await Promise.all(
       tickets.map(async (t: Doc<"supportTickets">) => {
         const u = await ctx.db.get(t.userId);
+        const assignee = t.assignedTo ? await ctx.db.get(t.assignedTo) : null;
         const lastMessage = await ctx.db
           .query("supportMessages")
           .withIndex("by_ticket", (q: any) => q.eq("ticketId", t._id))
@@ -193,11 +202,13 @@ export const adminGetTickets = query({
           .first();
         return {
           ...t,
+          ticketNumber: t.ticketNumber ?? `SUP-${t._id.slice(-6)}`,
           userName: u?.name ?? null,
           userEmail: u?.email ?? null,
           userPhone: u?.phone ?? null,
           userImage: u?.image ?? null,
           userCompany: u?.company ?? null,
+          assigneeName: assignee?.name ?? null,
           lastMessageBody: lastMessage?.body ?? null,
         };
       }),
@@ -211,7 +222,15 @@ export const adminGetStats = query({
   handler: async (ctx) => {
     const agent = await getSupportAgent(ctx);
     if (!agent || !isSupportAgent(agent)) {
-      return { total: 0, open: 0, inProgress: 0, resolved: 0, closed: 0, urgent: 0 };
+      return {
+        total: 0,
+        open: 0,
+        inProgress: 0,
+        awaitingUser: 0,
+        resolved: 0,
+        closed: 0,
+        urgent: 0,
+      };
     }
     const tickets = await ctx.db.query("supportTickets").collect();
     return {
@@ -219,6 +238,9 @@ export const adminGetStats = query({
       open: tickets.filter((t: Doc<"supportTickets">) => t.status === "open").length,
       inProgress: tickets.filter(
         (t: Doc<"supportTickets">) => t.status === "in_progress",
+      ).length,
+      awaitingUser: tickets.filter(
+        (t: Doc<"supportTickets">) => t.status === "awaiting_user",
       ).length,
       resolved: tickets.filter(
         (t: Doc<"supportTickets">) => t.status === "resolved",
@@ -269,12 +291,27 @@ export const createTicket = mutation({
     if (!body) throw new Error("Le message est obligatoire");
 
     const now = Date.now();
+
+    // Numérotation séquentielle des tickets (SUP-000124, ...)
+    const counter = await ctx.db
+      .query("supportCounters")
+      .withIndex("by_kind", (q: any) => q.eq("kind", "ticket"))
+      .first();
+    const nextNumber = (counter?.value ?? 0) + 1;
+    if (counter) {
+      await ctx.db.patch(counter._id, { value: nextNumber });
+    } else {
+      await ctx.db.insert("supportCounters", { kind: "ticket", value: nextNumber });
+    }
+    const ticketNumber = `SUP-${String(nextNumber).padStart(6, "0")}`;
+
     const ticketId = await ctx.db.insert("supportTickets", {
       userId: user._id,
       subject,
       category: args.category,
       priority: args.priority,
       status: "open",
+      ticketNumber,
       createdAt: now,
       lastActivityAt: now,
       userUnreadCount: 0,
@@ -372,11 +409,18 @@ export const sendUserMessage = mutation({
       createdAt: now,
     });
 
+    // L'utilisateur répond → le ticket redevient actif (réouverture implicite)
+    const nextStatus =
+      ticket.status === "resolved" || ticket.status === "awaiting_user"
+        ? "open"
+        : ticket.status;
+    // Une réponse utilisateur rouvre le ticket : il n'est ni résolu ni fermé.
     await ctx.db.patch(args.ticketId, {
       lastActivityAt: now,
-      // Réouvert implicitement si l'utilisateur répond à un ticket résolu
-      status: ticket.status === "resolved" ? "open" : ticket.status,
+      status: nextStatus as any,
       adminUnreadCount: (ticket.adminUnreadCount ?? 0) + 1,
+      resolvedAt: undefined,
+      closedAt: undefined,
     });
   },
 });
@@ -445,15 +489,18 @@ export const adminReply = mutation({
 
     const newStatus = args.resolve
       ? "resolved"
-      : ticket.status === "open" || ticket.status === "in_progress"
-        ? "in_progress"
-        : ticket.status;
+      : ticket.status === "resolved" || ticket.status === "closed"
+        ? ticket.status
+        : "in_progress";
 
-    await ctx.db.patch(args.ticketId, {
+    const patch: Record<string, unknown> = {
       lastActivityAt: now,
       status: newStatus as any,
       userUnreadCount: (ticket.userUnreadCount ?? 0) + 1,
-    });
+    };
+    if (newStatus === "resolved") patch.resolvedAt = now;
+    if (newStatus !== "closed") patch.closedAt = undefined;
+    await ctx.db.patch(args.ticketId, patch);
 
     // Notification plateforme pour l'utilisateur
     await pushNotification(ctx, {
@@ -515,13 +562,29 @@ export const adminUpdateTicket = mutation({
     const ticket = await ctx.db.get(args.ticketId);
     if (!ticket) throw new Error("Demande introuvable");
 
+    const now = Date.now();
     const patch: Record<string, unknown> = {};
-    if (args.status && args.status !== ticket.status) patch.status = args.status;
+    if (args.status && args.status !== ticket.status) {
+      patch.status = args.status;
+      // Horodatages métier (résolution / fermeture / réouverture)
+      if (args.status === "resolved") {
+        patch.resolvedAt = ticket.resolvedAt ?? now;
+        patch.closedAt = undefined;
+      } else if (args.status === "closed") {
+        patch.closedAt = ticket.closedAt ?? now;
+        if (!ticket.resolvedAt && ticket.status !== "resolved") {
+          patch.resolvedAt = undefined;
+        }
+      } else {
+        patch.resolvedAt = undefined;
+        patch.closedAt = undefined;
+      }
+    }
     if (args.priority && args.priority !== ticket.priority) {
       patch.priority = args.priority;
     }
     if (Object.keys(patch).length === 0) return;
-    patch.lastActivityAt = Date.now();
+    patch.lastActivityAt = now;
     await ctx.db.patch(args.ticketId, patch);
 
     // Notifier l'utilisateur d'un changement de statut
@@ -542,6 +605,92 @@ export const adminUpdateTicket = mutation({
   },
 });
 
+/** Assigner un ticket à un membre de l'équipe support (admin / modérateur / agent). */
+export const assignSupportTicket = mutation({
+  args: {
+    ticketId: v.id("supportTickets"),
+    assignedTo: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const agent = await getSupportAgent(ctx);
+    if (!agent || !isSupportAgent(agent)) {
+      throw new Error("Accès réservé à l'équipe support");
+    }
+    const ticket = await ctx.db.get(args.ticketId);
+    if (!ticket) throw new Error("Demande introuvable");
+    await ctx.db.patch(args.ticketId, {
+      assignedTo: args.assignedTo,
+      lastActivityAt: Date.now(),
+    });
+  },
+});
+
+/** Liste des membres de l'équipe support (pour le sélecteur d'assignation). */
+export const adminGetSupportAgents = query({
+  args: {},
+  handler: async (ctx) => {
+    const agent = await getSupportAgent(ctx);
+    if (!agent || !isSupportAgent(agent)) return [];
+    const users = await ctx.db.query("users").collect();
+    return users
+      .filter(
+        (u: Doc<"users">) =>
+          u.status !== "disabled" &&
+          (u.role === "admin" ||
+            u.role === "moderator" ||
+            u.role === ("support_agent" as any)),
+      )
+      .map((u: Doc<"users">) => ({
+        _id: u._id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+      }));
+  },
+});
+
+/** Ajouter une note interne (jamais visible par l'utilisateur). */
+export const addInternalSupportNote = mutation({
+  args: {
+    ticketId: v.id("supportTickets"),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const agent = await getSupportAgent(ctx);
+    if (!agent || !isSupportAgent(agent)) {
+      throw new Error("Accès réservé à l'équipe support");
+    }
+    const body = args.body.trim();
+    if (!body) throw new Error("La note est vide");
+    const ticket = await ctx.db.get(args.ticketId);
+    if (!ticket) throw new Error("Demande introuvable");
+    await ctx.db.insert("supportNotes", {
+      ticketId: args.ticketId,
+      authorId: agent._id,
+      authorName: agent.name,
+      body,
+      createdAt: Date.now(),
+    });
+    await ctx.db.patch(args.ticketId, { lastActivityAt: Date.now() });
+  },
+});
+
+/** Notes internes d'un ticket — équipe support uniquement. */
+export const getInternalSupportNotes = query({
+  args: { ticketId: v.id("supportTickets") },
+  handler: async (ctx, args) => {
+    const agent = await getSupportAgent(ctx);
+    if (!agent || !isSupportAgent(agent)) return null;
+    const ticket = await ctx.db.get(args.ticketId);
+    if (!ticket) return null;
+    return ctx.db
+      .query("supportNotes")
+      .withIndex("by_ticket", (q: any) => q.eq("ticketId", args.ticketId))
+      .order("asc")
+      .collect();
+  },
+});
+
 /** Supprimer un ticket et tous ses messages (admin uniquement). */
 export const adminDeleteTicket = mutation({
   args: { ticketId: v.id("supportTickets") },
@@ -558,6 +707,15 @@ export const adminDeleteTicket = mutation({
       .query("supportMessages")
       .withIndex("by_ticket", (q: any) => q.eq("ticketId", args.ticketId))
       .collect();
+
+    // Nettoyage des notes internes associées
+    const notes = await ctx.db
+      .query("supportNotes")
+      .withIndex("by_ticket", (q: any) => q.eq("ticketId", args.ticketId))
+      .collect();
+    for (const n of notes) {
+      await ctx.db.delete(n._id);
+    }
 
     // Nettoyage des pièces jointes stockées
     for (const m of messages) {

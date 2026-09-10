@@ -837,11 +837,19 @@ const schema = defineSchema(
       status: v.union(
         v.literal("open"),
         v.literal("in_progress"),
+        v.literal("awaiting_user"),
         v.literal("resolved"),
         v.literal("closed"),
       ),
       createdAt: v.number(),
       lastActivityAt: v.number(),
+      // Numéro lisible du ticket (ex : SUP-000124), généré côté serveur.
+      ticketNumber: v.optional(v.string()),
+      // Administrateur / agent support assigné au ticket.
+      assignedTo: v.optional(v.id("users")),
+      // Horodatages de résolution / fermeture.
+      resolvedAt: v.optional(v.number()),
+      closedAt: v.optional(v.number()),
       // Compteurs de messages non lus (temps réel, par côté)
       userUnreadCount: v.optional(v.number()),
       adminUnreadCount: v.optional(v.number()),
@@ -861,6 +869,21 @@ const schema = defineSchema(
       attachmentSize: v.optional(v.number()),
       createdAt: v.number(),
     }).index("by_ticket", ["ticketId"]),
+
+    // Notes internes (visibles uniquement par l'équipe support, jamais par l'utilisateur).
+    supportNotes: defineTable({
+      ticketId: v.id("supportTickets"),
+      authorId: v.id("users"),
+      authorName: v.optional(v.string()),
+      body: v.string(),
+      createdAt: v.number(),
+    }).index("by_ticket", ["ticketId"]),
+
+    // Compteur séquentiel pour la numérotation des tickets (SUP-000001...).
+    supportCounters: defineTable({
+      kind: v.string(),
+      value: v.number(),
+    }).index("by_kind", ["kind"]),
 
     subscriptions: defineTable({
       userId: v.id("users"),

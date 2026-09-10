@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import SeoSettings from "./SeoSettings";
 import BlogAdmin from "./BlogAdmin";
 import BIMSettings from "./BIMSettings";
@@ -103,7 +103,22 @@ export default function AdminPanel() {
   const navigate = useNavigate();
   // Agent support : ouvre directement le module Support & Messagerie
   const isSupportAgentRole = user?.role === ("support_agent" as any);
-  const [activeTab, setActiveTab] = useState(isSupportAgentRole ? "support" : "dashboard");
+  // Ouverture directe d'un onglet via l'URL (ex : notifications → ?tab=support&ticket=...)
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const VALID_TABS = [
+    "dashboard", "users", "projects", "investments", "materials", "virements",
+    "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs",
+    "experts", "analytics", "support", "journal", "paiement", "limites",
+    "seo", "blog", "bim", "emails", "modeles", "historique",
+  ];
+  const initialTab =
+    isSupportAgentRole
+      ? "support"
+      : requestedTab && VALID_TABS.includes(requestedTab)
+        ? requestedTab
+        : "dashboard";
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [recusFilter, setRecusFilter] = useState<string>("all");
   const [supplierRecusFilter, setSupplierRecusFilter] = useState<string>("all");
   const [expertSearch, setExpertSearch] = useState("");
@@ -772,6 +787,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               )}
             </TabsList>
           </div>
+
+          {/* ── Support ── */}
+          {canSee("support") && (
+            <TabsContent value="support">
+              <SupportAdmin />
+            </TabsContent>
+          )}
 
           {/* ── Fournisseurs ── */}
             <TabsContent value="fournisseurs">

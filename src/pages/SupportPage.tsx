@@ -56,7 +56,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const STATUS_STYLES: Record<string, { label: string; cls: string; icon: any }> = {
   open: {
-    label: "Ouvert",
+    label: "Nouveau",
     cls: "bg-amber-500/10 text-amber-600 border-amber-500/25",
     icon: Clock,
   },
@@ -64,6 +64,11 @@ const STATUS_STYLES: Record<string, { label: string; cls: string; icon: any }> =
     label: "En cours",
     cls: "bg-blue-500/10 text-blue-600 border-blue-500/25",
     icon: Send,
+  },
+  awaiting_user: {
+    label: "En attente utilisateur",
+    cls: "bg-violet-500/10 text-violet-600 border-violet-500/25",
+    icon: Clock,
   },
   resolved: {
     label: "Résolu",
@@ -345,9 +350,14 @@ export default function SupportPage() {
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-medium line-clamp-1 flex-1">
-                      {t.subject}
-                    </span>
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <span className="text-[9px] font-mono text-muted-foreground/70 block">
+                        #{t.ticketNumber ?? `SUP-${t._id.slice(-6)}`}
+                      </span>
+                      <span className="text-xs font-medium line-clamp-1 block">
+                        {t.subject}
+                      </span>
+                    </div>
                     {unread > 0 && (
                       <span className="shrink-0 h-4 min-w-4 px-1 rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center">
                         {unread}
@@ -456,7 +466,7 @@ export default function SupportPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-mono text-muted-foreground">
-                          #{selectedTicket._id.slice(-6)}
+                          #{selectedTicket.ticketNumber ?? `SUP-${selectedTicket._id.slice(-6)}`}
                         </span>
                         <StatusBadge status={selectedTicket.status} />
                         <Badge
