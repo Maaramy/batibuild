@@ -1,0 +1,42 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "buildType": "app-store-connect"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyFile": "./secrets/google-play-service-account.json"
+      },
+      "ios": {
+        "appleId": "PLACEHOLDER_YOUR_APPLE_ID@example.com",
+        "ascAppId": "PLACEHOLDER_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "PLACEHOLDER_TEAM_ID"
+      }
+    }
+  }
+}
