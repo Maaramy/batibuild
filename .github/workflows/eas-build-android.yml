@@ -1,0 +1,130 @@
+# BatiBuild — Build automatique de l'APK Android sur EAS Build
+#
+# Déclencheurs :
+#   - chaque push sur n'importe quelle branche  ("à chaque modification")
+#   - déclenchement manuel (onglet Actions → Run workflow)
+#
+# Prérequis (une seule fois) :
+#   1. Créer un token Expo : https://expo.dev/settings/access-tokens
+#   2. GitHub → Settings → Secrets and variables → Actions → New repository secret
+#      Nom : EXPO_TOKEN   Valeur : le token créé
+#   3. (Recommandé) Lancer une première fois « eas build -p android --profile preview »
+#      en local après « eas login » : cela lie le projet EAS (projectId) et crée le
+#      keystore de signature. Sinon, le job « Ensure EAS project is linked » le fait
+#      automatiquement au premier run.
+#
+# L'APK généré est téléchargé dans les Artifacts du run (30 jours) :
+#   batibuild-apk-<sha> → *.apk installable directement sur un appareil Android.
+
+name: EAS Build — Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+
+concurrency:
+  group: eas-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Typecheck (mobile)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: mobile
+        run: bun run typecheck
+
+  build-apk:
+    name: Build Android APK (EAS)
+    needs: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Expo & EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: bun install --frozen-lockfile
+
+      - name: Ensure EAS project is linked
+        working-directory: mobile
+        run: |
+          if ! grep -q '"projectId"' app.json; then
+            echo "::warning::Projet non lié à EAS — exécution de 'eas init'..."
+            npx eas-cli init --non-interactive \
+              || { echo "::error::Impossible de lier le projet EAS automatiquement. Lancez 'eas login' puis 'eas init' en local, ou vérifiez le secret EXPO_TOKEN."; exit 1; }
+          fi
+
+      - name: Build Android APK on EAS
+        id: build
+        working-directory: mobile
+        run: |
+          set -o pipefail
+          eas build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --output ./build-output \
+            --message "CI: ${{ github.sha }} (${{ github.ref_name }})" \
+            2>&1 | tee build.log
+          EAS_URL=$(grep -oE "https://expo.dev/accounts/[^ ]+/builds/[A-Za-z0-9-]+" build.log | head -1 || true)
+          echo "eas_url=$EAS_URL" >> "$GITHUB_OUTPUT"
+          echo "Artifact(s) produced:"
+          ls -la build-output/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: batibuild-apk-${{ github.sha }}
+          path: mobile/build-output/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Post run summary
+        if: always()
+        run: |
+          {
+            echo "## 📱 BatiBuild — APK Android"
+            echo ""
+            echo "- **Commit** : \`${{ github.sha }}\` (\`${{ github.ref_name }}\`)"
+            if [ -n "${{ steps.build.outputs.eas_url }}" ]; then
+              echo "- **Suivi du build EAS** : ${{ steps.build.outputs.eas_url }}"
+            fi
+            echo "- **Téléchargement** : l'APK est dans l'onglet *Artifacts* de ce run (\`batibuild-apk-${{ github.sha }}\`)"
+            echo "- **Installation** : ouvrir l'APK sur un appareil Android (autoriser les sources inconnues)"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -135,7 +135,42 @@ bunx eas-cli submit -p ios --profile production      # → TestFlight / App Stor
 
 Descriptions iOS complètes dans `app.json` → `ios.infoPlist`.
 
-## 9. Notes & dépannage
+## 9. CI — Build automatique de l'APK (GitHub Actions + EAS)
+
+Un workflow est fourni : `.github/workflows/eas-build-android.yml`.
+
+**Comportement** : à chaque `push` (toutes branches) — et manuellement via l'onglet
+Actions — le projet est typechecké, puis l'APK est construit sur EAS Build et
+**téléchargé dans les Artifacts du run** (`batibuild-apk-<sha>`).
+
+### Mise en place (une seule fois)
+
+1. **Token Expo** : https://expo.dev/settings/access-tokens → *Create token*.
+2. **Secret GitHub** : dans le dépôt → *Settings → Secrets and variables →
+   Actions → New repository secret* — nom `EXPO_TOKEN`, valeur = le token.
+3. **Lier le projet EAS** (recommandé avant le premier run CI) :
+   ```bash
+   cd mobile
+   bunx eas-cli login
+   bunx eas-cli build:configure   # crée eas.json si besoin
+   bunx eas-cli init              # lie le projet (ajoute extra.eas.projectId à app.json)
+   bunx eas-cli build -p android --profile preview   # 1er build : génère le keystore
+   ```
+   Si cette étape n'est pas faite, le workflow exécute `eas init` automatiquement
+   (nécessite uniquement `EXPO_TOKEN`).
+4. Push une modification → l'APK apparaît dans les Artifacts du run.
+
+### Personnalisation
+
+- **Restreindre aux push sur `main`** : dans le workflow, remplacer
+  `branches: ["**"]` par `branches: ["main"]`.
+- **Limiter la conso de crédits EAS** : le job `typecheck` échoue vite en cas
+  d'erreur TS, avant de déclencher le build cloud.
+- **Build iOS en CI** : ajouter un job avec
+  `eas build --platform ios --profile production --non-interactive --no-wait`
+  (nécessite `EXPO_APPLE_TEAM_ID` et un compte Apple Developer).
+
+## 10. Notes & dépannage
 
 - **Le guide ne réapparaît pas** après mise à jour : normal — le flag `hasCompletedOnboarding`
   est persistant. Il réapparaît après **désinstallation/réinstallation** (stockage effacé).
