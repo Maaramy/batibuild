@@ -1,0 +1,5 @@
+# EAS Build régénère les projets natifs depuis app.json (CNG).
+# Le dossier android/ commité sert au build Gradle local et au workflow
+# GitHub Actions android.yml — il ne doit pas être envoyé à EAS.
+android/
+ios/

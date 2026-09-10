@@ -16,10 +16,14 @@ ios/*.xcworkspace/xcuserdata/
 *.apk
 *.aab
 
-# CNG : les projets natifs sont régénérés par `expo prebuild` (et par EAS Build
-# à chaque build) depuis app.json — ils ne sont pas commités.
-android/
+# Projet natif Android commité : permet `./gradlew assembleRelease` en local
+# et le build Gradle en CI sans étape de prebuild. Après toute modification
+# d'app.json (permissions, version, nom…), resynchroniser avec :
+#   cd mobile && bunx expo prebuild --platform android
+# puis réappliquer la signature Release (voir mobile/scripts/apply-signing.sh).
+# iOS reste en CNG (régénéré à chaque build EAS sur macOS).
 ios/
+android/keystore.properties
 
 # Secrets
 secrets/
@@ -28,6 +32,5 @@ secrets/
 *.p12
 
 # EAS / env
-.easignore
 .env
 .env.local

@@ -31,8 +31,9 @@ mobile/
 │   ├── components/Logo.tsx        # Logo maison (purement React Native Views)
 │   ├── storage.ts                 # hasCompletedOnboarding (AsyncStorage)
 │   └── theme.ts                   # Couleurs BatiBuild (émeraude)
-├── android/                       # Projet natif Android (expo prebuild)
-└── ios/                           # Projet natif iOS (expo prebuild)
+├── android/                       # Projet natif Android — COMMITÉ (build Gradle direct)
+├── ios/                           # Projet natif iOS (régénéré par expo prebuild / EAS)
+└── scripts/apply-signing.mjs      # Réapplique la signature Release après un prebuild
 ```
 
 ## 2. Fonctionnalités
@@ -76,8 +77,9 @@ bunx expo run:android     # nécessite Android SDK
 bunx expo run:ios         # nécessite macOS + Xcode
 ```
 
-L'URL de la plateforme est définie dans `app.json` → `expo.extra.webUrl`
-(par défaut : `https://budgetbati.freebuff.app/`).
+L'URL de la plateforme est définie **une seule fois** dans `src/config.ts`
+(par défaut : `https://budgetbati.freebuff.app/` ; surcharge possible via
+`EXPO_PUBLIC_WEB_APP_URL`).
 
 ## 5. Build Android — APK / AAB
 
@@ -95,13 +97,27 @@ bunx eas-cli build -p android --profile production   # → AAB (Google Play)
 - La première exécution demande de créer le projet EAS (identifiants de signature
   Android générés automatiquement ; conservez-les pour les mises à jour).
 
-### En local (avec Android Studio / SDK)
+### Via Gradle (local ou CI — projet natif commité)
+
+Prérequis : **JDK 17** + **Android SDK** (Android Studio).
 
 ```bash
-cd mobile/android
-./gradlew assembleRelease
-# APK : android/app/build/outputs/apk/release/app-release.apk
+cd mobile
+bun run apk:debug        # → android/app/build/outputs/apk/debug/app-debug.apk
+bun run apk:release      # → android/app/build/outputs/apk/release/app-release.apk
+bun run aab              # → android/app/build/outputs/bundle/release/app-release.aab
+
+# équivalent direct :
+cd android && ./gradlew assembleDebug assembleRelease bundleRelease
 ```
+
+**Signature Release** : l'APK/AAB release est signé avec la clé Release si
+`mobile/android/keystore.properties` + le keystore existent (voir
+`MOBILE_SETUP.md` §9a) ; sinon il est signé avec la clé debug (installable,
+mais refusé par Google Play).
+
+> Après une modification d'`app.json` : `bunx expo prebuild --platform android`
+> puis `bun run signing:apply` (le prebuild écrase `build.gradle`).
 
 ## 6. Build iOS — TestFlight / App Store
 
@@ -135,9 +151,21 @@ bunx eas-cli submit -p ios --profile production      # → TestFlight / App Stor
 
 Descriptions iOS complètes dans `app.json` → `ios.infoPlist`.
 
-## 9. CI — Build automatique Android + iOS (GitHub Actions + EAS)
+## 9. CI — Build automatique Android (GitHub Actions)
 
-Un workflow est fourni : `.github/workflows/mobile-build.yml`.
+Deux workflows sont fournis :
+
+### 9a. `.github/workflows/android.yml` — APK/AAB par Gradle (recommandé)
+
+- **Push sur `main`** (fichiers `mobile/**`) ou manuellement
+  (`Actions → Run workflow`).
+- Construit directement avec Gradle : **Batibuild-debug.apk**,
+  **Batibuild-release.apk** et **Batibuild-release.aab**, téléchargeables dans
+  les **Artifacts du run**.
+- Signature Release via secrets GitHub optionnels : `KEYSTORE_BASE64`,
+  `KEYSTORE_PASSWORD`, `KEYSTORE_ALIAS` (sans eux : release signé clé debug).
+
+### 9b. `.github/workflows/mobile-build.yml` — EAS (cloud, Android + iOS)
 
 **Comportement** :
 - **Manuel** (onglet Actions → *Run workflow*) : choix de la plateforme
@@ -168,12 +196,14 @@ consommer de crédits EAS), puis construit sur EAS Build par plateforme.
 
 ### Notes CI
 
+- **android.yml** ne consomme **aucun crédit EAS** (build Gradle sur runner
+  GitHub) — c'est le workflow à utiliser pour produire l'APK.
 - **iOS preview** : build simulateur — aucun compte Apple Developer requis.
 - **iOS production** : EAS gère les certificats/provisioning via le compte
   Apple Developer lié au compte Expo ; sans credentials Apple dans EAS, ce
   build échouera proprement (voir `MOBILE_SETUP.md`).
 - **Crédits EAS** : limités (plan gratuit ≈ 30 builds/mois) — c'est pourquoi
-  le push `main` ne déclenche que le profil *preview* Android.
+  le push `main` ne déclenche que le profil *preview* Android sur ce workflow.
 - **URL de la plateforme** : définie une seule fois dans `src/config.ts`
   (surcharge possible via `EXPO_PUBLIC_WEB_APP_URL`, voir `.env.example`
   et `MOBILE_SETUP.md`).
@@ -188,7 +218,10 @@ consommer de crédits EAS), puis construit sur EAS Build par plateforme.
   internes ; tout autre domaine est routé vers le navigateur système.
 - **Le téléchargement ne se partage pas** : sur iOS, certains documents s'affichent dans la
   WebView (lecture intégrée) ; les PDF servis en pièce jointe déclenchent la feuille de partage.
-- **Modifier le projet natif** : `android/` et `ios/` sont générés par `expo prebuild`
-  (exécuter `bunx expo prebuild` après un changement d'`app.json`).
+- **Modifier le projet natif** : `android/` est **commité** ; après un changement
+  d'`app.json`, resynchroniser avec `bunx expo prebuild --platform android` puis
+  réappliquer la signature : `bun run signing:apply`. `ios/` est régénéré par
+  `expo prebuild`/EAS.
 - **Note de build** : cet environnement ne disposant ni du SDK Android ni de macOS,
-  les artefacts APK/IPA sont générés via **EAS Build** (cloud) avec les commandes ci-dessus.
+  les artefacts APK sont générés par le workflow **GitHub Actions `android.yml`**
+  (artifacts du run) ou via **EAS Build** (cloud) avec les commandes ci-dessus.
