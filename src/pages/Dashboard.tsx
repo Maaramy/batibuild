@@ -430,6 +430,8 @@ export default function Dashboard() {
   );
   const clientUnread = (supplierResponsesUnread ?? 0) + (expertResponsesUnread ?? 0);
   const totalUnread = (supplierUnread ?? 0) + (expertUnread ?? 0) + clientUnread;
+  // ── Badge Support : messages de support non lus (badge rouge du menu) ──
+  const supportUnread = useQuery(api.support.myUnreadTotal) ?? 0;
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
   const costSeries = useMemo(() => {
@@ -555,7 +557,7 @@ export default function Dashboard() {
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
             { icon: MessageSquare, label: "Messagerie", badge: clientUnread, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
-            { icon: Headset, label: "Support", onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
+            { icon: Headset, label: "Support", badge: supportUnread, onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
           ];

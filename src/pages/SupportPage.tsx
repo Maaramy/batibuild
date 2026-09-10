@@ -187,11 +187,6 @@ export default function SupportPage() {
     );
   }, [tickets, search]);
 
-  const totalUnread = useMemo(
-    () => (tickets ?? []).reduce((s, t) => s + (t.userUnreadCount ?? 0), 0),
-    [tickets],
-  );
-
   // Marquer comme lus à l'ouverture d'un ticket
   useEffect(() => {
     if (selectedTicket && (selectedTicket.userUnreadCount ?? 0) > 0) {
@@ -391,11 +386,6 @@ export default function SupportPage() {
             <div>
               <h1 className="text-lg sm:text-xl font-bold flex items-center gap-2">
                 Support &amp; Messagerie
-                {totalUnread > 0 && (
-                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center">
-                    {totalUnread}
-                  </span>
-                )}
               </h1>
               <p className="text-xs text-muted-foreground hidden sm:block">
                 Contactez l'équipe BatiBuild — réponses suivies en temps réel
@@ -410,11 +400,6 @@ export default function SupportPage() {
           >
             <Ticket className="h-3.5 w-3.5" />
             Mes demandes
-            {totalUnread > 0 && (
-              <span className="h-4 min-w-4 px-1 rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center">
-                {totalUnread}
-              </span>
-            )}
           </Button>
         </div>
 

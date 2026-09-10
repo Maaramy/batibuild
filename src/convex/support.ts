@@ -138,6 +138,25 @@ export const getMyTickets = query({
   },
 });
 
+/** Nombre total de messages non lus pour l'utilisateur courant (badge du menu Support). */
+export const myUnreadTotal = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return 0;
+
+    const tickets = await ctx.db
+      .query("supportTickets")
+      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .collect();
+
+    return tickets.reduce(
+      (sum, t) => sum + (t.userUnreadCount ?? 0),
+      0,
+    );
+  },
+});
+
 /** Messages d'un ticket — accessible au propriétaire et aux agents support. */
 export const getTicketMessages = query({
   args: { ticketId: v.id("supportTickets") },
