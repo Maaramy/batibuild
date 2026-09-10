@@ -1,8 +1,6 @@
-import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
 import { SEO } from "@/components/SEO";
-import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import { ThemeProvider } from "next-themes";
@@ -13,6 +11,14 @@ import "./index.css";
 
 // i18n
 import "./i18n/config";
+
+// VlyToolbar is only used by the platform's dev overlay (element selection).
+// Lazy-loading it keeps snapdom/@zumer and the remaining framer-motion code
+// out of the entry chunk: smaller chunks mean lower peak memory during the
+// production build (the platform build sandbox has a tight memory limit).
+const VlyToolbar = lazy(() =>
+  import("../vly-toolbar-readonly.tsx").then((m) => ({ default: m.VlyToolbar })),
+);
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
@@ -150,7 +156,9 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>
       <ToolbarErrorBoundary>
-        <VlyToolbar />
+        <Suspense fallback={null}>
+          <VlyToolbar />
+        </Suspense>
       </ToolbarErrorBoundary>
       <ThemeProvider
         attribute="class"

@@ -2,11 +2,39 @@ import { vlyPlugin } from "@vly-ai/integrations";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
+
+// vlyPlugin() injects a <script type="module">import '@vly-ai/integrations';</script>
+// into the built HTML. Vite treats HTML module scripts as bundle entries, so
+// that server-side package (Vercel `ai` SDK, @auth/core, zod, @ai-sdk/* —
+// ~1.6 MB / ~250 modules) gets force-included in the CLIENT bundle graph,
+// where it is never used (it is only called from Convex actions). That dead
+// weight was a major driver of the production build getting OOM-killed in the
+// memory-limited platform build sandbox ("Killed" after "rendering chunks").
+// This plugin strips only that one injected tag and keeps the rest of
+// vlyPlugin's behavior (HMR/runtime error reporting scripts).
+function stripVlyIntegrationsEntry(): Plugin {
+  return {
+    name: "strip-vly-integrations-entry",
+    // Must be "pre" (and this plugin must be listed after vlyPlugin()): in the
+    // production build only PRE hooks run before Vite parses HTML module
+    // scripts into bundle entries — a "post" hook strips the tag from the
+    // emitted HTML but AFTER the package already entered the build graph.
+    transformIndexHtml: {
+      order: "pre",
+      handler(html) {
+        return html.replace(
+          /<script[^>]*type=["']module["'][^>]*>\s*import\s+["']@vly-ai\/integrations["'];\s*<\/script>/i,
+          "",
+        );
+      },
+    },
+  };
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), vlyPlugin(), tailwindcss()],
+  plugins: [react(), vlyPlugin(), tailwindcss(), stripVlyIntegrationsEntry()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -60,10 +88,14 @@ export default defineConfig({
           // three / xlsx / recharts / framer-motion are deliberately NOT
           // grouped into a single vendor chunk: grouping them forced the whole
           // package onto every page that touched motion (before it is tree-
-          // shaken). Leaving them to Rollup's default splitting creates a lazy
-          // chunk per heavy lib that only loads on the pages that use them:
-          //   · three  -> PlanGenerator (3D view)
-          //   · xlsx   -> AdminPanel (Excel export)
+          // shaken). Giving three and xlsx their OWN manual chunks (instead of
+          // letting Rollup merge them into the page chunk) keeps them on their
+          // lazy chunk AND splits the two largest rendered chunks, which
+          // bounds esbuild's per-chunk minification peak memory:
+          //   · three -> PlanGenerator (3D view)
+          //   · xlsx  -> AdminPanel (Excel export)
+          'vendor-3d': ['three'],
+          'vendor-xlsx': ['xlsx'],
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
