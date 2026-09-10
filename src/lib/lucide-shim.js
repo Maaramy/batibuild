@@ -214,6 +214,7 @@ export { default as Trophy } from "../../node_modules/lucide-react/dist/esm/icon
 export { default as Truck } from "../../node_modules/lucide-react/dist/esm/icons/truck.js";
 export { default as Upload } from "../../node_modules/lucide-react/dist/esm/icons/upload.js";
 export { default as User } from "../../node_modules/lucide-react/dist/esm/icons/user.js";
+export { default as UserCheck } from "../../node_modules/lucide-react/dist/esm/icons/user-check.js";
 export { default as UserPlus } from "../../node_modules/lucide-react/dist/esm/icons/user-plus.js";
 export { default as UserRound } from "../../node_modules/lucide-react/dist/esm/icons/user-round.js";
 export { default as Users } from "../../node_modules/lucide-react/dist/esm/icons/users.js";
