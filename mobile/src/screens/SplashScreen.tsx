@@ -37,7 +37,7 @@ export default function SplashScreen() {
       ]}
     >
       <Animated.View style={[styles.center, { opacity: fade }]}>
-        <Logo size={104} shadow />
+        <Logo size={112} shadow />
         <Text style={styles.name}>BatiBuild</Text>
         <Text style={styles.tagline}>Pilotez vos projets de construction intelligemment.</Text>
 
@@ -52,7 +52,7 @@ export default function SplashScreen() {
       </Animated.View>
 
       <View style={styles.footer}>
-        <ActivityIndicator color={COLORS.accent} size="small" />
+        <ActivityIndicator color={COLORS.brand} size="small" />
         <Text style={styles.status}>{LOADING_MESSAGE}</Text>
       </View>
     </View>
@@ -60,9 +60,11 @@ export default function SplashScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Fond de chargement BLANC (demande explicite) : identique en thème clair
+  // comme en thème sombre, le logo officiel reste parfaitement lisible.
   root: {
     flex: 1,
-    backgroundColor: COLORS.brandDeep,
+    backgroundColor: COLORS.white,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -75,13 +77,13 @@ const styles = StyleSheet.create({
     marginTop: 22,
     fontSize: 32,
     fontWeight: "800",
-    color: COLORS.white,
+    color: COLORS.ink,
     letterSpacing: 0.4,
   },
   tagline: {
     marginTop: 10,
     fontSize: 15,
-    color: "#9FE3C4",
+    color: COLORS.inkSoft,
     textAlign: "center",
     lineHeight: 22,
   },
@@ -102,11 +104,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     letterSpacing: 0.4,
-    color: "rgba(255,255,255,0.72)",
+    color: COLORS.muted,
   },
   pillarDot: {
     fontSize: 12,
-    color: "rgba(255,255,255,0.35)",
+    color: "#CBD5E1",
   },
   footer: {
     position: "absolute",
@@ -116,7 +118,7 @@ const styles = StyleSheet.create({
   status: {
     marginTop: 12,
     fontSize: 13,
-    color: "#9FE3C4",
+    color: COLORS.inkSoft,
     letterSpacing: 0.2,
   },
 });

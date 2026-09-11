@@ -79,8 +79,12 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      {/* Le chrome natif est sombre dans les deux thèmes (identité BatiBuild). */}
-      <StatusBar style="light" />
+      {/*
+        Barre système adaptée à l'écran affiché :
+          - Splash / guide → fond de chargement BLANC, icônes sombres ;
+          - WebView → bande de marque sombre, icônes claires.
+      */}
+      <StatusBar style={phase === "webview" ? "light" : "dark"} />
       <View style={styles.root}>
         {phase === "splash" && <SplashScreenView />}
         {phase === "onboarding" && <OnboardingScreen onDone={handleOnboardingDone} />}
@@ -95,6 +99,7 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: COLORS.brandDeep,
+    // Fond de chargement blanc (aucun flash sombre au démarrage).
+    backgroundColor: COLORS.white,
   },
 });

@@ -232,6 +232,9 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
    * La WebView n'est PAS recréée : on demande au routeur de la plateforme de
    * changer de page. Session, cookies, état et historique sont conservés, et le
    * bouton Back Android continue de revenir sur la page précédente.
+   *
+   * AUCUN écran de chargement au clic sur la barre du bas : le changement de
+   * section est direct (la WebView affiche son propre état si nécessaire).
    */
   const handleNavSelect = useCallback(
     (destination: NavDestination) => {
@@ -241,15 +244,9 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
       currentPathRef.current = destination.path;
       setCurrentPath(destination.path);
 
-      // Même écran de chargement que le reste de l'application, borné à
-      // 1 seconde et masqué dès la confirmation de la route.
-      pendingPathRef.current = destination.path;
-      setProgress(0.35);
-      beginChange();
-
       webRef.current?.injectJavaScript(navigateScript(destination.path));
     },
-    [beginChange],
+    [],
   );
 
   // ---------- erreurs / hors ligne ----------
@@ -442,10 +439,10 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
           />
         )}
 
-        {/* État de chargement soigné — jamais de page blanche, un seul message. */}
+        {/* État de chargement soigné — fond BLANC, un seul message, 1 s max. */}
         {loading && !error && (
           <View
-            style={[styles.loadingWrap, { backgroundColor: COLORS.brandDeep }]}
+            style={[styles.loadingWrap, { backgroundColor: COLORS.white }]}
             pointerEvents="auto"
           >
             <Logo size={76} shadow />
@@ -458,7 +455,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
                 ]}
               />
             </View>
-            <ActivityIndicator color={COLORS.accent} size="small" style={styles.loadingSpinner} />
+            <ActivityIndicator color={COLORS.brand} size="small" style={styles.loadingSpinner} />
           </View>
         )}
       </View>
@@ -561,20 +558,20 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 18,
     fontSize: 15,
-    color: "#9FE3C4",
+    color: COLORS.inkSoft,
   },
   progressTrack: {
     marginTop: 14,
     width: 148,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(15,23,42,0.10)",
     overflow: "hidden",
   },
   progressFill: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.brand,
   },
   loadingSpinner: {
     marginTop: 18,
