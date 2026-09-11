@@ -198,7 +198,7 @@ Ouvrez le run ✅ → section **Artifacts** en bas de page → téléchargez
 | Node.js 22 LTS + Bun | `actions/setup-node`, `oven-sh/setup-bun` |
 | JDK 17 (Temurin) | `actions/setup-java` |
 | Android SDK / cmdline-tools / licences | `android-actions/setup-android` |
-| platform 36, build-tools 36.0.0, NDK 27.1.12297006, platform-tools | `sdkmanager` — versions lues dans le projet (`node_modules/react-native/gradle/libs.versions.toml`) |
+| platform 36, build-tools 36.0.0, NDK 27.1.12297006, CMake 3.22.1, platform-tools | `sdkmanager` — versions lues dans le projet (`node_modules/react-native/gradle/libs.versions.toml`) |
 | Dépendances JS | `bun install --frozen-lockfile` (ou `npm ci` si un `package-lock.json` apparaît) |
 | Gradle | **wrapper du dépôt** (`./gradlew`, version épinglée 9.3.1) |
 
@@ -217,6 +217,16 @@ n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
 - Aucun crédit / compte cloud consommé : on exécute `./gradlew` sur le runner.
 - Le workflow cible `arm64-v8a,armeabi-v7a` (téléphones réels) pour tenir dans
   la mémoire du runner ; en local, les 4 ABI restent actives.
+- Avant la compilation, le runner **libère de l'espace disque** (NDK non
+  utilisés, images d'émulateur, sources, anciennes platforms/build-tools) et
+  limite la compilation C++ à 2 processus parallèles
+  (`CMAKE_BUILD_PARALLEL_LEVEL=2`) : sans cela, les 2 ABI compilées en parallèle
+  saturent la RAM et le noyau tue les compilateurs (`Killed`).
+- **Si un run échoue**, la cause réelle est extraite automatiquement par
+  `mobile/scripts/ci-gradle.sh` (section `* What went wrong:`, tâches en échec,
+  signatures OOM/disque/CMake) et publiée dans l'étape
+  « 🔍 Cause de l'échec » + le **résumé du run** — plus besoin de lire 900
+  lignes de stacktrace.
 - **URL de la plateforme** : définie une seule fois dans `src/config.ts`
   (surcharge possible via `EXPO_PUBLIC_WEB_APP_URL`).
 

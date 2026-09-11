@@ -17,6 +17,13 @@
 # n'est jamais affiché dans les logs.
 #
 # Ce workflow n'utilise PAS EAS et n'a besoin d'aucun EXPO_TOKEN.
+#
+# ── Diagnostic d'échec ──────────────────────────────────────────────────────
+# Les tâches Gradle sont lancées via `mobile/scripts/ci-gradle.sh` : en cas
+# d'échec, le script extrait la section « What went wrong » (la CAUSE RÉELLE),
+# la liste des tâches en échec et les signatures connues (OOM, disque plein,
+# ninja/CMake, erreur compilateur), et la publie dans le résumé du run.
+# `--stacktrace` reste actif pour ne rien masquer.
 
 name: Android — APK & AAB
 
@@ -53,6 +60,11 @@ env:
   # ABI ciblées : 2 ABI au lieu de 4 → build ~2× plus rapide et 2× moins de
   # mémoire (nécessaire sur un runner). Modifiable au lancement manuel.
   ARCHITECTURES: ${{ inputs.architectures || 'arm64-v8a,armeabi-v7a' }}
+  # Compilation C++ (CMake/ninja) : chaque processus clang++ consomme ~1,5 Go.
+  # Le runner a 4 vCPU et ~16 Go ; sans limite, les 2 ABI compilées en parallèle
+  # saturent la RAM et le noyau tue les compilateurs (« Killed »), ce qui se
+  # traduit par un échec Gradle tardif et illisible. 2 = marge de sécurité.
+  CMAKE_BUILD_PARALLEL_LEVEL: "2"
 
 jobs:
   build-android:
@@ -99,6 +111,10 @@ jobs:
           echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<non défini>}"
           sdkmanager --version
           adb --version
+          echo "── Ressources du runner ──"
+          nproc
+          free -m
+          df -h /
           echo "── Gradle (wrapper du projet, pas de Gradle global) ──"
           if [ -f android/gradlew ]; then
             chmod +x android/gradlew
@@ -148,7 +164,7 @@ jobs:
             # awk renvoie toujours 0 → pas de « || true » masquant une erreur.
             local key="$1" fallback="$2" value=""
             if [ -f "$CATALOG" ]; then
-              value=$(awk -v k="$key" '$1==k { gsub(/"/,"",$3); print $3; exit }' "$CATALOG")
+              value=$(awk -v k="$key" '$1==k { gsub(/\"/,"",$3); print $3; exit }' "$CATALOG")
             fi
             if [ -z "$value" ]; then value="$fallback"; fi
             printf '%s' "$value"
@@ -158,12 +174,58 @@ jobs:
           TARGET_SDK=$(read_version targetSdk 36)
           BUILD_TOOLS=$(read_version buildTools 36.0.0)
           NDK_VERSION=$(read_version ndkVersion 27.1.12297006)
-          echo "Versions lues dans le projet : compileSdk=$COMPILE_SDK targetSdk=$TARGET_SDK buildTools=$BUILD_TOOLS ndk=$NDK_VERSION"
+          # CMake 3.22.1 = version par défaut d'AGP 8.12 (utilisée par
+          # expo-modules-core). Installé explicitement : évite tout
+          # téléchargement automatique hasardeux en pleine compilation.
+          CMAKE_VERSION=3.22.1
+          echo "Versions lues dans le projet : compileSdk=$COMPILE_SDK targetSdk=$TARGET_SDK buildTools=$BUILD_TOOLS ndk=$NDK_VERSION cmake=$CMAKE_VERSION"
+
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+
+          echo "── Libération d'espace disque (composants préinstallés inutiles) ──"
+          df -h / | tail -1
+          # Le runner embarque plusieurs NDK (≥ 2 Go chacun), les images
+          # d'émulateur et les sources Android : plusieurs Go récupérables.
+          if [ -d "$SDK/ndk" ]; then
+            for d in "$SDK/ndk"/*; do
+              [ -e "$d" ] || continue
+              if [ "$(basename "$d")" != "$NDK_VERSION" ]; then
+                echo "  - suppression ndk/$(basename "$d")"
+                rm -rf "$d" || echo "    (non supprimable, ignoré)"
+              fi
+            done
+          fi
+          for old in system-images emulator sources skins; do
+            if [ -e "$SDK/$old" ]; then
+              echo "  - suppression $old/"
+              rm -rf "$SDK/$old" || echo "    (non supprimable, ignoré)"
+            fi
+          done
+          if [ -d "$SDK/platforms" ]; then
+            for d in "$SDK/platforms"/*; do
+              [ -e "$d" ] || continue
+              if [ "$(basename "$d")" != "android-${COMPILE_SDK}" ]; then
+                echo "  - suppression platforms/$(basename "$d")"
+                rm -rf "$d" || echo "    (non supprimable, ignoré)"
+              fi
+            done
+          fi
+          if [ -d "$SDK/build-tools" ]; then
+            for d in "$SDK/build-tools"/*; do
+              [ -e "$d" ] || continue
+              if [ "$(basename "$d")" != "$BUILD_TOOLS" ]; then
+                echo "  - suppression build-tools/$(basename "$d")"
+                rm -rf "$d" || echo "    (non supprimable, ignoré)"
+              fi
+            done
+          fi
+          df -h / | tail -1
 
           echo "── Acceptation des licences SDK ──"
           set +o pipefail
           yes | sdkmanager --licenses >/dev/null 2>&1
           LICENSE_STATUS=${PIPESTATUS[1]:-0}
+          set -o pipefail
           if [ "$LICENSE_STATUS" -ne 0 ] && [ "$LICENSE_STATUS" -ne 141 ]; then
             echo "❌ sdkmanager --licenses a échoué (code $LICENSE_STATUS)"
             exit 1
@@ -175,6 +237,7 @@ jobs:
             "platform-tools" \
             "platforms;android-${COMPILE_SDK}" \
             "build-tools;${BUILD_TOOLS}" \
+            "cmake;${CMAKE_VERSION}" \
             "ndk;${NDK_VERSION}"
 
           {
@@ -186,6 +249,9 @@ jobs:
           ls "$ANDROID_HOME"
           ls "$ANDROID_HOME/platforms"
           ls "$ANDROID_HOME/build-tools"
+          ls "$ANDROID_HOME/cmake"
+          ls "$ANDROID_HOME/ndk"
+          df -h / | tail -1
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -231,9 +297,9 @@ jobs:
           echo "✅ Signature Release configurée (keystore externe, rien dans le dépôt)."
 
       # ── APK DEBUG ──────────────────────────────────────────────────────────
+      # ci-gradle.sh affiche, en cas d'échec, la CAUSE RÉELLE du plantage.
       - name: Build — APK debug
-        working-directory: mobile/android
-        run: ./gradlew :app:assembleDebug -PreactNativeArchitectures="$ARCHITECTURES" --console=plain --stacktrace
+        run: bash scripts/ci-gradle.sh :app:assembleDebug debug
 
       - name: Préparer l'APK debug
         run: |
@@ -258,8 +324,7 @@ jobs:
 
       # ── APK RELEASE ────────────────────────────────────────────────────────
       - name: Build — APK release
-        working-directory: mobile/android
-        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures="$ARCHITECTURES" --console=plain --stacktrace
+        run: bash scripts/ci-gradle.sh :app:assembleRelease release
 
       - name: Préparer l'APK release
         run: |
@@ -284,8 +349,7 @@ jobs:
 
       # ── AAB RELEASE (Google Play) ──────────────────────────────────────────
       - name: Build — AAB release
-        working-directory: mobile/android
-        run: ./gradlew :app:bundleRelease -PreactNativeArchitectures="$ARCHITECTURES" --console=plain --stacktrace
+        run: bash scripts/ci-gradle.sh :app:bundleRelease aab
 
       - name: Préparer l'AAB release
         run: |
@@ -307,6 +371,30 @@ jobs:
           name: Batibuild-release-aab
           path: /tmp/dist/Batibuild-release.aab
           if-no-files-found: error
+
+      # ── DIAGNOSTIC VISIBLE EN CAS D'ÉCHEC ──────────────────────────────────
+      # Ne masque rien : le job reste rouge. Affiche simplement la cause réelle
+      # dans une étape dédiée, lisible même depuis le téléphone.
+      - name: 🔍 Cause de l'échec (extrait des logs Gradle)
+        if: failure()
+        run: |
+          FOUND=0
+          for log in /tmp/gradle-*.log; do
+            [ -f "$log" ] || continue
+            FOUND=1
+            echo "════════════════ $log ════════════════"
+            sed -n '/What went wrong/,/^\* Try:/p' "$log" | head -60
+            echo "──────────────── tâches en échec ────────────────"
+            grep -E "^> Task .*FAILED" "$log" | head -5
+            echo "──────────────── signatures connues ────────────────"
+            grep -n -E "OutOfMemoryError|Java heap space|Killed|No space left on device|ninja: build stopped|CMake Error|e: file" "$log" | head -10
+          done
+          if [ "$FOUND" -eq 0 ]; then
+            echo "Aucun log Gradle disponible : l'échec est survenu avant la compilation."
+          fi
+          echo "── Ressources au moment de l'échec ──"
+          free -m | head -2
+          df -h / | tail -1
 
       - name: Résumé du build
         run: |

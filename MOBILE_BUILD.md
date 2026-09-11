@@ -66,6 +66,32 @@ de `mobile/` change).
 Installation sur le téléphone : copiez `Batibuild-release.apk` et ouvrez-le
 (aucun câble, aucun SDK requis).
 
+### Si un run échoue — où lire la vraie cause
+
+Les tâches Gradle sont lancées via `mobile/scripts/ci-gradle.sh`. En cas
+d'échec, ce script extrait automatiquement :
+
+- la section **`* What went wrong:`** (la cause réelle, pas le pavé de
+  stacktrace) ;
+- la liste des **tâches en échec** (`> Task … FAILED`) ;
+- les **signatures connues** : `OutOfMemoryError`, `Killed`,
+  `No space left on device`, `ninja: build stopped`, `CMake Error`, `e: file` ;
+- l'**espace disque** et la **mémoire** au moment de l'échec.
+
+Ce bloc apparaît dans le log de l'étape, dans l'étape
+« 🔍 Cause de l'échec (extrait des logs Gradle) » et dans le **résumé du run**
+(page du run, lisible depuis le téléphone).
+
+Environnement de build CI : `ubuntu-latest`, Node 22, JDK 17, Android SDK
+platform 36 / build-tools 36.0.0 / NDK 27.1.12297006 / CMake 3.22.1, Gradle
+Wrapper 9.3.1, 2 ABI (`arm64-v8a,armeabi-v7a`) et compilation C++ limitée à
+2 processus parallèles (`CMAKE_BUILD_PARALLEL_LEVEL=2`) pour tenir dans la RAM
+du runner.
+
+> Un seul ABI est compilable via **Actions → Run workflow → architectures** :
+> `arm64-v8a` divise encore le temps et la mémoire par deux (couvre tous les
+> téléphones récents ; `armeabi-v7a` n'est utile qu'aux appareils 32 bits).
+
 > Aucun outil Android (JDK, Android Studio, Gradle, SDK) n'est nécessaire sur
 > votre machine. Les sections 1 à 13 ci-dessous ne concernent que le build
 > **local**, utile uniquement pour déboguer hors CI.
@@ -429,6 +455,9 @@ Toutes les autres vérifications de `expo-doctor` restent actives (20/20 ✅).
 | `Cannot find module 'react-native/package.json'` au build Gradle | `npm install` non lancé dans `mobile/` → §6 |
 | `gradlew: Permission denied` (macOS/Linux) | `chmod +x mobile/android/gradlew` |
 | Erreur de licence SDK | `yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses` |
+| **CI** : `Killed` / `OutOfMemoryError` / `Java heap space` pendant la compilation C++ | RAM du runner saturée par la compilation parallèle → le workflow limite déjà CMake à 2 processus ; relancez avec `arm64-v8a` seul (Actions → Run workflow → architectures) |
+| **CI** : `No space left on device` | Disque du runner plein → le workflow supprime déjà les NDK/émulateurs/sources inutilisés ; relancez avec `arm64-v8a` seul |
+| **CI** : `CMake '3.22.1' was not found in SDK, PATH, or by cmake.dir property` | Le workflow installe `cmake;3.22.1` explicitement — si l'erreur revient, vérifiez l'étape « Installation des composants Android SDK du projet » |
 
 ### Android Studio (alternative au terminal)
 
