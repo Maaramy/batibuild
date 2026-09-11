@@ -6,7 +6,7 @@ Application mobile **native** (React Native / Expo SDK 57) qui embarque la plate
 **Guide d'onboarding** natifs au premier lancement.
 
 ```
-Première installation :  Splash (≤ 1 s)  →  Guide (4 écrans / Passer)  →  WebView BatiBuild
+Première installation :  Splash (≤ 1 s)  →  Guide (cartes / Passer)  →  WebView BatiBuild
 Lancements suivants :    Splash (≤ 1 s)  →  WebView BatiBuild
 ```
 
@@ -15,19 +15,22 @@ Lancements suivants :    Splash (≤ 1 s)  →  WebView BatiBuild
 ```
 Android Native Shell
 │
-├── Splash  « Chargement.... »  (≤ 1 s, jamais bloquant)
+├── Splash  « Chargement.... »  (fond BLANC, ≤ 1 s, jamais bloquant)
+│
+├── Top Navbar  (native, fond blanc)
+│      Logo + « BatiBuild »        Support   Paramètres        (aucun burger)
 │
 ├── Bottom Navigation  (5 sections, fixe, libellés toujours visibles)
-│      Mon profil · Projets · Investissements · Messagerie · Support
+│      Mon profil · Projets · Dashboard · Investissements · Messagerie
 │
 └── WebView  →  plateforme Batibuild (inchangée)
 ```
 
-**Aucune barre d'application (Top App Bar) au-dessus de la WebView** : seul l'inset
-de la barre de statut est conservé. La barre basse est le seul chrome natif ; elle est
-fixe, ne défile pas avec le contenu, respecte la zone système basse (gestes / boutons)
-et n'entraîne **jamais** le rechargement de la WebView (donc session, cookies, état et
-historique préservés).
+Les deux barres sont **natives** : elles ne défilent pas avec le contenu, respectent les
+zones système (haute et basse) et n'entraînent **jamais** le rechargement de la WebView
+(donc session, cookies, état et historique préservés). La barre du bas n'affiche
+**aucun cercle ni pastille de fond** : l'état actif se voit à la couleur et à la graisse
+de l'entrée.
 
 ### Parcours de navigation mobile
 
@@ -67,10 +70,11 @@ mobile/
 ├── src/
 │   ├── screens/
 │   │   ├── SplashScreen.tsx       # Splash natif (logo, nom, tagline, « Chargement.... »)
-│   │   ├── OnboardingScreen.tsx   # Guide 4 écrans + « Passer » (1ʳᵉ installation)
+│   │   ├── OnboardingScreen.tsx   # Guide (1 carte par section) + « Passer » (1ʳᵉ installation)
 │   │   └── WebViewScreen.tsx      # WebView BatiBuild (toutes les options)
 │   ├── components/
 │   │   ├── Logo.tsx               # Logo officiel de la plateforme (tuile émeraude + casque blanc)
+│   │   ├── TopNav.tsx             # Barre native supérieure : logo + nom, Support, Paramètres
 │   │   └── BottomNav.tsx          # Barre de navigation Material 3 (5 sections)
 │   ├── storage.ts                 # hasCompletedOnboarding (AsyncStorage)
 │   ├── theme.ts                   # Jetons Material 3 (clair / sombre) issus de la charte BatiBuild
@@ -90,25 +94,27 @@ mobile/
 | Fonctionnalité | Comportement |
 |---|---|
 | **Splash** | Logo officiel + « BatiBuild » + slogan, et **un seul message : « Chargement.... »**. Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. |
-| **Chargement (toutes les pages et menus)** | Même borne de **1 seconde maximum** partout : ouverture, chargement d'une page, et changement de section depuis la barre de navigation (masquée dès que le routeur confirme la route). |
-| **Barre de navigation** | Capsule **flottante** arrondie (coins pleins, ombre douce) : 5 sections Material 3 (Mon profil · Projets · Investissements · Messagerie · Support), toujours visibles, libellés permanents (jamais de « hover »), icônes pleines (actif) / contour (inactif) + surbrillance `primary-container` derrière l'élément actif. |
-| **Top App Bar** | **Aucune** : la WebView occupe tout l'espace sous la barre de statut. |
+| **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
+| **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
+| **Barre de navigation (bas)** | Capsule **flottante** arrondie (coins pleins, ombre douce) : 5 sections Material 3 (Mon profil · Projets · Dashboard · Investissements · Messagerie), toujours visibles, libellés permanents (jamais de « hover »), icônes pleines (actif) / contour (inactif). **Aucun cercle ni pastille verte** : l'état actif est signalé par la couleur et la graisse. |
+| **Barre supérieure (native)** | Fond **blanc**, logo officiel + « BatiBuild » à gauche, icônes **Support** et **Paramètres** à droite. Aucun menu burger. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. |
-| **Onboarding** | 4 écrans (Bienvenue, Estimation, Projets, Commencer) + bouton **Passer**. Mémorisé via `hasCompletedOnboarding` (AsyncStorage). |
+| **Onboarding** | Une **carte par section** (Bienvenue, Mon profil, Projets, Dashboard, Investissements, Messagerie, Support, Commencer) avec une description explicative, + bouton **Passer**. Mémorisé via `hasCompletedOnboarding` (AsyncStorage). |
 | **Réinstallation** | Le stockage local est effacé → le guide réapparaît (comportement attendu). |
 | **Mise à jour** | `hasCompletedOnboarding` est conservé → pas de guide à chaque mise à jour. |
 | **Revoir le guide** | **Appui long** sur la barre de navigation (n'importe quelle entrée) → « Voir le guide » (ne supprime aucune donnée). Le menu n'occupe aucune place à l'écran. |
 | **Session** | Cookies, stockage local, cache persistants entre les lancements (`sharedCookiesEnabled`, `thirdPartyCookiesEnabled`, `cacheEnabled`, `domStorageEnabled`). |
 | **Navigation interne** | Toutes les pages `*.freebuff.app` restent dans la WebView. |
 | **Liens externes** | Sites partenaires, réseaux sociaux, documents externes → navigateur système (`Linking`). |
-| **Navigation des 5 sections** | Routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard`, `/dashboard/investments`, `/dashboard/messages`, `/dashboard/support`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. |
+| **Navigation des 5 sections** | Routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard`, `/dashboard/investments`, `/dashboard/messages`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. « Projets » et « Dashboard » ouvrent tous les deux `/dashboard` ; l'onglet actif suit le dernier onglet choisi. |
+| **Support / Paramètres** | Barre supérieure → `/dashboard/support` et `/dashboard/settings` (mêmes routes web, aucun écran dupliqué). |
 | **Retour Android** | Historique WebView → page précédente ; sinon confirmation « Voulez-vous quitter BatiBuild ? » (Annuler / Quitter). |
 | **Chargement** | Écran de chargement natif (logo officiel + « Chargement.... » + barre de progression), **borné à 1 s** — jamais de page blanche ni de loader bloqué. |
 | **Hors ligne / erreurs** | Écran natif « Connexion Internet indisponible » / « Impossible de charger BatiBuild » + bouton **Réessayer** (codes `ERR_*` mappés en messages lisibles). |
 | **Upload** | `<input type="file">` natif : galerie, photo (caméra), fichiers (permissions CAMERA / READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE). |
 | **Téléchargements** | PDF et documents : téléchargés en cache puis ouverts via la feuille de partage native (`expo-file-system` + `expo-sharing`). |
 | **Partage natif** | `navigator.share` de la plateforme Web est intercepté et ouvre le menu de partage natif (WhatsApp, e-mail, messages…). |
-| **Safe Area** | Contenu WebView en dessous de la barre de statut / encoche / Dynamic Island (barre supérieure + bande inférieure natives). |
+| **Safe Area** | Contenu WebView entre la barre supérieure native et la barre du bas, qui gèrent elles-mêmes les insets (barre de statut / encoche / navigation gestuelle). |
 
 ## 3. Prérequis
 

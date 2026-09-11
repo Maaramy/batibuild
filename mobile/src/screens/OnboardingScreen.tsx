@@ -10,142 +10,133 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+
 import { Logo } from "../components/Logo";
 import { COLORS, useAppTheme, type AppTheme } from "../theme";
 
+type Glyph = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+
+/**
+ * Guide de première visite — une CARTE par section de l'application.
+ *
+ * Chaque carte reprend l'icône et le libellé EXACTS de la barre de navigation
+ * (native), avec une description explicative : l'utilisateur retrouve ensuite
+ * immédiatement les mêmes repères dans l'application.
+ */
 type Slide = {
   key: string;
   title: string;
   description: string;
-  /** `theme` = thème natif courant (clair / sombre / système Android). */
-  render: (w: number, theme: AppTheme) => React.ReactNode;
+  /** Icône Material de la carte (même famille que la barre du bas). */
+  icon?: Glyph;
+  /** Carte « logo officiel » (bienvenue / démarrage). */
+  logo?: boolean;
 };
-
-function IllustrationWelcome(w: number, theme: AppTheme) {
-  return (
-    <View style={[styles.illusWrap, { width: w * 0.72 }]}>
-      <Logo size={Math.min(150, w * 0.32)} shadow />
-      <View style={[styles.aiBadge, { backgroundColor: theme.primaryContainer }]}>
-        <Text style={[styles.aiBadgeText, { color: theme.onPrimaryContainer }]}>Copilote IA</Text>
-      </View>
-    </View>
-  );
-}
-
-function IllustrationEstimate(w: number, theme: AppTheme) {
-  const cardW = w * 0.56;
-  const card = [
-    styles.mockCard,
-    { width: cardW, backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
-  ];
-  return (
-    <View style={[styles.illusWrap, { width: w * 0.72 }]}>
-      <View style={card}>
-        <View style={styles.mockRow}>
-          <Text style={[styles.mockLabel, { color: theme.onSurfaceVariant }]}>Superficie</Text>
-          <Text style={[styles.mockValue, { color: theme.onSurface }]}>150 m²</Text>
-        </View>
-        <View style={[styles.mockDivider, { backgroundColor: theme.outlineVariant }]} />
-        <View style={styles.mockRow}>
-          <Text style={[styles.mockLabel, { color: theme.onSurfaceVariant }]}>Estimation</Text>
-          <Text style={[styles.mockValue, { color: COLORS.brand }]}>185 000 DT</Text>
-        </View>
-        <View style={styles.mockBars}>
-          <View style={[styles.mockBar, { height: 18 }]} />
-          <View style={[styles.mockBar, { height: 30 }]} />
-          <View style={[styles.mockBar, { height: 24 }]} />
-          <View style={[styles.mockBar, { height: 38 }]} />
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function IllustrationProjects(w: number, theme: AppTheme) {
-  const cardW = w * 0.56;
-  const card = [
-    styles.mockCard,
-    { width: cardW, backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
-  ];
-  return (
-    <View style={[styles.illusWrap, { width: w * 0.72 }]}>
-      <View
-        style={[
-          styles.mockStackCard,
-          { width: cardW, backgroundColor: theme.surfaceContainerHigh, transform: [{ rotate: "-2.5deg" }] },
-        ]}
-      />
-      <View
-        style={[
-          styles.mockStackCard2,
-          { width: cardW, backgroundColor: theme.surfaceContainer, transform: [{ rotate: "2deg" }] },
-        ]}
-      />
-      <View style={card}>
-        <View style={styles.mockProjectRow}>
-          <View style={styles.mockProjectDot} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.mockProjectName, { color: theme.onSurface }]}>Villa — Carthage</Text>
-            <Text style={[styles.mockProjectMeta, { color: theme.onSurfaceVariant }]}>
-              En cours · 320 000 DT
-            </Text>
-          </View>
-        </View>
-        <View style={[styles.mockDivider, { backgroundColor: theme.outlineVariant }]} />
-        <View style={styles.mockProjectRow}>
-          <View style={[styles.mockProjectDot, { backgroundColor: COLORS.brand }]} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.mockProjectName, { color: theme.onSurface }]}>
-              Appartement — Sousse
-            </Text>
-            <Text style={[styles.mockProjectMeta, { color: theme.onSurfaceVariant }]}>
-              Brouillon · 145 000 DT
-            </Text>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function IllustrationStart(w: number, theme: AppTheme) {
-  return (
-    <View style={[styles.illusWrap, { width: w * 0.72 }]}>
-      <View style={[styles.startRing, { backgroundColor: theme.primaryContainer }]}>
-        {/* Logo officiel de la plateforme (identique au Web). */}
-        <Logo size={Math.min(124, w * 0.29)} shadow />
-      </View>
-    </View>
-  );
-}
 
 const SLIDES: Slide[] = [
   {
     key: "welcome",
     title: "Bienvenue sur BatiBuild",
-    description: "Votre copilote IA pour construire, rénover et investir.",
-    render: IllustrationWelcome,
+    description:
+      "Votre copilote IA pour estimer, suivre et piloter vos projets de construction, d'aménagement et de rénovation en Tunisie.",
+    logo: true,
   },
   {
-    key: "estimate",
-    title: "Estimez votre projet",
+    key: "profile",
+    title: "Mon profil",
     description:
-      "Obtenez rapidement une estimation du coût de votre projet selon sa superficie, ses caractéristiques et les options choisies.",
-    render: IllustrationEstimate,
+      "Renseignez vos informations, votre abonnement et vos préférences : tout est centralisé dans votre espace personnel.",
+    icon: "account",
   },
   {
     key: "projects",
-    title: "Gardez vos projets à portée de main",
-    description: "Retrouvez vos projets et vos estimations facilement depuis votre téléphone.",
-    render: IllustrationProjects,
+    title: "Projets",
+    description:
+      "Créez un projet à partir d'un plan, d'une photo ou d'un simple croquis, puis suivez son avancement, son budget et ses estimations.",
+    icon: "folder",
+  },
+  {
+    key: "dashboard",
+    title: "Dashboard",
+    description:
+      "Retrouvez en un coup d'œil vos statistiques, vos estimations enregistrées, vos favoris et les recommandations de l'IA.",
+    icon: "view-dashboard",
+  },
+  {
+    key: "investments",
+    title: "Investissements",
+    description:
+      "Analysez la rentabilité d'un projet immobilier et comparez plusieurs scénarios avant de vous engager.",
+    icon: "bank",
+  },
+  {
+    key: "messages",
+    title: "Messagerie",
+    description:
+      "Échangez avec vos fournisseurs et vos experts, et recevez vos devis et réponses au même endroit.",
+    icon: "message-text",
+  },
+  {
+    key: "support",
+    title: "Support",
+    description:
+      "Besoin d'aide ? L'icône Support de la barre supérieure vous met directement en relation avec notre équipe.",
+    icon: "headset",
   },
   {
     key: "start",
     title: "Prêt à commencer ?",
-    description: "Accédez à BatiBuild depuis votre application mobile.",
-    render: IllustrationStart,
+    description:
+      "Accédez à BatiBuild depuis votre application : vos projets vous attendent.",
+    logo: true,
   },
 ];
+
+/** Carte « section » : icône Material + libellé + lignes de contenu. */
+function SectionCard(icon: Glyph, w: number, theme: AppTheme) {
+  const cardW = Math.min(280, w * 0.64);
+  return (
+    <View
+      style={[
+        styles.card,
+        {
+          width: cardW,
+          backgroundColor: theme.surfaceContainer,
+          borderColor: theme.outlineVariant,
+        },
+      ]}
+    >
+      <View style={[styles.iconTile, { backgroundColor: theme.primaryContainer }]}>
+        <MaterialCommunityIcons name={icon} size={34} color={theme.onPrimaryContainer} />
+      </View>
+      <View style={[styles.ghostLine, { backgroundColor: theme.outlineVariant, width: "78%" }]} />
+      <View style={[styles.ghostLine, { backgroundColor: theme.outlineVariant, width: "52%" }]} />
+      <View style={[styles.ghostBlock, { backgroundColor: theme.surfaceContainerHigh }]} />
+    </View>
+  );
+}
+
+/** Carte « logo officiel » (bienvenue / démarrage). */
+function LogoCard(w: number, theme: AppTheme) {
+  const size = Math.min(280, w * 0.64);
+  return (
+    <View
+      style={[
+        styles.card,
+        styles.logoCard,
+        { width: size, backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
+      ]}
+    >
+      <Logo size={Math.min(132, w * 0.3)} shadow />
+      <View style={[styles.aiBadge, { backgroundColor: theme.primaryContainer }]}>
+        <Text style={[styles.aiBadgeText, { color: theme.onPrimaryContainer }]}>
+          Gestion • Suivi • Estimation • IA
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 type Props = {
   onDone: () => void;
@@ -185,8 +176,15 @@ export default function OnboardingScreen({ onDone }: Props) {
       ]}
     >
       <View style={styles.topBar}>
-        <Text style={[styles.brandMini, { color: theme.primary }]}>BatiBuild</Text>
-        <Pressable onPress={onDone} hitSlop={12} style={({ pressed }) => [styles.skipBtn, pressed && { opacity: 0.6 }]}>
+        <View style={styles.brandMiniWrap}>
+          <Logo size={24} radiusRatio={0.28} />
+          <Text style={[styles.brandMini, { color: theme.onSurface }]}>BatiBuild</Text>
+        </View>
+        <Pressable
+          onPress={onDone}
+          hitSlop={12}
+          style={({ pressed }) => [styles.skipBtn, pressed && { opacity: 0.6 }]}
+        >
           <Text style={[styles.skipText, { color: theme.onSurfaceVariant }]}>Passer</Text>
         </Pressable>
       </View>
@@ -201,7 +199,9 @@ export default function OnboardingScreen({ onDone }: Props) {
         onMomentumScrollEnd={onMomentumEnd}
         renderItem={({ item }) => (
           <View style={[styles.slide, { width }]}>
-            <View style={styles.illus}>{item.render(width, theme)}</View>
+            <View style={styles.illus}>
+              {item.logo ? LogoCard(width, theme) : SectionCard(item.icon as Glyph, width, theme)}
+            </View>
             <Text style={[styles.title, { color: theme.onSurface }]}>{item.title}</Text>
             <Text style={[styles.description, { color: theme.onSurfaceVariant }]}>
               {item.description}
@@ -219,7 +219,7 @@ export default function OnboardingScreen({ onDone }: Props) {
               style={[
                 styles.dot,
                 { backgroundColor: theme.outlineVariant },
-                i === index && styles.dotActive,
+                i === index && { width: 22, backgroundColor: theme.primary },
               ]}
             />
           ))}
@@ -229,7 +229,7 @@ export default function OnboardingScreen({ onDone }: Props) {
           style={({ pressed }) => [
             styles.cta,
             { backgroundColor: theme.primary },
-            pressed && styles.ctaPressed,
+            pressed && { opacity: 0.9 },
           ]}
         >
           <Text style={[styles.ctaText, { color: theme.onPrimary }]}>
@@ -253,10 +253,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
+  brandMiniWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   brandMini: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "800",
-    color: COLORS.brand,
     letterSpacing: 0.2,
   },
   skipBtn: {
@@ -266,7 +270,6 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 14,
     fontWeight: "600",
-    color: COLORS.muted,
   },
   slide: {
     flex: 1,
@@ -279,119 +282,58 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: "100%",
   },
-  illusWrap: {
+  card: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 22,
+    alignItems: "center",
+    shadowColor: "#000000",
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+  logoCard: {
+    paddingVertical: 30,
+  },
+  iconTile: {
+    width: 68,
+    height: 68,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
+  ghostLine: {
+    height: 9,
+    borderRadius: 5,
+    marginTop: 14,
+  },
+  ghostBlock: {
+    marginTop: 16,
+    width: "100%",
+    height: 46,
+    borderRadius: 14,
+  },
   aiBadge: {
-    marginTop: 18,
-    backgroundColor: COLORS.accentSoft,
+    marginTop: 20,
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 999,
   },
   aiBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.brand700,
-  },
-  mockCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-    padding: 18,
-    shadowColor: "#000000",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
-  },
-  mockRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  mockLabel: {
-    fontSize: 12,
-    color: COLORS.muted,
-  },
-  mockValue: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: COLORS.ink,
-  },
-  mockDivider: {
-    height: 1,
-    backgroundColor: COLORS.line,
-    marginVertical: 12,
-  },
-  mockBars: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-    marginTop: 12,
-    height: 40,
-  },
-  mockBar: {
-    flex: 1,
-    backgroundColor: COLORS.accent,
-    borderRadius: 6,
-  },
-  mockStackCard: {
-    position: "absolute",
-    backgroundColor: "#E7F6EF",
-    borderRadius: 18,
-    height: 110,
-    top: -6,
-  },
-  mockStackCard2: {
-    position: "absolute",
-    backgroundColor: "#D3EFE2",
-    borderRadius: 18,
-    height: 120,
-    top: 10,
-  },
-  mockProjectRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  mockProjectDot: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: COLORS.accent,
-  },
-  mockProjectName: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: COLORS.ink,
-  },
-  mockProjectMeta: {
     fontSize: 11,
-    color: COLORS.muted,
-    marginTop: 2,
-  },
-  startRing: {
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    backgroundColor: COLORS.accentSoft,
-    alignItems: "center",
-    justifyContent: "center",
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   title: {
     fontSize: 24,
     fontWeight: "800",
-    color: COLORS.ink,
     textAlign: "center",
     lineHeight: 31,
   },
   description: {
     marginTop: 10,
     fontSize: 15,
-    color: COLORS.muted,
     textAlign: "center",
     lineHeight: 22,
   },
@@ -409,30 +351,19 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#D7E3DD",
-  },
-  dotActive: {
-    width: 22,
-    backgroundColor: COLORS.brand,
   },
   cta: {
-    backgroundColor: COLORS.brand,
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: "center",
     shadowColor: COLORS.brand,
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.3,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
   },
-  ctaPressed: {
-    backgroundColor: COLORS.brand600,
-    transform: [{ scale: 0.99 }],
-  },
   ctaText: {
     fontSize: 16,
     fontWeight: "700",
-    color: COLORS.white,
   },
 });

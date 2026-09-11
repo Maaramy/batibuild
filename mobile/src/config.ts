@@ -114,7 +114,12 @@ export function isLandingRoute(path: string): boolean {
  * Navigation native (barre du bas)
  * ------------------------------------------------------------------ */
 
-export type NavId = "profile" | "projects" | "investments" | "messages" | "support";
+export type NavId =
+  | "profile"
+  | "projects"
+  | "dashboard"
+  | "investments"
+  | "messages";
 
 export type NavDestination = {
   id: NavId;
@@ -126,18 +131,27 @@ export type NavDestination = {
 
 /**
  * Les 5 sections de la barre de navigation native, dans l'ordre imposé :
- * Mon profil · Projets · Investissements · Messagerie · Support.
+ * Mon profil · Projets · Dashboard · Investissements · Messagerie.
  *
  * Les routes sont celles qui existent déjà dans le routeur de la plateforme
  * (`src/main.tsx`) : la navigation ne crée aucune page et ne duplique rien.
+ *
+ * « Projets » et « Dashboard » pointent tous les deux vers `/dashboard` (la
+ * plateforme n'expose qu'une seule route d'accueil connectée, qui contient la
+ * liste des projets). L'onglet visuellement actif suit le dernier onglet
+ * choisi lorsque la WebView est sur `/dashboard` — voir `WebViewScreen`.
  */
 export const NAV_DESTINATIONS: readonly NavDestination[] = [
   { id: "profile", label: "Mon profil", path: "/dashboard/profile" },
   { id: "projects", label: "Projets", path: DASHBOARD_PATH },
+  { id: "dashboard", label: "Dashboard", path: DASHBOARD_PATH },
   { id: "investments", label: "Investissements", path: "/dashboard/investments" },
   { id: "messages", label: "Messagerie", path: "/dashboard/messages" },
-  { id: "support", label: "Support", path: "/dashboard/support" },
 ] as const;
+
+/** Routes atteignables directement depuis la barre supérieure native. */
+export const SUPPORT_PATH = "/dashboard/support";
+export const SETTINGS_PATH = "/dashboard/settings";
 
 /** Route normalisée (sans query ni slash final). */
 function routeKey(path: string): string {
@@ -152,9 +166,13 @@ function inSection(path: string, base: string): boolean {
 /**
  * Onglet actif pour une route donnée.
  *
- * « Projets » est la section par défaut de l'espace connecté : elle reste
- * active sur toutes les pages `/dashboard…` qui n'appartiennent pas
- * explicitement à un autre onglet (nouveau projet, détail, matériaux…).
+ * `/dashboard` est l'accueil de l'espace connecté : c'est l'onglet central
+ * (« Dashboard ») qui est actif par défaut. « Projets » pointe sur la même
+ * route : c'est le dernier onglet choisi par l'utilisateur qui départage les
+ * deux (voir `WebViewScreen`).
+ *
+ * La page Support n'est plus un onglet de la barre du bas (elle est accessible
+ * depuis la barre supérieure) : aucune entrée n'est active sur cette page.
  * Renvoie `null` hors de l'espace connecté (écran de connexion).
  */
 export function activeNavId(path: string): NavId | null {
@@ -162,7 +180,16 @@ export function activeNavId(path: string): NavId | null {
   if (inSection(route, "/dashboard/profile")) return "profile";
   if (inSection(route, "/dashboard/investments")) return "investments";
   if (inSection(route, "/dashboard/messages")) return "messages";
-  if (inSection(route, "/dashboard/support")) return "support";
+  if (inSection(route, "/dashboard/support")) return null;
+  if (route === routeKey(DASHBOARD_PATH)) return "dashboard";
   if (inSection(route, DASHBOARD_PATH)) return "projects";
   return null;
+}
+
+/**
+ * Onglets qui partagent la route `/dashboard` : « Projets » et « Dashboard ».
+ * Utilisé pour savoir si le choix de l'utilisateur doit être mémorisé.
+ */
+export function isDashboardRoute(path: string): boolean {
+  return routeKey(path) === routeKey(DASHBOARD_PATH);
 }

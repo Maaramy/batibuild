@@ -12,7 +12,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import Constants from "expo-constants";
@@ -21,6 +20,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 import BottomNav from "../components/BottomNav";
 import { Logo } from "../components/Logo";
+import TopNav from "../components/TopNav";
 import {
   activeNavId,
   CHANGE_MAX_MS,
@@ -28,10 +28,14 @@ import {
   ENTRY_URL,
   isAppUrl,
   isAuthRoute,
+  isDashboardRoute,
   isLandingRoute,
   LOADING_MESSAGE,
   pathOfUrl,
+  SETTINGS_PATH,
+  SUPPORT_PATH,
   type NavDestination,
+  type NavId,
 } from "../config";
 import { ENTRY_GUARD_SCRIPT, navigateScript, SHARE_BRIDGE_SCRIPT } from "../injected";
 import { COLORS, SHAPE, useAppTheme } from "../theme";
@@ -75,7 +79,6 @@ type Props = {
 type WebViewError = { title: string; message: string };
 
 export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
-  const insets = useSafeAreaInsets();
   const theme = useAppTheme();
 
   const webRef = useRef<WebView>(null);
@@ -90,6 +93,12 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   const pendingPathRef = useRef<string | null>(null);
 
   const [currentPath, setCurrentPath] = useState<string>(currentPathRef.current);
+  /**
+   * Onglet explicitement choisi parmi ceux qui partagent la route `/dashboard`
+   * (« Projets » et « Dashboard »). Il départage l'état actif de la barre du
+   * bas ; remis à `null` dès qu'on quitte cette route.
+   */
+  const [navOverride, setNavOverride] = useState<NavId | null>(null);
   const [loading, setLoading] = useState(true);
   /** Incrémenté à chaque chargement / changement : ré-arme la borne de 1 s. */
   const [changeSeq, setChangeSeq] = useState(0);
@@ -211,6 +220,9 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     currentPathRef.current = path;
     setCurrentPath(path);
 
+    // Hors de `/dashboard`, le choix « Projets / Dashboard » n'a plus de sens.
+    if (!isDashboardRoute(path)) setNavOverride(null);
+
     // Le routeur a confirmé la route demandée : le loader disparaît tout de
     // suite (sans attendre la borne de 1 s).
     const pending = pendingPathRef.current;
@@ -238,7 +250,15 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
    */
   const handleNavSelect = useCallback(
     (destination: NavDestination) => {
-      if (activeNavId(currentPathRef.current) === destination.id) return;
+      const currentActive =
+        isDashboardRoute(currentPathRef.current) && navOverride
+          ? navOverride
+          : activeNavId(currentPathRef.current);
+      if (currentActive === destination.id) return;
+
+      // « Projets » et « Dashboard » partagent `/dashboard` : on mémorise
+      // l'onglet réellement choisi pour l'état actif.
+      setNavOverride(isDashboardRoute(destination.path) ? destination.id : null);
 
       // Retour visuel immédiat (optimiste) ; la WebView confirme ensuite.
       currentPathRef.current = destination.path;
@@ -246,8 +266,23 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
 
       webRef.current?.injectJavaScript(navigateScript(destination.path));
     },
-    [],
+    [navOverride],
   );
+
+  /**
+   * Barre supérieure native → plateforme (Support / Paramètres).
+   * Même mécanisme que la barre du bas : `pushState` dans la WebView, donc
+   * aucune recréation, session et historique préservés.
+   */
+  const goToPath = useCallback((path: string) => {
+    setNavOverride(null);
+    currentPathRef.current = path;
+    setCurrentPath(path);
+    webRef.current?.injectJavaScript(navigateScript(path));
+  }, []);
+
+  const handleOpenSupport = useCallback(() => goToPath(SUPPORT_PATH), [goToPath]);
+  const handleOpenSettings = useCallback(() => goToPath(SETTINGS_PATH), [goToPath]);
 
   // ---------- erreurs / hors ligne ----------
   const handleError = useCallback((event: { nativeEvent: { code: number; description: string } }) => {
@@ -355,16 +390,14 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
-  const active = activeNavId(currentPath);
+  const active =
+    isDashboardRoute(currentPath) && navOverride ? navOverride : activeNavId(currentPath);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.surface }]}>
-      {/*
-        AUCUNE barre d'application supérieure : la seule bande conservée est la
-        zone système (barre de statut / encoche), pour que le contenu de la
-        WebView ne passe jamais dessous. Aucune navigation n'est affichée en haut.
-      */}
-      <View style={{ height: insets.top, backgroundColor: theme.brandChrome }} />
+      {/* Barre de navigation supérieure NATIVE : logo + nom de la plateforme à
+          gauche, Support et Paramètres à droite (aucun menu burger). */}
+      <TopNav onOpenSupport={handleOpenSupport} onOpenSettings={handleOpenSettings} />
 
       {/* WebView (remontée via `key` lors d'un nouvel essai) */}
       <View style={styles.webWrap}>

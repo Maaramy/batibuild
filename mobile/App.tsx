@@ -80,11 +80,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       {/*
-        Barre système adaptée à l'écran affiché :
-          - Splash / guide → fond de chargement BLANC, icônes sombres ;
-          - WebView → bande de marque sombre, icônes claires.
+        Tout le chrome natif est blanc (chargement, guide et barre supérieure) :
+        les icônes de la barre système sont donc toujours sombres.
       */}
-      <StatusBar style={phase === "webview" ? "light" : "dark"} />
+      <StatusBar style="dark" />
       <View style={styles.root}>
         {phase === "splash" && <SplashScreenView />}
         {phase === "onboarding" && <OnboardingScreen onDone={handleOnboardingDone} />}
