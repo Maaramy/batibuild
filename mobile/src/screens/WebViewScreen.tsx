@@ -23,6 +23,7 @@ import BottomNav from "../components/BottomNav";
 import { Logo } from "../components/Logo";
 import {
   activeNavId,
+  CHANGE_MAX_MS,
   DASHBOARD_PATH,
   ENTRY_URL,
   isAppUrl,
@@ -58,8 +59,13 @@ function guessMime(name: string): string {
   return MIME_BY_EXT[ext] ?? "application/octet-stream";
 }
 
-/** Le WebView n'affiche jamais une erreur brute au bout de quelques secondes. */
-const LOADING_SAFETY_TIMEOUT_MS = 15000;
+/**
+ * Borne de 1 seconde pour TOUT écran de chargement — ouverture, page ou menu
+ * (voir `CHANGE_MAX_MS`). Passé ce délai, la WebView reprend la main avec son
+ * propre état de chargement : l'application ne reste jamais bloquée sur le
+ * loader, et aucun écran de chargement ne dépasse une seconde.
+ */
+const CHANGE_LIMIT_MS = CHANGE_MAX_MS;
 
 type Props = {
   onShowGuide: () => void;
@@ -80,17 +86,34 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   /** Route courante (ref) : garde les callbacks de navigation stables. */
   const currentPathRef = useRef<string>(pathOfUrl(ENTRY_URL) || DASHBOARD_PATH);
 
+  /** Route demandée par la barre de navigation, en attente de confirmation. */
+  const pendingPathRef = useRef<string | null>(null);
+
   const [currentPath, setCurrentPath] = useState<string>(currentPathRef.current);
   const [loading, setLoading] = useState(true);
+  /** Incrémenté à chaque chargement / changement : ré-arme la borne de 1 s. */
+  const [changeSeq, setChangeSeq] = useState(0);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<WebViewError | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  /**
+   * Démarre un écran de chargement borné à 1 seconde.
+   * Utilisé à l'ouverture, à chaque chargement de page et à chaque changement
+   * de menu depuis la barre de navigation.
+   */
+  const beginChange = useCallback(() => {
+    setLoading(true);
+    setChangeSeq((n) => n + 1);
+  }, []);
+
   const retry = useCallback(() => {
     errorRef.current = false;
+    pendingPathRef.current = null;
     setError(null);
     setLoading(true);
+    setChangeSeq((n) => n + 1);
     setProgress(0);
     historyRef.current = [];
     currentPathRef.current = pathOfUrl(ENTRY_URL) || DASHBOARD_PATH;
@@ -137,13 +160,13 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     return () => sub.remove();
   }, [retry, confirmExit]);
 
-  // Sécurité : la superposition de chargement ne doit jamais bloquer
-  // durablement l'interface si `onLoadEnd` n'est pas émis.
+  // Règle unique : quel que soit l'écran (ouverture, page, menu), le loader
+  // natif dure 1 seconde au maximum, puis la WebView s'affiche.
   useEffect(() => {
     if (!loading) return;
-    const timer = setTimeout(() => setLoading(false), LOADING_SAFETY_TIMEOUT_MS);
+    const timer = setTimeout(() => setLoading(false), CHANGE_LIMIT_MS);
     return () => clearTimeout(timer);
-  }, [loading]);
+  }, [loading, changeSeq]);
 
   // ---------- interception des navigations ----------
   const handleShouldStart = useCallback((request: WebViewNavigation) => {
@@ -188,6 +211,14 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     currentPathRef.current = path;
     setCurrentPath(path);
 
+    // Le routeur a confirmé la route demandée : le loader disparaît tout de
+    // suite (sans attendre la borne de 1 s).
+    const pending = pendingPathRef.current;
+    if (pending && path.split("?")[0] === pending.split("?")[0]) {
+      pendingPathRef.current = null;
+      setLoading(false);
+    }
+
     const stack = historyRef.current;
     if (stack[stack.length - 1] === path) return;
     stack.push(path);
@@ -202,15 +233,24 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
    * changer de page. Session, cookies, état et historique sont conservés, et le
    * bouton Back Android continue de revenir sur la page précédente.
    */
-  const handleNavSelect = useCallback((destination: NavDestination) => {
-    if (activeNavId(currentPathRef.current) === destination.id) return;
+  const handleNavSelect = useCallback(
+    (destination: NavDestination) => {
+      if (activeNavId(currentPathRef.current) === destination.id) return;
 
-    // Retour visuel immédiat (optimiste) ; la WebView confirme ensuite.
-    currentPathRef.current = destination.path;
-    setCurrentPath(destination.path);
+      // Retour visuel immédiat (optimiste) ; la WebView confirme ensuite.
+      currentPathRef.current = destination.path;
+      setCurrentPath(destination.path);
 
-    webRef.current?.injectJavaScript(navigateScript(destination.path));
-  }, []);
+      // Même écran de chargement que le reste de l'application, borné à
+      // 1 seconde et masqué dès la confirmation de la route.
+      pendingPathRef.current = destination.path;
+      setProgress(0.35);
+      beginChange();
+
+      webRef.current?.injectJavaScript(navigateScript(destination.path));
+    },
+    [beginChange],
+  );
 
   // ---------- erreurs / hors ligne ----------
   const handleError = useCallback((event: { nativeEvent: { code: number; description: string } }) => {
@@ -380,8 +420,8 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
             onOpenWindow={handleOpenWindow}
             onNavigationStateChange={handleNavigationStateChange}
             onLoadStart={() => {
-              setLoading(true);
               setProgress(0.05);
+              beginChange();
             }}
             onLoadProgress={(e) => setProgress(e.nativeEvent.progress)}
             onLoadEnd={() => setLoading(false)}

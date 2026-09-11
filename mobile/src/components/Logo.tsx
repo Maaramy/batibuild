@@ -1,81 +1,52 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
-import { COLORS } from "../theme";
+import { Image, StyleSheet, View } from "react-native";
+
+/**
+ * Logo OFFICIEL de la plateforme BatiBuild.
+ *
+ * C'est exactement le même dessin que sur le Web (`src/components/Logo.tsx` et
+ * `public/logo.svg`) : un casque de chantier blanc dans une tuile émeraude
+ * (#059669). L'asset `assets/logo.png` est la version haute définition de ce
+ * logo — aucun logo n'est redessiné ni remplacé côté mobile.
+ *
+ * PÉRIMÈTRE : mobile uniquement.
+ */
+
+const LOGO_TILE = require("../../assets/logo.png");
 
 type Props = {
+  /** Côté de la tuile, en points. */
   size?: number;
-  tileColor?: string;
-  glyphColor?: string;
-  doorColor?: string;
+  /** Rayon des coins, en proportion de `size` (identique au `rounded-xl` du Web). */
+  radiusRatio?: number;
+  /** Ombre portée (splash, chargement, erreur…). */
   shadow?: boolean;
 };
 
-/** The BatiBuild house mark — a roof triangle over a body with a door, drawn with plain Views. */
-export function HouseMark({
-  size = 96,
-  color = COLORS.brand,
-  doorColor = COLORS.brandDeep,
-}: {
-  size?: number;
-  color?: string;
-  doorColor?: string;
-}) {
-  const roofH = size * 0.34;
-  const bodyW = size * 0.58;
-  const bodyH = size * 0.5;
-  const doorW = size * 0.18;
-  const doorH = bodyH * 0.6;
+/** Tuile du logo officiel, coins arrondis comme sur la plateforme Web. */
+export function Logo({ size = 96, radiusRatio = 0.26, shadow = false }: Props) {
+  const radius = size * radiusRatio;
   return (
-    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "flex-start" }}>
-      <View
-        style={{
-          width: 0,
-          height: 0,
-          borderLeftWidth: size / 2,
-          borderRightWidth: size / 2,
-          borderBottomWidth: roofH,
-          borderLeftColor: "transparent",
-          borderRightColor: "transparent",
-          borderBottomColor: color,
-        }}
-      />
-      <View style={{ width: bodyW, height: bodyH, backgroundColor: color, marginTop: -2, alignItems: "center", paddingTop: doorH * 0.12 }}>
-        <View style={{ width: doorW, height: doorH, backgroundColor: doorColor, borderTopLeftRadius: doorW / 3, borderTopRightRadius: doorW / 3 }} />
+    <View style={[styles.tile, { width: size, height: size, borderRadius: radius }, shadow && styles.shadow]}>
+      {/* Le clip applique les coins arrondis à l'image, sans masquer l'ombre. */}
+      <View style={[styles.clip, { borderRadius: radius }]}>
+        <Image source={LOGO_TILE} style={styles.image} resizeMode="cover" />
       </View>
-    </View>
-  );
-}
-
-/** Brand logo: the house mark centered in a rounded tile. */
-export function Logo({
-  size = 96,
-  tileColor = COLORS.white,
-  glyphColor = COLORS.brand,
-  doorColor = COLORS.brandDeep,
-  shadow = false,
-}: Props) {
-  return (
-    <View
-      style={[
-        styles.tile,
-        {
-          width: size,
-          height: size,
-          borderRadius: size * 0.26,
-          backgroundColor: tileColor,
-        },
-        shadow && styles.shadow,
-      ]}
-    >
-      <HouseMark size={size * 0.56} color={glyphColor} doorColor={doorColor} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   tile: {
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "#059669",
+  },
+  clip: {
+    flex: 1,
+    overflow: "hidden",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
   },
   shadow: {
     shadowColor: "#000000",

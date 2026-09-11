@@ -42,7 +42,7 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
     }).start();
   }, [selected, progress]);
 
-  const iconScale = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
+  const iconScale = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
 
   return (
     <Pressable
@@ -54,30 +54,32 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
       // s'affiche jamais en permanence : aucun espace vertical n'est consommé.
       onLongPress={onOpenSettings}
       delayLongPress={500}
-      style={({ pressed }) => [styles.item, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [styles.item, pressed && { opacity: 0.75 }]}
     >
-      <View style={styles.pillWrap}>
-        <Animated.View
-          style={[styles.pill, { backgroundColor: theme.primaryContainer, opacity: progress }]}
-        />
-        <Animated.View style={{ transform: [{ scale: iconScale }] }}>
-          <MaterialCommunityIcons
-            name={selected ? ICONS[destination.id].active : ICONS[destination.id].inactive}
-            size={22}
-            color={selected ? theme.onPrimaryContainer : theme.onSurfaceVariant}
-          />
-        </Animated.View>
-      </View>
+      {/* Surbrillance de l'élément actif — forme arrondie du design de référence. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.highlight,
+          { backgroundColor: theme.primaryContainer, opacity: progress },
+        ]}
+      />
 
-      {/*
-        Les libellés sont TOUJOURS visibles (pas de comportement « hover ») et
-        se réduisent automatiquement s'il manque de la place sur un petit écran :
-        aucun libellé n'est tronqué ni renvoyé à la ligne.
-      */}
+      <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+        <MaterialCommunityIcons
+          name={selected ? ICONS[destination.id].active : ICONS[destination.id].inactive}
+          size={22}
+          color={selected ? theme.onPrimaryContainer : theme.onSurfaceVariant}
+        />
+      </Animated.View>
+
+      {/* Les libellés sont TOUJOURS visibles (pas de comportement « hover ») et
+          se réduisent automatiquement s'il manque de la place sur un petit
+          écran : aucun libellé n'est tronqué ni renvoyé à la ligne. */}
       <Text
         numberOfLines={1}
         adjustsFontSizeToFit
-        minimumFontScale={0.7}
+        minimumFontScale={0.65}
         allowFontScaling={false}
         style={[
           styles.label,
@@ -101,10 +103,11 @@ type Props = {
 };
 
 /**
- * Barre de navigation native fixe (Material 3 NavigationBar).
+ * Barre de navigation native fixe — capsule flottante (Material 3 / Material You).
  *
- * Elle est le SEUL élément affiché au-dessus de la WebView, ne défile jamais
- * avec le contenu, et respecte la zone système basse (gestures / boutons).
+ * Elle flotte au-dessus de la zone système basse (gestures ou boutons), ne
+ * défile jamais avec le contenu de la WebView et laisse apparaître le fond de
+ * l'application sur ses côtés, comme dans le design de référence.
  */
 export default function BottomNav({ active, onSelect, onOpenSettings }: Props) {
   const insets = useSafeAreaInsets();
@@ -114,15 +117,22 @@ export default function BottomNav({ active, onSelect, onOpenSettings }: Props) {
     <View
       accessibilityRole="tablist"
       style={[
-        styles.bar,
+        styles.band,
         {
           backgroundColor: theme.surfaceContainer,
-          borderTopColor: theme.outlineVariant,
-          paddingBottom: insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 10),
         },
       ]}
     >
-      <View style={styles.row}>
+      <View
+        style={[
+          styles.capsule,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.outlineVariant,
+          },
+        ]}
+      >
         {NAV_DESTINATIONS.map((destination) => (
           <NavItem
             key={destination.id}
@@ -138,39 +148,43 @@ export default function BottomNav({ active, onSelect, onOpenSettings }: Props) {
 }
 
 const styles = StyleSheet.create({
-  bar: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    elevation: 3,
+  band: {
+    paddingTop: 8,
+    paddingHorizontal: 16,
   },
-  row: {
+  capsule: {
     flexDirection: "row",
     alignItems: "stretch",
+    borderRadius: SHAPE.full,
+    borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    // Ombre douce : la barre semble posée sur la page (design flottant).
+    shadowColor: "#000000",
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
   item: {
     flex: 1,
-    minHeight: 56,
-    paddingTop: 8,
-    paddingBottom: 6,
-    paddingHorizontal: 2,
+    minHeight: 52,
+    paddingVertical: 6,
+    paddingHorizontal: 1,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: SHAPE.lg,
   },
-  pillWrap: {
-    width: 56,
-    height: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pill: {
+  highlight: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: SHAPE.full,
+    borderRadius: SHAPE.lg,
   },
   label: {
-    marginTop: 2,
+    marginTop: 3,
     alignSelf: "stretch",
     textAlign: "center",
     fontSize: 10,

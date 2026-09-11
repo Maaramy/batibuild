@@ -9,18 +9,20 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import SplashScreenView from "./src/screens/SplashScreen";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import WebViewScreen from "./src/screens/WebViewScreen";
+import { CHANGE_MAX_MS } from "./src/config";
 import { hasCompletedOnboarding, setOnboardingCompleted } from "./src/storage";
 import { COLORS } from "./src/theme";
 
 /**
- * Durée maximale du splash natif : 1 seconde, jamais plus.
+ * Durée maximale du splash natif : 1 seconde, jamais plus (même borne que
+ * toutes les pages et tous les menus — voir `CHANGE_MAX_MS`).
  *
  * Rien de lourd n'est fait avant l'affichage de la WebView : la seule opération
  * attendue est la lecture LOCALE du drapeau « guide déjà vu » (AsyncStorage),
  * qui dure quelques millisecondes. Aucun appel réseau, aucune attente de la
  * WebView, aucun délai artificiel au-delà de cette borne.
  */
-const SPLASH_MAX_MS = 900;
+const SPLASH_MAX_MS = CHANGE_MAX_MS;
 
 /**
  * Parcours mobile :

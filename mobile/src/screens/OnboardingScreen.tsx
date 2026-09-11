@@ -10,7 +10,7 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { HouseMark, Logo } from "../components/Logo";
+import { Logo } from "../components/Logo";
 import { COLORS, useAppTheme, type AppTheme } from "../theme";
 
 type Slide = {
@@ -112,7 +112,8 @@ function IllustrationStart(w: number, theme: AppTheme) {
   return (
     <View style={[styles.illusWrap, { width: w * 0.72 }]}>
       <View style={[styles.startRing, { backgroundColor: theme.primaryContainer }]}>
-        <HouseMark size={w * 0.3} color={COLORS.brand} doorColor={COLORS.brandDeep} />
+        {/* Logo officiel de la plateforme (identique au Web). */}
+        <Logo size={Math.min(124, w * 0.29)} shadow />
       </View>
     </View>
   );

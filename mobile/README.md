@@ -63,14 +63,14 @@ mobile/
 ├── App.tsx                        # Machine à états : Splash → Onboarding → WebView
 ├── index.ts                       # Entrée (garde le splash natif pendant le boot JS)
 ├── app.json                       # Identifiants, permissions, splash, icônes
-├── assets/                        # Icône, icône adaptative, logo de splash (PNG)
+├── assets/                        # Logo officiel, icône, icône adaptative, logo de splash (PNG)
 ├── src/
 │   ├── screens/
 │   │   ├── SplashScreen.tsx       # Splash natif (logo, nom, tagline, « Chargement.... »)
 │   │   ├── OnboardingScreen.tsx   # Guide 4 écrans + « Passer » (1ʳᵉ installation)
 │   │   └── WebViewScreen.tsx      # WebView BatiBuild (toutes les options)
 │   ├── components/
-│   │   ├── Logo.tsx               # Logo officiel BatiBuild (React Native Views)
+│   │   ├── Logo.tsx               # Logo officiel de la plateforme (tuile émeraude + casque blanc)
 │   │   └── BottomNav.tsx          # Barre de navigation Material 3 (5 sections)
 │   ├── storage.ts                 # hasCompletedOnboarding (AsyncStorage)
 │   ├── theme.ts                   # Jetons Material 3 (clair / sombre) issus de la charte BatiBuild
@@ -89,8 +89,9 @@ mobile/
 
 | Fonctionnalité | Comportement |
 |---|---|
-| **Splash** | Logo officiel + « BatiBuild » + slogan, et **un seul message : « Chargement.... »**. Durée **≤ 1 s** (900 ms) : aucune attente du réseau, aucun délai artificiel. |
-| **Barre de navigation** | 5 sections Material 3 (Mon profil · Projets · Investissements · Messagerie · Support), toujours visibles, libellés permanents (jamais de « hover »), icônes pleines (actif) / contour (inactif) + indicateur `primary-container`. |
+| **Splash** | Logo officiel + « BatiBuild » + slogan, et **un seul message : « Chargement.... »**. Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. |
+| **Chargement (toutes les pages et menus)** | Même borne de **1 seconde maximum** partout : ouverture, chargement d'une page, et changement de section depuis la barre de navigation (masquée dès que le routeur confirme la route). |
+| **Barre de navigation** | Capsule **flottante** arrondie (coins pleins, ombre douce) : 5 sections Material 3 (Mon profil · Projets · Investissements · Messagerie · Support), toujours visibles, libellés permanents (jamais de « hover »), icônes pleines (actif) / contour (inactif) + surbrillance `primary-container` derrière l'élément actif. |
 | **Top App Bar** | **Aucune** : la WebView occupe tout l'espace sous la barre de statut. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. |
 | **Onboarding** | 4 écrans (Bienvenue, Estimation, Projets, Commencer) + bouton **Passer**. Mémorisé via `hasCompletedOnboarding` (AsyncStorage). |
@@ -102,7 +103,7 @@ mobile/
 | **Liens externes** | Sites partenaires, réseaux sociaux, documents externes → navigateur système (`Linking`). |
 | **Navigation des 5 sections** | Routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard`, `/dashboard/investments`, `/dashboard/messages`, `/dashboard/support`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. |
 | **Retour Android** | Historique WebView → page précédente ; sinon confirmation « Voulez-vous quitter BatiBuild ? » (Annuler / Quitter). |
-| **Chargement** | Écran de chargement natif (logo + « Chargement.... » + barre de progression) — jamais de page blanche. |
+| **Chargement** | Écran de chargement natif (logo officiel + « Chargement.... » + barre de progression), **borné à 1 s** — jamais de page blanche ni de loader bloqué. |
 | **Hors ligne / erreurs** | Écran natif « Connexion Internet indisponible » / « Impossible de charger BatiBuild » + bouton **Réessayer** (codes `ERR_*` mappés en messages lisibles). |
 | **Upload** | `<input type="file">` natif : galerie, photo (caméra), fichiers (permissions CAMERA / READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE). |
 | **Téléchargements** | PDF et documents : téléchargés en cache puis ouverts via la feuille de partage native (`expo-file-system` + `expo-sharing`). |

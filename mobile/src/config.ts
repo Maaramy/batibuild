@@ -29,6 +29,17 @@ export const DASHBOARD_PATH = "/dashboard";
 export const LOADING_MESSAGE = "Chargement....";
 
 /**
+ * Durée MAXIMALE (1 seconde) de tout écran de chargement natif :
+ *   - splash de démarrage ;
+ *   - voile de chargement de la WebView ;
+ *   - changement de page ou de menu depuis la barre de navigation.
+ *
+ * Aucun chargement ne dépasse cette borne : l'application affiche ensuite la
+ * WebView avec son propre état de chargement, sans jamais rester bloquée.
+ */
+export const CHANGE_MAX_MS = 1000;
+
+/**
  * Point d'entrée de la WebView.
  *
  * On démarre volontairement sur `/dashboard` et JAMAIS sur la page d'accueil
