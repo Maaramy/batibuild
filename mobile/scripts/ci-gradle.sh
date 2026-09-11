@@ -52,8 +52,8 @@ echo "────────────────────────�
 echo "Tâches en échec :"
 grep -E "^> Task .*FAILED" "$LOG" | head -5
 echo "────────────────────────────────────────────────────────────"
-echo "Signatures connues (mémoire, disque, compilateur, CMake) :"
-grep -n -E "OutOfMemoryError|Java heap space|Killed|No space left on device|ninja: build stopped|CMake Error|e: file|FAILURE: Build failed" "$LOG" | head -15
+echo "Signatures connues (signature, mémoire, disque, compilateur, CMake) :"
+grep -n -E "validateSigning|Keystore file|not found for signing config|OutOfMemoryError|Java heap space|Killed|No space left on device|ninja: build stopped|CMake Error|e: file|FAILURE: Build failed" "$LOG" | head -15
 echo "────────────────────────────────────────────────────────────"
 echo "Espace disque après échec :"
 df -h / | tail -1

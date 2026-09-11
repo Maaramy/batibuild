@@ -34,6 +34,14 @@ secrets/
 *.keystore
 *.p12
 
+# Exception : la clé DEBUG Android standard DOIT être présente dans le dépôt.
+# android/app/build.gradle la déclare (storeFile file('debug.keystore')) et
+# Gradle échoue sur :app:validateSigningDebug si elle manque sur un clone/CI
+# vierge. Ce n'est pas un secret de production (alias androiddebugkey,
+# mot de passe « android », clé publique du modèle Android officiel).
+# Régénération automatique si absente : node scripts/ensure-debug-keystore.mjs
+!android/app/debug.keystore
+
 # Env
 .env
 .env.local

@@ -88,6 +88,31 @@ Wrapper 9.3.1, 2 ABI (`arm64-v8a,armeabi-v7a`) et compilation C++ limitée à
 2 processus parallèles (`CMAKE_BUILD_PARALLEL_LEVEL=2`) pour tenir dans la RAM
 du runner.
 
+### Clé de signature debug (à ne pas confondre avec le keystore Release)
+
+`android/app/build.gradle` déclare `signingConfigs.debug { storeFile file('debug.keystore') }`.
+Le fichier **`mobile/android/app/debug.keystore` doit donc exister**, sinon Gradle
+échoue (souvent après une longue compilation) avec :
+
+```
+Execution failed for task ':app:validateSigningDebug'.
+> Keystore file '.../android/app/debug.keystore' not found for signing config 'debug'.
+```
+
+Ce n'est **pas un secret** : c'est la clé debug standard d'Android
+(alias `androiddebugkey`, mot de passe `android`, dname `CN=Android Debug`).
+Elle est **versionnée dans le dépôt** (`mobile/.gitignore` la réautorise
+explicitement) et **régénérée automatiquement** si elle manque :
+
+```bash
+npm run keystore:debug        # crée android/app/debug.keystore si absent/invalide
+```
+
+Le workflow GitHub Actions exécute cette étape avant tout build, puis
+`./gradlew :app:signingReport` qui échoue en quelques secondes (et non après
+15 minutes de compilation) si une configuration de signature référence un
+fichier absent.
+
 > Un seul ABI est compilable via **Actions → Run workflow → architectures** :
 > `arm64-v8a` divise encore le temps et la mémoire par deux (couvre tous les
 > téléphones récents ; `armeabi-v7a` n'est utile qu'aux appareils 32 bits).
@@ -108,6 +133,7 @@ du runner.
 | `npm run android:prebuild` | Resynchronise `android/` depuis `app.json` |
 | `npm run signing:apply` | Réapplique la signature Release après un prebuild |
 | `npm run keystore:generate` | Crée un keystore Release local + `keystore.properties` |
+| `npm run keystore:debug` | Recrée la clé **debug** Android si `android/app/debug.keystore` manque |
 
 > Gestionnaire de paquets : le projet utilise **Bun** (`bun.lock` présent). Les
 > commandes `npm` ci-dessus fonctionnent à l'identique ; `bun run android:apk`
@@ -400,7 +426,11 @@ npm run android:apk
 ### Sécurité
 
 - `keystore.properties`, `android/keystore/`, `*.jks`, `*.keystore`, `*.p12` sont
-  **ignorés par Git** (voir `mobile/.gitignore`).
+  **ignorés par Git** (voir `mobile/.gitignore`). Seule exception :
+  `android/app/debug.keystore`, la clé **debug** publique du modèle Android
+  (alias `androiddebugkey`, mot de passe `android`, `CN=Android Debug`), qui
+  **doit** être versionnée pour que `:app:validateSigningDebug` passe sur un
+  clone ou un runner vierge. Elle ne sert jamais à publier sur Google Play.
 - Aucun mot de passe n'est écrit dans le code ni affiché dans les logs Gradle.
 - Sauvegardez keystore + mots de passe **hors du dépôt** (coffre-fort, disque chiffré).
 
@@ -449,6 +479,9 @@ Toutes les autres vérifications de `expo-doctor` restent actives (20/20 ✅).
 | `adb: command not found` | Ajoutez `$ANDROID_HOME/platform-tools` au `PATH` → §5 |
 | `adb devices` vide | Débogage USB non activé, câble de données, ou autorisation refusée sur le téléphone → §5 |
 | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | Une version de l'app est déjà installée avec une autre clé → `adb uninstall com.batibuild.app` |
+| `Execution failed for task ':app:validateSigningDebug'` → `Keystore file '…/android/app/debug.keystore' not found` | La clé **debug** manque (clone frais / `android/` régénéré) → `npm run keystore:debug` (ou `expo prebuild` régénère le fichier d'origine) |
+| **CI** : `:app:validateSigningDebug` échoue | Le workflow lance `node scripts/ensure-debug-keystore.mjs` avant les builds : si l'échec persiste, vérifiez que `keytool` est bien disponible (étape *Setup JDK 17*) et que `android/app/debug.keystore` est présent dans le dépôt |
+| **CI** : `:app:signingReport` échoue juste après les diagnostics | Une configuration de signature pointe vers un fichier absent — c'est volontaire : l'échec survient en quelques secondes au lieu d'après 15 min de compilation. Regardez la section « What went wrong » du log `signing` |
 | APK installé mais « Application non installée » | Signature release avec clé debug sur un appareil exigeant une signature, ou APK corrompu : régénérez via `npm run android:apk` |
 | Écran blanc / « Impossible de charger BatiBuild » **dans l'app** | Problème réseau côté téléphone — l'écran natif propose **Réessayer** |
 | Le guide réapparaît à chaque lancement | Stockage local effacé (désinstallation/réinstallation) — comportement attendu |

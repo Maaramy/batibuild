@@ -41,6 +41,7 @@ mobile/
     ├── build-android.mjs          # Build local Gradle (apk / debug / aab / clean)
     ├── install-android.mjs        # adb install du dernier APK
     ├── generate-keystore.mjs      # Keystore Release local
+    ├── ensure-debug-keystore.mjs  # Recrée la clé debug Android si elle manque
     └── apply-signing.mjs          # Réapplique la signature Release après un prebuild
 ```
 
@@ -114,6 +115,12 @@ Les sorties Gradle d'origine restent disponibles :
 **Build plus rapide** (téléphones réels uniquement) :
 `ARCHS=arm64-v8a,armeabi-v7a npm run android:apk`.
 
+**Clé debug** : `android/app/build.gradle` référence `app/debug.keystore`. Ce
+fichier est **versionné** (clé debug standard d'Android : alias
+`androiddebugkey`, mot de passe `android` — ce n'est pas un secret). S'il manque,
+le build échoue sur `:app:validateSigningDebug` ; le script de build et la CI le
+régénèrent automatiquement (`npm run keystore:debug` pour le faire à la main).
+
 **Signature Release** : l'APK/AAB release est signé avec votre clé Release si
 `android/keystore.properties` existe (ou via les variables
 `ANDROID_KEYSTORE_PATH` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS`) ;
@@ -175,7 +182,7 @@ Actions → « Android — APK & AAB »
       ↓
 Install deps → prebuild (si android/ absent) → Android SDK du projet
       ↓
-assembleDebug · assembleRelease · bundleRelease
+clé debug (assurée) → signingReport → assembleDebug · assembleRelease · bundleRelease
       ↓
 Artifacts : Batibuild-debug.apk · Batibuild-release.apk · Batibuild-release.aab
 ```
@@ -201,6 +208,14 @@ Ouvrez le run ✅ → section **Artifacts** en bas de page → téléchargez
 | platform 36, build-tools 36.0.0, NDK 27.1.12297006, CMake 3.22.1, platform-tools | `sdkmanager` — versions lues dans le projet (`node_modules/react-native/gradle/libs.versions.toml`) |
 | Dépendances JS | `bun install --frozen-lockfile` (ou `npm ci` si un `package-lock.json` apparaît) |
 | Gradle | **wrapper du dépôt** (`./gradlew`, version épinglée 9.3.1) |
+
+### Signature debug (obligatoire, automatique)
+
+`android/app/build.gradle` référence `app/debug.keystore` : le workflow l'assure
+avant tout build (`node scripts/ensure-debug-keystore.mjs`, la clé debug standard
+d'Android est versionnée dans le dépôt) puis lance `:app:signingReport`, qui
+détecte en quelques secondes toute configuration pointant vers un fichier absent
+— au lieu d'échouer après 15 minutes de compilation.
 
 ### Signature Release (optionnelle)
 

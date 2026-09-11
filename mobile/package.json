@@ -16,6 +16,7 @@
     "android:install": "node scripts/install-android.mjs",
     "android:clean": "node scripts/build-android.mjs clean",
     "keystore:generate": "node scripts/generate-keystore.mjs",
+    "keystore:debug": "node scripts/ensure-debug-keystore.mjs",
     "signing:apply": "node scripts/apply-signing.mjs"
   },
   "dependencies": {

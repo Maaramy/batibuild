@@ -16,6 +16,11 @@
 # clé debug (installable pour tester, refusé par Google Play). Aucun secret
 # n'est jamais affiché dans les logs.
 #
+# La clé DEBUG (android/app/debug.keystore, alias `androiddebugkey`, mot de passe
+# `android`) est versionnée dans le dépôt : ce n'est pas un secret de production.
+# Une étape la régénère automatiquement si elle manque (scripts/ensure-debug-keystore.mjs),
+# ce qui évite l'échec « :app:validateSigningDebug » sur un runner vierge.
+#
 # Ce workflow n'utilise PAS EAS et n'a besoin d'aucun EXPO_TOKEN.
 #
 # ── Diagnostic d'échec ──────────────────────────────────────────────────────
@@ -155,6 +160,21 @@ jobs:
           test -f android/app/build.gradle
           test -x android/gradlew
           echo "Projet natif prêt : $(grep -c '' android/app/build.gradle) lignes dans android/app/build.gradle"
+
+      # ── CLÉ DE SIGNATURE DEBUG ─────────────────────────────────────────────
+      # android/app/build.gradle déclare `signingConfigs.debug { storeFile
+      # file('debug.keystore') }`. Sans ce fichier, Gradle échoue APRÈS la
+      # compilation complète :
+      #   Execution failed for task ':app:validateSigningDebug'.
+      #   > Keystore file '.../android/app/debug.keystore' not found for signing config 'debug'.
+      # La clé debug standard est versionnée dans le dépôt ; cette étape la
+      # régénère si elle manque (clone vierge, android/ resynchronisé).
+      # Ce n'est pas un secret de production (alias androiddebugkey / « android »).
+      - name: Clé de signature debug (générée si absente)
+        run: |
+          echo "Checking Android debug signing configuration..."
+          node scripts/ensure-debug-keystore.mjs
+          ls -la android/app/debug.keystore
 
       - name: Installation des composants Android SDK du projet
         run: |
@@ -296,6 +316,13 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "✅ Signature Release configurée (keystore externe, rien dans le dépôt)."
 
+      # ── VÉRIFICATION DE LA SIGNATURE ───────────────────────────────────────
+      # Échoue proprement (sans continue-on-error) si une config de signature
+      # référence un fichier absent — détecté en quelques secondes au lieu de
+      # 15 minutes de compilation. N'affiche aucun mot de passe.
+      - name: Vérification de la signature (signingReport)
+        run: bash scripts/ci-gradle.sh :app:signingReport signing
+
       # ── APK DEBUG ──────────────────────────────────────────────────────────
       # ci-gradle.sh affiche, en cas d'échec, la CAUSE RÉELLE du plantage.
       - name: Build — APK debug
@@ -314,6 +341,9 @@ jobs:
           fi
           cp "$DEBUG_APK" /tmp/dist/Batibuild-debug.apk
           ls -lh /tmp/dist/Batibuild-debug.apk
+          # Preuve que l'APK est bien signé (aucun secret n'est affiché).
+          APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          "$APKSIGNER" verify --print-certs "$DEBUG_APK" | head -6
 
       - name: Upload — Batibuild-debug.apk
         uses: actions/upload-artifact@v4
@@ -339,6 +369,8 @@ jobs:
           fi
           cp "$RELEASE_APK" /tmp/dist/Batibuild-release.apk
           ls -lh /tmp/dist/Batibuild-release.apk
+          APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          "$APKSIGNER" verify --print-certs "$RELEASE_APK" | head -6
 
       - name: Upload — Batibuild-release.apk
         uses: actions/upload-artifact@v4

@@ -16,9 +16,10 @@
  * Le script :
  *   1. vérifie les prérequis (JAVA_HOME, Android SDK, node_modules) ;
  *   2. resynchronise le projet natif si `android/` est absent (expo prebuild) ;
- *   3. réapplique la signature Release (idempotent) ;
- *   4. lance le Gradle Wrapper du projet (gradlew / gradlew.bat) ;
- *   5. copie l'artefact dans mobile/build/ avec un nom explicite (Batibuild-…).
+ *   3. garantit la clé de signature DEBUG (android/app/debug.keystore) ;
+ *   4. réapplique la signature Release (idempotent) ;
+ *   5. lance le Gradle Wrapper du projet (gradlew / gradlew.bat) ;
+ *   6. copie l'artefact dans mobile/build/ avec un nom explicite (Batibuild-…).
  */
 import { existsSync, mkdirSync, copyFileSync, statSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -112,6 +113,11 @@ if (process.env.PREBUILD === "1" || process.env.PREBUILD === "true") {
   console.log("ℹ️  PREBUILD=1 — resynchronisation du projet natif depuis app.json…");
   run("npx", ["expo", "prebuild", "--platform", "android"]);
 }
+
+// Clé de signature DEBUG : `android/app/build.gradle` la déclare explicitement
+// (storeFile file('debug.keystore')). Si elle manque (clone frais, android/
+// régénéré), Gradle échoue sur :app:validateSigningDebug → on la génère.
+run(process.execPath, [join(root, "scripts", "ensure-debug-keystore.mjs")]);
 
 // Signature Release (idempotent — réinsère le bloc si un prebuild l'a effacé).
 run(process.execPath, [join(root, "scripts", "apply-signing.mjs")]);

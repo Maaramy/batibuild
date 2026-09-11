@@ -69,6 +69,25 @@ ARCHS=arm64-v8a,armeabi-v7a npm run android:apk     # macOS / Linux
 set ARCHS=arm64-v8a,armeabi-v7a && npm run android:apk   # Windows cmd
 ```
 
+## 4b. Clé debug Android (automatique)
+
+`android/app/build.gradle` référence `signingConfigs.debug { storeFile file('debug.keystore') }`.
+Le fichier `android/app/debug.keystore` (clé debug **standard** d'Android :
+alias `androiddebugkey`, mot de passe `android` — ce n'est pas un secret) est
+**versionné dans le dépôt**, et recréé automatiquement s'il manque :
+
+```bash
+npm run keystore:debug     # node scripts/ensure-debug-keystore.mjs
+```
+
+Les scripts de build local et le workflow GitHub Actions l'exécutent avant
+Gradle. Sans cette clé, Gradle échoue sur :
+
+```
+Execution failed for task ':app:validateSigningDebug'.
+> Keystore file '.../android/app/debug.keystore' not found for signing config 'debug'.
+```
+
 ## 5. Signature Release (keystore local)
 
 ```bash
