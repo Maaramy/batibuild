@@ -37,7 +37,7 @@ import {
   type NavDestination,
   type NavId,
 } from "../config";
-import { ENTRY_GUARD_SCRIPT, navigateScript, SHARE_BRIDGE_SCRIPT } from "../injected";
+import { ENTRY_GUARD_SCRIPT, MOBILE_CHROME_SCRIPT, navigateScript, SHARE_BRIDGE_SCRIPT } from "../injected";
 import { COLORS, SHAPE, useAppTheme } from "../theme";
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -461,7 +461,9 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
             onContentProcessDidTerminate={handleRenderProcessGone}
             onFileDownload={handleFileDownload}
             onMessage={handleMessage}
-            injectedJavaScriptBeforeContentLoaded={`${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
+            // `MOBILE_CHROME_SCRIPT` masque le burger de l'en-tête web dans
+            // l'application (le reste de l'en-tête web est intact).
+            injectedJavaScriptBeforeContentLoaded={`${MOBILE_CHROME_SCRIPT}${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
             style={[styles.webview, { backgroundColor: theme.surface }]}
             setSupportMultipleWindows={false}
             allowsBackForwardNavigationGestures={Platform.OS === "ios"}

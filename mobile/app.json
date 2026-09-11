@@ -39,10 +39,11 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
+          "//": "Écran de démarrage natif : fond BLANC et AUCUNE image (le logo sur fond vert est supprimé). L'écran de chargement de l'application (fond blanc + logo + « Chargement.... ») prend le relais immédiatement.",
+          "image": "./assets/splash-blank.png",
           "imageWidth": 180,
           "resizeMode": "contain",
-          "backgroundColor": "#06251B"
+          "backgroundColor": "#FFFFFF"
         }
       ]
     ],

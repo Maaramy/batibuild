@@ -54,6 +54,46 @@ true;
 }
 
 /**
+ * Chrome web masqué DANS L'APPLICATION UNIQUEMENT.
+ *
+ * La barre supérieure native fournit déjà la marque et les actions
+ * (Support / Paramètres) et la barre du bas fournit la navigation : le bouton
+ * « burger » (les 3 tirets) de l'en-tête web ouvre un menu latéral qui ferait
+ * doublon avec la barre de navigation native. Il est donc masqué dans
+ * l'application.
+ *
+ * C'est une simple feuille de style injectée par le client mobile : AUCUN
+ * fichier de la plateforme Web n'est modifié. Le reste de l'en-tête web
+ * (titre de la page, notifications, menu du compte et déconnexion) reste
+ * intact — aucune fonctionnalité n'est perdue.
+ */
+export const MOBILE_CHROME_SCRIPT = `
+(function () {
+  try {
+    var ID = "__batibuild-mobile-chrome";
+    var apply = function () {
+      if (document.getElementById(ID)) return;
+      var root = document.head || document.documentElement;
+      if (!root) return;
+      var style = document.createElement("style");
+      style.id = ID;
+      // Seul le burger (bouton d'ouverture du menu latéral web, marqué
+      // « lg:hidden ») est masqué : les boutons « retour » des autres pages
+      // n'ont pas cette classe et restent visibles.
+      style.appendChild(document.createTextNode(
+        "header.glass-header button[class~='lg:hidden']{display:none !important;}"
+      ));
+      root.appendChild(style);
+    };
+    apply();
+    document.addEventListener("DOMContentLoaded", apply);
+    window.setTimeout(apply, 800);
+  } catch (e) {}
+})();
+true;
+`;
+
+/**
  * Relais `navigator.share` → feuille de partage native.
  * Android WebView n'expose pas l'API Web Share ; sans ce patch, les boutons
  * « Partager » de la plateforme ne feraient rien.

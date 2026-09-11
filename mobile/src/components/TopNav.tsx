@@ -33,8 +33,9 @@ export default function TopNav({ onOpenSupport, onOpenSettings }: Props) {
       <View style={styles.bar}>
         <View style={styles.brand}>
           <Logo size={30} radiusRatio={0.28} />
+          {/* Wordmark officiel de la plateforme (`src/components/Logo.tsx`). */}
           <Text style={styles.brandName} numberOfLines={1}>
-            BatiBuild
+            batibuild App
           </Text>
         </View>
 
@@ -86,9 +87,9 @@ const styles = StyleSheet.create({
   },
   brandName: {
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "600",
     color: COLORS.ink,
-    letterSpacing: 0.2,
+    letterSpacing: -0.2,
   },
   actions: {
     flexDirection: "row",

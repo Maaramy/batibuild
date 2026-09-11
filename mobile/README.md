@@ -16,9 +16,11 @@ Lancements suivants :    Splash (≤ 1 s)  →  WebView BatiBuild
 Android Native Shell
 │
 ├── Splash  « Chargement.... »  (fond BLANC, ≤ 1 s, jamais bloquant)
+│      L'écran de démarrage natif est BLANC et SANS image : le logo sur fond
+│      vert qui s'affichait avant le chargement a été supprimé.
 │
 ├── Top Navbar  (native, fond blanc)
-│      Logo + « BatiBuild »        Support   Paramètres        (aucun burger)
+│      Logo + « batibuild App »    Support   Paramètres        (aucun burger)
 │
 ├── Bottom Navigation  (5 sections, fixe, libellés toujours visibles)
 │      Mon profil · Projets · Dashboard · Investissements · Messagerie
@@ -31,6 +33,13 @@ zones système (haute et basse) et n'entraînent **jamais** le rechargement de l
 (donc session, cookies, état et historique préservés). La barre du bas n'affiche
 **aucun cercle ni pastille de fond** : l'état actif se voit à la couleur et à la graisse
 de l'entrée.
+
+Dans l'application, le **bouton « burger » (les 3 tirets)** de l'en-tête de la plateforme
+Web est **masqué** : la barre supérieure native fournit déjà la marque et les actions
+(Support / Paramètres) et la barre du bas fournit la navigation. C'est une simple feuille
+de style injectée par le client mobile (`MOBILE_CHROME_SCRIPT` dans `src/injected.ts`) :
+**aucun fichier de la plateforme Web n'est modifié**, et le reste de l'en-tête web
+(titre, notifications, menu du compte, déconnexion) reste intact.
 
 ### Parcours de navigation mobile
 
@@ -66,7 +75,7 @@ mobile/
 ├── App.tsx                        # Machine à états : Splash → Onboarding → WebView
 ├── index.ts                       # Entrée (garde le splash natif pendant le boot JS)
 ├── app.json                       # Identifiants, permissions, splash, icônes
-├── assets/                        # Logo officiel, icône, icône adaptative, logo de splash (PNG)
+├── assets/                        # Logo officiel, icône, icône adaptative ; splash natif transparent
 ├── src/
 │   ├── screens/
 │   │   ├── SplashScreen.tsx       # Splash natif (logo, nom, tagline, « Chargement.... »)
@@ -75,7 +84,8 @@ mobile/
 │   ├── components/
 │   │   ├── Logo.tsx               # Logo officiel de la plateforme (tuile émeraude + casque blanc)
 │   │   ├── TopNav.tsx             # Barre native supérieure : logo + nom, Support, Paramètres
-│   │   └── BottomNav.tsx          # Barre de navigation Material 3 (5 sections)
+│   │   ├── BottomNav.tsx          # Barre de navigation Material 3 (5 sections)
+│   │   └── GuideCards.tsx         # Cartes du guide : écrans de la plateforme recréés nativement
 │   ├── storage.ts                 # hasCompletedOnboarding (AsyncStorage)
 │   ├── theme.ts                   # Jetons Material 3 (clair / sombre) issus de la charte BatiBuild
 ├── android/                       # Projet natif Android — COMMITÉ (build Gradle local direct)
@@ -93,13 +103,13 @@ mobile/
 
 | Fonctionnalité | Comportement |
 |---|---|
-| **Splash** | Logo officiel + « BatiBuild » + slogan, et **un seul message : « Chargement.... »**. Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. |
+| **Splash** | **Fond BLANC**, logo officiel + « BatiBuild » + slogan, et **un seul message : « Chargement.... »**. Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
 | **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
 | **Barre de navigation (bas)** | Capsule **flottante** arrondie (coins pleins, ombre douce) : 5 sections Material 3 (Mon profil · Projets · Dashboard · Investissements · Messagerie), toujours visibles, libellés permanents (jamais de « hover »), icônes pleines (actif) / contour (inactif). **Aucun cercle ni pastille verte** : l'état actif est signalé par la couleur et la graisse. |
-| **Barre supérieure (native)** | Fond **blanc**, logo officiel + « BatiBuild » à gauche, icônes **Support** et **Paramètres** à droite. Aucun menu burger. |
+| **Barre supérieure (native)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. Aucun menu burger — celui de l'en-tête web est masqué dans l'application. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. |
-| **Onboarding** | Une **carte par section** (Bienvenue, Mon profil, Projets, Dashboard, Investissements, Messagerie, Support, Commencer) avec une description explicative, + bouton **Passer**. Mémorisé via `hasCompletedOnboarding` (AsyncStorage). |
+| **Onboarding** | Une **carte par étape** + une **description explicative** pour chacune, et bouton **Passer**. Les étapes « métier » illustrent les écrans de la plateforme recréés nativement (`GuideCards.tsx`) : **Importer les documents** (nouveau projet), **Analyse en cours** (reconnaissance IA), **Coût total estimé** (rapport + scénarios Économique / Standard / Premium) et **Score IA** (analyse d'investissement). Mémorisé via `hasCompletedOnboarding` (AsyncStorage). |
 | **Réinstallation** | Le stockage local est effacé → le guide réapparaît (comportement attendu). |
 | **Mise à jour** | `hasCompletedOnboarding` est conservé → pas de guide à chaque mise à jour. |
 | **Revoir le guide** | **Appui long** sur la barre de navigation (n'importe quelle entrée) → « Voir le guide » (ne supprime aucune donnée). Le menu n'occupe aucune place à l'écran. |

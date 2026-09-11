@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import {
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -13,25 +14,42 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 import { Logo } from "../components/Logo";
+import {
+  MockAnalysisCard,
+  MockImportCard,
+  MockInvestmentCard,
+  MockReportCard,
+} from "../components/GuideCards";
 import { COLORS, useAppTheme, type AppTheme } from "../theme";
 
 type Glyph = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 /**
- * Guide de première visite — une CARTE par section de l'application.
+ * Guide de première visite — une CARTE par étape.
  *
- * Chaque carte reprend l'icône et le libellé EXACTS de la barre de navigation
- * (native), avec une description explicative : l'utilisateur retrouve ensuite
- * immédiatement les mêmes repères dans l'application.
+ * Les étapes qui correspondent à un écran de la plateforme affichent la carte
+ * correspondante (recréée nativement dans `GuideCards.tsx`, à partir des écrans
+ * de la plateforme) :
+ *
+ *   Projets → « Importez vos documents »   (nouveau projet)
+ *   Analyse IA → « Analyse en cours… »     (reconnaissance par l'IA)
+ *   Estimation → « Coût total estimé »     (rapport + scénarios)
+ *   Investissements → « Score IA »         (analyse d'investissement)
+ *
+ * Les autres étapes (profil, dashboard, messagerie, support) gardent la carte
+ * « section » avec l'icône EXACTE de la barre de navigation native.
+ *
+ * Chaque carte est suivie d'une description explicative.
  */
+type Visual = "logo" | "icon" | "import" | "analysis" | "report" | "investment";
+
 type Slide = {
   key: string;
   title: string;
   description: string;
-  /** Icône Material de la carte (même famille que la barre du bas). */
+  visual: Visual;
+  /** Icône Material des cartes « section » (même famille que la barre du bas). */
   icon?: Glyph;
-  /** Carte « logo officiel » (bienvenue / démarrage). */
-  logo?: boolean;
 };
 
 const SLIDES: Slide[] = [
@@ -39,72 +57,85 @@ const SLIDES: Slide[] = [
     key: "welcome",
     title: "Bienvenue sur BatiBuild",
     description:
-      "Votre copilote IA pour estimer, suivre et piloter vos projets de construction, d'aménagement et de rénovation en Tunisie.",
-    logo: true,
+      "Votre copilote IA pour estimer, suivre et piloter vos projets de construction, d'aménagement et de rénovation en Tunisie. Ce guide présente en quelques cartes tout ce que vous pouvez faire dans l'application.",
+    visual: "logo",
   },
   {
     key: "profile",
     title: "Mon profil",
     description:
-      "Renseignez vos informations, votre abonnement et vos préférences : tout est centralisé dans votre espace personnel.",
+      "Renseignez vos informations, votre abonnement et vos préférences : tout est centralisé dans votre espace personnel, accessible depuis l'onglet « Mon profil ».",
+    visual: "icon",
     icon: "account",
   },
   {
     key: "projects",
     title: "Projets",
     description:
-      "Créez un projet à partir d'un plan, d'une photo ou d'un simple croquis, puis suivez son avancement, son budget et ses estimations.",
-    icon: "folder",
+      "Importez une photo du terrain, un plan (PDF, JPG, PNG), une image satellite ou un croquis — ou saisissez simplement la région et la surface. BatiBuild prépare le dossier du projet pour vous.",
+    visual: "import",
+  },
+  {
+    key: "analysis",
+    title: "Analyse IA",
+    description:
+      "L'intelligence artificielle identifie le type de projet (maison, villa, appartement, piscine), estime les dimensions réelles, détecte les surfaces, la liste des matériaux et la qualité de finition — avec son niveau de confiance.",
+    visual: "analysis",
+  },
+  {
+    key: "report",
+    title: "Estimation & coûts",
+    description:
+      "Obtenez le coût total estimé aux prix du marché tunisien, la répartition par lots (gros œuvre, second œuvre, équipements) et trois scénarios — Économique, Standard, Premium — exportables en PDF.",
+    visual: "report",
+  },
+  {
+    key: "investments",
+    title: "Investissements",
+    description:
+      "Évaluez la rentabilité d'un projet immobilier : score IA, rendement net, flux de trésorerie et prévisions de bénéfices sur 10 ans, pour décider en toute confiance.",
+    visual: "investment",
   },
   {
     key: "dashboard",
     title: "Dashboard",
     description:
       "Retrouvez en un coup d'œil vos statistiques, vos estimations enregistrées, vos favoris et les recommandations de l'IA.",
+    visual: "icon",
     icon: "view-dashboard",
-  },
-  {
-    key: "investments",
-    title: "Investissements",
-    description:
-      "Analysez la rentabilité d'un projet immobilier et comparez plusieurs scénarios avant de vous engager.",
-    icon: "bank",
   },
   {
     key: "messages",
     title: "Messagerie",
     description:
-      "Échangez avec vos fournisseurs et vos experts, et recevez vos devis et réponses au même endroit.",
+      "Échangez avec vos fournisseurs et vos experts, et recevez vos devis et vos réponses au même endroit.",
+    visual: "icon",
     icon: "message-text",
   },
   {
     key: "support",
     title: "Support",
     description:
-      "Besoin d'aide ? L'icône Support de la barre supérieure vous met directement en relation avec notre équipe.",
+      "Besoin d'aide ? L'icône Support de la barre supérieure vous met directement en relation avec notre équipe, sans quitter l'application.",
+    visual: "icon",
     icon: "headset",
   },
   {
     key: "start",
     title: "Prêt à commencer ?",
     description:
-      "Accédez à BatiBuild depuis votre application : vos projets vous attendent.",
-    logo: true,
+      "Vos projets vous attendent : connectez-vous ou créez votre compte, et laissez BatiBuild estimer votre premier chantier.",
+    visual: "logo",
   },
 ];
 
 /** Carte « section » : icône Material + libellé + lignes de contenu. */
-function SectionCard(icon: Glyph, w: number, theme: AppTheme) {
-  const cardW = Math.min(280, w * 0.64);
+function SectionCard(icon: Glyph, cardW: number, theme: AppTheme) {
   return (
     <View
       style={[
         styles.card,
-        {
-          width: cardW,
-          backgroundColor: theme.surfaceContainer,
-          borderColor: theme.outlineVariant,
-        },
+        { width: cardW, backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
       ]}
     >
       <View style={[styles.iconTile, { backgroundColor: theme.primaryContainer }]}>
@@ -118,17 +149,16 @@ function SectionCard(icon: Glyph, w: number, theme: AppTheme) {
 }
 
 /** Carte « logo officiel » (bienvenue / démarrage). */
-function LogoCard(w: number, theme: AppTheme) {
-  const size = Math.min(280, w * 0.64);
+function LogoCard(cardW: number, theme: AppTheme) {
   return (
     <View
       style={[
         styles.card,
         styles.logoCard,
-        { width: size, backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
+        { width: cardW, backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
       ]}
     >
-      <Logo size={Math.min(132, w * 0.3)} shadow />
+      <Logo size={Math.min(120, cardW * 0.46)} shadow />
       <View style={[styles.aiBadge, { backgroundColor: theme.primaryContainer }]}>
         <Text style={[styles.aiBadgeText, { color: theme.onPrimaryContainer }]}>
           Gestion • Suivi • Estimation • IA
@@ -136,6 +166,23 @@ function LogoCard(w: number, theme: AppTheme) {
       </View>
     </View>
   );
+}
+
+function visualFor(slide: Slide, cardW: number, theme: AppTheme) {
+  switch (slide.visual) {
+    case "import":
+      return <MockImportCard width={cardW} theme={theme} />;
+    case "analysis":
+      return <MockAnalysisCard width={cardW} theme={theme} />;
+    case "report":
+      return <MockReportCard width={cardW} theme={theme} />;
+    case "investment":
+      return <MockInvestmentCard width={cardW} theme={theme} />;
+    case "logo":
+      return LogoCard(cardW, theme);
+    default:
+      return SectionCard(slide.icon ?? "account", cardW, theme);
+  }
 }
 
 type Props = {
@@ -150,6 +197,9 @@ export default function OnboardingScreen({ onDone }: Props) {
   const listRef = useRef<FlatList<Slide>>(null);
 
   const last = index === SLIDES.length - 1;
+  // Les cartes des écrans de la plateforme sont larges : on leur laisse la
+  // quasi-totalité de la largeur du téléphone, mises à l'échelle.
+  const cardW = Math.min(width - 56, 300);
 
   const goNext = () => {
     if (last) {
@@ -199,13 +249,19 @@ export default function OnboardingScreen({ onDone }: Props) {
         onMomentumScrollEnd={onMomentumEnd}
         renderItem={({ item }) => (
           <View style={[styles.slide, { width }]}>
-            <View style={styles.illus}>
-              {item.logo ? LogoCard(width, theme) : SectionCard(item.icon as Glyph, width, theme)}
-            </View>
-            <Text style={[styles.title, { color: theme.onSurface }]}>{item.title}</Text>
-            <Text style={[styles.description, { color: theme.onSurfaceVariant }]}>
-              {item.description}
-            </Text>
+            {/* Défilement vertical : les cartes détaillées restent lisibles en
+                entier, même sur un petit écran. */}
+            <ScrollView
+              style={styles.illus}
+              contentContainerStyle={styles.illusContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {visualFor(item, cardW, theme)}
+              <Text style={[styles.title, { color: theme.onSurface }]}>{item.title}</Text>
+              <Text style={[styles.description, { color: theme.onSurfaceVariant }]}>
+                {item.description}
+              </Text>
+            </ScrollView>
           </View>
         )}
         getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
@@ -219,7 +275,7 @@ export default function OnboardingScreen({ onDone }: Props) {
               style={[
                 styles.dot,
                 { backgroundColor: theme.outlineVariant },
-                i === index && { width: 22, backgroundColor: theme.primary },
+                i === index && { width: 18, backgroundColor: theme.primary },
               ]}
             />
           ))}
@@ -273,14 +329,16 @@ const styles = StyleSheet.create({
   },
   slide: {
     flex: 1,
-    alignItems: "center",
-    paddingHorizontal: 28,
   },
   illus: {
     flex: 1,
+  },
+  illusContent: {
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
-    width: "100%",
+    paddingHorizontal: 24,
+    paddingVertical: 8,
   },
   card: {
     borderRadius: 24,
@@ -326,31 +384,32 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   title: {
-    fontSize: 24,
+    marginTop: 20,
+    fontSize: 23,
     fontWeight: "800",
     textAlign: "center",
-    lineHeight: 31,
+    lineHeight: 30,
   },
   description: {
     marginTop: 10,
-    fontSize: 15,
+    fontSize: 14.5,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 21,
   },
   footer: {
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 18,
   },
   dots: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 7,
-    marginBottom: 18,
+    gap: 6,
+    marginBottom: 16,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   cta: {
     borderRadius: 16,
