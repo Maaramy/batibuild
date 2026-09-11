@@ -1,19 +1,28 @@
-import React, { useState, type ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import React, { useEffect, useRef, useState, type ReactNode } from "react";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 
 import { Logo } from "./Logo";
+import { GUIDE_ICONS, type LucideIcon } from "./icons";
 import type { AppTheme } from "../theme";
 
 /**
  * Cartes illustratives du guide de première visite (application mobile Android).
  *
- * Ce sont des RECRÉATIONS NATIVES des écrans de la plateforme montrés dans le
- * guide : « Importer », « Analyse en cours », « Coût total estimé » et
- * « Analyse d'investissement ». Elles reprennent à l'identique la structure, le
- * contenu et les couleurs de `src/components/LandingMockScreens.tsx` — aucune
- * nouvelle identité graphique, aucune page web reconstruite : ce ne sont que
- * des illustrations, sans interaction et sans appel réseau.
+ * Ce sont des RECRÉATIONS NATIVES des écrans de la plateforme, dans l'ordre où
+ * la plateforme les présente (`src/components/LandingMockScreens.tsx`) :
+ *
+ *   1. « Importez vos documents »      (nouveau projet — import)
+ *   2. « Analyse en cours… »           (reconnaissance par l'IA)
+ *   3. « Coût total estimé »           (rapport + scénarios)
+ *   4. « Score IA »                    (analyse d'investissement)
+ *
+ * Les icônes sont les MÊMES que celles de la plateforme (famille lucide, via
+ * `icons.ts`) : le guide est donc visuellement cohérent avec le tableau de bord,
+ * en mode clair comme en mode sombre.
+ *
+ * Aucune nouvelle identité graphique, aucune page web reconstruite : ce ne sont
+ * que des illustrations, sans interaction et sans appel réseau.
  *
  * PÉRIMÈTRE : mobile uniquement. Aucun fichier web / Convex n'est concerné.
  */
@@ -129,13 +138,40 @@ function Dots({ index, theme }: { index: number; theme: AppTheme }) {
   );
 }
 
+/** Indicateur tournant de la carte « Analyse en cours… ». */
+function Spinner({ color }: { color: string }) {
+  const spin = useRef(new Animated.Value(0)).current;
+  const Icon = GUIDE_ICONS.loader;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [spin]);
+
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+
+  return (
+    <Animated.View style={{ transform: [{ rotate }] }}>
+      <Icon size={16} color={color} />
+    </Animated.View>
+  );
+}
+
 function Field({
-  icon,
+  icon: Icon,
   label,
   value,
   theme,
 }: {
-  icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+  icon: LucideIcon;
   label: string;
   value: string;
   theme: AppTheme;
@@ -143,7 +179,7 @@ function Field({
   return (
     <View style={[styles.field, { borderColor: theme.outlineVariant }]}>
       <View style={styles.fieldHead}>
-        <MaterialCommunityIcons name={icon} size={13} color={theme.onSurfaceVariant} />
+        <Icon size={13} color={theme.onSurfaceVariant} />
         <Text style={[styles.fieldLabel, { color: theme.onSurface }]}>{label}</Text>
       </View>
       <View
@@ -166,6 +202,9 @@ function Field({
 /* ------------------------------------------------------------------ */
 
 export function MockImportCard({ width, theme }: CardProps) {
+  const Upload = GUIDE_ICONS.upload;
+  const Check = GUIDE_ICONS.check;
+
   return (
     <MockFrame width={width} theme={theme} path="/nouveau-projet">
       <View style={styles.typesRow}>
@@ -198,23 +237,23 @@ export function MockImportCard({ width, theme }: CardProps) {
           { borderColor: C.blue200, backgroundColor: theme.dark ? "#1E3A8A1F" : "#EFF6FF66" },
         ]}
       >
-        <MaterialCommunityIcons name="upload" size={22} color={C.blue500} />
+        <Upload size={22} color={C.blue500} />
         <Text style={[styles.dropTitle, { color: theme.onSurface }]}>Importez vos documents</Text>
         <Text style={[styles.dropSub, { color: theme.onSurfaceVariant }]}>
           Photo, plan PDF, image satellite
         </Text>
         <View style={[styles.fileChip, { backgroundColor: "#3B82F61A" }]}>
-          <MaterialCommunityIcons name="check" size={11} color={C.blue600} />
+          <Check size={11} color={C.blue600} />
           <Text style={[styles.fileChipText, { color: C.blue600 }]}>Plan_maison.pdf</Text>
         </View>
       </View>
 
-      <Field icon="map-marker-outline" label="Région" value="Tunis" theme={theme} />
-      <Field icon="ruler" label="Surface (m²)" value="150" theme={theme} />
+      <Field icon={GUIDE_ICONS.mapPin} label="Région" value="Tunis" theme={theme} />
+      <Field icon={GUIDE_ICONS.ruler} label="Surface (m²)" value="150" theme={theme} />
 
       <View style={styles.rowEnd}>
         <View style={[styles.primaryBtn, { backgroundColor: C.blue500 }]}>
-          <MaterialCommunityIcons name="chip" size={13} color="#FFFFFF" />
+          <GUIDE_ICONS.cpu size={13} color="#FFFFFF" />
           <Text style={styles.primaryBtnText}>Analyser mon projet</Text>
         </View>
       </View>
@@ -229,18 +268,18 @@ export function MockImportCard({ width, theme }: CardProps) {
 /* ------------------------------------------------------------------ */
 
 export function MockAnalysisCard({ width, theme }: CardProps) {
-  const tiles = [
-    { label: "Type de projet", value: "Maison à étage", icon: "office-building-outline" as const },
-    { label: "Surface détectée", value: "150 m²", icon: "ruler" as const },
-    { label: "Matériaux", value: "24 identifiés", icon: "layers-outline" as const },
-    { label: "Qualité", value: "Standard", icon: "creation" as const },
+  const tiles: { label: string; value: string; Icon: LucideIcon }[] = [
+    { label: "Type de projet", value: "Maison à étage", Icon: GUIDE_ICONS.building },
+    { label: "Surface détectée", value: "150 m²", Icon: GUIDE_ICONS.ruler },
+    { label: "Matériaux", value: "24 identifiés", Icon: GUIDE_ICONS.layers },
+    { label: "Qualité", value: "Standard", Icon: GUIDE_ICONS.sparkles },
   ];
 
   return (
     <MockFrame width={width} theme={theme} path="/nouveau-projet">
       <View style={styles.analysisHead}>
         <View style={[styles.spinnerTile, { backgroundColor: theme.dark ? "#7C3AED33" : C.violet100 }]}>
-          <MaterialCommunityIcons name="loading" size={16} color={C.violet600} />
+          <Spinner color={C.violet600} />
         </View>
         <View style={styles.flex1}>
           <Text style={[styles.cardTitle, { color: theme.onSurface }]}>Analyse en cours...</Text>
@@ -255,9 +294,9 @@ export function MockAnalysisCard({ width, theme }: CardProps) {
       </View>
 
       <View style={styles.grid2}>
-        {tiles.map((t) => (
+        {tiles.map(({ label, value, Icon }) => (
           <View
-            key={t.label}
+            key={label}
             style={[
               styles.detectTile,
               {
@@ -267,10 +306,10 @@ export function MockAnalysisCard({ width, theme }: CardProps) {
             ]}
           >
             <View style={styles.detectHead}>
-              <MaterialCommunityIcons name={t.icon} size={11} color={C.violet500} />
-              <Text style={[styles.detectLabel, { color: theme.onSurfaceVariant }]}>{t.label}</Text>
+              <Icon size={11} color={C.violet500} />
+              <Text style={[styles.detectLabel, { color: theme.onSurfaceVariant }]}>{label}</Text>
             </View>
-            <Text style={[styles.detectValue, { color: theme.onSurface }]}>{t.value}</Text>
+            <Text style={[styles.detectValue, { color: theme.onSurface }]}>{value}</Text>
           </View>
         ))}
       </View>
@@ -281,7 +320,7 @@ export function MockAnalysisCard({ width, theme }: CardProps) {
           { borderColor: theme.dark ? "#7C3AED4D" : "#DDD6FE", backgroundColor: "#8B5CF60D" },
         ]}
       >
-        <MaterialCommunityIcons name="creation" size={13} color={C.violet500} />
+        <GUIDE_ICONS.sparkles size={13} color={C.violet500} />
         <Text style={[styles.iaBadgeText, { color: theme.onSurfaceVariant }]}>
           IA :{" "}
           <Text style={[styles.bold, { color: theme.onSurface }]}>
@@ -328,10 +367,7 @@ export function MockReportCard({ width, theme }: CardProps) {
 
       <View style={styles.grid3}>
         {breakdown.map((b) => (
-          <View
-            key={b.label}
-            style={[styles.breakTile, { borderColor: theme.outlineVariant }]}
-          >
+          <View key={b.label} style={[styles.breakTile, { borderColor: theme.outlineVariant }]}>
             <View style={styles.breakHead}>
               <View style={[styles.breakDot, { backgroundColor: b.color }]} />
               <Text style={[styles.breakPct, { color: theme.onSurfaceVariant }]}>{b.pct}%</Text>
@@ -370,13 +406,13 @@ export function MockReportCard({ width, theme }: CardProps) {
 
       <View style={styles.actionsRow}>
         <View style={[styles.outlineBtn, { borderColor: theme.outlineVariant }]}>
-          <MaterialCommunityIcons name="download-outline" size={13} color={theme.onSurfaceVariant} />
+          <GUIDE_ICONS.download size={13} color={theme.onSurfaceVariant} />
           <Text style={[styles.outlineBtnText, { color: theme.onSurfaceVariant }]}>
             Télécharger PDF
           </Text>
         </View>
         <View style={[styles.outlineBtn, { backgroundColor: C.emerald500, borderColor: C.emerald500 }]}>
-          <MaterialCommunityIcons name="file-document-outline" size={13} color="#FFFFFF" />
+          <GUIDE_ICONS.fileText size={13} color="#FFFFFF" />
           <Text style={[styles.outlineBtnText, { color: "#FFFFFF" }]}>Voir le rapport</Text>
         </View>
       </View>
@@ -392,11 +428,44 @@ export function MockReportCard({ width, theme }: CardProps) {
 
 const FORECAST_BARS = [18, 26, 34, 42, 51, 60, 70, 81, 92, 100];
 
+/** Cadran du score — même tracé SVG que la plateforme (94 %). */
+function ScoreRing({ theme }: { theme: AppTheme }) {
+  const R = 23;
+  const CIRC = 2 * Math.PI * R;
+
+  return (
+    <View style={styles.scoreRingWrap}>
+      <Svg width={56} height={56} viewBox="0 0 56 56" style={styles.scoreRingSvg}>
+        <Circle
+          cx={28}
+          cy={28}
+          r={R}
+          fill="none"
+          strokeWidth={5}
+          stroke={theme.outlineVariant}
+        />
+        <Circle
+          cx={28}
+          cy={28}
+          r={R}
+          fill="none"
+          strokeWidth={5}
+          strokeLinecap="round"
+          stroke={C.indigo500}
+          strokeDasharray={CIRC}
+          strokeDashoffset={CIRC * (1 - 0.94)}
+        />
+      </Svg>
+      <Text style={[styles.scoreValue, { color: theme.onSurface }]}>94</Text>
+    </View>
+  );
+}
+
 export function MockInvestmentCard({ width, theme }: CardProps) {
   const kpis = [
-    { label: "Rendement net", value: "6,2%", color: C.emerald600, icon: "percent" as const },
-    { label: "Flux de trésorerie", value: "+980 TND", color: C.blue600, icon: "wallet-outline" as const },
-    { label: "Return on Invest.", value: "82%", color: C.indigo600, icon: "trending-up" as const },
+    { label: "Rendement net", value: "6,2%", color: C.emerald600, Icon: GUIDE_ICONS.percent },
+    { label: "Flux de trésorerie", value: "+980 TND", color: C.blue600, Icon: GUIDE_ICONS.wallet },
+    { label: "Return on Invest.", value: "82%", color: C.indigo600, Icon: GUIDE_ICONS.trending },
   ];
 
   return (
@@ -407,37 +476,26 @@ export function MockInvestmentCard({ width, theme }: CardProps) {
           { borderColor: theme.dark ? "#6366F14D" : C.indigo200, backgroundColor: "#6366F114" },
         ]}
       >
-        <View style={styles.scoreRingWrap}>
-          <View style={[styles.scoreRing, { borderColor: C.indigo500 }]}>
-            <Text style={[styles.scoreValue, { color: theme.onSurface }]}>94</Text>
-          </View>
-          {/* Encoche du cadran : rend l'anneau « presque complet » (94 %). */}
-          <View
-            style={[
-              styles.scoreGap,
-              { backgroundColor: theme.dark ? theme.surfaceContainer : theme.surface },
-            ]}
-          />
-        </View>
+        <ScoreRing theme={theme} />
         <View style={styles.flex1}>
           <Text style={[styles.cardTitle, { color: theme.onSurface }]}>Score IA</Text>
           <Text style={[styles.cardSub, { color: theme.onSurfaceVariant }]}>
             Excellent investissement
           </Text>
           <View style={styles.confidenceRow}>
-            <MaterialCommunityIcons name="check" size={11} color={C.emerald600} />
+            <GUIDE_ICONS.check size={11} color={C.emerald600} />
             <Text style={styles.confidenceText}>Confiance IA 92%</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.grid3}>
-        {kpis.map((k) => (
-          <View key={k.label} style={[styles.kpiTile, { borderColor: theme.outlineVariant }]}>
-            <MaterialCommunityIcons name={k.icon} size={13} color={k.color} />
-            <Text style={[styles.kpiValue, { color: k.color }]}>{k.value}</Text>
+        {kpis.map(({ label, value, color, Icon }) => (
+          <View key={label} style={[styles.kpiTile, { borderColor: theme.outlineVariant }]}>
+            <Icon size={13} color={color} />
+            <Text style={[styles.kpiValue, { color }]}>{value}</Text>
             <Text style={[styles.kpiLabel, { color: theme.onSurfaceVariant }]} numberOfLines={1}>
-              {k.label}
+              {label}
             </Text>
           </View>
         ))}
@@ -478,7 +536,7 @@ export function MockInvestmentCard({ width, theme }: CardProps) {
           { borderColor: theme.dark ? "#6366F14D" : C.indigo200, backgroundColor: "#6366F10D" },
         ]}
       >
-        <MaterialCommunityIcons name="robot-outline" size={13} color={C.indigo500} />
+        <GUIDE_ICONS.bot size={13} color={C.indigo500} />
         <Text style={[styles.iaBadgeText, { color: theme.onSurfaceVariant }]}>
           Assistant IA :{" "}
           <Text style={[styles.bold, { color: theme.onSurface }]}>
@@ -488,9 +546,9 @@ export function MockInvestmentCard({ width, theme }: CardProps) {
       </View>
 
       <View style={[styles.primaryBtn, styles.investCta, { backgroundColor: C.indigo500 }]}>
-        <MaterialCommunityIcons name="creation" size={13} color="#FFFFFF" />
+        <GUIDE_ICONS.sparkles size={13} color="#FFFFFF" />
         <Text style={styles.primaryBtnText}>Analyser mon investissement</Text>
-        <MaterialCommunityIcons name="arrow-right" size={13} color="#FFFFFF" />
+        <GUIDE_ICONS.arrowRight size={13} color="#FFFFFF" />
       </View>
 
       <Dots index={2} theme={theme} />
@@ -836,24 +894,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  scoreRing: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scoreGap: {
-    position: "absolute",
-    top: -4,
-    right: -4,
-    width: 17,
-    height: 17,
-    borderRadius: 4,
-    transform: [{ rotate: "45deg" }],
+  scoreRingSvg: {
+    // Le cadran démarre en haut, comme sur la plateforme.
+    transform: [{ rotate: "-90deg" }],
   },
   scoreValue: {
+    position: "absolute",
     fontSize: 17,
     fontWeight: "800",
   },

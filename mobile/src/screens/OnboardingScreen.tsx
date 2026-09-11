@@ -11,7 +11,6 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 import { Logo } from "../components/Logo";
 import {
@@ -20,117 +19,158 @@ import {
   MockInvestmentCard,
   MockReportCard,
 } from "../components/GuideCards";
+import { GUIDE_ICONS, NAV_ICONS, SUPPORT_ICON, type LucideIcon } from "../components/icons";
 import { COLORS, useAppTheme, type AppTheme } from "../theme";
-
-type Glyph = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 /**
  * Guide de première visite — une CARTE par étape.
  *
- * Les étapes qui correspondent à un écran de la plateforme affichent la carte
- * correspondante (recréée nativement dans `GuideCards.tsx`, à partir des écrans
- * de la plateforme) :
+ * Les écrans de la plateforme sont présentés dans l'ORDRE où la plateforme les
+ * expose (`src/components/LandingMockScreens.tsx`) et où un projet se déroule :
  *
- *   Projets → « Importez vos documents »   (nouveau projet)
- *   Analyse IA → « Analyse en cours… »     (reconnaissance par l'IA)
- *   Estimation → « Coût total estimé »     (rapport + scénarios)
- *   Investissements → « Score IA »         (analyse d'investissement)
+ *   1. Importer les documents        (« Importez vos documents »)
+ *   2. Analyse par l'IA              (« Analyse en cours… »)
+ *   3. Estimation & coûts            (« Coût total estimé »)
+ *   4. Investissements               (« Score IA »)
  *
- * Les autres étapes (profil, dashboard, messagerie, support) gardent la carte
- * « section » avec l'icône EXACTE de la barre de navigation native.
- *
- * Chaque carte est suivie d'une description explicative.
+ * Chaque étape affiche : un repère d'étape, la carte, un titre, une description
+ * détaillée et la liste de ce que l'étape permet de faire. Les icônes sont
+ * celles de la barre de navigation et du tableau de bord (famille lucide,
+ * `icons.ts`) : aucune icône générique, aucun mélange de styles.
  */
 type Visual = "logo" | "icon" | "import" | "analysis" | "report" | "investment";
 
 type Slide = {
   key: string;
   title: string;
-  description: string;
+  /** Description détaillée de l'étape. */
+  lead: string;
+  /** Points concrets : ce que l'utilisateur peut faire à cette étape. */
+  details: string[];
   visual: Visual;
-  /** Icône Material des cartes « section » (même famille que la barre du bas). */
-  icon?: Glyph;
+  /** Icône lucide des cartes « section » (même famille que la barre du bas). */
+  icon?: LucideIcon;
 };
 
 const SLIDES: Slide[] = [
   {
     key: "welcome",
     title: "Bienvenue sur BatiBuild",
-    description:
-      "Votre copilote IA pour estimer, suivre et piloter vos projets de construction, d'aménagement et de rénovation en Tunisie. Ce guide présente en quelques cartes tout ce que vous pouvez faire dans l'application.",
+    lead: "Votre copilote IA pour estimer, suivre et piloter vos projets de construction, d'aménagement et de rénovation en Tunisie. Ce guide présente en quelques cartes tout ce que vous pouvez faire dans l'application.",
+    details: [
+      "Estimation automatique aux prix du marché tunisien",
+      "Documents lus par l'IA : photo, plan, image satellite, croquis",
+      "Projets, rapports et investissements réunis dans un seul espace",
+    ],
     visual: "logo",
   },
   {
     key: "profile",
     title: "Mon profil",
-    description:
-      "Renseignez vos informations, votre abonnement et vos préférences : tout est centralisé dans votre espace personnel, accessible depuis l'onglet « Mon profil ».",
+    lead: "Votre espace personnel réunit vos informations, votre abonnement et vos préférences. Plus votre profil est complet, plus les estimations et les recommandations sont pertinentes.",
+    details: [
+      "Informations personnelles et coordonnées",
+      "Abonnement et historique de vos estimations",
+      "Préférences et sécurité de votre compte",
+    ],
     visual: "icon",
-    icon: "account",
+    icon: NAV_ICONS.profile,
   },
   {
     key: "projects",
     title: "Projets",
-    description:
-      "Importez une photo du terrain, un plan (PDF, JPG, PNG), une image satellite ou un croquis — ou saisissez simplement la région et la surface. BatiBuild prépare le dossier du projet pour vous.",
+    lead: "Créez un projet en important une photo du terrain, un plan (PDF, JPG, PNG), une image satellite ou un croquis. Vous pouvez aussi saisir simplement la région et la surface : BatiBuild prépare le dossier pour vous.",
+    details: [
+      "Choisissez le type : maison, villa, appartement ou piscine",
+      "Importez un plan, une photo, une image satellite ou un croquis",
+      "Sans dimensions ? l'IA les estime à partir de vos documents",
+    ],
     visual: "import",
   },
   {
     key: "analysis",
     title: "Analyse IA",
-    description:
-      "L'intelligence artificielle identifie le type de projet (maison, villa, appartement, piscine), estime les dimensions réelles, détecte les surfaces, la liste des matériaux et la qualité de finition — avec son niveau de confiance.",
+    lead: "L'intelligence artificielle lit vos documents et reconstruit le projet : type de construction, dimensions réelles, surfaces construites, matériaux nécessaires, quantités et qualité de finition.",
+    details: [
+      "Type de projet et surface détectés automatiquement",
+      "Matériaux identifiés et quantités estimées",
+      "Un indice de confiance accompagne chaque détection",
+    ],
     visual: "analysis",
   },
   {
     key: "report",
     title: "Estimation & coûts",
-    description:
-      "Obtenez le coût total estimé aux prix du marché tunisien, la répartition par lots (gros œuvre, second œuvre, équipements) et trois scénarios — Économique, Standard, Premium — exportables en PDF.",
+    lead: "Le rapport affiche le coût total estimé aux prix du marché tunisien, la répartition détaillée par lots et trois scénarios de qualité pour arbitrer votre budget.",
+    details: [
+      "Répartition gros œuvre, second œuvre et équipements",
+      "Trois scénarios : Économique, Standard, Premium",
+      "Rapport téléchargeable en PDF, prêt à partager",
+    ],
     visual: "report",
   },
   {
     key: "investments",
     title: "Investissements",
-    description:
-      "Évaluez la rentabilité d'un projet immobilier : score IA, rendement net, flux de trésorerie et prévisions de bénéfices sur 10 ans, pour décider en toute confiance.",
+    lead: "Évaluez la rentabilité d'un projet immobilier avant d'acheter, de construire ou de louer, pour décider en toute confiance.",
+    details: [
+      "Score IA sur 100 et niveau de confiance",
+      "Rendement net, flux de trésorerie et retour sur investissement",
+      "Prévisions de bénéfices sur 10 ans",
+    ],
     visual: "investment",
   },
   {
     key: "dashboard",
     title: "Dashboard",
-    description:
-      "Retrouvez en un coup d'œil vos statistiques, vos estimations enregistrées, vos favoris et les recommandations de l'IA.",
+    lead: "Votre tableau de bord réunit l'essentiel en un coup d'œil et suit l'avancement de tous vos dossiers.",
+    details: [
+      "Statistiques et dépenses de vos projets",
+      "Vos dernières estimations enregistrées",
+      "Recommandations de l'IA",
+    ],
     visual: "icon",
-    icon: "view-dashboard",
+    icon: NAV_ICONS.dashboard,
   },
   {
     key: "messages",
     title: "Messagerie",
-    description:
-      "Échangez avec vos fournisseurs et vos experts, et recevez vos devis et vos réponses au même endroit.",
+    lead: "Échangez avec vos fournisseurs, vos experts et l'équipe BatiBuild, sans quitter l'application et sans perdre le fil de vos projets.",
+    details: [
+      "Un fil par projet ou par demande de devis",
+      "Notification à chaque nouveau message",
+      "Partage de documents et de photos",
+    ],
     visual: "icon",
-    icon: "message-text",
+    icon: NAV_ICONS.messages,
   },
   {
     key: "support",
     title: "Support",
-    description:
-      "Besoin d'aide ? L'icône Support de la barre supérieure vous met directement en relation avec notre équipe, sans quitter l'application.",
+    lead: "Besoin d'aide ? L'icône Support de la barre supérieure vous met directement en relation avec notre équipe, en conservant votre session.",
+    details: [
+      "Questions fréquentes et prise en main rapide",
+      "Ouvrez un ticket et suivez la réponse",
+      "Votre demande reste rattachée à votre compte",
+    ],
     visual: "icon",
-    icon: "headset",
+    icon: SUPPORT_ICON,
   },
   {
     key: "start",
     title: "Prêt à commencer ?",
-    description:
-      "Vos projets vous attendent : connectez-vous ou créez votre compte, et laissez BatiBuild estimer votre premier chantier.",
+    lead: "Connectez-vous ou créez votre compte, puis lancez votre première estimation : l'IA s'occupe du reste, vous gardez la main sur les décisions.",
+    details: [
+      "Vos projets et vos estimations restent privés",
+      "Ce guide reste accessible depuis les réglages",
+    ],
     visual: "logo",
   },
 ];
 
-/** Carte « section » : icône Material + libellé + lignes de contenu. */
-function SectionCard(icon: Glyph, cardW: number, theme: AppTheme) {
+/** Carte « section » : icône lucide + lignes de contenu. */
+function SectionCard(icon: LucideIcon, cardW: number, theme: AppTheme) {
+  const Icon = icon;
   return (
     <View
       style={[
@@ -139,7 +179,7 @@ function SectionCard(icon: Glyph, cardW: number, theme: AppTheme) {
       ]}
     >
       <View style={[styles.iconTile, { backgroundColor: theme.primaryContainer }]}>
-        <MaterialCommunityIcons name={icon} size={34} color={theme.onPrimaryContainer} />
+        <Icon size={34} color={theme.onPrimaryContainer} strokeWidth={1.9} />
       </View>
       <View style={[styles.ghostLine, { backgroundColor: theme.outlineVariant, width: "78%" }]} />
       <View style={[styles.ghostLine, { backgroundColor: theme.outlineVariant, width: "52%" }]} />
@@ -181,7 +221,7 @@ function visualFor(slide: Slide, cardW: number, theme: AppTheme) {
     case "logo":
       return LogoCard(cardW, theme);
     default:
-      return SectionCard(slide.icon ?? "account", cardW, theme);
+      return SectionCard(slide.icon ?? NAV_ICONS.profile, cardW, theme);
   }
 }
 
@@ -213,6 +253,8 @@ export default function OnboardingScreen({ onDone }: Props) {
     const i = Math.round(e.nativeEvent.contentOffset.x / width);
     setIndex(Math.max(0, Math.min(SLIDES.length - 1, i)));
   };
+
+  const Check = GUIDE_ICONS.check;
 
   return (
     <View
@@ -247,7 +289,7 @@ export default function OnboardingScreen({ onDone }: Props) {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onMomentumEnd}
-        renderItem={({ item }) => (
+        renderItem={({ item, index: i }) => (
           <View style={[styles.slide, { width }]}>
             {/* Défilement vertical : les cartes détaillées restent lisibles en
                 entier, même sur un petit écran. */}
@@ -257,10 +299,22 @@ export default function OnboardingScreen({ onDone }: Props) {
               showsVerticalScrollIndicator={false}
             >
               {visualFor(item, cardW, theme)}
+              <Text style={[styles.step, { color: theme.primary }]}>
+                Étape {i + 1} / {SLIDES.length}
+              </Text>
               <Text style={[styles.title, { color: theme.onSurface }]}>{item.title}</Text>
               <Text style={[styles.description, { color: theme.onSurfaceVariant }]}>
-                {item.description}
+                {item.lead}
               </Text>
+
+              <View style={styles.details}>
+                {item.details.map((d) => (
+                  <View key={d} style={styles.detailRow}>
+                    <Check size={15} color={theme.primary} strokeWidth={2.4} />
+                    <Text style={[styles.detailText, { color: theme.onSurface }]}>{d}</Text>
+                  </View>
+                ))}
+              </View>
             </ScrollView>
           </View>
         )}
@@ -383,8 +437,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.2,
   },
-  title: {
+  step: {
     marginTop: 20,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  title: {
+    marginTop: 6,
     fontSize: 23,
     fontWeight: "800",
     textAlign: "center",
@@ -395,6 +456,21 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     textAlign: "center",
     lineHeight: 21,
+  },
+  details: {
+    marginTop: 16,
+    alignSelf: "stretch",
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  detailText: {
+    flex: 1,
+    fontSize: 13.5,
+    lineHeight: 19,
   },
   footer: {
     paddingHorizontal: 24,

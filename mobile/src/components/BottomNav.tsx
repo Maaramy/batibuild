@@ -1,25 +1,22 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 import { NAV_DESTINATIONS, type NavDestination, type NavId } from "../config";
+import { NAV_ICONS, STROKE } from "./icons";
 import { SHAPE, useAppTheme } from "../theme";
 
-type Glyph = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
-
 /**
- * Icônes Material (famille MaterialCommunityIcons, la même pour les 5 entrées)
- * avec variante pleine (actif) / contour (inactif) — donc jamais de mélange de
- * styles.
+ * Barre de navigation inférieure NATIVE (Android) — capsule flottante.
+ *
+ * Icônes : famille **lucide** (voir `icons.ts`), la MÊME que le tableau de bord
+ * et le reste de la plateforme. Aucun mélange pleine/contour : l'état actif est
+ * signalé par la couleur de marque, la graisse du libellé et une épaisseur de
+ * trait légèrement supérieure — lisible en mode clair comme en mode sombre.
+ *
+ * Elle ne défile jamais avec le contenu de la WebView, reste au-dessus de la
+ * zone système basse (gestes ou boutons) et ne recrée jamais la WebView au clic.
  */
-const ICONS: Record<NavId, { active: Glyph; inactive: Glyph }> = {
-  profile: { active: "account", inactive: "account-outline" },
-  projects: { active: "folder", inactive: "folder-outline" },
-  dashboard: { active: "view-dashboard", inactive: "view-dashboard-outline" },
-  investments: { active: "bank", inactive: "bank-outline" },
-  messages: { active: "message-text", inactive: "message-text-outline" },
-};
 
 type ItemProps = {
   destination: NavDestination;
@@ -41,7 +38,9 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
     }).start();
   }, [selected, progress]);
 
-  const iconScale = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] });
+  const iconScale = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
+  const Icon = NAV_ICONS[destination.id];
+  const color = selected ? theme.primary : theme.onSurfaceVariant;
 
   return (
     <Pressable
@@ -55,12 +54,8 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
       delayLongPress={500}
       style={({ pressed }) => [styles.item, pressed && { opacity: 0.7 }]}
     >
-      <Animated.View style={{ transform: [{ scale: iconScale }] }}>
-        <MaterialCommunityIcons
-          name={selected ? ICONS[destination.id].active : ICONS[destination.id].inactive}
-          size={23}
-          color={selected ? theme.primary : theme.onSurfaceVariant}
-        />
+      <Animated.View style={[styles.iconWrap, { transform: [{ scale: iconScale }] }]}>
+        <Icon size={23} color={color} strokeWidth={selected ? STROKE.active : STROKE.inactive} />
       </Animated.View>
 
       {/* Les libellés sont TOUJOURS visibles (pas de comportement « hover ») et
@@ -74,7 +69,7 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
         style={[
           styles.label,
           {
-            color: selected ? theme.primary : theme.onSurfaceVariant,
+            color,
             fontWeight: selected ? "700" : "500",
           },
         ]}
@@ -92,16 +87,6 @@ type Props = {
   onOpenSettings: () => void;
 };
 
-/**
- * Barre de navigation native fixe — capsule flottante (Material 3 / Material You).
- *
- * Elle flotte au-dessus de la zone système basse (gestures ou boutons), ne
- * défile jamais avec le contenu de la WebView et laisse apparaître le fond de
- * l'application sur ses côtés.
- *
- * L'état actif est signalé UNIQUEMENT par la couleur et la graisse de
- * l'entrée (icône pleine + libellé coloré) : aucun cercle ni pastille de fond.
- */
 export default function BottomNav({ active, onSelect, onOpenSettings }: Props) {
   const insets = useSafeAreaInsets();
   const theme = useAppTheme();
@@ -121,7 +106,10 @@ export default function BottomNav({ active, onSelect, onOpenSettings }: Props) {
         style={[
           styles.capsule,
           {
-            backgroundColor: theme.surface,
+            // En clair : capsule blanche posée sur la page (ombre portée).
+            // En sombre : une surface légèrement plus claire que la bande, car
+            // une ombre ne se voit pas sur fond sombre (élévation Material 3).
+            backgroundColor: theme.dark ? theme.surfaceContainer : theme.surface,
             borderColor: theme.outlineVariant,
           },
         ]}
@@ -167,6 +155,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: SHAPE.lg,
+  },
+  iconWrap: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   label: {
     marginTop: 3,

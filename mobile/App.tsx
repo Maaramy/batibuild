@@ -4,8 +4,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-
 import SplashScreenView from "./src/screens/SplashScreen";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import WebViewScreen from "./src/screens/WebViewScreen";
@@ -47,9 +45,9 @@ export default function App() {
     // masquer le natif immédiatement sans « flash » blanc.
     SplashScreen.hideAsync().catch(() => {});
 
-    // Préchargement (NON bloquant) de la police d'icônes Material : elle est
-    // prête quand la barre de navigation apparaît, sans retarder le démarrage.
-    MaterialCommunityIcons.loadFont().catch(() => {});
+    // Aucune police d'icônes à charger : toutes les icônes de la coque native
+    // sont des SVG lucide (`src/components/icons.ts`), donc rendues
+    // immédiatement et identiques en mode clair comme en mode sombre.
 
     (async () => {
       // Lecture locale + borne de 1 s, menées en parallèle.

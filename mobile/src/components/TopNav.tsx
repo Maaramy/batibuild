@@ -1,9 +1,9 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 import { Logo } from "./Logo";
+import { SETTINGS_ICON, STROKE, SUPPORT_ICON } from "./icons";
 import { COLORS, SHAPE } from "../theme";
 
 type Props = {
@@ -21,12 +21,19 @@ type Props = {
  * - À gauche : logo officiel Batibuild + nom de la plateforme.
  * - À droite : icônes Support et Paramètres (aucun menu burger).
  *
+ * Les icônes viennent de la famille **lucide** (`icons.ts`), exactement comme la
+ * barre inférieure et le tableau de bord : `Headset` (Support) et `Settings`
+ * (Paramètres) — les icônes utilisées par la plateforme elle-même.
+ *
  * Elle gère elle-même la zone système haute (barre de statut / encoche) : le
- * contenu de la WebView ne passe jamais dessous. Aucune barre d'application
- * web n'est ajoutée ni modifiée.
+ * contenu de la WebView ne passe jamais dessous. Aucune barre d'application web
+ * n'est ajoutée ni modifiée.
  */
 export default function TopNav({ onOpenSupport, onOpenSettings }: Props) {
   const insets = useSafeAreaInsets();
+
+  const SupportIcon = SUPPORT_ICON;
+  const SettingsIcon = SETTINGS_ICON;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -47,7 +54,7 @@ export default function TopNav({ onOpenSupport, onOpenSettings }: Props) {
             hitSlop={6}
             style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
           >
-            <MaterialCommunityIcons name="headset" size={22} color={COLORS.inkSoft} />
+            <SupportIcon size={22} color={COLORS.inkSoft} strokeWidth={STROKE.inactive} />
           </Pressable>
 
           <Pressable
@@ -57,7 +64,7 @@ export default function TopNav({ onOpenSupport, onOpenSettings }: Props) {
             hitSlop={6}
             style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
           >
-            <MaterialCommunityIcons name="cog-outline" size={22} color={COLORS.inkSoft} />
+            <SettingsIcon size={22} color={COLORS.inkSoft} strokeWidth={STROKE.inactive} />
           </Pressable>
         </View>
       </View>
@@ -104,6 +111,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   iconBtnPressed: {
-    backgroundColor: "#F1F5F4",
+    // Voile neutre : lisible sur le fond blanc de la barre, quel que soit le
+    // mode d'affichage du système.
+    backgroundColor: "rgba(15,23,42,0.06)",
   },
 });

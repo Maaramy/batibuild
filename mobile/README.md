@@ -34,6 +34,29 @@ zones système (haute et basse) et n'entraînent **jamais** le rechargement de l
 **aucun cercle ni pastille de fond** : l'état actif se voit à la couleur et à la graisse
 de l'entrée.
 
+### Icônes harmonisées avec la plateforme
+
+Toute la coque native (barre supérieure, barre inférieure, guide, écran d'erreur) utilise
+**la même famille d'icônes que le tableau de bord de la plateforme : lucide**
+(`lucide-react-native`, via le module unique `src/components/icons.ts`) :
+
+| Élément | Icône |
+|---|---|
+| Mon profil | `User` |
+| Projets | `HardHat` |
+| Dashboard | `LayoutDashboard` |
+| Investissements | `Landmark` |
+| Messagerie | `MessageSquare` |
+| Support (barre haute) | `Headset` |
+| Paramètres (barre haute) | `Settings` |
+| Hors ligne / erreur | `CloudOff` |
+
+Aucun mélange de styles (pas d'icônes pleines à côté d'icônes contour) : seule
+l'épaisseur de trait change entre l'état actif et l'état inactif (`STROKE` dans
+`icons.ts`). Les icônes sont des **SVG** : elles se recolorent instantanément et sont
+identiques en mode clair, sombre et système — aucune police d'icônes à charger (le
+préchargement de police a donc été supprimé du démarrage).
+
 Dans l'application, le **bouton « burger » (les 3 tirets)** de l'en-tête de la plateforme
 Web est **masqué** : la barre supérieure native fournit déjà la marque et les actions
 (Support / Paramètres) et la barre du bas fournit la navigation. C'est une simple feuille
@@ -82,6 +105,7 @@ mobile/
 │   │   ├── OnboardingScreen.tsx   # Guide (1 carte par section) + « Passer » (1ʳᵉ installation)
 │   │   └── WebViewScreen.tsx      # WebView BatiBuild (toutes les options)
 │   ├── components/
+│   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : barres, guide, erreurs
 │   │   ├── Logo.tsx               # Logo officiel de la plateforme (tuile émeraude + casque blanc)
 │   │   ├── TopNav.tsx             # Barre native supérieure : logo + nom, Support, Paramètres
 │   │   ├── BottomNav.tsx          # Barre de navigation Material 3 (5 sections)
@@ -108,8 +132,8 @@ mobile/
 | **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
 | **Barre de navigation (bas)** | Capsule **flottante** arrondie (coins pleins, ombre douce) : 5 sections Material 3 (Mon profil · Projets · Dashboard · Investissements · Messagerie), toujours visibles, libellés permanents (jamais de « hover »), icônes pleines (actif) / contour (inactif). **Aucun cercle ni pastille verte** : l'état actif est signalé par la couleur et la graisse. |
 | **Barre supérieure (native)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. Aucun menu burger — celui de l'en-tête web est masqué dans l'application. |
-| **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. |
-| **Onboarding** | Une **carte par étape** + une **description explicative** pour chacune, et bouton **Passer**. Les étapes « métier » illustrent les écrans de la plateforme recréés nativement (`GuideCards.tsx`) : **Importer les documents** (nouveau projet), **Analyse en cours** (reconnaissance IA), **Coût total estimé** (rapport + scénarios Économique / Standard / Premium) et **Score IA** (analyse d'investissement). Mémorisé via `hasCompletedOnboarding` (AsyncStorage). |
+| **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
+| **Onboarding** | Une **carte par étape**, un repère d'étape (« Étape 3 / 10 »), un **titre**, une **description détaillée** et la **liste de ce que l'étape permet de faire**, puis un bouton **Passer**. Les étapes « métier » illustrent les écrans de la plateforme recréés nativement (`GuideCards.tsx`), **dans l'ordre de la plateforme** (celui de son propre carrousel : import → analyse IA → coût → investissement) : **Importer les documents** (nouveau projet), **Analyse en cours** (reconnaissance IA), **Coût total estimé** (rapport + scénarios Économique / Standard / Premium) et **Score IA** (analyse d'investissement, cadran SVG 94 %). Mémorisé via `hasCompletedOnboarding` (AsyncStorage). |
 | **Réinstallation** | Le stockage local est effacé → le guide réapparaît (comportement attendu). |
 | **Mise à jour** | `hasCompletedOnboarding` est conservé → pas de guide à chaque mise à jour. |
 | **Revoir le guide** | **Appui long** sur la barre de navigation (n'importe quelle entrée) → « Voir le guide » (ne supprime aucune donnée). Le menu n'occupe aucune place à l'écran. |
@@ -154,9 +178,10 @@ L'URL de la plateforme est définie **une seule fois** dans `src/config.ts`
 `EXPO_PUBLIC_WEB_APP_URL`). C'est aussi ce fichier qui contient les 5 destinations
 de la barre de navigation et le message de chargement.
 
-Seule dépendance ajoutée pour la coque native : **`@expo/vector-icons`**
-(icônes Material `MaterialCommunityIcons`, version alignée sur Expo SDK 57).
-Aucun service cloud n'est introduit.
+Dépendances ajoutées pour la coque native : **`lucide-react-native`** + **`react-native-svg`**
+(icônes et tracés SVG — mêmes icônes que la plateforme Web, version `react-native-svg`
+alignée sur Expo SDK 57). Aucun service cloud n'est introduit : les icônes sont
+embarquées dans le bundle et rendues hors ligne.
 
 ## 5. Build Android — APK / AAB (100 % local)
 

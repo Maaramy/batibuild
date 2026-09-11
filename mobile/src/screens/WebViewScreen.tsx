@@ -16,11 +16,11 @@ import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import Constants from "expo-constants";
 import { WebView, type WebViewNavigation } from "react-native-webview";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 import BottomNav from "../components/BottomNav";
 import { Logo } from "../components/Logo";
 import TopNav from "../components/TopNav";
+import { OFFLINE_ICON } from "../components/icons";
 import {
   activeNavId,
   CHANGE_MAX_MS,
@@ -404,12 +404,11 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
         {error ? (
           <View style={[styles.errorWrap, { backgroundColor: theme.surface }]}>
             <Logo size={72} shadow />
-            <MaterialCommunityIcons
-              name="cloud-off-outline"
-              size={26}
-              color={theme.onSurfaceVariant}
-              style={styles.errorIcon}
-            />
+            {/* Icône lucide, la même famille que la barre supérieure et la
+                barre inférieure (aucun mélange de styles). */}
+            <View style={styles.errorIcon}>
+              <OFFLINE_ICON size={26} color={theme.onSurfaceVariant} strokeWidth={1.9} />
+            </View>
             <Text style={[styles.errorTitle, { color: theme.onSurface }]}>{error.title}</Text>
             <Text style={[styles.errorMsg, { color: theme.onSurfaceVariant }]}>{error.message}</Text>
             <Pressable
