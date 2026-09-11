@@ -7,6 +7,53 @@
  */
 
 /**
+ * Navigation SPA depuis la barre de navigation native.
+ *
+ * La WebView n'est JAMAIS rechargée : on pousse simplement la route dans
+ * l'historique du routeur existant (React Router) et on notifie le routeur via
+ * `popstate`. Conséquence : session, cookies, `localStorage`, état et position
+ * de défilement sont conservés, et le bouton Back Android continue de
+ * fonctionner normalement.
+ *
+ * Si le routeur ignore le changement d'historique (cas rare), on retombe sur
+ * une navigation classique — toujours à l'intérieur de la WebView car la route
+ * appartient à la plateforme.
+ */
+export function navigateScript(path: string): string {
+  const target = JSON.stringify(path);
+  return `
+(function () {
+  try {
+    var to = ${target};
+    var query = to.indexOf("?");
+    var route = query === -1 ? to : to.slice(0, query);
+
+    // Déjà sur place : ne rien faire (aucun rechargement, aucune entrée).
+    if (window.location.pathname === route) return true;
+
+    var before = window.location.pathname + window.location.search;
+
+    window.history.pushState(null, "", to);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    // Repli UNIQUEMENT si le routeur n'a pas réagi : si l'URL a changé (route
+    // affichée, ou redirection volontaire du garde d'entrée vers /auth), on ne
+    // force surtout pas une navigation complète.
+    window.setTimeout(function () {
+      var now = window.location.pathname + window.location.search;
+      if (now === before && now !== to) {
+        try { window.location.assign(to); } catch (e) {}
+      }
+    }, 350);
+  } catch (e) {
+    try { window.location.assign(${target}); } catch (e2) {}
+  }
+})();
+true;
+`;
+}
+
+/**
  * Relais `navigator.share` → feuille de partage native.
  * Android WebView n'expose pas l'API Web Share ; sans ce patch, les boutons
  * « Partager » de la plateforme ne feraient rien.

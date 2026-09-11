@@ -1,18 +1,22 @@
 import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, Animated, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { Logo } from "../components/Logo";
+import { LOADING_MESSAGE } from "../config";
 import { COLORS } from "../theme";
 
 /** Sous-titres de marque affichés sous le slogan. */
 const PILLARS = ["Gestion", "Suivi", "Estimation", "Intelligence"];
 
-type Props = {
-  /** Message d'état de l'étape réellement en cours (jamais une fausse progression). */
-  status?: string;
-};
-
-export default function SplashScreen({ status = "Initialisation…" }: Props) {
+/**
+ * Splash natif BatiBuild (Material 3).
+ *
+ * Un SEUL message est affiché sous le logo : « Chargement.... ». Aucun autre
+ * texte, aucune fausse progression. Sa durée maximale est décidée dans
+ * `App.tsx` (≤ 1 s) : cet écran ne bloque jamais le démarrage.
+ */
+export default function SplashScreen() {
   const insets = useSafeAreaInsets();
   const fade = useRef(new Animated.Value(0)).current;
 
@@ -20,7 +24,7 @@ export default function SplashScreen({ status = "Initialisation…" }: Props) {
   useEffect(() => {
     Animated.timing(fade, {
       toValue: 1,
-      duration: 320,
+      duration: 220,
       useNativeDriver: true,
     }).start();
   }, [fade]);
@@ -49,7 +53,7 @@ export default function SplashScreen({ status = "Initialisation…" }: Props) {
 
       <View style={styles.footer}>
         <ActivityIndicator color={COLORS.accent} size="small" />
-        <Text style={styles.status}>{status}</Text>
+        <Text style={styles.status}>{LOADING_MESSAGE}</Text>
       </View>
     </View>
   );

@@ -2,12 +2,32 @@
 
 Application mobile **native** (React Native / Expo SDK 57) qui embarque la plateforme
 [BatiBuild](https://budgetbati.freebuff.app/) dans une **WebView optimisée**, avec un
-**Splash Screen** et un **Guide d'onboarding** natifs au premier lancement.
+**Splash Screen** (≤ 1 s), une **barre de navigation basse** Material Design 3 et un
+**Guide d'onboarding** natifs au premier lancement.
 
 ```
-Première installation :  Splash  →  Guide (4 écrans / Passer)  →  WebView BatiBuild
-Lancements suivants :    Splash court  →  WebView BatiBuild
+Première installation :  Splash (≤ 1 s)  →  Guide (4 écrans / Passer)  →  WebView BatiBuild
+Lancements suivants :    Splash (≤ 1 s)  →  WebView BatiBuild
 ```
+
+### Coque native (Material Design 3)
+
+```
+Android Native Shell
+│
+├── Splash  « Chargement.... »  (≤ 1 s, jamais bloquant)
+│
+├── Bottom Navigation  (5 sections, fixe, libellés toujours visibles)
+│      Mon profil · Projets · Investissements · Messagerie · Support
+│
+└── WebView  →  plateforme Batibuild (inchangée)
+```
+
+**Aucune barre d'application (Top App Bar) au-dessus de la WebView** : seul l'inset
+de la barre de statut est conservé. La barre basse est le seul chrome natif ; elle est
+fixe, ne défile pas avec le contenu, respecte la zone système basse (gestes / boutons)
+et n'entraîne **jamais** le rechargement de la WebView (donc session, cookies, état et
+historique préservés).
 
 ### Parcours de navigation mobile
 
@@ -46,12 +66,14 @@ mobile/
 ├── assets/                        # Icône, icône adaptative, logo de splash (PNG)
 ├── src/
 │   ├── screens/
-│   │   ├── SplashScreen.tsx       # Splash natif (logo, nom, tagline, ~1,5 s)
+│   │   ├── SplashScreen.tsx       # Splash natif (logo, nom, tagline, « Chargement.... »)
 │   │   ├── OnboardingScreen.tsx   # Guide 4 écrans + « Passer » (1ʳᵉ installation)
 │   │   └── WebViewScreen.tsx      # WebView BatiBuild (toutes les options)
-│   ├── components/Logo.tsx        # Logo maison (purement React Native Views)
+│   ├── components/
+│   │   ├── Logo.tsx               # Logo officiel BatiBuild (React Native Views)
+│   │   └── BottomNav.tsx          # Barre de navigation Material 3 (5 sections)
 │   ├── storage.ts                 # hasCompletedOnboarding (AsyncStorage)
-│   └── theme.ts                   # Couleurs BatiBuild (émeraude)
+│   ├── theme.ts                   # Jetons Material 3 (clair / sombre) issus de la charte BatiBuild
 ├── android/                       # Projet natif Android — COMMITÉ (build Gradle local direct)
 ├── ios/                           # Projet natif iOS (CNG : généré par `expo prebuild`, macOS)
 ├── build/                         # APK/AAB générés localement (ignoré par Git)
@@ -67,16 +89,20 @@ mobile/
 
 | Fonctionnalité | Comportement |
 |---|---|
-| **Splash** | Logo + « BatiBuild » + « Votre budget de construction, simplement. » (~1,5 s max). Pendant ce temps : vérification du premier lancement et préparation. |
+| **Splash** | Logo officiel + « BatiBuild » + slogan, et **un seul message : « Chargement.... »**. Durée **≤ 1 s** (900 ms) : aucune attente du réseau, aucun délai artificiel. |
+| **Barre de navigation** | 5 sections Material 3 (Mon profil · Projets · Investissements · Messagerie · Support), toujours visibles, libellés permanents (jamais de « hover »), icônes pleines (actif) / contour (inactif) + indicateur `primary-container`. |
+| **Top App Bar** | **Aucune** : la WebView occupe tout l'espace sous la barre de statut. |
+| **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. |
 | **Onboarding** | 4 écrans (Bienvenue, Estimation, Projets, Commencer) + bouton **Passer**. Mémorisé via `hasCompletedOnboarding` (AsyncStorage). |
 | **Réinstallation** | Le stockage local est effacé → le guide réapparaît (comportement attendu). |
 | **Mise à jour** | `hasCompletedOnboarding` est conservé → pas de guide à chaque mise à jour. |
-| **Revoir le guide** | Menu ⚙ (barre du haut de la WebView) → « Voir le guide » (ne supprime aucune donnée). |
+| **Revoir le guide** | **Appui long** sur la barre de navigation (n'importe quelle entrée) → « Voir le guide » (ne supprime aucune donnée). Le menu n'occupe aucune place à l'écran. |
 | **Session** | Cookies, stockage local, cache persistants entre les lancements (`sharedCookiesEnabled`, `thirdPartyCookiesEnabled`, `cacheEnabled`, `domStorageEnabled`). |
 | **Navigation interne** | Toutes les pages `*.freebuff.app` restent dans la WebView. |
 | **Liens externes** | Sites partenaires, réseaux sociaux, documents externes → navigateur système (`Linking`). |
+| **Navigation des 5 sections** | Routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard`, `/dashboard/investments`, `/dashboard/messages`, `/dashboard/support`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. |
 | **Retour Android** | Historique WebView → page précédente ; sinon confirmation « Voulez-vous quitter BatiBuild ? » (Annuler / Quitter). |
-| **Chargement** | Écran de chargement de marque (logo + « Chargement… » + barre de progression) — jamais de page blanche. |
+| **Chargement** | Écran de chargement natif (logo + « Chargement.... » + barre de progression) — jamais de page blanche. |
 | **Hors ligne / erreurs** | Écran natif « Connexion Internet indisponible » / « Impossible de charger BatiBuild » + bouton **Réessayer** (codes `ERR_*` mappés en messages lisibles). |
 | **Upload** | `<input type="file">` natif : galerie, photo (caméra), fichiers (permissions CAMERA / READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE). |
 | **Téléchargements** | PDF et documents : téléchargés en cache puis ouverts via la feuille de partage native (`expo-file-system` + `expo-sharing`). |
@@ -108,7 +134,12 @@ npm run ios               # nécessite macOS + Xcode
 
 L'URL de la plateforme est définie **une seule fois** dans `src/config.ts`
 (par défaut : `https://budgetbati.freebuff.app/` ; surcharge possible via
-`EXPO_PUBLIC_WEB_APP_URL`).
+`EXPO_PUBLIC_WEB_APP_URL`). C'est aussi ce fichier qui contient les 5 destinations
+de la barre de navigation et le message de chargement.
+
+Seule dépendance ajoutée pour la coque native : **`@expo/vector-icons`**
+(icônes Material `MaterialCommunityIcons`, version alignée sur Expo SDK 57).
+Aucun service cloud n'est introduit.
 
 ## 5. Build Android — APK / AAB (100 % local)
 

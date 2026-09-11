@@ -10,7 +10,6 @@ import {
   Share,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,10 +17,23 @@ import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import Constants from "expo-constants";
 import { WebView, type WebViewNavigation } from "react-native-webview";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+
+import BottomNav from "../components/BottomNav";
 import { Logo } from "../components/Logo";
-import { COLORS } from "../theme";
-import { ENTRY_URL, isAppUrl, isAuthRoute, isLandingRoute, pathOfUrl } from "../config";
-import { ENTRY_GUARD_SCRIPT, SHARE_BRIDGE_SCRIPT } from "../injected";
+import {
+  activeNavId,
+  DASHBOARD_PATH,
+  ENTRY_URL,
+  isAppUrl,
+  isAuthRoute,
+  isLandingRoute,
+  LOADING_MESSAGE,
+  pathOfUrl,
+  type NavDestination,
+} from "../config";
+import { ENTRY_GUARD_SCRIPT, navigateScript, SHARE_BRIDGE_SCRIPT } from "../injected";
+import { COLORS, SHAPE, useAppTheme } from "../theme";
 
 const MIME_BY_EXT: Record<string, string> = {
   pdf: "application/pdf",
@@ -58,15 +70,17 @@ type WebViewError = { title: string; message: string };
 
 export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   const insets = useSafeAreaInsets();
-  const scheme = useColorScheme();
-  const dark = scheme === "dark";
+  const theme = useAppTheme();
 
   const webRef = useRef<WebView>(null);
   const canGoBackRef = useRef(false);
   const errorRef = useRef(false);
   /** Pile des routes visitées — sert uniquement au bouton Back Android. */
   const historyRef = useRef<string[]>([]);
+  /** Route courante (ref) : garde les callbacks de navigation stables. */
+  const currentPathRef = useRef<string>(pathOfUrl(ENTRY_URL) || DASHBOARD_PATH);
 
+  const [currentPath, setCurrentPath] = useState<string>(currentPathRef.current);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<WebViewError | null>(null);
@@ -79,6 +93,8 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     setLoading(true);
     setProgress(0);
     historyRef.current = [];
+    currentPathRef.current = pathOfUrl(ENTRY_URL) || DASHBOARD_PATH;
+    setCurrentPath(currentPathRef.current);
     setReloadKey((k) => k + 1);
     // `webRef` est démonté pendant l'état d'erreur : le remontage via `reloadKey`
     // suffit à relancer le chargement.
@@ -168,11 +184,32 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     canGoBackRef.current = nav.canGoBack;
     const path = pathOfUrl(nav.url ?? "");
     if (!path) return;
+
+    currentPathRef.current = path;
+    setCurrentPath(path);
+
     const stack = historyRef.current;
     if (stack[stack.length - 1] === path) return;
     stack.push(path);
     // Borne la pile : suffisant pour le bouton Back, mémoire négligeable.
     if (stack.length > 40) stack.shift();
+  }, []);
+
+  /**
+   * Barre de navigation native → plateforme.
+   *
+   * La WebView n'est PAS recréée : on demande au routeur de la plateforme de
+   * changer de page. Session, cookies, état et historique sont conservés, et le
+   * bouton Back Android continue de revenir sur la page précédente.
+   */
+  const handleNavSelect = useCallback((destination: NavDestination) => {
+    if (activeNavId(currentPathRef.current) === destination.id) return;
+
+    // Retour visuel immédiat (optimiste) ; la WebView confirme ensuite.
+    currentPathRef.current = destination.path;
+    setCurrentPath(destination.path);
+
+    webRef.current?.injectJavaScript(navigateScript(destination.path));
   }, []);
 
   // ---------- erreurs / hors ligne ----------
@@ -277,44 +314,44 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     [handleDownload],
   );
 
-  // ---------- réglages ----------
+  // ---------- réglages (appui long sur la barre de navigation) ----------
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
-  const stripBg = dark ? COLORS.brandDeep : COLORS.brand;
-  const bottomBg = dark ? COLORS.surfaceDark : COLORS.surface;
+  const active = activeNavId(currentPath);
 
   return (
-    <View style={styles.root}>
-      {/* Bandeau supérieur : garde le contenu hors de la barre de statut / encoche. */}
-      <View style={[styles.topStrip, { backgroundColor: stripBg, paddingTop: insets.top }]}>
-        <View style={styles.topBar}>
-          <Text style={styles.topBarTitle}>BatiBuild</Text>
-          <Pressable
-            onPress={openSettings}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Réglages"
-            style={({ pressed }) => [styles.settingsBtn, pressed && { opacity: 0.6 }]}
-          >
-            <Text style={styles.settingsGlyph}>⚙</Text>
-          </Pressable>
-        </View>
-      </View>
+    <View style={[styles.root, { backgroundColor: theme.surface }]}>
+      {/*
+        AUCUNE barre d'application supérieure : la seule bande conservée est la
+        zone système (barre de statut / encoche), pour que le contenu de la
+        WebView ne passe jamais dessous. Aucune navigation n'est affichée en haut.
+      */}
+      <View style={{ height: insets.top, backgroundColor: theme.brandChrome }} />
 
       {/* WebView (remontée via `key` lors d'un nouvel essai) */}
-      <View style={[styles.webWrap, { marginBottom: insets.bottom }]}>
+      <View style={styles.webWrap}>
         {error ? (
-          <View style={[styles.errorWrap, dark && styles.errorWrapDark]}>
+          <View style={[styles.errorWrap, { backgroundColor: theme.surface }]}>
             <Logo size={72} shadow />
-            <Text style={[styles.errorTitle, dark && styles.errorTitleDark]}>{error.title}</Text>
-            <Text style={[styles.errorMsg, dark && styles.errorMsgDark]}>{error.message}</Text>
+            <MaterialCommunityIcons
+              name="cloud-off-outline"
+              size={26}
+              color={theme.onSurfaceVariant}
+              style={styles.errorIcon}
+            />
+            <Text style={[styles.errorTitle, { color: theme.onSurface }]}>{error.title}</Text>
+            <Text style={[styles.errorMsg, { color: theme.onSurfaceVariant }]}>{error.message}</Text>
             <Pressable
               onPress={retry}
               accessibilityRole="button"
-              style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [
+                styles.retryBtn,
+                { backgroundColor: theme.primary },
+                pressed && { opacity: 0.85 },
+              ]}
             >
-              <Text style={styles.retryText}>Réessayer</Text>
+              <Text style={[styles.retryText, { color: theme.onPrimary }]}>Réessayer</Text>
             </Pressable>
           </View>
         ) : (
@@ -355,7 +392,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
             onFileDownload={handleFileDownload}
             onMessage={handleMessage}
             injectedJavaScriptBeforeContentLoaded={`${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
-            style={styles.webview}
+            style={[styles.webview, { backgroundColor: theme.surface }]}
             setSupportMultipleWindows={false}
             allowsBackForwardNavigationGestures={Platform.OS === "ios"}
             contentInsetAdjustmentBehavior="never"
@@ -365,11 +402,14 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
           />
         )}
 
-        {/* État de chargement soigné — jamais de page blanche */}
+        {/* État de chargement soigné — jamais de page blanche, un seul message. */}
         {loading && !error && (
-          <View style={styles.loadingWrap} pointerEvents="auto">
+          <View
+            style={[styles.loadingWrap, { backgroundColor: COLORS.brandDeep }]}
+            pointerEvents="auto"
+          >
             <Logo size={76} shadow />
-            <Text style={styles.loadingText}>Chargement de votre espace…</Text>
+            <Text style={styles.loadingText}>{LOADING_MESSAGE}</Text>
             <View style={styles.progressTrack}>
               <View
                 style={[
@@ -383,20 +423,20 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
         )}
       </View>
 
-      {/* Bandeau inférieur (zone sûre) */}
-      <View style={[styles.bottomStrip, { backgroundColor: bottomBg, height: insets.bottom }]} />
+      {/* Barre de navigation native fixe (Material 3) — respecte la zone système basse. */}
+      <BottomNav active={active} onSelect={handleNavSelect} onOpenSettings={openSettings} />
 
-      {/* Réglages */}
+      {/* Réglages — appui long sur la barre de navigation. */}
       <Modal visible={settingsOpen} transparent animationType="fade" onRequestClose={closeSettings}>
         <Pressable style={styles.modalOverlay} onPress={closeSettings}>
           <Pressable
-            style={[styles.modalCard, dark && styles.modalCardDark]}
+            style={[styles.modalCard, { backgroundColor: theme.surfaceContainerHigh }]}
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.modalHeader}>
               <Logo size={52} />
-              <Text style={[styles.modalTitle, dark && styles.modalTitleDark]}>BatiBuild</Text>
-              <Text style={[styles.modalVersion, dark && styles.modalMsgDark]}>
+              <Text style={[styles.modalTitle, { color: theme.onSurface }]}>BatiBuild</Text>
+              <Text style={[styles.modalVersion, { color: theme.onSurfaceVariant }]}>
                 Version {Constants.expoConfig?.version ?? "1.0.0"}
               </Text>
             </View>
@@ -405,33 +445,52 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
                 closeSettings();
                 retry();
               }}
-              style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [
+                styles.modalAction,
+                { backgroundColor: theme.primaryContainer },
+                pressed && { opacity: 0.7 },
+              ]}
             >
-              <Text style={styles.modalActionText}>Recharger l'application</Text>
+              <Text style={[styles.modalActionText, { color: theme.onPrimaryContainer }]}>
+                Recharger l'application
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => {
                 closeSettings();
                 onShowGuide();
               }}
-              style={({ pressed }) => [styles.modalAction, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [
+                styles.modalAction,
+                { backgroundColor: theme.primaryContainer },
+                pressed && { opacity: 0.7 },
+              ]}
             >
-              <Text style={styles.modalActionText}>Voir le guide</Text>
+              <Text style={[styles.modalActionText, { color: theme.onPrimaryContainer }]}>
+                Voir le guide
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => {
                 closeSettings();
                 onResetGuide();
               }}
-              style={({ pressed }) => [styles.modalAction, styles.modalActionDev, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [
+                styles.modalAction,
+                styles.modalActionOutlined,
+                { borderColor: theme.outlineVariant },
+                pressed && { opacity: 0.7 },
+              ]}
             >
-              <Text style={styles.modalActionDevText}>Réinitialiser le guide (test)</Text>
+              <Text style={[styles.modalActionDevText, { color: theme.onSurfaceVariant }]}>
+                Réinitialiser le guide (test)
+              </Text>
             </Pressable>
             <Pressable
               onPress={closeSettings}
               style={({ pressed }) => [styles.modalClose, pressed && { opacity: 0.7 }]}
             >
-              <Text style={[styles.modalCloseText, dark && styles.modalMsgDark]}>Fermer</Text>
+              <Text style={[styles.modalCloseText, { color: theme.onSurfaceVariant }]}>Fermer</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -443,43 +502,12 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: COLORS.brandDeep,
-  },
-  topStrip: {
-    backgroundColor: COLORS.brand,
-  },
-  topBar: {
-    height: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  topBarTitle: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: COLORS.white,
-    letterSpacing: 0.3,
-  },
-  settingsBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  settingsGlyph: {
-    fontSize: 18,
-    color: COLORS.white,
   },
   webWrap: {
     flex: 1,
-    backgroundColor: COLORS.surface,
   },
   webview: {
     flex: 1,
-    backgroundColor: COLORS.surface,
   },
   loadingWrap: {
     position: "absolute",
@@ -487,7 +515,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: COLORS.brandDeep,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -514,49 +541,35 @@ const styles = StyleSheet.create({
   },
   errorWrap: {
     flex: 1,
-    backgroundColor: COLORS.surface,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 36,
   },
-  errorWrapDark: {
-    backgroundColor: COLORS.surfaceDark,
+  errorIcon: {
+    marginTop: 18,
   },
   errorTitle: {
-    marginTop: 22,
+    marginTop: 10,
     fontSize: 18,
     fontWeight: "800",
-    color: COLORS.ink,
     textAlign: "center",
-  },
-  errorTitleDark: {
-    color: "#F1F5F9",
   },
   errorMsg: {
     marginTop: 8,
     fontSize: 14,
-    color: COLORS.muted,
     textAlign: "center",
     lineHeight: 20,
-  },
-  errorMsgDark: {
-    color: "#94A3B8",
   },
   retryBtn: {
     marginTop: 24,
     minHeight: 48,
     justifyContent: "center",
-    backgroundColor: COLORS.brand,
     paddingHorizontal: 34,
-    borderRadius: 14,
+    borderRadius: SHAPE.full,
   },
   retryText: {
     fontSize: 15,
     fontWeight: "700",
-    color: COLORS.white,
-  },
-  bottomStrip: {
-    backgroundColor: COLORS.surface,
   },
   modalOverlay: {
     flex: 1,
@@ -568,13 +581,9 @@ const styles = StyleSheet.create({
   modalCard: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: COLORS.surface,
-    borderRadius: 22,
+    borderRadius: SHAPE.xl,
     padding: 24,
     alignItems: "center",
-  },
-  modalCardDark: {
-    backgroundColor: COLORS.surfaceDark2,
   },
   modalHeader: {
     alignItems: "center",
@@ -583,44 +592,32 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 19,
     fontWeight: "800",
-    color: COLORS.ink,
-  },
-  modalTitleDark: {
-    color: "#F1F5F9",
   },
   modalVersion: {
     marginTop: 4,
     fontSize: 13,
-    color: COLORS.muted,
-  },
-  modalMsgDark: {
-    color: "#94A3B8",
   },
   modalAction: {
     marginTop: 18,
     width: "100%",
     minHeight: 48,
     justifyContent: "center",
-    backgroundColor: COLORS.accentSoft,
-    borderRadius: 14,
+    borderRadius: SHAPE.full,
     paddingVertical: 14,
     alignItems: "center",
+  },
+  modalActionOutlined: {
+    marginTop: 10,
+    backgroundColor: "transparent",
+    borderWidth: 1,
   },
   modalActionText: {
     fontSize: 15,
     fontWeight: "700",
-    color: COLORS.brand700,
-  },
-  modalActionDev: {
-    marginTop: 10,
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: COLORS.line,
   },
   modalActionDevText: {
     fontSize: 14,
     fontWeight: "600",
-    color: COLORS.muted,
   },
   modalClose: {
     marginTop: 8,
@@ -631,6 +628,5 @@ const styles = StyleSheet.create({
   modalCloseText: {
     fontSize: 14,
     fontWeight: "600",
-    color: COLORS.muted,
   },
 });

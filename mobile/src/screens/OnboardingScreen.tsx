@@ -11,38 +11,43 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HouseMark, Logo } from "../components/Logo";
-import { COLORS } from "../theme";
+import { COLORS, useAppTheme, type AppTheme } from "../theme";
 
 type Slide = {
   key: string;
   title: string;
   description: string;
-  render: (w: number) => React.ReactNode;
+  /** `theme` = thème natif courant (clair / sombre / système Android). */
+  render: (w: number, theme: AppTheme) => React.ReactNode;
 };
 
-function IllustrationWelcome(w: number) {
+function IllustrationWelcome(w: number, theme: AppTheme) {
   return (
     <View style={[styles.illusWrap, { width: w * 0.72 }]}>
       <Logo size={Math.min(150, w * 0.32)} shadow />
-      <View style={styles.aiBadge}>
-        <Text style={styles.aiBadgeText}>Copilote IA</Text>
+      <View style={[styles.aiBadge, { backgroundColor: theme.primaryContainer }]}>
+        <Text style={[styles.aiBadgeText, { color: theme.onPrimaryContainer }]}>Copilote IA</Text>
       </View>
     </View>
   );
 }
 
-function IllustrationEstimate(w: number) {
+function IllustrationEstimate(w: number, theme: AppTheme) {
   const cardW = w * 0.56;
+  const card = [
+    styles.mockCard,
+    { width: cardW, backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
+  ];
   return (
     <View style={[styles.illusWrap, { width: w * 0.72 }]}>
-      <View style={[styles.mockCard, { width: cardW }]}>
+      <View style={card}>
         <View style={styles.mockRow}>
-          <Text style={styles.mockLabel}>Superficie</Text>
-          <Text style={styles.mockValue}>150 m²</Text>
+          <Text style={[styles.mockLabel, { color: theme.onSurfaceVariant }]}>Superficie</Text>
+          <Text style={[styles.mockValue, { color: theme.onSurface }]}>150 m²</Text>
         </View>
-        <View style={styles.mockDivider} />
+        <View style={[styles.mockDivider, { backgroundColor: theme.outlineVariant }]} />
         <View style={styles.mockRow}>
-          <Text style={styles.mockLabel}>Estimation</Text>
+          <Text style={[styles.mockLabel, { color: theme.onSurfaceVariant }]}>Estimation</Text>
           <Text style={[styles.mockValue, { color: COLORS.brand }]}>185 000 DT</Text>
         </View>
         <View style={styles.mockBars}>
@@ -56,26 +61,46 @@ function IllustrationEstimate(w: number) {
   );
 }
 
-function IllustrationProjects(w: number) {
+function IllustrationProjects(w: number, theme: AppTheme) {
   const cardW = w * 0.56;
+  const card = [
+    styles.mockCard,
+    { width: cardW, backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
+  ];
   return (
     <View style={[styles.illusWrap, { width: w * 0.72 }]}>
-      <View style={[styles.mockStackCard, { width: cardW, transform: [{ rotate: "-2.5deg" }] }]} />
-      <View style={[styles.mockStackCard2, { width: cardW, transform: [{ rotate: "2deg" }] }]} />
-      <View style={[styles.mockCard, { width: cardW }]}>
+      <View
+        style={[
+          styles.mockStackCard,
+          { width: cardW, backgroundColor: theme.surfaceContainerHigh, transform: [{ rotate: "-2.5deg" }] },
+        ]}
+      />
+      <View
+        style={[
+          styles.mockStackCard2,
+          { width: cardW, backgroundColor: theme.surfaceContainer, transform: [{ rotate: "2deg" }] },
+        ]}
+      />
+      <View style={card}>
         <View style={styles.mockProjectRow}>
           <View style={styles.mockProjectDot} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.mockProjectName}>Villa — Carthage</Text>
-            <Text style={styles.mockProjectMeta}>En cours · 320 000 DT</Text>
+            <Text style={[styles.mockProjectName, { color: theme.onSurface }]}>Villa — Carthage</Text>
+            <Text style={[styles.mockProjectMeta, { color: theme.onSurfaceVariant }]}>
+              En cours · 320 000 DT
+            </Text>
           </View>
         </View>
-        <View style={styles.mockDivider} />
+        <View style={[styles.mockDivider, { backgroundColor: theme.outlineVariant }]} />
         <View style={styles.mockProjectRow}>
           <View style={[styles.mockProjectDot, { backgroundColor: COLORS.brand }]} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.mockProjectName}>Appartement — Sousse</Text>
-            <Text style={styles.mockProjectMeta}>Brouillon · 145 000 DT</Text>
+            <Text style={[styles.mockProjectName, { color: theme.onSurface }]}>
+              Appartement — Sousse
+            </Text>
+            <Text style={[styles.mockProjectMeta, { color: theme.onSurfaceVariant }]}>
+              Brouillon · 145 000 DT
+            </Text>
           </View>
         </View>
       </View>
@@ -83,10 +108,10 @@ function IllustrationProjects(w: number) {
   );
 }
 
-function IllustrationStart(w: number) {
+function IllustrationStart(w: number, theme: AppTheme) {
   return (
     <View style={[styles.illusWrap, { width: w * 0.72 }]}>
-      <View style={styles.startRing}>
+      <View style={[styles.startRing, { backgroundColor: theme.primaryContainer }]}>
         <HouseMark size={w * 0.3} color={COLORS.brand} doorColor={COLORS.brandDeep} />
       </View>
     </View>
@@ -127,6 +152,7 @@ type Props = {
 
 export default function OnboardingScreen({ onDone }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useAppTheme();
   const { width } = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList<Slide>>(null);
@@ -147,11 +173,20 @@ export default function OnboardingScreen({ onDone }: Props) {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
+    <View
+      style={[
+        styles.root,
+        {
+          backgroundColor: theme.surface,
+          paddingTop: insets.top,
+          paddingBottom: Math.max(insets.bottom, 16),
+        },
+      ]}
+    >
       <View style={styles.topBar}>
-        <Text style={styles.brandMini}>BatiBuild</Text>
+        <Text style={[styles.brandMini, { color: theme.primary }]}>BatiBuild</Text>
         <Pressable onPress={onDone} hitSlop={12} style={({ pressed }) => [styles.skipBtn, pressed && { opacity: 0.6 }]}>
-          <Text style={styles.skipText}>Passer</Text>
+          <Text style={[styles.skipText, { color: theme.onSurfaceVariant }]}>Passer</Text>
         </Pressable>
       </View>
 
@@ -165,9 +200,11 @@ export default function OnboardingScreen({ onDone }: Props) {
         onMomentumScrollEnd={onMomentumEnd}
         renderItem={({ item }) => (
           <View style={[styles.slide, { width }]}>
-            <View style={styles.illus}>{item.render(width)}</View>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.description}>{item.description}</Text>
+            <View style={styles.illus}>{item.render(width, theme)}</View>
+            <Text style={[styles.title, { color: theme.onSurface }]}>{item.title}</Text>
+            <Text style={[styles.description, { color: theme.onSurfaceVariant }]}>
+              {item.description}
+            </Text>
           </View>
         )}
         getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
@@ -176,14 +213,27 @@ export default function OnboardingScreen({ onDone }: Props) {
       <View style={styles.footer}>
         <View style={styles.dots}>
           {SLIDES.map((s, i) => (
-            <View key={s.key} style={[styles.dot, i === index && styles.dotActive]} />
+            <View
+              key={s.key}
+              style={[
+                styles.dot,
+                { backgroundColor: theme.outlineVariant },
+                i === index && styles.dotActive,
+              ]}
+            />
           ))}
         </View>
         <Pressable
           onPress={goNext}
-          style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
+          style={({ pressed }) => [
+            styles.cta,
+            { backgroundColor: theme.primary },
+            pressed && styles.ctaPressed,
+          ]}
         >
-          <Text style={styles.ctaText}>{last ? "Commencer" : "Suivant"}</Text>
+          <Text style={[styles.ctaText, { color: theme.onPrimary }]}>
+            {last ? "Commencer" : "Suivant"}
+          </Text>
         </Pressable>
       </View>
     </View>

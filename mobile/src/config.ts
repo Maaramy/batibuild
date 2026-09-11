@@ -23,6 +23,12 @@ export const LOGIN_PATH = "/auth";
 export const DASHBOARD_PATH = "/dashboard";
 
 /**
+ * Message de chargement unique (Splash natif et voile de chargement WebView).
+ * Aucun autre texte ne doit être affiché sous ce message.
+ */
+export const LOADING_MESSAGE = "Chargement....";
+
+/**
  * Point d'entrée de la WebView.
  *
  * On démarre volontairement sur `/dashboard` et JAMAIS sur la page d'accueil
@@ -91,4 +97,61 @@ export function isAuthRoute(path: string): boolean {
 export function isLandingRoute(path: string): boolean {
   const route = routeOfPath(path);
   return route === "/" || route === "/index.html";
+}
+
+/* ------------------------------------------------------------------ *
+ * Navigation native (barre du bas)
+ * ------------------------------------------------------------------ */
+
+export type NavId = "profile" | "projects" | "investments" | "messages" | "support";
+
+export type NavDestination = {
+  id: NavId;
+  /** Libellé toujours visible sous l'icône. */
+  label: string;
+  /** Route RÉELLE de la plateforme web (aucune URL inventée). */
+  path: string;
+};
+
+/**
+ * Les 5 sections de la barre de navigation native, dans l'ordre imposé :
+ * Mon profil · Projets · Investissements · Messagerie · Support.
+ *
+ * Les routes sont celles qui existent déjà dans le routeur de la plateforme
+ * (`src/main.tsx`) : la navigation ne crée aucune page et ne duplique rien.
+ */
+export const NAV_DESTINATIONS: readonly NavDestination[] = [
+  { id: "profile", label: "Mon profil", path: "/dashboard/profile" },
+  { id: "projects", label: "Projets", path: DASHBOARD_PATH },
+  { id: "investments", label: "Investissements", path: "/dashboard/investments" },
+  { id: "messages", label: "Messagerie", path: "/dashboard/messages" },
+  { id: "support", label: "Support", path: "/dashboard/support" },
+] as const;
+
+/** Route normalisée (sans query ni slash final). */
+function routeKey(path: string): string {
+  return routeOfPath(path).split("?")[0];
+}
+
+/** La route appartient-elle à la section (elle-même ou une sous-page) ? */
+function inSection(path: string, base: string): boolean {
+  return path === base || path.startsWith(base + "/");
+}
+
+/**
+ * Onglet actif pour une route donnée.
+ *
+ * « Projets » est la section par défaut de l'espace connecté : elle reste
+ * active sur toutes les pages `/dashboard…` qui n'appartiennent pas
+ * explicitement à un autre onglet (nouveau projet, détail, matériaux…).
+ * Renvoie `null` hors de l'espace connecté (écran de connexion).
+ */
+export function activeNavId(path: string): NavId | null {
+  const route = routeKey(path);
+  if (inSection(route, "/dashboard/profile")) return "profile";
+  if (inSection(route, "/dashboard/investments")) return "investments";
+  if (inSection(route, "/dashboard/messages")) return "messages";
+  if (inSection(route, "/dashboard/support")) return "support";
+  if (inSection(route, DASHBOARD_PATH)) return "projects";
+  return null;
 }
