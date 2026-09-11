@@ -4,6 +4,9 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Artefacts de build locaux (npm run android:apk / android:aab)
+build/
+
 # Native build outputs
 android/app/build/
 android/.gradle/
@@ -17,20 +20,20 @@ ios/*.xcworkspace/xcuserdata/
 *.aab
 
 # Projet natif Android commité : permet `./gradlew assembleRelease` en local
-# et le build Gradle en CI sans étape de prebuild. Après toute modification
-# d'app.json (permissions, version, nom…), resynchroniser avec :
-#   cd mobile && bunx expo prebuild --platform android
-# puis réappliquer la signature Release (voir mobile/scripts/apply-signing.sh).
-# iOS reste en CNG (régénéré à chaque build EAS sur macOS).
+# (build 100 % local, sans EAS ni cloud — voir MOBILE_BUILD.md).
+# Après toute modification d'app.json (permissions, version, nom…), resynchroniser :
+#   npm run android:prebuild   puis   npm run signing:apply
+# iOS reste en CNG (régénéré par `expo prebuild` sur macOS).
 ios/
-android/keystore.properties
 
-# Secrets
+# Secrets de signature — NE JAMAIS COMMITER
+android/keystore/
+android/keystore.properties
 secrets/
 *.jks
 *.keystore
 *.p12
 
-# EAS / env
+# Env
 .env
 .env.local

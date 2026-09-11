@@ -1,333 +1,138 @@
-# MOBILE_SETUP — BatiBuild Mobile (Expo + EAS + Android + iOS)
+# MOBILE_SETUP — BatiBuild Mobile (Expo + Gradle local, sans EAS)
 
-Guide complet de mise en place, de build et de publication de l'application
-mobile BatiBuild. L'application est une coquille native (Expo + React Native)
-qui charge la plateforme web existante dans une WebView (100 % WebView : toute
-nouvelle page ajoutée à la plateforme web est automatiquement disponible dans
-l'application, sans nouvelle version native).
+Mise en place de l'application mobile BatiBuild : enveloppe **WebView** native
+(Splash + onboarding) autour de <https://budgetbati.freebuff.app/>.
 
-- **Code mobile** : `mobile/`
-- **URL de la plateforme web** : définie **une seule fois** dans
-  `mobile/src/config.ts` (`WEB_APP_URL`). Surcharge possible via la variable
-  `EXPO_PUBLIC_WEB_APP_URL` — ne jamais dupliquer l'URL ailleurs.
-- **Identifiants** : Android `com.batibuild.app` · iOS `com.batibuild.app`
-- **Version** : `1.0.0` (`android.versionCode` 1, `ios.buildNumber` 1)
-  — l'incrémentation automatique en production est gérée par EAS
-  (`eas.json` → `production.autoIncrement: true`).
-
-**Deux chemins de build Android** :
-
-1. **Gradle local / CI** (`./gradlew`) — le projet natif `mobile/android/` est
-   **commité** ; c'est le chemin principal pour produire un **APK** (voir §11).
-2. **EAS Build** (cloud) — pour iOS et les builds signés gérés par Expo
-   (voir §3-§13).
+> ⚠️ **Aucun service cloud n'est utilisé.** EAS Build a été retiré du projet :
+> plus de `eas.json`, plus de workflow EAS, plus de `EXPO_TOKEN`.
+> Toutes les compilations se font **en local** avec le **Gradle Wrapper** du projet.
+>
+> 📘 Procédure détaillée pas à pas (Node, JDK, SDK, ADB, keystore, dépannage) :
+> **[`MOBILE_BUILD.md`](./MOBILE_BUILD.md)**.
 
 ---
 
-## 1. Installation
+## 1. Prérequis
 
-Prérequis : **Node.js ≥ 20**, **Bun** (gestionnaire du projet), et une
-connexion Internet pour EAS Build (pas de SDK Android ni Xcode nécessaire
-pour les builds cloud).
+| Outil | Version | Notes |
+|---|---|---|
+| Node.js | ≥ 20.19.4 (22 LTS conseillé) | requis par Expo SDK 57 |
+| Bun (optionnel) | dernière | `bun.lock` est le lockfile du projet |
+| JDK | **17** (Temurin) | requis par Gradle 9.3.1 / AGP 8.12 |
+| Android SDK | API 36 + Build-Tools + Platform-Tools + NDK | via Android Studio |
+| `ANDROID_HOME` / `JAVA_HOME` | définis | voir `MOBILE_BUILD.md` §2 et §4 |
+| macOS + Xcode | pour iOS uniquement | aucun EAS requis |
 
-```bash
-cd mobile
-bun install
-bun run typecheck          # vérification TypeScript
-bunx expo-doctor           # vérification de la configuration Expo
-```
-
-Lancer en développement :
-
-```bash
-bun run start              # QR code Expo Go (Android/iOS)
-# ou sur simulateur/émulateur :
-bun run android            # expo run:android
-bun run ios                # expo run:ios (macOS + Xcode requis)
-```
-
-## 2. Configuration Expo
-
-Fichiers :
-
-- `mobile/app.json` — nom, slug, version, icônes, splash, permissions,
-  `android.package` / `ios.bundleIdentifier` = `com.batibuild.app`.
-- `mobile/src/config.ts` — **URL centralisée** de la plateforme web.
-- `mobile/App.tsx` — machine à états : **Splash → (Onboarding si première
-  installation) → WebView**.
-- `mobile/android/` — projet natif Android **commité** (permet
-  `./gradlew assembleRelease` directement). Ne pas l'éditer à la main sauf
-  pour la signature (§9) : après une modification d'`app.json`, resynchroniser
-  avec `bunx expo prebuild --platform android` puis réappliquer la signature
-  avec `bun run signing:apply`.
-
-Parcours de lancement :
-
-```
-Installation → Splash → Premier lancement ?
-                          ├─ OUI → Guide (4 écrans) → WebView
-                          └─ NON → WebView
-```
-
-Le flag `hasCompletedOnboarding` est mémorisé dans AsyncStorage (conservé
-après mise à jour, effacé à la réinstallation). Un bouton
-« Réinitialiser le guide (test) » dans les réglages (⚙) permet de tester
-l'onboarding en développement.
-
-## 3. Connexion EAS
+## 2. Installation
 
 ```bash
 cd mobile
-bunx eas-cli login
-bunx eas-cli whoami        # vérifier le compte connecté
+npm install          # ou : bun install
 ```
 
-## 4. `eas init`
+Le projet natif `android/` est **commité** : il n'y a pas de `prebuild`
+obligatoire avant de compiler.
 
-Lie le projet Expo au compte EAS (ajoute `extra.eas.projectId` dans
-`app.json`) :
+## 3. Développement local
 
 ```bash
-cd mobile
-bunx eas-cli init
+npm run start              # Metro (serveur de dev local)
+npm run android            # compile + installe sur émulateur/appareil (expo run:android)
+npm run ios                # idem iOS (macOS + Xcode requis)
+npm run typecheck          # tsc --noEmit
 ```
 
-## 5. `eas build:configure`
-
-Génère/met à jour `eas.json` si besoin :
+## 4. Build Android local (APK / AAB)
 
 ```bash
-cd mobile
-bunx eas-cli build:configure
+npm run android:debug      # APK debug  → build/Batibuild-debug.apk
+npm run android:apk        # APK release → build/Batibuild-release.apk
+npm run android:aab        # AAB release → build/Batibuild-release.aab
+npm run android:install    # adb install du dernier APK généré
+npm run android:clean      # ./gradlew clean
 ```
 
-Profils présents dans `eas.json` :
-
-| Profil | Usage | Android | iOS |
-|---|---|---|---|
-| `development` | dev client | buildType apk | development client |
-| `preview` | tests internes | **APK** | simulateur (aucun compte Apple requis) |
-| `production` | stores | **AAB** (Google Play) | app-store-connect (TestFlight / App Store) |
-
-## 6. Configuration GitHub
-
-Deux workflows :
-
-### 6a. `.github/workflows/android.yml` — APK/AAB par Gradle (recommandé)
-
-Déclenché par un **push sur `main`** (fichiers `mobile/**`) ou manuellement
-(`Actions → Run workflow`).
-
-Il construit directement avec Gradle (le projet natif est commité) :
-
-- `Batibuild-debug.apk` — signé clé debug (tests rapides) ;
-- `Batibuild-release.apk` — signé clé **Release** si les secrets sont définis,
-  sinon clé debug ;
-- `Batibuild-release.aab` — pour Google Play (vraie clé Release requise).
-
-Chaque fichier est téléchargeable dans l'onglet **Artifacts** du run
-(30 jours). Secrets GitHub optionnels : `KEYSTORE_BASE64` (keystore encodé en
-base64), `KEYSTORE_PASSWORD`, `KEYSTORE_ALIAS`.
-
-Environnement de build (versionné dans le workflow) :
-
-- `ubuntu-24.04` · **Node 22 LTS** (requis par Expo SDK 57) · **Java 17**
-  (Temurin) · Android SDK via `android-actions/setup-android@v3` · Bun.
-- **ABI limitées à `arm64-v8a,armeabi-v7a`** (téléphones réels) : le build
-  CI est ~2× plus rapide et beaucoup moins gourmand en mémoire que les
-  4 ABI. En local (`bun run apk:debug`), les 4 ABI restent actives pour les
-  émulateurs x86_64. Pour forcer les 4 ABI en CI, retirez le drapeau
-  `-PreactNativeArchitectures` de l'étape « Build » du workflow.
-- Mémoire : tas Gradle `-Xmx4096m` + `NODE_OPTIONS=--max-old-space-size=8192`
-  (Metro/export:embed) pour éviter les OOM qui tuent le build tardivement.
-- L'étape « Diagnostics » affiche Java/Node/Bun/SDK/Gradle avant le build, et
-  le build passe `--stacktrace` : si un futur run échoue, la première erreur
-  réelle se trouve dans la section **« Build APK debug + APK release + AAB »**
-  du log, sous `What went wrong:`.
-
-### 6b. `.github/workflows/mobile-build.yml` — EAS (cloud)
-
-- **Manuel** (`workflow_dispatch`) : choix `android` / `ios` / `all` et profil
-  `preview` / `production`.
-- **Push sur `main`** (fichiers `mobile/**`) : typecheck + APK Android
-  *preview*, uploadé en artefact GitHub.
-
-Le workflow **typecheck d'abord** (zéro crédit EAS consommé en cas d'erreur TS).
-
-## 7. Création du `EXPO_TOKEN`
-
-1. https://expo.dev/settings/access-tokens → **Create token**.
-2. Copier le token (affiché une seule fois).
-
-## 8. Ajout du secret GitHub
-
-1. Dépôt → **Settings → Secrets and variables → Actions → New repository secret**.
-2. **Nom** : `EXPO_TOKEN` — **Valeur** : le token créé en §7.
-
-> Le token n'est jamais écrit dans le dépôt : le workflow le lit uniquement
-> via `${{ secrets.EXPO_TOKEN }}`.
-
-## 9. Gestion du keystore Android
-
-Deux modes selon le chemin de build :
-
-### 9a. Build Gradle (local ou CI) — signature via `keystore.properties`
-
-Le `build.gradle` Android lit un fichier **`mobile/android/keystore.properties`**
-(gitignoré, jamais commité) :
-
-```properties
-storeFile=batibuild-release.keystore
-storePassword=MOT_DE_PASSE
-keyAlias=batibuild
-keyPassword=MOT_DE_PASSE
-```
-
-Et le keystore lui-même doit se trouver dans `mobile/android/app/`
-(ex. `mobile/android/app/batibuild-release.keystore`).
-
-- **Avec** ce fichier → l'APK/AAB **release** est signé avec votre clé
-  Release (obligatoire pour Google Play).
-- **Sans** ce fichier → le build fonctionne quand même : l'APK release est
-  signé avec la **clé debug** (installation manuelle OK, Play Store refuse).
-
-Générer un keystore :
+Équivalents directs :
 
 ```bash
-cd mobile/android
-keytool -genkeypair -v -storetype PKCS12 -keystore app/batibuild-release.keystore \
-  -alias batibuild -keyalg RSA -keysize 2048 -validity 10000
+cd android && ./gradlew assembleRelease     # macOS / Linux
+cd android && gradlew.bat assembleRelease   # Windows (cmd / PowerShell)
 ```
 
-⚠ **Conservez ce fichier précieusement** (perdu = mise à jour Play Store
-impossible). Ne le commitez jamais.
+Les fichiers produits restent également dans
+`android/app/build/outputs/apk/...` et `.../bundle/release/...`.
 
-### 9b. Build EAS — keystore géré par Expo
-
-EAS génère et stocke le keystore sur son serveur au premier build
-(récupérable avec `eas credentials` si besoin).
-
-## 10. Credentials iOS
-
-Gérés par **EAS** également (certificat de distribution, provisioning
-profiles). Aucun certificat Apple n'est commité.
-
-Prérequis pour un build **production iOS** :
-
-1. Compte **Apple Developer Program** (99 $/an) actif.
-2. Dans `eas credentials` : renseigner l'**Apple Team ID**.
-3. EAS génère les certificats/provisioning automatiquement.
-
-> Build *preview* iOS (simulateur) : **aucun** compte Apple requis.
-
-## 11. Build Android — APK local (Gradle)
-
-Prérequis : **JDK 17** et **Android SDK** (Android Studio) installés.
+### Build plus rapide (téléphones réels uniquement)
 
 ```bash
-cd mobile
-bun run apk:debug        # → android/app/build/outputs/apk/debug/app-debug.apk
-bun run apk:release      # → android/app/build/outputs/apk/release/app-release.apk
-bun run aab              # → android/app/build/outputs/bundle/release/app-release.aab
-# équivalent direct :
-cd android && ./gradlew assembleDebug assembleRelease bundleRelease
+ARCHS=arm64-v8a,armeabi-v7a npm run android:apk     # macOS / Linux
+set ARCHS=arm64-v8a,armeabi-v7a && npm run android:apk   # Windows cmd
 ```
 
-L'**APK release** est signé avec la clé Release si `android/keystore.properties`
-existe (§9a), sinon avec la clé debug (installable pour tests).
-
-> Après une modification d'`app.json` : `bunx expo prebuild --platform android`
-> puis `bun run signing:apply` (le prebuild écrase `build.gradle`).
-
-## 12. Build Android — EAS (cloud)
+## 5. Signature Release (keystore local)
 
 ```bash
-cd mobile
-# Test : APK installable directement
-bunx eas-cli build --platform android --profile preview
-# Store : AAB pour Google Play
-bunx eas-cli build --platform android --profile production
+npm run keystore:generate
 ```
 
-Sorties : `build-output/` locale avec `--output ./build-output`, sinon lien
-téléchargeable dans le dashboard EAS.
+Crée `android/keystore/batibuild-release.keystore` +
+`android/keystore.properties` (tous deux **ignorés par Git**) et affiche une
+seule fois le mot de passe généré — conservez-le hors du dépôt.
 
-## 13. Build iOS
+Gradle accepte deux sources de configuration, dans cet ordre :
+
+1. `android/keystore.properties` ;
+2. variables d'environnement `ANDROID_KEYSTORE_PATH`,
+   `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+
+Sans keystore, l'APK/AAB release est signé avec la **clé debug** : installable
+pour tester, mais **refusé par Google Play**. Aucun mot de passe n'est jamais
+commité ni affiché dans les logs.
+
+## 6. Synchronisation avec `app.json`
+
+`expo prebuild` régénère `android/` et **écrase** les personnalisations
+(`build.gradle`). Après toute modification d'`app.json` (permissions, nom,
+version, icônes, splash) :
 
 ```bash
-cd mobile
-# Test : build simulateur
-bunx eas-cli build --platform ios --profile preview
-# TestFlight / App Store
-bunx eas-cli build --platform ios --profile production
+npm run android:prebuild   # resynchronise android/
+npm run signing:apply      # réapplique la signature Release (idempotent)
 ```
 
-Puis, si le build production a été soumis :
+## 7. Environnement d'exécution
+
+L'URL de la plateforme est définie **une seule fois** dans
+`mobile/src/config.ts` (défaut : `https://budgetbati.freebuff.app/`).
+Pour la surcharger sans toucher au code : `EXPO_PUBLIC_WEB_APP_URL`.
+
+Seuls les hôtes `*.freebuff.app` restent dans la WebView ; les autres domaines
+s'ouvrent dans le navigateur système.
+
+## 8. Intégration continue (optionnelle)
+
+`.github/workflows/android.yml` construit les mêmes trois artefacts avec le
+**Gradle Wrapper** sur un runner GitHub (aucun crédit EAS, aucun cloud de build
+tiers). Ce workflow est **facultatif** : le build de référence reste local.
+
+## 9. iOS (macOS uniquement)
 
 ```bash
-bunx eas-cli submit --platform ios --profile production
+npm run prebuild
+npx expo run:ios
 ```
 
-## 14. Build Android + iOS
+Pour TestFlight / App Store : ouvrez `mobile/ios/*.xcworkspace` dans Xcode,
+configurez la signature (compte Apple Developer), puis **Product → Archive**.
 
-```bash
-cd mobile
-bunx eas-cli build --platform all --profile preview
-```
+## 10. Dépannage rapide
 
-Ou en CI : workflow `Mobile Build (EAS)` → plateforme **all**.
-
-## 15. Publication future Play Store
-
-1. Créer le compte **Google Play Console** (25 $, une fois).
-2. Créer l'application (nom *BatiBuild*, package `com.batibuild.app`).
-3. Générer le **AAB** : `eas build --platform android --profile production`.
-4. Téléverser l'AAB dans **Play Console → Production → Version**.
-5. (Optionnel) soumission automatisée :
-   - Téléverser la clé du compte de service Google Play dans
-     `mobile/secrets/google-play-service-account.json` (⚠ fichier gitignoré),
-   - puis `bunx eas-cli submit --platform android --profile production`.
-
-## 16. Publication future App Store
-
-1. Compte **Apple Developer Program** actif.
-2. Renseigner les credentials dans `eas credentials` (Apple Team ID).
-3. `eas build --platform ios --profile production` (génère l'archive
-   app-store-connect).
-4. `bunx eas-cli submit --platform ios --profile production`
-   (ou via App Store Connect / Transporter).
-5. Remplir les informations App Store Connect (captures d'écran, descriptions,
-   confidentialité), puis soumettre pour **App Review**.
-
----
-
-## Actions manuelles requises (non automatisables ici)
-
-| Action | Commande / lieu |
+| Problème | Solution |
 |---|---|
-| APK via GitHub Actions | push sur `main` ou Actions → *Run workflow* (`android.yml`) ; télécharger dans **Artifacts** |
-| Signature Release (CI) | Secrets GitHub : `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEYSTORE_ALIAS` |
-| Signature Release (local) | créer `mobile/android/keystore.properties` + keystore (voir §9a) |
-| Lier le projet EAS | `cd mobile && bunx eas-cli login && bunx eas-cli init` |
-| Keystore EAS | EAS le génère au premier build EAS (aucune action requise) |
-| Apple Developer + Team ID | `bunx eas-cli credentials` (compte Apple payant requis) |
-| Google Play Console | compte + téléversement du AAB (§15) |
-| App Store Connect | compte + soumission du build (§16) |
-| URL personnalisée | `EXPO_PUBLIC_WEB_APP_URL` — variables `EXPO_PUBLIC_*` sont **publiques**, n'y jamais mettre de secret |
+| `SDK location not found` | définir `ANDROID_HOME` (ou `android/local.properties`) — `MOBILE_BUILD.md` §4 |
+| Build très long / daemon tué | `ARCHS=arm64-v8a,armeabi-v7a npm run android:apk` |
+| `adb: command not found` | ajouter `$ANDROID_HOME/platform-tools` au `PATH` |
+| `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | `adb uninstall com.batibuild.app` |
+| Signature release en clé debug | `npm run keystore:generate` puis rebuild |
 
-## Vérifications de référence
-
-```bash
-cd mobile
-bun run typecheck          # tsc --noEmit
-bunx expo-doctor           # configuration Expo
-bunx eas-cli project:info  # projet lié (après §4)
-```
-
-## Sécurité — rappel
-
-- Aucun secret dans `app.json`, `eas.json`, le code source ou le workflow.
-- `EXPO_TOKEN` provient **uniquement** de GitHub Secrets.
-- Les variables `EXPO_PUBLIC_*` sont embarquées dans le bundle → publiques.
-- Le backend, l'authentification, Convex et tous les secrets restent côté
-  plateforme web — l'application mobile n'expose rien.
+Table de dépannage complète : `MOBILE_BUILD.md` §13.

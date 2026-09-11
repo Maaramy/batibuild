@@ -81,18 +81,45 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
-// ── Signature Release ────────────────────────────────────────────────────────
-// Si un fichier android/keystore.properties existe (généré depuis les secrets
-// GitHub Actions ou créé manuellement), le build Release est signé avec le
-// keystore de production. Sinon, on retombe sur la clé debug (APK installable
-// pour les tests). Les mots de passe ne sont JAMAIS commités dans le code.
+// ── Signature Release (100 % locale) ────────────────────────────────────────
+// Ordre de priorité pour trouver le keystore de production :
+//   1. android/keystore.properties  (fichier local, ignoré par Git)
+//   2. Variables d'environnement    ANDROID_KEYSTORE_PATH / _PASSWORD
+//                                   ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD
+//                                   (pratique en CI, rien n'est écrit sur disque)
+// Sans keystore configuré, l'APK Release est signé avec la clé debug :
+// installable pour tester, mais refusé par Google Play.
+// Aucun mot de passe n'est JAMAIS commité ni affiché dans les logs.
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
-def useReleaseSigning = keystorePropertiesFile.exists() && keystoreProperties['storeFile']
+def envOrKeystoreProperty = { String envName, String propName ->
+    def envValue = System.getenv(envName)
+    if (envValue != null && !envValue.trim().isEmpty()) return envValue.trim()
+    def propValue = keystoreProperties[propName]
+    return (propValue != null && !propValue.toString().trim().isEmpty()) ? propValue.toString().trim() : null
+}
+
+def releaseStoreFile = envOrKeystoreProperty('ANDROID_KEYSTORE_PATH', 'storeFile')
+def releaseStorePassword = envOrKeystoreProperty('ANDROID_KEYSTORE_PASSWORD', 'storePassword')
+def releaseKeyAlias = envOrKeystoreProperty('ANDROID_KEY_ALIAS', 'keyAlias')
+def releaseKeyPassword = envOrKeystoreProperty('ANDROID_KEY_PASSWORD', 'keyPassword') ?: releaseStorePassword
+
+// Chemin absolu conservé tel quel ; chemin relatif résolu depuis mobile/android/.
+def releaseKeystoreFile = releaseStoreFile == null ? null : (new File(releaseStoreFile).isAbsolute() ? new File(releaseStoreFile) : rootProject.file(releaseStoreFile))
+
+def useReleaseSigning = releaseKeystoreFile != null && releaseKeystoreFile.exists() && releaseStorePassword != null && releaseKeyAlias != null
+
+if (useReleaseSigning) {
+    println "🔐 APK/AAB Release signé avec le keystore : ${releaseKeystoreFile}"
+} else if (releaseStoreFile != null) {
+    println "⚠️  ANDROID_KEYSTORE_PATH/keystore.properties défini mais fichier introuvable : ${releaseKeystoreFile}"
+} else {
+    println "⚠️  Aucun keystore Release configuré — repli sur la clé debug (tests uniquement, refusé par Google Play)."
+}
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -119,10 +146,10 @@ android {
         }
         release {
             if (useReleaseSigning) {
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
+                storeFile releaseKeystoreFile
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
             }
         }
     }

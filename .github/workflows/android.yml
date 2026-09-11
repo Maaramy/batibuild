@@ -18,9 +18,12 @@
 # Sans ces secrets, le build fonctionne quand même (release signé clé debug).
 # Le projet natif android/ est commité — aucun prebuild nécessaire en CI.
 #
+# ⚠️  Ce workflow est OPTIONNEL : le build de référence est 100 % LOCAL
+#     (`npm run android:apk`, sans EAS ni cloud — voir MOBILE_BUILD.md).
+#
 # Note ABI : les builds CI ciblent arm64-v8a + armeabi-v7a (téléphones réels).
 # C'est la moitié du travail natif → build ~2× plus rapide et beaucoup moins
-# de mémoire. En local (`bun run apk:debug`), les 4 ABI restent actives pour
+# de mémoire. En local (`npm run android:debug`), les 4 ABI restent actives pour
 # les émulateurs x86_64. Pour forcer toutes les ABI en CI, retirez le
 # drapeau -PreactNativeArchitectures ci-dessous.
 
@@ -101,29 +104,30 @@ jobs:
           chmod +x ./gradlew
           ./gradlew --version
 
-      - name: Décoder le keystore Release (secrets optionnels)
-        id: keystore
+      - name: Configurer la signature Release (secrets optionnels)
         working-directory: mobile
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        if: env.KEYSTORE_BASE64 != ''
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
         run: |
-          mkdir -p android/app
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/batibuild-release.keystore
-          cat > android/keystore.properties <<EOF
-          storeFile=batibuild-release.keystore
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.KEYSTORE_ALIAS }}
-          keyPassword=${{ secrets.KEYSTORE_PASSWORD }}
-          EOF
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "Aucun secret keystore configuré — l'APK/AAB Release sera signé avec la clé debug." 
+            exit 0
+          fi
+          # Chemin relatif à mobile/android/ (résolu par rootProject.file(...))
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/batibuild-release.keystore
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "batibuild-release.keystore" "$KEYSTORE_PASSWORD" "$KEYSTORE_ALIAS" "$KEYSTORE_PASSWORD" \
+            > android/keystore.properties
 
       - name: Build APK debug + APK release + AAB release
         working-directory: mobile/android
         run: |
+          # La mémoire du daemon est définie dans android/gradle.properties.
           ./gradlew \
             assembleDebug assembleRelease bundleRelease \
             -PreactNativeArchitectures=arm64-v8a,armeabi-v7a \
-            -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m" \
             --no-daemon \
             --console=plain \
             --stacktrace
