@@ -9,6 +9,24 @@ Première installation :  Splash  →  Guide (4 écrans / Passer)  →  WebView 
 Lancements suivants :    Splash court  →  WebView BatiBuild
 ```
 
+### Parcours de navigation mobile
+
+La WebView démarre directement sur `/dashboard` : **la page d'accueil publique
+n'est jamais une étape du parcours mobile**. Le script injecté (`src/injected.ts`)
+normalise la navigation avant le rendu, via `replaceState` (donc sans entrée
+d'historique : le bouton Back Android ne peut pas revenir à l'accueil) :
+
+| Situation | Destination |
+|---|---|
+| Session valide (JWT Convex Auth présent) | `/dashboard` |
+| Aucune session, route protégée (`/dashboard…`) | `/auth?returnTo=…` |
+| Navigation vers `/` (logo, déconnexion) | `/dashboard` (session) ou `/auth` (sinon) |
+| Après connexion | la page demandée (`returnTo`), sinon `/dashboard` |
+| Après déconnexion | `/auth` |
+
+La session (cookies, `localStorage`, tokens) est conservée entre les lancements :
+un redémarrage de la WebView ne déconnecte jamais l'utilisateur.
+
 > La plateforme Web n'est **pas modifiée** : elle s'affiche simplement dans la WebView.
 > Les écrans Splash et Guide sont natifs (React Native).
 

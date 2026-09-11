@@ -36,19 +36,27 @@ true;
 /**
  * Garde de navigation du parcours mobile.
  *
- * Objectif : la page d'accueil publique (`/`) ne doit JAMAIS s'afficher dans
- * l'application, y compris après une déconnexion (la plateforme web fait
- * `signOut()` puis `navigate("/")`) ou un clic sur un logo.
+ * Deux règles, toutes deux appliquées avant que React Router ne démarre (script
+ * injecté avant le contenu) et à chaque navigation SPA (`pushState` /
+ * `replaceState` / `popstate`) :
  *
- * On l'intercepte à la source en enveloppant `history.pushState` /
- * `history.replaceState` : dès que l'URL devient `/`, on la remplace
- * (`replaceState`, donc pas d'entrée ajoutée à l'historique → le bouton Back
- * ne peut pas y revenir) par :
- *   - `/dashboard` si une session Convex Auth existe ;
- *   - `/auth`      sinon.
+ *   1. La page d'accueil publique (`/`) ne doit JAMAIS s'afficher dans
+ *      l'application, y compris après une déconnexion (la plateforme web fait
+ *      `signOut()` puis `navigate("/")`) ou un clic sur le logo. Elle est
+ *      remplacée par `/dashboard` (session présente) ou `/auth` (sinon).
  *
- * Comme le script est injecté avant le contenu, il est déjà actif quand React
- * Router démarre : la redirection est donc invisible pour l'utilisateur.
+ *   2. Au démarrage, une route protégée (`/dashboard…`) sans session est
+ *      remplacée par `/auth?returnTo=…` AVANT le rendu : l'utilisateur
+ *      non connecté voit directement l'écran de connexion, sans passer par
+ *      l'interface applicative. Après connexion, il revient sur la page visée.
+ *
+ * Dans les deux cas, la redirection se fait via `replaceState` : aucune entrée
+ * n'est ajoutée à l'historique, donc le bouton Back Android ne peut pas ramener
+ * l'utilisateur vers la page d'accueil (ni boucler sur `/auth`).
+ *
+ * Détection de session : Convex Auth stocke son JWT dans `localStorage` sous
+ * une clé `__convexAuthJWT_<namespace>` (voir `@convex-dev/auth`). On ne lit
+ * aucune donnée sensible : seul le préfixe de la clé est testé.
  */
 export const ENTRY_GUARD_SCRIPT = `
 (function () {
@@ -75,43 +83,71 @@ export const ENTRY_GUARD_SCRIPT = `
       return false;
     }
 
-    function target() {
-      return hasSession() ? DASHBOARD : LOGIN;
+    function currentPath() {
+      return window.location.pathname || "";
     }
 
-    function isLanding() {
-      var p = window.location.pathname;
+    function isLanding(p) {
       return p === "" || p === "/" || p === "/index.html";
     }
 
-    function redirectAway() {
-      if (!isLanding()) return;
+    /** Zone réservée aux utilisateurs connectés (/dashboard…). */
+    function isProtected(p) {
+      return p === DASHBOARD || p.indexOf(DASHBOARD + "/") === 0;
+    }
+
+    /**
+     * Route de remplacement, ou null si la page courante est valide.
+     * L'écran /auth d'une session active n'est jamais réécrit : la plateforme
+     * gère elle-même la redirection vers le tableau de bord (et l'utilisateur
+     * peut ouvrir un lien de connexion avec un autre compte).
+     */
+    function replacementFor(p) {
+      if (isLanding(p)) return hasSession() ? DASHBOARD : LOGIN;
+      if (isProtected(p) && !hasSession()) {
+        return LOGIN + "?returnTo=" + encodeURIComponent(p);
+      }
+      return null;
+    }
+
+    function normalize() {
+      // Uniquement sur de vraies pages web : jamais sur about:blank, data:
+      // ou blob: (au tout début du chargement, l'URL peut être provisoire).
+      var proto = window.location.protocol;
+      if (proto !== "http:" && proto !== "https:") return;
+
+      var p = currentPath();
+      var to = replacementFor(p);
+      if (to === null) return;
+
       if (window.__batibuildRedirecting) return;
       window.__batibuildRedirecting = true;
-      var to = target();
+
       try {
         window.history.replaceState(null, "", to);
         window.dispatchEvent(new PopStateEvent("popstate"));
       } catch (e) {
         try { window.location.replace(to); return; } catch (e2) {}
       }
+
       // Si le routeur a ignoré le changement d'historique, on force une vraie
       // navigation (dernier recours, ne devrait jamais arriver).
       window.setTimeout(function () {
-        if (isLanding()) {
+        if (currentPath() === p) {
           try { window.location.replace(to); } catch (e) {}
         }
         window.__batibuildRedirecting = false;
       }, 300);
     }
 
-    // Intercepte les navigations SPA (React Router) qui reviennent vers "/".
+    // Intercepte les navigations SPA (React Router) qui reviennent vers "/"
+    // ou vers une zone protégée sans session.
     var wrap = function (name) {
       var original = window.history[name];
       if (typeof original !== "function") return;
       window.history[name] = function () {
         var result = original.apply(this, arguments);
-        try { redirectAway(); } catch (e) {}
+        try { normalize(); } catch (e) {}
         return result;
       };
     };
@@ -120,10 +156,10 @@ export const ENTRY_GUARD_SCRIPT = `
 
     window.addEventListener("popstate", function () {
       window.__batibuildRedirecting = false;
-      redirectAway();
+      normalize();
     });
 
-    redirectAway();
+    normalize();
   } catch (e) {}
 })();
 true;
