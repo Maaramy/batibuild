@@ -93,6 +93,9 @@ L'URL de la plateforme est définie **une seule fois** dans `src/config.ts`
 
 ## 5. Build Android — APK / AAB (100 % local)
 
+> ⭐ Pour obtenir l'APK **sans rien installer**, utilisez GitHub Actions (§9).
+> Cette section ne sert qu'au build local (débogage hors CI).
+
 Prérequis : **JDK 17** + **Android SDK** (Android Studio) — voir
 [`../MOBILE_BUILD.md`](../MOBILE_BUILD.md) §2 et §4.
 
@@ -160,32 +163,54 @@ Descriptions iOS complètes dans `app.json` → `ios.infoPlist`.
 > direct. La synchronisation depuis `app.json` se fait explicitement avec
 > `npm run android:prebuild` (voir [`../MOBILE_BUILD.md`](../MOBILE_BUILD.md) §6).
 
-## 9. CI — Build Android automatique (GitHub Actions, **optionnel**)
+## 9. Build automatique — GitHub Actions ⭐ (rien à installer sur votre PC)
 
-> Le build de référence est **local** (`npm run android:apk`). Ce workflow
-> facultatif n'est pas requis pour produire l'APK et n'utilise **aucun** service
-> cloud de compilation : il exécute le même Gradle Wrapper sur un runner GitHub.
+`.github/workflows/android.yml` construit **tout sur le runner GitHub** : aucun
+JDK, Android SDK, Android Studio ou Gradle n'est requis localement.
 
-### 9a. `.github/workflows/android.yml` — APK/AAB par Gradle
+```
+git push origin main
+      ↓
+Actions → « Android — APK & AAB »
+      ↓
+Install deps → prebuild (si android/ absent) → Android SDK du projet
+      ↓
+assembleDebug · assembleRelease · bundleRelease
+      ↓
+Artifacts : Batibuild-debug.apk · Batibuild-release.apk · Batibuild-release.aab
+```
 
-- **Push sur `main`** (fichiers `mobile/**`) ou manuellement
-  (`Actions → Run workflow`).
-- Construit **Batibuild-debug.apk**, **Batibuild-release.apk** et
-  **Batibuild-release.aab**, téléchargeables dans les **Artifacts du run**.
-- Signature Release via secrets GitHub optionnels : `KEYSTORE_BASE64`,
-  `KEYSTORE_PASSWORD`, `KEYSTORE_ALIAS` (sans eux : release signé clé debug).
+### Déclencher
 
-### Mise en place (une seule fois, si vous voulez l'utiliser)
+- **Automatique** : `push` sur `main` dès qu'un fichier de `mobile/` change.
+- **Manuel** : *Actions → Android — APK & AAB → Run workflow*
+  (choix des ABI, option « forcer `expo prebuild` »).
 
-1. Rien à installer côté Expo : **aucun `EXPO_TOKEN`, aucun compte EAS**.
-2. *(Optionnel)* Secrets GitHub pour signer la release :
-   dépôt → *Settings → Secrets and variables → Actions* → `KEYSTORE_BASE64`
-   (votre `.keystore` encodé en base64), `KEYSTORE_PASSWORD`, `KEYSTORE_ALIAS`.
-3. Push sur `main` (ou lancement manuel) → les 3 artefacts apparaissent dans
-   les Artifacts du run.
+### Récupérer l'APK
 
-Sans secrets, le build CI fonctionne quand même : la release est simplement
-signée avec la clé debug.
+Ouvrez le run ✅ → section **Artifacts** en bas de page → téléchargez
+`Batibuild-release.apk` → copiez-le sur le téléphone et installez-le.
+
+### Ce que le workflow installe lui-même
+
+| Composant | Source |
+|---|---|
+| Node.js 22 LTS + Bun | `actions/setup-node`, `oven-sh/setup-bun` |
+| JDK 17 (Temurin) | `actions/setup-java` |
+| Android SDK / cmdline-tools / licences | `android-actions/setup-android` |
+| platform 36, build-tools 36.0.0, NDK 27.1.12297006, platform-tools | `sdkmanager` — versions lues dans le projet (`node_modules/react-native/gradle/libs.versions.toml`) |
+| Dépendances JS | `bun install --frozen-lockfile` (ou `npm ci` si un `package-lock.json` apparaît) |
+| Gradle | **wrapper du dépôt** (`./gradlew`, version épinglée 9.3.1) |
+
+### Signature Release (optionnelle)
+
+Secrets GitHub *Settings → Secrets and variables → Actions* : `KEYSTORE_BASE64`,
+`KEYSTORE_PASSWORD`, `KEYSTORE_ALIAS`. Le keystore est décodé hors du dépôt
+(`$RUNNER_TEMP`) puis validé par `keytool` **avant** le build.
+
+Sans secrets, le workflow réussit quand même : l'APK/AAB release est signé avec
+la clé debug (installable pour tester, refusé par Google Play). Aucun secret
+n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
 
 ### Notes CI
 
@@ -209,6 +234,6 @@ signée avec la clé debug.
   d'`app.json`, resynchroniser avec `npm run android:prebuild` puis réappliquer la
   signature : `npm run signing:apply`. `ios/` est en CNG (régénéré par
   `expo prebuild` sur macOS).
-- **Note de build** : les APK/AAB sont générés **localement par Gradle**
-  (`npm run android:apk` / `android:aab`) — ou, facultativement, par le workflow
-  GitHub Actions `android.yml`. Aucun EAS, aucun build cloud.
+- **Note de build** : les APK/AAB sont produits **par GitHub Actions**
+  (`.github/workflows/android.yml` → Artifacts du run, aucun outil Android sur
+  votre PC) ou, localement, par Gradle (`npm run android:apk`). Aucun EAS.

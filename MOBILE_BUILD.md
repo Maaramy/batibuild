@@ -1,15 +1,16 @@
-# BatiBuild Mobile — Build Android 100 % local
+# BatiBuild Mobile — Obtention des APK (GitHub Actions ⭐ ou local)
 
-Guide complet pour compiler l'application mobile BatiBuild **sur votre ordinateur**,
-sans EAS, sans build cloud, sans compte Expo et sans `EXPO_TOKEN`.
+Deux façons d'obtenir `Batibuild-release.apk`, **sans EAS, sans compte Expo et
+sans `EXPO_TOKEN`** :
+
+| Méthode | Outils requis sur votre PC | Recommandé pour |
+|---|---|---|
+| **GitHub Actions** (§0-bis) ⭐ | **aucun** (ni JDK, ni SDK, ni Android Studio) | obtenir l'APK en un `git push` |
+| Build local (§1 → §13) | JDK 17 + Android SDK | déboguer hors CI |
 
 ```
-Code source local  →  Gradle Wrapper local  →  Batibuild-release.apk  →  Téléphone Android
+git push origin main → GitHub Actions (ubuntu-latest) → Batibuild-release.apk
 ```
-
-> **Aucun service cloud n'est requis pour compiler.** Internet n'est nécessaire que
-> pour l'installation initiale des dépendances (`npm install`) et pour charger la
-> plateforme BatiBuild dans la WebView au lancement de l'application.
 
 ---
 
@@ -33,6 +34,41 @@ est immédiatement visible dans l'application, **sans nouvelle APK**.
 | `mobile/android/` | Projet natif Android (commité → build Gradle direct) |
 | `mobile/scripts/` | Scripts de build local (`build-android.mjs`, keystore, signature) |
 | `mobile/build/` | **Vos APK/AAB générés** (ignoré par Git) |
+
+---
+
+## 0-bis. Obtenir l'APK **sans rien installer sur votre PC** (GitHub Actions) ⭐
+
+Le workflow `.github/workflows/android.yml` installe **tout** sur le runner
+GitHub : Node.js 22, JDK 17, Android SDK (platform-tools, platform 36,
+build-tools 36.0.0, NDK 27.1.12297006 — versions lues dans le projet),
+dépendances, puis compile avec le Gradle Wrapper du dépôt.
+
+```
+git push origin main
+        ↓
+GitHub Actions (ubuntu-latest)
+        ↓
+Batibuild-debug.apk · Batibuild-release.apk · Batibuild-release.aab
+        ↓
+Artifacts du run (téléchargeables)
+```
+
+**Déclencher le build :**
+
+1. Poussez sur `main` : le workflow démarre automatiquement (dès qu'un fichier
+de `mobile/` change).
+2. Ou manuellement : **GitHub → onglet Actions → « Android — APK & AAB » →
+   Run workflow** (choix des ABI et option « forcer prebuild »).
+3. Quand le run est vert (✅), ouvrez-le et téléchargez les 3 fichiers dans la
+   section **Artifacts** en bas de page.
+
+Installation sur le téléphone : copiez `Batibuild-release.apk` et ouvrez-le
+(aucun câble, aucun SDK requis).
+
+> Aucun outil Android (JDK, Android Studio, Gradle, SDK) n'est nécessaire sur
+> votre machine. Les sections 1 à 13 ci-dessous ne concernent que le build
+> **local**, utile uniquement pour déboguer hors CI.
 
 ### Scripts disponibles
 
@@ -159,7 +195,7 @@ adb devices
 > Sous Linux, des règles udev peuvent être nécessaires pour voir l'appareil.
 > En cas de problème réseau : `adb kill-server && adb start-server`.
 
-## 6. Installation des dépendances du projet
+## 6. Installation des dépendances du projet (build local)
 
 ```bash
 cd mobile

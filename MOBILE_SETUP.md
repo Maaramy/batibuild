@@ -109,11 +109,23 @@ Pour la surcharger sans toucher au code : `EXPO_PUBLIC_WEB_APP_URL`.
 Seuls les hôtes `*.freebuff.app` restent dans la WebView ; les autres domaines
 s'ouvrent dans le navigateur système.
 
-## 8. Intégration continue (optionnelle)
+## 8. GitHub Actions ⭐ — obtenir l'APK sans rien installer
 
-`.github/workflows/android.yml` construit les mêmes trois artefacts avec le
-**Gradle Wrapper** sur un runner GitHub (aucun crédit EAS, aucun cloud de build
-tiers). Ce workflow est **facultatif** : le build de référence reste local.
+`.github/workflows/android.yml` installe **tout** sur le runner (Node 22, JDK 17,
+Android SDK du projet, licences, dépendances) et construit les trois artefacts :
+
+```
+git push origin main
+  → Actions → « Android — APK & AAB »
+  → Artifacts : Batibuild-debug.apk · Batibuild-release.apk · Batibuild-release.aab
+```
+
+Lancement manuel possible : *Actions → Android — APK & AAB → Run workflow*.
+Aucun outil Android (JDK, SDK, Android Studio, Gradle) n'est requis sur votre PC
+et aucun crédit / compte EAS n'est utilisé.
+
+Signature optionnelle : secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`,
+`KEYSTORE_ALIAS` (sans eux, la release est signée avec la clé debug).
 
 ## 9. iOS (macOS uniquement)
 

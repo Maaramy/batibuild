@@ -1,31 +1,22 @@
-# BatiBuild Mobile — Build Android (APK debug + APK release + AAB release)
+# BatiBuild Mobile — Build Android 100 % autonome sur GitHub Actions
 #
-# Déclencheurs :
-#   - push sur main (uniquement si mobile/ ou ce workflow change)
-#   - workflow_dispatch (Actions → Run workflow)
+# Flux : git push origin main → runner ubuntu-latest → Node + JDK 17 + Android SDK
+#        → npm/bun install → prebuild (si android/ absent) → Gradle
+#        → Batibuild-debug.apk + Batibuild-release.apk + Batibuild-release.aab
+#        → Artifacts du run.
 #
-# Artefacts téléchargeables après le run :
-#   - Batibuild-debug.apk      (signé clé debug — tests rapides sur téléphone)
-#   - Batibuild-release.apk    (signé clé Release si les secrets sont définis,
-#                               sinon clé debug — installation manuelle)
-#   - Batibuild-release.aab    (Google Play — nécessite la vraie clé Release)
+# AUCUN outil Android n'est requis sur votre PC : ni JDK, ni Android SDK,
+# ni Android Studio, ni Gradle. Tout est installé par le runner.
 #
-# Secrets GitHub optionnels (Settings → Secrets → Actions) :
-#   KEYSTORE_BASE64    : keystore Release encodé en base64
-#   KEYSTORE_PASSWORD  : mot de passe (store + clé)
-#   KEYSTORE_ALIAS     : alias de la clé
+# Secrets GitHub FACULTATIFS (Settings → Secrets and variables → Actions) :
+#   KEYSTORE_BASE64    keystore Release encodé en base64
+#   KEYSTORE_PASSWORD  mot de passe (store + clé)
+#   KEYSTORE_ALIAS     alias de la clé
+# Sans eux, le build RÉUSSIT quand même : l'APK/AAB release est signé avec la
+# clé debug (installable pour tester, refusé par Google Play). Aucun secret
+# n'est jamais affiché dans les logs.
 #
-# Sans ces secrets, le build fonctionne quand même (release signé clé debug).
-# Le projet natif android/ est commité — aucun prebuild nécessaire en CI.
-#
-# ⚠️  Ce workflow est OPTIONNEL : le build de référence est 100 % LOCAL
-#     (`npm run android:apk`, sans EAS ni cloud — voir MOBILE_BUILD.md).
-#
-# Note ABI : les builds CI ciblent arm64-v8a + armeabi-v7a (téléphones réels).
-# C'est la moitié du travail natif → build ~2× plus rapide et beaucoup moins
-# de mémoire. En local (`npm run android:debug`), les 4 ABI restent actives pour
-# les émulateurs x86_64. Pour forcer toutes les ABI en CI, retirez le
-# drapeau -PreactNativeArchitectures ci-dessous.
+# Ce workflow n'utilise PAS EAS et n'a besoin d'aucun EXPO_TOKEN.
 
 name: Android — APK & AAB
 
@@ -36,6 +27,16 @@ on:
       - "mobile/**"
       - ".github/workflows/android.yml"
   workflow_dispatch:
+    inputs:
+      architectures:
+        description: "ABI à compiler (arm64-v8a,armeabi-v7a = téléphones réels)"
+        required: false
+        default: "arm64-v8a,armeabi-v7a"
+      force_prebuild:
+        description: "Forcer « expo prebuild » (resynchroniser android/ depuis app.json)"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: android-apk-${{ github.ref }}
@@ -44,35 +45,147 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CI: "1"
+  EXPO_NO_TELEMETRY: "1"
+  # Mémoire du bundler JS (Metro / expo export:embed)
+  NODE_OPTIONS: "--max-old-space-size=8192"
+  # ABI ciblées : 2 ABI au lieu de 4 → build ~2× plus rapide et 2× moins de
+  # mémoire (nécessaire sur un runner). Modifiable au lancement manuel.
+  ARCHITECTURES: ${{ inputs.architectures || 'arm64-v8a,armeabi-v7a' }}
+
 jobs:
   build-android:
-    name: APK debug + release + AAB
-    runs-on: ubuntu-24.04
-    env:
-      # Mémoire pour Metro/export:embed (bundling JS) — évite les OOM node
-      NODE_OPTIONS: "--max-old-space-size=8192"
+    name: APK debug + APK release + AAB release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node 22 (LTS)
+      - name: Setup Node.js 22 (LTS)
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      - name: Setup Bun
+      - name: Setup Bun (lockfile du projet)
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - name: Setup Java 17
+      - name: Setup JDK 17 (Temurin)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Setup Android SDK
+      - name: Setup Android SDK (cmdline-tools + licences)
         uses: android-actions/setup-android@v3
+
+      - name: Diagnostics — Java / Node / Android SDK / Gradle
+        run: |
+          echo "── Java ──"
+          java -version
+          javac -version
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "── Node / npm / Bun ──"
+          node --version
+          npm --version
+          bun --version
+          echo "── Android SDK ──"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<non défini>}"
+          sdkmanager --version
+          adb --version
+          echo "── Gradle (wrapper du projet, pas de Gradle global) ──"
+          if [ -f android/gradlew ]; then
+            chmod +x android/gradlew
+            android/gradlew --version
+          else
+            echo "android/gradlew absent — le projet natif sera généré par expo prebuild."
+          fi
+
+      - name: Install dependencies (lockfile auto-détecté)
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "→ package-lock.json détecté : npm ci"
+            npm ci
+          elif [ -f bun.lock ]; then
+            echo "→ bun.lock détecté : bun install --frozen-lockfile"
+            bun install --frozen-lockfile
+          elif [ -f bun.lockb ]; then
+            echo "→ bun.lockb détecté : bun install --frozen-lockfile"
+            bun install --frozen-lockfile
+          else
+            echo "→ aucun lockfile : npm install"
+            npm install
+          fi
+
+      - name: Typecheck (échec rapide avant le build lourd)
+        run: npx tsc --noEmit
+
+      - name: Projet natif Android (prebuild uniquement si nécessaire)
+        run: |
+          if [ "${{ inputs.force_prebuild }}" = "true" ] || [ ! -f android/app/build.gradle ]; then
+            echo "→ « expo prebuild » : génération / resynchronisation de android/"
+            npx expo prebuild --platform android --no-install
+            node scripts/apply-signing.mjs
+          else
+            echo "✅ Projet natif android/ déjà présent dans le dépôt — prebuild inutile."
+          fi
+          chmod +x android/gradlew
+          test -f android/app/build.gradle
+          test -x android/gradlew
+          echo "Projet natif prêt : $(grep -c '' android/app/build.gradle) lignes dans android/app/build.gradle"
+
+      - name: Installation des composants Android SDK du projet
+        run: |
+          CATALOG=node_modules/react-native/gradle/libs.versions.toml
+
+          read_version() {
+            # awk renvoie toujours 0 → pas de « || true » masquant une erreur.
+            local key="$1" fallback="$2" value=""
+            if [ -f "$CATALOG" ]; then
+              value=$(awk -v k="$key" '$1==k { gsub(/"/,"",$3); print $3; exit }' "$CATALOG")
+            fi
+            if [ -z "$value" ]; then value="$fallback"; fi
+            printf '%s' "$value"
+          }
+
+          COMPILE_SDK=$(read_version compileSdk 36)
+          TARGET_SDK=$(read_version targetSdk 36)
+          BUILD_TOOLS=$(read_version buildTools 36.0.0)
+          NDK_VERSION=$(read_version ndkVersion 27.1.12297006)
+          echo "Versions lues dans le projet : compileSdk=$COMPILE_SDK targetSdk=$TARGET_SDK buildTools=$BUILD_TOOLS ndk=$NDK_VERSION"
+
+          echo "── Acceptation des licences SDK ──"
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null 2>&1
+          LICENSE_STATUS=${PIPESTATUS[1]:-0}
+          if [ "$LICENSE_STATUS" -ne 0 ] && [ "$LICENSE_STATUS" -ne 141 ]; then
+            echo "❌ sdkmanager --licenses a échoué (code $LICENSE_STATUS)"
+            exit 1
+          fi
+          echo "✅ Licences Android SDK acceptées"
+
+          echo "── Installation des paquets requis ──"
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-${COMPILE_SDK}" \
+            "build-tools;${BUILD_TOOLS}" \
+            "ndk;${NDK_VERSION}"
+
+          {
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME"
+            echo "ANDROID_HOME=$ANDROID_HOME"
+          } >> "$GITHUB_ENV"
+
+          echo "── Contenu du SDK ──"
+          ls "$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms"
+          ls "$ANDROID_HOME/build-tools"
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -84,79 +197,126 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      - name: Install dependencies
-        working-directory: mobile
-        run: bun install --frozen-lockfile
-
-      - name: Diagnostics
-        working-directory: mobile/android
-        run: |
-          echo "── Java ──"
-          java -version
-          echo "── Node ──"
-          node --version
-          echo "── Bun ──"
-          bun --version
-          echo "── Android SDK ──"
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          ls "$ANDROID_HOME" 2>/dev/null || true
-          echo "── Gradle (wrapper) ──"
-          chmod +x ./gradlew
-          ./gradlew --version
-
       - name: Configurer la signature Release (secrets optionnels)
-        working-directory: mobile
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "Aucun secret keystore configuré — l'APK/AAB Release sera signé avec la clé debug." 
+            echo "ℹ️  Aucun secret keystore configuré."
+            echo "    → L'APK/AAB release sera signé avec la clé debug (tests uniquement)."
             exit 0
           fi
-          # Chemin relatif à mobile/android/ (résolu par rootProject.file(...))
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/batibuild-release.keystore
-          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
-            "batibuild-release.keystore" "$KEYSTORE_PASSWORD" "$KEYSTORE_ALIAS" "$KEYSTORE_PASSWORD" \
-            > android/keystore.properties
+          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEYSTORE_ALIAS" ]; then
+            echo "❌ KEYSTORE_BASE64 est défini mais KEYSTORE_PASSWORD ou KEYSTORE_ALIAS manque."
+            exit 1
+          fi
+          KEYSTORE_FILE="$RUNNER_TEMP/batibuild-release.keystore"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          test -s "$KEYSTORE_FILE"
+          # Vérification immédiate : évite une erreur de signature obscure 15 min plus tard.
+          if ! keytool -list -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASSWORD" -alias "$KEYSTORE_ALIAS" >/dev/null 2>&1; then
+            echo "❌ Keystore invalide : KEYSTORE_BASE64, KEYSTORE_PASSWORD ou KEYSTORE_ALIAS ne correspondent pas."
+            exit 1
+          fi
+          echo "✅ Keystore décodé et validé (alias $KEYSTORE_ALIAS)."
+          # Variables lues par android/app/build.gradle — rien n'est écrit dans le dépôt.
+          {
+            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_FILE"
+            echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "ANDROID_KEY_ALIAS=$KEYSTORE_ALIAS"
+            echo "ANDROID_KEY_PASSWORD=$KEYSTORE_PASSWORD"
+          } >> "$GITHUB_ENV"
+          echo "✅ Signature Release configurée (keystore externe, rien dans le dépôt)."
 
-      - name: Build APK debug + APK release + AAB release
+      # ── APK DEBUG ──────────────────────────────────────────────────────────
+      - name: Build — APK debug
         working-directory: mobile/android
-        run: |
-          # La mémoire du daemon est définie dans android/gradle.properties.
-          ./gradlew \
-            assembleDebug assembleRelease bundleRelease \
-            -PreactNativeArchitectures=arm64-v8a,armeabi-v7a \
-            --no-daemon \
-            --console=plain \
-            --stacktrace
+        run: ./gradlew :app:assembleDebug -PreactNativeArchitectures="$ARCHITECTURES" --console=plain --stacktrace
 
-      - name: Préparer les artefacts nommés
+      - name: Préparer l'APK debug
         run: |
           mkdir -p /tmp/dist
-          cp mobile/android/app/build/outputs/apk/debug/app-debug.apk /tmp/dist/Batibuild-debug.apk
-          cp mobile/android/app/build/outputs/apk/release/app-release.apk /tmp/dist/Batibuild-release.apk
-          cp mobile/android/app/build/outputs/bundle/release/app-release.aab /tmp/dist/Batibuild-release.aab
-          ls -lh /tmp/dist
+          DEBUG_APK=""
+          if [ -d android/app/build/outputs/apk/debug ]; then
+            DEBUG_APK=$(find android/app/build/outputs/apk/debug -type f -name "*.apk" | head -1)
+          fi
+          if [ -z "$DEBUG_APK" ]; then
+            echo "❌ Aucun APK trouvé dans android/app/build/outputs/apk/debug/"
+            exit 1
+          fi
+          cp "$DEBUG_APK" /tmp/dist/Batibuild-debug.apk
+          ls -lh /tmp/dist/Batibuild-debug.apk
 
-      - name: Upload APK debug
+      - name: Upload — Batibuild-debug.apk
         uses: actions/upload-artifact@v4
         with:
           name: Batibuild-debug-apk
           path: /tmp/dist/Batibuild-debug.apk
           if-no-files-found: error
 
-      - name: Upload APK release
+      # ── APK RELEASE ────────────────────────────────────────────────────────
+      - name: Build — APK release
+        working-directory: mobile/android
+        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures="$ARCHITECTURES" --console=plain --stacktrace
+
+      - name: Préparer l'APK release
+        run: |
+          mkdir -p /tmp/dist
+          RELEASE_APK=""
+          if [ -d android/app/build/outputs/apk/release ]; then
+            RELEASE_APK=$(find android/app/build/outputs/apk/release -type f -name "*.apk" | head -1)
+          fi
+          if [ -z "$RELEASE_APK" ]; then
+            echo "❌ Aucun APK trouvé dans android/app/build/outputs/apk/release/"
+            exit 1
+          fi
+          cp "$RELEASE_APK" /tmp/dist/Batibuild-release.apk
+          ls -lh /tmp/dist/Batibuild-release.apk
+
+      - name: Upload — Batibuild-release.apk
         uses: actions/upload-artifact@v4
         with:
           name: Batibuild-release-apk
           path: /tmp/dist/Batibuild-release.apk
           if-no-files-found: error
 
-      - name: Upload AAB release
+      # ── AAB RELEASE (Google Play) ──────────────────────────────────────────
+      - name: Build — AAB release
+        working-directory: mobile/android
+        run: ./gradlew :app:bundleRelease -PreactNativeArchitectures="$ARCHITECTURES" --console=plain --stacktrace
+
+      - name: Préparer l'AAB release
+        run: |
+          mkdir -p /tmp/dist
+          RELEASE_AAB=""
+          if [ -d android/app/build/outputs/bundle/release ]; then
+            RELEASE_AAB=$(find android/app/build/outputs/bundle/release -type f -name "*.aab" | head -1)
+          fi
+          if [ -z "$RELEASE_AAB" ]; then
+            echo "❌ Aucun AAB trouvé dans android/app/build/outputs/bundle/release/"
+            exit 1
+          fi
+          cp "$RELEASE_AAB" /tmp/dist/Batibuild-release.aab
+          ls -lh /tmp/dist/Batibuild-release.aab
+
+      - name: Upload — Batibuild-release.aab
         uses: actions/upload-artifact@v4
         with:
           name: Batibuild-release-aab
           path: /tmp/dist/Batibuild-release.aab
           if-no-files-found: error
+
+      - name: Résumé du build
+        run: |
+          echo "## ✅ Build Android terminé" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Fichier | Taille |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          for f in /tmp/dist/*; do
+            echo "| $(basename "$f") | $(du -h "$f" | cut -f1) |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "ABI compilées : \`$ARCHITECTURES\`" >> "$GITHUB_STEP_SUMMARY"
+          ls -lh /tmp/dist
