@@ -1,12 +1,12 @@
 import type { ComponentType, ReactNode } from "react";
-import { ShieldCheck, Trophy } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
  * Éléments partagés des cartes « Fournisseur » / « Expert » (maquette profil) :
  * - carte blanche arrondie avec ombre douce
  * - pastille « vérifié » circulaire sur l'avatar
- * - ligne « trophée » sous le nom (type Superhôte)
+ * - ligne descriptive sous le nom (spécialité / statut)
  * - métriques empilées séparées par de fines lignes
  * - lignes de détail icône + texte
  */
@@ -29,8 +29,7 @@ export function VerifiedBadge({ className }: { className?: string }) {
 
 export function TrophyLine({ children }: { children: ReactNode }) {
   return (
-    <p className="flex items-center justify-center gap-1 text-[10px] font-medium text-muted-foreground">
-      <Trophy className="h-3 w-3 shrink-0 text-amber-500" />
+    <p className="text-center text-[10px] font-medium text-muted-foreground">
       <span className="line-clamp-1">{children}</span>
     </p>
   );

@@ -595,6 +595,7 @@ export default function Dashboard() {
 
   // ── Tranches affichées (3 par défaut + « Voir plus ») ──
   const visibleInvestments = showAllInvestments ? analyses : analyses.slice(0, 3);
+  const projectFavorites = projects.filter((p: any) => p.isFavorite).length;
 
   const formatter = new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 });
 
@@ -1398,27 +1399,42 @@ export default function Dashboard() {
           {/* Projects section */}
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
-              <div className="min-w-0">
-                <CardTitle className="text-sm sm:text-base lg:text-lg">Mes projets de construction</CardTitle>
-                <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
-                  {filteredProjects.length} projet{filteredProjects.length > 1 ? 's' : ''} de construction
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1 sm:flex-initial">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <input type="text" placeholder="Rechercher..." value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-8 sm:h-9 w-full sm:w-36 lg:w-44 rounded-lg border border-border/40 bg-background pl-8 pr-2.5 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                  <HardHat className="h-4 w-4" />
                 </div>
-                <Button size="sm" className="gap-1 h-8 sm:h-9 text-xs sm:text-sm shrink-0" onClick={() => navigate("/dashboard/new")}>
-                  <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Nouveau</span>
+                <div className="min-w-0">
+                  <CardTitle className="text-sm sm:text-base lg:text-lg">Mes projets de construction</CardTitle>
+                  <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
+                    {projects.length} projet{projects.length > 1 ? "s" : ""} de construction
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" className="h-8 gap-1 text-xs sm:text-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500" onClick={() => navigate("/dashboard/new")}>
+                  <Plus className="h-3.5 w-3.5" /> Nouveau projet
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto scrollbar-none px-3 sm:px-4 lg:px-5">
+            <CardContent className="p-3 sm:p-4 lg:p-5 pt-0">
+              {/* Statistiques */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                <MiniStat icon={HardHat} label="Projets" value={stats.totalProjects} tone={{ bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" }} />
+                <MiniStat icon={Clock} label="En cours" value={stats.analyzingProjects} tone={{ bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400" }} />
+                <MiniStat icon={TrendingUp} label="Coût estimé" value={formatter.format(stats.totalEstimatedCost)} tone={{ bg: "bg-teal-500/10", text: "text-teal-600 dark:text-teal-400" }} />
+                <MiniStat icon={Heart} label="Favoris" value={projectFavorites} tone={{ bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400" }} />
+              </div>
+
+              {/* Recherche */}
+              <div className="relative mb-3 sm:max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <input type="text" placeholder="Rechercher un projet..." value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-border/40 bg-background pl-8 pr-2.5 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
+              </div>
+
+              {/* Filtres */}
+              <div className="overflow-x-auto scrollbar-none">
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                   <TabsList className="mb-3 bg-transparent border-b border-border/20 rounded-none p-0 h-auto w-full justify-start gap-3 sm:gap-4 lg:gap-6 min-w-max">
                     {[
@@ -1437,25 +1453,28 @@ export default function Dashboard() {
                 </Tabs>
               </div>
 
-              <div className="px-3 sm:px-4 lg:px-5 pb-3 sm:pb-4 lg:pb-5">
-                {filteredProjects.length === 0 ? (
-                  <div className="text-center py-8 sm:py-10">
-                    <div className="mx-auto mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-muted">
-                      <HardHat className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm sm:text-base font-medium mb-1">Aucun projet de construction</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground mb-3">Créez votre premier projet de construction</p>
-                    <Button size="sm" className="text-xs" onClick={() => navigate("/dashboard/new")}>
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Nouveau projet
-                    </Button>
+              {filteredProjects.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-emerald-300/40 dark:border-emerald-800/30 bg-emerald-50/40 dark:bg-emerald-950/20 text-center py-6 sm:py-8 px-4">
+                  <div className="mx-auto mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-emerald-500/10">
+                    <HardHat className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-300" />
                   </div>
-                ) : (
-                  <>
-                    <ProjectsCarousel projects={filteredProjects} />
-                  </>
-                )}
-              </div>
+                  <p className="text-sm sm:text-base font-medium mb-1">Aucun projet de construction</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-3 max-w-md mx-auto">
+                    Importez une photo, un plan PDF, une image satellite ou un croquis : l'IA estime les surfaces, les matériaux et le coût — marché tunisien 2026.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="gap-1.5 text-xs bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-600/40 transition-all active:scale-[0.97]"
+                    onClick={() => navigate("/dashboard/new")}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Nouveau projet
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <ProjectsCarousel projects={filteredProjects} />
+              )}
             </CardContent>
           </Card>
 
