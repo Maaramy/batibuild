@@ -23,9 +23,13 @@ import { COLORS } from "./src/theme";
 const SPLASH_MAX_MS = CHANGE_MAX_MS;
 
 /**
- * Parcours mobile :
+ * Parcours mobile (application Android) :
  *
- *   Splash (≤ 1 s) → (Guide si première visite) → WebView
+ *   Splash (≤ 1 s, « Chargement.... »)
+ *        ↓
+ *   7 guides (premier lancement uniquement, ou depuis « Voir le guide »)
+ *        ↓
+ *   WebView Batibuild (login si aucune session, dashboard sinon)
  *
  * La WebView démarre directement sur `/dashboard` : session valide → tableau de
  * bord, sinon redirection vers `/auth`. La page d'accueil publique ne fait
@@ -46,8 +50,10 @@ export default function App() {
     SplashScreen.hideAsync().catch(() => {});
 
     // Aucune police d'icônes à charger : toutes les icônes de la coque native
-    // sont des SVG lucide (`src/components/icons.ts`), donc rendues
-    // immédiatement et identiques en mode clair comme en mode sombre.
+    // sont des SVG lucide (`src/components/icons.ts`), et les illustrations des
+    // guides sont des scènes vectorielles (`GuideIllustrations.tsx`) : rendues
+    // immédiatement, identiques en mode clair comme en mode sombre, sans aucun
+    // téléchargement d'image.
 
     (async () => {
       // Lecture locale + borne de 1 s, menées en parallèle.
@@ -61,7 +67,8 @@ export default function App() {
   }, []);
 
   const handleOnboardingDone = useCallback(() => {
-    // Persisté : le guide ne réapparaît plus aux lancements suivants.
+    // Persisté (`onboardingCompleted = true`) : les 7 guides ne réapparaissent
+    // plus aux lancements suivants.
     setOnboardingCompleted(true).then(() => setPhase("webview"));
   }, []);
 

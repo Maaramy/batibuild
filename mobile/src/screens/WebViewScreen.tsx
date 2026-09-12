@@ -33,6 +33,7 @@ import {
   LOADING_MESSAGE,
   pathOfUrl,
   SETTINGS_PATH,
+  shouldShowBottomNav,
   SUPPORT_PATH,
   type NavDestination,
   type NavId,
@@ -393,6 +394,13 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   const active =
     isDashboardRoute(currentPath) && navOverride ? navOverride : activeNavId(currentPath);
 
+  /**
+   * Écrans plein écran : la barre du bas est masquée pour ne jamais recouvrir
+   * un résultat (estimation du coût, matériaux IA) ni le formulaire de
+   * connexion / inscription. Le contenu Web occupe alors toute la hauteur.
+   */
+  const showBottomNav = shouldShowBottomNav(currentPath);
+
   return (
     <View style={[styles.root, { backgroundColor: theme.surface }]}>
       {/* Barre de navigation supérieure NATIVE : logo + nom de la plateforme à
@@ -494,8 +502,11 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
         )}
       </View>
 
-      {/* Barre de navigation native fixe (Material 3) — respecte la zone système basse. */}
-      <BottomNav active={active} onSelect={handleNavSelect} onOpenSettings={openSettings} />
+      {/* Barre de navigation native fixe (Material 3) — masquée sur les écrans
+          plein écran, et respectant la zone système basse partout ailleurs. */}
+      {showBottomNav && (
+        <BottomNav active={active} onSelect={handleNavSelect} onOpenSettings={openSettings} />
+      )}
 
       {/* Réglages — appui long sur la barre de navigation. */}
       <Modal visible={settingsOpen} transparent animationType="fade" onRequestClose={closeSettings}>

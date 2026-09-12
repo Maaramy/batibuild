@@ -14,216 +14,84 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Logo } from "../components/Logo";
 import {
-  MockAnalysisCard,
-  MockImportCard,
-  MockInvestmentCard,
-  MockReportCard,
-} from "../components/GuideCards";
-import { GUIDE_ICONS, NAV_ICONS, SUPPORT_ICON, type LucideIcon } from "../components/icons";
-import { COLORS, useAppTheme, type AppTheme } from "../theme";
+  GUIDE_ILLUSTRATIONS,
+  type IllusProps,
+} from "../components/GuideIllustrations";
+import { COLORS, useAppTheme } from "../theme";
 
 /**
- * Guide de première visite — une CARTE par étape.
+ * PARCOURS DE DÉMARRAGE — 7 GUIDES (application mobile Android uniquement).
  *
- * Les écrans de la plateforme sont présentés dans l'ORDRE où la plateforme les
- * expose (`src/components/LandingMockScreens.tsx`) et où un projet se déroule :
+ * Remplace TOUS les anciens écrans d'introduction, guides et présentations :
+ * il ne reste qu'un seul parcours, affiché au premier lancement.
  *
- *   1. Importer les documents        (« Importez vos documents »)
- *   2. Analyse par l'IA              (« Analyse en cours… »)
- *   3. Estimation & coûts            (« Coût total estimé »)
- *   4. Investissements               (« Score IA »)
+ * Chaque guide contient :
+ *   - une illustration dédiée (voir `GuideIllustrations.tsx`) ;
+ *   - un titre ;
+ *   - un texte descriptif ;
+ *   - l'indicateur de progression « n / 7 » + pastilles ;
+ *   - un bouton « Suivant » (puis « Commencer » au 7ᵉ) ;
+ *   - un bouton « Passer » toujours accessible.
  *
- * Chaque étape affiche : un repère d'étape, la carte, un titre, une description
- * détaillée et la liste de ce que l'étape permet de faire. Les icônes sont
- * celles de la barre de navigation et du tableau de bord (famille lucide,
- * `icons.ts`) : aucune icône générique, aucun mélange de styles.
+ * Aucun appel réseau, aucune image téléchargée : l'affichage est immédiat et
+ * identique en mode clair, sombre ou système.
+ *
+ * PÉRIMÈTRE : mobile uniquement — la plateforme Web, le backend et Convex ne
+ * sont pas concernés.
  */
-type Visual = "logo" | "icon" | "import" | "analysis" | "report" | "investment";
 
 type Slide = {
   key: string;
   title: string;
-  /** Description détaillée de l'étape. */
-  lead: string;
-  /** Points concrets : ce que l'utilisateur peut faire à cette étape. */
-  details: string[];
-  visual: Visual;
-  /** Icône lucide des cartes « section » (même famille que la barre du bas). */
-  icon?: LucideIcon;
+  text: string;
+  Illustration: React.ComponentType<IllusProps>;
 };
 
+/** Les 7 guides, dans l'ordre imposé du parcours. */
 const SLIDES: Slide[] = [
   {
-    key: "welcome",
-    title: "Bienvenue sur BatiBuild",
-    lead: "Votre copilote IA pour estimer, suivre et piloter vos projets de construction, d'aménagement et de rénovation en Tunisie. Ce guide présente en quelques cartes tout ce que vous pouvez faire dans l'application.",
-    details: [
-      "Estimation automatique aux prix du marché tunisien",
-      "Documents lus par l'IA : photo, plan, image satellite, croquis",
-      "Projets, rapports et investissements réunis dans un seul espace",
-    ],
-    visual: "logo",
+    key: "overcosts",
+    title: "Évitez les surcoûts",
+    text: "L'IA détecte automatiquement les surfaces, les matériaux et les quantités — plus d'oublis, plus de mauvaises surprises en chantier.",
+    Illustration: GUIDE_ILLUSTRATIONS[0],
   },
   {
-    key: "profile",
-    title: "Mon profil",
-    lead: "Votre espace personnel réunit vos informations, votre abonnement et vos préférences. Plus votre profil est complet, plus les estimations et les recommandations sont pertinentes.",
-    details: [
-      "Informations personnelles et coordonnées",
-      "Abonnement et historique de vos estimations",
-      "Préférences et sécurité de votre compte",
-    ],
-    visual: "icon",
-    icon: NAV_ICONS.profile,
+    key: "quote",
+    title: "Devis clé en main",
+    text: "Importez une photo, un plan PDF, une image satellite ou un croquis à la main — l'IA fait le reste en quelques minutes.",
+    Illustration: GUIDE_ILLUSTRATIONS[1],
   },
   {
-    key: "projects",
-    title: "Projets",
-    lead: "Créez un projet en important une photo du terrain, un plan (PDF, JPG, PNG), une image satellite ou un croquis. Vous pouvez aussi saisir simplement la région et la surface : BatiBuild prépare le dossier pour vous.",
-    details: [
-      "Choisissez le type : maison, villa, appartement ou piscine",
-      "Importez un plan, une photo, une image satellite ou un croquis",
-      "Sans dimensions ? l'IA les estime à partir de vos documents",
-    ],
-    visual: "import",
+    key: "materials",
+    title: "Choisissez les meilleurs matériaux",
+    text: "Comparez 3 options (Économique, Équilibré, Premium) pour chaque poste — l'IA recommande le meilleur rapport qualité/prix.",
+    Illustration: GUIDE_ILLUSTRATIONS[2],
   },
   {
-    key: "analysis",
-    title: "Analyse IA",
-    lead: "L'intelligence artificielle lit vos documents et reconstruit le projet : type de construction, dimensions réelles, surfaces construites, matériaux nécessaires, quantités et qualité de finition.",
-    details: [
-      "Type de projet et surface détectés automatiquement",
-      "Matériaux identifiés et quantités estimées",
-      "Un indice de confiance accompagne chaque détection",
-    ],
-    visual: "analysis",
+    key: "phases",
+    title: "Ne perdez plus une seule étape",
+    text: "Guide complet de 10 phases : démarches, budget, planning, contrôle de chantier — rien n'est oublié.",
+    Illustration: GUIDE_ILLUSTRATIONS[3],
   },
   {
-    key: "report",
-    title: "Estimation & coûts",
-    lead: "Le rapport affiche le coût total estimé aux prix du marché tunisien, la répartition détaillée par lots et trois scénarios de qualité pour arbitrer votre budget.",
-    details: [
-      "Répartition gros œuvre, second œuvre et équipements",
-      "Trois scénarios : Économique, Standard, Premium",
-      "Rapport téléchargeable en PDF, prêt à partager",
-    ],
-    visual: "report",
+    key: "investment",
+    title: "Investissez sans risque",
+    text: "Return on Investment à 1/5/10 ans, flux de trésorerie, score IA /100 et 3 scénarios — comparez avant d'engager votre capital.",
+    Illustration: GUIDE_ILLUSTRATIONS[4],
   },
   {
-    key: "investments",
-    title: "Investissements",
-    lead: "Évaluez la rentabilité d'un projet immobilier avant d'acheter, de construire ou de louer, pour décider en toute confiance.",
-    details: [
-      "Score IA sur 100 et niveau de confiance",
-      "Rendement net, flux de trésorerie et retour sur investissement",
-      "Prévisions de bénéfices sur 10 ans",
-    ],
-    visual: "investment",
+    key: "prices",
+    title: "Suivez l'évolution des prix",
+    text: "Base de 500+ matériaux actualisée en temps réel — anticipez les hausses et optimisez votre timing d'achat.",
+    Illustration: GUIDE_ILLUSTRATIONS[5],
   },
   {
-    key: "dashboard",
-    title: "Dashboard",
-    lead: "Votre tableau de bord réunit l'essentiel en un coup d'œil et suit l'avancement de tous vos dossiers.",
-    details: [
-      "Statistiques et dépenses de vos projets",
-      "Vos dernières estimations enregistrées",
-      "Recommandations de l'IA",
-    ],
-    visual: "icon",
-    icon: NAV_ICONS.dashboard,
-  },
-  {
-    key: "messages",
-    title: "Messagerie",
-    lead: "Échangez avec vos fournisseurs, vos experts et l'équipe BatiBuild, sans quitter l'application et sans perdre le fil de vos projets.",
-    details: [
-      "Un fil par projet ou par demande de devis",
-      "Notification à chaque nouveau message",
-      "Partage de documents et de photos",
-    ],
-    visual: "icon",
-    icon: NAV_ICONS.messages,
-  },
-  {
-    key: "support",
-    title: "Support",
-    lead: "Besoin d'aide ? L'icône Support de la barre supérieure vous met directement en relation avec notre équipe, en conservant votre session.",
-    details: [
-      "Questions fréquentes et prise en main rapide",
-      "Ouvrez un ticket et suivez la réponse",
-      "Votre demande reste rattachée à votre compte",
-    ],
-    visual: "icon",
-    icon: SUPPORT_ICON,
-  },
-  {
-    key: "start",
-    title: "Prêt à commencer ?",
-    lead: "Connectez-vous ou créez votre compte, puis lancez votre première estimation : l'IA s'occupe du reste, vous gardez la main sur les décisions.",
-    details: [
-      "Vos projets et vos estimations restent privés",
-      "Ce guide reste accessible depuis les réglages",
-    ],
-    visual: "logo",
+    key: "providers",
+    title: "Trouvez les bons prestataires",
+    text: "Annuaire vérifié d'architectes, ingénieurs et fournisseurs : spécialités, régions et recommandations ciblées.",
+    Illustration: GUIDE_ILLUSTRATIONS[6],
   },
 ];
-
-/** Carte « section » : icône lucide + lignes de contenu. */
-function SectionCard(icon: LucideIcon, cardW: number, theme: AppTheme) {
-  const Icon = icon;
-  return (
-    <View
-      style={[
-        styles.card,
-        { width: cardW, backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
-      ]}
-    >
-      <View style={[styles.iconTile, { backgroundColor: theme.primaryContainer }]}>
-        <Icon size={34} color={theme.onPrimaryContainer} strokeWidth={1.9} />
-      </View>
-      <View style={[styles.ghostLine, { backgroundColor: theme.outlineVariant, width: "78%" }]} />
-      <View style={[styles.ghostLine, { backgroundColor: theme.outlineVariant, width: "52%" }]} />
-      <View style={[styles.ghostBlock, { backgroundColor: theme.surfaceContainerHigh }]} />
-    </View>
-  );
-}
-
-/** Carte « logo officiel » (bienvenue / démarrage). */
-function LogoCard(cardW: number, theme: AppTheme) {
-  return (
-    <View
-      style={[
-        styles.card,
-        styles.logoCard,
-        { width: cardW, backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
-      ]}
-    >
-      <Logo size={Math.min(120, cardW * 0.46)} shadow />
-      <View style={[styles.aiBadge, { backgroundColor: theme.primaryContainer }]}>
-        <Text style={[styles.aiBadgeText, { color: theme.onPrimaryContainer }]}>
-          Gestion • Suivi • Estimation • IA
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function visualFor(slide: Slide, cardW: number, theme: AppTheme) {
-  switch (slide.visual) {
-    case "import":
-      return <MockImportCard width={cardW} theme={theme} />;
-    case "analysis":
-      return <MockAnalysisCard width={cardW} theme={theme} />;
-    case "report":
-      return <MockReportCard width={cardW} theme={theme} />;
-    case "investment":
-      return <MockInvestmentCard width={cardW} theme={theme} />;
-    case "logo":
-      return LogoCard(cardW, theme);
-    default:
-      return SectionCard(slide.icon ?? NAV_ICONS.profile, cardW, theme);
-  }
-}
 
 type Props = {
   onDone: () => void;
@@ -232,14 +100,17 @@ type Props = {
 export default function OnboardingScreen({ onDone }: Props) {
   const insets = useSafeAreaInsets();
   const theme = useAppTheme();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList<Slide>>(null);
 
   const last = index === SLIDES.length - 1;
-  // Les cartes des écrans de la plateforme sont larges : on leur laisse la
-  // quasi-totalité de la largeur du téléphone, mises à l'échelle.
-  const cardW = Math.min(width - 56, 300);
+
+  // L'illustration occupe une part importante de l'écran sans jamais empêcher
+  // la lecture du texte : elle est bornée en hauteur puis ajustée en largeur
+  // (petits écrans, grands écrans, rotation).
+  const illusMaxH = Math.min(Math.max(height * 0.38, 150), 280);
+  const illusW = Math.min(width - 48, (illusMaxH * 4) / 3);
 
   const goNext = () => {
     if (last) {
@@ -254,31 +125,29 @@ export default function OnboardingScreen({ onDone }: Props) {
     setIndex(Math.max(0, Math.min(SLIDES.length - 1, i)));
   };
 
-  const Check = GUIDE_ICONS.check;
-
   return (
     <View
       style={[
         styles.root,
-        {
-          backgroundColor: theme.surface,
-          paddingTop: insets.top,
-          paddingBottom: Math.max(insets.bottom, 16),
-        },
+        { backgroundColor: theme.surface, paddingTop: insets.top },
       ]}
     >
+      {/* En-tête discret : identité Batibuild + position dans le parcours. */}
       <View style={styles.topBar}>
-        <View style={styles.brandMiniWrap}>
-          <Logo size={24} radiusRatio={0.28} />
-          <Text style={[styles.brandMini, { color: theme.onSurface }]}>BatiBuild</Text>
+        <View style={styles.brandWrap}>
+          <Logo size={26} radiusRatio={0.28} />
+          <Text style={[styles.brandName, { color: theme.onSurface }]}>BatiBuild</Text>
         </View>
-        <Pressable
-          onPress={onDone}
-          hitSlop={12}
-          style={({ pressed }) => [styles.skipBtn, pressed && { opacity: 0.6 }]}
+        <View
+          style={[
+            styles.stepChip,
+            { backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
+          ]}
         >
-          <Text style={[styles.skipText, { color: theme.onSurfaceVariant }]}>Passer</Text>
-        </Pressable>
+          <Text style={[styles.stepChipText, { color: theme.primary }]}>
+            {index + 1} / {SLIDES.length}
+          </Text>
+        </View>
       </View>
 
       <FlatList
@@ -289,39 +158,37 @@ export default function OnboardingScreen({ onDone }: Props) {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onMomentumEnd}
-        renderItem={({ item, index: i }) => (
-          <View style={[styles.slide, { width }]}>
-            {/* Défilement vertical : les cartes détaillées restent lisibles en
-                entier, même sur un petit écran. */}
-            <ScrollView
-              style={styles.illus}
-              contentContainerStyle={styles.illusContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {visualFor(item, cardW, theme)}
-              <Text style={[styles.step, { color: theme.primary }]}>
-                Étape {i + 1} / {SLIDES.length}
-              </Text>
-              <Text style={[styles.title, { color: theme.onSurface }]}>{item.title}</Text>
-              <Text style={[styles.description, { color: theme.onSurfaceVariant }]}>
-                {item.lead}
-              </Text>
-
-              <View style={styles.details}>
-                {item.details.map((d) => (
-                  <View key={d} style={styles.detailRow}>
-                    <Check size={15} color={theme.primary} strokeWidth={2.4} />
-                    <Text style={[styles.detailText, { color: theme.onSurface }]}>{d}</Text>
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
-          </View>
-        )}
+        initialNumToRender={2}
+        maxToRenderPerBatch={2}
+        windowSize={3}
         getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+        renderItem={({ item }) => {
+          const Illustration = item.Illustration;
+          return (
+            <View style={{ width }}>
+              {/* Défilement vertical de secours : sur un très petit écran, le
+                  texte reste lisible dans son intégralité. */}
+              <ScrollView
+                contentContainerStyle={styles.slide}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.illusSlot}>
+                  <Illustration width={illusW} theme={theme} />
+                </View>
+                <Text style={[styles.title, { color: theme.onSurface }]}>{item.title}</Text>
+                <Text style={[styles.text, { color: theme.onSurfaceVariant }]}>{item.text}</Text>
+              </ScrollView>
+            </View>
+          );
+        }}
       />
 
-      <View style={styles.footer}>
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: Math.max(insets.bottom, 14) },
+        ]}
+      >
         <View style={styles.dots}>
           {SLIDES.map((s, i) => (
             <View
@@ -329,23 +196,38 @@ export default function OnboardingScreen({ onDone }: Props) {
               style={[
                 styles.dot,
                 { backgroundColor: theme.outlineVariant },
-                i === index && { width: 18, backgroundColor: theme.primary },
+                i === index && { width: 20, backgroundColor: theme.primary },
               ]}
             />
           ))}
         </View>
-        <Pressable
-          onPress={goNext}
-          style={({ pressed }) => [
-            styles.cta,
-            { backgroundColor: theme.primary },
-            pressed && { opacity: 0.9 },
-          ]}
-        >
-          <Text style={[styles.ctaText, { color: theme.onPrimary }]}>
-            {last ? "Commencer" : "Suivant"}
-          </Text>
-        </Pressable>
+
+        <View style={styles.actions}>
+          <Pressable
+            onPress={onDone}
+            accessibilityRole="button"
+            accessibilityLabel="Passer le guide"
+            hitSlop={10}
+            style={({ pressed }) => [styles.skip, pressed && { opacity: 0.6 }]}
+          >
+            <Text style={[styles.skipText, { color: theme.onSurfaceVariant }]}>Passer</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={goNext}
+            accessibilityRole="button"
+            accessibilityLabel={last ? "Commencer" : "Suivant"}
+            style={({ pressed }) => [
+              styles.cta,
+              { backgroundColor: theme.primary },
+              pressed && { opacity: 0.9 },
+            ]}
+          >
+            <Text style={[styles.ctaText, { color: theme.onPrimary }]}>
+              {last ? "Commencer" : "Suivant"}
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -361,124 +243,64 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  brandMiniWrap: {
+  brandWrap: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  brandMini: {
+  brandName: {
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 0.2,
   },
-  skipBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+  stepChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
   },
-  skipText: {
-    fontSize: 14,
-    fontWeight: "600",
+  stepChipText: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   slide: {
-    flex: 1,
-  },
-  illus: {
-    flex: 1,
-  },
-  illusContent: {
     flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
-    paddingVertical: 8,
+    paddingTop: 6,
+    paddingBottom: 8,
   },
-  card: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 22,
-    alignItems: "center",
-    shadowColor: "#000000",
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
-  },
-  logoCard: {
-    paddingVertical: 30,
-  },
-  iconTile: {
-    width: 68,
-    height: 68,
-    borderRadius: 20,
+  illusSlot: {
     alignItems: "center",
     justifyContent: "center",
   },
-  ghostLine: {
-    height: 9,
-    borderRadius: 5,
-    marginTop: 14,
-  },
-  ghostBlock: {
-    marginTop: 16,
-    width: "100%",
-    height: 46,
-    borderRadius: 14,
-  },
-  aiBadge: {
-    marginTop: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 999,
-  },
-  aiBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-  step: {
-    marginTop: 20,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-  },
   title: {
-    marginTop: 6,
+    marginTop: 18,
     fontSize: 23,
     fontWeight: "800",
     textAlign: "center",
     lineHeight: 30,
+    letterSpacing: -0.2,
   },
-  description: {
+  text: {
     marginTop: 10,
     fontSize: 14.5,
     textAlign: "center",
     lineHeight: 21,
   },
-  details: {
-    marginTop: 16,
-    alignSelf: "stretch",
-    gap: 8,
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  detailText: {
-    flex: 1,
-    fontSize: 13.5,
-    lineHeight: 19,
-  },
   footer: {
     paddingHorizontal: 24,
-    paddingTop: 18,
+    paddingTop: 14,
   },
   dots: {
     flexDirection: "row",
     justifyContent: "center",
+    alignItems: "center",
     gap: 6,
     marginBottom: 16,
   },
@@ -487,10 +309,29 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
-  cta: {
-    borderRadius: 16,
-    paddingVertical: 16,
+  actions: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  skip: {
+    minHeight: 48,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  skipText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  cta: {
+    flexGrow: 1,
+    maxWidth: 240,
+    minHeight: 50,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
     shadowColor: COLORS.brand,
     shadowOpacity: 0.3,
     shadowRadius: 10,

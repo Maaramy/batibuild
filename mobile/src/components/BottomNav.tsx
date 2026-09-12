@@ -3,7 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { NAV_DESTINATIONS, type NavDestination, type NavId } from "../config";
-import { NAV_ICONS, STROKE } from "./icons";
+import { NAV_ICONS, NAV_STROKE } from "./icons";
 import { SHAPE, useAppTheme } from "../theme";
 
 /**
@@ -13,6 +13,10 @@ import { SHAPE, useAppTheme } from "../theme";
  * et le reste de la plateforme. Aucun mélange pleine/contour : l'état actif est
  * signalé par la couleur de marque, la graisse du libellé et une épaisseur de
  * trait légèrement supérieure — lisible en mode clair comme en mode sombre.
+ *
+ * Les icônes sont volontairement COMPACTES (20 pt) et la barre peu haute : elle
+ * occupe le minimum d'espace vertical et les 5 libellés restent visibles en
+ * entier, même sur un petit écran.
  *
  * Elle ne défile jamais avec le contenu de la WebView, reste au-dessus de la
  * zone système basse (gestes ou boutons) et ne recrée jamais la WebView au clic.
@@ -38,7 +42,7 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
     }).start();
   }, [selected, progress]);
 
-  const iconScale = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
+  const iconScale = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] });
   const Icon = NAV_ICONS[destination.id];
   const color = selected ? theme.primary : theme.onSurfaceVariant;
 
@@ -55,7 +59,11 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
       style={({ pressed }) => [styles.item, pressed && { opacity: 0.7 }]}
     >
       <Animated.View style={[styles.iconWrap, { transform: [{ scale: iconScale }] }]}>
-        <Icon size={23} color={color} strokeWidth={selected ? STROKE.active : STROKE.inactive} />
+        <Icon
+          size={20}
+          color={color}
+          strokeWidth={selected ? NAV_STROKE.active : NAV_STROKE.inactive}
+        />
       </Animated.View>
 
       {/* Les libellés sont TOUJOURS visibles (pas de comportement « hover ») et
@@ -130,7 +138,7 @@ export default function BottomNav({ active, onSelect, onOpenSettings }: Props) {
 
 const styles = StyleSheet.create({
   band: {
-    paddingTop: 8,
+    paddingTop: 6,
     paddingHorizontal: 14,
   },
   capsule: {
@@ -138,7 +146,7 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
     borderRadius: SHAPE.full,
     borderWidth: 1,
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 4,
     // Ombre douce : la barre semble posée sur la page (design flottant).
     shadowColor: "#000000",
@@ -149,8 +157,8 @@ const styles = StyleSheet.create({
   },
   item: {
     flex: 1,
-    minHeight: 52,
-    paddingVertical: 6,
+    minHeight: 46,
+    paddingVertical: 4,
     paddingHorizontal: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -161,11 +169,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   label: {
-    marginTop: 3,
+    marginTop: 2,
     alignSelf: "stretch",
     textAlign: "center",
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 9.5,
+    lineHeight: 12,
     letterSpacing: -0.2,
   },
 });

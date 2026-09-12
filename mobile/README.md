@@ -6,7 +6,7 @@ Application mobile **native** (React Native / Expo SDK 57) qui embarque la plate
 **Guide d'onboarding** natifs au premier lancement.
 
 ```
-Première installation :  Splash (≤ 1 s)  →  Guide (cartes / Passer)  →  WebView BatiBuild
+Première installation :  Splash (≤ 1 s)  →  7 guides (Suivant / Passer)  →  WebView BatiBuild
 Lancements suivants :    Splash (≤ 1 s)  →  WebView BatiBuild
 ```
 
@@ -19,11 +19,20 @@ Android Native Shell
 │      L'écran de démarrage natif est BLANC et SANS image : le logo sur fond
 │      vert qui s'affichait avant le chargement a été supprimé.
 │
+├── 7 guides de démarrage  (1ʳᵉ installation uniquement)
+│      1. Évitez les surcoûts            5. Investissez sans risque
+│      2. Devis clé en main              6. Suivez l'évolution des prix
+│      3. Choisissez les meilleurs       7. Trouvez les bons prestataires
+│         matériaux
+│      4. Ne perdez plus une seule étape
+│
 ├── Top Navbar  (native, fond blanc)
 │      Logo + « batibuild App »    Support   Paramètres        (aucun burger)
 │
 ├── Bottom Navigation  (5 sections, fixe, libellés toujours visibles)
 │      Mon profil · Projets · Dashboard · Investissements · Messagerie
+│      → MASQUÉE sur les écrans plein écran (résultats d'estimation du coût,
+│        résultats des matériaux IA, connexion / inscription)
 │
 └── WebView  →  plateforme Batibuild (inchangée)
 ```
@@ -32,7 +41,8 @@ Les deux barres sont **natives** : elles ne défilent pas avec le contenu, respe
 zones système (haute et basse) et n'entraînent **jamais** le rechargement de la WebView
 (donc session, cookies, état et historique préservés). La barre du bas n'affiche
 **aucun cercle ni pastille de fond** : l'état actif se voit à la couleur et à la graisse
-de l'entrée.
+de l'entrée. Ses icônes sont **compactes (20 pt)** et sa hauteur réduite, pour laisser
+un maximum d'espace au contenu.
 
 ### Icônes harmonisées avec la plateforme
 
@@ -101,16 +111,16 @@ mobile/
 ├── assets/                        # Logo officiel, icône, icône adaptative ; splash natif transparent
 ├── src/
 │   ├── screens/
-│   │   ├── SplashScreen.tsx       # Splash natif (logo, nom, tagline, « Chargement.... »)
-│   │   ├── OnboardingScreen.tsx   # Guide (1 carte par section) + « Passer » (1ʳᵉ installation)
+│   │   ├── SplashScreen.tsx       # Splash minimal : logo officiel + « Chargement.... »
+│   │   ├── OnboardingScreen.tsx   # Parcours de 7 guides (image + titre + texte) + Passer
 │   │   └── WebViewScreen.tsx      # WebView BatiBuild (toutes les options)
 │   ├── components/
-│   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : barres, guide, erreurs
+│   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : barres, guides, erreurs
 │   │   ├── Logo.tsx               # Logo officiel de la plateforme (tuile émeraude + casque blanc)
 │   │   ├── TopNav.tsx             # Barre native supérieure : logo + nom, Support, Paramètres
-│   │   ├── BottomNav.tsx          # Barre de navigation Material 3 (5 sections)
-│   │   └── GuideCards.tsx         # Cartes du guide : écrans de la plateforme recréés nativement
-│   ├── storage.ts                 # hasCompletedOnboarding (AsyncStorage)
+│   │   ├── BottomNav.tsx          # Barre de navigation Material 3 (5 sections, icônes 20 pt)
+│   │   └── GuideIllustrations.tsx # 7 illustrations dédiées (scènes vectorielles SVG)
+│   ├── storage.ts                 # onboardingCompleted (AsyncStorage)
 │   ├── theme.ts                   # Jetons Material 3 (clair / sombre) issus de la charte BatiBuild
 ├── android/                       # Projet natif Android — COMMITÉ (build Gradle local direct)
 ├── ios/                           # Projet natif iOS (CNG : généré par `expo prebuild`, macOS)
@@ -127,15 +137,16 @@ mobile/
 
 | Fonctionnalité | Comportement |
 |---|---|
-| **Splash** | **Fond BLANC**, logo officiel + « BatiBuild » + slogan, et **un seul message : « Chargement.... »**. Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
+| **Splash** | **Fond BLANC**, logo officiel et **un seul message : « Chargement.... »** (aucun slogan, aucune image de présentation). Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
 | **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
-| **Barre de navigation (bas)** | Capsule **flottante** arrondie (coins pleins, ombre douce) : 5 sections Material 3 (Mon profil · Projets · Dashboard · Investissements · Messagerie), toujours visibles, libellés permanents (jamais de « hover »), icônes pleines (actif) / contour (inactif). **Aucun cercle ni pastille verte** : l'état actif est signalé par la couleur et la graisse. |
+| **Barre de navigation (bas)** | Capsule **flottante** arrondie (coins pleins, ombre douce) : 5 sections Material 3 (Mon profil · Projets · Dashboard · Investissements · Messagerie), toujours visibles, libellés permanents (jamais de « hover »), icônes **lucide 20 pt** (actif) / contour (inactif). **Aucun cercle ni pastille verte** : l'état actif est signalé par la couleur et la graisse. **Masquée automatiquement** sur les écrans plein écran : résultats d'estimation du coût de construction (`/dashboard/project/…`), résultats des matériaux IA (`/dashboard/ai-materials/result/…`) et connexion / inscription (`/auth`) — voir `shouldShowBottomNav()` dans `src/config.ts`. |
 | **Barre supérieure (native)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. Aucun menu burger — celui de l'en-tête web est masqué dans l'application. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
-| **Onboarding** | Une **carte par étape**, un repère d'étape (« Étape 3 / 10 »), un **titre**, une **description détaillée** et la **liste de ce que l'étape permet de faire**, puis un bouton **Passer**. Les étapes « métier » illustrent les écrans de la plateforme recréés nativement (`GuideCards.tsx`), **dans l'ordre de la plateforme** (celui de son propre carrousel : import → analyse IA → coût → investissement) : **Importer les documents** (nouveau projet), **Analyse en cours** (reconnaissance IA), **Coût total estimé** (rapport + scénarios Économique / Standard / Premium) et **Score IA** (analyse d'investissement, cadran SVG 94 %). Mémorisé via `hasCompletedOnboarding` (AsyncStorage). |
-| **Réinstallation** | Le stockage local est effacé → le guide réapparaît (comportement attendu). |
-| **Mise à jour** | `hasCompletedOnboarding` est conservé → pas de guide à chaque mise à jour. |
+| **Guides de démarrage** | **7 guides**, un seul parcours (les anciens écrans d'introduction ont été supprimés) : **Évitez les surcoûts · Devis clé en main · Choisissez les meilleurs matériaux · Ne perdez plus une seule étape · Investissez sans risque · Suivez l'évolution des prix · Trouvez les bons prestataires**. Chaque guide = **illustration dédiée** + **titre** + **texte descriptif** + indicateur **« n / 7 »** (pastilles) + bouton **Suivant** (puis **Commencer** au 7ᵉ) + bouton **Passer**. Les illustrations sont des **scènes vectorielles dessinées pour BatiBuild** (`GuideIllustrations.tsx`, voir la note ci-dessous). Mémorisé via `onboardingCompleted` (AsyncStorage). |
+| **Illustrations des guides** | Aucune image générique, aucun placeholder, aucune icône seule : chaque guide affiche une **scène SVG dédiée** (détection IA sur le plan, convergence import → IA → devis, comparaison Économique / Équilibré / Premium, 10 phases de chantier, ROI 1/5/10 ans + score IA + scénarios, 500+ matériaux et courbe des prix, annuaire vérifié + carte des régions). Elles sont **vectorielles donc nettes sur tous les écrans**, suivent le **thème clair / sombre / système** et n'entraînent **aucun téléchargement**. |
+| **Réinstallation** | Le stockage local est effacé → les guides réapparaissent (comportement attendu). |
+| **Mise à jour** | `onboardingCompleted` est conservé → pas de guides à chaque mise à jour. |
 | **Revoir le guide** | **Appui long** sur la barre de navigation (n'importe quelle entrée) → « Voir le guide » (ne supprime aucune donnée). Le menu n'occupe aucune place à l'écran. |
 | **Session** | Cookies, stockage local, cache persistants entre les lancements (`sharedCookiesEnabled`, `thirdPartyCookiesEnabled`, `cacheEnabled`, `domStorageEnabled`). |
 | **Navigation interne** | Toutes les pages `*.freebuff.app` restent dans la WebView. |
@@ -338,8 +349,9 @@ n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
 
 ## 10. Notes & dépannage
 
-- **Le guide ne réapparaît pas** après mise à jour : normal — le flag `hasCompletedOnboarding`
-  est persistant. Il réapparaît après **désinstallation/réinstallation** (stockage effacé).
+- **Les guides ne réapparaissent pas** après mise à jour : normal — le flag `onboardingCompleted`
+  est persistant. Ils réapparaissent après **désinstallation/réinstallation** (stockage effacé),
+  ou immédiatement via l'appui long sur la barre du bas → « Voir le guide ».
 - **Écran « Connexion Internet indisponible »** : la WebView ne charge pas ; vérifiez la
   connexion puis touchez **Réessayer** (recharge complète).
 - **Un lien externe s'ouvre dans le WebView** : seuls les hôtes `*.freebuff.app` restent

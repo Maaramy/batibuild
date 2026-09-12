@@ -15,29 +15,50 @@
 
 import {
   ArrowRight,
+  ArrowUpRight,
+  BadgeCheck,
+  Blocks,
   Bot,
   Building2,
+  Calendar,
+  ChartLine,
   Check,
+  CircleCheck,
+  Clock,
   CloudOff,
+  Coins,
   Cpu,
   Download,
   FileText,
+  Globe,
+  Hammer,
   HardHat,
   Headset,
+  Image,
+  ImagePlus,
   Landmark,
   Layers,
   LayoutDashboard,
   LoaderCircle,
   MapPin,
   MessageSquare,
+  Package,
+  PencilRuler,
+  PenLine,
   Percent,
   Ruler,
+  Satellite,
+  Search,
   Settings,
+  ShieldCheck,
   Sparkles,
+  Star,
   TrendingUp,
   Upload,
   User,
+  Users,
   Wallet,
+  Wrench,
   type LucideIcon,
 } from "lucide-react-native";
 
@@ -78,26 +99,64 @@ export const STROKE = {
 } as const;
 
 /**
- * Icônes des cartes du guide (recréations des écrans de la plateforme :
- * `src/components/LandingMockScreens.tsx`) — même famille, mêmes tracés.
+ * Icônes de la barre de navigation inférieure : un trait légèrement plus fin,
+ * pour rester net à la taille réduite demandée.
+ */
+export const NAV_STROKE = {
+  inactive: 1.7,
+  active: 2.1,
+} as const;
+
+/**
+ * Icônes des guides de première visite et de leurs illustrations — toujours la
+ * même famille (lucide), jamais d'icône d'un autre style.
  */
 export const GUIDE_ICONS = {
-  upload: Upload,
+  /* actions & états */
   check: Check,
-  mapPin: MapPin,
-  ruler: Ruler,
-  cpu: Cpu,
-  loader: LoaderCircle,
-  building: Building2,
-  layers: Layers,
-  sparkles: Sparkles,
-  download: Download,
-  fileText: FileText,
-  percent: Percent,
-  wallet: Wallet,
-  trending: TrendingUp,
-  bot: Bot,
+  circleCheck: CircleCheck,
+  badgeCheck: BadgeCheck,
+  shieldCheck: ShieldCheck,
+  star: Star,
+  search: Search,
   arrowRight: ArrowRight,
+  arrowUpRight: ArrowUpRight,
+  upload: Upload,
+  download: Download,
+  loader: LoaderCircle,
+  clock: Clock,
+  calendar: Calendar,
+  /* documents & médias */
+  fileText: FileText,
+  image: Image,
+  imagePlus: ImagePlus,
+  globe: Globe,
+  satellite: Satellite,
+  pencilRuler: PencilRuler,
+  penLine: PenLine,
+  /* construction & matériaux */
+  hardHat: HardHat,
+  hammer: Hammer,
+  wrench: Wrench,
+  blocks: Blocks,
+  package: Package,
+  layers: Layers,
+  building: Building2,
+  ruler: Ruler,
+  mapPin: MapPin,
+  /* données & IA */
+  cpu: Cpu,
+  sparkles: Sparkles,
+  bot: Bot,
+  chartLine: ChartLine,
+  trending: TrendingUp,
+  percent: Percent,
+  coins: Coins,
+  wallet: Wallet,
+  landmark: Landmark,
+  users: Users,
+  user: User,
+  messageSquare: MessageSquare,
 } as const;
 
 export type { LucideIcon };

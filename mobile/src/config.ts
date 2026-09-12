@@ -193,3 +193,35 @@ export function activeNavId(path: string): NavId | null {
 export function isDashboardRoute(path: string): boolean {
   return routeKey(path) === routeKey(DASHBOARD_PATH);
 }
+
+/* ------------------------------------------------------------------ *
+ * Écrans plein écran — barre de navigation inférieure masquée
+ * ------------------------------------------------------------------ */
+
+/**
+ * Routes sur lesquelles la barre de navigation inférieure est MASQUÉE dans
+ * l'application mobile : le contenu occupe alors toute la hauteur disponible et
+ * n'est jamais recouvert par la barre.
+ *
+ * Ce sont des routes RÉELLES de la plateforme (`src/main.tsx`) : aucune page
+ * n'est créée, dupliquée ni modifiée — le masquage est purement natif.
+ */
+const HIDE_BOTTOM_NAV_PATTERNS: readonly RegExp[] = [
+  // Connexion / inscription
+  /^\/auth(\/|$)/,
+  // Résultats d'estimation du coût de construction (projet)
+  /^\/dashboard\/project\//,
+  // Résultats de l'analyse des matériaux par l'IA
+  /^\/dashboard\/ai-materials\/result\//,
+];
+
+/**
+ * La barre de navigation inférieure doit-elle être affichée pour cette route ?
+ *
+ * Elle reste visible partout ailleurs (Profil, Projets, Dashboard,
+ * Investissements, Messagerie, Support, Paramètres…).
+ */
+export function shouldShowBottomNav(path: string): boolean {
+  const route = routeKey(path);
+  return !HIDE_BOTTOM_NAV_PATTERNS.some((pattern) => pattern.test(route));
+}
