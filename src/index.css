@@ -241,6 +241,24 @@ html {
   display: none;
 }
 
+/* ============================================================================
+   Dashboard — actions rapides sans cadre ni ombre
+   ============================================================================ */
+
+/* Les cartes d'actions rapides du tableau de bord (« Nouveau projet »,
+   « Nouveau investissement », « Prix », « Abonnement », « Assistant IA »,
+   « Démarche ») s'affichent SANS bordure ni ombre portée : seules les pastilles
+   colorées des icônes structurent la rangée.
+
+   Le sélecteur vise la combinaison de classes propre à cette rangée
+   (`backdrop-blur-sm` + `shrink-0` sur une carte) : aucune autre carte de
+   l'application ne l'utilise, et le reste du dashboard (statistiques, encarts)
+   conserve son cadrage. */
+[data-slot="card"].backdrop-blur-sm.shrink-0 {
+  border-width: 0;
+  box-shadow: none;
+}
+
 /* Éviter le zoom automatique iOS au focus d'un champ : taille de police ≥ 16px
    sur mobile uniquement. Améliore l'usage tactile des champs numériques. */
 @media (max-width: 767px) {
