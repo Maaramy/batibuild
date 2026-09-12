@@ -131,22 +131,28 @@ export type NavDestination = {
 
 /**
  * Les 5 sections de la barre de navigation native, dans l'ordre imposé :
- * Mon profil · Projets · Dashboard · Investissements · Messagerie.
+ * Profile · Projets · Home · ROI · Message.
  *
  * Les routes sont celles qui existent déjà dans le routeur de la plateforme
  * (`src/main.tsx`) : la navigation ne crée aucune page et ne duplique rien.
  *
- * « Projets » et « Dashboard » pointent tous les deux vers `/dashboard` (la
+ * « Projets » et « Home » pointent tous les deux vers `/dashboard` (la
  * plateforme n'expose qu'une seule route d'accueil connectée, qui contient la
  * liste des projets). L'onglet visuellement actif suit le dernier onglet
  * choisi lorsque la WebView est sur `/dashboard` — voir `WebViewScreen`.
+ *
+ * « ROI » ouvre l'analyse immobilière (`/dashboard/investments`) : c'est la
+ * page qui calcule le retour sur investissement, le rendement, les scénarios et
+ * le score IA. Son icône (`TrendingUp`) est EXACTEMENT celle de l'action
+ * « Return on Investment » affichée sur la page Résultats coût de construction
+ * (voir `icons.ts`).
  */
 export const NAV_DESTINATIONS: readonly NavDestination[] = [
-  { id: "profile", label: "Mon profil", path: "/dashboard/profile" },
+  { id: "profile", label: "Profile", path: "/dashboard/profile" },
   { id: "projects", label: "Projets", path: DASHBOARD_PATH },
-  { id: "dashboard", label: "Dashboard", path: DASHBOARD_PATH },
-  { id: "investments", label: "Investissements", path: "/dashboard/investments" },
-  { id: "messages", label: "Messagerie", path: "/dashboard/messages" },
+  { id: "dashboard", label: "Home", path: DASHBOARD_PATH },
+  { id: "investments", label: "ROI", path: "/dashboard/investments" },
+  { id: "messages", label: "Message", path: "/dashboard/messages" },
 ] as const;
 
 /** Routes atteignables directement depuis la barre supérieure native. */
@@ -167,7 +173,7 @@ function inSection(path: string, base: string): boolean {
  * Onglet actif pour une route donnée.
  *
  * `/dashboard` est l'accueil de l'espace connecté : c'est l'onglet central
- * (« Dashboard ») qui est actif par défaut. « Projets » pointe sur la même
+ * (« Home ») qui est actif par défaut. « Projets » pointe sur la même
  * route : c'est le dernier onglet choisi par l'utilisateur qui départage les
  * deux (voir `WebViewScreen`).
  *
@@ -187,7 +193,7 @@ export function activeNavId(path: string): NavId | null {
 }
 
 /**
- * Onglets qui partagent la route `/dashboard` : « Projets » et « Dashboard ».
+ * Onglets qui partagent la route `/dashboard` : « Projets » et « Home ».
  * Utilisé pour savoir si le choix de l'utilisateur doit être mémorisé.
  */
 export function isDashboardRoute(path: string): boolean {

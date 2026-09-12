@@ -30,7 +30,7 @@ Android Native Shell
 │      Logo + « batibuild App »    Support   Paramètres        (aucun burger)
 │
 ├── Bottom Navigation  (5 sections, fixe, libellés toujours visibles)
-│      Mon profil · Projets · Dashboard · Investissements · Messagerie
+│      Profile · Projets · Home · ROI · Message
 │      → AFFICHÉE UNIQUEMENT sur /dashboard (l'accueil connecté)
 │      → MASQUÉE partout ailleurs : profil, investissements, messagerie,
 │        support, paramètres, résultats d'estimation du coût, résultats des
@@ -60,11 +60,11 @@ Toute la coque native (barre supérieure, barre inférieure, guide, écran d'err
 
 | Élément | Icône |
 |---|---|
-| Mon profil | `User` |
+| Profile | `User` |
 | Projets | `HardHat` |
-| Dashboard | `LayoutDashboard` |
-| Investissements | `Landmark` |
-| Messagerie | `MessageSquare` |
+| Home | `LayoutDashboard` |
+| ROI | `TrendingUp` (celle de l'action « Return on Investment » de la page Résultats coût de construction) |
+| Message | `MessageSquare` |
 | Support (barre haute) | `Headset` |
 | Paramètres (barre haute) | `Settings` |
 | Hors ligne / erreur | `CloudOff` |
@@ -149,7 +149,7 @@ mobile/
 | **Splash** | **Fond BLANC**, logo officiel et **un seul message : « Chargement.... »** (aucun slogan, aucune image de présentation). Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
 | **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
-| **Barre de navigation (bas)** | **Capsule flottante** très arrondie (`surfaceContainerHigh`, filet `outlineVariant`, ombre portée `elevation 8`) posée sur une bande opaque pleine largeur : 5 sections Material 3 (Mon profil · Projets · Dashboard · Investissements · Messagerie), libellés permanents (jamais de « hover »), icônes **lucide 19 pt** (contour) et libellés **10,5 pt**. **Aucun cercle ni pastille verte** : l'état actif est signalé par la **couleur émeraude BatiBuild** (`primary`), un trait légèrement épaissi et la graisse du libellé ; les onglets inactifs restent en gris (`onSurfaceVariant`). Posée au-dessus de la zone système basse (aucun décalage supplémentaire). **Affichée uniquement sur `/dashboard`** : toutes les autres pages (profil, investissements, messagerie, support, paramètres, résultats d'estimation du coût, résultats des matériaux IA, connexion / inscription) s'affichent en plein écran — voir `shouldShowBottomNav()` dans `src/config.ts`. |
+| **Barre de navigation (bas)** | **Capsule flottante** très arrondie (`surfaceContainerHigh`, filet `outlineVariant`, ombre portée `elevation 8`) posée sur une bande opaque pleine largeur : 5 sections (Profile · Projets · Home · ROI · Message), libellés permanents (jamais de « hover »), icônes **lucide 19 pt** (contour) et libellés **10,5 pt**. **Aucun cercle ni pastille verte** : l'état actif est signalé par la **couleur émeraude BatiBuild** (`primary`), un trait légèrement épaissi et la graisse du libellé ; les onglets inactifs restent en gris (`onSurfaceVariant`). Posée au-dessus de la zone système basse (aucun décalage supplémentaire). **Affichée uniquement sur `/dashboard`** : toutes les autres pages (profil, investissements, messagerie, support, paramètres, résultats d'estimation du coût, résultats des matériaux IA, connexion / inscription) s'affichent en plein écran — voir `shouldShowBottomNav()` dans `src/config.ts`. |
 | **Barre supérieure (native)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. Aucun menu burger — celui de l'en-tête web est masqué dans l'application. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
 | **Guides de démarrage** | **7 guides**, un seul parcours (les anciens écrans d'introduction ont été supprimés) : **Évitez les surcoûts · Devis clé en main · Choisissez les meilleurs matériaux · Ne perdez plus une seule étape · Investissez sans risque · Suivez l'évolution des prix · Trouvez les bons prestataires**. Chaque guide = **illustration dédiée** + **titre** + **texte descriptif** + indicateur **« n / 7 »** (pastilles) + bouton **Suivant** (puis **Commencer** au 7ᵉ) + bouton **Passer**. Les illustrations sont des **scènes vectorielles dessinées pour BatiBuild** (`GuideIllustrations.tsx`, voir la note ci-dessous). Mémorisé via `onboardingCompleted` (AsyncStorage). |
@@ -160,7 +160,7 @@ mobile/
 | **Session** | Cookies, stockage local, cache persistants entre les lancements (`sharedCookiesEnabled`, `thirdPartyCookiesEnabled`, `cacheEnabled`, `domStorageEnabled`). |
 | **Navigation interne** | Toutes les pages `*.freebuff.app` restent dans la WebView. |
 | **Liens externes** | Sites partenaires, réseaux sociaux, documents externes → navigateur système (`Linking`). |
-| **Navigation des 5 sections** | Routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard`, `/dashboard/investments`, `/dashboard/messages`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. « Projets » et « Dashboard » ouvrent tous les deux `/dashboard` ; l'onglet actif suit le dernier onglet choisi. |
+| **Navigation des 5 sections** | Routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard`, `/dashboard/investments`, `/dashboard/messages`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. « Projets » et « Home » ouvrent tous les deux `/dashboard` ; l'onglet actif suit le dernier onglet choisi. « ROI » ouvre `/dashboard/investments` (analyse du retour sur investissement) et porte l'icône `TrendingUp`, la même que l'action « Return on Investment » de la page Résultats coût de construction. |
 | **Support / Paramètres** | Barre supérieure → `/dashboard/support` et `/dashboard/settings` (mêmes routes web, aucun écran dupliqué). |
 | **Retour Android** | Historique WebView → page précédente ; sinon confirmation « Voulez-vous quitter BatiBuild ? » (Annuler / Quitter). |
 | **Chargement** | Écran de chargement natif (logo officiel + « Chargement.... » + barre de progression), **borné à 1 s** — jamais de page blanche ni de loader bloqué. |
@@ -266,7 +266,8 @@ Aucun service cloud de compilation n'est utilisé.
 | Nom de l'application | BatiBuild |
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
-| Version | **1.1.2** — `versionCode 5` (Android), `buildNumber 1` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Version | **1.1.3** — `versionCode 6` (Android), `buildNumber 1` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Contenu de la 1.1.3 | Barre du bas : libellés **Profile · Projets · Home · ROI · Message** ; l'onglet **ROI** (analyse du retour sur investissement, `/dashboard/investments`) porte l'icône `TrendingUp`, identique à l'action « Return on Investment » de la page Résultats coût de construction. |
 | Contenu de la 1.1.2 | Retour de la barre du bas à sa **capsule flottante** (design précédent) — la refonte « barre plate » est annulée ; icônes 19 pt / libellés 10,5 pt conservés, onglet actif en émeraude de marque. |
 | Contenu de la 1.1.1 | Barre du bas **plus compacte** : icônes fines **19 pt** et libellés **10,5 pt**, hauteur d'onglet réduite (40 pt). |
 | Contenu de la 1.1.0 | Barre affichée **uniquement sur `/dashboard`** ; téléchargement des **PDF générés dans la page** (estimation du coût de construction, matériaux IA) via le pont natif ; guide d'accueil (7 étapes) libellé d'après les noms actuels de la plateforme. |

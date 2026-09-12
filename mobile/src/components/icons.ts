@@ -68,17 +68,19 @@ import type { NavId } from "../config";
  * Icône de chaque section de la barre de navigation inférieure.
  *
  * Correspondance EXACTE avec les icônes du tableau de bord de la plateforme :
- *   User            → « Mon profil »
+ *   User            → « Profile »
  *   HardHat         → « Projets »  (construction / logo Batibuild)
- *   LayoutDashboard → « Tableau de bord » (Dashboard)
- *   Landmark        → « Investissements immobiliers »
- *   MessageSquare   → « Messagerie »
+ *   LayoutDashboard → « Home » (accueil de l'espace connecté)
+ *   TrendingUp      → « ROI » — MÊME icône que l'action « Return on Investment »
+ *                     de la page Résultats coût de construction
+ *                     (`ProjectDetail.tsx`, lucide `TrendingUp`)
+ *   MessageSquare   → « Message »
  */
 export const NAV_ICONS: Record<NavId, LucideIcon> = {
   profile: User,
   projects: HardHat,
   dashboard: LayoutDashboard,
-  investments: Landmark,
+  investments: TrendingUp,
   messages: MessageSquare,
 };
 
