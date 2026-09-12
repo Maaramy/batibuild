@@ -169,11 +169,28 @@ export const getMyResponses = query({
     const user = await getCurrentUser(ctx);
     if (!user) return [];
 
-    return await ctx.db
+    const responses = await ctx.db
       .query("expertServiceResponses")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .order("desc")
       .collect();
+
+    // Enrichissement : nom + logo + téléphone de l'expert qui a répondu,
+    // pour l'affichage des cartes de réponse dans la messagerie.
+    const expertIds = [...new Set(responses.map((r) => r.expertId))];
+    const experts = await Promise.all(expertIds.map((id) => ctx.db.get(id)));
+    const expertsById = new Map(expertIds.map((id, i) => [id, experts[i]]));
+
+    return responses.map((r) => {
+      const expert = expertsById.get(r.expertId);
+      return {
+        ...r,
+        expertName: expert?.displayName ?? "Expert",
+        expertCompanyName: expert?.companyName,
+        expertLogo: expert?.logo,
+        expertPhone: expert?.phone,
+      };
+    });
   },
 });
 

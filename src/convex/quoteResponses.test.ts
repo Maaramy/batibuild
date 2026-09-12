@@ -271,6 +271,28 @@ describe("quoteResponses.getMyResponses", () => {
     expect(responses).toHaveLength(1);
     expect(responses[0].userId).toBe(buyerId);
   });
+
+  it("exposes the responding supplier identity (name + logo + phone)", async () => {
+    const supplierUserId = await createTestUser(t);
+    const supplierId = await createTestSupplierProfile(t, supplierUserId);
+
+    const buyerId = await createTestUser(t, { email: "buyer@test.com" });
+    const quoteId = await createTestQuote(t, buyerId, supplierId as string);
+
+    const supplierT = asUser(t, supplierUserId);
+    await supplierT.mutation(api.quoteResponses.sendResponse, {
+      quoteRequestId: quoteId,
+      message: "Réponse test",
+    });
+
+    const buyerT = asUser(t, buyerId);
+    const responses = await buyerT.query(api.quoteResponses.getMyResponses, {});
+
+    expect(responses[0].supplierId).toBe(supplierId);
+    expect(responses[0].supplierName).toBe("Test Supplier");
+    expect(responses[0].supplierPhone).toBe("+216 99 111 111");
+    expect(responses[0].supplierLogo).toBeUndefined();
+  });
 });
 
 // ============================================================================

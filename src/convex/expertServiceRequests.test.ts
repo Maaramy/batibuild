@@ -522,6 +522,16 @@ describe("expertServiceRequests responses (client badge)", () => {
     expect(responses).toHaveLength(2);
   });
 
+  it("getMyResponses exposes the responding expert identity (name + logo + phone)", async () => {
+    const { clientT } = await seedResponses(1);
+    const responses = await clientT.query(api.expertServiceRequests.getMyResponses);
+
+    expect(responses[0].expertId).toBeDefined();
+    expect(responses[0].expertName).toBe("Test Expert");
+    expect(responses[0].expertPhone).toBe("+216 99 111 111");
+    expect(responses[0].expertLogo).toBeUndefined();
+  });
+
   it("responsesUnreadCount counts responses not yet consulted by the client", async () => {
     const { clientT } = await seedResponses(2);
     const count = await clientT.query(api.expertServiceRequests.responsesUnreadCount);

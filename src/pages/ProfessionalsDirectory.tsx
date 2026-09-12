@@ -45,7 +45,7 @@ const PROFESSION_LABELS: Record<string, string> = {
 
 export default function ProfessionalsDirectory() {
   usePageSEO({
-    title: "Annuaire des Professionnels - batibuild App",
+    title: "Trouvez un expert près de chez vous - batibuild App",
     description: "Trouvez architectes, ingénieurs et bureaux d'études en Tunisie. Filtrez par spécialité et région.",
   });
 
@@ -135,7 +135,7 @@ export default function ProfessionalsDirectory() {
               <Users className="h-3 w-3" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-xs font-semibold leading-tight">Annuaire des Professionnels</h1>
+              <h1 className="text-xs font-semibold leading-tight">Trouvez un expert près de chez vous</h1>
               <p className="text-[8px] text-muted-foreground leading-tight">
                 {experts ? `${filtered.length} professionnel(aux) trouvé(s)` : "Chargement…"}
               </p>

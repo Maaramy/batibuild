@@ -111,7 +111,21 @@ export const getMyResponses = query({
       .order("desc")
       .collect();
 
-    return responses;
+    // Enrichissement : nom + logo + téléphone du fournisseur qui a répondu,
+    // pour l'affichage des cartes de réponse dans la messagerie.
+    const supplierIds = [...new Set(responses.map((r) => r.supplierId))];
+    const suppliers = await Promise.all(supplierIds.map((id) => ctx.db.get(id)));
+    const suppliersById = new Map(supplierIds.map((id, i) => [id, suppliers[i]]));
+
+    return responses.map((r) => {
+      const supplier = suppliersById.get(r.supplierId);
+      return {
+        ...r,
+        supplierName: supplier?.companyName ?? "Fournisseur",
+        supplierLogo: supplier?.logo,
+        supplierPhone: supplier?.phone,
+      };
+    });
   },
 });
 

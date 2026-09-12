@@ -53,7 +53,7 @@ const REGION_LABELS: Record<string, string> = {
 
 export default function SuppliersDirectory() {
   usePageSEO({
-    title: "Liste des fournisseurs - batibuild App",
+    title: "Trouvez un fournisseur près de chez vous - batibuild App",
     description:
       "Trouvez les meilleurs fournisseurs de matériaux de construction en Tunisie. Filtrez par spécialité, catégorie et région.",
   });
@@ -216,7 +216,7 @@ export default function SuppliersDirectory() {
             </div>
             <div className="min-w-0">
               <h1 className="text-xs font-semibold leading-tight">
-                Liste des fournisseurs
+                Trouvez un fournisseur près de chez vous
               </h1>
               <p className="text-[8px] text-muted-foreground leading-tight">
                 {suppliers ? `${filtered.length} fournisseur(s) trouvé(s)` : "Chargement…"}

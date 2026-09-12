@@ -7,10 +7,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft, MessageSquare, Loader2, Clock, CheckCircle2,
-  AlertCircle, Send, Building2, Package, Download, FileText,
-  Phone, Store, Briefcase, Users,
+  AlertCircle, Send, Package, Download, FileText,
+  Phone, Store, Briefcase, Users, User,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,11 +29,102 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
   closed: { label: "Fermé", color: "bg-slate-100 text-slate-600 border-slate-200", icon: AlertCircle },
 };
 
+// ── Carte de réponse (expert / fournisseur) ──────────────────────────────────
+//
+// Même structure pour les deux types de réponse : logo + nom de l'auteur,
+// message, pièce jointe, puis les deux actions « Contacter » et « Profil ».
+
+const RESPONSE_ACCENTS = {
+  expert: {
+    card: "border-violet-200/40 bg-violet-50/30",
+    badge: "bg-violet-100 text-violet-700 border-violet-200",
+    contact: "border-violet-500/30 bg-background text-violet-700 hover:bg-violet-500/10",
+    profile: "bg-violet-600 text-white hover:bg-violet-700",
+  },
+  supplier: {
+    card: "border-emerald-200/40 bg-emerald-50/30",
+    badge: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    contact: "border-emerald-500/30 bg-background text-emerald-700 hover:bg-emerald-500/10",
+    profile: "bg-emerald-600 text-white hover:bg-emerald-700",
+  },
+} as const;
+
+function ResponseCard({ response, kind }: { response: any; kind: "expert" | "supplier" }) {
+  const navigate = useNavigate();
+  const accent = RESPONSE_ACCENTS[kind];
+  const isExpert = kind === "expert";
+
+  const name = (isExpert ? response.expertName : response.supplierName) ?? (isExpert ? "Expert" : "Fournisseur");
+  const logo = isExpert ? response.expertLogo : response.supplierLogo;
+  const phone = isExpert ? response.expertPhone : response.supplierPhone;
+  const companyName = isExpert ? response.expertCompanyName : undefined;
+  const profilePath = isExpert
+    ? `/dashboard/expert-profile/${response.expertId}`
+    : `/dashboard/supplier-profile/${response.supplierId}`;
+
+  return (
+    <div className={`rounded-xl border p-3 ${accent.card}`}>
+      {/* Auteur : logo + nom + société + montant */}
+      <div className="flex items-start gap-2.5">
+        <AvatarWithInitials logo={logo} name={name} size="sm" className="mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold truncate">{name}</span>
+            {companyName && (
+              <span className="text-[9px] text-muted-foreground truncate">{companyName}</span>
+            )}
+            {response.totalAmount && (
+              <Badge className={`text-[9px] border ml-auto ${accent.badge}`}>
+                {fmtTND(response.totalAmount)}
+              </Badge>
+            )}
+          </div>
+          <p className="text-[9px] text-muted-foreground/60 mt-0.5">{fmtDate(response.createdAt)}</p>
+        </div>
+      </div>
+
+      {response.message && (
+        <p className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap">{response.message}</p>
+      )}
+
+      {response.attachmentUrl && (
+        <a
+          href={response.attachmentUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 mt-2 text-[11px] text-primary hover:underline"
+        >
+          <Download className="h-3 w-3" />
+          {response.attachmentFileName || "Voir la pièce jointe"}
+        </a>
+      )}
+
+      {/* Actions : contacter / profil */}
+      <div className="mt-2.5 flex gap-1.5">
+        <a
+          href={phone ? `tel:${phone}` : undefined}
+          className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-colors ${accent.contact} ${
+            phone ? "" : "pointer-events-none opacity-50"
+          }`}
+        >
+          <Phone className="h-3 w-3" /> Contacter
+        </a>
+        <button
+          onClick={() => navigate(profilePath)}
+          className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors cursor-pointer ${accent.profile}`}
+        >
+          <User className="h-3 w-3" /> Profil
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function UserMessages() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"quotes" | "services">("quotes");
+  const [tab, setTab] = useState<"quotes" | "services">("services");
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
 
@@ -94,7 +186,7 @@ export default function UserMessages() {
           <div className="flex-1">
             <h1 className="text-lg font-bold">Messagerie</h1>
             <p className="text-xs text-muted-foreground">
-              Vos demandes de devis & services et les réponses reçues
+              Vos demandes de services experts & de devis fournisseurs et les réponses reçues
             </p>
           </div>
           {totalUnread > 0 && (
@@ -108,19 +200,8 @@ export default function UserMessages() {
           )}
         </div>
 
-        {/* Tabs : Devis fournisseurs / Services experts */}
+        {/* Tabs : Services experts / Devis fournisseurs */}
         <div className="flex gap-1.5 bg-muted/30 rounded-xl p-1">
-          <button
-            onClick={() => setTab("quotes")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
-              tab === "quotes"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Store className="h-3.5 w-3.5" />
-            Devis fournisseurs
-          </button>
           <button
             onClick={() => setTab("services")}
             className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
@@ -131,6 +212,17 @@ export default function UserMessages() {
           >
             <Briefcase className="h-3.5 w-3.5" />
             Services experts
+          </button>
+          <button
+            onClick={() => setTab("quotes")}
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
+              tab === "quotes"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Store className="h-3.5 w-3.5" />
+            Devis fournisseurs
           </button>
         </div>
 
@@ -188,16 +280,26 @@ export default function UserMessages() {
                   <MessageSquare className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-sm font-medium text-muted-foreground">Aucune demande envoyée</p>
                   <p className="text-xs text-muted-foreground/60 mt-1">
-                    Envoyez une demande de devis depuis la page matériaux IA ou les résultats de votre projet.
+                    Envoyez une demande de devis depuis la page matériaux IA ou les résultats de votre projet, puis retrouvez les offres des fournisseurs ici.
                   </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-4 text-xs"
-                    onClick={() => navigate("/dashboard/ai-materials")}
-                  >
-                    <FileText className="h-3 w-3 mr-1" /> Aller aux Matériaux IA
-                  </Button>
+                  <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={() => navigate("/dashboard/ai-materials")}
+                    >
+                      <FileText className="h-3 w-3 mr-1" /> Aller aux Matériaux IA
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={() => navigate("/dashboard/suppliers-directory")}
+                    >
+                      <Store className="h-3 w-3 mr-1" /> Trouvez un fournisseur près de chez vous
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ) : (
@@ -320,37 +422,7 @@ export default function UserMessages() {
                                     Réponses des fournisseurs ({responses.length})
                                   </p>
                                   {responses.map((resp) => (
-                                    <div
-                                      key={resp._id}
-                                      className="rounded-lg border border-emerald-200/40 bg-emerald-50/30 p-3"
-                                    >
-                                      <div className="flex items-center gap-2 mb-1.5">
-                                        <Building2 className="h-3 w-3 text-emerald-600" />
-                                        <span className="text-xs font-semibold">Fournisseur</span>
-                                        {resp.totalAmount && (
-                                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[9px] ml-auto">
-                                            {fmtTND(resp.totalAmount)}
-                                          </Badge>
-                                        )}
-                                      </div>
-                                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-                                        {resp.message}
-                                      </p>
-                                      {resp.attachmentUrl && (
-                                        <a
-                                          href={resp.attachmentUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1.5 mt-2 text-[11px] text-primary hover:underline"
-                                        >
-                                          <Download className="h-3 w-3" />
-                                          {resp.attachmentFileName || "Voir la pièce jointe"}
-                                        </a>
-                                      )}
-                                      <p className="text-[9px] text-muted-foreground/60 mt-1.5">
-                                        {fmtDate(resp.createdAt)}
-                                      </p>
-                                    </div>
+                                    <ResponseCard key={resp._id} response={resp} kind="supplier" />
                                   ))}
                                 </div>
                               ) : (
@@ -394,7 +466,7 @@ export default function UserMessages() {
                   <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-sm font-medium text-muted-foreground">Aucune demande envoyée à un expert</p>
                   <p className="text-xs text-muted-foreground/60 mt-1">
-                    Demandez un devis à un architecte, ingénieur ou bureau d'études depuis l'annuaire des professionnels.
+                    Demandez un devis à un architecte, ingénieur ou bureau d'études depuis « Trouvez un expert près de chez vous ».
                   </p>
                   <Button
                     size="sm"
@@ -402,7 +474,7 @@ export default function UserMessages() {
                     className="mt-4 text-xs"
                     onClick={() => navigate("/dashboard/professionals-directory")}
                   >
-                    <Briefcase className="h-3 w-3 mr-1" /> Annuaire des experts
+                    <Briefcase className="h-3 w-3 mr-1" /> Trouvez un expert près de chez vous
                   </Button>
                 </CardContent>
               </Card>
@@ -485,37 +557,7 @@ export default function UserMessages() {
                                     Réponses des experts ({responses.length})
                                   </p>
                                   {responses.map((resp) => (
-                                    <div
-                                      key={resp._id}
-                                      className="rounded-lg border border-violet-200/40 bg-violet-50/30 p-3"
-                                    >
-                                      <div className="flex items-center gap-2 mb-1.5">
-                                        <Briefcase className="h-3 w-3 text-violet-600" />
-                                        <span className="text-xs font-semibold">Expert</span>
-                                        {resp.totalAmount && (
-                                          <Badge className="bg-violet-100 text-violet-700 border-violet-200 text-[9px] ml-auto">
-                                            {fmtTND(resp.totalAmount)}
-                                          </Badge>
-                                        )}
-                                      </div>
-                                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-                                        {resp.message}
-                                      </p>
-                                      {resp.attachmentUrl && (
-                                        <a
-                                          href={resp.attachmentUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1.5 mt-2 text-[11px] text-primary hover:underline"
-                                        >
-                                          <Download className="h-3 w-3" />
-                                          {resp.attachmentFileName || "Voir la pièce jointe"}
-                                        </a>
-                                      )}
-                                      <p className="text-[9px] text-muted-foreground/60 mt-1.5">
-                                        {fmtDate(resp.createdAt)}
-                                      </p>
-                                    </div>
+                                    <ResponseCard key={resp._id} response={resp} kind="expert" />
                                   ))}
                                 </div>
                               ) : (
