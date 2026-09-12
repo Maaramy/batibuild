@@ -56,8 +56,6 @@ import {
   Percent,
   Gauge,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Rocket,
   MessageSquare,
   Link,
@@ -340,115 +338,6 @@ function getActivePlanLabel(user?: { subscriptionPlan?: string | null; userRole?
 // Main Dashboard Component
 // ============================================================================
 
-// ============================================================================
-// Carrousel des projets de construction (glisser / flèches / pastilles)
-// ============================================================================
-
-const CAROUSEL_GAP = 12; // équivaut à « gap-3 »
-
-function ProjectsCarousel({ projects }: { projects: any[] }) {
-  const trackRef = useRef<HTMLDivElement | null>(null);
-  const [active, setActive] = useState(0);
-
-  // Largeur d'une carte + gouttière : sert à la fois à défiler et à suivre l'index.
-  const metrics = useCallback(() => {
-    const track = trackRef.current;
-    const first = track ? (track.firstElementChild as HTMLElement | null) : null;
-    if (!track || !first) return null;
-    return { track, step: first.offsetWidth + CAROUSEL_GAP };
-  }, []);
-
-  const goTo = useCallback(
-    (index: number) => {
-      const m = metrics();
-      if (!m) return;
-      const target = Math.min(projects.length - 1, Math.max(0, index));
-      m.track.scrollTo({ left: target * m.step, behavior: "smooth" });
-      setActive(target);
-    },
-    [metrics, projects.length],
-  );
-
-  const syncActive = useCallback(() => {
-    const m = metrics();
-    if (!m) return;
-    const index = Math.round(m.track.scrollLeft / m.step);
-    setActive(Math.min(projects.length - 1, Math.max(0, index)));
-  }, [metrics, projects.length]);
-
-  // Filtre ou recherche modifiés : on revient à la première carte.
-  useEffect(() => {
-    trackRef.current?.scrollTo({ left: 0 });
-    setActive(0);
-  }, [projects.length]);
-
-  const atStart = active <= 0;
-  const atEnd = active >= projects.length - 1;
-
-  return (
-    <div className="relative">
-      <div
-        ref={trackRef}
-        onScroll={syncActive}
-        className="flex gap-3 overflow-x-auto scrollbar-none snap-x snap-mandatory pb-1 -mx-3 px-3 sm:mx-0 sm:px-0"
-      >
-        {projects.map((project: any) => (
-          <div
-            key={project._id}
-            className="w-[85%] shrink-0 snap-start sm:w-[calc(50%-6px)] xl:w-[calc(33.333%-8px)]"
-          >
-            <ProjectCard project={project} />
-          </div>
-        ))}
-      </div>
-
-      {projects.length > 1 && (
-        <>
-          <button
-            type="button"
-            aria-label="Projet précédent"
-            onClick={() => goTo(active - 1)}
-            className={cn(
-              "absolute left-1 top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/50 bg-background/90 text-foreground/70 shadow-sm backdrop-blur-sm transition-opacity hover:bg-background hover:text-foreground active:scale-95 sm:flex",
-              atStart && "pointer-events-none opacity-0",
-            )}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Projet suivant"
-            onClick={() => goTo(active + 1)}
-            className={cn(
-              "absolute right-1 top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/50 bg-background/90 text-foreground/70 shadow-sm backdrop-blur-sm transition-opacity hover:bg-background hover:text-foreground active:scale-95 sm:flex",
-              atEnd && "pointer-events-none opacity-0",
-            )}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-
-          <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5">
-            {projects.map((project: any, i: number) => (
-              <button
-                key={project._id}
-                type="button"
-                aria-label={"Aller au projet " + (i + 1)}
-                aria-current={i === active}
-                onClick={() => goTo(i)}
-                className={cn(
-                  "h-1.5 rounded-full transition-all duration-300",
-                  i === active ? "w-6 bg-primary" : "w-1.5 bg-muted-foreground/25 hover:bg-muted-foreground/40",
-                )}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-
 export default function Dashboard() {
   usePageSEO({ title: "Tableau de bord - batibuild App", description: "Gérez vos projets de construction et suivez vos estimations sur batibuild App." });
   const { user, signOut } = useAuth();
@@ -459,6 +348,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   // « Voir plus / Voir moins » — 3 éléments par défaut
+  const [showAllProjects, setShowAllProjects] = useState(false);
   const [showAllInvestments, setShowAllInvestments] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
   // Role switch view mode: client | supplier | expert
@@ -594,6 +484,7 @@ export default function Dashboard() {
   );
 
   // ── Tranches affichées (3 par défaut + « Voir plus ») ──
+  const visibleProjects = showAllProjects ? filteredProjects : filteredProjects.slice(0, 3);
   const visibleInvestments = showAllInvestments ? analyses : analyses.slice(0, 3);
   const projectFavorites = projects.filter((p: any) => p.isFavorite).length;
 
@@ -1473,7 +1364,21 @@ export default function Dashboard() {
                   </Button>
                 </div>
               ) : (
-                <ProjectsCarousel projects={filteredProjects} />
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+                    {visibleProjects.map((project: any) => (
+                      <ProjectCard key={project._id} project={project} />
+                    ))}
+                  </div>
+                  {filteredProjects.length > 3 && (
+                    <div className="mt-3 text-center">
+                      <Button variant="outline" size="sm" className="h-9 gap-1 text-xs" onClick={() => setShowAllProjects((v) => !v)}>
+                        {showAllProjects ? "Voir moins" : `Voir plus (${filteredProjects.length})`}
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllProjects ? "rotate-180" : ""}`} />
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
