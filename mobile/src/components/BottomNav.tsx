@@ -21,19 +21,9 @@ import { SHAPE, useAppTheme } from "../theme";
  * Elle ne défile jamais avec le contenu de la WebView, reste au-dessus de la
  * zone système basse (gestes ou boutons) et ne recrée jamais la WebView au clic.
  *
- * Elle est en outre **remontée de 3 mm** par rapport à la zone système, pour ne
- * jamais coller à la barre de navigation gestuelle d'Android (voir `NAV_LIFT`).
+ * Elle est posée normalement au-dessus de la zone système basse : aucun décalage
+ * supplémentaire n'est appliqué.
  */
-
-/**
- * Décalage vers le haut de la barre, en points de densité (dp).
- *
- * 1 mm = 160 / 25,4 dp ≈ 6,299 dp, donc **3 mm ≈ 19 dp**. La bande sous la
- * capsule (couleur de surface) s'étend jusqu'au bord de l'écran : le contenu de
- * la WebView ne devient jamais visible dans cet espace.
- */
-const MM_IN_DP = 160 / 25.4;
-const NAV_LIFT = Math.round(3 * MM_IN_DP);
 
 type ItemProps = {
   destination: NavDestination;
@@ -119,8 +109,8 @@ export default function BottomNav({ active, onSelect, onOpenSettings }: Props) {
         styles.band,
         {
           backgroundColor: theme.surface,
-          // La barre est posée au-dessus de la zone système ET remontée de 3 mm.
-          paddingBottom: Math.max(insets.bottom, 10) + NAV_LIFT,
+          // La barre est simplement posée au-dessus de la zone système.
+          paddingBottom: Math.max(insets.bottom, 10),
         },
       ]}
     >
