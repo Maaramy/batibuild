@@ -88,7 +88,7 @@ const SLIDES: Slide[] = [
   {
     key: "providers",
     title: "Trouvez les bons prestataires",
-    text: "Annuaire vérifié d'architectes, ingénieurs et fournisseurs : spécialités, régions et recommandations ciblées.",
+    text: "Trouvez un expert et un fournisseur près de chez vous : annuaire vérifié d'architectes, ingénieurs et fournisseurs — spécialités, régions et recommandations ciblées.",
     Illustration: GUIDE_ILLUSTRATIONS[6],
   },
 ];

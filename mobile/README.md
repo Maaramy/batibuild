@@ -265,7 +265,8 @@ Aucun service cloud de compilation n'est utilisé.
 | Nom de l'application | BatiBuild |
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
-| Version | **1.0.1** — `versionCode 2` (Android), `buildNumber 1` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Version | **1.1.0** — `versionCode 3` (Android), `buildNumber 1` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Contenu de la 1.1.0 | Barre de navigation du bas redessinée (**plate pleine largeur**, fond uni, filet de séparation, ni capsule ni ombre), onglet actif en **émeraude de marque**, icônes fines 22 pt ; barre affichée **uniquement sur `/dashboard`** ; téléchargement des **PDF générés dans la page** (estimation du coût de construction, matériaux IA) via le pont natif ; guide d'accueil (7 étapes) libellé d'après les noms actuels de la plateforme. |
 
 ## 8. Permissions (déclarées)
 
@@ -298,7 +299,7 @@ clé debug (assurée) → signingReport → assembleDebug · assembleRelease · 
 Artifacts : Batibuild-debug.apk · Batibuild-release.apk · Batibuild-release.aab
 ```
 
-Le **résumé du run** affiche la version réellement compilée (`1.0.1 — versionCode 2`),
+Le **résumé du run** affiche la version réellement compilée (`1.1.0 — versionCode 3`),
 la taille de chaque fichier, les ABI compilées et la commande d'installation
 (`adb install -r Batibuild-release.apk`).
 
