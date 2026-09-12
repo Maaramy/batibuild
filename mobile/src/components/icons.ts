@@ -99,13 +99,12 @@ export const STROKE = {
 } as const;
 
 /**
- * Icônes de la barre de navigation inférieure : trait FIN et contour, comme la
- * maquette de référence. L'état actif est porté par la teinte et la graisse du
- * libellé : l'écart d'épaisseur reste donc volontairement discret.
+ * Icônes de la barre de navigation inférieure : trait contour, légèrement
+ * épaissi sur l'onglet actif (qui est aussi teinté en émeraude de marque).
  */
 export const NAV_STROKE = {
-  inactive: 1.7,
-  active: 1.9,
+  inactive: 1.8,
+  active: 2.1,
 } as const;
 
 /**

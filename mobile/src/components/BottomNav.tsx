@@ -4,23 +4,24 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { NAV_DESTINATIONS, type NavDestination, type NavId } from "../config";
 import { NAV_ICONS, NAV_STROKE } from "./icons";
-import { useAppTheme } from "../theme";
+import { SHAPE, useAppTheme } from "../theme";
 
 /**
  * Barre de navigation inférieure NATIVE (Android).
  *
- * DESIGN (maquette de référence) : barre PLATE pleine largeur, posée sur un fond
- * uni, sans capsule, sans coins arrondis, sans ombre et sans pastille active.
+ * DESIGN : **capsule flottante** arrondie, posée sur une bande opaque.
  *
- *   - fond : `theme.surface` (blanc en clair, surface sombre en sombre) ;
- *   - un simple filet de séparation en haut (`theme.outlineVariant`) : la page
- *     web étant blanche, ce filet est ce qui détache la barre du contenu (dans
- *     la maquette la séparation vient d'un fond gris autour de la barre) ;
- *   - 5 onglets de largeur égale : icône fine au-dessus, libellé en dessous ;
+ *   - bande : pleine largeur, fond `theme.surface` — elle reste opaque, donc le
+ *     contenu de la WebView n'apparaît jamais sous la capsule ;
+ *   - capsule : coins très arrondis (`SHAPE.full`), fond `surfaceContainerHigh`,
+ *     filet `outlineVariant` et ombre portée (`elevation 8`) qui la détachent du
+ *     contenu web ;
+ *   - 5 onglets de largeur égale : icône au-dessus, libellé en dessous ;
  *   - proportions COMPACTES : icônes 19 pt et libellés 10,5 pt (tailles
  *     volontairement réduites pour ne pas concurrencer le contenu web) ;
- *   - onglet ACTIF : icône et libellé en **émeraude BatiBuild** (`theme.primary`)
- *     et libellé en gras ;
+ *   - onglet ACTIF : icône et libellé en **émeraude BatiBuild** (`theme.primary`),
+ *     trait légèrement épaissi et libellé en gras ; **aucun cercle ni pastille de
+ *     fond** derrière l'onglet actif ;
  *   - onglets inactifs : icône et libellé en gris (`onSurfaceVariant`).
  *
  * Icônes : famille **lucide** (voir `icons.ts`), la MÊME que le tableau de bord
@@ -57,7 +58,7 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
   const Icon = NAV_ICONS[destination.id];
   // Le contraste de teinte porte l'état actif : émeraude de marque pour l'onglet
   // courant, gris pour les autres. Aucune pastille ni fond d'onglet n'est
-  // dessiné — seule la structure reste celle de la maquette.
+  // dessiné.
   const color = selected ? theme.primary : theme.onSurfaceVariant;
 
   return (
@@ -119,34 +120,54 @@ export default function BottomNav({ active, onSelect, onOpenSettings }: Props) {
       style={[
         styles.band,
         {
+          // Bande opaque : le contenu web ne se voit jamais dans cet espace.
           backgroundColor: theme.surface,
-          borderTopColor: theme.outlineVariant,
-          // La barre est simplement posée au-dessus de la zone système.
-          paddingBottom: Math.max(insets.bottom, 8),
+          // La capsule est simplement posée au-dessus de la zone système.
+          paddingBottom: Math.max(insets.bottom, 10),
         },
       ]}
     >
-      {NAV_DESTINATIONS.map((destination) => (
-        <NavItem
-          key={destination.id}
-          destination={destination}
-          selected={active === destination.id}
-          onSelect={onSelect}
-          onOpenSettings={onOpenSettings}
-        />
-      ))}
+      <View
+        style={[
+          styles.capsule,
+          {
+            backgroundColor: theme.surfaceContainerHigh,
+            borderColor: theme.outlineVariant,
+          },
+        ]}
+      >
+        {NAV_DESTINATIONS.map((destination) => (
+          <NavItem
+            key={destination.id}
+            destination={destination}
+            selected={active === destination.id}
+            onSelect={onSelect}
+            onOpenSettings={onOpenSettings}
+          />
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   band: {
+    paddingTop: 6,
+    paddingHorizontal: 12,
+  },
+  capsule: {
     flexDirection: "row",
     alignItems: "stretch",
-    paddingTop: 6,
-    // Filet de séparation : la barre se détache du contenu web, sans cadre ni
-    // ombre (aucune bordure latérale, aucun coin arrondi).
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderRadius: SHAPE.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    // Ombre portée : détache la capsule du contenu web, sans cadre lourd.
+    elevation: 8,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
   item: {
     flex: 1,
