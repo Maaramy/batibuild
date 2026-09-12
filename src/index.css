@@ -241,6 +241,27 @@ html {
   display: none;
 }
 
+/* ---------------------------------------------------------------------------
+   Aucune barre de défilement HORIZONTALE visible — sur TOUTES les pages.
+
+   Les tableaux, carrousels, steppers et rangées qui défilent latéralement
+   affichaient une barre grise en bas de la section. Elle est masquée partout
+   (viewport compris), sans rien retirer au défilement latéral : glisser, molette
+   horizontale et clavier continuent de fonctionner normalement.
+
+   La barre VERTICALE de la page reste, elle, inchangée.
+   --------------------------------------------------------------------------- */
+.overflow-x-auto,
+.overflow-x-scroll {
+  -ms-overflow-style: none; /* Edge / IE */
+  scrollbar-width: none; /* Firefox */
+}
+
+*::-webkit-scrollbar:horizontal {
+  height: 0;
+  display: none;
+}
+
 /* ============================================================================
    Dashboard — actions rapides sans cadre ni ombre
    ============================================================================ */
