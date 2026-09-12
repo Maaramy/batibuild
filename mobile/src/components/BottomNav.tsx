@@ -17,8 +17,8 @@ import { useAppTheme } from "../theme";
  *     web étant blanche, ce filet est ce qui détache la barre du contenu (dans
  *     la maquette la séparation vient d'un fond gris autour de la barre) ;
  *   - 5 onglets de largeur égale : icône fine au-dessus, libellé en dessous ;
- *   - onglet ACTIF : icône et libellé en teinte forte (`onSurface`, quasi noir
- *     en clair) et libellé en gras ;
+ *   - onglet ACTIF : icône et libellé en **émeraude BatiBuild** (`theme.primary`)
+ *     et libellé en gras ;
  *   - onglets inactifs : icône et libellé en gris (`onSurfaceVariant`).
  *
  * Icônes : famille **lucide** (voir `icons.ts`), la MÊME que le tableau de bord
@@ -53,9 +53,10 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
 
   const iconScale = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
   const Icon = NAV_ICONS[destination.id];
-  // Le contraste de teinte porte l'état actif — comme dans la maquette, aucune
-  // pastille ni fond d'onglet n'est dessiné.
-  const color = selected ? theme.onSurface : theme.onSurfaceVariant;
+  // Le contraste de teinte porte l'état actif : émeraude de marque pour l'onglet
+  // courant, gris pour les autres. Aucune pastille ni fond d'onglet n'est
+  // dessiné — seule la structure reste celle de la maquette.
+  const color = selected ? theme.primary : theme.onSurfaceVariant;
 
   return (
     <Pressable
