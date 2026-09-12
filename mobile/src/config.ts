@@ -199,29 +199,22 @@ export function isDashboardRoute(path: string): boolean {
  * ------------------------------------------------------------------ */
 
 /**
- * Routes sur lesquelles la barre de navigation inférieure est MASQUÉE dans
- * l'application mobile : le contenu occupe alors toute la hauteur disponible et
- * n'est jamais recouvert par la barre.
+ * La barre de navigation inférieure n'est affichée QUE sur la page
+ * `/dashboard` (l'accueil connecté).
+ *
+ * Partout ailleurs — mon profil, investissements, messagerie, support,
+ * paramètres, résultats d'estimation du coût de construction, résultats de
+ * l'analyse des matériaux IA, connexion / inscription — le contenu s'affiche
+ * en plein écran : il occupe toute la hauteur disponible et n'est jamais
+ * recouvert par la barre.
+ *
+ * Ces pages gardent leur propre en-tête (flèche « retour ») qui ramène au
+ * tableau de bord, et le bouton Back Android continue de fonctionner : aucun
+ * parcours n'est perdu.
  *
  * Ce sont des routes RÉELLES de la plateforme (`src/main.tsx`) : aucune page
  * n'est créée, dupliquée ni modifiée — le masquage est purement natif.
  */
-const HIDE_BOTTOM_NAV_PATTERNS: readonly RegExp[] = [
-  // Connexion / inscription
-  /^\/auth(\/|$)/,
-  // Résultats d'estimation du coût de construction (projet)
-  /^\/dashboard\/project\//,
-  // Résultats de l'analyse des matériaux par l'IA
-  /^\/dashboard\/ai-materials\/result\//,
-];
-
-/**
- * La barre de navigation inférieure doit-elle être affichée pour cette route ?
- *
- * Elle reste visible partout ailleurs (Profil, Projets, Dashboard,
- * Investissements, Messagerie, Support, Paramètres…).
- */
 export function shouldShowBottomNav(path: string): boolean {
-  const route = routeKey(path);
-  return !HIDE_BOTTOM_NAV_PATTERNS.some((pattern) => pattern.test(route));
+  return routeKey(path) === routeKey(DASHBOARD_PATH);
 }

@@ -31,8 +31,11 @@ Android Native Shell
 │
 ├── Bottom Navigation  (5 sections, fixe, libellés toujours visibles)
 │      Mon profil · Projets · Dashboard · Investissements · Messagerie
-│      → MASQUÉE sur les écrans plein écran (résultats d'estimation du coût,
-│        résultats des matériaux IA, connexion / inscription)
+│      → AFFICHÉE UNIQUEMENT sur /dashboard (l'accueil connecté)
+│      → MASQUÉE partout ailleurs : profil, investissements, messagerie,
+│        support, paramètres, résultats d'estimation du coût, résultats des
+│        matériaux IA, connexion / inscription (plein écran)
+│      → remontée de 3 mm au-dessus de la zone système basse
 │
 └── WebView  →  plateforme Batibuild (inchangée)
 ```
@@ -42,7 +45,10 @@ zones système (haute et basse) et n'entraînent **jamais** le rechargement de l
 (donc session, cookies, état et historique préservés). La barre du bas n'affiche
 **aucun cercle ni pastille de fond** : l'état actif se voit à la couleur et à la graisse
 de l'entrée. Ses icônes sont **compactes (20 pt)** et sa hauteur réduite, pour laisser
-un maximum d'espace au contenu.
+un maximum d'espace au contenu. Elle est **remontée de 3 mm** au-dessus de la zone
+système basse (`NAV_LIFT` dans `components/BottomNav.tsx`), pour ne jamais coller à la
+barre de navigation gestuelle d'Android ; la bande sous la capsule reste opaque, le
+contenu de la WebView n'apparaît jamais dans cet espace.
 
 ### Icônes harmonisées avec la plateforme
 
@@ -120,6 +126,7 @@ mobile/
 │   │   ├── TopNav.tsx             # Barre native supérieure : logo + nom, Support, Paramètres
 │   │   ├── BottomNav.tsx          # Barre de navigation Material 3 (5 sections, icônes 20 pt)
 │   │   └── GuideIllustrations.tsx # 7 illustrations dédiées (scènes vectorielles SVG)
+│   ├── download.ts                # Téléchargements natifs : URL http(s) ET PDF « blob: »
 │   ├── storage.ts                 # onboardingCompleted (AsyncStorage)
 │   ├── theme.ts                   # Jetons Material 3 (clair / sombre) issus de la charte BatiBuild
 ├── android/                       # Projet natif Android — COMMITÉ (build Gradle local direct)
@@ -140,7 +147,7 @@ mobile/
 | **Splash** | **Fond BLANC**, logo officiel et **un seul message : « Chargement.... »** (aucun slogan, aucune image de présentation). Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
 | **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
-| **Barre de navigation (bas)** | Capsule **flottante** arrondie (coins pleins, ombre douce) : 5 sections Material 3 (Mon profil · Projets · Dashboard · Investissements · Messagerie), toujours visibles, libellés permanents (jamais de « hover »), icônes **lucide 20 pt** (actif) / contour (inactif). **Aucun cercle ni pastille verte** : l'état actif est signalé par la couleur et la graisse. **Masquée automatiquement** sur les écrans plein écran : résultats d'estimation du coût de construction (`/dashboard/project/…`), résultats des matériaux IA (`/dashboard/ai-materials/result/…`) et connexion / inscription (`/auth`) — voir `shouldShowBottomNav()` dans `src/config.ts`. |
+| **Barre de navigation (bas)** | Capsule **flottante** arrondie (coins pleins, ombre douce) : 5 sections Material 3 (Mon profil · Projets · Dashboard · Investissements · Messagerie), libellés permanents (jamais de « hover »), icônes **lucide 20 pt** (actif) / contour (inactif). **Aucun cercle ni pastille verte** : l'état actif est signalé par la couleur et la graisse. **Remontée de 3 mm** au-dessus de la zone système basse. **Affichée uniquement sur `/dashboard`** : toutes les autres pages (profil, investissements, messagerie, support, paramètres, résultats d'estimation du coût, résultats des matériaux IA, connexion / inscription) s'affichent en plein écran — voir `shouldShowBottomNav()` dans `src/config.ts`. |
 | **Barre supérieure (native)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. Aucun menu burger — celui de l'en-tête web est masqué dans l'application. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
 | **Guides de démarrage** | **7 guides**, un seul parcours (les anciens écrans d'introduction ont été supprimés) : **Évitez les surcoûts · Devis clé en main · Choisissez les meilleurs matériaux · Ne perdez plus une seule étape · Investissez sans risque · Suivez l'évolution des prix · Trouvez les bons prestataires**. Chaque guide = **illustration dédiée** + **titre** + **texte descriptif** + indicateur **« n / 7 »** (pastilles) + bouton **Suivant** (puis **Commencer** au 7ᵉ) + bouton **Passer**. Les illustrations sont des **scènes vectorielles dessinées pour BatiBuild** (`GuideIllustrations.tsx`, voir la note ci-dessous). Mémorisé via `onboardingCompleted` (AsyncStorage). |
@@ -157,7 +164,8 @@ mobile/
 | **Chargement** | Écran de chargement natif (logo officiel + « Chargement.... » + barre de progression), **borné à 1 s** — jamais de page blanche ni de loader bloqué. |
 | **Hors ligne / erreurs** | Écran natif « Connexion Internet indisponible » / « Impossible de charger BatiBuild » + bouton **Réessayer** (codes `ERR_*` mappés en messages lisibles). |
 | **Upload** | `<input type="file">` natif : galerie, photo (caméra), fichiers (permissions CAMERA / READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE). |
-| **Téléchargements** | PDF et documents : téléchargés en cache puis ouverts via la feuille de partage native (`expo-file-system` + `expo-sharing`). |
+| **Téléchargements** | PDF et documents : écrits dans le cache puis remis à la feuille de partage native (`expo-file-system` + `expo-sharing`) — l'utilisateur enregistre (Fichiers, Drive…) ou envoie le fichier. Deux sources : une URL `http(s)://` (`onFileDownload`) **et** les fichiers fabriqués dans le navigateur (PDF jsPDF, exports CSV/texte), qui utilisent une URL `blob:` — voir la note ci-dessous. |
+| **PDF « blob: » (Android)** | Les PDF de l'estimation du coût de construction et de l'analyse des matériaux IA sont générés **dans la page** (jsPDF) puis « téléchargés » par une URL `blob:`, que la WebView Android ne sait pas écrire sur le disque (le clic ne produisait donc aucun fichier). Un pont injecté (`DOWNLOAD_BRIDGE_SCRIPT` dans `src/injected.ts`) capture le Blob au clic et l'envoie en **base64 par morceaux de 256 Ko** au code natif (`src/download.ts`), qui reconstitue le fichier, l'écrit dans le cache et ouvre la feuille de partage Android. Mémoire bornée (~32 Mo max, morceaux hors limite rejetés) et transferts interrompus oubliés au bout d'une minute. Aucun fichier Web ni backend n'est modifié. |
 | **Partage natif** | `navigator.share` de la plateforme Web est intercepté et ouvre le menu de partage natif (WhatsApp, e-mail, messages…). |
 | **Safe Area** | Contenu WebView entre la barre supérieure native et la barre du bas, qui gèrent elles-mêmes les insets (barre de statut / encoche / navigation gestuelle). |
 
@@ -358,6 +366,13 @@ n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
   internes ; tout autre domaine est routé vers le navigateur système.
 - **Le téléchargement ne se partage pas** : sur iOS, certains documents s'affichent dans la
   WebView (lecture intégrée) ; les PDF servis en pièce jointe déclenchent la feuille de partage.
+- **Les PDF (estimation du coût, matériaux IA) ne se téléchargeaient pas** : c'est corrigé —
+  ces PDF sont fabriqués dans la page (`blob:`) et passent désormais par le pont natif
+  (`src/download.ts`), qui les écrit puis ouvre la feuille de partage Android. Enregistrez le
+  fichier depuis cette feuille (Fichiers, Drive…) ou envoyez-le directement.
+- **La barre du bas disparaît sur certaines pages** : c'est voulu. Elle n'est affichée que sur
+  `/dashboard` ; les autres pages s'ouvrent en plein écran et se quittent avec la flèche
+  « retour » de l'en-tête web ou le bouton Back Android.
 - **Modifier le projet natif** : `android/` est **commité** ; après un changement
   d'`app.json`, resynchroniser avec `npm run android:prebuild` puis réappliquer la
   signature : `npm run signing:apply`. `ios/` est en CNG (régénéré par

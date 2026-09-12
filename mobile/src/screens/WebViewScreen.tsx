@@ -13,7 +13,6 @@ import {
   View,
 } from "react-native";
 import { File, Paths } from "expo-file-system";
-import * as Sharing from "expo-sharing";
 import Constants from "expo-constants";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 
@@ -38,31 +37,15 @@ import {
   type NavDestination,
   type NavId,
 } from "../config";
-import { ENTRY_GUARD_SCRIPT, MOBILE_CHROME_SCRIPT, navigateScript, SHARE_BRIDGE_SCRIPT } from "../injected";
+import { BlobDownloadBridge, guessMime, shareFile } from "../download";
+import {
+  DOWNLOAD_BRIDGE_SCRIPT,
+  ENTRY_GUARD_SCRIPT,
+  MOBILE_CHROME_SCRIPT,
+  navigateScript,
+  SHARE_BRIDGE_SCRIPT,
+} from "../injected";
 import { COLORS, SHAPE, useAppTheme } from "../theme";
-
-const MIME_BY_EXT: Record<string, string> = {
-  pdf: "application/pdf",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  gif: "image/gif",
-  dwg: "application/acad",
-  dxf: "image/vnd.dxf",
-  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  xls: "application/vnd.ms-excel",
-  doc: "application/msword",
-  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  csv: "text/csv",
-  zip: "application/zip",
-  txt: "text/plain",
-};
-
-function guessMime(name: string): string {
-  const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  return MIME_BY_EXT[ext] ?? "application/octet-stream";
-}
 
 /**
  * Borne de 1 seconde pour TOUT écran de chargement — ouverture, page ou menu
@@ -107,6 +90,15 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   const [error, setError] = useState<WebViewError | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  /**
+   * Pont des téléchargements « blob: » (PDF jsPDF : estimation du coût de
+   * construction, analyse des matériaux IA…). Une seule instance pour la durée
+   * de vie de la WebView : les morceaux d'un même fichier sont rassemblés entre
+   * deux messages.
+   */
+  const bridgeRef = useRef<BlobDownloadBridge | null>(null);
+  if (!bridgeRef.current) bridgeRef.current = new BlobDownloadBridge();
 
   /**
    * Démarre un écran de chargement borné à 1 seconde.
@@ -342,10 +334,15 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     });
   }, []);
 
-  // ---------- pont de partage natif (navigator.share) ----------
+  // ---------- messages de la page (téléchargements « blob: » + partage) ----------
   const handleMessage = useCallback((event: { nativeEvent: { data?: string } }) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data ?? "{}");
+
+      // Fichiers générés dans le navigateur (PDF jsPDF, exports CSV/texte) : le
+      // pont les transforme en fichiers natifs puis ouvre la feuille de partage.
+      if (bridgeRef.current?.handle(msg)) return;
+
       if (msg.type === "share") {
         const parts = [msg.text, msg.url].filter(Boolean);
         Share.share({
@@ -359,7 +356,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     }
   }, []);
 
-  // ---------- téléchargements (PDF, plans, exports…) ----------
+  // ---------- téléchargements par URL (pièces jointes, plans, exports…) ----------
   const handleDownload = useCallback(async (url: string) => {
     if (!url) return;
     try {
@@ -367,13 +364,8 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
       const base = clean.split("/").pop() || "document";
       const safe = base.replace(/[^a-zA-Z0-9._-]/g, "_");
       const name = `${Date.now()}-${safe || "document"}`;
-      const dest = new File(Paths.cache, name);
-      const file = await File.downloadFileAsync(url, dest);
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(file.uri, { mimeType: guessMime(name), dialogTitle: name, UTI: guessMime(name) });
-      } else {
-        await Linking.openURL(file.uri);
-      }
+      const file = await File.downloadFileAsync(url, new File(Paths.cache, name));
+      await shareFile(file, guessMime(name), safe || "document");
     } catch {
       // Repli : on confie l'URL au gestionnaire de téléchargement du système.
       Linking.openURL(url).catch(() => {});
@@ -469,8 +461,10 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
             onFileDownload={handleFileDownload}
             onMessage={handleMessage}
             // `MOBILE_CHROME_SCRIPT` masque le burger de l'en-tête web dans
-            // l'application (le reste de l'en-tête web est intact).
-            injectedJavaScriptBeforeContentLoaded={`${MOBILE_CHROME_SCRIPT}${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
+            // l'application (le reste de l'en-tête web est intact) et
+            // `DOWNLOAD_BRIDGE_SCRIPT` rend les PDF « blob: » (estimation du
+            // coût de construction, matériaux IA) réellement téléchargeables.
+            injectedJavaScriptBeforeContentLoaded={`${DOWNLOAD_BRIDGE_SCRIPT}${MOBILE_CHROME_SCRIPT}${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
             style={[styles.webview, { backgroundColor: theme.surface }]}
             setSupportMultipleWindows={false}
             allowsBackForwardNavigationGestures={Platform.OS === "ios"}
