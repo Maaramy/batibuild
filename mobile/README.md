@@ -46,7 +46,8 @@ zones système (haute et basse) et n'entraînent **jamais** le rechargement de l
 marque** (`primary`) et à la graisse du libellé ; les onglets inactifs restent en gris
 (`onSurfaceVariant`). C'est une barre **plate pleine largeur** (fond uni, filet de séparation en
 haut, ni capsule, ni coins arrondis, ni ombre), à la manière de la maquette de
-référence. Ses icônes sont **compactes (22 pt)** et sa hauteur réduite, pour laisser
+référence. Ses icônes sont **compactes (19 pt)** et ses libellés réduits (**10,5 pt**),
+sa hauteur étant réduite d'autant, pour laisser
 un maximum d'espace au contenu. Elle est posée normalement au-dessus de la zone
 système basse (aucun décalage supplémentaire) ; la bande sous les icônes reste opaque,
 le contenu de la WebView n'apparaît jamais dans cet espace.
@@ -125,7 +126,7 @@ mobile/
 │   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : barres, guides, erreurs
 │   │   ├── Logo.tsx               # Logo officiel de la plateforme (tuile émeraude + casque blanc)
 │   │   ├── TopNav.tsx             # Barre native supérieure : logo + nom, Support, Paramètres
-│   │   ├── BottomNav.tsx          # Barre de navigation Material 3 (5 sections, icônes 20 pt)
+│   │   ├── BottomNav.tsx          # Barre de navigation Material 3 (5 sections, icônes 19 pt)
 │   │   └── GuideIllustrations.tsx # 7 illustrations dédiées (scènes vectorielles SVG)
 │   ├── download.ts                # Téléchargements natifs : URL http(s) ET PDF « blob: »
 │   ├── storage.ts                 # onboardingCompleted (AsyncStorage)
@@ -148,7 +149,7 @@ mobile/
 | **Splash** | **Fond BLANC**, logo officiel et **un seul message : « Chargement.... »** (aucun slogan, aucune image de présentation). Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
 | **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
-| **Barre de navigation (bas)** | Barre **plate** pleine largeur (fond uni `surface`, filet de séparation en haut, **sans** capsule, coins arrondis ni ombre) : 5 sections Material 3 (Mon profil · Projets · Dashboard · Investissements · Messagerie), libellés permanents (jamais de « hover »), icônes **lucide fines 22 pt** (contour). **Aucun cercle ni pastille verte** : l'état actif est signalé par la **couleur émeraude BatiBuild** (`primary`) et la graisse du libellé ; les onglets inactifs restent en gris (`onSurfaceVariant`). Posée au-dessus de la zone système basse (aucun décalage supplémentaire). **Affichée uniquement sur `/dashboard`** : toutes les autres pages (profil, investissements, messagerie, support, paramètres, résultats d'estimation du coût, résultats des matériaux IA, connexion / inscription) s'affichent en plein écran — voir `shouldShowBottomNav()` dans `src/config.ts`. |
+| **Barre de navigation (bas)** | Barre **plate** pleine largeur (fond uni `surface`, filet de séparation en haut, **sans** capsule, coins arrondis ni ombre) : 5 sections Material 3 (Mon profil · Projets · Dashboard · Investissements · Messagerie), libellés permanents (jamais de « hover »), icônes **lucide fines 19 pt** (contour) et libellés **10,5 pt**. **Aucun cercle ni pastille verte** : l'état actif est signalé par la **couleur émeraude BatiBuild** (`primary`) et la graisse du libellé ; les onglets inactifs restent en gris (`onSurfaceVariant`). Posée au-dessus de la zone système basse (aucun décalage supplémentaire). **Affichée uniquement sur `/dashboard`** : toutes les autres pages (profil, investissements, messagerie, support, paramètres, résultats d'estimation du coût, résultats des matériaux IA, connexion / inscription) s'affichent en plein écran — voir `shouldShowBottomNav()` dans `src/config.ts`. |
 | **Barre supérieure (native)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. Aucun menu burger — celui de l'en-tête web est masqué dans l'application. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
 | **Guides de démarrage** | **7 guides**, un seul parcours (les anciens écrans d'introduction ont été supprimés) : **Évitez les surcoûts · Devis clé en main · Choisissez les meilleurs matériaux · Ne perdez plus une seule étape · Investissez sans risque · Suivez l'évolution des prix · Trouvez les bons prestataires**. Chaque guide = **illustration dédiée** + **titre** + **texte descriptif** + indicateur **« n / 7 »** (pastilles) + bouton **Suivant** (puis **Commencer** au 7ᵉ) + bouton **Passer**. Les illustrations sont des **scènes vectorielles dessinées pour BatiBuild** (`GuideIllustrations.tsx`, voir la note ci-dessous). Mémorisé via `onboardingCompleted` (AsyncStorage). |
@@ -265,8 +266,9 @@ Aucun service cloud de compilation n'est utilisé.
 | Nom de l'application | BatiBuild |
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
-| Version | **1.1.0** — `versionCode 3` (Android), `buildNumber 1` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
-| Contenu de la 1.1.0 | Barre de navigation du bas redessinée (**plate pleine largeur**, fond uni, filet de séparation, ni capsule ni ombre), onglet actif en **émeraude de marque**, icônes fines 22 pt ; barre affichée **uniquement sur `/dashboard`** ; téléchargement des **PDF générés dans la page** (estimation du coût de construction, matériaux IA) via le pont natif ; guide d'accueil (7 étapes) libellé d'après les noms actuels de la plateforme. |
+| Version | **1.1.1** — `versionCode 4` (Android), `buildNumber 1` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Contenu de la 1.1.1 | Barre du bas **plus compacte** : icônes fines **19 pt** et libellés **10,5 pt**, hauteur d'onglet réduite (40 pt). |
+| Contenu de la 1.1.0 | Barre de navigation du bas redessinée (**plate pleine largeur**, fond uni, filet de séparation, ni capsule ni ombre), onglet actif en **émeraude de marque**, icônes fines ; barre affichée **uniquement sur `/dashboard`** ; téléchargement des **PDF générés dans la page** (estimation du coût de construction, matériaux IA) via le pont natif ; guide d'accueil (7 étapes) libellé d'après les noms actuels de la plateforme. |
 
 ## 8. Permissions (déclarées)
 

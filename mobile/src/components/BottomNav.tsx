@@ -17,6 +17,8 @@ import { useAppTheme } from "../theme";
  *     web étant blanche, ce filet est ce qui détache la barre du contenu (dans
  *     la maquette la séparation vient d'un fond gris autour de la barre) ;
  *   - 5 onglets de largeur égale : icône fine au-dessus, libellé en dessous ;
+ *   - proportions COMPACTES : icônes 19 pt et libellés 10,5 pt (tailles
+ *     volontairement réduites pour ne pas concurrencer le contenu web) ;
  *   - onglet ACTIF : icône et libellé en **émeraude BatiBuild** (`theme.primary`)
  *     et libellé en gras ;
  *   - onglets inactifs : icône et libellé en gris (`onSurfaceVariant`).
@@ -72,7 +74,7 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
     >
       <Animated.View style={[styles.iconWrap, { transform: [{ scale: iconScale }] }]}>
         <Icon
-          size={22}
+          size={19}
           color={color}
           strokeWidth={selected ? NAV_STROKE.active : NAV_STROKE.inactive}
         />
@@ -141,15 +143,15 @@ const styles = StyleSheet.create({
   band: {
     flexDirection: "row",
     alignItems: "stretch",
-    paddingTop: 7,
+    paddingTop: 6,
     // Filet de séparation : la barre se détache du contenu web, sans cadre ni
     // ombre (aucune bordure latérale, aucun coin arrondi).
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   item: {
     flex: 1,
-    minHeight: 46,
-    paddingVertical: 3,
+    minHeight: 40,
+    paddingVertical: 2,
     paddingHorizontal: 2,
     alignItems: "center",
     justifyContent: "flex-start",
@@ -159,10 +161,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   label: {
-    marginTop: 3,
+    marginTop: 2,
     alignSelf: "stretch",
     textAlign: "center",
-    fontSize: 11.5,
-    lineHeight: 14,
+    fontSize: 10.5,
+    lineHeight: 13,
   },
 });
