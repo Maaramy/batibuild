@@ -264,7 +264,7 @@ Aucun service cloud de compilation n'est utilisé.
 | Nom de l'application | BatiBuild |
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
-| Version | 1.0.0 (versionCode 1, buildNumber 1 — à incrémenter dans `app.json` avant publication) |
+| Version | **1.0.1** — `versionCode 2` (Android), `buildNumber 1` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
 
 ## 8. Permissions (déclarées)
 
@@ -296,6 +296,10 @@ clé debug (assurée) → signingReport → assembleDebug · assembleRelease · 
       ↓
 Artifacts : Batibuild-debug.apk · Batibuild-release.apk · Batibuild-release.aab
 ```
+
+Le **résumé du run** affiche la version réellement compilée (`1.0.1 — versionCode 2`),
+la taille de chaque fichier, les ABI compilées et la commande d'installation
+(`adb install -r Batibuild-release.apk`).
 
 ### Déclencher
 

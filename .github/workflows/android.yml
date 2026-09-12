@@ -430,7 +430,12 @@ jobs:
 
       - name: Résumé du build
         run: |
+          # Version réellement compilée : permet d'identifier l'APK téléchargé.
+          VERSION=$(node -p "require('./app.json').expo.version")
+          CODE=$(node -p "require('./app.json').expo.android.versionCode")
           echo "## ✅ Build Android terminé" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**BatiBuild ${VERSION} — versionCode ${CODE}**" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Fichier | Taille |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
@@ -439,4 +444,6 @@ jobs:
           done
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "ABI compilées : \`$ARCHITECTURES\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Téléphone branché en USB : \`adb install -r Batibuild-release.apk\`" >> "$GITHUB_STEP_SUMMARY"
           ls -lh /tmp/dist
