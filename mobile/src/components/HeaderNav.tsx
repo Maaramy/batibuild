@@ -12,17 +12,26 @@ import { COLORS, SHAPE } from "../theme";
  * (Profile · Projets · Home · ROI · Message), les mêmes routes, les mêmes
  * icônes — mais dans l'en-tête, sous forme de **menu horizontal scrollable**.
  *
+ * FOND BLANC (demande explicite) : la barre est peinte en #FFFFFF et aucune
+ * surface de couleur n'est appliquée aux onglets — ni au repos, ni à l'appui.
+ *
  *   - les éléments gardent leur largeur naturelle (`flexShrink: 0`) : ils ne
  *     sont jamais coupés, tronqués ni déformés ;
  *   - dès que la rangée dépasse la largeur de l'écran, elle défile
  *     horizontalement — défilement natif (`ScrollView`), fluide sur Android et
  *     iPhone, avec verrouillage directionnel pour ne pas gêner le défilement
  *     vertical de la page ;
- *   - l'élément correspondant à la page COURANTE est mis en évidence (fond
- *     `primaryContainer` émeraude + libellé et icône en teinte de marque,
- *     libellé en gras) ; les autres restent en gris ;
- *   - état pressé : léger voile neutre + réduction (comme les boutons de la
- *     barre supérieure) ; aucun état « hover » (inutile au toucher).
+ *   - le FOND de la barre est BLANC (#FFFFFF) dans TOUS les états et dans les
+ *     trois modes d'affichage (clair / sombre / système) : aucun onglet, aucun
+ *     appui ne teinte la surface — voir `styles.root`, `styles.itemActive` et
+ *     `styles.itemPressed`.
+ *   - l'élément correspondant à la page COURANTE est mis en évidence par un
+ *     **anneau émeraude** (`COLORS.brand`), une icône et un libellé en teinte de
+ *     marque et un libellé en gras — sans remplir le fond ; les autres restent
+ *     en gris ;
+ *   - état pressé : léger retrait (opacité + échelle), SANS fond de couleur,
+ *     pour que la barre reste parfaitement blanche ; aucun état « hover »
+ *     (inutile au toucher).
  *
  * Le menu ne fait que demander un changement de route à la WebView
  * (`onSelect`) : aucune page n'est créée, aucune logique métier n'est touchée.
@@ -53,6 +62,9 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
         selected && styles.itemActive,
         pressed && styles.itemPressed,
       ]}
+      // Aucune ondulation Android : le ripple système dessinerait un voile gris
+      // sur l'onglet (la barre doit rester blanche, y compris à l'appui).
+      android_ripple={{ color: "transparent" }}
     >
       <Icon size={15} color={color} strokeWidth={selected ? NAV_STROKE.active : NAV_STROKE.inactive} />
       <Text numberOfLines={1} style={[styles.label, { color, fontWeight: selected ? "700" : "500" }]}>
@@ -101,7 +113,8 @@ export default function HeaderNav({ active, onSelect, onOpenSettings }: Props) {
 
 const styles = StyleSheet.create({
   root: {
-    // Même surface blanche que la barre supérieure native : un seul chrome.
+    // Barre TOUJOURS blanche (#FFFFFF), comme la barre supérieure native : un
+    // seul chrome, identique en mode clair, sombre et système.
     backgroundColor: COLORS.white,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.line,
@@ -121,15 +134,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: SHAPE.full,
+    // Anneau transparent par défaut : l'ajouter sur l'onglet actif ne décale
+    // jamais la rangée (mêmes dimensions dans tous les états).
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   itemActive: {
-    // Teinte de marque, cohérente avec les onglets et les boutons actifs de la
-    // plateforme (mêmes teintes que le mode clair : la barre reste blanche).
-    backgroundColor: COLORS.accentSoft,
+    // Le fond RESTE BLANC : l'onglet actif se distingue uniquement par un
+    // anneau émeraude (teinte de marque, `COLORS.brand`), l'icône et le libellé
+    // colorés (voir `NavItem`) — aucune surface colorée dans la barre.
+    backgroundColor: COLORS.white,
+    borderColor: "rgba(5,150,105,0.45)",
   },
   itemPressed: {
-    // Voile neutre : lisible sur le fond blanc, quel que soit le mode système.
-    backgroundColor: "rgba(15,23,42,0.06)",
+    // Aucun fond de couleur : le retour au toucher est un léger retrait, donc
+    // la barre reste blanche même pendant l'appui.
+    opacity: 0.7,
+    transform: [{ scale: 0.97 }],
   },
   label: {
     fontSize: 12,
