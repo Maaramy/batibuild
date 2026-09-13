@@ -88,25 +88,25 @@ import { ANALYSIS_STATUS_LABEL, type AnalysisHistoryStatus } from "@/lib/analysi
 /**
  * Icônes des accès rapides — famille **lucide**, la même que le reste de la
  * plateforme (aucune image externe) :
- *   Matériaux → `Blocks` (briques / cubes) · ROI → `TrendingUp` (tendance
- *   financière, l'icône déjà utilisée pour « Return on Investment ») ·
+ *   Matériaux → `Blocks` (briques / cubes) · Démarche → `Rocket` (guide de
+ *   construction A-Z, la même icône que sur la page projet) ·
  *   Expert → `Users` · Plan AI → `PencilRuler` (plan / règle).
  */
 const PROJECT_QUICK_ICONS: Record<string, any> = {
   materials: Blocks,
-  roi: TrendingUp,
+  guide: Rocket,
   expert: Users,
   plan: PencilRuler,
 };
 
-function ProjectCard({ project, linkedAnalysisId }: { project: any; linkedAnalysisId?: string }) {
+function ProjectCard({ project }: { project: any }) {
   const navigate = useNavigate();
   const toggleFavorite = useMutation(api.projects.toggleFavorite);
   const deleteProject = useMutation(api.projects.deleteProject);
 
   // ACCÈS RAPIDES — modules liés au projet (routes + contexte du projet).
   // Voir `@/lib/projectQuickActions` (construction des liens, testée).
-  const quickActions = buildProjectQuickActions(project, linkedAnalysisId);
+  const quickActions = buildProjectQuickActions(project);
 
 
   const statusColors: Record<string, string> = {
@@ -215,7 +215,7 @@ function ProjectCard({ project, linkedAnalysisId }: { project: any; linkedAnalys
                   onClick={(e) => {
                     // La carte entière ouvre le projet : on isole le bouton.
                     e.stopPropagation();
-                    navigate(a.href, a.state ? { state: a.state } : undefined);
+                    navigate(a.href);
                   }}
                   className={cn(
                     "flex h-8 shrink-0 items-center gap-1 rounded-lg border border-border/40 bg-muted/20 px-2",
@@ -649,16 +649,6 @@ export default function Dashboard() {
   }).filter((p: any) =>
     searchQuery ? p.name.toLowerCase().includes(searchQuery.toLowerCase()) : true
   );
-
-  // ── Accès rapides : analyse d'investissement déjà liée à chaque projet ──
-  // `analyses` est trié du plus récent au plus ancien : on garde la plus récente.
-  const analysisIdByProject = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const a of analyses as any[]) {
-      if (a?.projectId && !map[a.projectId]) map[a.projectId] = a._id;
-    }
-    return map;
-  }, [analyses]);
 
   // ── Tranches affichées (3 par défaut + « Voir plus ») ──
   const visibleProjects = showAllProjects ? filteredProjects : filteredProjects.slice(0, 3);
@@ -1544,11 +1534,7 @@ export default function Dashboard() {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
                     {visibleProjects.map((project: any) => (
-                      <ProjectCard
-                        key={project._id}
-                        project={project}
-                        linkedAnalysisId={analysisIdByProject[project._id]}
-                      />
+                      <ProjectCard key={project._id} project={project} />
                     ))}
                   </div>
                   {filteredProjects.length > 3 && (
