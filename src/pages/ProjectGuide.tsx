@@ -803,7 +803,7 @@ export default function ProjectGuide() {
                     <span className={`h-2 w-2 rounded-full ${SCENARIO_STYLES[s.key].dot}`} /> {s.label}
                   </p>
                   <p className="mt-1 text-sm font-bold tabular-nums">{fmtTnd(s.totalCost)}</p>
-                  <p className="text-[9px] text-muted-foreground">{fmtTnd(s.costPerM2)}/m² · ×{s.multiplier}</p>
+                  <p className="text-[9px] text-muted-foreground">{fmtTnd(s.costPerM2)}/m²</p>
                 </button>
               ))}
             </div>
