@@ -1,5 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { query, mutation, QueryCtx } from "./_generated/server";
+import { query, mutation, MutationCtx, QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { roleValidator, subscriptionPlanValidator } from "./schema";
 
@@ -10,7 +12,6 @@ const ROLE_LOG_LABELS: Record<string, string> = {
   support_agent: "Agent support",
   user: "Utilisateur",
 };
-import bcrypt from "bcryptjs";
 import { P, runBIMEstimation } from "./bimEngine";
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { scheduleEmailEvent, formatDateFr, planLabel, splitName } from "./emailNotifications";
@@ -586,18 +587,87 @@ export const deleteUser = mutation({
   },
 });
 
+// ============================================================================
+// Mot de passe (provider `password` de Convex Auth)
+//
+// Convex Auth hache les mots de passe avec Scrypt et les stocke dans le champ
+// `secret` de `authAccounts` : un mot de passe écrit autrement (bcrypt, champ
+// `passwordHash` inexistant au schéma) est refusé par la validation Convex ou
+// ne correspond plus jamais à la connexion. Tout passe donc par la mutation
+// interne `auth:store`, exactement le point d'entrée qu'utilisent les helpers
+// du SDK (`modifyAccountCredentials`, `retrieveAccountWithCredentials`,
+// `verifyCodeAndSignIn`) : hachage, vérification du code OTP et session
+// restent gérés par la librairie, sans réimplémentation.
+// ============================================================================
+
+/** Réécrit le mot de passe du compte `password` (hachage Scrypt côté Convex Auth). */
+async function setPasswordSecret(
+  ctx: MutationCtx,
+  providerAccountId: string,
+  newPassword: string,
+): Promise<void> {
+  await ctx.runMutation(internal.auth.store, {
+    args: {
+      type: "modifyAccount",
+      provider: "password",
+      account: { id: providerAccountId, secret: newPassword },
+    },
+  });
+}
+
 /**
- * Reset password using a verified email (OTP verified).
- * Finds the auth account for the given email with provider "password"
- * and updates the password hash.
+ * Vrai si `code` est bien le code OTP envoyé à cet e-mail (et non expiré).
+ *
+ * `verifyCodeAndSignIn` ouvre toujours une session : comme aucun jeton n'est
+ * délivré ici, elle est supprimée dans la foulée — l'utilisateur se
+ * reconnectera avec son nouveau mot de passe.
+ */
+async function consumeEmailOtp(
+  ctx: MutationCtx,
+  email: string,
+  code: string,
+  userId: Id<"users">,
+): Promise<boolean> {
+  const session = await ctx.runMutation(internal.auth.store, {
+    args: {
+      type: "verifyCodeAndSignIn",
+      params: { email, code },
+      provider: "email-otp",
+      generateTokens: false,
+      allowExtraProviders: false,
+    },
+  });
+
+  // `auth:store` est une mutation unique qui sert tous les flux : on ne
+  // conserve que le résultat de `verifyCodeAndSignIn` (une session).
+  if (session === null || typeof session !== "object" || !("sessionId" in session)) {
+    return false;
+  }
+
+  await ctx.db.delete(session.sessionId);
+  return "userId" in session && session.userId === userId;
+}
+
+/** Compte « mot de passe » de cet utilisateur, s'il en possède un. */
+async function findPasswordAccount(ctx: MutationCtx, userId: Id<"users">) {
+  const authAccounts = await ctx.db
+    .query("authAccounts")
+    .filter((q) => q.eq(q.field("userId"), userId))
+    .collect();
+  return authAccounts.find((a) => a.provider === "password");
+}
+
+/**
+ * Réinitialise le mot de passe après vérification du code reçu par e-mail
+ * (parcours « Mot de passe oublié »).
  */
 export const resetPassword = mutation({
   args: {
     email: v.string(),
+    code: v.string(),
     newPassword: v.string(),
   },
   handler: async (ctx, args) => {
-    // Validate password length
     if (args.newPassword.length < 8) {
       throw new Error("Le mot de passe doit contenir au moins 8 caractères.");
     }
@@ -613,27 +683,18 @@ export const resetPassword = mutation({
     }
 
     const user = users[0];
-
-    // Find the auth account for this user with password provider
-    const authAccounts = await ctx.db
-      .query("authAccounts")
-      .filter((q) => q.eq(q.field("userId"), user._id))
-      .collect();
-
-    const passwordAccount = authAccounts.find(a => a.provider === "password");
+    const passwordAccount = await findPasswordAccount(ctx, user._id);
 
     if (!passwordAccount) {
       throw new Error("Aucun compte mot de passe trouvé. Utilisez la connexion rapide par email.");
     }
 
-    // Hash the new password
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(args.newPassword, salt);
+    // Le code est consommé par cette vérification (usage unique).
+    if (!(await consumeEmailOtp(ctx, args.email, args.code, user._id))) {
+      throw new Error("Code de vérification invalide ou expiré. Relancez la procédure.");
+    }
 
-    // Update the password hash (cast needed as authAccounts type from authTables doesn't expose passwordHash)
-    await ctx.db.patch(passwordAccount._id, {
-      passwordHash,
-    } as any);
+    await setPasswordSecret(ctx, passwordAccount.providerAccountId, args.newPassword);
 
     return { success: true };
   },
@@ -660,36 +721,30 @@ export const changePassword = mutation({
       throw new Error("Le nouveau mot de passe doit être différent de l'actuel.");
     }
 
-    // Find the auth account bound to the password provider
-    const authAccounts = await ctx.db
-      .query("authAccounts")
-      .filter((q) => q.eq(q.field("userId"), user._id))
-      .collect();
-
-    const passwordAccount = authAccounts.find((a) => a.provider === "password");
+    const passwordAccount = await findPasswordAccount(ctx, user._id);
 
     if (!passwordAccount) {
       throw new Error("Aucun compte mot de passe trouvé. Utilisez la connexion rapide par email.");
     }
 
-    const currentHash = (passwordAccount as any).passwordHash as string | undefined;
-    if (!currentHash) {
-      throw new Error("Aucun mot de passe enregistré sur ce compte.");
-    }
+    // Vérifie le mot de passe actuel : c'est Convex Auth qui compare le secret
+    // fourni au hachage stocké (Scrypt), avec sa limitation de tentatives.
+    const check = await ctx.runMutation(internal.auth.store, {
+      args: {
+        type: "retrieveAccountWithCredentials",
+        provider: "password",
+        account: { id: passwordAccount.providerAccountId, secret: args.currentPassword },
+      },
+    });
 
-    // Verify the current password before allowing the change
-    const valid = await bcrypt.compare(args.currentPassword, currentHash);
-    if (!valid) {
+    if (check === "TooManyFailedAttempts") {
+      throw new Error("Trop de tentatives. Réessayez dans quelques minutes.");
+    }
+    if (check === "InvalidSecret" || check === "InvalidAccountId") {
       throw new Error("Le mot de passe actuel est incorrect.");
     }
 
-    // Hash and store the new password
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(args.newPassword, salt);
-
-    await ctx.db.patch(passwordAccount._id, {
-      passwordHash,
-    } as any);
+    await setPasswordSecret(ctx, passwordAccount.providerAccountId, args.newPassword);
 
     return { success: true };
   },

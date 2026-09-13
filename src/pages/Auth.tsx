@@ -504,6 +504,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       const email = fd.get("email") as string;
       setResetEmail(email);
       await signIn("email-otp", fd);
+      setResetOtp("");
       setResetStep("otp");
     } catch (e) { setError(authErrorMessage(e, "Échec d'envoi du code.")); }
     setIsLoading(false);
@@ -515,7 +516,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     if (newPw !== confirmNewPw) { setError("Les mots de passe ne correspondent pas."); return; }
     if (newPw.length < 8) { setError("8 caractères minimum."); return; }
     setIsLoading(true); resetError();
-    try { await resetPasswordMutation({ email: resetEmail, newPassword: newPw }); setResetStep("success"); }
+    try { await resetPasswordMutation({ email: resetEmail, code: resetOtp, newPassword: newPw }); setResetStep("success"); }
     catch (err) { setError(err instanceof Error ? err.message : "Erreur."); }
     setIsLoading(false);
   };
@@ -641,6 +642,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       {error && <ErrorBanner message={error} />}
                       <PrimaryButton loading={isLoading} loadingText="Réinitialisation...">Réinitialiser</PrimaryButton>
                     </form>
+                    <button type="button" onClick={() => { setResetStep("email"); setResetOtp(""); resetError(); }} className="w-full text-sm text-center mt-5 hover:underline" style={{ color: "var(--foreground)", opacity: 0.6 }}>← Demander un nouveau code</button>
                   </motion.div>
                 )}
               </motion.div>
