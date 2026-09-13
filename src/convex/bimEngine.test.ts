@@ -145,11 +145,20 @@ describe("runBIMEstimation — grille tarifaire fixe 2026 (feuille « Couts_24_g
     expect(std.costEstimate.costPerSquareMeter).toBe(1944);
   });
 
-  it("totaux = grille exacte × surface bâtie + contingence 12 % (ligne distincte)", () => {
+  it("total = somme réelle des coûts calculés (aucun imprévu ajouté)", () => {
     const std = runBIMEstimation("maison", 120, 1, "ariana", "standard");
     const base = 1944 * 120;
-    expect(std.costEstimate.totalCost).toBe(base + Math.round(base * 12 / 100));
-    expect(std.costEstimate.contingencyPercentage).toBe(12);
+    expect(std.costEstimate.totalCost).toBe(base);
+    expect(std.costEstimate.contingencyBuffer).toBe(0);
+    expect(std.costEstimate.contingencyPercentage).toBe(0);
+  });
+
+  it("le total correspond à la somme des postes de travaux", () => {
+    const std = runBIMEstimation("maison", 120, 1, "ariana", "standard");
+    const sum = std.costEstimate.breakdown.reduce((s, b) => s + b.estimatedCost, 0);
+    expect(Math.abs(sum - std.costEstimate.totalCost)).toBeLessThan(
+      std.costEstimate.totalCost * 0.01,
+    );
   });
 
   it("la grille exacte s'applique aux 24 gouvernorats (échantillons)", () => {

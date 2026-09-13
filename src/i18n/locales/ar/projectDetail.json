@@ -58,8 +58,7 @@
   "breakdown": {
     "title": "التوزيع",
     "byCategory": "حسب فئة التكلفة",
-    "workItems": "بنود العمل",
-    "contingency": "طوارئ"
+    "workItems": "بنود العمل"
   },
   "confidence": {
     "title": "الثقة",

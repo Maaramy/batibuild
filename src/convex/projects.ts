@@ -690,8 +690,9 @@ export const simulateAnalysis = mutation({
     // référence : lots / sous-lots, désignation, description, unité, quantité,
     // prix unitaire, montant (Montant = Quantité × P.U.), sous-total par lot,
     // totaux par nature (matériaux, main-d'œuvre, équipements, transport,
-    // études) et coût moyen au m². Le budget total clé en main (avec imprévus)
-    // est réparti par lot ; les prix en direct de la base materialPrices
+    // études) et coût moyen au m². Le budget total clé en main (coût réel des
+    // travaux, sans imprévus) est réparti par lot ; les prix en direct de la
+    // base materialPrices
     // écrasent les prix de référence internes du moteur.
     const dqe = generateDqe({
       category,

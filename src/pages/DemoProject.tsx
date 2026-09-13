@@ -187,7 +187,7 @@ export default function DemoProject() {
                 </div>
               ))}
               <div className="flex items-center justify-between pt-2 border-t border-border/60 text-xs font-semibold">
-                <span>Total (avec marge d'imprévus {ce.contingencyPercentage}%)</span>
+                <span>Coût total des travaux</span>
                 <span>{formatTnd(ce.totalCost)}</span>
               </div>
             </CardContent>

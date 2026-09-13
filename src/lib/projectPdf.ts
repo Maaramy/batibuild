@@ -341,27 +341,9 @@ export async function generateProjectPdf({
       y += 5;
     });
 
-    // Contingency row
-    addPageIfNeeded(6);
-    doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
-    doc.line(ml, y, ml + cw, y);
-    doc.setFontSize(6.5);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(180, 83, 9);
-    doc.text("Imprévus", ml + 2, y + 3.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
-    doc.text(`${ce.contingencyPercentage}%`, ml + cw * 0.55, y + 3.5, { align: "right" });
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(180, 83, 9);
-    doc.text(
-      fmtPdf(Math.round(ce.contingencyBuffer * sf)),
-      ml + cw * 0.75,
-      y + 3.5,
-      { align: "right" },
-    );
-
-    y += 10;
+    // Pas de ligne « Imprévus » : le total du devis est la somme réelle des
+    // postes ci-dessus (aucune marge d'imprévus n'est ajoutée).
+    y += 6;
 
     // ═══ BUDGET SCENARIOS COMPARISON ═══════════════════════════════
     if (scenarios) {

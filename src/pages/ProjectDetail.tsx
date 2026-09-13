@@ -34,7 +34,7 @@ import {
   PiggyBank, Sparkles, Wallet, Gauge,
   ChevronDown, ChevronUp, Check, CheckCheck, Info,
   Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
-  Percent, ChevronRight, Download,
+  ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
   LockKeyhole, RefreshCw, Rocket, LayoutGrid, HardHat,
 } from "lucide-react";
@@ -250,7 +250,32 @@ export default function ProjectDetail() {
 
   // ── Memos ───────────────────────────────────────────────────────────────
 
-  const ce = project?.costEstimate;
+  // ── Coût de construction SANS imprévus ──────────────────────────────────
+  // Le moteur n'ajoute plus aucune marge d'imprévus : le total EST la somme
+  // réelle des coûts calculés. Les estimations enregistrées avant cette
+  // suppression portent encore une majoration (« contingencyPercentage ») :
+  // on la retire ici pour que tous les montants affichés soient le coût réel.
+  const storedCe = project?.costEstimate;
+  const legacyContingencyPct = storedCe?.contingencyPercentage ?? 0;
+  const realCostFactor = legacyContingencyPct > 0 ? 1 / (1 + legacyContingencyPct / 100) : 1;
+  const ce = useMemo(() => {
+    if (!storedCe || realCostFactor === 1) return storedCe;
+    const real = (n: number) => Math.round(n * realCostFactor);
+    const s = storedCe.budgetScenarios;
+    return {
+      ...storedCe,
+      totalCost: real(storedCe.totalCost),
+      budgetScenarios: s
+        ? {
+            economique: { ...s.economique, totalCost: real(s.economique.totalCost) },
+            standard: { ...s.standard, totalCost: real(s.standard.totalCost) },
+            premium: { ...s.premium, totalCost: real(s.premium.totalCost) },
+          }
+        : s,
+      contingencyBuffer: 0,
+      contingencyPercentage: 0,
+    };
+  }, [storedCe, realCostFactor]);
   const ai = project?.aiAnalysis;
   const done = project?.status === "completed";
   const busy = project?.status === "analyzing" || analyzing;
@@ -819,11 +844,6 @@ export default function ProjectDetail() {
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-white/15 flex flex-wrap items-center gap-2 text-[10px] text-white/80">
-                  <Percent className="h-3 w-3 text-amber-300" />
-                  <span>{ce.contingencyPercentage}% réservé aux imprévus</span>
-                  <span className="font-semibold text-amber-200">({fmt(ce.contingencyBuffer)})</span>
-                </div>
               </div>
             </motion.div>
 
@@ -987,23 +1007,23 @@ export default function ProjectDetail() {
               const dqeLots: any[] = hasDqeLots
                 ? dqe.lots.map((lot: any) => ({
                     ...lot,
-                    subtotal: Math.round(lot.subtotal * scaleFactor),
+                    subtotal: Math.round(lot.subtotal * scaleFactor * realCostFactor),
                     lines: lot.lines?.map((line: any) => ({
                       ...line,
-                      total: Math.round(line.total * scaleFactor),
-                      unitPrice: Math.round((line.total * scaleFactor) / Math.max(1, line.quantity) * 100) / 100,
+                      total: Math.round(line.total * scaleFactor * realCostFactor),
+                      unitPrice: Math.round((line.total * scaleFactor * realCostFactor) / Math.max(1, line.quantity) * 100) / 100,
                     })),
                   }))
                 : [];
               // Totaux DQE recalculés à partir des lots scalés
               const dqeTotals = dqe?.totals ? {
-                materiaux: Math.round(dqe.totals.materiaux * scaleFactor),
-                mainOeuvre: Math.round(dqe.totals.mainOeuvre * scaleFactor),
-                equipements: Math.round(dqe.totals.equipements * scaleFactor),
-                transport: Math.round(dqe.totals.transport * scaleFactor),
-                etudes: Math.round(dqe.totals.etudes * scaleFactor),
-                total: Math.round(dqe.totals.total * scaleFactor),
-                costPerM2: Math.round(dqe.totals.costPerM2 * scaleFactor),
+                materiaux: Math.round(dqe.totals.materiaux * scaleFactor * realCostFactor),
+                mainOeuvre: Math.round(dqe.totals.mainOeuvre * scaleFactor * realCostFactor),
+                equipements: Math.round(dqe.totals.equipements * scaleFactor * realCostFactor),
+                transport: Math.round(dqe.totals.transport * scaleFactor * realCostFactor),
+                etudes: Math.round(dqe.totals.etudes * scaleFactor * realCostFactor),
+                total: Math.round(dqe.totals.total * scaleFactor * realCostFactor),
+                costPerM2: Math.round(dqe.totals.costPerM2 * scaleFactor * realCostFactor),
               } : undefined;
 
               // ── Données BIM (fallback plat) ──
@@ -1345,16 +1365,6 @@ export default function ProjectDetail() {
                       </div>
                     );
                   })}
-                </div>
-                <div className="mt-3 pt-3 border-t border-border/10">
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Shield className="h-3.5 w-3.5 text-amber-500" />
-                      <span className="font-medium">Imprévus</span>
-                    </div>
-                    <span className="font-bold">{fmt(Math.round(ce.contingencyBuffer * scaleFactor))}</span>
-                  </div>
-                  <Progress value={ce.contingencyPercentage} className="h-1.5 bg-amber-500/10 [&>div]:bg-amber-500" />
                 </div>
               </motion.div>
             </div>

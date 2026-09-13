@@ -867,7 +867,7 @@ export interface DqeInput {
   category: string;
   surface: number;
   floors: number;
-  totalBudget: number; // budget total clé en main (avec imprévus), TND
+  totalBudget: number; // coût total des travaux (sans imprévus), TND
   livePrices?: DqeLivePriceMap;
 }
 

@@ -53,13 +53,12 @@
     "equipements": "Équipements",
     "main_oeuvre": "Main-d'œuvre",
     "transport": "Transport",
-    "etudes_permis": "Études, permis & imprévus"
+    "etudes_permis": "Études & permis"
   },
   "breakdown": {
     "title": "Répartition",
     "byCategory": "Par catégorie de coût",
-    "workItems": "Postes de travaux",
-    "contingency": "Imprévus"
+    "workItems": "Postes de travaux"
   },
   "confidence": {
     "title": "Confiance",

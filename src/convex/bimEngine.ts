@@ -444,7 +444,7 @@ export const MACRO_LABELS: Record<string, string> = {
   equipements: "Équipements techniques",
   main_oeuvre: "Main-d'œuvre",
   transport: "Transports & autres",
-  etudes_imprevus: "Études, permis & imprévus",
+  etudes_imprevus: "Études & permis",
 };
 
 export const MACRO_COLORS: Record<string, string> = {
@@ -563,8 +563,8 @@ export const PROJECT_PCT: Record<string, Percentages> = {
   // Types résidentiels neufs : alignés sur la répartition par phases de la
   // feuille « Coût au m² – Tunisie 2026 » — Gros œuvre 43 % · Second œuvre +
   // Finitions & équipements ≈ 44 % (SO 31 + EQ 13) · solde main-d'œuvre /
-  // transport / études-imprévus 13 %. La contingence de 12 % est appliquée
-  // en sus (DEFAULT_CONTINGENCY_PCT).
+  // transport / études & permis 13 %. La somme des six postes = 100 % du coût
+  // du projet : aucune marge d'imprévus n'est ajoutée en sus.
   maison: [43, 31, 13, 6, 3, 4],
   villa: [43, 31, 13, 6, 3, 4],
   immeuble_residentiel: [45, 29, 13, 6, 3, 4],
@@ -704,8 +704,6 @@ export const STANDING_LEVELS_2026 = [
 /** Répartition par grande phase – standard central : Gros œuvre 43 % · Second œuvre 34 % · Finitions & équipements 23 %. */
 export const PHASE_SPLIT_2026 = { gros_oeuvre: 43, second_oeuvre: 34, finitions_equipements: 23 };
 
-/** Contingence par défaut (feuille 2026). */
-export const DEFAULT_CONTINGENCY_PCT = 12;
 
 /**
  * Feuille n°2 « Couts_24_gouv » — valeurs centrales EXACTES par gouvernorat
@@ -1796,7 +1794,7 @@ export function runBIMEstimation(
   const costM2 = tb > 0 ? Math.round(finalTotal / tb) : 0;
 
   const keys = ["gros_oeuvre","second_oeuvre","equipements","main_oeuvre","transport","etudes_imprevus"];
-  const labels = ["Gros œuvre","Second œuvre","Équipements","Main-d'œuvre","Transport","Études, permis & imprévus"];
+  const labels = ["Gros œuvre","Second œuvre","Équipements","Main-d'œuvre","Transport","Études & permis"];
 
   // Generate category budgets from percentages
   const categoryBudgets: Record<string, number> = {};
@@ -1836,13 +1834,8 @@ export function runBIMEstimation(
     };
   });
 
-  // Contingence du classeur : 12 % appliquée EN SUS du coût de la grille. Le
-  // coût au m² affiché reste la valeur EXACTE du document — la contingence est
-  // une ligne distincte qui n'altère jamais le prix au m².
-  const contingencyPct = DEFAULT_CONTINGENCY_PCT;
-  const buffer = Math.round(finalTotal * contingencyPct / 100);
-  const totalWithBuffer = finalTotal + buffer;
-  const finalCostM2 = costM2;
+  // Aucune marge d'imprévus : le coût total EST la somme réelle des postes
+  // calculés. Le coût au m² affiché reste la valeur EXACTE de la grille.
 
   // Les 3 scénarios utilisent les valeurs EXACTES de la grille régionale :
   //   Économique = lvl.eco · Standard = lvl.std · Premium = lvl.hautStanding
@@ -1854,9 +1847,9 @@ export function runBIMEstimation(
   const totalEco = Math.round(scenarioEcoPrice * tb);
   const totalPremium = Math.round(scenarioPremiumPrice * tb);
   const scenarios = {
-    economique: { label:"Économique", totalCost: totalEco + Math.round(totalEco * contingencyPct / 100), costPerM2: Math.round(scenarioEcoPrice), multiplier: scenarioEcoPrice / scenarioStdPrice },
-    standard: { label:"Standard", totalCost: totalWithBuffer, costPerM2: Math.round(scenarioStdPrice), multiplier: 1.0 },
-    premium: { label:"Premium", totalCost: totalPremium + Math.round(totalPremium * contingencyPct / 100), costPerM2: Math.round(scenarioPremiumPrice), multiplier: scenarioPremiumPrice / scenarioStdPrice },
+    economique: { label:"Économique", totalCost: totalEco, costPerM2: Math.round(scenarioEcoPrice), multiplier: scenarioEcoPrice / scenarioStdPrice },
+    standard: { label:"Standard", totalCost: finalTotal, costPerM2: Math.round(scenarioStdPrice), multiplier: 1.0 },
+    premium: { label:"Premium", totalCost: totalPremium, costPerM2: Math.round(scenarioPremiumPrice), multiplier: scenarioPremiumPrice / scenarioStdPrice },
   };
 
   // Confidence index
@@ -1898,33 +1891,36 @@ export function runBIMEstimation(
     const fLevelKey = fLevel === "economique" ? "eco" : fLevel === "premium" ? "premium" : "std";
     for (const [regKey, regCost] of Object.entries(REGION_COST_M2)) {
       const regPrice = (fLevelKey === "eco" ? regCost.eco : fLevelKey === "premium" ? regCost.premium : regCost.std) * projectRatio;
-      regionTotals[regKey] = Math.round(regPrice * tb) + Math.round(Math.round(regPrice * tb) * contingencyPct / 100);
+      regionTotals[regKey] = Math.round(regPrice * tb);
     }
   }
 
   // Référence comparative FIXE (base Médenine du classeur — aucune moyenne nationale)
   const fLevelGridKey = fLevel === "economique" ? "eco" : fLevel === "premium" ? "hautStanding" : "std";
   const baseRefPriceM2 = BASE_GRID_2026[fLevelGridKey] * projectRatio;
-  const baseRefTotal = Math.round(baseRefPriceM2 * tb) + Math.round(Math.round(baseRefPriceM2 * tb) * contingencyPct / 100);
+  const baseRefTotal = Math.round(baseRefPriceM2 * tb);
   const regionImpact = region ? {
     region,
     regionLabel: regionLabel || region,
     basePriceM2: finalPriceM2,
     priceRange: baseRegionLabel,
-    totalWithRegion: totalWithBuffer,
+    totalWithRegion: finalTotal,
     totalNationalAvg: baseRefTotal,
-    difference: totalWithBuffer - baseRefTotal,
+    difference: finalTotal - baseRefTotal,
     regionTotals,
   } : undefined;
 
   return {
     costEstimate: {
-      totalCost: totalWithBuffer,
-      costPerSquareMeter: finalCostM2,
+      // Total = somme réelle des coûts calculés (aucun montant d'imprévus).
+      totalCost: finalTotal,
+      costPerSquareMeter: costM2,
       currency: "TND",
       breakdown,
-      contingencyBuffer: buffer,
-      contingencyPercentage: contingencyPct,
+      // Champs conservés pour rester compatible avec le schéma `projects` : la
+      // marge d'imprévus est supprimée du calcul, ils valent donc toujours 0.
+      contingencyBuffer: 0,
+      contingencyPercentage: 0,
       budgetScenarios: scenarios,
       // Référence comparative fixe : standard de la base Médenine (grille du classeur)
       avgRegionPriceM2: Math.round(BASE_GRID_2026.std * projectRatio),

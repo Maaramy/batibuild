@@ -53,13 +53,12 @@
     "equipements": "Equipment",
     "main_oeuvre": "Labor",
     "transport": "Transport",
-    "etudes_permis": "Studies, permits & contingencies"
+    "etudes_permis": "Studies & permits"
   },
   "breakdown": {
     "title": "Breakdown",
     "byCategory": "By cost category",
-    "workItems": "Work items",
-    "contingency": "Contingencies"
+    "workItems": "Work items"
   },
   "confidence": {
     "title": "Confidence",
