@@ -262,95 +262,18 @@ export type MaterialCategory = (typeof MATERIAL_CATEGORIES)[number];
 
 // ============================================================================
 // Supplier Specialties (for registered supplier profiles)
+//
+// Définies dans `src/lib/supplierSpecialties.ts` (module sans aucune
+// dépendance) : elles sont réexportées ici pour que le backend continue de
+// les importer depuis `./schema`, mais le navigateur les importe directement
+// depuis `@/lib/supplierSpecialties`. C'est ce qui garde tout le schéma
+// serveur (defineSchema, authTables, @auth/core…) HORS du bundle client.
 // ============================================================================
 
-export const SUPPLIER_SPECIALTIES = [
-  "construction_maisons",
-  "villas",
-  "immeubles",
-  "piscines",
-  "jardins",
-  "terrassement",
-  "fondations",
-  "gros_oeuvre",
-  "second_oeuvre",
-  "macconnerie",
-  "beton",
-  "ferraillage",
-  "coffrage",
-  "charpente",
-  "toiture",
-  "etancheite",
-  "isolation",
-  "carrelage",
-  "marbre",
-  "peinture",
-  "electricite",
-  "plomberie",
-  "climatisation",
-  "cuisine",
-  "salle_de_bain",
-  "aluminium",
-  "menuserie_bois",
-  "pvc",
-  "portes",
-  "fenetres",
-  "energie_solaire",
-  "domotique",
-  "voirie",
-  "demolition",
-  "transport_materiaux",
-  "location_engins",
-  "architecte",
-  "bureau_etudes",
-  "ingenieur",
-  "geometre",
-  "promoteur_immobilier",
-] as const;
-
-export const SUPPLIER_SPECIALTIES_LABELS: Record<string, string> = {
-  construction_maisons: "Construction de maisons",
-  villas: "Villas",
-  immeubles: "Immeubles",
-  piscines: "Piscines",
-  jardins: "Jardins",
-  terrassement: "Terrassement",
-  fondations: "Fondations",
-  gros_oeuvre: "Gros œuvre",
-  second_oeuvre: "Second œuvre",
-  macconnerie: "Maçonnerie",
-  beton: "Béton",
-  ferraillage: "Ferraillage",
-  coffrage: "Coffrage",
-  charpente: "Charpente",
-  toiture: "Toiture",
-  etancheite: "Étanchéité",
-  isolation: "Isolation",
-  carrelage: "Carrelage",
-  marbre: "Marbre",
-  peinture: "Peinture",
-  electricite: "Électricité",
-  plomberie: "Plomberie",
-  climatisation: "Climatisation",
-  cuisine: "Cuisine",
-  salle_de_bain: "Salle de bain",
-  aluminium: "Aluminium",
-  menuserie_bois: "Menuiserie bois",
-  pvc: "PVC",
-  portes: "Portes",
-  fenetres: "Fenêtres",
-  energie_solaire: "Énergie solaire",
-  domotique: "Domotique",
-  voirie: "Voirie",
-  demolition: "Démolition",
-  transport_materiaux: "Transport de matériaux",
-  location_engins: "Location d'engins",
-  architecte: "Architecte",
-  bureau_etudes: "Bureau d'études",
-  ingenieur: "Ingénieur",
-  geometre: "Géomètre",
-  promoteur_immobilier: "Promoteur immobilier",
-};
+export {
+  SUPPLIER_SPECIALTIES,
+  SUPPLIER_SPECIALTIES_LABELS,
+} from "../lib/supplierSpecialties";
 
 // Map supplier specialties to BIM provider types (for recommendations)
 export const SPECIALTY_TO_PROVIDER_TYPE: Record<string, string[]> = {

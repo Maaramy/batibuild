@@ -1,4 +1,4 @@
-import { SUPPLIER_SPECIALTIES } from "@/convex/schema";
+import { SUPPLIER_SPECIALTIES } from "@/lib/supplierSpecialties";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MISE EN CORRESPONDANCE MATÉRIAUX ↔ FOURNISSEURS

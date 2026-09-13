@@ -3,7 +3,7 @@ import {
   MATERIAL_CATEGORY_TO_SUPPLIER_SPECIALTIES,
   categorySpecialties,
 } from "./supplierMatch";
-import { SUPPLIER_SPECIALTIES } from "@/convex/schema";
+import { SUPPLIER_SPECIALTIES } from "@/lib/supplierSpecialties";
 
 const KNOWN = new Set<string>(SUPPLIER_SPECIALTIES);
 

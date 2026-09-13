@@ -12,7 +12,7 @@ import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Building2, MapPin, Phone, Mail, Globe, Briefcase, Loader2,
 } from "lucide-react";
-import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
+import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
 import { useState } from "react";
 import { toast } from "sonner";
 

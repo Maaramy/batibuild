@@ -18,7 +18,7 @@ import {
   ChevronDown, X, Filter, FileText, Loader2, Send, Layers,
 } from "lucide-react";
 import { toast } from "sonner";
-import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
+import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
 import { profileCardClass, VerifiedBadge, TrophyLine, MetricRow, DetailRow } from "@/components/ProfileCardBits";
 
 // ── Region labels ────────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { profileCardClass, VerifiedBadge, TrophyLine, MetricRow, DetailRow } from "@/components/ProfileCardBits";
-import { SUPPLIER_SPECIALTIES_LABELS } from "@/convex/schema";
+import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
 import { PROJECT_TYPE_LABELS } from "@/convex/projectTypes";
 import { toast } from "sonner";
 

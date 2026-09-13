@@ -46,6 +46,20 @@ export default defineConfig({
       // via RELATIVE paths into node_modules so this prefix alias never
       // rewrites its own imports.
       "lucide-react": path.resolve(__dirname, "./src/lib/lucide-shim.js"),
+      // jsPDF's optional peer dependencies (`html2canvas`, `canvg`,
+      // `dompurify`) are ONLY loaded from `doc.html()` via dynamic import().
+      // Batibuild never calls `doc.html()` — every PDF is built
+      // programmatically (text, jspdf-autotable tables, addImage PNG). Rollup
+      // still follows those dynamic imports, so `canvg` dragged ~206 core-js
+      // modules (+ html2canvas, dompurify, rgbcolor, stackblur-canvas,
+      // svg-pathdata, raf) into the graph, i.e. ~216 dead modules that
+      // inflated peak bundling memory in the memory-limited build sandbox.
+      // Aliasing them to an explicit throwing stub removes them from the
+      // graph; `src/lib/clientBundleGuards.test.ts` fails if `doc.html()` ever
+      // starts being used, so the stub can never hide a real feature.
+      html2canvas: path.resolve(__dirname, "./src/lib/pdfHtmlUnsupported.ts"),
+      canvg: path.resolve(__dirname, "./src/lib/pdfHtmlUnsupported.ts"),
+      dompurify: path.resolve(__dirname, "./src/lib/pdfHtmlUnsupported.ts"),
     },
     // Force a single copy of React across all packages (including vlyPlugin).
     // Without this, @vly-ai/integrations can resolve its own React copy,

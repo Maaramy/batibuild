@@ -1,0 +1,102 @@
+// ============================================================================
+// Spécialités fournisseurs / experts — constantes partagées client + serveur
+//
+// ⚠️ Ce module doit rester SANS dépendance (aucun import). Il est importé par
+// les pages/composants du navigateur ET par le schéma Convex. Auparavant ces
+// deux constantes vivaient dans `src/convex/schema.ts` : comme cinq fichiers
+// du client les importaient, tout le schéma serveur entrait dans le bundle
+// navigateur (defineSchema/defineTable de `convex/server`, `authTables` de
+// `@convex-dev/auth/server`, donc `@auth/core`, `jose`, `oauth4webapi`,
+// `preact`…) — soit ~150 modules de code serveur inutiles côté client, et un
+// pic mémoire de build bien plus élevé.
+//
+// `src/convex/schema.ts` les réexporte pour ne rien casser côté backend.
+// ============================================================================
+
+export const SUPPLIER_SPECIALTIES = [
+  "construction_maisons",
+  "villas",
+  "immeubles",
+  "piscines",
+  "jardins",
+  "terrassement",
+  "fondations",
+  "gros_oeuvre",
+  "second_oeuvre",
+  "macconnerie",
+  "beton",
+  "ferraillage",
+  "coffrage",
+  "charpente",
+  "toiture",
+  "etancheite",
+  "isolation",
+  "carrelage",
+  "marbre",
+  "peinture",
+  "electricite",
+  "plomberie",
+  "climatisation",
+  "cuisine",
+  "salle_de_bain",
+  "aluminium",
+  "menuserie_bois",
+  "pvc",
+  "portes",
+  "fenetres",
+  "energie_solaire",
+  "domotique",
+  "voirie",
+  "demolition",
+  "transport_materiaux",
+  "location_engins",
+  "architecte",
+  "bureau_etudes",
+  "ingenieur",
+  "geometre",
+  "promoteur_immobilier",
+] as const;
+
+export const SUPPLIER_SPECIALTIES_LABELS: Record<string, string> = {
+  construction_maisons: "Construction de maisons",
+  villas: "Villas",
+  immeubles: "Immeubles",
+  piscines: "Piscines",
+  jardins: "Jardins",
+  terrassement: "Terrassement",
+  fondations: "Fondations",
+  gros_oeuvre: "Gros œuvre",
+  second_oeuvre: "Second œuvre",
+  macconnerie: "Maçonnerie",
+  beton: "Béton",
+  ferraillage: "Ferraillage",
+  coffrage: "Coffrage",
+  charpente: "Charpente",
+  toiture: "Toiture",
+  etancheite: "Étanchéité",
+  isolation: "Isolation",
+  carrelage: "Carrelage",
+  marbre: "Marbre",
+  peinture: "Peinture",
+  electricite: "Électricité",
+  plomberie: "Plomberie",
+  climatisation: "Climatisation",
+  cuisine: "Cuisine",
+  salle_de_bain: "Salle de bain",
+  aluminium: "Aluminium",
+  menuserie_bois: "Menuiserie bois",
+  pvc: "PVC",
+  portes: "Portes",
+  fenetres: "Fenêtres",
+  energie_solaire: "Énergie solaire",
+  domotique: "Domotique",
+  voirie: "Voirie",
+  demolition: "Démolition",
+  transport_materiaux: "Transport de matériaux",
+  location_engins: "Location d'engins",
+  architecte: "Architecte",
+  bureau_etudes: "Bureau d'études",
+  ingenieur: "Ingénieur",
+  geometre: "Géomètre",
+  promoteur_immobilier: "Promoteur immobilier",
+};

@@ -274,3 +274,48 @@ When using convex, make sure:
 - This includes importing generated files like `@/convex/_generated/server`, `@/convex/_generated/api`
 - Remember to import functions like useQuery, useMutation, useAction, etc. from `convex/react`
 - NEVER have return type validators.
+
+
+# Build de production
+
+```bash
+bun run build   # équivaut à : tsc -b && vite build
+```
+
+## Pourquoi le heap V8 est plafonné
+
+Le build tourne dans le **même cgroup de 2 Go** que le serveur de dev Vite et
+`convex dev` (≈ 750 Mo à eux deux sur cet environnement). Sans réglage, le pic
+de mémoire du bundling atteint ≈ 1,3 Go, soit un dépassement qui fait terminer
+le build par l'OOM killer :
+
+```
+rendering chunks...
+Killed
+✖ 'tsc -b && vite build' failed
+```
+
+Le script `build` fixe donc un plafond de heap (`--max-old-space-size=800`) :
+V8 collecte plus tôt et le pic redescend bien sous la limite (≈ 400 Mo de marge)
+sans rien changer à la sortie. Une valeur déjà présente dans `NODE_OPTIONS`
+reste prioritaire. Pour mesurer ou ajuster :
+
+```bash
+NODE_OPTIONS="--max-old-space-size=900" bun run build
+```
+
+## Ce qui garde le graphe de modules léger
+
+Le pic mémoire du build suit directement la **taille du graphe de modules**.
+Quatre optimisations sont verrouillées par `src/lib/clientBundleGuards.test.ts` :
+
+| Optimisation | Fichier | Effet |
+| --- | --- | --- |
+| Icônes lucide : alias `lucide-react` → shim | `vite.config.ts` → `src/lib/lucide-shim.js` | évite de parser les ~1 900 modules du barrel (219 icônes utilisées seulement) |
+| Dépendances optionnelles de jsPDF aliasées vers un stub explicite | `vite.config.ts` → `src/lib/pdfHtmlUnsupported.ts` | `html2canvas` / `canvg` / `dompurify` ne servent qu'à `doc.html()`, jamais utilisé (~216 modules morts, dont 206 `core-js`) |
+| Constantes fournisseurs hors du schéma Convex | `src/lib/supplierSpecialties.ts` (réexporté par `src/convex/schema.ts`) | importait sinon tout l'arbre serveur (`@convex-dev/auth/server`) depuis 6 fichiers client |
+| Routes en `React.lazy` | `src/main.tsx` | garde `three`, `xlsx`, `jspdf`, `recharts` hors du chunk d'entrée |
+
+⚠️ Si `doc.html()` devient nécessaire un jour, il faut retirer les alias
+`html2canvas` / `canvg` / `dompurify` de `vite.config.ts` : le stub lève une
+erreur explicite et les tests ci-dessus échouent pour le rappeler.
