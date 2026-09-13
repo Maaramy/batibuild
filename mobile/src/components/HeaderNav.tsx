@@ -26,9 +26,9 @@ import { COLORS, SHAPE } from "../theme";
  *     appui ne teinte la surface — voir `styles.root`, `styles.itemActive` et
  *     `styles.itemPressed`.
  *   - l'élément correspondant à la page COURANTE est mis en évidence par un
- *     **anneau émeraude** (`COLORS.brand`), une icône et un libellé en teinte de
- *     marque et un libellé en gras — sans remplir le fond ; les autres restent
- *     en gris ;
+ *     **anneau émeraude** (`COLORS.brandRing`), une icône et un libellé en
+ *     teinte de marque (`COLORS.brand700`) et un libellé en gras — sans
+ *     remplir le fond ; les autres restent en gris ;
  *   - état pressé : léger retrait (opacité + échelle), SANS fond de couleur,
  *     pour que la barre reste parfaitement blanche ; aucun état « hover »
  *     (inutile au toucher).
@@ -57,14 +57,16 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
       // Appui long (n'importe où sur le menu) → réglages natifs, comme avant.
       onLongPress={onOpenSettings}
       delayLongPress={500}
+      // Zone tactile élargie SANS agrandir la barre : la puce ne fait que
+      // ~30 pt de haut, en dessous des 48 dp recommandés par Android. Aucun
+      // `android_ripple` : la barre doit rester parfaitement blanche, y compris
+      // à l'appui (le retour tactile est le léger retrait de `itemPressed`).
+      hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }}
       style={({ pressed }) => [
         styles.item,
         selected && styles.itemActive,
         pressed && styles.itemPressed,
       ]}
-      // Aucune ondulation Android : le ripple système dessinerait un voile gris
-      // sur l'onglet (la barre doit rester blanche, y compris à l'appui).
-      android_ripple={{ color: "transparent" }}
     >
       <Icon size={15} color={color} strokeWidth={selected ? NAV_STROKE.active : NAV_STROKE.inactive} />
       <Text numberOfLines={1} style={[styles.label, { color, fontWeight: selected ? "700" : "500" }]}>
@@ -140,11 +142,10 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   itemActive: {
-    // Le fond RESTE BLANC : l'onglet actif se distingue uniquement par un
-    // anneau émeraude (teinte de marque, `COLORS.brand`), l'icône et le libellé
-    // colorés (voir `NavItem`) — aucune surface colorée dans la barre.
-    backgroundColor: COLORS.white,
-    borderColor: "rgba(5,150,105,0.45)",
+    // L'onglet actif se distingue par un anneau émeraude (`COLORS.brandRing`,
+    // issu de `COLORS.brand`), l'icône et le libellé colorés (voir `NavItem`) :
+    // aucune surface colorée dans la barre, dont le fond blanc vient de `root`.
+    borderColor: COLORS.brandRing,
   },
   itemPressed: {
     // Aucun fond de couleur : le retour au toucher est un léger retrait, donc
