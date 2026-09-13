@@ -1,5 +1,12 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, type QueryCtx } from "./_generated/server";
+import { getCurrentUser } from "./users";
+
+/** Garde admin partagé par les queries analytiques (jamais de données sans droits). */
+async function requireAnalyticsAdmin(ctx: QueryCtx): Promise<boolean> {
+  const user = await getCurrentUser(ctx);
+  return !!user && (user.role === "admin" || user.role === "moderator");
+}
 
 // ============================================================================
 // Mutations
@@ -102,6 +109,7 @@ export const disconnect = mutation({
 export const getLiveUsers = query({
   args: {},
   handler: async (ctx) => {
+    if (!(await requireAnalyticsAdmin(ctx))) return null;
     const twoMinAgo = Date.now() - 2 * 60 * 1000;
     const logs = await ctx.db
       .query("connectionLogs")
@@ -153,6 +161,7 @@ export const getLiveUsers = query({
 export const getConnectionHistory = query({
   args: { days: v.number() },
   handler: async (ctx, args) => {
+    if (!(await requireAnalyticsAdmin(ctx))) return null;
     const since = Date.now() - args.days * 24 * 60 * 60 * 1000;
     const logs = await ctx.db
       .query("connectionLogs")
@@ -201,6 +210,7 @@ export const getConnectionHistory = query({
 export const getStatsSummary = query({
   args: {},
   handler: async (ctx) => {
+    if (!(await requireAnalyticsAdmin(ctx))) return null;
     const now = Date.now();
     const dayAgo = now - 24 * 60 * 60 * 1000;
     const weekAgo = now - 7 * 24 * 60 * 60 * 1000;

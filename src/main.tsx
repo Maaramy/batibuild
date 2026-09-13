@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
 import { SEO } from "@/components/SEO";
+import { useSessionTracking } from "@/hooks/use-session-tracking";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import { ThemeProvider } from "next-themes";
@@ -124,6 +125,12 @@ class RootErrorBoundary extends React.Component<
   }
 }
 
+/** Remonte la session temps réel pour l'analytique Admin (anonyme, sans cookie tiers). */
+function SessionTracker() {
+  useSessionTracking();
+  return null;
+}
+
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 
@@ -169,6 +176,7 @@ createRoot(document.getElementById("root")!).render(
       >
         <ConvexAuthProvider client={convex}>
           <BrowserRouter>
+            <SessionTracker />
             <RouteSyncer />
             <SEO />
             <Suspense fallback={<RouteLoading />}>

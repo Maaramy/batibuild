@@ -30,9 +30,15 @@ export { default as BookOpen } from "../../node_modules/lucide-react/dist/esm/ic
 export { default as Bot } from "../../node_modules/lucide-react/dist/esm/icons/bot.js";
 export { default as Boxes } from "../../node_modules/lucide-react/dist/esm/icons/boxes.js";
 export { default as Brain } from "../../node_modules/lucide-react/dist/esm/icons/brain.js";
+export { default as BrainCircuit } from "../../node_modules/lucide-react/dist/esm/icons/brain-circuit.js";
+export { default as FolderKanban } from "../../node_modules/lucide-react/dist/esm/icons/folder-kanban.js";
 export { default as Briefcase } from "../../node_modules/lucide-react/dist/esm/icons/briefcase.js";
 export { default as Building } from "../../node_modules/lucide-react/dist/esm/icons/building.js";
 export { default as Building2 } from "../../node_modules/lucide-react/dist/esm/icons/building-2.js";
+export { default as LifeBuoy } from "../../node_modules/lucide-react/dist/esm/icons/life-buoy.js";
+export { default as Signal } from "../../node_modules/lucide-react/dist/esm/icons/signal.js";
+export { default as SignalHigh } from "../../node_modules/lucide-react/dist/esm/icons/signal-high.js";
+export { default as SignalLow } from "../../node_modules/lucide-react/dist/esm/icons/signal-low.js";
 export { default as Calculator } from "../../node_modules/lucide-react/dist/esm/icons/calculator.js";
 export { default as Calendar } from "../../node_modules/lucide-react/dist/esm/icons/calendar.js";
 export { default as CalendarClock } from "../../node_modules/lucide-react/dist/esm/icons/calendar-clock.js";
