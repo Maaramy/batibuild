@@ -40,6 +40,7 @@ import { BlobDownloadBridge, guessMime, shareFile } from "../download";
 import {
   DOWNLOAD_BRIDGE_SCRIPT,
   ENTRY_GUARD_SCRIPT,
+  MOBILE_CHROME_SCRIPT,
   navigateScript,
   SHARE_BRIDGE_SCRIPT,
 } from "../injected";
@@ -394,11 +395,9 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   return (
     <View style={[styles.root, { backgroundColor: theme.surface }]}>
       {/* En-tête NATIF : logo + nom de la plateforme à gauche, Support et
-          Paramètres à droite, et le menu de navigation horizontal scrollable
-          (Profile · Projets · Home · ROI · Message) qui remplace l'ancienne
-          barre de navigation inférieure. Le menu de la plateforme (burger de
-          l'en-tête web) reste accessible : il donne accès à toutes ses pages
-          (Espace fournisseur, Espace expert, Administration, badges…). */}
+          Paramètres à droite (aucun menu burger), et le menu de navigation
+          horizontal scrollable (Profile · Projets · Home · ROI · Message) qui
+          remplace l'ancienne barre de navigation inférieure. */}
       <TopNav
         onOpenSupport={handleOpenSupport}
         onOpenSettings={handleOpenSettings}
@@ -469,14 +468,11 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
             onContentProcessDidTerminate={handleRenderProcessGone}
             onFileDownload={handleFileDownload}
             onMessage={handleMessage}
-            // Aucun script ne modifie l'interface de la plateforme :
+            // `MOBILE_CHROME_SCRIPT` masque le burger de l'en-tête web dans
+            // l'application (le reste de l'en-tête web est intact) et
             // `DOWNLOAD_BRIDGE_SCRIPT` rend les PDF « blob: » (estimation du
-            // coût de construction, matériaux IA) réellement téléchargeables,
-            // `SHARE_BRIDGE_SCRIPT` branche la feuille de partage native et
-            // `ENTRY_GUARD_SCRIPT` garde le parcours mobile (jamais la page
-            // d'accueil publique). Le menu latéral de la plateforme reste
-            // visible : toutes ses pages sont donc accessibles dans l'app.
-            injectedJavaScriptBeforeContentLoaded={`${DOWNLOAD_BRIDGE_SCRIPT}${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
+            // coût de construction, matériaux IA) réellement téléchargeables.
+            injectedJavaScriptBeforeContentLoaded={`${DOWNLOAD_BRIDGE_SCRIPT}${MOBILE_CHROME_SCRIPT}${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
             style={[styles.webview, { backgroundColor: theme.surface }]}
             setSupportMultipleWindows={false}
             allowsBackForwardNavigationGestures={Platform.OS === "ios"}

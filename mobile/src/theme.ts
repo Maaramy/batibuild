@@ -19,13 +19,6 @@ export const COLORS = {
   brandDeep2: "#0A3D2C",
   accent: "#34D399",
   accentSoft: "#D1FAE5",
-  /**
-   * Anneau de l'onglet actif du menu de navigation : `brand` à 45 % — la barre
-   * restant blanche, seuls l'anneau, l'icône et le libellé portent la teinte.
-   * Défini ici (et non en dur dans le composant) pour suivre toute évolution de
-   * la couleur de marque.
-   */
-  brandRing: "rgba(5,150,105,0.45)",
 
   ink: "#0F172A",
   inkSoft: "#334155",

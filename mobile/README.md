@@ -28,16 +28,13 @@ Android Native Shell
 │      4. Ne perdez plus une seule étape
 │
 ├── Header natif  (fond blanc)
-│      Ligne 1 : Logo + « batibuild App »   Support   Paramètres
+│      Ligne 1 : Logo + « batibuild App »   Support   Paramètres   (aucun burger)
 │      Ligne 2 : MENU DE NAVIGATION horizontal scrollable —
 │                Profile · Projets · Home · ROI · Message
 │      → visible dans TOUT l'espace connecté (/dashboard et ses sous-pages) ;
 │        masqué uniquement sur la connexion / inscription et l'accueil public ;
 │      → défile de gauche à droite dès que les éléments ne tiennent pas à
 │        l'écran : aucun élément coupé, masqué ni déformé.
-│      Le menu latéral de la PLATEFORME (burger de l'en-tête web) reste
-│      visible : Espace fournisseur, Espace expert, Administration, badges
-│      de messages non lus… → toutes les pages du Web sont accessibles.
 │
 └── WebView  →  plateforme Batibuild (inchangée)
 ```
@@ -48,13 +45,10 @@ haute (barre de statut / encoche) et n'entraîne **jamais** le rechargement de l
 (`HeaderNav.tsx`) aligne les 5 sections (`Profile · Projets · Home · ROI · Message`) dans une
 rangée **horizontalement scrollable** : chaque élément garde sa largeur naturelle (icône
 lucide 15 pt + libellé 12 pt) — rien n'est coupé, tronqué ni déformé — et la rangée défile
-au doigt dès que la place manque. L'élément **actif** est mis en évidence par un **anneau
-émeraude** (`COLORS.brandRing`) avec icône et libellé en teinte de marque (`COLORS.brand700`)
-et libellé en gras — le fond de la barre reste **blanc** ; les autres éléments restent en
-gris ; l'état pressé applique un léger retrait (opacité + échelle), sans fond de couleur.
-Chaque puce dispose en plus d'une **zone tactile élargie** (`hitSlop` haut/bas de 8 pt) :
-la barre ne grandit pas mais les cibles tactiles atteignent ~46 pt, conformément aux
-recommandations Android. Contrairement à l'ancienne barre du bas — qui recouvrait le contenu
+au doigt dès que la place manque. L'élément **actif** est mis en évidence (fond
+`primaryContainer` émeraude, icône et libellé en teinte de marque, libellé en gras),
+les autres restent en gris ; l'état pressé applique un léger voile neutre, comme les
+boutons de l'en-tête. Contrairement à l'ancienne barre du bas — qui recouvrait le contenu
 sur les pages de résultats et avait dû être masquée hors `/dashboard` — le menu vit dans
 l'en-tête et reste donc accessible **partout** dans l'espace connecté, sans empiéter sur le
 contenu Web ni consommer la zone système basse.
@@ -82,20 +76,12 @@ l'épaisseur de trait change entre l'état actif et l'état inactif (`STROKE` da
 identiques en mode clair, sombre et système — aucune police d'icônes à charger (le
 préchargement de police a donc été supprimé du démarrage).
 
-Dans l'application, **rien de l'interface de la plateforme n'est modifié ni masqué** : le
-menu latéral complet de la plateforme (bouton « burger » de l'en-tête web) est **visible**,
-exactement comme sur le Web. Il donne accès aux pages qui n'ont pas d'équivalent dans le menu
-natif — **Espace fournisseur** (devis reçus, statistiques, profil), **Espace expert**
-(demandes, statistiques, profil), **Administration**, **Prix matériaux**, « Nouveau projet »,
-« Démarche de construction » — ainsi qu'aux **badges de messages non lus**. Le menu natif de
-l'en-tête reste un **accès rapide** aux cinq sections principales ; il ne le remplace pas.
-
-> Historique : le client mobile masquait auparavant ce bouton, car il faisait doublon avec
-> l'ancienne barre de navigation inférieure. Cette barre ayant été supprimée, le masquage
-> n'avait plus lieu d'être et privait l'application de l'accès à plusieurs pages
-> (par ex. `/dashboard/expert/stats`, sans autre lien dans l'interface). Aucun script
-> n'injecte plus de style : `src/injected.ts` ne contient que le transport des
-> téléchargements, le partage natif et la garde de navigation.
+Dans l'application, le **bouton « burger » (les 3 tirets)** de l'en-tête de la plateforme
+Web est **masqué** : l'en-tête natif fournit déjà la marque, les actions (Support /
+Paramètres) et le menu de navigation. C'est une simple feuille
+de style injectée par le client mobile (`MOBILE_CHROME_SCRIPT` dans `src/injected.ts`) :
+**aucun fichier de la plateforme Web n'est modifié**, et le reste de l'en-tête web
+(titre, notifications, menu du compte, déconnexion) reste intact.
 
 ### Parcours de navigation mobile
 
@@ -164,8 +150,8 @@ mobile/
 | **Splash** | **Fond BLANC**, logo officiel et **un seul message : « Chargement.... »** (aucun slogan, aucune image de présentation). Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
 | **Changement de section (menu de l'en-tête)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
-| **Menu de navigation (en-tête)** | **Menu horizontal scrollable** intégré à l'en-tête (`HeaderNav.tsx`) : 5 sections (Profile · Projets · Home · ROI · Message), icône **lucide 15 pt** + libellé **12 pt** dans une puce arrondie, **jamais coupés ni déformés** (largeur naturelle + défilement au doigt sur Android et iPhone). **Fond de la barre : BLANC (#FFFFFF) dans tous les états et dans les trois modes d'affichage.** Élément **actif** : **anneau émeraude** (fond blanc conservé), icône et libellé en teinte de marque, libellé en gras ; inactifs en gris ; état pressé = léger retrait (opacité + échelle), sans fond de couleur. **Aucune barre de navigation en bas de l'écran** : le menu vit dans l'en-tête et reste donc visible dans tout l'espace connecté — voir `shouldShowHeaderNav()` dans `src/config.ts`. |
-| **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. **Appui long sur la marque** (ou sur le menu) → réglages natifs. Le menu latéral de la plateforme (burger de l'en-tête web) reste **visible** : ses pages (Espace fournisseur / expert, Administration, badges…) sont donc toutes accessibles dans l'application. |
+| **Menu de navigation (en-tête)** | **Menu horizontal scrollable** intégré à l'en-tête (`HeaderNav.tsx`) : 5 sections (Profile · Projets · Home · ROI · Message), icône **lucide 15 pt** + libellé **12 pt** dans une puce arrondie, **jamais coupés ni déformés** (largeur naturelle + défilement au doigt sur Android et iPhone). Élément **actif** : fond `primaryContainer` émeraude, icône et libellé en teinte de marque, libellé en gras ; inactifs en gris ; état pressé = voile neutre. **Aucune barre de navigation en bas de l'écran** : le menu vit dans l'en-tête et reste donc visible dans tout l'espace connecté — voir `shouldShowHeaderNav()` dans `src/config.ts`. |
+| **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. Aucun menu burger — celui de l'en-tête web est masqué dans l'application. **Appui long sur la marque** (ou sur le menu) → réglages natifs. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
 | **Guides de démarrage** | **7 guides**, un seul parcours (les anciens écrans d'introduction ont été supprimés) : **Évitez les surcoûts · Devis clé en main · Choisissez les meilleurs matériaux · Ne perdez plus une seule étape · Investissez sans risque · Suivez l'évolution des prix · Trouvez les bons prestataires**. Chaque guide = **illustration dédiée** + **titre** + **texte descriptif** + indicateur **« n / 7 »** (pastilles) + bouton **Suivant** (puis **Commencer** au 7ᵉ) + bouton **Passer**. Les illustrations sont des **scènes vectorielles dessinées pour BatiBuild** (`GuideIllustrations.tsx`, voir la note ci-dessous). Mémorisé via `onboardingCompleted` (AsyncStorage). |
 | **Illustrations des guides** | Aucune image générique, aucun placeholder, aucune icône seule : chaque guide affiche une **scène SVG dédiée** (détection IA sur le plan, convergence import → IA → devis, comparaison Économique / Équilibré / Premium, 10 phases de chantier, ROI 1/5/10 ans + score IA + scénarios, 500+ matériaux et courbe des prix, annuaire vérifié + carte des régions). Elles sont **vectorielles donc nettes sur tous les écrans**, suivent le **thème clair / sombre / système** et n'entraînent **aucun téléchargement**. |
@@ -281,9 +267,7 @@ Aucun service cloud de compilation n'est utilisé.
 | Nom de l'application | BatiBuild |
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
-| Version | **1.2.2** — `versionCode 9` (Android), `buildNumber 1` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. Le garde-fou automatique `src/lib/mobileParity.test.ts` (tests de la plateforme) échoue si les deux fichiers divergent. |
-| Contenu de la 1.2.2 | **Synchronisation avec la plateforme actuelle** : le menu latéral complet de la plateforme redevient **visible** dans l'application (aucun style n'est plus injecté) → Espace fournisseur, Espace expert, Administration, Prix matériaux et badges de messages non lus sont accessibles ; le menu natif de l'en-tête reste un accès rapide à Profile · Projets · Home · ROI · Message. Corrections : zone tactile des onglets élargie (`hitSlop`, ~46 pt) sans agrandir la barre ; couleur de l'anneau actif issue du thème (`COLORS.brandRing`) au lieu d'une valeur en dur ; `android_ripple` transparent retiré (il désactivait implicitement le fond de la puce sur Android). |
-| Contenu de la 1.2.1 | **Fond du menu de navigation = BLANC** (`HeaderNav.tsx`) : la barre est peinte en `#FFFFFF` et **aucune surface de couleur n'est appliquée aux onglets** — la pastille émeraude de l'onglet actif est remplacée par un **anneau émeraude** (fond blanc conservé), et l'état pressé n'est plus un voile gris mais un léger retrait (opacité + échelle), ondulation Android désactivée. La barre reste blanche en mode clair, sombre et système. |
+| Version | **1.2.0** — `versionCode 7` (Android), `buildNumber 1` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
 | Contenu de la 1.2.0 | **Refonte de la navigation** : toutes les barres de navigation inférieures sont supprimées ; leurs sections passent dans un **menu horizontal scrollable de l'en-tête** (`HeaderNav.tsx`) — Profile · Projets · Home · ROI · Message, mêmes routes et mêmes icônes, élément actif en émeraude, aucun élément coupé, visible dans tout l'espace connecté. Réglages natifs : appui long sur la marque de l'en-tête. |
 | Contenu de la 1.1.3 | Barre du bas (supprimée en 1.2.0) : libellés **Profile · Projets · Home · ROI · Message** ; l'onglet **ROI** (analyse du retour sur investissement, `/dashboard/investments`) porte l'icône `TrendingUp`, identique à l'action « Return on Investment » de la page Résultats coût de construction. |
 | Contenu de la 1.1.2 | Retour de la barre du bas à sa **capsule flottante** (design précédent) — la refonte « barre plate » est annulée ; icônes 19 pt / libellés 10,5 pt conservés, onglet actif en émeraude de marque. |

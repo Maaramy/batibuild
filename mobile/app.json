@@ -2,7 +2,7 @@
   "expo": {
     "name": "BatiBuild",
     "slug": "batibuild",
-    "version": "1.2.2",
+    "version": "1.2.0",
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "scheme": "batibuild",
@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "com.batibuild.app",
-      "versionCode": 9,
+      "versionCode": 7,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#059669"

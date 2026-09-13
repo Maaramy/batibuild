@@ -53,26 +53,45 @@ true;
 `;
 }
 
-/*
- * AUCUN CHROME DE LA PLATEFORME N'EST MASQUÉ DANS L'APPLICATION.
+/**
+ * Chrome web masqué DANS L'APPLICATION UNIQUEMENT.
  *
- * Le client mobile masquait auparavant le bouton « burger » de l'en-tête de la
- * plateforme, au motif qu'il faisait doublon avec l'ancienne barre de
- * navigation inférieure. Cette barre n'existe plus, et le menu latéral de la
- * plateforme est sa navigation COMPLÈTE et rôle-dépendante : Espace fournisseur
- * (devis, statistiques, profil), Espace expert (demandes, statistiques, profil),
- * Administration, badges de messages non lus, « Prix matériaux »… Le masquer
- * rendait ces pages inaccessibles dans l'application : il est donc de nouveau
- * visible, exactement comme sur le Web.
+ * L'en-tête natif fournit déjà la marque, les actions (Support / Paramètres) et
+ * le menu de navigation (menu horizontal scrollable) : le bouton
+ * « burger » (les 3 tirets) de l'en-tête web ouvre un menu latéral qui ferait
+ * doublon avec la barre de navigation native. Il est donc masqué dans
+ * l'application.
  *
- * Le menu de navigation natif de l'en-tête reste un ACCÈS RAPIDE aux cinq
- * sections principales (Profile · Projets · Home · ROI · Message) : il ne
- * remplace pas le menu de la plateforme, il le complète.
- *
- * Corollaire : plus aucune feuille de style n'est injectée pour retoucher
- * l'interface de la plateforme. Les scripts ci-dessous ne touchent qu'au
- * transport (téléchargements « blob: », partage) et à la garde de navigation.
+ * C'est une simple feuille de style injectée par le client mobile : AUCUN
+ * fichier de la plateforme Web n'est modifié. Le reste de l'en-tête web
+ * (titre de la page, notifications, menu du compte et déconnexion) reste
+ * intact — aucune fonctionnalité n'est perdue.
  */
+export const MOBILE_CHROME_SCRIPT = `
+(function () {
+  try {
+    var ID = "__batibuild-mobile-chrome";
+    var apply = function () {
+      if (document.getElementById(ID)) return;
+      var root = document.head || document.documentElement;
+      if (!root) return;
+      var style = document.createElement("style");
+      style.id = ID;
+      // Seul le burger (bouton d'ouverture du menu latéral web, marqué
+      // « lg:hidden ») est masqué : les boutons « retour » des autres pages
+      // n'ont pas cette classe et restent visibles.
+      style.appendChild(document.createTextNode(
+        "header.glass-header button[class~='lg:hidden']{display:none !important;}"
+      ));
+      root.appendChild(style);
+    };
+    apply();
+    document.addEventListener("DOMContentLoaded", apply);
+    window.setTimeout(apply, 800);
+  } catch (e) {}
+})();
+true;
+`;
 
 /**
  * Relais `navigator.share` → feuille de partage native.
