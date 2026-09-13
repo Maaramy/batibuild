@@ -278,6 +278,14 @@ export default function ProjectDetail() {
   }, [storedCe, realCostFactor]);
   const ai = project?.aiAnalysis;
   const done = project?.status === "completed";
+
+  // Compatibilité : les analyses prédictives enregistrées avant la suppression
+  // des imprévus portent encore l'ancien libellé du poste « divers ».
+  const legacyReasoning = (text?: string) =>
+    (text ?? "").replace(
+      "Divers et imprévus stables.",
+      "Fournitures diverses et accessoires stables.",
+    );
   const busy = project?.status === "analyzing" || analyzing;
 
   // ── Investment prefill: scrape project data for ROI page ──────────────
@@ -1486,7 +1494,7 @@ export default function ProjectDetail() {
                                 <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-background border border-border/10">
                                   <div className="min-w-0 flex-1">
                                     <p className="text-[13px] font-medium truncate">{p.material}</p>
-                                    <p className="text-[10px] text-muted-foreground truncate">{p.reasoning}</p>
+                                    <p className="text-[10px] text-muted-foreground truncate">{legacyReasoning(p.reasoning)}</p>
                                   </div>
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     <span className={cn(

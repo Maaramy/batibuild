@@ -1047,7 +1047,7 @@ export default function ProjectGuide() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {["Gros œuvre", "Second œuvre", "Matériaux", "Main-d'œuvre", "Équipements", "Transport", "Études & permis", "Imprévus"].map((c) => (
+                        {["Gros œuvre", "Second œuvre", "Matériaux", "Main-d'œuvre", "Équipements", "Transport", "Études & permis"].map((c) => (
                           <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
                         ))}
                       </SelectContent>

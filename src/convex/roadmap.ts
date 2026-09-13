@@ -18,6 +18,7 @@ import {
   phaseStatus,
   rebalanceBudgetRows,
   fmtTnd,
+  stripImprevusFromRoadmap,
   type Roadmap,
   type RoadmapProjectInput,
   type StepStatus,
@@ -38,7 +39,14 @@ export const getRoadmap = query({
       .withIndex("by_user_project", (q) => q.eq("userId", user._id).eq("projectId", args.projectId))
       .first();
     if (!doc) return null;
-    return { roadmapId: doc._id, input: doc.input as RoadmapProjectInput, results: doc.results as Roadmap };
+    const input = doc.input as RoadmapProjectInput;
+    const stored = doc.results as Roadmap;
+    // Compatibilité : une feuille de route enregistrée avant la suppression des
+    // imprévus est ramenée au coût réel, puis ses champs calculés (budget,
+    // résumé, risques) sont recalculés comme lors d'une mise à jour (Phase 05).
+    const clean = stripImprevusFromRoadmap(stored, input);
+    const results = clean === stored ? stored : derive(clean, input);
+    return { roadmapId: doc._id, input, results };
   },
 });
 

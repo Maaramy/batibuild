@@ -146,6 +146,27 @@ describe("estimateQuantity", () => {
 });
 
 describe("recommendForProject", () => {
+  it("n'ajoute aucune marge d'imprévus au coût (total = coûts réels + TVA)", () => {
+    const res = recommendForProject({
+      context: ctx,
+      categories: ["isolation_thermique", "carrelage"],
+      materials: mats,
+      offers,
+    });
+    // Plus aucun poste « imprévus » dans le récapitulatif de coût
+    expect(Object.keys(res.cost)).not.toContain("contingency");
+    const subtotal =
+      res.cost.materials + res.cost.pose + res.cost.transport + res.cost.waste + res.cost.accessories;
+    // Le total est exactement le sous-total réel + TVA 19 % (± arrondi des lignes)
+    expect(Math.abs(res.cost.total - subtotal * (1 + 0.19))).toBeLessThan(subtotal * 0.01);
+    // Aucune solution ne porte de champ d'imprévus
+    for (const cat of res.categories) {
+      for (const s of cat.solutions) {
+        expect(Object.keys(s.material)).not.toContain("contingencyCost");
+      }
+    }
+  });
+
   it("produit 3 solutions distinctes par catégorie avec scores /100 et coût total", () => {
     const res = recommendForProject({
       context: ctx,

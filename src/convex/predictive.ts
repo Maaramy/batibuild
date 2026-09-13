@@ -130,7 +130,7 @@ function fallbackInsights(_project: any, ce: any, market?: MarketContext): Predi
     const norm = normName(name);
     const entry =
       MATERIAL_TRENDS.find((t) => t.keys.some((k) => norm.includes(k))) ||
-      { keys: [], category: "divers", trend: "stable" as const, pct: 1.0, horizon: "12 mois", reasoning: "Divers et imprévus stables." };
+      { keys: [], category: "divers", trend: "stable" as const, pct: 1.0, horizon: "12 mois", reasoning: "Fournitures diverses et accessoires stables." };
     const observed = market?.trendsByCategory?.get(entry.category);
     if (observed && observed.changes >= 2) {
       const pct = Math.round(clamp(observed.netPct, -15, 20) * 10) / 10;
@@ -171,7 +171,7 @@ function fallbackInsights(_project: any, ce: any, market?: MarketContext): Predi
       main_oeuvre: { trend: "hausse", pct: 5.0, horizon: "6 mois", reasoning: "Pénurie de main-d'œuvre qualifiée, coûts en hausse." },
       transport: { trend: "hausse", pct: 3.5, horizon: "6 mois", reasoning: "Hausse du carburant et des frais de livraison." },
       etudes_imprevus: { trend: "stable", pct: 0.5, horizon: "12 mois", reasoning: "Frais d'études et permis stables." },
-      divers: { trend: "stable", pct: 1.0, horizon: "12 mois", reasoning: "Divers et imprévus stables." },
+      divers: { trend: "stable", pct: 1.0, horizon: "12 mois", reasoning: "Fournitures diverses et accessoires stables." },
     };
     pricePredictions.push(
       ...macroCategories.slice(0, 4).map((c) => {

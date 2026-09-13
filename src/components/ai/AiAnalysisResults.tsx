@@ -184,7 +184,7 @@ export function AiAnalysisResults({
             </div>
             <div>
               <CardTitle className="text-sm font-semibold">Coût total estimatif</CardTitle>
-              <CardDescription className="text-[10px]">Matériaux · Pose · Transport · Déchets · Accessoires · Imprévus · TVA 19%</CardDescription>
+              <CardDescription className="text-[10px]">Matériaux · Pose · Transport · Déchets · Accessoires · TVA 19%</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -210,14 +210,13 @@ export function AiAnalysisResults({
               <p className="text-[10px] text-muted-foreground mt-2">Dernière mise à jour des données</p>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
             {[
               { label: "Matériaux", value: result.cost.materials },
               { label: "Pose", value: result.cost.pose },
               { label: "Transport", value: result.cost.transport },
               { label: "Déchets", value: result.cost.waste },
               { label: "Accessoires", value: result.cost.accessories },
-              { label: "Imprévus", value: (result.cost as any).contingency ?? 0 },
               { label: "TVA", value: result.cost.tva },
               { label: "Total TTC", value: result.cost.total, strong: true },
             ].map((row, i) => (

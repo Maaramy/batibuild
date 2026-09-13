@@ -245,6 +245,7 @@ export interface RoadmapProjectInput {
   costEstimate?: {
     totalCost: number;
     costPerSquareMeter?: number;
+    /** Conservés pour ramener au coût réel les feuilles de route générées avant la suppression des imprévus. */
     contingencyPercentage?: number;
     contingencyBuffer?: number;
     breakdown?: {
@@ -491,10 +492,6 @@ function buildAllocationRows(ce: RoadmapProjectInput["costEstimate"], totalCost:
   // Autorisations administratives (frais indicatifs Phase 04)
   const autorisations = round(TUNISIA_ADMIN_STEPS.reduce((sum, a) => sum + a.frais, 0));
   rows.push({ key: "autorisations", label: "Autorisations administratives", amount: autorisations, pct: round((autorisations / Math.max(totalCost, 1)) * 100) });
-  // Imprévus
-  const imprévus = ce?.contingencyBuffer ?? round(totalCost * (ce?.contingencyPercentage ?? 0.05));
-  rows.push({ key: "imprevus", label: "Marge pour imprévus", amount: round(imprévus), pct: round((imprévus / Math.max(totalCost, 1)) * 100) });
-
   // Normaliser les pourcentages pour que la somme ≈ 100 %
   const sum = rows.reduce((acc, r) => acc + r.pct, 0);
   if (sum > 0 && sum !== 100 && rows.length > 0) {
@@ -552,6 +549,94 @@ export function rebalanceBudgetRows(rows: BudgetRow[], targetKey: string, pct: n
 // ─── Planning (Phase 07) ─────────────────────────────────────────────────────
 
 const RESPONSIBLES = ["Entreprise générale", "Maçon", "Coffreur/Ferrailleur", "Charpentier", "Étancheur", "Plâtrier", "Menuisier", "Électricien", "Plombier", "Carreleur", "Peintre", "Paysagiste"];
+
+/**
+ * Compatibilité ascendante — supprime les imprévus d'une feuille de route
+ * enregistrée avant leur suppression : ligne « Marge pour imprévus » retirée,
+ * postes renormalisés à 100 %, budget ramené au coût réel, prédictions
+ * recalculées et textes nettoyés. Pure et idempotente ; aucune donnée n'est
+ * modifiée en base.
+ */
+export function stripImprevusFromRoadmap(r: Roadmap, input: RoadmapProjectInput): Roadmap {
+  const legacyRow = r.budget.scenarios
+    .flatMap((s) => s.rows ?? [])
+    .find((row) => row.key === "imprevus");
+  if (!legacyRow) return r; // feuille de route déjà sans imprévus
+
+  const pct = input.costEstimate?.contingencyPercentage ?? 0;
+  // Facteur exact de la majoration appliquée par l'ancien moteur (repli : part
+  // de la ligne supprimée dans la répartition enregistrée).
+  const factor = pct > 0 ? 1 / (1 + pct / 100) : 1 - Math.min(90, legacyRow.pct) / 100;
+
+  const scenarios: BudgetScenario[] = r.budget.scenarios.map((s) => {
+    const kept = (s.rows ?? []).filter((row) => row.key !== "imprevus");
+    const totalCost = round(s.totalCost * factor);
+    const keptSum = kept.reduce((a, row) => a + row.pct, 0);
+    const rows: BudgetRow[] = kept.map((row) => ({
+      ...row,
+      pct: keptSum > 0 ? round((row.pct / keptSum) * 100) : row.pct,
+    }));
+    // Arrondi : la somme des postes doit couvrir 100 % du coût réel
+    let diff = 100 - rows.reduce((a, row) => a + row.pct, 0);
+    let i = rows.length - 1;
+    while (diff !== 0 && rows.length > 0) {
+      const step = diff > 0 ? 1 : -1;
+      if (rows[i].pct + step >= 0) rows[i] = { ...rows[i], pct: rows[i].pct + step };
+      diff -= step;
+      i = (i - 1 + rows.length) % rows.length;
+    }
+    return {
+      ...s,
+      totalCost,
+      costPerM2: round(s.costPerM2 * factor),
+      rows: rows.map((row) => ({ ...row, amount: round((totalCost * row.pct) / 100) })),
+    };
+  });
+
+  const textFixes: [string, string][] = [
+    [
+      "Prévoyez la marge pour imprévus et verrouillez les prix des matériaux tôt.",
+      "Verrouillez les prix des matériaux et les devis d'entreprises tôt.",
+    ],
+    [
+      "tant que la marge pour imprévus est conservée et que les devis sont fermes",
+      "tant que les devis sont fermes et que le budget est suivi de près",
+    ],
+    [
+      "main-d'œuvre, imprévus…",
+      "main-d'œuvre, équipements…",
+    ],
+    [
+      "Réaffecter la marge pour imprévus ou réduire le poste",
+      "Réaffecter le budget d'un autre poste ou réduire le poste",
+    ],
+  ];
+  const clean = (text: string) => textFixes.reduce((acc, [from, to]) => acc.split(from).join(to), text);
+
+  return {
+    ...r,
+    phases: r.phases.map((p) => ({
+      ...p,
+      items: p.items.map((it) => (it.detail ? { ...it, detail: clean(it.detail) } : it)),
+    })),
+    budget: {
+      ...r.budget,
+      totalCost: round(r.budget.totalCost * factor),
+      scenarios,
+    },
+    predictions: buildPredictions(input, scenarios, r.planning, r.construction),
+    control: {
+      ...r.control,
+      risk: {
+        ...r.control.risk,
+        anomalies: r.control.risk.anomalies.map((a) => ({
+          ...a,
+          recommendation: clean(a.recommendation),
+        })),
+      },
+    },
+  };
+}
 
 export function buildPlanning(totalCost: number, surface: number, floors: number): PlanningTask[] {
   const totalDays = estimateDurationDays(totalCost, surface, floors);
@@ -701,7 +786,7 @@ function buildPhases(input: PhaseInputs): RoadmapPhase[] {
     description: "Budget prévisionnel par poste, trois scénarios et répartition ajustable.",
     items: [
       { id: "scenarios", label: "Scénarios économiques définis", detail: "Économique · Standard · Premium — issus de l'estimation du projet.", status: "done", auto: true },
-      { id: "allocation", label: "Répartition du budget validée", detail: "Gros œuvre, second œuvre, main-d'œuvre, imprévus…", status: "todo" },
+      { id: "allocation", label: "Répartition du budget validée", detail: "Gros œuvre, second œuvre, main-d'œuvre, équipements…", status: "todo" },
       { id: "financement", label: "Plan de financement établi", detail: "Apport, crédit bancaire, aides — à confirmer avec votre banque.", status: "todo" },
     ],
     progress: 33,
@@ -869,8 +954,8 @@ export function buildPredictions(
     confidence,
     explanation:
       spread > 0.25
-        ? "L'écart entre le scénario standard et premium est important : des surcoûts sont probables. Prévoyez la marge pour imprévus et verrouillez les prix des matériaux tôt."
-        : "L'écart entre scénarios est raisonnable. Le risque de dépassement reste modéré tant que la marge pour imprévus est conservée et que les devis sont fermes.",
+        ? "L'écart entre le scénario standard et premium est important : des surcoûts sont probables. Verrouillez les prix des matériaux et les devis d'entreprises tôt."
+        : "L'écart entre scénarios est raisonnable. Le risque de dépassement reste modéré tant que les devis sont fermes et que le budget est suivi de près.",
   };
 
   // Risque de retard
@@ -932,7 +1017,6 @@ const EXPENSE_CATEGORY_KEY: Record<string, string> = {
   Équipements: "equipements",
   Transport: "transport",
   "Études & permis": "etudes_imprevus",
-  Imprévus: "imprevus",
 };
 
 /**
@@ -1009,7 +1093,7 @@ export function buildSiteRiskAnalysis(
         severity: "warning",
         title: `Poste « ${cat} » dépassé`,
         detail: `${fmtTnd(amount)} consommés pour ${fmtTnd(row.amount)} alloués (${Math.round((amount / Math.max(row.amount, 1)) * 100)} %).`,
-        recommendation: `Réaffecter la marge pour imprévus ou réduire le poste « ${row.label} ».`,
+        recommendation: `Réaffecter le budget d'un autre poste ou réduire le poste « ${row.label} ».`,
       });
     }
   }

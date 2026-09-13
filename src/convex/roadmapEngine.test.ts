@@ -6,6 +6,7 @@ import {
   computeProgress,
   buildSiteRiskAnalysis,
   rebalanceBudgetRows,
+  stripImprevusFromRoadmap,
   fmtTnd,
   fmtDays,
   type RoadmapProjectInput,
@@ -274,5 +275,86 @@ describe("formatage", () => {
     expect(fmtTnd(320000)).toMatch(/TND|DT/);
     expect(fmtDays(45)).toBe("2 mois");
     expect(fmtDays(10)).toBe("10 jours");
+  });
+});
+
+describe("suppression des imprévus", () => {
+  it("ne génère plus aucune ligne « Marge pour imprévus »", () => {
+    const r = generateRoadmap(fullProject());
+    for (const s of r.budget.scenarios) {
+      expect(s.rows.some((row) => row.key === "imprevus")).toBe(false);
+      expect(s.rows.reduce((a, row) => a + row.pct, 0)).toBe(100);
+    }
+  });
+
+  it("le budget reprend le montant réel de l'estimation (aucune majoration)", () => {
+    const input = fullProject();
+    const r = generateRoadmap(input);
+    expect(r.budget.scenarios[1].totalCost).toBe(input.costEstimate!.budgetScenarios!.standard.totalCost);
+    expect(r.budget.totalCost).toBe(input.costEstimate!.totalCost);
+  });
+
+  it("nettoie une feuille de route enregistrée avant la suppression (idempotent)", () => {
+    const input = fullProject();
+    const modern = generateRoadmap(input);
+    // Reconstitue l'ancien format : budget majoré + ligne « Marge pour imprévus »
+    const pct = input.costEstimate?.contingencyPercentage ?? 0;
+    const factor = 1 + pct / 100;
+    const imprévusPct = Math.round((1 - 1 / factor) * 100);
+    const legacy = {
+      ...modern,
+      phases: modern.phases.map((p) =>
+        p.id === "phase_05"
+          ? {
+              ...p,
+              items: p.items.map((i) =>
+                i.id === "allocation"
+                  ? { ...i, detail: "Gros œuvre, second œuvre, main-d'œuvre, imprévus…" }
+                  : i,
+              ),
+            }
+          : p,
+      ),
+      budget: {
+        ...modern.budget,
+        totalCost: Math.round(modern.budget.totalCost * factor),
+        scenarios: modern.budget.scenarios.map((s) => ({
+          ...s,
+          totalCost: Math.round(s.totalCost * factor),
+          costPerM2: Math.round(s.costPerM2 * factor),
+          rows: [
+            ...s.rows.map((row) => ({ ...row, pct: Math.round((row.pct / 100) * (100 - imprévusPct)) })),
+            {
+              key: "imprevus",
+              label: "Marge pour imprévus",
+              amount: Math.round(s.totalCost * (pct / 100)),
+              pct: imprévusPct,
+            },
+          ],
+        })),
+      },
+    };
+
+    const cleaned = stripImprevusFromRoadmap(legacy, input);
+
+    for (const s of cleaned.budget.scenarios) {
+      expect(s.rows.some((row) => row.key === "imprevus")).toBe(false);
+      expect(s.rows.reduce((a, row) => a + row.pct, 0)).toBe(100);
+      const original = modern.budget.scenarios.find((o) => o.key === s.key)!;
+      expect(s.totalCost).toBe(original.totalCost);
+      expect(Math.abs(s.rows.reduce((a, row) => a + row.amount, 0) - s.totalCost)).toBeLessThanOrEqual(3);
+    }
+    expect(cleaned.budget.totalCost).toBe(modern.budget.totalCost);
+
+    // Plus aucune mention d'imprévus dans les textes affichés
+    const texts = [
+      ...cleaned.phases.flatMap((p) => p.items.map((i) => i.detail ?? "")),
+      cleaned.predictions.budgetOverrun.explanation,
+      ...cleaned.control.risk.anomalies.map((a) => a.recommendation),
+    ].join(" | ");
+    expect(texts).not.toMatch(/imprévu/i);
+
+    // Idempotente : une seconde passe ne change plus rien
+    expect(stripImprevusFromRoadmap(cleaned, input)).toEqual(cleaned);
   });
 });
