@@ -24,6 +24,7 @@ export { default as Banknote } from "../../node_modules/lucide-react/dist/esm/ic
 export { default as BarChart } from "../../node_modules/lucide-react/dist/esm/icons/bar-chart.js";
 export { default as BarChart3 } from "../../node_modules/lucide-react/dist/esm/icons/bar-chart-3.js";
 export { default as Bell } from "../../node_modules/lucide-react/dist/esm/icons/bell.js";
+export { default as Blocks } from "../../node_modules/lucide-react/dist/esm/icons/blocks.js";
 export { default as Bold } from "../../node_modules/lucide-react/dist/esm/icons/bold.js";
 export { default as BookOpen } from "../../node_modules/lucide-react/dist/esm/icons/book-open.js";
 export { default as Bot } from "../../node_modules/lucide-react/dist/esm/icons/bot.js";
@@ -160,6 +161,7 @@ export { default as Palmtree } from "../../node_modules/lucide-react/dist/esm/ic
 export { default as Paperclip } from "../../node_modules/lucide-react/dist/esm/icons/paperclip.js";
 export { default as Pen } from "../../node_modules/lucide-react/dist/esm/icons/pen.js";
 export { default as Pencil } from "../../node_modules/lucide-react/dist/esm/icons/pencil.js";
+export { default as PencilRuler } from "../../node_modules/lucide-react/dist/esm/icons/pencil-ruler.js";
 export { default as Percent } from "../../node_modules/lucide-react/dist/esm/icons/percent.js";
 export { default as Phone } from "../../node_modules/lucide-react/dist/esm/icons/phone.js";
 export { default as PieChart } from "../../node_modules/lucide-react/dist/esm/icons/pie-chart.js";
