@@ -1455,7 +1455,7 @@ export default function Dashboard() {
           )}
 
           {/* Projects section */}
-          <Card className="border-0 bg-background/50 shadow-none backdrop-blur-sm">
+          <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
@@ -1551,7 +1551,7 @@ export default function Dashboard() {
           </Card>
 
           {/* ── Mes projets d'investissement enregistrés (avec statistiques) ── */}
-          <Card className="border-0 bg-background/50 shadow-none backdrop-blur-sm">
+          <Card className="border border-border/40 bg-background/50 backdrop-blur-sm">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
