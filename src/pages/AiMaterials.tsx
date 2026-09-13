@@ -7,15 +7,30 @@ import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { projectTypeLabel } from "@/convex/projectTypes";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import {
-ArrowLeft, Sparkles, HardHat, Loader2, Store, Scale, Check, Trash2, Clock, MapPin, Ruler, Wand2, ShieldCheck, RefreshCw, CircleDollarSign, Building2, Info
+ArrowLeft, Sparkles, HardHat, Loader2, Store, Scale, Check, Trash2, MapPin, Ruler, Wand2, ShieldCheck, RefreshCw, CircleDollarSign, Building2, Info,
+Blocks, Search, X, MoreHorizontal, ExternalLink, AlertCircle, CalendarDays, LayoutGrid, CheckCircle2, FilterX
 } from "lucide-react";
 import { ProjectContext } from "@/convex/aiMaterialsEngine";
 import { REGION_LABELS } from "@/lib/projectPdf";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AI_MATERIALS_STATUS_LABEL,
+  buildAiMaterialsHistoryEntry,
+  filterAiMaterialsHistory,
+  type AiMaterialsHistoryStatus,
+} from "@/lib/aiMaterialsHistory";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -25,6 +40,44 @@ const fmtTnd = (n: number) =>
 
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HISTORIQUE DES ANALYSES — présentation (données, statuts et actions inchangés)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Gamme utilisée dans l'analyse (libellés existants de la plateforme). */
+const HISTORY_STANDING_LABELS: Record<string, string> = {
+  economique: "Économique",
+  equilibre: "Équilibrée",
+  standard: "Standard",
+  bon_standing: "Bon standing",
+  premium: "Premium",
+  luxe: "Luxe",
+};
+
+/** Style du badge de statut — couleurs du design system (clair + sombre). */
+const HISTORY_STATUS_STYLE: Record<AiMaterialsHistoryStatus, { icon: any; className: string }> = {
+  completed: {
+    icon: CheckCircle2,
+    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  },
+  running: {
+    icon: Loader2,
+    className: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400",
+  },
+  error: {
+    icon: AlertCircle,
+    className: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-500",
+  },
+};
+
+/** Filtres compacts de l'historique (filtrage purement côté interface). */
+const HISTORY_FILTERS: Array<{ value: AiMaterialsHistoryStatus | "all"; label: string }> = [
+  { value: "all", label: "Toutes" },
+  { value: "completed", label: "Terminées" },
+  { value: "running", label: "En cours" },
+  { value: "error", label: "Erreur" },
+];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE — AI MATERIALS COPILOT
@@ -75,6 +128,42 @@ export default function AiMaterials() {
   // ── Résultats ──
   const [analyzing, setAnalyzing] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
+
+  // ── Historique des analyses : état d'AFFICHAGE uniquement ──
+  // Les analyses elles-mêmes viennent toujours de `api.aiMaterials.getCopilotAnalyses`.
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyStatus, setHistoryStatus] = useState<AiMaterialsHistoryStatus | "all">("all");
+  const analyzeStepRef = useRef<HTMLDivElement | null>(null);
+
+  /** Cartes d'historique dérivées des mêmes documents (aucune requête supplémentaire). */
+  const historyEntries = useMemo(
+    () => (analyses as any[]).map((a) => buildAiMaterialsHistoryEntry(a, savedId)),
+    [analyses, savedId],
+  );
+
+  /** Documents d'origine conservés pour « Voir l'analyse » / « Supprimer ». */
+  const historyDocs = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const a of analyses as any[]) map.set(a._id, a);
+    return map;
+  }, [analyses]);
+
+  const visibleHistory = useMemo(
+    () => filterAiMaterialsHistory(historyEntries, { query: historyQuery, status: historyStatus }),
+    [historyEntries, historyQuery, historyStatus],
+  );
+
+  const historyCounters = useMemo(() => ({
+    all: historyEntries.length,
+    completed: historyEntries.filter((e) => e.status === "completed").length,
+    running: historyEntries.filter((e) => e.status === "running").length,
+    error: historyEntries.filter((e) => e.status === "error").length,
+  }), [historyEntries]);
+
+  /** État vide : amène l'utilisateur au formulaire d'analyse déjà existant. */
+  const goToAnalyzeStep = () => {
+    analyzeStepRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   const projectCtx = useMemo<ProjectContext>(() => {
     const proj = projects.find((p: any) => p._id === projectId) as any;
@@ -147,8 +236,8 @@ export default function AiMaterials() {
   };
 
   const loadAnalysis = (doc: any) => {
-    const res = doc.results?.recommend;
-    if (!res) return toast.error("Analyse sans recommandation enregistrée.");
+    const res = doc?.results?.recommend;
+    if (!doc || !res) return toast.error("Analyse sans recommandation enregistrée.");
     setSavedId(doc._id);
     // Redirection vers la page dédiée de résultat
     navigate(`/dashboard/ai-materials/result/${doc._id}`);
@@ -326,7 +415,7 @@ export default function AiMaterials() {
         </Card>
 
         {/* ÉTAPE 3 — LANCER L'ANALYSE */}
-        <Card className="border border-border/40 overflow-hidden rounded-xl">
+        <Card ref={analyzeStepRef} className="scroll-mt-24 border border-border/40 overflow-hidden rounded-xl">
           <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 text-xs font-bold">3</div>
@@ -352,52 +441,242 @@ export default function AiMaterials() {
           </CardContent>
         </Card>
 
-        {/* Historique */}
-        <Card className="border border-border/40 overflow-hidden rounded-xl">
+        {/* Historique — refonte UI/UX (données, statuts, routes et actions inchangés) */}
+        <Card className="border border-border/40 overflow-hidden rounded-2xl">
           <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600">
+                <Blocks className="h-3.5 w-3.5" />
               </div>
-              <div>
-                <CardTitle className="text-sm font-semibold">Historique des analyses</CardTitle>
+              <div className="min-w-0">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  Historique des analyses
+                  {historyEntries.length > 0 && (
+                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
+                      {historyEntries.length}
+                    </span>
+                  )}
+                </CardTitle>
                 <CardDescription className="text-[10px]">Vos analyses enregistrées (sauvegardées automatiquement après chaque analyse)</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="p-4 sm:p-5">
-            {analyses.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Aucune analyse enregistrée pour le moment.</p>
-            ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {analyses.map((a) => (
-                  <div key={a._id} className={cn(
-                    "rounded-xl border p-3 transition-all",
-                    savedId === a._id ? "border-emerald-500/50 bg-emerald-500/5" : "border-border/40 hover:border-border",
-                  )}>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold truncate">{a.input?.context?.projectName || "Analyse manuelle"}</p>
-                      {savedId === a._id && <Badge className="text-[8px] gap-1 bg-emerald-500/10 text-emerald-700 border-emerald-500/30 shrink-0"><Check className="h-2 w-2" /> En cours</Badge>}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {fmtDate(a.createdAt)} · {(a.results?.recommend?.categories || []).length} catégories
-                      {a.results?.recommend?.cost ? ` · ${fmtTnd(a.results.recommend.cost.total)}` : ""}
-                    </p>
-                    <div className="mt-2 flex items-center gap-1.5">
-                      <Button size="sm" variant="outline" className="h-6 text-[9px] gap-1 px-2" onClick={() => loadAnalysis(a)}>
-                        <RefreshCw className="h-2.5 w-2.5" /> Charger
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-6 text-[9px] gap-1 px-2 text-destructive" onClick={async () => {
-                        await deleteAnalysis({ analysisId: a._id });
-                        if (savedId === a._id) setSavedId(null);
-                        toast.success("Analyse supprimée");
-                      }}>
-                        <Trash2 className="h-2.5 w-2.5" /> Supprimer
-                      </Button>
-                    </div>
+            {historyEntries.length === 0 ? (
+              /* ── État vide ── */
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/50 bg-muted/[0.15] px-6 py-10 text-center">
+                <div className="relative mb-3">
+                  <div className="absolute inset-0 rounded-2xl bg-emerald-500/10 blur-xl" />
+                  <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-border/40 bg-background text-emerald-600 shadow-sm">
+                    <Blocks className="h-5 w-5" />
                   </div>
-                ))}
+                </div>
+                <p className="text-sm font-semibold">Aucune analyse de matériaux</p>
+                <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-muted-foreground">
+                  Vos analyses Matériaux AI apparaîtront ici.
+                </p>
+                <Button
+                  className="mt-4 h-9 gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.97]"
+                  onClick={goToAnalyzeStep}
+                >
+                  <Wand2 className="h-3.5 w-3.5" />
+                  Analyser les matériaux
+                </Button>
               </div>
+            ) : (
+              <>
+                {/* ── Recherche & filtres (contrôles compacts) ── */}
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="relative sm:max-w-xs sm:flex-1">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={historyQuery}
+                      onChange={(e) => setHistoryQuery(e.target.value)}
+                      placeholder="Rechercher un projet, une région…"
+                      aria-label="Rechercher dans l'historique des analyses"
+                      className="h-9 rounded-lg pl-8 pr-8 text-xs sm:h-8"
+                    />
+                    {historyQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setHistoryQuery("")}
+                        aria-label="Effacer la recherche"
+                        className="absolute right-2 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="-mx-0.5 flex items-center gap-1 overflow-x-auto px-0.5 scrollbar-none">
+                    {HISTORY_FILTERS.map((f) => {
+                      const count = f.value === "all" ? historyCounters.all : historyCounters[f.value];
+                      const active = historyStatus === f.value;
+                      return (
+                        <button
+                          key={f.value}
+                          type="button"
+                          onClick={() => setHistoryStatus(f.value)}
+                          aria-pressed={active}
+                          className={cn(
+                            "flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[10px] font-medium transition-all active:scale-95 sm:h-7 sm:px-2.5",
+                            active
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                              : "border-border/40 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground",
+                          )}
+                        >
+                          {f.label}
+                          <span className={cn(
+                            "tabular-nums text-[9px] font-semibold",
+                            active ? "text-emerald-600/80 dark:text-emerald-400/80" : "text-muted-foreground/60",
+                          )}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ── Liste des analyses : cartes ── */}
+                {visibleHistory.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/50 px-4 py-8 text-center">
+                    <p className="text-[11px] text-muted-foreground">Aucune analyse ne correspond à ces critères.</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1.5 text-[11px]"
+                      onClick={() => { setHistoryQuery(""); setHistoryStatus("all"); }}
+                    >
+                      <FilterX className="h-3 w-3" /> Réinitialiser les filtres
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                    {visibleHistory.map((entry, index) => {
+                      const badge = HISTORY_STATUS_STYLE[entry.status];
+                      const StatusIcon = badge.icon;
+                      const doc = historyDocs.get(entry.id);
+                      const summary = [
+                        entry.standing ? (HISTORY_STANDING_LABELS[entry.standing] ?? entry.standing) : null,
+                        entry.surface ? `${entry.surface} m²` : null,
+                        entry.region ? (REGION_LABELS[entry.region] ?? entry.region) : null,
+                      ].filter(Boolean).join(" · ");
+
+                      return (
+                        <motion.div
+                          key={entry.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25, delay: Math.min(index, 6) * 0.035, ease: "easeOut" }}
+                          className="h-full"
+                        >
+                          <div className={cn(
+                            "group flex h-full flex-col rounded-xl border bg-card/60 p-3 transition-all duration-200",
+                            savedId === entry.id
+                              ? "border-emerald-500/50 bg-emerald-500/[0.04] ring-1 ring-emerald-500/20"
+                              : "border-border/40 hover:border-primary/25 hover:bg-card hover:shadow-sm",
+                          )}>
+                            {/* Icône + projet + date + menu ⋯ */}
+                            <div className="flex items-start gap-2.5">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600">
+                                <Blocks className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-semibold leading-tight" title={entry.projectName}>
+                                  {entry.projectName}
+                                </p>
+                                <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                                  <CalendarDays className="h-2.5 w-2.5 shrink-0" />
+                                  Analyse réalisée le {fmtDate(entry.createdAt)}
+                                </p>
+                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Actions de l'analyse"
+                                    className="h-8 w-8 shrink-0 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 sm:h-7 sm:w-7"
+                                  >
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem className="cursor-pointer gap-2 text-xs" onClick={() => loadAnalysis(doc)}>
+                                    <ExternalLink className="h-3.5 w-3.5" /> Voir l'analyse
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="cursor-pointer gap-2 text-xs" onClick={() => loadAnalysis(doc)}>
+                                    <RefreshCw className="h-3.5 w-3.5" /> Charger les résultats
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="cursor-pointer gap-2 text-xs text-destructive focus:text-destructive"
+                                    onClick={async () => {
+                                      await deleteAnalysis({ analysisId: entry.id as any });
+                                      if (savedId === entry.id) setSavedId(null);
+                                      toast.success("Analyse supprimée");
+                                    }}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+
+                            {/* Statut + statistiques */}
+                            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                              <span className={cn(
+                                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold",
+                                badge.className,
+                              )}>
+                                <StatusIcon className={cn("h-2.5 w-2.5", entry.status === "running" && "animate-spin")} />
+                                {AI_MATERIALS_STATUS_LABEL[entry.status]}
+                              </span>
+                              {entry.materialCount !== null && entry.materialCount > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-muted/20 px-2 py-0.5 text-[9px] font-medium text-muted-foreground">
+                                  <Blocks className="h-2.5 w-2.5" />
+                                  {entry.materialCount} matériaux analysés
+                                </span>
+                              )}
+                              {entry.categoryCount > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-muted/20 px-2 py-0.5 text-[9px] font-medium text-muted-foreground">
+                                  <LayoutGrid className="h-2.5 w-2.5" />
+                                  {entry.categoryCount} catégories
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Résumé : gamme · surface · région */}
+                            {summary && (
+                              <p className="mt-2 truncate text-[10px] text-muted-foreground/80" title={summary}>{summary}</p>
+                            )}
+
+                            {/* Budget matériaux */}
+                            {entry.totalCost !== null && entry.totalCost > 0 && (
+                              <div className="mt-2 flex items-baseline justify-between gap-2 rounded-lg bg-muted/30 px-2.5 py-1.5">
+                                <span className="text-[9px] text-muted-foreground">Budget matériaux estimé</span>
+                                <span className="text-xs font-bold text-primary">{fmtTnd(entry.totalCost)}</span>
+                              </div>
+                            )}
+
+                            {/* Action principale — alignée en bas de carte */}
+                            <div className="mt-auto pt-2.5">
+                              <Button
+                                size="sm"
+                                className="h-9 w-full gap-1.5 rounded-lg text-xs active:scale-[0.98]"
+                                onClick={() => loadAnalysis(doc)}
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                Voir l'analyse
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
