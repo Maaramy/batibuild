@@ -1,8 +1,8 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, mutation, MutationCtx, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import { v } from "convex/values";
+import type { Doc, Id } from "./_generated/dataModel";
+import { ConvexError, v } from "convex/values";
 import { roleValidator, subscriptionPlanValidator } from "./schema";
 
 /** Libellés FR des rôles système (journal admin). */
@@ -606,46 +606,51 @@ async function setPasswordSecret(
   providerAccountId: string,
   newPassword: string,
 ): Promise<void> {
-  await ctx.runMutation(internal.auth.store, {
-    args: {
-      type: "modifyAccount",
-      provider: "password",
-      account: { id: providerAccountId, secret: newPassword },
-    },
-  });
+  try {
+    await ctx.runMutation(internal.auth.store, {
+      args: {
+        type: "modifyAccount",
+        provider: "password",
+        account: { id: providerAccountId, secret: newPassword },
+      },
+    });
+  } catch (error) {
+    // Le hachage et l'écriture sont délégués à Convex Auth : si l'opération
+    // échoue, le client reçoit une erreur applicative explicite au lieu d'un
+    // « Server Error » générique.
+    console.error("[users] Échec de l'écriture du nouveau mot de passe", error);
+    throw new ConvexError(
+      "L'enregistrement du nouveau mot de passe a échoué. Relancez la procédure.",
+    );
+  }
+}
+
+/** E-mail de recherche : la casse et les espaces ne doivent pas bloquer un compte. */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
 /**
- * Vrai si `code` est bien le code OTP envoyé à cet e-mail (et non expiré).
+ * Documents `users` rattachés à cet e-mail.
  *
- * `verifyCodeAndSignIn` ouvre toujours une session : comme aucun jeton n'est
- * délivré ici, elle est supprimée dans la foulée — l'utilisateur se
- * reconnectera avec son nouveau mot de passe.
+ * L'index `email` est sensible à la casse : on interroge la valeur saisie et sa
+ * forme normalisée, et il peut y avoir plusieurs documents pour une même
+ * adresse (d'anciens comptes ont pu être créés en double, Convex Auth liant un
+ * compte à un utilisateur existant par e-mail vérifié).
  */
-async function consumeEmailOtp(
-  ctx: MutationCtx,
-  email: string,
-  code: string,
-  userId: Id<"users">,
-): Promise<boolean> {
-  const session = await ctx.runMutation(internal.auth.store, {
-    args: {
-      type: "verifyCodeAndSignIn",
-      params: { email, code },
-      provider: "email-otp",
-      generateTokens: false,
-      allowExtraProviders: false,
-    },
-  });
-
-  // `auth:store` est une mutation unique qui sert tous les flux : on ne
-  // conserve que le résultat de `verifyCodeAndSignIn` (une session).
-  if (session === null || typeof session !== "object" || !("sessionId" in session)) {
-    return false;
+async function findUsersByEmail(ctx: QueryCtx, email: string): Promise<Doc<"users">[]> {
+  const found: Doc<"users">[] = [];
+  for (const candidate of new Set([email.trim(), normalizeEmail(email)])) {
+    if (candidate === "") continue;
+    const rows = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", candidate))
+      .collect();
+    for (const row of rows) {
+      if (!found.some((u) => u._id === row._id)) found.push(row);
+    }
   }
-
-  await ctx.db.delete(session.sessionId);
-  return "userId" in session && session.userId === userId;
+  return found;
 }
 
 /** Compte « mot de passe » de cet utilisateur, s'il en possède un. */
@@ -655,6 +660,80 @@ async function findPasswordAccount(ctx: MutationCtx, userId: Id<"users">) {
     .filter((q) => q.eq(q.field("userId"), userId))
     .collect();
   return authAccounts.find((a) => a.provider === "password");
+}
+
+/**
+ * Compte « mot de passe » rattaché à cet e-mail, avec son identifiant de compte.
+ *
+ * On ne retient pas le premier document `users` venu : plusieurs documents
+ * peuvent porter la même adresse, et seul celui qui possède réellement un
+ * compte `password` détient le secret à réinitialiser.
+ */
+async function findPasswordAccountForEmail(
+  ctx: MutationCtx,
+  email: string,
+): Promise<{ providerAccountId: string } | null> {
+  for (const user of await findUsersByEmail(ctx, email)) {
+    const account = await findPasswordAccount(ctx, user._id);
+    if (account !== undefined) return { providerAccountId: account.providerAccountId };
+  }
+  return null;
+}
+
+/**
+ * Vérifie `code` (code OTP envoyé par e-mail) et renvoie l'utilisateur à qui
+ * appartient le compte vérifié ; `null` si le code est invalide ou expiré.
+ *
+ * `verifyCodeAndSignIn` consomme le code (usage unique) et ouvre toujours une
+ * session : comme aucun jeton n'est délivré ici, la session est supprimée dans
+ * la foulée — l'utilisateur se reconnectera avec son nouveau mot de passe.
+ *
+ * `email` doit être exactement l'adresse utilisée pour demander le code :
+ * le provider `Email` de Convex Auth compare `params.email` au
+ * `providerAccountId` du compte et refuse toute autre valeur.
+ */
+async function consumeEmailOtp(
+  ctx: MutationCtx,
+  email: string,
+  code: string,
+): Promise<Id<"users"> | null> {
+  let session: any;
+  try {
+    session = await ctx.runMutation(internal.auth.store, {
+      args: {
+        type: "verifyCodeAndSignIn",
+        params: { email, code },
+        provider: "email-otp",
+        generateTokens: false,
+        allowExtraProviders: false,
+      },
+    });
+  } catch (error) {
+    // Le code ne correspond pas au compte, ou Convex Auth a échoué : l'erreur
+    // réelle reste dans les logs du serveur, le client reçoit une erreur
+    // applicative explicite au lieu d'un « Server Error » générique.
+    console.error("[users] Échec de verifyCodeAndSignIn lors d'une réinitialisation", error);
+    throw new ConvexError(
+      "La vérification du code a échoué. Demandez un nouveau code ou réessayez dans un instant.",
+    );
+  }
+
+  // `auth:store` est une mutation unique qui sert tous les flux : on ne
+  // conserve que le résultat de `verifyCodeAndSignIn` (une session).
+  if (session === null || typeof session !== "object" || !("sessionId" in session)) {
+    return null;
+  }
+
+  // Nettoyage « au mieux » : aucune session utilisable n'a été émise
+  // (`generateTokens: false`), donc une session résiduelle est inerte et ne
+  // doit jamais faire échouer la réinitialisation du mot de passe.
+  try {
+    await ctx.db.delete(session.sessionId);
+  } catch (error) {
+    console.error("[users] Session de vérification non supprimée", error);
+  }
+
+  return "userId" in session ? (session.userId as Id<"users">) : null;
 }
 
 /**
@@ -668,33 +747,62 @@ export const resetPassword = mutation({
     newPassword: v.string(),
   },
   handler: async (ctx, args) => {
+    const requestedEmail = normalizeEmail(args.email);
+    const code = args.code.trim();
+
+    // Toutes les erreurs ci-dessous sont des `ConvexError` : leur message est
+    // transmis tel quel au client, jamais remplacé par un « Server Error ».
+    if (requestedEmail === "") {
+      throw new ConvexError("Veuillez renseigner votre adresse e-mail.");
+    }
     if (args.newPassword.length < 8) {
-      throw new Error("Le mot de passe doit contenir au moins 8 caractères.");
+      throw new ConvexError("Le mot de passe doit contenir au moins 8 caractères.");
+    }
+    if (!/^\d{6}$/.test(code)) {
+      throw new ConvexError(
+        "Le code de vérification est incorrect. Saisissez les 6 chiffres reçus par e-mail.",
+      );
     }
 
-    // Find user by email
-    const users = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", args.email))
-      .collect();
-
-    if (users.length === 0) {
-      throw new Error("Aucun compte trouvé avec cet email.");
-    }
-
-    const user = users[0];
-    const passwordAccount = await findPasswordAccount(ctx, user._id);
-
-    if (!passwordAccount) {
-      throw new Error("Aucun compte mot de passe trouvé. Utilisez la connexion rapide par email.");
-    }
+    // Compte à réinitialiser : recherche exacte (cas nominal, y compris les
+    // adresses enregistrées sur plusieurs documents `users`).
+    const target = await findPasswordAccountForEmail(ctx, args.email);
 
     // Le code est consommé par cette vérification (usage unique).
-    if (!(await consumeEmailOtp(ctx, args.email, args.code, user._id))) {
-      throw new Error("Code de vérification invalide ou expiré. Relancez la procédure.");
+    const verifiedUserId = await consumeEmailOtp(ctx, args.email, code);
+    if (verifiedUserId === null) {
+      if (target !== null) {
+        throw new ConvexError("Code de vérification invalide ou expiré. Relancez la procédure.");
+      }
+      const users = await findUsersByEmail(ctx, args.email);
+      throw new ConvexError(
+        users.length === 0
+          ? "Aucun compte trouvé avec cet email."
+          : "Ce compte n'a pas de mot de passe : utilisez la connexion rapide par email.",
+      );
     }
 
-    await setPasswordSecret(ctx, passwordAccount.providerAccountId, args.newPassword);
+    // Le code doit avoir été envoyé à l'adresse du compte réinitialisé.
+    const verifiedUser = await ctx.db.get(verifiedUserId);
+    const verifiedEmail = verifiedUser?.email ?? null;
+    if (verifiedEmail !== null && normalizeEmail(verifiedEmail) !== requestedEmail) {
+      throw new ConvexError("Ce code de vérification a été envoyé à une autre adresse e-mail.");
+    }
+
+    // Le code est valide : le compte visé peut être résolu sans ambiguïté, y
+    // compris lorsque l'adresse a été enregistrée avec une autre casse.
+    const account =
+      target ??
+      (await findPasswordAccount(ctx, verifiedUserId)) ??
+      (verifiedEmail === null ? null : await findPasswordAccountForEmail(ctx, verifiedEmail));
+
+    if (account === null) {
+      throw new ConvexError(
+        "Ce compte n'a pas de mot de passe : utilisez la connexion rapide par email.",
+      );
+    }
+
+    await setPasswordSecret(ctx, account.providerAccountId, args.newPassword);
 
     return { success: true };
   },
@@ -712,36 +820,46 @@ export const changePassword = mutation({
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Non connecté");
+    if (!user) throw new ConvexError("Non connecté");
 
     if (args.newPassword.length < 8) {
-      throw new Error("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+      throw new ConvexError("Le nouveau mot de passe doit contenir au moins 8 caractères.");
     }
     if (args.newPassword === args.currentPassword) {
-      throw new Error("Le nouveau mot de passe doit être différent de l'actuel.");
+      throw new ConvexError("Le nouveau mot de passe doit être différent de l'actuel.");
     }
 
     const passwordAccount = await findPasswordAccount(ctx, user._id);
 
     if (!passwordAccount) {
-      throw new Error("Aucun compte mot de passe trouvé. Utilisez la connexion rapide par email.");
+      throw new ConvexError(
+        "Ce compte n'a pas de mot de passe : utilisez la connexion rapide par email.",
+      );
     }
 
     // Vérifie le mot de passe actuel : c'est Convex Auth qui compare le secret
     // fourni au hachage stocké (Scrypt), avec sa limitation de tentatives.
-    const check = await ctx.runMutation(internal.auth.store, {
-      args: {
-        type: "retrieveAccountWithCredentials",
-        provider: "password",
-        account: { id: passwordAccount.providerAccountId, secret: args.currentPassword },
-      },
-    });
+    let check: any;
+    try {
+      check = await ctx.runMutation(internal.auth.store, {
+        args: {
+          type: "retrieveAccountWithCredentials",
+          provider: "password",
+          account: { id: passwordAccount.providerAccountId, secret: args.currentPassword },
+        },
+      });
+    } catch (error) {
+      console.error("[users] Échec de la vérification du mot de passe actuel", error);
+      throw new ConvexError(
+        "La vérification du mot de passe actuel a échoué. Réessayez dans un instant.",
+      );
+    }
 
     if (check === "TooManyFailedAttempts") {
-      throw new Error("Trop de tentatives. Réessayez dans quelques minutes.");
+      throw new ConvexError("Trop de tentatives. Réessayez dans quelques minutes.");
     }
     if (check === "InvalidSecret" || check === "InvalidAccountId") {
-      throw new Error("Le mot de passe actuel est incorrect.");
+      throw new ConvexError("Le mot de passe actuel est incorrect.");
     }
 
     await setPasswordSecret(ctx, passwordAccount.providerAccountId, args.newPassword);

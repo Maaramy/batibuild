@@ -407,11 +407,18 @@ const schema = defineSchema(
     ...authTables,
 
     // Users table (extended from auth base)
+    //
+    // ⚠️ Ce defineTable remplace entièrement `authTables.users` : il doit donc
+    // conserver TOUS les champs et index que Convex Auth utilise, sinon ses
+    // écritures échouent à la validation (`phoneVerificationTime` ci-dessous,
+    // renseigné dès qu'un code de vérification porte un numéro de téléphone)
+    // et ses recherches par index échouent (`phone`).
     users: defineTable({
       name: v.optional(v.string()),
       image: v.optional(v.string()),
       email: v.optional(v.string()),
       emailVerificationTime: v.optional(v.number()),
+      phoneVerificationTime: v.optional(v.number()),
       isAnonymous: v.optional(v.boolean()),
       role: v.optional(roleValidator),
       subscriptionPlan: v.optional(subscriptionPlanValidator),
@@ -430,6 +437,7 @@ const schema = defineSchema(
       updatedAt: v.optional(v.number()),
     })
       .index("email", ["email"])
+      .index("phone", ["phone"])
       .index("subscriptionPlan", ["subscriptionPlan"]),
 
     // Projects
