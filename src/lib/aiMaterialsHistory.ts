@@ -17,8 +17,13 @@
  * les fonctions sont pures et donc testables.
  */
 
+import {
+  ANALYSIS_STATUS_LABEL,
+  type AnalysisHistoryStatus,
+} from "./analysisHistory";
+
 /** Statuts affichés par le badge de la carte d'historique. */
-export type AiMaterialsHistoryStatus = "completed" | "running" | "error";
+export type AiMaterialsHistoryStatus = AnalysisHistoryStatus;
 
 export type AiMaterialsHistoryEntry = {
   /** Identifiant réel de l'analyse (utilisé pour « Voir l'analyse »). */
@@ -44,11 +49,7 @@ export type AiMaterialsHistoryEntry = {
   hasRecommendation: boolean;
 };
 
-export const AI_MATERIALS_STATUS_LABEL: Record<AiMaterialsHistoryStatus, string> = {
-  completed: "Terminée",
-  running: "En cours",
-  error: "Erreur",
-};
+export const AI_MATERIALS_STATUS_LABEL: Record<AiMaterialsHistoryStatus, string> = ANALYSIS_STATUS_LABEL;
 
 function asNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
