@@ -16,6 +16,7 @@ import { File, Paths } from "expo-file-system";
 import Constants from "expo-constants";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 
+import BottomNav from "../components/BottomNav";
 import { Logo } from "../components/Logo";
 import TopNav from "../components/TopNav";
 import { OFFLINE_ICON } from "../components/icons";
@@ -31,7 +32,7 @@ import {
   LOADING_MESSAGE,
   pathOfUrl,
   SETTINGS_PATH,
-  shouldShowHeaderNav,
+  shouldShowBottomNav,
   SUPPORT_PATH,
   type NavDestination,
   type NavId,
@@ -231,14 +232,14 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   }, []);
 
   /**
-   * Menu de navigation de l'en-tête → plateforme.
+   * Barre de navigation inférieure → plateforme.
    *
    * La WebView n'est PAS recréée : on demande au routeur de la plateforme de
    * changer de page. Session, cookies, état et historique sont conservés, et le
    * bouton Back Android continue de revenir sur la page précédente.
    *
-   * AUCUN écran de chargement au clic sur le menu : le changement de section est
-   * direct (la WebView affiche son propre état si nécessaire).
+   * AUCUN écran de chargement au clic sur la barre du bas : le changement de
+   * section est direct (la WebView affiche son propre état si nécessaire).
    */
   const handleNavSelect = useCallback(
     (destination: NavDestination) => {
@@ -378,7 +379,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     [handleDownload],
   );
 
-  // ---------- réglages (appui long sur la marque ou sur le menu de l'en-tête) ----------
+  // ---------- réglages (appui long sur la marque de l'en-tête ou sur la barre du bas) ----------
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
@@ -386,24 +387,22 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     isDashboardRoute(currentPath) && navOverride ? navOverride : activeNavId(currentPath);
 
   /**
-   * Le menu de navigation vit dans l'en-tête : il ne recouvre jamais le contenu
-   * Web, qui occupe donc toute la hauteur disponible. Il est simplement masqué
-   * sur les écrans de connexion / inscription et sur l'accueil public.
+   * Barre de navigation INFÉRIEURE, fixe, rendue APRÈS la WebView dans la
+   * colonne racine : la WebView occupe exactement la hauteur restante, donc la
+   * barre ne recouvre jamais le contenu et aucun padding n'est à ajouter. Elle
+   * est simplement masquée sur les écrans de connexion / inscription et sur
+   * l'accueil public.
    */
-  const showHeaderNav = shouldShowHeaderNav(currentPath);
+  const showBottomNav = shouldShowBottomNav(currentPath);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.surface }]}>
-      {/* En-tête NATIF : logo + nom de la plateforme à gauche, Support et
-          Paramètres à droite (aucun menu burger), et le menu de navigation
-          horizontal scrollable (Profile · Projets · Home · ROI · Message) qui
-          remplace l'ancienne barre de navigation inférieure. */}
+      {/* En-tête NATIF, sans aucun menu de navigation : logo + nom de la
+          plateforme à gauche, Support et Paramètres à droite (aucun burger).
+          Toute la navigation est dans la barre inférieure ci-dessous. */}
       <TopNav
         onOpenSupport={handleOpenSupport}
         onOpenSettings={handleOpenSettings}
-        showNav={showHeaderNav}
-        activeNav={active}
-        onNavSelect={handleNavSelect}
         onOpenNativeSettings={openSettings}
       />
 
@@ -469,7 +468,8 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
             onFileDownload={handleFileDownload}
             onMessage={handleMessage}
             // `MOBILE_CHROME_SCRIPT` masque le burger de l'en-tête web dans
-            // l'application (le reste de l'en-tête web est intact) et
+            // l'application (il ferait doublon avec la barre de navigation
+            // native ; le reste de l'en-tête web est intact) et
             // `DOWNLOAD_BRIDGE_SCRIPT` rend les PDF « blob: » (estimation du
             // coût de construction, matériaux IA) réellement téléchargeables.
             injectedJavaScriptBeforeContentLoaded={`${DOWNLOAD_BRIDGE_SCRIPT}${MOBILE_CHROME_SCRIPT}${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
@@ -483,7 +483,8 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
           />
         )}
 
-        {/* État de chargement soigné — fond BLANC, un seul message, 1 s max. */}
+        {/* État de chargement soigné — fond BLANC, un seul message, 1 s max.
+            Il couvre la WebView uniquement : la barre du bas reste accessible. */}
         {loading && !error && (
           <View
             style={[styles.loadingWrap, { backgroundColor: COLORS.white }]}
@@ -504,7 +505,15 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
         )}
       </View>
 
-      {/* Réglages natifs — appui long sur la marque (en-tête) ou sur le menu. */}
+      {/* Barre de navigation INFÉRIEURE — fixe en bas de l'écran, dans la
+          colonne racine (jamais en position absolue) : elle ne recouvre donc
+          jamais le contenu de la page. Mêmes sections et mêmes routes que
+          l'ancienne barre (Profile · Projets · Home · ROI · Message). */}
+      {showBottomNav && (
+        <BottomNav active={active} onSelect={handleNavSelect} onOpenSettings={openSettings} />
+      )}
+
+      {/* Réglages natifs — appui long sur la marque (en-tête) ou sur la barre. */}
       <Modal visible={settingsOpen} transparent animationType="fade" onRequestClose={closeSettings}>
         <Pressable style={styles.modalOverlay} onPress={closeSettings}>
           <Pressable

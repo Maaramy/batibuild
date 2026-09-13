@@ -111,7 +111,7 @@ export function isLandingRoute(path: string): boolean {
 }
 
 /* ------------------------------------------------------------------ *
- * Navigation native (menu de l'en-tête)
+ * Navigation native (barre de navigation inférieure)
  * ------------------------------------------------------------------ */
 
 export type NavId =
@@ -130,7 +130,7 @@ export type NavDestination = {
 };
 
 /**
- * Les 5 sections du menu de navigation de l'en-tête, dans l'ordre imposé :
+ * Les 5 sections de la barre de navigation inférieure, dans l'ordre imposé :
  * Profile · Projets · Home · ROI · Message.
  *
  * Les routes sont celles qui existent déjà dans le routeur de la plateforme
@@ -202,26 +202,27 @@ export function isDashboardRoute(path: string): boolean {
 }
 
 /* ------------------------------------------------------------------ *
- * Affichage du menu de l'en-tête
+ * Affichage de la barre de navigation inférieure
  * ------------------------------------------------------------------ */
 
 /**
- * Le menu de navigation de l'en-tête est affiché dans TOUT l'espace connecté
+ * La barre de navigation inférieure est affichée dans TOUT l'espace connecté
  * (`/dashboard` et ses sous-pages : profils, investissements, messagerie,
  * support, paramètres, résultats d'estimation du coût de construction,
  * résultats de l'analyse des matériaux IA…).
  *
- * Contrairement à l'ancienne barre inférieure, il ne recouvre jamais le
- * contenu : il vit dans l'en-tête, au-dessus de la WebView. Les pages de
- * résultats ne perdent donc plus l'accès à la navigation.
+ * Elle est rendue APRÈS la WebView dans la colonne racine (aucune position
+ * absolue) : la WebView occupe exactement la hauteur restante, donc la barre ne
+ * recouvre jamais le contenu de la page et aucun padding artificiel n'est
+ * ajouté au contenu Web.
  *
- * Il est masqué uniquement là où la navigation n'a pas de sens : écran de
+ * Elle est masquée uniquement là où la navigation n'a pas de sens : écran de
  * connexion / inscription (`/auth`) et page d'accueil publique.
  *
  * Ce sont des routes RÉELLES de la plateforme (`src/main.tsx`) : aucune page
  * n'est créée, dupliquée ni modifiée — l'affichage est purement natif.
  */
-export function shouldShowHeaderNav(path: string): boolean {
+export function shouldShowBottomNav(path: string): boolean {
   if (isAuthRoute(path) || isLandingRoute(path)) return false;
   return inSection(routeKey(path), routeKey(DASHBOARD_PATH));
 }

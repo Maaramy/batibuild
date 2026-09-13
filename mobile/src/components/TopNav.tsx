@@ -2,56 +2,43 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import HeaderNav from "./HeaderNav";
 import { Logo } from "./Logo";
 import { SETTINGS_ICON, STROKE, SUPPORT_ICON } from "./icons";
 import { COLORS, SHAPE } from "../theme";
-import type { NavDestination, NavId } from "../config";
 
 type Props = {
   /** Ouvre la section Support de la plateforme. */
   onOpenSupport: () => void;
   /** Ouvre les paramètres de la plateforme. */
   onOpenSettings: () => void;
-  /** Affiche le menu de navigation (masqué sur la connexion / l'accueil public). */
-  showNav: boolean;
-  /** Onglet courant du menu de navigation. */
-  activeNav: NavId | null;
-  /** Change de section depuis le menu de navigation. */
-  onNavSelect: (destination: NavDestination) => void;
-  /** Réglages natifs (appui long sur la marque — le menu garde ce raccourci). */
+  /** Réglages natifs (appui long sur la marque). */
   onOpenNativeSettings: () => void;
 };
 
 /**
  * EN-TÊTE NATIF de l'application (Android).
  *
- * Il regroupe désormais TOUTE la navigation de la coque native : il remplace
- * l'ancienne barre de navigation inférieure, qui a été supprimée.
+ * Il ne contient plus AUCUN menu de navigation : la navigation est assurée par
+ * la **barre de navigation inférieure** (`BottomNav.tsx`). L'en-tête est donc
+ * réduit au strict nécessaire :
  *
- *   - ligne 1 — fond BLANC (#FFFFFF), même en thème sombre : c'est le chrome
- *     natif de l'application, indépendant du thème de la plateforme Web.
- *     À gauche : logo officiel Batibuild + nom de la plateforme.
- *     À droite : icônes Support et Paramètres (aucun menu burger).
- *   - ligne 2 — **menu de navigation horizontal scrollable** (`HeaderNav`) :
- *     Profile · Projets · Home · ROI · Message, les mêmes sections que
- *     l'ancienne barre du bas, avec l'élément courant mis en évidence.
+ *   - fond BLANC (#FFFFFF), même en thème sombre : c'est le chrome natif de
+ *     l'application, indépendant du thème de la plateforme Web ;
+ *   - à gauche : logo officiel Batibuild + nom de la plateforme ;
+ *   - à droite : icônes Support et Paramètres (aucun menu burger) ;
+ *   - appui long sur la marque → réglages natifs de l'application.
+ *
+ * Aucune hauteur résiduelle n'est conservée pour l'ancien menu : la WebView
+ * dispose de toute la place disponible au-dessus de la barre du bas.
  *
  * Les icônes viennent de la famille **lucide** (`icons.ts`), exactement comme
  * le tableau de bord de la plateforme.
  *
- * Elle gère elle-même la zone système haute (barre de statut / encoche) : le
+ * Il gère lui-même la zone système haute (barre de statut / encoche) : le
  * contenu de la WebView ne passe jamais dessous. Aucune barre d'application web
  * n'est ajoutée ni modifiée.
  */
-export default function TopNav({
-  onOpenSupport,
-  onOpenSettings,
-  showNav,
-  activeNav,
-  onNavSelect,
-  onOpenNativeSettings,
-}: Props) {
+export default function TopNav({ onOpenSupport, onOpenSettings, onOpenNativeSettings }: Props) {
   const insets = useSafeAreaInsets();
 
   const SupportIcon = SUPPORT_ICON;
@@ -62,7 +49,7 @@ export default function TopNav({
       <View style={styles.bar}>
         <Pressable
           // Appui long sur la marque → réglages natifs (l'ancien appui long sur
-          // la barre du bas est conservé, sans ajouter de bouton visible).
+          // la barre de navigation inférieure est conservé, sans bouton visible).
           onLongPress={onOpenNativeSettings}
           delayLongPress={500}
           accessibilityRole="button"
@@ -99,11 +86,6 @@ export default function TopNav({
           </Pressable>
         </View>
       </View>
-
-      {/* Navigation de l'en-tête — menu horizontal scrollable. */}
-      {showNav && (
-        <HeaderNav active={activeNav} onSelect={onNavSelect} onOpenSettings={onOpenNativeSettings} />
-      )}
     </View>
   );
 }

@@ -55,7 +55,7 @@ export type AppTheme = {
   /** M3 primary / on-primary (actions principales). */
   primary: string;
   onPrimary: string;
-  /** M3 primary-container — indicateur actif de la navigation. */
+  /** M3 primary-container — teinte d'état actif de la navigation. */
   primaryContainer: string;
   onPrimaryContainer: string;
   /** M3 surface / surface-container. */

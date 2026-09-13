@@ -65,7 +65,7 @@ import {
 import type { NavId } from "../config";
 
 /**
- * Icône de chaque section du menu de navigation de l'en-tête.
+ * Icône de chaque section de la barre de navigation inférieure.
  *
  * Correspondance EXACTE avec les icônes du tableau de bord de la plateforme :
  *   User            → « Profile »
@@ -101,8 +101,8 @@ export const STROKE = {
 } as const;
 
 /**
- * Icônes du menu de navigation de l'en-tête : trait contour, légèrement
- * épaissi sur l'élément actif (qui est aussi teinté en émeraude de marque).
+ * Icônes de la barre de navigation inférieure : trait contour, légèrement
+ * épaissi sur l'élément actif (teinté en émeraude de marque).
  */
 export const NAV_STROKE = {
   inactive: 1.8,
