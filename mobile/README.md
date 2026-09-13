@@ -2,8 +2,9 @@
 
 Application mobile **native** (React Native / Expo SDK 57) qui embarque la plateforme
 [BatiBuild](https://budgetbati.freebuff.app/) dans une **WebView optimisée**, avec un
-**Splash Screen** (≤ 1 s), une **barre de navigation basse** Material Design 3 et un
-**Guide d'onboarding** natifs au premier lancement.
+**Splash Screen** (≤ 1 s), un **en-tête natif** (marque, Support / Paramètres et **menu de
+navigation horizontal scrollable**) et un **Guide d'onboarding** natifs au premier lancement.
+Aucune barre de navigation en bas de l'écran.
 
 ```
 Première installation :  Splash (≤ 1 s)  →  7 guides (Suivant / Passer)  →  WebView BatiBuild
@@ -26,35 +27,35 @@ Android Native Shell
 │         matériaux
 │      4. Ne perdez plus une seule étape
 │
-├── Top Navbar  (native, fond blanc)
-│      Logo + « batibuild App »    Support   Paramètres        (aucun burger)
-│
-├── Bottom Navigation  (5 sections, fixe, libellés toujours visibles)
-│      Profile · Projets · Home · ROI · Message
-│      → AFFICHÉE UNIQUEMENT sur /dashboard (l'accueil connecté)
-│      → MASQUÉE partout ailleurs : profil, investissements, messagerie,
-│        support, paramètres, résultats d'estimation du coût, résultats des
-│        matériaux IA, connexion / inscription (plein écran)
+├── Header natif  (fond blanc)
+│      Ligne 1 : Logo + « batibuild App »   Support   Paramètres   (aucun burger)
+│      Ligne 2 : MENU DE NAVIGATION horizontal scrollable —
+│                Profile · Projets · Home · ROI · Message
+│      → visible dans TOUT l'espace connecté (/dashboard et ses sous-pages) ;
+│        masqué uniquement sur la connexion / inscription et l'accueil public ;
+│      → défile de gauche à droite dès que les éléments ne tiennent pas à
+│        l'écran : aucun élément coupé, masqué ni déformé.
 │
 └── WebView  →  plateforme Batibuild (inchangée)
 ```
 
-Les deux barres sont **natives** : elles ne défilent pas avec le contenu, respectent les
-zones système (haute et basse) et n'entraînent **jamais** le rechargement de la WebView
-(donc session, cookies, état et historique préservés). La barre du bas n'affiche
-**aucun cercle ni pastille de fond** : l'état actif se voit à la **couleur émeraude de
-marque** (`primary`), à un trait légèrement épaissi et à la graisse du libellé ; les onglets
-inactifs restent en gris (`onSurfaceVariant`). C'est une **capsule flottante** très arrondie
-(fond `surfaceContainerHigh`, filet de séparation, ombre portée `elevation 8`) posée sur une
-bande opaque pleine largeur. Ses icônes sont **compactes (19 pt)** et ses libellés réduits
-(**10,5 pt**), sa hauteur étant réduite d'autant, pour laisser
-un maximum d'espace au contenu. Elle est posée normalement au-dessus de la zone
-système basse (aucun décalage supplémentaire) ; la bande sous la capsule reste opaque,
-le contenu de la WebView n'apparaît jamais dans cet espace.
+L'en-tête est **natif** : il ne défile pas avec le contenu, gère lui-même la zone système
+haute (barre de statut / encoche) et n'entraîne **jamais** le rechargement de la WebView
+(donc session, cookies, état et historique préservés). Son **menu de navigation**
+(`HeaderNav.tsx`) aligne les 5 sections (`Profile · Projets · Home · ROI · Message`) dans une
+rangée **horizontalement scrollable** : chaque élément garde sa largeur naturelle (icône
+lucide 15 pt + libellé 12 pt) — rien n'est coupé, tronqué ni déformé — et la rangée défile
+au doigt dès que la place manque. L'élément **actif** est mis en évidence (fond
+`primaryContainer` émeraude, icône et libellé en teinte de marque, libellé en gras),
+les autres restent en gris ; l'état pressé applique un léger voile neutre, comme les
+boutons de l'en-tête. Contrairement à l'ancienne barre du bas — qui recouvrait le contenu
+sur les pages de résultats et avait dû être masquée hors `/dashboard` — le menu vit dans
+l'en-tête et reste donc accessible **partout** dans l'espace connecté, sans empiéter sur le
+contenu Web ni consommer la zone système basse.
 
 ### Icônes harmonisées avec la plateforme
 
-Toute la coque native (barre supérieure, barre inférieure, guide, écran d'erreur) utilise
+Toute la coque native (en-tête, menu de navigation, guide, écran d'erreur) utilise
 **la même famille d'icônes que le tableau de bord de la plateforme : lucide**
 (`lucide-react-native`, via le module unique `src/components/icons.ts`) :
 
@@ -65,8 +66,8 @@ Toute la coque native (barre supérieure, barre inférieure, guide, écran d'err
 | Home | `LayoutDashboard` |
 | ROI | `TrendingUp` (celle de l'action « Return on Investment » de la page Résultats coût de construction) |
 | Message | `MessageSquare` |
-| Support (barre haute) | `Headset` |
-| Paramètres (barre haute) | `Settings` |
+| Support (en-tête) | `Headset` |
+| Paramètres (en-tête) | `Settings` |
 | Hors ligne / erreur | `CloudOff` |
 
 Aucun mélange de styles (pas d'icônes pleines à côté d'icônes contour) : seule
@@ -76,8 +77,8 @@ identiques en mode clair, sombre et système — aucune police d'icônes à char
 préchargement de police a donc été supprimé du démarrage).
 
 Dans l'application, le **bouton « burger » (les 3 tirets)** de l'en-tête de la plateforme
-Web est **masqué** : la barre supérieure native fournit déjà la marque et les actions
-(Support / Paramètres) et la barre du bas fournit la navigation. C'est une simple feuille
+Web est **masqué** : l'en-tête natif fournit déjà la marque, les actions (Support /
+Paramètres) et le menu de navigation. C'est une simple feuille
 de style injectée par le client mobile (`MOBILE_CHROME_SCRIPT` dans `src/injected.ts`) :
 **aucun fichier de la plateforme Web n'est modifié**, et le reste de l'en-tête web
 (titre, notifications, menu du compte, déconnexion) reste intact.
@@ -123,10 +124,10 @@ mobile/
 │   │   ├── OnboardingScreen.tsx   # Parcours de 7 guides (image + titre + texte) + Passer
 │   │   └── WebViewScreen.tsx      # WebView BatiBuild (toutes les options)
 │   ├── components/
-│   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : barres, guides, erreurs
+│   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : en-tête, guides, erreurs
 │   │   ├── Logo.tsx               # Logo officiel de la plateforme (tuile émeraude + casque blanc)
-│   │   ├── TopNav.tsx             # Barre native supérieure : logo + nom, Support, Paramètres
-│   │   ├── BottomNav.tsx          # Capsule de navigation Material 3 (5 sections, icônes 19 pt)
+│   │   ├── TopNav.tsx             # En-tête natif : logo + nom, Support, Paramètres + menu
+│   │   ├── HeaderNav.tsx          # Menu de navigation horizontal scrollable (5 sections)
 │   │   └── GuideIllustrations.tsx # 7 illustrations dédiées (scènes vectorielles SVG)
 │   ├── download.ts                # Téléchargements natifs : URL http(s) ET PDF « blob: »
 │   ├── storage.ts                 # onboardingCompleted (AsyncStorage)
@@ -148,15 +149,15 @@ mobile/
 |---|---|
 | **Splash** | **Fond BLANC**, logo officiel et **un seul message : « Chargement.... »** (aucun slogan, aucune image de présentation). Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
-| **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
-| **Barre de navigation (bas)** | **Capsule flottante** très arrondie (`surfaceContainerHigh`, filet `outlineVariant`, ombre portée `elevation 8`) posée sur une bande opaque pleine largeur : 5 sections (Profile · Projets · Home · ROI · Message), libellés permanents (jamais de « hover »), icônes **lucide 19 pt** (contour) et libellés **10,5 pt**. **Aucun cercle ni pastille verte** : l'état actif est signalé par la **couleur émeraude BatiBuild** (`primary`), un trait légèrement épaissi et la graisse du libellé ; les onglets inactifs restent en gris (`onSurfaceVariant`). Posée au-dessus de la zone système basse (aucun décalage supplémentaire). **Affichée uniquement sur `/dashboard`** : toutes les autres pages (profil, investissements, messagerie, support, paramètres, résultats d'estimation du coût, résultats des matériaux IA, connexion / inscription) s'affichent en plein écran — voir `shouldShowBottomNav()` dans `src/config.ts`. |
-| **Barre supérieure (native)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. Aucun menu burger — celui de l'en-tête web est masqué dans l'application. |
+| **Changement de section (menu de l'en-tête)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
+| **Menu de navigation (en-tête)** | **Menu horizontal scrollable** intégré à l'en-tête (`HeaderNav.tsx`) : 5 sections (Profile · Projets · Home · ROI · Message), icône **lucide 15 pt** + libellé **12 pt** dans une puce arrondie, **jamais coupés ni déformés** (largeur naturelle + défilement au doigt sur Android et iPhone). Élément **actif** : fond `primaryContainer` émeraude, icône et libellé en teinte de marque, libellé en gras ; inactifs en gris ; état pressé = voile neutre. **Aucune barre de navigation en bas de l'écran** : le menu vit dans l'en-tête et reste donc visible dans tout l'espace connecté — voir `shouldShowHeaderNav()` dans `src/config.ts`. |
+| **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. Aucun menu burger — celui de l'en-tête web est masqué dans l'application. **Appui long sur la marque** (ou sur le menu) → réglages natifs. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
 | **Guides de démarrage** | **7 guides**, un seul parcours (les anciens écrans d'introduction ont été supprimés) : **Évitez les surcoûts · Devis clé en main · Choisissez les meilleurs matériaux · Ne perdez plus une seule étape · Investissez sans risque · Suivez l'évolution des prix · Trouvez les bons prestataires**. Chaque guide = **illustration dédiée** + **titre** + **texte descriptif** + indicateur **« n / 7 »** (pastilles) + bouton **Suivant** (puis **Commencer** au 7ᵉ) + bouton **Passer**. Les illustrations sont des **scènes vectorielles dessinées pour BatiBuild** (`GuideIllustrations.tsx`, voir la note ci-dessous). Mémorisé via `onboardingCompleted` (AsyncStorage). |
 | **Illustrations des guides** | Aucune image générique, aucun placeholder, aucune icône seule : chaque guide affiche une **scène SVG dédiée** (détection IA sur le plan, convergence import → IA → devis, comparaison Économique / Équilibré / Premium, 10 phases de chantier, ROI 1/5/10 ans + score IA + scénarios, 500+ matériaux et courbe des prix, annuaire vérifié + carte des régions). Elles sont **vectorielles donc nettes sur tous les écrans**, suivent le **thème clair / sombre / système** et n'entraînent **aucun téléchargement**. |
 | **Réinstallation** | Le stockage local est effacé → les guides réapparaissent (comportement attendu). |
 | **Mise à jour** | `onboardingCompleted` est conservé → pas de guides à chaque mise à jour. |
-| **Revoir le guide** | **Appui long** sur la barre de navigation (n'importe quelle entrée) → « Voir le guide » (ne supprime aucune donnée). Le menu n'occupe aucune place à l'écran. |
+| **Revoir le guide** | **Appui long** sur la marque de l'en-tête (ou sur n'importe quelle entrée du menu de navigation) → « Voir le guide » (ne supprime aucune donnée). Aucun bouton supplémentaire n'est ajouté à l'écran. |
 | **Session** | Cookies, stockage local, cache persistants entre les lancements (`sharedCookiesEnabled`, `thirdPartyCookiesEnabled`, `cacheEnabled`, `domStorageEnabled`). |
 | **Navigation interne** | Toutes les pages `*.freebuff.app` restent dans la WebView. |
 | **Liens externes** | Sites partenaires, réseaux sociaux, documents externes → navigateur système (`Linking`). |
@@ -169,7 +170,7 @@ mobile/
 | **Téléchargements** | PDF et documents : écrits dans le cache puis remis à la feuille de partage native (`expo-file-system` + `expo-sharing`) — l'utilisateur enregistre (Fichiers, Drive…) ou envoie le fichier. Deux sources : une URL `http(s)://` (`onFileDownload`) **et** les fichiers fabriqués dans le navigateur (PDF jsPDF, exports CSV/texte), qui utilisent une URL `blob:` — voir la note ci-dessous. |
 | **PDF « blob: » (Android)** | Les PDF de l'estimation du coût de construction et de l'analyse des matériaux IA sont générés **dans la page** (jsPDF) puis « téléchargés » par une URL `blob:`, que la WebView Android ne sait pas écrire sur le disque (le clic ne produisait donc aucun fichier). Un pont injecté (`DOWNLOAD_BRIDGE_SCRIPT` dans `src/injected.ts`) capture le Blob au clic et l'envoie en **base64 par morceaux de 256 Ko** au code natif (`src/download.ts`), qui reconstitue le fichier, l'écrit dans le cache et ouvre la feuille de partage Android. Mémoire bornée (~32 Mo max, morceaux hors limite rejetés) et transferts interrompus oubliés au bout d'une minute. Aucun fichier Web ni backend n'est modifié. |
 | **Partage natif** | `navigator.share` de la plateforme Web est intercepté et ouvre le menu de partage natif (WhatsApp, e-mail, messages…). |
-| **Safe Area** | Contenu WebView entre la barre supérieure native et la barre du bas, qui gèrent elles-mêmes les insets (barre de statut / encoche / navigation gestuelle). |
+| **Safe Area** | Contenu WebView sous l'en-tête natif, qui gère lui-même l'inset haut (barre de statut / encoche). Aucune barre basse n'occupe plus la zone système basse. |
 
 ## 3. Prérequis
 
@@ -197,7 +198,7 @@ npm run ios               # nécessite macOS + Xcode
 L'URL de la plateforme est définie **une seule fois** dans `src/config.ts`
 (par défaut : `https://budgetbati.freebuff.app/` ; surcharge possible via
 `EXPO_PUBLIC_WEB_APP_URL`). C'est aussi ce fichier qui contient les 5 destinations
-de la barre de navigation et le message de chargement.
+du menu de navigation de l'en-tête et le message de chargement.
 
 Dépendances ajoutées pour la coque native : **`lucide-react-native`** + **`react-native-svg`**
 (icônes et tracés SVG — mêmes icônes que la plateforme Web, version `react-native-svg`
@@ -266,8 +267,9 @@ Aucun service cloud de compilation n'est utilisé.
 | Nom de l'application | BatiBuild |
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
-| Version | **1.1.3** — `versionCode 6` (Android), `buildNumber 1` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
-| Contenu de la 1.1.3 | Barre du bas : libellés **Profile · Projets · Home · ROI · Message** ; l'onglet **ROI** (analyse du retour sur investissement, `/dashboard/investments`) porte l'icône `TrendingUp`, identique à l'action « Return on Investment » de la page Résultats coût de construction. |
+| Version | **1.2.0** — `versionCode 7` (Android), `buildNumber 1` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Contenu de la 1.2.0 | **Refonte de la navigation** : toutes les barres de navigation inférieures sont supprimées ; leurs sections passent dans un **menu horizontal scrollable de l'en-tête** (`HeaderNav.tsx`) — Profile · Projets · Home · ROI · Message, mêmes routes et mêmes icônes, élément actif en émeraude, aucun élément coupé, visible dans tout l'espace connecté. Réglages natifs : appui long sur la marque de l'en-tête. |
+| Contenu de la 1.1.3 | Barre du bas (supprimée en 1.2.0) : libellés **Profile · Projets · Home · ROI · Message** ; l'onglet **ROI** (analyse du retour sur investissement, `/dashboard/investments`) porte l'icône `TrendingUp`, identique à l'action « Return on Investment » de la page Résultats coût de construction. |
 | Contenu de la 1.1.2 | Retour de la barre du bas à sa **capsule flottante** (design précédent) — la refonte « barre plate » est annulée ; icônes 19 pt / libellés 10,5 pt conservés, onglet actif en émeraude de marque. |
 | Contenu de la 1.1.1 | Barre du bas **plus compacte** : icônes fines **19 pt** et libellés **10,5 pt**, hauteur d'onglet réduite (40 pt). |
 | Contenu de la 1.1.0 | Barre affichée **uniquement sur `/dashboard`** ; téléchargement des **PDF générés dans la page** (estimation du coût de construction, matériaux IA) via le pont natif ; guide d'accueil (7 étapes) libellé d'après les noms actuels de la plateforme. |
@@ -369,7 +371,7 @@ n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
 
 - **Les guides ne réapparaissent pas** après mise à jour : normal — le flag `onboardingCompleted`
   est persistant. Ils réapparaissent après **désinstallation/réinstallation** (stockage effacé),
-  ou immédiatement via l'appui long sur la barre du bas → « Voir le guide ».
+  ou immédiatement via l'appui long sur la marque de l'en-tête → « Voir le guide ».
 - **Écran « Connexion Internet indisponible »** : la WebView ne charge pas ; vérifiez la
   connexion puis touchez **Réessayer** (recharge complète).
 - **Un lien externe s'ouvre dans le WebView** : seuls les hôtes `*.freebuff.app` restent
@@ -380,9 +382,10 @@ n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
   ces PDF sont fabriqués dans la page (`blob:`) et passent désormais par le pont natif
   (`src/download.ts`), qui les écrit puis ouvre la feuille de partage Android. Enregistrez le
   fichier depuis cette feuille (Fichiers, Drive…) ou envoyez-le directement.
-- **La barre du bas disparaît sur certaines pages** : c'est voulu. Elle n'est affichée que sur
-  `/dashboard` ; les autres pages s'ouvrent en plein écran et se quittent avec la flèche
-  « retour » de l'en-tête web ou le bouton Back Android.
+- **Le menu de navigation est dans l'en-tête** : il remplace l'ancienne barre du bas, qui a été
+  supprimée. Il défile horizontalement si les 5 sections ne tiennent pas à l'écran et reste
+  visible sur toutes les pages de l'espace connecté ; il est masqué uniquement sur la
+  connexion / inscription et l'accueil public.
 - **Modifier le projet natif** : `android/` est **commité** ; après un changement
   d'`app.json`, resynchroniser avec `npm run android:prebuild` puis réappliquer la
   signature : `npm run signing:apply`. `ios/` est en CNG (régénéré par

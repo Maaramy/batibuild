@@ -111,7 +111,7 @@ export function isLandingRoute(path: string): boolean {
 }
 
 /* ------------------------------------------------------------------ *
- * Navigation native (barre du bas)
+ * Navigation native (menu de l'en-tête)
  * ------------------------------------------------------------------ */
 
 export type NavId =
@@ -130,7 +130,7 @@ export type NavDestination = {
 };
 
 /**
- * Les 5 sections de la barre de navigation native, dans l'ordre imposé :
+ * Les 5 sections du menu de navigation de l'en-tête, dans l'ordre imposé :
  * Profile · Projets · Home · ROI · Message.
  *
  * Les routes sont celles qui existent déjà dans le routeur de la plateforme
@@ -155,7 +155,7 @@ export const NAV_DESTINATIONS: readonly NavDestination[] = [
   { id: "messages", label: "Message", path: "/dashboard/messages" },
 ] as const;
 
-/** Routes atteignables directement depuis la barre supérieure native. */
+/** Routes atteignables directement depuis l'en-tête natif. */
 export const SUPPORT_PATH = "/dashboard/support";
 export const SETTINGS_PATH = "/dashboard/settings";
 
@@ -177,8 +177,9 @@ function inSection(path: string, base: string): boolean {
  * route : c'est le dernier onglet choisi par l'utilisateur qui départage les
  * deux (voir `WebViewScreen`).
  *
- * La page Support n'est plus un onglet de la barre du bas (elle est accessible
- * depuis la barre supérieure) : aucune entrée n'est active sur cette page.
+ * La page Support n'est plus une entrée du menu de l'en-tête (elle est
+ * accessible depuis les icônes de l'en-tête) : aucune entrée n'est active sur
+ * cette page.
  * Renvoie `null` hors de l'espace connecté (écran de connexion).
  */
 export function activeNavId(path: string): NavId | null {
@@ -201,26 +202,26 @@ export function isDashboardRoute(path: string): boolean {
 }
 
 /* ------------------------------------------------------------------ *
- * Écrans plein écran — barre de navigation inférieure masquée
+ * Affichage du menu de l'en-tête
  * ------------------------------------------------------------------ */
 
 /**
- * La barre de navigation inférieure n'est affichée QUE sur la page
- * `/dashboard` (l'accueil connecté).
+ * Le menu de navigation de l'en-tête est affiché dans TOUT l'espace connecté
+ * (`/dashboard` et ses sous-pages : profils, investissements, messagerie,
+ * support, paramètres, résultats d'estimation du coût de construction,
+ * résultats de l'analyse des matériaux IA…).
  *
- * Partout ailleurs — mon profil, investissements, messagerie, support,
- * paramètres, résultats d'estimation du coût de construction, résultats de
- * l'analyse des matériaux IA, connexion / inscription — le contenu s'affiche
- * en plein écran : il occupe toute la hauteur disponible et n'est jamais
- * recouvert par la barre.
+ * Contrairement à l'ancienne barre inférieure, il ne recouvre jamais le
+ * contenu : il vit dans l'en-tête, au-dessus de la WebView. Les pages de
+ * résultats ne perdent donc plus l'accès à la navigation.
  *
- * Ces pages gardent leur propre en-tête (flèche « retour ») qui ramène au
- * tableau de bord, et le bouton Back Android continue de fonctionner : aucun
- * parcours n'est perdu.
+ * Il est masqué uniquement là où la navigation n'a pas de sens : écran de
+ * connexion / inscription (`/auth`) et page d'accueil publique.
  *
  * Ce sont des routes RÉELLES de la plateforme (`src/main.tsx`) : aucune page
- * n'est créée, dupliquée ni modifiée — le masquage est purement natif.
+ * n'est créée, dupliquée ni modifiée — l'affichage est purement natif.
  */
-export function shouldShowBottomNav(path: string): boolean {
-  return routeKey(path) === routeKey(DASHBOARD_PATH);
+export function shouldShowHeaderNav(path: string): boolean {
+  if (isAuthRoute(path) || isLandingRoute(path)) return false;
+  return inSection(routeKey(path), routeKey(DASHBOARD_PATH));
 }

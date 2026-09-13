@@ -18,7 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
-import { BottomNavBar } from "@/components/BottomNavBar";
+import { HeaderNav, type HeaderNavItem } from "@/components/HeaderNav";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { runBIMEstimation } from "@/convex/bimEngine";
 
@@ -62,6 +62,17 @@ const BIM_ICONS: Record<string, any> = {
   gros_oeuvre: Building2, second_oeuvre: Paintbrush, equipements: Plug,
   main_oeuvre: Users, transport: Truck, etudes_imprevus: FileText,
 };
+
+/**
+ * Types de projet dont le parcours se limite à la consultation d'un expert /
+ * d'une entreprise (mêmes règles qu'avant le déplacement du menu dans
+ * l'en-tête : aucune destination n'est ajoutée ni retirée).
+ */
+const EXPERT_ONLY_TYPES = new Set([
+  "renovation_complete", "extension_batiment", "renovation_cuisine",
+  "renovation_salle_de_bain", "peinture_interieure", "piscine",
+  "restaurant", "cafe", "electricite_complete", "plomberie_complete",
+]);
 
 const COMPARE_REGIONS = [
   { key: "tunis", name: "Tunis" }, { key: "sousse", name: "Sousse" },
@@ -486,6 +497,60 @@ export default function ProjectDetail() {
     return { rMult: r, impactPct: i, baseCost: b, diff: d };
   }, [project?.region, ce]);
 
+  // ── Menu de navigation de l'en-tête ─────────────────────────────────────
+  // Reprend EXACTEMENT les éléments de l'ancienne barre de navigation du bas
+  // (mêmes libellés, mêmes icônes, mêmes routes, même condition d'affichage).
+  const projectNavItems: HeaderNavItem[] = useMemo(() => {
+    if (!project || project.status !== "completed") return [];
+    if (EXPERT_ONLY_TYPES.has((project.category ?? "") as string)) {
+      return [
+        {
+          icon: <HardHat className="h-3.5 w-3.5" />,
+          label: "Consulter expert / entreprise",
+          path: "/dashboard/professionals-directory",
+          onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`),
+        },
+      ];
+    }
+    return [
+      {
+        icon: <Sparkles className="h-3.5 w-3.5" />,
+        label: "Matériaux AI",
+        path: "/dashboard/ai-materials",
+        onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`),
+      },
+      {
+        icon: <LayoutGrid className="h-3.5 w-3.5" />,
+        label: "Plans IA",
+        path: "/dashboard/plans",
+        onClick: () => navigate(`/dashboard/plans/${project._id}`),
+      },
+      {
+        icon: <Rocket className="h-3.5 w-3.5" />,
+        label: "Guide A-Z",
+        path: "/dashboard/guide",
+        onClick: () => navigate(`/dashboard/guide?project=${project._id}`),
+      },
+      {
+        icon: <TrendingUp className="h-3.5 w-3.5" />,
+        label: "ROI",
+        path: "/dashboard/investments",
+        onClick: () => {
+          const type = investmentTypeForProject(project.category ?? "appartement");
+          navigate(`/dashboard/investments?type=${type}&project=${project._id}`, {
+            state: { prefill: investmentPrefill, projectId: project._id },
+          });
+        },
+      },
+      {
+        icon: <Users className="h-3.5 w-3.5" />,
+        label: "Expert",
+        path: "/dashboard/professionals-directory",
+        onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`),
+      },
+    ];
+  }, [project, navigate, investmentPrefill]);
+
   // ── Loading / Skeleton ──────────────────────────────────────────────────
 
   if (!project) {
@@ -504,7 +569,7 @@ export default function ProjectDetail() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-primary/[0.02] via-background to-background pb-24">
+    <main className="min-h-screen bg-gradient-to-b from-primary/[0.02] via-background to-background pb-10">
         <ClientProPaywall>
       {/* Sticky Header */}
       <header className="glass-header sticky top-0 z-30">
@@ -543,31 +608,11 @@ export default function ProjectDetail() {
             </button>
           </div>
         </div>
+
+        {/* Navigation de la page — menu horizontal scrollable dans l'en-tête
+            (remplace l'ancienne barre de navigation inférieure). */}
+        {projectNavItems.length > 0 && <HeaderNav items={projectNavItems} />}
       </header>
-
-      {/* ── Bottom Navigation Bar ── */}
-      {done && (() => {
-        const cat = (project.category ?? "") as string;
-        const EXPERT_ONLY_TYPES = new Set([
-          "renovation_complete", "extension_batiment", "renovation_cuisine",
-          "renovation_salle_de_bain", "peinture_interieure", "piscine",
-          "restaurant", "cafe", "electricite_complete", "plomberie_complete",
-        ]);
-        const isExpertOnly = EXPERT_ONLY_TYPES.has(cat);
-
-        const navActions = isExpertOnly
-          ? [
-              { icon: <HardHat className="h-4 w-4" />, label: "Consulter expert / entreprise", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
-            ]
-          : [
-              { icon: <Sparkles className="h-4 w-4" />, label: "Matériaux AI", onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`), color: "text-emerald-500" },
-              { icon: <LayoutGrid className="h-4 w-4" />, label: "Plans IA", onClick: () => navigate(`/dashboard/plans/${project._id}`), color: "text-violet-500" },
-              { icon: <Rocket className="h-4 w-4" />, label: "Guide A-Z", onClick: () => navigate(`/dashboard/guide?project=${project._id}`), color: "text-cyan-500" },
-              { icon: <TrendingUp className="h-4 w-4" />, label: "ROI", onClick: () => { const type = investmentTypeForProject(project.category ?? "appartement"); navigate(`/dashboard/investments?type=${type}&project=${project._id}`, { state: { prefill: investmentPrefill, projectId: project._id } }); }, color: "text-emerald-500" },
-              { icon: <Users className="h-4 w-4" />, label: "Expert", onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`), color: "text-amber-500" },
-            ];
-        return <BottomNavBar actions={navActions} />;
-      })()}
 
       {/* ── Export Progress Overlay ── */}
       {exporting && (

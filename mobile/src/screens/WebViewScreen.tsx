@@ -16,7 +16,6 @@ import { File, Paths } from "expo-file-system";
 import Constants from "expo-constants";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 
-import BottomNav from "../components/BottomNav";
 import { Logo } from "../components/Logo";
 import TopNav from "../components/TopNav";
 import { OFFLINE_ICON } from "../components/icons";
@@ -32,7 +31,7 @@ import {
   LOADING_MESSAGE,
   pathOfUrl,
   SETTINGS_PATH,
-  shouldShowBottomNav,
+  shouldShowHeaderNav,
   SUPPORT_PATH,
   type NavDestination,
   type NavId,
@@ -232,14 +231,14 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   }, []);
 
   /**
-   * Barre de navigation native → plateforme.
+   * Menu de navigation de l'en-tête → plateforme.
    *
    * La WebView n'est PAS recréée : on demande au routeur de la plateforme de
    * changer de page. Session, cookies, état et historique sont conservés, et le
    * bouton Back Android continue de revenir sur la page précédente.
    *
-   * AUCUN écran de chargement au clic sur la barre du bas : le changement de
-   * section est direct (la WebView affiche son propre état si nécessaire).
+   * AUCUN écran de chargement au clic sur le menu : le changement de section est
+   * direct (la WebView affiche son propre état si nécessaire).
    */
   const handleNavSelect = useCallback(
     (destination: NavDestination) => {
@@ -263,9 +262,9 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   );
 
   /**
-   * Barre supérieure native → plateforme (Support / Paramètres).
-   * Même mécanisme que la barre du bas : `pushState` dans la WebView, donc
-   * aucune recréation, session et historique préservés.
+   * En-tête natif → plateforme (Support / Paramètres).
+   * Même mécanisme que le menu de navigation : `pushState` dans la WebView,
+   * donc aucune recréation, session et historique préservés.
    */
   const goToPath = useCallback((path: string) => {
     setNavOverride(null);
@@ -379,7 +378,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     [handleDownload],
   );
 
-  // ---------- réglages (appui long sur la barre de navigation) ----------
+  // ---------- réglages (appui long sur la marque ou sur le menu de l'en-tête) ----------
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
@@ -387,17 +386,26 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     isDashboardRoute(currentPath) && navOverride ? navOverride : activeNavId(currentPath);
 
   /**
-   * Écrans plein écran : la barre du bas est masquée pour ne jamais recouvrir
-   * un résultat (estimation du coût, matériaux IA) ni le formulaire de
-   * connexion / inscription. Le contenu Web occupe alors toute la hauteur.
+   * Le menu de navigation vit dans l'en-tête : il ne recouvre jamais le contenu
+   * Web, qui occupe donc toute la hauteur disponible. Il est simplement masqué
+   * sur les écrans de connexion / inscription et sur l'accueil public.
    */
-  const showBottomNav = shouldShowBottomNav(currentPath);
+  const showHeaderNav = shouldShowHeaderNav(currentPath);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.surface }]}>
-      {/* Barre de navigation supérieure NATIVE : logo + nom de la plateforme à
-          gauche, Support et Paramètres à droite (aucun menu burger). */}
-      <TopNav onOpenSupport={handleOpenSupport} onOpenSettings={handleOpenSettings} />
+      {/* En-tête NATIF : logo + nom de la plateforme à gauche, Support et
+          Paramètres à droite (aucun menu burger), et le menu de navigation
+          horizontal scrollable (Profile · Projets · Home · ROI · Message) qui
+          remplace l'ancienne barre de navigation inférieure. */}
+      <TopNav
+        onOpenSupport={handleOpenSupport}
+        onOpenSettings={handleOpenSettings}
+        showNav={showHeaderNav}
+        activeNav={active}
+        onNavSelect={handleNavSelect}
+        onOpenNativeSettings={openSettings}
+      />
 
       {/* WebView (remontée via `key` lors d'un nouvel essai) */}
       <View style={styles.webWrap}>
@@ -496,13 +504,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
         )}
       </View>
 
-      {/* Barre de navigation native fixe (Material 3) — masquée sur les écrans
-          plein écran, et respectant la zone système basse partout ailleurs. */}
-      {showBottomNav && (
-        <BottomNav active={active} onSelect={handleNavSelect} onOpenSettings={openSettings} />
-      )}
-
-      {/* Réglages — appui long sur la barre de navigation. */}
+      {/* Réglages natifs — appui long sur la marque (en-tête) ou sur le menu. */}
       <Modal visible={settingsOpen} transparent animationType="fade" onRequestClose={closeSettings}>
         <Pressable style={styles.modalOverlay} onPress={closeSettings}>
           <Pressable

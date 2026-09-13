@@ -56,8 +56,8 @@ true;
 /**
  * Chrome web masqué DANS L'APPLICATION UNIQUEMENT.
  *
- * La barre supérieure native fournit déjà la marque et les actions
- * (Support / Paramètres) et la barre du bas fournit la navigation : le bouton
+ * L'en-tête natif fournit déjà la marque, les actions (Support / Paramètres) et
+ * le menu de navigation (menu horizontal scrollable) : le bouton
  * « burger » (les 3 tirets) de l'en-tête web ouvre un menu latéral qui ferait
  * doublon avec la barre de navigation native. Il est donc masqué dans
  * l'application.
