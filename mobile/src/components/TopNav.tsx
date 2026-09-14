@@ -3,10 +3,14 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Logo } from "./Logo";
-import { SETTINGS_ICON, STROKE, SUPPORT_ICON } from "./icons";
+import { FORUM_ICON, SETTINGS_ICON, STROKE, SUPPORT_ICON } from "./icons";
 import { COLORS, SHAPE } from "../theme";
 
 type Props = {
+  /** Ouvre le Forum d'Assistance de la plateforme. */
+  onOpenForum: () => void;
+  /** L'utilisateur est-il actuellement sur le Forum ? */
+  forumActive: boolean;
   /** Ouvre la section Support de la plateforme. */
   onOpenSupport: () => void;
   /** Ouvre les paramètres de la plateforme. */
@@ -25,8 +29,13 @@ type Props = {
  *   - fond BLANC (#FFFFFF), même en thème sombre : c'est le chrome natif de
  *     l'application, indépendant du thème de la plateforme Web ;
  *   - à gauche : logo officiel Batibuild + nom de la plateforme ;
- *   - à droite : icônes Support et Paramètres (aucun menu burger) ;
+ *   - à droite : icônes Forum, Support et Paramètres (aucun menu burger) ;
  *   - appui long sur la marque → réglages natifs de l'application.
+ *
+ * L'icône « Forum d'Assistance » est l'accès natif au module Forum de la
+ * plateforme (`/forum`) : elle complète les 5 onglets de la barre inférieure
+ * sans en modifier ni l'ordre, ni le nombre, ni le design. Elle passe en teinte
+ * de marque lorsqu'on se trouve sur le Forum.
  *
  * Aucune hauteur résiduelle n'est conservée pour l'ancien menu : la WebView
  * dispose de toute la place disponible au-dessus de la barre du bas.
@@ -38,9 +47,16 @@ type Props = {
  * contenu de la WebView ne passe jamais dessous. Aucune barre d'application web
  * n'est ajoutée ni modifiée.
  */
-export default function TopNav({ onOpenSupport, onOpenSettings, onOpenNativeSettings }: Props) {
+export default function TopNav({
+  onOpenForum,
+  forumActive,
+  onOpenSupport,
+  onOpenSettings,
+  onOpenNativeSettings,
+}: Props) {
   const insets = useSafeAreaInsets();
 
+  const ForumIcon = FORUM_ICON;
   const SupportIcon = SUPPORT_ICON;
   const SettingsIcon = SETTINGS_ICON;
 
@@ -65,6 +81,21 @@ export default function TopNav({ onOpenSupport, onOpenSettings, onOpenNativeSett
         </Pressable>
 
         <View style={styles.actions}>
+          <Pressable
+            onPress={onOpenForum}
+            accessibilityRole="button"
+            accessibilityLabel="Forum d'Assistance"
+            accessibilityState={{ selected: forumActive }}
+            hitSlop={6}
+            style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+          >
+            <ForumIcon
+              size={22}
+              color={forumActive ? COLORS.brand700 : COLORS.inkSoft}
+              strokeWidth={forumActive ? STROKE.active : STROKE.inactive}
+            />
+          </Pressable>
+
           <Pressable
             onPress={onOpenSupport}
             accessibilityRole="button"

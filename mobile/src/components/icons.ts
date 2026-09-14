@@ -42,6 +42,7 @@ import {
   LoaderCircle,
   MapPin,
   MessageSquare,
+  MessagesSquare,
   Package,
   PencilRuler,
   PenLine,
@@ -87,6 +88,15 @@ export const NAV_ICONS: Record<NavId, LucideIcon> = {
 /** Icônes de la barre supérieure — celles de la plateforme (Support, Paramètres). */
 export const SUPPORT_ICON: LucideIcon = Headset;
 export const SETTINGS_ICON: LucideIcon = Settings;
+
+/**
+ * Forum d'Assistance — icône de l'en-tête natif.
+ *
+ * Même famille (lucide) que le reste de l'application ; `MessagesSquare` est
+ * l'icône de discussion/forum, distincte de `MessageSquare` utilisée par
+ * l'onglet « Message » de la barre inférieure (messagerie interne).
+ */
+export const FORUM_ICON: LucideIcon = MessagesSquare;
 
 /** Écran « hors ligne / erreur ». */
 export const OFFLINE_ICON: LucideIcon = CloudOff;

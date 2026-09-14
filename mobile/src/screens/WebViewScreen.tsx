@@ -25,9 +25,11 @@ import {
   CHANGE_MAX_MS,
   DASHBOARD_PATH,
   ENTRY_URL,
+  FORUM_PATH,
   isAppUrl,
   isAuthRoute,
   isDashboardRoute,
+  isForumRoute,
   isLandingRoute,
   LOADING_MESSAGE,
   pathOfUrl,
@@ -274,6 +276,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     webRef.current?.injectJavaScript(navigateScript(path));
   }, []);
 
+  const handleOpenForum = useCallback(() => goToPath(FORUM_PATH), [goToPath]);
   const handleOpenSupport = useCallback(() => goToPath(SUPPORT_PATH), [goToPath]);
   const handleOpenSettings = useCallback(() => goToPath(SETTINGS_PATH), [goToPath]);
 
@@ -401,6 +404,8 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
           plateforme à gauche, Support et Paramètres à droite (aucun burger).
           Toute la navigation est dans la barre inférieure ci-dessous. */}
       <TopNav
+        onOpenForum={handleOpenForum}
+        forumActive={isForumRoute(currentPath)}
         onOpenSupport={handleOpenSupport}
         onOpenSettings={handleOpenSettings}
         onOpenNativeSettings={openSettings}

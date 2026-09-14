@@ -58,6 +58,7 @@ import {
   ChevronDown,
   Rocket,
   MessageSquare,
+  MessagesSquare,
   Blocks,
   Users,
   PencilRuler,
@@ -725,6 +726,7 @@ export default function Dashboard() {
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
             { icon: MessageSquare, label: "Messagerie", badge: clientUnread, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
+            { icon: MessagesSquare, label: "Forum d'Assistance", onClick: () => { navigate("/forum"); setMobileSidebarOpen(false); } },
             { icon: Headset, label: "Support", badge: supportUnread, onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
@@ -908,6 +910,28 @@ export default function Dashboard() {
         <div className="p-3 sm:p-5 lg:p-6 xl:p-8 space-y-3 sm:space-y-4 lg:space-y-6">
           {/* ══════ PROFIL INCOMPLET (nom / téléphone manquants) ══════ */}
           <ProfileCompletionBanner />
+
+          {/* Forum d'Assistance — carte d'accès rapide (experts & fournisseurs) */}
+          <Card
+            className="border border-teal-500/25 bg-teal-500/5 cursor-pointer transition-all duration-200 hover:border-teal-500/40 active:scale-[0.99]"
+            onClick={() => navigate("/forum")}
+          >
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400">
+                <MessagesSquare className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">Forum d'Assistance</p>
+                <p className="text-xs text-muted-foreground">
+                  Posez une question, demandez l'intervention d'un professionnel ou recherchez un fournisseur.
+                </p>
+              </div>
+              <Button size="sm" className="h-9 shrink-0 gap-1.5 text-xs">
+                <ArrowUpRight className="h-3.5 w-3.5" />
+                Accéder au forum
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* ══════ NOTIFICATION BANNERS (Supplier / Expert) ══════ */}
           {isSupplier && (

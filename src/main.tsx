@@ -50,6 +50,9 @@ const SupplierStats = lazy(() => import("./pages/SupplierStats.tsx"));
 const SupplierQuotes = lazy(() => import("./pages/SupplierQuotes.tsx"));
 const UserMessages = lazy(() => import("./pages/UserMessages.tsx"));
 const SupportPage = lazy(() => import("./pages/SupportPage.tsx"));
+const ForumPage = lazy(() => import("./pages/ForumPage.tsx"));
+const ForumPostDetail = lazy(() => import("./pages/ForumPostDetail.tsx"));
+const NewForumPost = lazy(() => import("./pages/NewForumPost.tsx"));
 const ExpertDashboard = lazy(() => import("./pages/ExpertDashboard.tsx"));
 const ExpertServices = lazy(() => import("./pages/ExpertServices.tsx"));
 const ExpertStats = lazy(() => import("./pages/ExpertStats.tsx"));
@@ -352,6 +355,30 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <SupportPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/forum"
+                  element={
+                    <RequireAuth>
+                      <ForumPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/forum/new"
+                  element={
+                    <RequireAuth>
+                      <NewForumPost />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/forum/:postId"
+                  element={
+                    <RequireAuth>
+                      <ForumPostDetail />
                     </RequireAuth>
                   }
                 />

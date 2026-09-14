@@ -31,7 +31,7 @@ async function insertUser(
   });
 }
 
-async function asUser(t: ReturnType<typeof convexTest>, userId: string) {
+function asUser(t: ReturnType<typeof convexTest>, userId: string) {
   return t.withIdentity({ subject: userId });
 }
 
@@ -39,8 +39,8 @@ const BASE_POST = {
   title: "Besoin d'un électricien pour rénovation",
   description:
     "Je recherche un professionnel pour refaire l'installation électrique complète de mon appartement à Tunis.",
-  requestType: "intervention",
-  audience: "public",
+  requestType: "intervention" as const,
+  audience: "public" as const,
 };
 
 async function createPost(
@@ -221,10 +221,15 @@ describe("forum audience permissions", () => {
   });
 
   it("counts only visible posts", async () => {
+    // Client : seul le post public est visible.
     const clientCount = await asUser(t, clientId).query(api.forum.getPostCount, {});
-    expect(clientCount).toBe(2); // public + supplier? non : public + rien d'expert → public + aucun
+    expect(clientCount).toBe(1);
+    // Expert : public + experts = 2.
     const expertCount = await asUser(t, expertId).query(api.forum.getPostCount, {});
-    expect(expertCount).toBe(2); // public + expert
+    expect(expertCount).toBe(2);
+    // Fournisseur : public + fournisseurs = 2.
+    const supplierCount = await asUser(t, supplierId).query(api.forum.getPostCount, {});
+    expect(supplierCount).toBe(2);
   });
 });
 
@@ -303,7 +308,7 @@ describe("forum replies and status", () => {
     const notifs = await t.run(async (ctx) =>
       ctx.db
         .query("notifications")
-        .withIndex("by_user", (q: any) => q.eq("userId", authorId))
+        .filter((q: any) => q.eq(q.field("userId"), authorId))
         .collect(),
     );
     expect(notifs.some((n) => n.type === "forum_reply")).toBe(true);
