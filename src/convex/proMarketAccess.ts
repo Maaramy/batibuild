@@ -29,8 +29,6 @@ import {
 // source de vérité, réutilisée par ces trois modules.
 // ============================================================================
 
-export const PRO_MARKET_MIN_DESCRIPTION_LENGTH = 30;
-
 export type ProMarketIneligibleReason =
   | "no_expert_profile"
   | "account_inactive"
@@ -39,10 +37,26 @@ export type ProMarketIneligibleReason =
   | "disabled_by_admin"
   | "incomplete_profile";
 
+/**
+ * Champs obligatoires du profil Expert pour ProMarket — EXACTEMENT ceux du
+ * cahier des charges (nom, téléphone, métier, spécialités, régions,
+ * présentation). Le libellé affiché côté client vient de l'i18n
+ * (`proSpace.expertOnly.missingFields.<clé>`).
+ */
+export type IncompleteProfileField =
+  | "displayName"
+  | "phone"
+  | "trade"
+  | "specialties"
+  | "regions"
+  | "description";
+
 export interface ProMarketEligibility {
   eligible: boolean;
   available: boolean;
   reasons: ProMarketIneligibleReason[];
+  /** Champs précis manquants (vide si le profil est complet ou non concerné). */
+  missingFields: IncompleteProfileField[];
   trade: string;
   category: string;
   region: string;
@@ -89,15 +103,40 @@ export async function isExpertAccountActive(
   return true;
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasNonEmptyItem(value: unknown): boolean {
+  return Array.isArray(value) && value.some((item) => isNonEmptyString(item));
+}
+
+/**
+ * Liste PRÉCISE des champs obligatoires manquants du profil Expert, évaluée
+ * sur les données PERSISTÉES (document Convex), jamais sur l'état local d'un
+ * formulaire. Chaque valeur est nettoyée : trim(), gestion de null/undefined
+ * et des chaînes vides ; les tableaux (spécialités, régions) doivent contenir
+ * au moins un élément valide. Aucune exigence cachée (longueur minimale de
+ * présentation…) : un champ renseigné compte comme rempli.
+ */
+export function incompleteProfileFields(
+  expert: Doc<"expertProfiles">,
+  trade: string,
+): IncompleteProfileField[] {
+  const missing: IncompleteProfileField[] = [];
+  if (!isNonEmptyString(expert.displayName) || expert.displayName.trim().length < 3) {
+    missing.push("displayName");
+  }
+  if (!isNonEmptyString(expert.phone)) missing.push("phone");
+  if (!isNonEmptyString(trade)) missing.push("trade");
+  if (!hasNonEmptyItem(expert.specialties)) missing.push("specialties");
+  if (!proMarketRegionForExpert(expert)) missing.push("regions");
+  if (!isNonEmptyString(expert.description)) missing.push("description");
+  return missing;
+}
+
 function isProfileComplete(expert: Doc<"expertProfiles">, trade: string): boolean {
-  if (!trade) return false;
-  if (expert.displayName.trim().length < 3) return false;
-  if (!expert.phone.trim()) return false;
-  if (!proMarketRegionForExpert(expert)) return false;
-  if ((expert.specialties ?? []).filter(Boolean).length === 0) return false;
-  const description = expert.description?.trim() ?? "";
-  if (description.length < PRO_MARKET_MIN_DESCRIPTION_LENGTH) return false;
-  return true;
+  return incompleteProfileFields(expert, trade).length === 0;
 }
 
 /** Évalue l'éligibilité ProMarket d'un profil Expert (règles serveur). */
@@ -111,6 +150,7 @@ export async function evaluateExpertForProMarket(
       eligible: false,
       available: false,
       reasons: ["no_expert_profile"],
+      missingFields: [],
       trade: "",
       category: "",
       region: "",
@@ -134,7 +174,24 @@ export async function evaluateExpertForProMarket(
   // validation manuelle n'est requise (le profil Expert suffit).
   if (expert.proMarketStatus === "disabled") reasons.push("disabled_by_admin");
 
-  if (!isProfileComplete(expert, trade)) reasons.push("incomplete_profile");
+  const missingFields = incompleteProfileFields(expert, trade);
+  if (missingFields.length > 0) {
+    reasons.push("incomplete_profile");
+    // Journal de développement temporaire : valeurs EXACTES lues en base et
+    // utilisées par la validation (retirer une fois le diagnostic terminé).
+    console.log("[ProMarket][validateProfile]", {
+      expertId: String(expert._id),
+      fullName: expert.displayName,
+      phone: expert.phone,
+      job: expert.profession,
+      trade,
+      specialties: expert.specialties,
+      regions: expert.regions,
+      presentation: expert.description,
+      missingFields,
+      isProfileComplete: false,
+    });
+  }
 
   const eligible = reasons.length === 0;
   const available = eligible && expert.proMarketAvailable !== false;
@@ -150,6 +207,7 @@ export async function evaluateExpertForProMarket(
     eligible,
     available,
     reasons,
+    missingFields: reasons.includes("incomplete_profile") ? missingFields : [],
     trade,
     category: trade ? PROMARKET_CATEGORY_BY_TRADE[trade] ?? "services" : "",
     region,
