@@ -500,10 +500,10 @@ export default function ForumPostDetail() {
 
           {/* ── Réponses ── */}
           <div className="mt-4 space-y-2">
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-              <MessageSquare className="h-3.5 w-3.5 text-primary" />
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400">
+              <MessageSquare className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
               {t("detail.replies")}
-              <span className="text-xs font-normal text-muted-foreground">
+              <span className="text-xs font-bold text-emerald-600/80 dark:text-emerald-400/80">
                 ({replies.length})
               </span>
             </h2>

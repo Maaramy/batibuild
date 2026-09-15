@@ -249,8 +249,8 @@ export function ForumPostCard({
       </div>
 
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <MessageSquare className="h-3 w-3 shrink-0" />
+        <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
+          <MessageSquare className="h-3 w-3 shrink-0" strokeWidth={2.5} />
           {t("card.replies", { count: post.replyCount })}
         </span>
         {post.attachmentCount > 0 ? (
