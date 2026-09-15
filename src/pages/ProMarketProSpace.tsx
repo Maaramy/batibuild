@@ -167,7 +167,7 @@ export default function ProMarketProSpace() {
           <Button
             size="sm"
             variant="outline"
-            className="h-9 gap-1.5 text-xs"
+            className="h-9 gap-1.5 border-border bg-transparent text-xs transition-colors hover:border-primary/50 hover:bg-primary/[0.06] hover:text-primary active:scale-[0.98]"
             onClick={() => navigate(`/promarket/pro/${profile._id}`)}
           >
             <Eye className="h-3.5 w-3.5" />

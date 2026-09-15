@@ -514,7 +514,7 @@ export default function ProMarketRequestDetail() {
               <Button
                 size="sm"
                 variant="outline"
-                className="mt-3 w-full text-xs"
+                className="mt-3 w-full border-border bg-transparent text-xs transition-colors hover:border-primary/50 hover:bg-primary/[0.06] hover:text-primary active:scale-[0.98]"
                 onClick={() =>
                   navigate(`/promarket/pro/${detail.professional!._id}`)
                 }
