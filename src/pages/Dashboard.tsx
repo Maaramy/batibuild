@@ -726,7 +726,6 @@ export default function Dashboard() {
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
             { icon: MessageSquare, label: "Messagerie", badge: clientUnread, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
-            { icon: MessagesSquare, label: "Forum d'Assistance", onClick: () => { navigate("/forum"); setMobileSidebarOpen(false); } },
             { icon: Headset, label: "Support", badge: supportUnread, onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
@@ -837,6 +836,17 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              {/* Forum d'Assistance — icône d'accès dans l'en-tête */}
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Forum d'Assistance"
+                title="Forum d'Assistance"
+                className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 cursor-pointer"
+                onClick={() => navigate("/forum")}
+              >
+                <MessagesSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -911,27 +921,6 @@ export default function Dashboard() {
           {/* ══════ PROFIL INCOMPLET (nom / téléphone manquants) ══════ */}
           <ProfileCompletionBanner />
 
-          {/* Forum d'Assistance — carte d'accès rapide (experts & fournisseurs) */}
-          <Card
-            className="border border-teal-500/25 bg-teal-500/5 cursor-pointer transition-all duration-200 hover:border-teal-500/40 active:scale-[0.99]"
-            onClick={() => navigate("/forum")}
-          >
-            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400">
-                <MessagesSquare className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">Forum d'Assistance</p>
-                <p className="text-xs text-muted-foreground">
-                  Posez une question, demandez l'intervention d'un professionnel ou recherchez un fournisseur.
-                </p>
-              </div>
-              <Button size="sm" className="h-9 shrink-0 gap-1.5 text-xs">
-                <ArrowUpRight className="h-3.5 w-3.5" />
-                Accéder au forum
-              </Button>
-            </CardContent>
-          </Card>
 
           {/* ══════ NOTIFICATION BANNERS (Supplier / Expert) ══════ */}
           {isSupplier && (
