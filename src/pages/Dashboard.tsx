@@ -58,7 +58,6 @@ import {
   ChevronDown,
   Rocket,
   MessageSquare,
-  MessagesSquare,
   Blocks,
   Users,
   PencilRuler,
@@ -850,17 +849,6 @@ export default function Dashboard() {
                 onClick={() => navigate("/promarket")}
               >
                 <Store className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </Button>
-              {/* Forum d'Assistance — icône d'accès dans l'en-tête */}
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Forum d'Assistance"
-                title="Forum d'Assistance"
-                className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 cursor-pointer"
-                onClick={() => navigate("/forum")}
-              >
-                <MessagesSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="ghost"

@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
-import { forumAttachmentValidator } from "./schema";
+import { attachmentValidator } from "./schema";
 import {
   PROMARKET_CATEGORIES,
   PROMARKET_TRADE_LABELS,
@@ -840,13 +840,12 @@ export const createRequest = mutation({
     preferences: v.optional(v.string()),
     professionalId: v.optional(v.id("promarketProfiles")),
     projectId: v.optional(v.id("projects")),
-    attachments: v.optional(v.array(forumAttachmentValidator)),
+    attachments: v.optional(v.array(attachmentValidator)),
     source: v.optional(
       v.union(
         v.literal("search"),
         v.literal("profile"),
         v.literal("project"),
-        v.literal("forum"),
         v.literal("ai"),
       ),
     ),
@@ -995,7 +994,7 @@ export const sendRequestMessage = mutation({
   args: {
     requestId: v.id("promarketRequests"),
     body: v.string(),
-    attachments: v.optional(v.array(forumAttachmentValidator)),
+    attachments: v.optional(v.array(attachmentValidator)),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);

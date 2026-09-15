@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { useDirection } from "@/hooks/use-direction";
 import { usePageSEO } from "@/hooks/use-page-seo";
-import type { ForumAttachmentInput } from "@/lib/forumUpload";
+import type { AttachmentInput } from "@/lib/attachmentUpload";
 import {
   PROMARKET_CATEGORIES,
   PROMARKET_REGIONS,
@@ -55,7 +55,7 @@ export default function NewProMarketRequest() {
   const [phone, setPhone] = useState("");
   const [preferences, setPreferences] = useState("");
   const [projectId, setProjectId] = useState(params.get("project") ?? "");
-  const [attachments, setAttachments] = useState<ForumAttachmentInput[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentInput[]>([]);
   const [saving, setSaving] = useState(false);
 
   const createRequest = useMutation(api.promarket.createRequest);

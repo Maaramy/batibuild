@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import {
-  ForumUploadError,
-  uploadForumFiles,
-  validateForumFiles,
-  type ForumAttachmentInput,
-} from "@/lib/forumUpload";
+  UploadError,
+  uploadAttachments,
+  validateAttachments,
+  type AttachmentInput,
+} from "@/lib/attachmentUpload";
 import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
 import { FileText, ImageUp, Loader2, Paperclip, X } from "lucide-react";
@@ -15,7 +15,6 @@ import { toast } from "sonner";
 
 // ============================================================================
 // ProMarket — pièces jointes d'une demande (images / documents)
-// Réutilise exactement le mécanisme d'upload du Forum d'Assistance.
 // ============================================================================
 
 export function AttachmentPicker({
@@ -24,8 +23,8 @@ export function AttachmentPicker({
   max = 5,
   className,
 }: {
-  value: ForumAttachmentInput[];
-  onChange: (files: ForumAttachmentInput[]) => void;
+  value: AttachmentInput[];
+  onChange: (files: AttachmentInput[]) => void;
   max?: number;
   className?: string;
 }) {
@@ -38,9 +37,9 @@ export function AttachmentPicker({
     if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList);
     try {
-      validateForumFiles(files, value.length);
+      validateAttachments(files, value.length);
     } catch (error) {
-      const code = error instanceof ForumUploadError ? error.code : "upload";
+      const code = error instanceof UploadError ? error.code : "upload";
       toast.error(
         code === "count"
           ? t("request.attachments") + ` (max ${max})`
@@ -50,7 +49,7 @@ export function AttachmentPicker({
     }
     setUploading(true);
     try {
-      const uploaded = await uploadForumFiles(files, () => generateUploadUrl());
+      const uploaded = await uploadAttachments(files, () => generateUploadUrl());
       onChange([...value, ...uploaded].slice(0, max));
     } catch {
       toast.error(t("common.error"));

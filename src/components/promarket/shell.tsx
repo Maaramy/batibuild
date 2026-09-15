@@ -5,7 +5,7 @@ import { NavLink, useNavigate } from "react-router";
 
 // ============================================================================
 // ProMarket — coquille de page + navigation horizontale scrollable
-// (mêmes conventions que Forum d'Assistance : pas de barre fixe en bas)
+// (mêmes conventions que le reste de la plateforme : pas de barre fixe en bas)
 // ============================================================================
 
 export function ProMarketShell({

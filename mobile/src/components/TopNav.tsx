@@ -3,14 +3,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Logo } from "./Logo";
-import { FORUM_ICON, PROMARKET_ICON, SETTINGS_ICON, STROKE, SUPPORT_ICON } from "./icons";
+import { PROMARKET_ICON, SETTINGS_ICON, STROKE, SUPPORT_ICON } from "./icons";
 import { COLORS, SHAPE } from "../theme";
 
 type Props = {
-  /** Ouvre le Forum d'Assistance de la plateforme. */
-  onOpenForum: () => void;
-  /** L'utilisateur est-il actuellement sur le Forum ? */
-  forumActive: boolean;
   /** Ouvre ProMarket (marketplace de services professionnels). */
   onOpenProMarket: () => void;
   /** L'utilisateur est-il actuellement sur ProMarket ? */
@@ -33,13 +29,13 @@ type Props = {
  *   - fond BLANC (#FFFFFF), même en thème sombre : c'est le chrome natif de
  *     l'application, indépendant du thème de la plateforme Web ;
  *   - à gauche : logo officiel Batibuild + nom de la plateforme ;
- *   - à droite : icônes Forum, Support et Paramètres (aucun menu burger) ;
+ *   - à droite : icônes ProMarket, Support et Paramètres (aucun menu burger) ;
  *   - appui long sur la marque → réglages natifs de l'application.
  *
- * L'icône « Forum d'Assistance » est l'accès natif au module Forum de la
- * plateforme (`/forum`) : elle complète les 5 onglets de la barre inférieure
- * sans en modifier ni l'ordre, ni le nombre, ni le design. Elle passe en teinte
- * de marque lorsqu'on se trouve sur le Forum.
+ * L'icône « ProMarket » est l'accès natif à la marketplace de services
+ * professionnels de la plateforme (`/promarket`) : elle complète les 5 onglets
+ * de la barre inférieure sans en modifier ni l'ordre, ni le nombre, ni le
+ * design. Elle passe en teinte de marque lorsqu'on se trouve sur ProMarket.
  *
  * Aucune hauteur résiduelle n'est conservée pour l'ancien menu : la WebView
  * dispose de toute la place disponible au-dessus de la barre du bas.
@@ -52,8 +48,6 @@ type Props = {
  * n'est ajoutée ni modifiée.
  */
 export default function TopNav({
-  onOpenForum,
-  forumActive,
   onOpenProMarket,
   proMarketActive,
   onOpenSupport,
@@ -63,7 +57,6 @@ export default function TopNav({
   const insets = useSafeAreaInsets();
 
   const ProMarketIcon = PROMARKET_ICON;
-  const ForumIcon = FORUM_ICON;
   const SupportIcon = SUPPORT_ICON;
   const SettingsIcon = SETTINGS_ICON;
 
@@ -88,21 +81,6 @@ export default function TopNav({
         </Pressable>
 
         <View style={styles.actions}>
-          <Pressable
-            onPress={onOpenForum}
-            accessibilityRole="button"
-            accessibilityLabel="Forum d'Assistance"
-            accessibilityState={{ selected: forumActive }}
-            hitSlop={6}
-            style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
-          >
-            <ForumIcon
-              size={22}
-              color={forumActive ? COLORS.brand700 : COLORS.inkSoft}
-              strokeWidth={forumActive ? STROKE.active : STROKE.inactive}
-            />
-          </Pressable>
-
           <Pressable
             onPress={onOpenProMarket}
             accessibilityRole="button"

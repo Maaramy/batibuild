@@ -50,10 +50,6 @@ import frContact from "./locales/fr/contact.json";
 import enContact from "./locales/en/contact.json";
 import arContact from "./locales/ar/contact.json";
 
-import frForum from "./locales/fr/forum.json";
-import enForum from "./locales/en/forum.json";
-import arForum from "./locales/ar/forum.json";
-
 import frPromarket from "./locales/fr/promarket.json";
 import enPromarket from "./locales/en/promarket.json";
 import arPromarket from "./locales/ar/promarket.json";
@@ -89,7 +85,6 @@ i18n
         supplier: frSupplier,
         materials: frMaterials,
         contact: frContact,
-        forum: frForum,
         promarket: frPromarket,
       },
       en: {
@@ -105,7 +100,6 @@ i18n
         supplier: enSupplier,
         materials: enMaterials,
         contact: enContact,
-        forum: enForum,
         promarket: enPromarket,
       },
       ar: {
@@ -121,7 +115,6 @@ i18n
         supplier: arSupplier,
         materials: arMaterials,
         contact: arContact,
-        forum: arForum,
         promarket: arPromarket,
       },
     },
@@ -140,7 +133,6 @@ i18n
       "supplier",
       "materials",
       "contact",
-      "forum",
       "promarket",
     ],
     interpolation: {

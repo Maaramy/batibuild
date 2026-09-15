@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { useDirection } from "@/hooks/use-direction";
 import { usePageSEO } from "@/hooks/use-page-seo";
-import type { ForumAttachmentInput } from "@/lib/forumUpload";
+import type { AttachmentInput } from "@/lib/attachmentUpload";
 import {
   PROMARKET_REQUEST_STATUSES,
   PROMARKET_REQUEST_STATUS_LABELS,
@@ -63,7 +63,7 @@ export default function ProMarketRequestDetail() {
   const respondToQuote = useMutation(api.promarket.respondToQuote);
 
   const [message, setMessage] = useState("");
-  const [attachments, setAttachments] = useState<ForumAttachmentInput[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentInput[]>([]);
   const [sending, setSending] = useState(false);
   const [showQuoteForm, setShowQuoteForm] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);

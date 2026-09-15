@@ -19,7 +19,6 @@ import EmailTemplates from "./EmailTemplates";
 import EmailHistory from "./EmailHistory";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import SupportAdmin from "@/components/admin/SupportAdmin";
-import { ForumAdmin } from "@/components/admin/ForumAdmin";
 import { ProMarketAdmin } from "@/components/admin/ProMarketAdmin";
 import { AnnouncementList } from "@/components/admin/announcements/AnnouncementList";
 import { useState, useEffect } from "react";
@@ -94,7 +93,6 @@ import {
   Newspaper,
   Megaphone,
   Headset,
-  MessagesSquare,
   Store,
 } from "lucide-react";
 
@@ -113,7 +111,7 @@ export default function AdminPanel() {
   const VALID_TABS = [
     "dashboard", "users", "projects", "investments", "materials", "virements",
     "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs",
-    "experts", "analytics", "support", "forum", "promarket", "journal", "paiement", "limites",
+    "experts", "analytics", "support", "promarket", "journal", "paiement", "limites",
     "seo", "blog", "bim", "emails", "modeles", "historique",
   ];
   const initialTab =
@@ -167,12 +165,6 @@ export default function AdminPanel() {
   const allUsers = useQuery(api.users.getAllUsers) || [];
   // Compteur temps réel de messages non lus dans le module Support (badge onglet)
   const supportUnread = useQuery(api.support.adminUnreadTotal) || 0;
-  // Badge Forum : signalements en attente (renvoie [] si non autorisé).
-  const forumPendingReportsList = useQuery(api.forum.adminListReports, {
-    status: "pending",
-  });
-  const forumPendingReports = (forumPendingReportsList ?? []).length;
-
   const approveSub = useMutation(api.subscriptions.adminApproveSubscription);
   const rejectSub = useMutation(api.subscriptions.adminRejectSubscription);
   const updateUserRole = useMutation(api.users.adminUpdateUserRole);
@@ -325,7 +317,7 @@ export default function AdminPanel() {
   const isAdmin = user?.role === "admin";
   const isModerator = user?.role === "moderator";
   // Onglets accessibles au modérateur (le module support est accessible à tout le staff)
-  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs", "experts", "support", "forum", "promarket"];
+  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs", "experts", "support", "promarket"];
   // Agent support : accès uniquement au module Support & Messagerie
   const canSee = (tab: string) =>
     isAdmin ||
@@ -794,17 +786,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 )}
               </TabsTrigger>
               )}
-              {canSee("forum") && (
-              <TabsTrigger value="forum" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
-                <MessagesSquare className="h-3.5 w-3.5" />
-                <span>Forum</span>
-                {forumPendingReports > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm">
-                    {forumPendingReports}
-                  </span>
-                )}
-              </TabsTrigger>
-              )}
               {canSee("promarket") && (
               <TabsTrigger value="promarket" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Store className="h-3.5 w-3.5" />
@@ -818,13 +799,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
           {canSee("support") && (
             <TabsContent value="support">
               <SupportAdmin />
-            </TabsContent>
-          )}
-
-          {/* ── Forum d'Assistance (modération) ── */}
-          {canSee("forum") && (
-            <TabsContent value="forum">
-              <ForumAdmin />
             </TabsContent>
           )}
 

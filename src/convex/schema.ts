@@ -86,45 +86,17 @@ export const regionValidator = v.union(
 export type TunisiaRegion = (typeof TUNISIA_REGIONS)[number];
 
 // ============================================================================
-// Forum d'Assistance — validateurs partagés (schéma + logique métier)
+// Pièces jointes — validateur partagé (schéma + logique métier)
 // ============================================================================
 
-/** Pièce jointe d'un post / d'une réponse du forum (stockée dans le storage Convex). */
-export const forumAttachmentValidator = v.object({
+/** Pièce jointe stockée dans le storage Convex (demandes ProMarket, messages…). */
+export const attachmentValidator = v.object({
   name: v.string(),
   type: v.string(),
   size: v.optional(v.number()),
   storageId: v.id("_storage"),
 });
-export type ForumAttachment = Infer<typeof forumAttachmentValidator>;
-
-export const FORUM_REQUEST_TYPES = [
-  "intervention",
-  "consultation",
-  "material_price",
-] as const;
-export const forumRequestTypeValidator = v.union(
-  v.literal("intervention"),
-  v.literal("consultation"),
-  v.literal("material_price"),
-);
-export type ForumRequestType = (typeof FORUM_REQUEST_TYPES)[number];
-
-export const FORUM_AUDIENCES = ["public", "experts", "suppliers"] as const;
-export const forumAudienceValidator = v.union(
-  v.literal("public"),
-  v.literal("experts"),
-  v.literal("suppliers"),
-);
-export type ForumAudience = (typeof FORUM_AUDIENCES)[number];
-
-export const FORUM_STATUSES = ["open", "in_progress", "resolved"] as const;
-export const forumStatusValidator = v.union(
-  v.literal("open"),
-  v.literal("in_progress"),
-  v.literal("resolved"),
-);
-export type ForumStatus = (typeof FORUM_STATUSES)[number];
+export type Attachment = Infer<typeof attachmentValidator>;
 
 export const REGION_LABELS: Record<TunisiaRegion, string> = {
   tunis: "Tunis",
@@ -777,9 +749,6 @@ const schema = defineSchema(
         v.literal("support_ticket_created"),
         v.literal("support_reply"),
         v.literal("support_ticket_resolved"),
-        v.literal("forum_new_request"),
-        v.literal("forum_reply"),
-        v.literal("forum_reported"),
         v.literal("promarket_new_request"),
         v.literal("promarket_quote"),
         v.literal("promarket_message"),
@@ -1513,78 +1482,6 @@ const schema = defineSchema(
       .index("by_created", ["createdAt"])
       .index("by_order", ["displayOrder"]),
 
-    // ── Forum d'Assistance ─────────────────────────────────────────
-    // Voir `src/convex/forum.ts` pour la logique métier (permissions
-    // d'audience, notifications ciblées, statuts).
-
-    forumPosts: defineTable({
-      authorId: v.id("users"),
-      title: v.string(),
-      description: v.string(),
-      requestType: v.union(
-        v.literal("intervention"),
-        v.literal("consultation"),
-        v.literal("material_price"),
-      ),
-      // Spécialité ciblée (audience experts / intervention).
-      specialty: v.optional(v.string()),
-      // Catégorie + libellé du matériau recherché (type « prix matériaux »).
-      materialCategory: v.optional(v.string()),
-      materialName: v.optional(v.string()),
-      audience: v.union(
-        v.literal("public"),
-        v.literal("experts"),
-        v.literal("suppliers"),
-      ),
-      location: v.optional(
-        v.object({
-          region: v.optional(v.string()),
-          city: v.optional(v.string()),
-          zone: v.optional(v.string()),
-        }),
-      ),
-      budget: v.optional(v.number()),
-      status: v.union(
-        v.literal("open"),
-        v.literal("in_progress"),
-        v.literal("resolved"),
-      ),
-      attachments: v.optional(v.array(forumAttachmentValidator)),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-      lastActivityAt: v.number(),
-    })
-      .index("by_created", ["createdAt"])
-      .index("by_author", ["authorId"])
-      .index("by_requestType_created", ["requestType", "createdAt"])
-      .index("by_status_created", ["status", "createdAt"]),
-
-    forumReplies: defineTable({
-      postId: v.id("forumPosts"),
-      authorId: v.id("users"),
-      content: v.string(),
-      attachments: v.optional(v.array(forumAttachmentValidator)),
-      createdAt: v.number(),
-    })
-      .index("by_post", ["postId"])
-      .index("by_author", ["authorId"]),
-
-    forumReports: defineTable({
-      postId: v.optional(v.id("forumPosts")),
-      replyId: v.optional(v.id("forumReplies")),
-      reporterId: v.id("users"),
-      reason: v.string(),
-      status: v.union(
-        v.literal("pending"),
-        v.literal("reviewed"),
-        v.literal("dismissed"),
-      ),
-      createdAt: v.number(),
-    })
-      .index("by_status", ["status"])
-      .index("by_created", ["createdAt"])
-      .index("by_reporter", ["reporterId"]),
-
     // ── ProMarket — marketplace de services professionnels ─────────
     // Voir `src/convex/promarket.ts` (logique métier, permissions, badges)
     // et `src/convex/promarketDemo.ts` (jeu de données de démonstration).
@@ -1713,7 +1610,7 @@ const schema = defineSchema(
       phone: v.optional(v.string()),
       email: v.optional(v.string()),
       preferences: v.optional(v.string()),
-      attachments: v.optional(v.array(forumAttachmentValidator)),
+      attachments: v.optional(v.array(attachmentValidator)),
       status: v.union(
         v.literal("new"),
         v.literal("contact"),
@@ -1729,7 +1626,6 @@ const schema = defineSchema(
         v.literal("search"),
         v.literal("profile"),
         v.literal("project"),
-        v.literal("forum"),
         v.literal("ai"),
       ),
       /** Besoin exprimé en langage naturel (assistant ProMarket). */
@@ -1774,7 +1670,7 @@ const schema = defineSchema(
       senderId: v.id("users"),
       senderRole: v.union(v.literal("client"), v.literal("professional")),
       body: v.string(),
-      attachments: v.optional(v.array(forumAttachmentValidator)),
+      attachments: v.optional(v.array(attachmentValidator)),
       readAt: v.optional(v.number()),
       createdAt: v.number(),
     })

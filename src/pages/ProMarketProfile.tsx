@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { useDirection } from "@/hooks/use-direction";
 import { usePageSEO } from "@/hooks/use-page-seo";
-import type { ForumAttachmentInput } from "@/lib/forumUpload";
+import type { AttachmentInput } from "@/lib/attachmentUpload";
 import {
   PROMARKET_AVAILABILITY_LABELS,
   PROMARKET_REVIEW_CRITERIA,
@@ -715,7 +715,7 @@ export function RequestDialog({
   const [homeService, setHomeService] = useState(false);
   const [phone, setPhone] = useState("");
   const [preferences, setPreferences] = useState("");
-  const [attachments, setAttachments] = useState<ForumAttachmentInput[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentInput[]>([]);
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {

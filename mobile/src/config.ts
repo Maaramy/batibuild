@@ -160,20 +160,11 @@ export const SUPPORT_PATH = "/dashboard/support";
 export const SETTINGS_PATH = "/dashboard/settings";
 
 /**
- * Forum d'Assistance — route RÉELLE de la plateforme (`src/main.tsx`).
- *
- * Elle est atteignable depuis l'en-tête natif (icône dédiée, à côté de Support
- * et Paramètres). Aucune page n'est créée ni dupliquée : l'application ouvre la
- * page `/forum` existante dans la WebView.
- */
-export const FORUM_PATH = "/forum";
-
-/**
  * ProMarket — marketplace de services professionnels (`src/main.tsx`).
  *
  * Route RÉELLE de la plateforme, atteignable depuis l'en-tête natif (icône
- * dédiée, aux côtés de Forum, Support et Paramètres). L'application ouvre la
- * page existante dans la WebView : aucune page n'est créée ni dupliquée.
+ * dédiée, aux côtés de Support et Paramètres). L'application ouvre la page
+ * existante dans la WebView : aucune page n'est créée ni dupliquée.
  */
 export const PROMARKET_PATH = "/promarket";
 
@@ -248,15 +239,8 @@ export function isDashboardRoute(path: string): boolean {
  */
 export function shouldShowBottomNav(path: string): boolean {
   if (isAuthRoute(path) || isLandingRoute(path)) return false;
-  // Le Forum d'Assistance et ProMarket ne sont pas sous `/dashboard` : la barre
-  // du bas reste néanmoins affichée pour ne pas perdre la navigation principale.
-  if (isForumRoute(path)) return true;
+  // ProMarket n'est pas sous `/dashboard` : la barre du bas reste néanmoins
+  // affichée pour ne pas perdre la navigation principale.
   if (isProMarketRoute(path)) return true;
   return inSection(routeKey(path), routeKey(DASHBOARD_PATH));
-}
-
-/** La route appartient-elle au Forum d'Assistance (liste, création, détail) ? */
-export function isForumRoute(path: string): boolean {
-  const route = routeKey(path);
-  return route === routeKey(FORUM_PATH) || route.startsWith(routeKey(FORUM_PATH) + "/");
 }
