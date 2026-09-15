@@ -333,7 +333,6 @@ describe("promarket — accès réservé aux Experts BatiBuild", () => {
     const uid = await insertUser(t);
     await expect(
       asUser(t, uid).mutation(api.promarket.setMyProMarketPreferences, {
-        optIn: true,
         trade: "plombier",
       }),
     ).rejects.toThrow("Experts BatiBuild");
@@ -342,7 +341,47 @@ describe("promarket — accès réservé aux Experts BatiBuild", () => {
     expect(search.results).toHaveLength(0);
   });
 
-  it("n'expose une fiche Expert qu'après activation + validation admin", async () => {
+  it("réserve l'espace professionnel aux Experts (serveur, pas seulement l'UI)", async () => {
+    // Compte particulier : aucune donnée d'espace professionnel n'est servie.
+    const clientId = await insertUser(t);
+    const clientAccess = await asUser(t, clientId).query(
+      api.promarket.getMyProMarketAccess,
+      {},
+    );
+    expect(clientAccess.isExpert).toBe(false);
+    expect(clientAccess.expertProfileId).toBeNull();
+
+    const client = await asUser(t, clientId).query(
+      api.promarket.getMyProfessionalProfile,
+      {},
+    );
+    expect(client.access).toBe("denied");
+    expect(client.expert).toBeNull();
+    expect(client.profile).toBeNull();
+    await expect(
+      asUser(t, clientId).mutation(api.promarket.setMyProMarketPreferences, {
+        available: true,
+      }),
+    ).rejects.toThrow("Experts BatiBuild");
+
+    // Expert : accès autorisé et profil projeté (activation automatique).
+    const expertUserId = await insertUser(t, { userRole: "expert" });
+    await insertProfessional(t, { userId: expertUserId });
+    const expertAccess = await asUser(t, expertUserId).query(
+      api.promarket.getMyProMarketAccess,
+      {},
+    );
+    expect(expertAccess.isExpert).toBe(true);
+    expect(expertAccess.expertProfileId).toBeTruthy();
+    const mine = await asUser(t, expertUserId).query(
+      api.promarket.getMyProfessionalProfile,
+      {},
+    );
+    expect(mine.access).toBe("granted");
+    expect(mine.profile).toBeTruthy();
+  });
+
+  it("active automatiquement ProMarket sans validation de l'administration", async () => {
     const uid = await insertUser(t, { userRole: "expert" });
     const adminId = await insertUser(t, { role: "admin" });
     const expertId = await insertExpertProfile(t, uid, {
@@ -351,35 +390,33 @@ describe("promarket — accès réservé aux Experts BatiBuild", () => {
       displayName: "Nouveau Pro",
     });
 
-    // Tant que ProMarket n'est pas activé, rien n'est publié.
-    expect((await t.query(api.promarket.searchProfessionals, {})).results).toHaveLength(0);
-
+    // §2 — aucun « opt-in » à cocher : le seul fait de disposer d'un profil
+    // Expert BatiBuild actif suffit.
     await asUser(t, uid).mutation(api.promarket.setMyProMarketPreferences, {
-      optIn: true,
       available: true,
       trade: "peintre",
       experienceYears: 4,
       availability: "week",
       homeService: true,
     });
-    // Activation demandée → en attente de validation administrateur.
-    expect((await t.query(api.promarket.searchProfessionals, {})).results).toHaveLength(0);
-    const pending = await asUser(t, adminId).query(
-      api.promarketAdmin.adminListProMarketExperts,
-      { bucket: "pending" },
-    );
-    expect(pending.map((r: any) => r.expertId)).toContain(expertId);
-
-    // La note 4.9 du profil Expert n'est pas dupliquée : le nom oui.
-    await asUser(t, adminId).mutation(
-      api.promarketAdmin.adminSetExpertProMarketStatus,
-      { expertId: expertId as any, action: "approve" },
-    );
     const search = await t.query(api.promarket.searchProfessionals, {});
     expect(search.results.map((p: any) => p.displayName)).toEqual(["Nouveau Pro"]);
     expect(search.results[0].trade).toBe("peintre");
     expect(search.results[0].expertProfileId).toBe(expertId);
     expect(search.results[0].demo).toBe(false);
+
+    // Plus aucun dossier « en attente de validation » : l'expert est éligible
+    // et actif immédiatement.
+    const eligible = await asUser(t, adminId).query(
+      api.promarketAdmin.adminListProMarketExperts,
+      { bucket: "eligible" },
+    );
+    expect(eligible.map((r: any) => r.expertId)).toContain(expertId);
+    const pending = await asUser(t, adminId).query(
+      api.promarketAdmin.adminListProMarketExperts,
+      { bucket: "pending" },
+    );
+    expect(pending.map((r: any) => r.expertId)).not.toContain(expertId);
 
     // Le profil Expert reste la source : une modification est répercutée.
     await asUser(t, uid).mutation(api.expertProfiles.updateProfile, {
@@ -449,12 +486,23 @@ describe("promarket — accès réservé aux Experts BatiBuild", () => {
     const uid = await insertUser(t, { userRole: "expert" });
     await insertExpertProfile(t, uid, { expertOptIn: false, expertStatus: null });
     await asUser(t, uid).mutation(api.promarket.setMyProMarketPreferences, {
-      optIn: true,
+      available: true,
     });
     const mine = await asUser(t, uid).query(api.promarket.getMyProfessionalProfile, {});
-    expect(mine.eligibility?.eligible).toBe(false);
-    expect(mine.eligibility?.reasons).toContain("pending_validation");
-    expect(mine.profile).toBeNull();
+    // Activation automatique : plus aucun motif bloquant.
+    expect(mine.eligibility?.eligible).toBe(true);
+    expect(mine.eligibility?.reasons).toHaveLength(0);
+    expect(mine.profile).toBeTruthy();
+
+    // Les badges restent l'apanage de l'administration (jamais auto-attribués).
+    const raw = await t.run(async (ctx) =>
+      ctx.db.query("promarketProfiles").first(),
+    );
+    expect(raw!.status).toBe("active");
+    expect(raw!.verifiedPro).toBe(false);
+    expect(raw!.verifiedIdentity).toBe(false);
+    expect(raw!.verifiedDocs).toBe(false);
+    expect(raw!.recommended).toBe(false);
   });
 
   it("exige un profil Expert suffisamment renseigné", async () => {
@@ -501,13 +549,11 @@ describe("promarket — accès réservé aux Experts BatiBuild", () => {
     // arguments de la mutation publique, le validateur la rejette.
     await expect(
       asUser(t, uid).mutation(api.promarket.setMyProMarketPreferences, {
-        optIn: true,
         verifiedPro: true,
       } as any),
     ).rejects.toThrow();
 
     await asUser(t, uid).mutation(api.promarket.setMyProMarketPreferences, {
-      optIn: true,
       available: false,
     });
     const experts = await t.run(async (ctx) =>
@@ -690,7 +736,7 @@ describe("promarket requests, quotes and messaging", () => {
     // comme métier ProMarket et sa fiche est resynchronisée.
     await asUser(t, otherProUserId).mutation(
       api.promarket.setMyProMarketPreferences,
-      { optIn: true, trade: "plombier" },
+      { trade: "plombier" },
     );
 
     // Le professionnel ne peut pas accepter son propre devis.

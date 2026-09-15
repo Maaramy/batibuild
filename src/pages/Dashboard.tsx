@@ -574,6 +574,9 @@ export default function Dashboard() {
     api.expertProfiles.hasExpertProfile,
     isExpert ? {} : "skip",
   );
+  // ── Espace professionnel ProMarket : uniquement pour les Experts BatiBuild ──
+  const proMarketAccess = useQuery(api.promarket.getMyProMarketAccess, {});
+  const canUseProMarketProSpace = proMarketAccess?.isExpert === true;
   // ── Real-time stats (expert + supplier) ──
   const expertKPIs = useQuery(
     api.expertStats.getExpertKPIs,
@@ -708,7 +711,7 @@ export default function Dashboard() {
               { icon: Sparkles, label: "Assistant Matériaux IA", onClick: () => { navigate("/dashboard/ai-materials"); setMobileSidebarOpen(false); } },
               { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
               { icon: Store, label: "ProMarket", onClick: () => { navigate("/promarket"); setMobileSidebarOpen(false); } },
-              { icon: Briefcase, label: "Espace professionnel ProMarket", onClick: () => { navigate("/promarket/pro-space"); setMobileSidebarOpen(false); } },
+              ...(canUseProMarketProSpace ? [{ icon: Briefcase, label: "Espace professionnel ProMarket", onClick: () => { navigate("/promarket/pro-space"); setMobileSidebarOpen(false); } }] : []),
             ] : []),
             // Professional features — parent + submenu
             ...(viewMode === "supplier" ? [

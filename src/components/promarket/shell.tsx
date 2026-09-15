@@ -1,4 +1,6 @@
+import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
+import { useQuery } from "convex/react";
 import { ArrowLeft, Briefcase, Heart, Home, Search, Send, Store } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NavLink, useNavigate } from "react-router";
@@ -62,12 +64,18 @@ export function ProMarketShell({
 /** Onglets ProMarket : défilement horizontal fluide, état actif clair. */
 export function ProMarketTabs() {
   const { t } = useTranslation("promarket");
+  // Espace professionnel : STRICTEMENT réservé aux Experts BatiBuild. Le
+  // drapeau vient du serveur (aucun état local ne peut le contourner) et
+  // l'onglet reste masqué tant qu'il n'est pas confirmé.
+  const access = useQuery(api.promarket.getMyProMarketAccess, {});
   const items = [
     { to: "/promarket", label: t("nav.home"), icon: Home, end: true },
     { to: "/promarket/search", label: t("nav.search"), icon: Search },
     { to: "/promarket/requests", label: t("nav.requests"), icon: Send },
     { to: "/promarket/saved", label: t("nav.saved"), icon: Heart },
-    { to: "/promarket/pro-space", label: t("nav.proSpace"), icon: Briefcase },
+    ...(access?.isExpert
+      ? [{ to: "/promarket/pro-space", label: t("nav.proSpace"), icon: Briefcase }]
+      : []),
   ];
 
   return (

@@ -351,12 +351,34 @@ export const toggleSavedProfessional = mutation({
 // ----------------------------------------------------------------------------
 
 /** Fiche ProMarket de l'Expert connecté + éligibilité + statistiques. */
+/**
+ * Accès à l'espace professionnel ProMarket.
+ *
+ * RÈGLE D'ACCÈS PROFESSIONNELS §1 : l'espace professionnel est réservé aux
+ * comptes disposant d'un profil Expert BatiBuild. Ce drapeau permet à la
+ * navigation de masquer la section aux autres profils ; le contrôle serveur
+ * reste la référence (les queries/mutations de l'espace pro refusent ou
+ * vident leurs réponses pour tout autre compte).
+ */
+export const getMyProMarketAccess = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return { isExpert: false, expertProfileId: null };
+    const expert = await ctx.db
+      .query("expertProfiles")
+      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .first();
+    return { isExpert: Boolean(expert), expertProfileId: expert?._id ?? null };
+  },
+});
+
 export const getMyProfessionalProfile = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
     if (!user) {
-      return { profile: null, stats: null, expert: null, eligibility: null };
+      return { access: "denied" as const, profile: null, stats: null, expert: null, eligibility: null };
     }
 
     const { expert, profile, eligibility } = await getExpertProMarketContext(
@@ -383,7 +405,15 @@ export const getMyProfessionalProfile = query({
       : null;
 
     if (!profile) {
-      return { profile: null, stats: null, expert: expertSummary, eligibility };
+      // Sans profil Expert, l'espace professionnel reste inaccessible : la
+      // page redirige et aucune donnée n'est servie (§1).
+      return {
+        access: expertSummary ? ("granted" as const) : ("denied" as const),
+        profile: null,
+        stats: null,
+        expert: expertSummary,
+        eligibility,
+      };
     }
 
     const requests = await ctx.db
@@ -396,6 +426,7 @@ export const getMyProfessionalProfile = query({
       .take(300);
 
     return {
+      access: "granted" as const,
       profile: publicProfile(profile, user),
       expert: expertSummary,
       eligibility,
@@ -435,13 +466,14 @@ export const getMyProfessionalProfile = query({
  *
  * RÈGLE D'ACCÈS PROFESSIONNELS (§1 et §3) : aucun compte professionnel
  * ProMarket n'est créé ici. Cette mutation écrit les préférences SUR le profil
- * Expert existant (« Disponible sur ProMarket » / « Disponible pour de
- * nouvelles missions ») puis synchronise la fiche ProMarket depuis ce profil.
+ * Expert existant puis synchronise la fiche ProMarket depuis ce profil.
+ *
+ * ACTIVATION AUTOMATIQUE (§2) : posséder un profil Expert suffit à activer
+ * ProMarket — aucune adhésion ni validation administrative n'est demandée.
  * Un utilisateur sans profil Expert est refusé avec un message actionnable.
  */
 export const setMyProMarketPreferences = mutation({
   args: {
-    optIn: v.boolean(),
     available: v.optional(v.boolean()),
     trade: v.optional(v.string()),
     kind: v.optional(v.union(v.literal("independant"), v.literal("entreprise"))),
@@ -490,36 +522,23 @@ export const setMyProMarketPreferences = mutation({
       homeService: args.homeService ?? previous?.homeService ?? false,
     };
 
-    // Première activation → validation administrateur requise. Un refus
-    // administratif n'est jamais contourné par un nouveau clic de l'expert.
+    // Activation AUTOMATIQUE : un profil Expert suffit, aucune validation
+    // administrative n'est requise. Seule une suspension explicite de
+    // l'administration (status « disabled ») n'est pas contournée ici.
     const status =
-      args.optIn && expert.proMarketStatus === undefined
-        ? ("pending" as const)
-        : expert.proMarketStatus;
+      expert.proMarketStatus === "disabled" ? ("disabled" as const) : ("active" as const);
 
     await ctx.db.patch(expert._id, {
-      proMarketOptIn: args.optIn,
+      proMarketOptIn: true,
       proMarketAvailable: args.available ?? expert.proMarketAvailable ?? true,
       proMarketPrefs: prefs,
       proMarketStatus: status,
-      proMarketRequestedAt:
-        args.optIn && !expert.proMarketRequestedAt ? now : expert.proMarketRequestedAt,
+      proMarketRequestedAt: expert.proMarketRequestedAt ?? now,
       updatedAt: now,
     });
 
     const updated = await ctx.db.get(expert._id);
     const { profileId, eligibility } = await syncProMarketProfileFromExpert(ctx, updated);
-
-    if (args.optIn && !isStaff(user)) {
-      await notify(ctx, {
-        userId: user._id,
-        type: "promarket_verified",
-        title: "ProMarket — activation enregistrée",
-        message:
-          "Votre profil Expert sera publié sur ProMarket après validation par l'équipe BatiBuild.",
-        link: "/promarket/pro-space",
-      });
-    }
 
     return { profileId, eligibility };
   },

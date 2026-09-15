@@ -15,10 +15,14 @@ import {
 //
 //   1. Aucun compte professionnel ProMarket indépendant : la fiche ProMarket
 //      est la PROJECTION de l'`expertProfiles` du compte (jamais l'inverse).
-//   2. L'expert doit : posséder un compte actif, avoir activé ProMarket,
-//      être validé par l'administration (statut `active`), être visible et
-//      avoir un profil suffisamment renseigné.
-//   3. Postuler (envoyer un devis) exige en plus d'être DISPONIBLE.
+//   2. ACTIVATION AUTOMATIQUE : dès qu'un compte possède un profil Expert
+//      BatiBuild valide, ProMarket est activé pour ce profil. Aucune adhésion
+//      (« Disponible sur ProMarket ») ni validation de l'administration n'est
+//      nécessaire : un expert éligible est publié et peut postuler.
+//   3. L'expert doit rester : compte actif, profil Expert visible, espace
+//      Expert actif et profil suffisamment renseigné. L'administration
+//      conserve le pouvoir de SUSPENDRE un profil (`disabled`).
+//   4. Postuler (envoyer un devis) exige en plus d'être DISPONIBLE.
 //
 // Ce module n'importe ni `promarket.ts`, ni `promarketShared.ts`, ni
 // `expertProfiles.ts` (Convex interdit les cycles d'import) : il est la seule
@@ -32,8 +36,6 @@ export type ProMarketIneligibleReason =
   | "account_inactive"
   | "expert_hidden"
   | "expert_account_inactive"
-  | "not_opted_in"
-  | "pending_validation"
   | "disabled_by_admin"
   | "incomplete_profile";
 
@@ -127,11 +129,10 @@ export async function evaluateExpertForProMarket(
   if (!(await isExpertAccountActive(ctx, expert, cachedFree))) {
     reasons.push("expert_account_inactive");
   }
-  if (expert.proMarketOptIn !== true) reasons.push("not_opted_in");
-
-  const status = expert.proMarketStatus;
-  if (status === "disabled") reasons.push("disabled_by_admin");
-  else if (status !== "active") reasons.push("pending_validation");
+  // Activation automatique : seule une suspension explicite de
+  // l'administration retire un expert de ProMarket. Aucune adhésion ni
+  // validation manuelle n'est requise (le profil Expert suffit).
+  if (expert.proMarketStatus === "disabled") reasons.push("disabled_by_admin");
 
   if (!isProfileComplete(expert, trade)) reasons.push("incomplete_profile");
 
@@ -179,8 +180,13 @@ export async function buildProMarketEligibilityFilter(ctx: any) {
     if (profile.demo) return profile.status === "active";
     // Une fiche réelle SANS compte Expert n'a aucune raison d'être publiée.
     if (!profile.expertProfileId) return false;
-    if (profile.status !== "active") return false;
+    // Suspension explicite de la fiche par l'administration (onglet
+    // « Professionnels ») : toujours respectée.
+    if (profile.status === "suspended") return false;
 
+    // Au-delà, l'éligibilité de l'Expert fait autorité : l'activation est
+    // automatique et publie donc aussi les fiches créées avant la suppression
+    // de la validation administrative (ancien statut « pending »).
     const key = profile.expertProfileId as string;
     const cached = cache.get(key);
     if (cached !== undefined) return cached;
@@ -345,10 +351,6 @@ export function proMarketExpertOnlyError(reason?: ProMarketIneligibleReason): Co
       "Votre profil Expert est masqué : rendez-le visible pour apparaître sur ProMarket.",
     expert_account_inactive:
       "Votre espace Expert n'est pas actif : activez votre abonnement Expert pour apparaître sur ProMarket.",
-    not_opted_in:
-      "Activez « Disponible sur ProMarket » dans votre profil Expert pour recevoir des demandes.",
-    pending_validation:
-      "Votre demande ProMarket est en attente de validation par l'équipe BatiBuild.",
     disabled_by_admin:
       "ProMarket est désactivé pour votre compte par l'administration BatiBuild.",
     incomplete_profile:

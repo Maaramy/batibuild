@@ -152,10 +152,12 @@ export const adminSetBadges = mutation({
 // ----------------------------------------------------------------------------
 // Experts BatiBuild sur ProMarket
 //
-// RÈGLE D'ACCÈS PROFESSIONNELS §4 — l'administrateur pilote l'accès ProMarket
-// des Experts BatiBuild : validation, désactivation et suivi (demandes,
-// candidatures/devis, note moyenne). Aucune fiche ProMarket indépendante
-// n'existe : les profils listés ici sont tous adossés à un compte Expert.
+// RÈGLE D'ACCÈS PROFESSIONNELS §4 — l'administrateur SUSPENDE ou RÉACTIVE
+// l'accès ProMarket des Experts BatiBuild et suit leur activité (demandes,
+// candidatures/devis, note moyenne). L'activation étant automatique, il n'y a
+// plus de dossier « en attente de validation ». Aucune fiche ProMarket
+// indépendante n'existe : les profils listés ici sont tous adossés à un compte
+// Expert.
 // ----------------------------------------------------------------------------
 
 export const adminListProMarketExperts = query({
@@ -167,7 +169,6 @@ export const adminListProMarketExperts = query({
         v.literal("active"),
         v.literal("pending"),
         v.literal("disabled"),
-        v.literal("not_opted_in"),
         v.literal("incomplete"),
       ),
     ),
@@ -208,7 +209,8 @@ export const adminListProMarketExperts = query({
         : [];
 
       const status = expert.proMarketStatus ?? null;
-      const optedIn = expert.proMarketOptIn === true;
+      // Activation automatique : il n'existe plus de dossier « en attente de
+      // validation ». « pending » = suspension absente mais profil incomplet.
       const inBucket =
         bucket === "all"
           ? true
@@ -217,12 +219,10 @@ export const adminListProMarketExperts = query({
             : bucket === "active"
               ? eligibility.eligible && eligibility.available
               : bucket === "pending"
-                ? optedIn && status !== "active" && status !== "disabled"
+                ? !eligibility.eligible && status !== "disabled"
                 : bucket === "disabled"
                   ? status === "disabled"
-                  : bucket === "not_opted_in"
-                    ? !optedIn
-                    : eligibility.reasons.includes("incomplete_profile");
+                  : eligibility.reasons.includes("incomplete_profile");
       if (!inBucket) continue;
 
       if (needle) {
@@ -249,7 +249,6 @@ export const adminListProMarketExperts = query({
         tradeLabel: promarketTradeLabel(proMarketTradeForExpert(expert)),
         regions: expert.regions ?? [],
         isVisible: expert.isVisible,
-        optIn: optedIn,
         available: expert.proMarketAvailable !== false,
         status,
         eligibility,
@@ -268,16 +267,17 @@ export const adminListProMarketExperts = query({
   },
 });
 
-/** Activation / désactivation ProMarket d'un Expert (administrateur). */
+/**
+ * Suspension / réactivation ProMarket d'un Expert (administrateur).
+ *
+ * L'activation étant automatique, l'administration n'a plus qu'un pouvoir de
+ * suspension : « disable » retire l'expert de ProMarket, « enable » le
+ * republie (s'il remplit par ailleurs les conditions d'éligibilité).
+ */
 export const adminSetExpertProMarketStatus = mutation({
   args: {
     expertId: v.id("expertProfiles"),
-    action: v.union(
-      v.literal("approve"),
-      v.literal("reject"),
-      v.literal("disable"),
-      v.literal("enable"),
-    ),
+    action: v.union(v.literal("disable"), v.literal("enable")),
   },
   handler: async (ctx, args) => {
     await requireStaff(ctx);
@@ -285,10 +285,11 @@ export const adminSetExpertProMarketStatus = mutation({
     if (!expert) throw new ConvexError("Expert introuvable");
 
     const now = Date.now();
-    // « approve »/« enable » valident l'accès ; « reject »/« disable » le
-    // retirent. Le sync masque ou republie la fiche ProMarket en conséquence.
+    // « enable » réactive l'accès (déjà automatique pour les profils complets) ;
+    // « disable » le suspend. Le sync masque ou republie la fiche ProMarket en
+    // conséquence.
     const patch =
-      args.action === "approve" || args.action === "enable"
+      args.action === "enable"
         ? {
             proMarketStatus: "active" as const,
             proMarketOptIn: true,
@@ -305,7 +306,7 @@ export const adminSetExpertProMarketStatus = mutation({
     const { profileId } = await syncProMarketProfileFromExpert(ctx, updated);
 
     if (expert.userId) {
-      const published = args.action === "approve" || args.action === "enable";
+      const published = args.action === "enable";
       await notify(ctx, {
         userId: expert.userId,
         type: "promarket_verified",
@@ -335,17 +336,17 @@ export const adminProMarketExpertCounts = query({
     let active = 0;
     let pending = 0;
     let disabled = 0;
-    let notOptedIn = 0;
     for (const expert of experts) {
       const status = expert.proMarketStatus ?? null;
-      const optedIn = expert.proMarketOptIn === true;
-      if (!optedIn) notOptedIn++;
       if (status === "disabled") disabled++;
-      if (optedIn && status !== "active" && status !== "disabled") pending++;
       const eligibility = await evaluateExpertForProMarket(ctx, expert, free);
       if (eligibility.eligible) {
         eligible++;
         if (eligibility.available) active++;
+      } else if (status !== "disabled") {
+        // Plus aucune validation administrative n'est attendue : ce compteur
+        // ne représente que les profils encore incomplets.
+        pending++;
       }
     }
 
@@ -356,7 +357,6 @@ export const adminProMarketExpertCounts = query({
       active,
       pending,
       disabled,
-      notOptedIn,
       publishedProfiles: profiles.filter(
         (p: Doc<"promarketProfiles">) => !p.demo && p.status === "active",
       ).length,

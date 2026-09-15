@@ -20,6 +20,7 @@ import {
 } from "@/lib/promarketMeta";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
+import { Navigate } from "react-router";
 import {
   BadgeCheck,
   Banknote,
@@ -118,44 +119,12 @@ export default function ProMarketProSpace() {
     );
   }
 
-  // §1 — Aucun compte professionnel ProMarket indépendant : sans profil
-  // Expert BatiBuild, la seule action possible est de créer ce profil.
-  if (!expert) {
-    return (
-      <ProMarketShell
-        title={t("proSpace.title")}
-        subtitle={t("proSpace.subtitle")}
-        backTo="/promarket"
-      >
-        <ProMarketEmpty
-          icon={<Briefcase className="h-5 w-5" />}
-          title={t("proSpace.expertOnly.title")}
-          text={t("proSpace.expertOnly.text")}
-        />
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            className="gap-1.5 text-xs"
-            onClick={() => navigate("/dashboard/expert")}
-          >
-            <UserRound className="h-3.5 w-3.5" />
-            {t("proSpace.expertOnly.cta")}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 text-xs"
-            onClick={() => navigate("/promarket/search")}
-          >
-            <Star className="h-3.5 w-3.5" />
-            {t("nav.search")}
-          </Button>
-        </div>
-        <p className="mt-3 rounded-xl border border-border/50 bg-muted/20 p-3 text-[11px] leading-relaxed text-muted-foreground">
-          {t("proSpace.expertOnly.flow")}
-        </p>
-      </ProMarketShell>
-    );
+  // §1 — Espace professionnel STRICTEMENT réservé aux Experts BatiBuild :
+  // un compte sans profil Expert n'y accède pas, même via une URL directe.
+  // Le backend applique la même règle (aucune donnée n'est servie à ces
+  // comptes et les mutations de l'espace pro les refusent).
+  if (mine.access === "denied" || !expert) {
+    return <Navigate to="/promarket" replace />;
   }
 
   const tabs: { key: TabKey; label: string }[] = [
@@ -490,7 +459,6 @@ function ProMarketPreferencesPanel({
   const persist = useMutation(api.promarket.setMyProMarketPreferences);
 
   const prefs = expert.proMarketPrefs ?? {};
-  const [optIn, setOptIn] = useState(expert.proMarketOptIn);
   const [available, setAvailable] = useState(expert.proMarketAvailable);
   const [category, setCategory] = useState<string>(
     PROMARKET_TRADES.find((tr) => tr.slug === prefs.trade)?.category ??
@@ -520,7 +488,6 @@ function ProMarketPreferencesPanel({
     setSaving(true);
     try {
       await persist({
-        optIn,
         available,
         trade: trade || undefined,
         kind,
@@ -548,24 +515,12 @@ function ProMarketPreferencesPanel({
           subtitle={t("proSpace.expertOnly.activationHint")}
         />
 
-        <div className="mt-3 space-y-2.5">
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/50 bg-muted/10 p-3">
-            <input
-              type="checkbox"
-              checked={optIn}
-              onChange={(e) => setOptIn(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-primary"
-            />
-            <span>
-              <span className="block text-xs font-semibold">
-                {t("proSpace.expertOnly.optIn")}
-              </span>
-              <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                {t("proSpace.expertOnly.optInHint")}
-              </span>
-            </span>
-          </label>
+        <p className="mt-3 flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-400">
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {t("proSpace.expertOnly.autoNotice")}
+        </p>
 
+        <div className="mt-3 space-y-2.5">
           <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/50 bg-muted/10 p-3">
             <input
               type="checkbox"

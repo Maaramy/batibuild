@@ -417,7 +417,12 @@ export function ProfessionalCard({
         {profile.demo && <DemoBadge />}
       </div>
 
-      <Button asChild size="sm" className="mt-auto h-8 w-full gap-1.5 text-xs">
+      <Button
+        asChild
+        size="sm"
+        variant="outline"
+        className="mt-auto h-8 w-full gap-1.5 border-border bg-transparent text-xs transition-colors hover:border-primary/50 hover:bg-primary/[0.06] hover:text-primary active:scale-[0.98]"
+      >
         <Link to={`/promarket/pro/${profile._id}`}>
           <Eye className="h-3.5 w-3.5" />
           {t("card.viewProfile")}

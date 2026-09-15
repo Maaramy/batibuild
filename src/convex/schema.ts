@@ -1324,9 +1324,12 @@ const schema = defineSchema(
       /**
        * RÈGLE D'ACCÈS PROFESSIONNELS — ProMarket n'accueille QUE des Experts
        * BatiBuild actifs : pas d'inscription professionnelle indépendante.
-       *   - `proMarketOptIn`      : l'expert demande à recevoir des demandes.
+       * L'activation est AUTOMATIQUE dès qu'un profil Expert existe (aucune
+       * adhésion ni validation administrative n'est requise).
+       *   - `proMarketOptIn`      : conservé pour compatibilité, toujours `true`.
        *   - `proMarketAvailable`  : disponible pour de nouvelles missions.
-       *   - `proMarketStatus`     : validation administrateur (pending/active/disabled).
+       *   - `proMarketStatus`     : `active` (automatique) ou `disabled`
+       *                             (suspension par l'administration).
        *   - `proMarketPrefs`      : préférences ProMarket sans équivalent Expert
        *                             (métier, dispo, tarif indicatif, expérience…).
        * Les informations communes (nom, photo, spécialités, région, contact)

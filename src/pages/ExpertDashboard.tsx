@@ -610,7 +610,6 @@ export default function ExpertDashboard() {
               {/* ProMarket — règle d'accès professionnels : ProMarket est
                   réservé aux Experts BatiBuild, l'activation se fait ici. */}
               <ProMarketAccessCard
-                enabled={profile.proMarketOptIn === true}
                 available={profile.proMarketAvailable !== false}
                 status={(profile as any).proMarketStatus ?? null}
               />
@@ -1164,29 +1163,26 @@ export default function ExpertDashboard() {
 // ProMarket — activation depuis le profil Expert BatiBuild
 //
 // RÈGLE D'ACCÈS PROFESSIONNELS : ProMarket ne possède aucune inscription
-// professionnelle indépendante. Un Expert BatiBuild dispose ici des deux
-// interrupteurs demandés ; l'administration valide ensuite la publication.
+// professionnelle indépendante : son activation est AUTOMATIQUE. Un Expert
+// ne règle donc ici que sa disponibilité ; l'administration conserve le pouvoir de suspendre l'accès.
 // ============================================================================
 
 function ProMarketAccessCard({
-  enabled,
   available,
   status,
 }: {
-  enabled: boolean;
   available: boolean;
   status: "pending" | "active" | "disabled" | null;
 }) {
   const navigate = useNavigate();
   const persist = useMutation(api.promarket.setMyProMarketPreferences);
-  const [optIn, setOptIn] = useState(enabled);
   const [open, setOpen] = useState(available);
   const [saving, setSaving] = useState(false);
 
-  const save = async (nextOptIn: boolean, nextAvailable: boolean) => {
+  const save = async (nextAvailable: boolean) => {
     setSaving(true);
     try {
-      await persist({ optIn: nextOptIn, available: nextAvailable });
+      await persist({ available: nextAvailable });
       toast.success("Préférences ProMarket enregistrées.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Une erreur est survenue");
@@ -1202,9 +1198,7 @@ function ProMarketAccessCard({
         ? open
           ? "Publié et disponible sur ProMarket"
           : "Publié mais indisponible"
-        : enabled
-          ? "En attente de validation"
-          : "Non publié sur ProMarket";
+        : "Non publié — complétez votre profil Expert";
 
   return (
     <Card className="border-emerald-200/70 bg-gradient-to-br from-emerald-50/40 to-background">
@@ -1222,23 +1216,11 @@ function ProMarketAccessCard({
           {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
 
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/40 bg-background/60 p-3">
-          <input
-            type="checkbox"
-            checked={optIn}
-            onChange={(e) => {
-              setOptIn(e.target.checked);
-              void save(e.target.checked, open);
-            }}
-            className="mt-0.5 h-4 w-4 accent-emerald-600"
-          />
-          <span>
-            <span className="block text-xs font-semibold">Disponible sur ProMarket</span>
-            <span className="mt-0.5 block text-[10px] text-muted-foreground">
-              Je souhaite recevoir des demandes de services via ProMarket.
-            </span>
-          </span>
-        </label>
+        <p className="flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] leading-relaxed text-emerald-700 dark:text-emerald-400">
+          <Check className="mt-0.5 h-3 w-3 shrink-0" />
+          Activation automatique : votre profil Expert est publié sur ProMarket
+          dès qu'il est complet, sans validation manuelle.
+        </p>
 
         <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/40 bg-background/60 p-3">
           <input
@@ -1246,7 +1228,7 @@ function ProMarketAccessCard({
             checked={open}
             onChange={(e) => {
               setOpen(e.target.checked);
-              void save(optIn, e.target.checked);
+              void save(e.target.checked);
             }}
             className="mt-0.5 h-4 w-4 accent-emerald-600"
           />

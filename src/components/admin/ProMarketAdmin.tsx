@@ -246,7 +246,6 @@ type ExpertBucket =
   | "active"
   | "pending"
   | "disabled"
-  | "not_opted_in"
   | "incomplete";
 
 function ExpertsTab() {
@@ -264,7 +263,7 @@ function ExpertsTab() {
 
   const run = async (
     expertId: string,
-    action: "approve" | "reject" | "disable" | "enable",
+    action: "disable" | "enable",
     label: string,
   ) => {
     setBusy(expertId);
@@ -284,11 +283,6 @@ function ExpertsTab() {
     { key: "active", label: t("admin.experts.bucketActive"), value: counts?.active },
     { key: "pending", label: t("admin.experts.bucketPending"), value: counts?.pending },
     { key: "disabled", label: t("admin.experts.bucketDisabled"), value: counts?.disabled },
-    {
-      key: "not_opted_in",
-      label: t("admin.experts.bucketNotOptedIn"),
-      value: counts?.notOptedIn,
-    },
     { key: "incomplete", label: t("admin.experts.bucketIncomplete") },
   ];
 
@@ -404,13 +398,7 @@ function ExpertsTab() {
                       size="sm"
                       className="h-8 gap-1 text-[11px]"
                       disabled={busy === row.expertId}
-                      onClick={() =>
-                        run(
-                          row.expertId,
-                          row.status === "disabled" ? "enable" : "approve",
-                          t("admin.experts.enable"),
-                        )
-                      }
+                      onClick={() => run(row.expertId, "enable", t("admin.experts.enable"))}
                     >
                       {busy === row.expertId ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -432,18 +420,6 @@ function ExpertsTab() {
                     >
                       <Ban className="h-3 w-3" />
                       {t("admin.experts.disable")}
-                    </Button>
-                  )}
-                  {row.status === "pending" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 gap-1 text-[11px]"
-                      disabled={busy === row.expertId}
-                      onClick={() => run(row.expertId, "reject", t("admin.experts.reject"))}
-                    >
-                      <X className="h-3 w-3" />
-                      {t("admin.experts.reject")}
                     </Button>
                   )}
                 </div>

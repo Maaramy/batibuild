@@ -88,6 +88,11 @@ export default function ProMarketHome() {
   const [seeding, setSeeding] = useState(false);
   const ensureDemoData = useMutation(api.promarket.ensureDemoData);
 
+  // Espace professionnel : réservé aux Experts BatiBuild. Le drapeau vient du
+  // serveur ; aucun état local ne peut l'activer.
+  const access = useQuery(api.promarket.getMyProMarketAccess, {});
+  const isExpert = access?.isExpert === true;
+
   const categories = useQuery(api.promarket.listCategories, {});
   const featured = useQuery(api.promarket.searchProfessionals, {
     sort: "rating",
@@ -155,15 +160,17 @@ export default function ProMarketHome() {
         </Badge>
       }
       action={
-        <Button
-          size="sm"
-          variant="outline"
-          className="hidden h-9 gap-1.5 text-xs sm:inline-flex"
-          onClick={() => navigate("/promarket/pro-space")}
-        >
-          <Briefcase className="h-3.5 w-3.5" />
-          {t("nav.proSpace")}
-        </Button>
+        isExpert ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="hidden h-9 gap-1.5 border-border bg-transparent text-xs hover:border-primary/50 hover:bg-primary/[0.06] hover:text-primary sm:inline-flex"
+            onClick={() => navigate("/promarket/pro-space")}
+          >
+            <Briefcase className="h-3.5 w-3.5" />
+            {t("nav.proSpace")}
+          </Button>
+        ) : undefined
       }
     >
       {/* ── Recherche : bouton compact + zone dépliable ──────────────────── */}
@@ -172,22 +179,22 @@ export default function ProMarketHome() {
           type="button"
           onClick={() => setSearchOpen((value) => !value)}
           aria-expanded={searchOpen}
-          className="flex w-full items-center gap-3 rounded-xl bg-primary px-3.5 py-3 text-primary-foreground shadow-sm transition-transform active:scale-[0.99] sm:px-4"
+          className="group flex w-full items-center gap-3 rounded-xl border border-border bg-transparent px-3.5 py-3 text-start transition-colors hover:border-primary/50 hover:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 active:scale-[0.99] sm:px-4"
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-foreground/15">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Search className="h-4 w-4" aria-hidden />
           </span>
           <span className="min-w-0 flex-1 text-start">
-            <span className="block truncate text-sm font-semibold sm:text-base">
+            <span className="block truncate text-sm font-semibold text-foreground sm:text-base">
               {t("hero.title")}
             </span>
-            <span className="mt-0.5 block truncate text-[11px] opacity-90">
+            <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
               {t("hero.searchPlaceholder")}
             </span>
           </span>
           <ChevronDown
             className={cn(
-              "h-4 w-4 shrink-0 transition-transform",
+              "h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:text-primary",
               searchOpen && "rotate-180",
             )}
             aria-hidden
@@ -500,28 +507,30 @@ export default function ProMarketHome() {
         )}
       </section>
 
-      {/* ── CTA espace professionnel ─────────────────────────────────────── */}
-      <section className="mt-6 flex flex-col items-start gap-3 rounded-2xl border border-border/50 bg-muted/10 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Briefcase className="h-4 w-4" />
-          </span>
-          <div>
-            <p className="text-sm font-semibold">{t("proSpace.expertOnly.title")}</p>
-            <p className="mt-0.5 max-w-xl text-xs text-muted-foreground">
-              {t("proSpace.expertOnly.text")}
-            </p>
+      {/* ── CTA espace professionnel — Experts BatiBuild uniquement ──────── */}
+      {isExpert && (
+        <section className="mt-6 flex flex-col items-start gap-3 rounded-2xl border border-border/50 bg-muted/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Briefcase className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold">{t("proSpace.expertOnly.title")}</p>
+              <p className="mt-0.5 max-w-xl text-xs text-muted-foreground">
+                {t("proSpace.expertOnly.text")}
+              </p>
+            </div>
           </div>
-        </div>
-        <Button
-          size="sm"
-          className="gap-1.5 text-xs"
-          onClick={() => navigate("/promarket/pro-space")}
-        >
-          {t("proSpace.expertOnly.cta")}
-          <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
-        </Button>
-      </section>
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => navigate("/promarket/pro-space")}
+          >
+            {t("proSpace.expertOnly.cta")}
+            <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+          </Button>
+        </section>
+      )}
 
       {/* ── Gouvernorats couverts ────────────────────────────────────────── */}
       <section className="mt-6">
