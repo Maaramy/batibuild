@@ -98,6 +98,8 @@ const PROJECT_QUICK_ICONS: Record<string, any> = {
   guide: Rocket,
   expert: Users,
   plan: PencilRuler,
+  // ProMarket — même icône que l'accès ProMarket de l'en-tête et du menu.
+  promarket: Store,
 };
 
 function ProjectCard({ project }: { project: any }) {

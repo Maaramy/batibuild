@@ -14,6 +14,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { buildProjectQuickActions } from "./projectQuickActions";
+
 const REPO_ROOT = join(__dirname, "..", "..");
 const SRC = join(REPO_ROOT, "src");
 
@@ -139,5 +141,23 @@ describe("bundle client — poids du build", () => {
     // Le script doit continuer à enchaîner exactement tsc puis vite build.
     expect(build).toMatch(/\btsc -b\b/);
     expect(build).toMatch(/\bvite build\b/);
+  });
+
+  it("chaque accès rapide de projet a une icône déclarée (aucun composant `undefined`)", () => {
+    // Régression observée : un nouvel accès rapide (« ProMarket ») sans entrée
+    // dans `PROJECT_QUICK_ICONS` faisait rendre `<Icon />` avec `Icon ===
+    // undefined` → « Element type is invalid … Check the render method of
+    // `ProjectCard` », écran blanc sur le tableau de bord.
+    const dashboard = readFileSync(join(SRC, "pages", "Dashboard.tsx"), "utf8");
+    const block = dashboard.match(/const PROJECT_QUICK_ICONS[^=]*=\s*\{([\s\S]*?)\};/);
+    expect(block, "PROJECT_QUICK_ICONS introuvable dans Dashboard.tsx").toBeTruthy();
+    const declared = new Set(
+      [...(block as RegExpMatchArray)[1].matchAll(/^\s*(\w+)\s*:/gm)].map((m) => m[1]),
+    );
+    // Chaque clé effectivement produite par le module d'accès rapides.
+    const used = buildProjectQuickActions({ _id: "project-id" }).map((a) => a.key);
+    const missing = used.filter((key) => !declared.has(key));
+    expect(missing, "accès rapides sans icône dans PROJECT_QUICK_ICONS").toEqual([]);
+    expect(declared.size).toBeGreaterThanOrEqual(used.length);
   });
 });
