@@ -2,6 +2,11 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
 import {
+  buildProMarketEligibilityFilter,
+  evaluateExpertForProMarket,
+  getExpertProMarketContext,
+} from "./proMarketAccess";
+import {
   PROMARKET_CATEGORY_BY_TRADE,
   normalizeProMarketText,
   promarketDistanceKm,
@@ -45,13 +50,6 @@ export const reviewStatusValidator = v.union(
   v.literal("approved"),
   v.literal("hidden"),
 );
-
-export const serviceValidator = v.object({
-  name: v.string(),
-  description: v.optional(v.string()),
-  priceFrom: v.optional(v.number()),
-  unit: v.optional(v.string()),
-});
 
 export function isStaff(user: Doc<"users"> | null | undefined): boolean {
   return user?.role === "admin" || user?.role === "moderator";
@@ -132,7 +130,13 @@ export async function notify(
   }
 }
 
-/** Notifie les professionnels actifs d'un même métier (jamais tout le monde). */
+/**
+ * Notifie les Experts BatiBuild ÉLIGIBLES et DISPONIBLES d'un même métier.
+ *
+ * RÈGLE D'ACCÈS PROFESSIONNELS : seuls des Experts BatiBuild actifs, validés
+ * par l'administration et disponibles peuvent recevoir une demande ProMarket.
+ * Les fiches de démonstration (sans compte) ne reçoivent jamais de demande.
+ */
 export async function notifyProfessionalsByTrade(
   ctx: any,
   trade: string,
@@ -143,9 +147,14 @@ export async function notifyProfessionalsByTrade(
     .query("promarketProfiles")
     .withIndex("by_trade", (q: any) => q.eq("trade", trade))
     .take(80);
+  const isEligible = await buildProMarketEligibilityFilter(ctx);
+
   for (const p of profiles) {
-    if (!p.userId || p.userId === excludeUserId) continue;
-    if (p.status !== "active") continue;
+    if (!p.userId || p.userId === excludeUserId || p.demo) continue;
+    if (!(await isEligible(p))) continue;
+    const expert = p.expertProfileId ? await ctx.db.get(p.expertProfileId) : null;
+    // Un expert temporairement indisponible ne reçoit pas de nouvelle demande.
+    if (!expert || expert.proMarketAvailable === false) continue;
     await notify(ctx, {
       userId: p.userId,
       type: "promarket_new_request",
@@ -191,6 +200,7 @@ export function publicProfile(
     ratingCount: profile.ratingCount,
     views: profile.views,
     contacts: profile.contacts,
+    quoteCount: profile.quoteCount ?? 0,
     completedCount: profile.completedCount ?? 0,
     verifiedIdentity: profile.verifiedIdentity,
     verifiedPro: profile.verifiedPro,
@@ -204,10 +214,14 @@ export function publicProfile(
     email: known ? profile.email : undefined,
     website: profile.website,
     logoStorageId: profile.logoStorageId ?? null,
+    /** Règle d'accès : toute fiche réelle est adossée à un compte Expert. */
+    expertProfileId: profile.expertProfileId ?? null,
+    isExpert: Boolean(profile.expertProfileId),
     certifications: profile.certifications ?? [],
     distanceKm,
     isOwner: viewer ? profile.userId === viewer._id : false,
     createdAt: profile.createdAt,
+    updatedAt: profile.updatedAt,
   };
 }
 
@@ -245,6 +259,14 @@ export async function runSearch(
     .withIndex("by_status", (q: any) => q.eq("status", "active"))
     .take(600);
 
+  // RÈGLE D'ACCÈS PROFESSIONNELS : seuls les Experts BatiBuild actifs et
+  // autorisés apparaissent (les fiches de démonstration restent badgées).
+  const isEligible = await buildProMarketEligibilityFilter(ctx);
+  const eligibleRows: Doc<"promarketProfiles">[] = [];
+  for (const row of rows) {
+    if (await isEligible(row)) eligibleRows.push(row);
+  }
+
   const viewerCoords =
     args.userLat !== undefined && args.userLng !== undefined
       ? { lat: args.userLat, lng: args.userLng }
@@ -252,7 +274,7 @@ export async function runSearch(
 
   const normalizedQuery = args.q ? normalizeProMarketText(args.q) : "";
 
-  const matches = rows.filter((p: Doc<"promarketProfiles">) => {
+  const matches = eligibleRows.filter((p: Doc<"promarketProfiles">) => {
     if (args.category && p.category !== args.category) return false;
     if (args.trade && p.trade !== args.trade) return false;
     if (args.region && p.region !== args.region) return false;
@@ -301,6 +323,19 @@ export async function runSearch(
   }
 
   const sort = args.sort ?? "relevance";
+
+  /**
+   * Score de correspondance (cf. RÈGLE D'ACCÈS PROFESSIONNELS §7) :
+   *   1. métier/service   → filtré en amont (trade/catégorie) + bonus requête,
+   *   2. localisation     → distance au client,
+   *   3. disponibilité    → immédiat > semaine > occupé,
+   *   4. statut vérifié   → badges attribués par l'administration,
+   *   5. expérience       → années déclarées,
+   *   6. note             → moyenne des avis,
+   *   7. nombre d'avis    → volume, plafonné pour ne pas écraser le reste,
+   *   8. taux de réponse  → agrégats entretenus (devis / contacts reçus),
+   *   9. activité récente → fiche mise à jour récemment + missions terminées.
+   */
   const score = (p: ProMarketProfileView) => {
     let s = 0;
     if (p.recommended) s += 4;
@@ -313,6 +348,15 @@ export async function runSearch(
     if (p.urgent) s += 0.5;
     if (p.homeService) s += 0.5;
     if (p.distanceKm !== undefined) s += Math.max(0, 6 - p.distanceKm / 5);
+    // 8. Taux de réponse : part des contacts transformés en devis.
+    if (p.contacts > 0) {
+      s += Math.min(1, (p.quoteCount ?? 0) / p.contacts) * 1.5;
+    }
+    // 9. Activité récente : missions terminées + fiche actualisée.
+    s += Math.min(p.completedCount ?? 0, 30) / 10;
+    const ageDays = (Date.now() - (p.updatedAt ?? p.createdAt)) / 86_400_000;
+    if (ageDays <= 30) s += 1;
+    else if (ageDays <= 180) s += 0.4;
     return s;
   };
 
@@ -357,7 +401,13 @@ export async function getOwnProfile(ctx: any, userId: Id<"users">) {
     .first();
 }
 
-/** Un professionnel éligible peut-il répondre (devis) à cette demande ? */
+/**
+ * Un Expert BatiBuild ELIGIBLE et DISPONIBLE peut-il répondre (devis) ?
+ *
+ * RÈGLE D'ACCÈS PROFESSIONNELS : « postuler » sur ProMarket est réservé aux
+ * Experts BatiBuild actifs, validés et disponibles sur ProMarket. Aucun compte
+ * gratuit ne peut créer une fiche ProMarket pour répondre aux demandes.
+ */
 export async function canQuoteRequest(
   ctx: any,
   user: Doc<"users">,
@@ -365,16 +415,24 @@ export async function canQuoteRequest(
 ): Promise<Doc<"promarketProfiles"> | null> {
   if (request.professionalId) {
     const target = await ctx.db.get(request.professionalId);
-    if (target?.userId === user._id) return target;
+    if (target?.userId === user._id) {
+      // Une demande adressée directement à l'expert : il doit rester éligible
+      // et disponible pour y répondre.
+      const eligibility = await evaluateExpertForProMarket(
+        ctx,
+        target.expertProfileId ? await ctx.db.get(target.expertProfileId) : null,
+      );
+      return eligibility.eligible && eligibility.available ? target : null;
+    }
     // Une demande adressée à une fiche de démonstration (sans compte) reste
-    // ouverte aux professionnels du même métier inscrits sur la plateforme.
+    // ouverte aux Experts du même métier.
     if (target?.userId) return null;
   }
   if (isStaff(user)) return null;
-  const own = await getOwnProfile(ctx, user._id);
-  if (!own || own.status !== "active") return null;
-  if (own.trade !== request.trade) return null;
-  return own;
+  const { profile, eligibility } = await getExpertProMarketContext(ctx, user._id);
+  if (!profile || !eligibility.eligible || !eligibility.available) return null;
+  if (profile.trade !== request.trade) return null;
+  return profile;
 }
 
 /** Droit de lecture d'une demande : client, professionnel visé, répondant, staff. */
@@ -389,13 +447,20 @@ export async function canViewRequest(
     const target = await ctx.db.get(request.professionalId);
     if (target?.userId === user._id) return { allowed: true, profile: target };
   }
-  const own = await getOwnProfile(ctx, user._id);
-  if (own) {
+  // Un Expert BatiBuild éligible voit les demandes PUBLIÉES de son métier
+  // (opportunités) et celles auxquelles il a déjà répondu. Une demande
+  // adressée à un autre professionnel reste privée.
+  const { profile: own, eligibility } = await getExpertProMarketContext(ctx, user._id);
+  if (own && eligibility.eligible) {
     const quotes = await ctx.db
       .query("promarketQuotes")
       .withIndex("by_request", (q: any) => q.eq("requestId", request._id))
       .collect();
-    if (quotes.some((qt: Doc<"promarketQuotes">) => qt.professionalId === own._id)) {
+    const alreadyQuoted = quotes.some(
+      (qt: Doc<"promarketQuotes">) => qt.professionalId === own._id,
+    );
+    if (alreadyQuoted) return { allowed: true, profile: own };
+    if (!request.professionalId && own.trade === request.trade) {
       return { allowed: true, profile: own };
     }
   }

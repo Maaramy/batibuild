@@ -381,9 +381,9 @@ export default function ProMarketHome() {
             <Briefcase className="h-4 w-4" />
           </span>
           <div>
-            <p className="text-sm font-semibold">{t("proSpace.title")}</p>
+            <p className="text-sm font-semibold">{t("proSpace.expertOnly.title")}</p>
             <p className="mt-0.5 max-w-xl text-xs text-muted-foreground">
-              {t("proSpace.subtitle")}
+              {t("proSpace.expertOnly.text")}
             </p>
           </div>
         </div>
@@ -392,7 +392,7 @@ export default function ProMarketHome() {
           className="gap-1.5 text-xs"
           onClick={() => navigate("/promarket/pro-space")}
         >
-          {t("proSpace.createProfile")}
+          {t("proSpace.expertOnly.cta")}
           <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
         </Button>
       </section>

@@ -607,6 +607,14 @@ export default function ExpertDashboard() {
                 </CardContent>
               </Card>
 
+              {/* ProMarket — règle d'accès professionnels : ProMarket est
+                  réservé aux Experts BatiBuild, l'activation se fait ici. */}
+              <ProMarketAccessCard
+                enabled={profile.proMarketOptIn === true}
+                available={profile.proMarketAvailable !== false}
+                status={(profile as any).proMarketStatus ?? null}
+              />
+
               {/* Plan Selection */}
               {(effStatus === "inactive" || effStatus === "expired") && (
                 <Card className="border-violet-200 bg-gradient-to-br from-violet-50/50 to-background ring-1 ring-violet-100 hover:shadow-sm transition-all cursor-pointer"
@@ -1149,5 +1157,119 @@ export default function ExpertDashboard() {
         </DialogContent>
       </Dialog>
     </main>
+  );
+}
+
+// ============================================================================
+// ProMarket — activation depuis le profil Expert BatiBuild
+//
+// RÈGLE D'ACCÈS PROFESSIONNELS : ProMarket ne possède aucune inscription
+// professionnelle indépendante. Un Expert BatiBuild dispose ici des deux
+// interrupteurs demandés ; l'administration valide ensuite la publication.
+// ============================================================================
+
+function ProMarketAccessCard({
+  enabled,
+  available,
+  status,
+}: {
+  enabled: boolean;
+  available: boolean;
+  status: "pending" | "active" | "disabled" | null;
+}) {
+  const navigate = useNavigate();
+  const persist = useMutation(api.promarket.setMyProMarketPreferences);
+  const [optIn, setOptIn] = useState(enabled);
+  const [open, setOpen] = useState(available);
+  const [saving, setSaving] = useState(false);
+
+  const save = async (nextOptIn: boolean, nextAvailable: boolean) => {
+    setSaving(true);
+    try {
+      await persist({ optIn: nextOptIn, available: nextAvailable });
+      toast.success("Préférences ProMarket enregistrées.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Une erreur est survenue");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const stateLabel =
+    status === "disabled"
+      ? "Désactivé par l'administration"
+      : status === "active"
+        ? open
+          ? "Publié et disponible sur ProMarket"
+          : "Publié mais indisponible"
+        : enabled
+          ? "En attente de validation"
+          : "Non publié sur ProMarket";
+
+  return (
+    <Card className="border-emerald-200/70 bg-gradient-to-br from-emerald-50/40 to-background">
+      <CardContent className="p-4 sm:p-5 space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+            <Store className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">ProMarket</p>
+            <p className="text-[10px] text-muted-foreground">
+              {stateLabel} · réservé aux Experts BatiBuild
+            </p>
+          </div>
+          {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        </div>
+
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/40 bg-background/60 p-3">
+          <input
+            type="checkbox"
+            checked={optIn}
+            onChange={(e) => {
+              setOptIn(e.target.checked);
+              void save(e.target.checked, open);
+            }}
+            className="mt-0.5 h-4 w-4 accent-emerald-600"
+          />
+          <span>
+            <span className="block text-xs font-semibold">Disponible sur ProMarket</span>
+            <span className="mt-0.5 block text-[10px] text-muted-foreground">
+              Je souhaite recevoir des demandes de services via ProMarket.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/40 bg-background/60 p-3">
+          <input
+            type="checkbox"
+            checked={open}
+            onChange={(e) => {
+              setOpen(e.target.checked);
+              void save(optIn, e.target.checked);
+            }}
+            className="mt-0.5 h-4 w-4 accent-emerald-600"
+          />
+          <span>
+            <span className="block text-xs font-semibold">
+              Disponible pour de nouvelles missions
+            </span>
+            <span className="mt-0.5 block text-[10px] text-muted-foreground">
+              Désactivez temporairement pour ne plus recevoir de nouvelles demandes.
+            </span>
+          </span>
+        </label>
+
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-[11px] gap-1.5"
+          onClick={() => navigate("/promarket/pro-space")}
+        >
+          <Briefcase className="h-3 w-3" />
+          Espace professionnel ProMarket
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

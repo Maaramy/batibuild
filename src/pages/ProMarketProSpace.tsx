@@ -10,13 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { useDirection } from "@/hooks/use-direction";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import {
   PROMARKET_CATEGORIES,
-  PROMARKET_REGIONS,
   PROMARKET_TRADES,
   promarketTradeLabel,
 } from "@/lib/promarketMeta";
@@ -31,23 +29,29 @@ import {
   Eye,
   Gauge,
   Inbox,
+  Info,
   Loader2,
   MapPin,
-  Plus,
   Save,
+  ShieldCheck,
   Star,
   Target,
   TrendingUp,
+  UserRound,
   Users,
-  X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 // ============================================================================
 // ProMarket — espace professionnel (« /promarket/pro-space »)
+//
+// RÈGLE D'ACCÈS PROFESSIONNELS : ProMarket ne possède AUCUN système
+// d'inscription professionnelle. Cet espace est celui de l'Expert BatiBuild :
+// il active/désactive ProMarket, choisit son métier du catalogue et suit son
+// activité. La fiche publique est synchronisée depuis le profil Expert.
 // ============================================================================
 
 type TabKey =
@@ -57,6 +61,37 @@ type TabKey =
   | "quotes"
   | "reviews"
   | "profile";
+
+interface ExpertSummary {
+  _id: string;
+  profession: string;
+  displayName: string;
+  companyName: string | null;
+  description: string | null;
+  specialties: string[];
+  regions: string[];
+  phone: string;
+  isVisible: boolean;
+  proMarketOptIn: boolean;
+  proMarketAvailable: boolean;
+  proMarketStatus: "pending" | "active" | "disabled" | null;
+  proMarketPrefs: {
+    trade?: string;
+    kind?: "independant" | "entreprise";
+    availability?: "immediate" | "week" | "busy";
+    experienceYears?: number;
+    priceFrom?: number;
+    priceUnit?: string;
+    urgent?: boolean;
+    homeService?: boolean;
+  } | null;
+}
+
+interface EligibilitySummary {
+  eligible: boolean;
+  available: boolean;
+  reasons: string[];
+}
 
 export default function ProMarketProSpace() {
   useDirection();
@@ -70,6 +105,8 @@ export default function ProMarketProSpace() {
 
   const [tab, setTab] = useState<TabKey>("overview");
 
+  const expert = (mine?.expert ?? null) as ExpertSummary | null;
+  const eligibility = (mine?.eligibility ?? null) as EligibilitySummary | null;
   const profile = mine?.profile ?? null;
   const stats = mine?.stats ?? null;
 
@@ -77,6 +114,46 @@ export default function ProMarketProSpace() {
     return (
       <ProMarketShell title={t("proSpace.title")} backTo="/promarket">
         <Skeleton className="h-40 w-full rounded-2xl" />
+      </ProMarketShell>
+    );
+  }
+
+  // §1 — Aucun compte professionnel ProMarket indépendant : sans profil
+  // Expert BatiBuild, la seule action possible est de créer ce profil.
+  if (!expert) {
+    return (
+      <ProMarketShell
+        title={t("proSpace.title")}
+        subtitle={t("proSpace.subtitle")}
+        backTo="/promarket"
+      >
+        <ProMarketEmpty
+          icon={<Briefcase className="h-5 w-5" />}
+          title={t("proSpace.expertOnly.title")}
+          text={t("proSpace.expertOnly.text")}
+        />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => navigate("/dashboard/expert")}
+          >
+            <UserRound className="h-3.5 w-3.5" />
+            {t("proSpace.expertOnly.cta")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs"
+            onClick={() => navigate("/promarket/search")}
+          >
+            <Star className="h-3.5 w-3.5" />
+            {t("nav.search")}
+          </Button>
+        </div>
+        <p className="mt-3 rounded-xl border border-border/50 bg-muted/20 p-3 text-[11px] leading-relaxed text-muted-foreground">
+          {t("proSpace.expertOnly.flow")}
+        </p>
       </ProMarketShell>
     );
   }
@@ -96,20 +173,25 @@ export default function ProMarketProSpace() {
       subtitle={t("proSpace.subtitle")}
       backTo="/promarket"
       badge={
-        profile ? (
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-[10px]",
-              profile.status === "active" &&
-                "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
-              profile.status === "suspended" &&
-                "border-rose-500/30 text-rose-600 dark:text-rose-400",
-            )}
-          >
-            {t(`proSpace.status.${profile.status}`)}
-          </Badge>
-        ) : undefined
+        <Badge
+          variant="outline"
+          className={cn(
+            "text-[10px]",
+            eligibility?.eligible &&
+              "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+            !eligibility?.eligible &&
+              expert.proMarketStatus !== "disabled" &&
+              "border-sky-500/30 text-sky-600 dark:text-sky-400",
+            expert.proMarketStatus === "disabled" &&
+              "border-rose-500/30 text-rose-600 dark:text-rose-400",
+          )}
+        >
+          {expert.proMarketStatus === "disabled"
+            ? t("proSpace.status.suspended")
+            : eligibility?.eligible
+              ? t("proSpace.status.active")
+              : t("proSpace.status.pending")}
+        </Badge>
       }
       action={
         profile ? (
@@ -125,34 +207,15 @@ export default function ProMarketProSpace() {
         ) : undefined
       }
     >
+      <ProMarketExpertStatus expert={expert} eligibility={eligibility} />
+
       {!profile ? (
-        <div className="space-y-4">
-          <ProMarketEmpty
-            icon={<Briefcase className="h-5 w-5" />}
-            title={t("proSpace.noProfile")}
-            text={t("proSpace.noProfileHint")}
-          />
-          <ProfileForm />
+        <div className="mt-3">
+          <ProMarketPreferencesPanel expert={expert} eligibility={eligibility} />
         </div>
       ) : (
         <>
-          {profile.demo && (
-            <p className="mb-3 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-400">
-              {t("proSpace.demoNotice")}
-            </p>
-          )}
-          {profile.status === "pending" && (
-            <p className="mb-3 rounded-lg bg-sky-500/10 px-2.5 py-1.5 text-[11px] text-sky-700 dark:text-sky-400">
-              {t("proSpace.statusHintPending")}
-            </p>
-          )}
-          {profile.status === "suspended" && (
-            <p className="mb-3 rounded-lg bg-rose-500/10 px-2.5 py-1.5 text-[11px] text-rose-700 dark:text-rose-400">
-              {t("proSpace.statusHintSuspended")}
-            </p>
-          )}
-
-          <div className="flex flex-wrap gap-1.5">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {tabs.map((item) => (
               <button
                 key={item.key}
@@ -353,11 +416,347 @@ export default function ProMarketProSpace() {
               </div>
             )}
 
-            {tab === "profile" && <ProfileForm initial={profile} />}
+            {tab === "profile" && (
+              <ProMarketPreferencesPanel expert={expert} eligibility={eligibility} />
+            )}
           </div>
         </>
       )}
     </ProMarketShell>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Statut ProMarket (éligibilité Expert + validation administrateur)
+// ----------------------------------------------------------------------------
+
+function ProMarketExpertStatus({
+  expert,
+  eligibility,
+}: {
+  expert: ExpertSummary;
+  eligibility: EligibilitySummary | null;
+}) {
+  const { t } = useTranslation("promarket");
+
+  const reasons = eligibility?.reasons ?? [];
+  const tone = eligibility?.eligible
+    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+    : expert.proMarketStatus === "disabled"
+      ? "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400"
+      : "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400";
+
+  return (
+    <div className="space-y-2">
+      <div className={cn("rounded-xl border px-3 py-2 text-[11px]", tone)}>
+        <p className="flex items-center gap-1.5 font-semibold">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          {eligibility?.eligible
+            ? t("proSpace.expertOnly.eligibleTitle")
+            : t("proSpace.expertOnly.ineligibleTitle")}
+        </p>
+        {reasons.length > 0 && (
+          <ul className="mt-1 list-inside list-disc space-y-0.5">
+            {reasons.map((reason) => (
+              <li key={reason}>{t(`proSpace.expertOnly.reasons.${reason}`)}</li>
+            ))}
+          </ul>
+        )}
+        {eligibility?.eligible && !eligibility.available && (
+          <p className="mt-1">{t("proSpace.expertOnly.reasons.paused")}</p>
+        )}
+      </div>
+      <p className="flex items-start gap-1.5 rounded-xl border border-border/50 bg-muted/20 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        {t("proSpace.expertOnly.syncNotice")}
+      </p>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Activation ProMarket + préférences (écrites sur le profil Expert)
+// ----------------------------------------------------------------------------
+
+function ProMarketPreferencesPanel({
+  expert,
+  eligibility,
+}: {
+  expert: ExpertSummary;
+  eligibility: EligibilitySummary | null;
+}) {
+  const { t } = useTranslation("promarket");
+  const navigate = useNavigate();
+  const persist = useMutation(api.promarket.setMyProMarketPreferences);
+
+  const prefs = expert.proMarketPrefs ?? {};
+  const [optIn, setOptIn] = useState(expert.proMarketOptIn);
+  const [available, setAvailable] = useState(expert.proMarketAvailable);
+  const [category, setCategory] = useState<string>(
+    PROMARKET_TRADES.find((tr) => tr.slug === prefs.trade)?.category ??
+      PROMARKET_CATEGORIES[0].slug,
+  );
+  const [trade, setTrade] = useState(prefs.trade ?? "");
+  const [kind, setKind] = useState<"independant" | "entreprise">(
+    prefs.kind ?? (expert.companyName ? "entreprise" : "independant"),
+  );
+  const [availability, setAvailability] = useState<"immediate" | "week" | "busy">(
+    prefs.availability ?? "week",
+  );
+  const [experienceYears, setExperienceYears] = useState(
+    String(prefs.experienceYears ?? 0),
+  );
+  const [priceFrom, setPriceFrom] = useState(
+    prefs.priceFrom !== undefined ? String(prefs.priceFrom) : "",
+  );
+  const [priceUnit, setPriceUnit] = useState(prefs.priceUnit ?? "");
+  const [urgent, setUrgent] = useState(Boolean(prefs.urgent));
+  const [homeService, setHomeService] = useState(Boolean(prefs.homeService));
+  const [saving, setSaving] = useState(false);
+
+  const trades = PROMARKET_TRADES.filter((tr) => tr.category === category);
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await persist({
+        optIn,
+        available,
+        trade: trade || undefined,
+        kind,
+        availability,
+        experienceYears: Number(experienceYears) || 0,
+        priceFrom: priceFrom ? Number(priceFrom) : undefined,
+        priceUnit: priceUnit.trim() || undefined,
+        urgent,
+        homeService,
+      });
+      toast.success(t("proSpace.form.saved"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("common.error"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <section className="rounded-2xl border border-border/50 bg-background/60 p-4">
+        <SectionHeading
+          icon={Briefcase}
+          title={t("proSpace.expertOnly.activationTitle")}
+          subtitle={t("proSpace.expertOnly.activationHint")}
+        />
+
+        <div className="mt-3 space-y-2.5">
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/50 bg-muted/10 p-3">
+            <input
+              type="checkbox"
+              checked={optIn}
+              onChange={(e) => setOptIn(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-primary"
+            />
+            <span>
+              <span className="block text-xs font-semibold">
+                {t("proSpace.expertOnly.optIn")}
+              </span>
+              <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                {t("proSpace.expertOnly.optInHint")}
+              </span>
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/50 bg-muted/10 p-3">
+            <input
+              type="checkbox"
+              checked={available}
+              onChange={(e) => setAvailable(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-primary"
+            />
+            <span>
+              <span className="block text-xs font-semibold">
+                {t("proSpace.expertOnly.available")}
+              </span>
+              <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                {t("proSpace.expertOnly.availableHint")}
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Field label={t("search.category")}>
+            <select
+              value={category}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                setTrade("");
+              }}
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+            >
+              {PROMARKET_CATEGORIES.map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label={t("proSpace.form.trade")}>
+            <select
+              value={trade}
+              onChange={(e) => setTrade(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+            >
+              <option value="">{t("search.allTrades")}</option>
+              {trades.map((tr) => (
+                <option key={tr.slug} value={tr.slug}>
+                  {tr.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label={t("proSpace.form.kind")}>
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as "independant" | "entreprise")}
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+            >
+              <option value="independant">{t("search.kindIndependant")}</option>
+              <option value="entreprise">{t("search.kindEntreprise")}</option>
+            </select>
+          </Field>
+          <Field label={t("proSpace.form.availability")}>
+            <select
+              value={availability}
+              onChange={(e) =>
+                setAvailability(e.target.value as "immediate" | "week" | "busy")
+              }
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+            >
+              <option value="immediate">{t("card.availability.immediate")}</option>
+              <option value="week">{t("card.availability.week")}</option>
+              <option value="busy">{t("card.availability.busy")}</option>
+            </select>
+          </Field>
+          <Field label={t("proSpace.form.experienceYears")}>
+            <Input
+              type="number"
+              min={0}
+              max={70}
+              value={experienceYears}
+              onChange={(e) => setExperienceYears(e.target.value)}
+              className="h-9 text-xs"
+            />
+          </Field>
+          <Field label={`${t("proSpace.form.priceFrom")} (${t("common.optional")})`}>
+            <Input
+              type="number"
+              min={0}
+              value={priceFrom}
+              onChange={(e) => setPriceFrom(e.target.value)}
+              className="h-9 text-xs"
+            />
+          </Field>
+          <Field label={`${t("proSpace.form.priceUnit")} (${t("common.optional")})`}>
+            <Input
+              value={priceUnit}
+              onChange={(e) => setPriceUnit(e.target.value)}
+              className="h-9 text-xs"
+            />
+          </Field>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-4">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={urgent}
+              onChange={(e) => setUrgent(e.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+            {t("proSpace.form.urgent")}
+          </label>
+          <label className="inline-flex cursor-pointer items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={homeService}
+              onChange={(e) => setHomeService(e.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+            {t("proSpace.form.homeService")}
+          </label>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs"
+            disabled={saving}
+            onClick={submit}
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            {saving ? t("proSpace.form.saving") : t("proSpace.form.save")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs"
+            onClick={() => navigate("/dashboard/expert")}
+          >
+            <UserRound className="h-3.5 w-3.5" />
+            {t("proSpace.expertOnly.editExpert")}
+          </Button>
+          {trade && (
+            <span className="text-[11px] text-muted-foreground">
+              {promarketTradeLabel(trade)}
+            </span>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-border/50 bg-background/60 p-4">
+        <SectionHeading
+          icon={ShieldCheck}
+          title={t("proSpace.expertOnly.syncedTitle")}
+          subtitle={t("proSpace.expertOnly.syncedHint")}
+        />
+        <dl className="mt-2 grid gap-2 text-[11px] sm:grid-cols-2">
+          <SyncedRow label={t("proSpace.form.displayName")} value={expert.displayName} />
+          <SyncedRow
+            label={t("proSpace.form.companyName")}
+            value={expert.companyName ?? "—"}
+          />
+          <SyncedRow label={t("proSpace.form.phone")} value={expert.phone} />
+          <SyncedRow
+            label={t("proSpace.form.specialties")}
+            value={expert.specialties.join(", ") || "—"}
+          />
+          <SyncedRow
+            label={t("proSpace.form.region")}
+            value={expert.regions.join(", ") || "—"}
+          />
+          <SyncedRow
+            label={t("proSpace.form.description")}
+            value={expert.description || "—"}
+          />
+        </dl>
+      </section>
+    </div>
+  );
+}
+
+function SyncedRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2">
+      <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="mt-0.5 line-clamp-2 text-foreground">{value}</dd>
+    </div>
   );
 }
 
@@ -398,9 +797,7 @@ function RequestList({
   const navigate = useNavigate();
 
   if (items.length === 0) {
-    return (
-      <ProMarketEmpty icon={<Inbox className="h-5 w-5" />} title={emptyLabel} />
-    );
+    return <ProMarketEmpty icon={<Inbox className="h-5 w-5" />} title={emptyLabel} />;
   }
 
   return (
@@ -436,9 +833,7 @@ function RequestList({
               {request.regionLabel}
               {request.city ? ` · ${request.city}` : ""}
             </span>
-            {clientSide && request.clientName && (
-              <span>{request.clientName}</span>
-            )}
+            {clientSide && request.clientName && <span>{request.clientName}</span>}
             {request.budget !== undefined && (
               <span className="inline-flex items-center gap-1">
                 <Coins className="h-3 w-3" />
@@ -472,435 +867,7 @@ function RequestList({
   );
 }
 
-function ProfileForm({ initial }: { initial?: any }) {
-  const { t } = useTranslation("promarket");
-  const upsert = useMutation(api.promarket.upsertMyProfile);
-
-  const [displayName, setDisplayName] = useState(initial?.displayName ?? "");
-  const [companyName, setCompanyName] = useState(initial?.companyName ?? "");
-  const [category, setCategory] = useState(
-    initial?.category ?? PROMARKET_CATEGORIES[0].slug,
-  );
-  const [trade, setTrade] = useState(initial?.trade ?? "");
-  const [kind, setKind] = useState<"independant" | "entreprise">(
-    initial?.kind ?? "independant",
-  );
-  const [description, setDescription] = useState(initial?.description ?? "");
-  const [specialties, setSpecialties] = useState(
-    (initial?.specialties ?? []).join(", "),
-  );
-  const [services, setServices] = useState<
-    { name: string; priceFrom?: number; unit?: string }[]
-  >(initial?.services?.length ? initial.services : [{ name: "" }]);
-  const [region, setRegion] = useState(initial?.region ?? "");
-  const [city, setCity] = useState(initial?.city ?? "");
-  const [zones, setZones] = useState((initial?.zones ?? []).join(", "));
-  const [phone, setPhone] = useState(initial?.phone ?? "");
-  const [whatsapp, setWhatsapp] = useState(initial?.whatsapp ?? "");
-  const [email, setEmail] = useState(initial?.email ?? "");
-  const [website, setWebsite] = useState(initial?.website ?? "");
-  const [certifications, setCertifications] = useState(
-    (initial?.certifications ?? []).join(", "),
-  );
-  const [experienceYears, setExperienceYears] = useState(
-    String(initial?.experienceYears ?? 1),
-  );
-  const [availability, setAvailability] = useState<"immediate" | "week" | "busy">(
-    initial?.availability ?? "week",
-  );
-  const [urgent, setUrgent] = useState(Boolean(initial?.urgent));
-  const [homeService, setHomeService] = useState(Boolean(initial?.homeService));
-  const [priceFrom, setPriceFrom] = useState(
-    initial?.priceFrom !== undefined ? String(initial.priceFrom) : "",
-  );
-  const [priceUnit, setPriceUnit] = useState(initial?.priceUnit ?? "");
-  const [saving, setSaving] = useState(false);
-
-  // Pré-remplit la catégorie quand le métier change.
-  useEffect(() => {
-    const found = PROMARKET_TRADES.find((tr) => tr.slug === trade);
-    if (found) setCategory(found.category);
-  }, [trade]);
-
-  const trades = PROMARKET_TRADES.filter((tr) => tr.category === category);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      await upsert({
-        displayName: displayName.trim(),
-        companyName: companyName.trim() || undefined,
-        trade,
-        kind,
-        description: description.trim() || undefined,
-        specialties: specialties
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter(Boolean),
-        services: services
-          .filter((s) => s.name.trim())
-          .map((s) => ({
-            name: s.name.trim(),
-            priceFrom: s.priceFrom,
-            unit: s.unit,
-          })),
-        region,
-        city: city.trim(),
-        zones: zones
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter(Boolean),
-        phone: phone.trim(),
-        whatsapp: whatsapp.trim() || undefined,
-        email: email.trim() || undefined,
-        website: website.trim() || undefined,
-        certifications: certifications
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter(Boolean),
-        experienceYears: Number(experienceYears) || 0,
-        availability,
-        urgent,
-        homeService,
-        priceFrom: priceFrom ? Number(priceFrom) : undefined,
-        priceUnit: priceUnit.trim() || undefined,
-      });
-      toast.success(t("proSpace.form.saved"));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("common.error"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <section className="rounded-2xl border border-border/50 bg-background/60 p-4">
-      <SectionHeading
-        icon={Briefcase}
-        title={initial ? t("proSpace.editProfile") : t("proSpace.createProfile")}
-        subtitle={t("proSpace.subtitle")}
-      />
-
-      <div className="mt-3 space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={t("proSpace.form.displayName")}>
-            <Input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="h-9 text-xs"
-            />
-          </Field>
-          <Field label={`${t("proSpace.form.companyName")} (${t("common.optional")})`}>
-            <Input
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              className="h-9 text-xs"
-            />
-          </Field>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label={t("proSpace.form.kind")}>
-            <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value as any)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
-            >
-              <option value="independant">{t("search.kindIndependant")}</option>
-              <option value="entreprise">{t("search.kindEntreprise")}</option>
-            </select>
-          </Field>
-          <Field label={t("search.category")}>
-            <select
-              value={category}
-              onChange={(e) => {
-                setCategory(e.target.value);
-                setTrade("");
-              }}
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
-            >
-              {PROMARKET_CATEGORIES.map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label={t("proSpace.form.trade")}>
-            <select
-              value={trade}
-              onChange={(e) => setTrade(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
-            >
-              <option value="">{t("search.allTrades")}</option>
-              {trades.map((tr) => (
-                <option key={tr.slug} value={tr.slug}>
-                  {tr.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-
-        <Field label={`${t("proSpace.form.description")} (${t("common.optional")})`}>
-          <Textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="min-h-20 text-xs"
-          />
-        </Field>
-
-        <Field label={t("proSpace.form.specialties")}>
-          <Input
-            value={specialties}
-            onChange={(e) => setSpecialties(e.target.value)}
-            className="h-9 text-xs"
-          />
-        </Field>
-
-        {/* ── Services ──────────────────────────────────────────────────── */}
-        <div className="space-y-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {t("proSpace.form.services")}
-          </span>
-          {services.map((service, index) => (
-            <div key={index} className="flex flex-wrap items-center gap-2">
-              <Input
-                value={service.name}
-                onChange={(e) =>
-                  setServices((prev) =>
-                    prev.map((s, i) =>
-                      i === index ? { ...s, name: e.target.value } : s,
-                    ),
-                  )
-                }
-                placeholder={t("proSpace.form.serviceName")}
-                className="h-9 min-w-[10rem] flex-1 text-xs"
-              />
-              <Input
-                type="number"
-                min={0}
-                value={service.priceFrom ?? ""}
-                onChange={(e) =>
-                  setServices((prev) =>
-                    prev.map((s, i) =>
-                      i === index
-                        ? {
-                            ...s,
-                            priceFrom: e.target.value
-                              ? Number(e.target.value)
-                              : undefined,
-                          }
-                        : s,
-                    ),
-                  )
-                }
-                placeholder={t("proSpace.form.servicePrice")}
-                className="h-9 w-36 text-xs"
-              />
-              <Input
-                value={service.unit ?? ""}
-                onChange={(e) =>
-                  setServices((prev) =>
-                    prev.map((s, i) =>
-                      i === index ? { ...s, unit: e.target.value } : s,
-                    ),
-                  )
-                }
-                placeholder={t("proSpace.form.serviceUnit")}
-                className="h-9 w-32 text-xs"
-              />
-              {services.length > 1 && (
-                <button
-                  type="button"
-                  aria-label={t("common.close")}
-                  onClick={() =>
-                    setServices((prev) => prev.filter((_, i) => i !== index))
-                  }
-                  className="rounded p-1 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs"
-            onClick={() => setServices((prev) => [...prev, { name: "" }])}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {t("proSpace.form.addService")}
-          </Button>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={t("proSpace.form.region")}>
-            <select
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
-            >
-              <option value="">{t("search.allRegions")}</option>
-              {PROMARKET_REGIONS.map((r) => (
-                <option key={r.slug} value={r.slug}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label={t("proSpace.form.city")}>
-            <Input
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className="h-9 text-xs"
-            />
-          </Field>
-        </div>
-
-        <Field label={t("proSpace.form.zones")}>
-          <Input
-            value={zones}
-            onChange={(e) => setZones(e.target.value)}
-            className="h-9 text-xs"
-          />
-        </Field>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={t("proSpace.form.phone")}>
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="h-9 text-xs"
-            />
-          </Field>
-          <Field label={`${t("proSpace.form.whatsapp")} (${t("common.optional")})`}>
-            <Input
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              className="h-9 text-xs"
-            />
-          </Field>
-          <Field label={`${t("proSpace.form.email")} (${t("common.optional")})`}>
-            <Input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-9 text-xs"
-            />
-          </Field>
-          <Field label={`${t("proSpace.form.website")} (${t("common.optional")})`}>
-            <Input
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              className="h-9 text-xs"
-            />
-          </Field>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label={t("proSpace.form.experienceYears")}>
-            <Input
-              type="number"
-              min={0}
-              max={70}
-              value={experienceYears}
-              onChange={(e) => setExperienceYears(e.target.value)}
-              className="h-9 text-xs"
-            />
-          </Field>
-          <Field label={t("proSpace.form.availability")}>
-            <select
-              value={availability}
-              onChange={(e) => setAvailability(e.target.value as any)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
-            >
-              <option value="immediate">{t("card.availability.immediate")}</option>
-              <option value="week">{t("card.availability.week")}</option>
-              <option value="busy">{t("card.availability.busy")}</option>
-            </select>
-          </Field>
-          <Field label={`${t("proSpace.form.priceFrom")} (${t("common.optional")})`}>
-            <Input
-              type="number"
-              min={0}
-              value={priceFrom}
-              onChange={(e) => setPriceFrom(e.target.value)}
-              className="h-9 text-xs"
-            />
-          </Field>
-        </div>
-
-        <Field label={`${t("proSpace.form.priceUnit")} (${t("common.optional")})`}>
-          <Input
-            value={priceUnit}
-            onChange={(e) => setPriceUnit(e.target.value)}
-            className="h-9 text-xs"
-          />
-        </Field>
-
-        <Field label={`${t("proSpace.form.certifications")} (${t("common.optional")})`}>
-          <Input
-            value={certifications}
-            onChange={(e) => setCertifications(e.target.value)}
-            className="h-9 text-xs"
-          />
-        </Field>
-
-        <div className="flex flex-wrap gap-4">
-          <label className="inline-flex cursor-pointer items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={urgent}
-              onChange={(e) => setUrgent(e.target.checked)}
-              className="h-4 w-4 accent-primary"
-            />
-            {t("proSpace.form.urgent")}
-          </label>
-          <label className="inline-flex cursor-pointer items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={homeService}
-              onChange={(e) => setHomeService(e.target.checked)}
-              className="h-4 w-4 accent-primary"
-            />
-            {t("proSpace.form.homeService")}
-          </label>
-        </div>
-
-        <div className="flex items-center gap-2 pt-1">
-          <Button
-            size="sm"
-            className="gap-1.5 text-xs"
-            disabled={saving}
-            onClick={save}
-          >
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
-            {saving ? t("proSpace.form.saving") : t("proSpace.form.save")}
-          </Button>
-          {trade && (
-            <span className="text-[11px] text-muted-foreground">
-              {promarketTradeLabel(trade)}
-            </span>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-1">
       <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">

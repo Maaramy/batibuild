@@ -137,6 +137,30 @@ export const PROMARKET_TRADE_LABELS: Record<string, string> = Object.fromEntries
 export const PROMARKET_CATEGORY_BY_TRADE: Record<string, string> =
   Object.fromEntries(PROMARKET_TRADES.map((t) => [t.slug, t.category]));
 
+/** Tous les métiers ProMarket valides (validation serveur). */
+export function isProMarketTrade(slug: string | undefined | null): boolean {
+  return Boolean(slug && PROMARKET_TRADE_LABELS[slug]);
+}
+
+/**
+ * RÈGLE D'ACCÈS PROFESSIONNELS — ProMarket n'accueille que des Experts
+ * BatiBuild. La profession déclarée sur le profil Expert détermine le métier
+ * ProMarket par défaut (l'expert peut ensuite préciser un métier du catalogue).
+ */
+export const PROMARKET_TRADE_BY_EXPERT_PROFESSION: Record<string, string> = {
+  architecte: "architecte",
+  bureau_etudes: "bureau_etudes",
+  ingenieur: "ingenieur",
+  promoteur_immobilier: "entreprise_construction",
+  plombier: "plombier",
+  electricien: "electricien",
+};
+
+export function expertProfessionTrade(profession: string | undefined): string {
+  if (!profession) return "";
+  return PROMARKET_TRADE_BY_EXPERT_PROFESSION[profession] ?? "";
+}
+
 export function promarketTradeLabel(slug: string | undefined): string {
   if (!slug) return "";
   return PROMARKET_TRADE_LABELS[slug] ?? slug;

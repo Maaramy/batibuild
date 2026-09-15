@@ -1352,12 +1352,51 @@ const schema = defineSchema(
       paymentProofUploadedAt: v.optional(v.number()),
       paymentProofVerified: v.optional(v.boolean()),
       isVisible: v.boolean(),
+      /**
+       * RÈGLE D'ACCÈS PROFESSIONNELS — ProMarket n'accueille QUE des Experts
+       * BatiBuild actifs : pas d'inscription professionnelle indépendante.
+       *   - `proMarketOptIn`      : l'expert demande à recevoir des demandes.
+       *   - `proMarketAvailable`  : disponible pour de nouvelles missions.
+       *   - `proMarketStatus`     : validation administrateur (pending/active/disabled).
+       *   - `proMarketPrefs`      : préférences ProMarket sans équivalent Expert
+       *                             (métier, dispo, tarif indicatif, expérience…).
+       * Les informations communes (nom, photo, spécialités, région, contact)
+       * restent lues depuis le profil Expert : aucune duplication.
+       */
+      proMarketOptIn: v.optional(v.boolean()),
+      proMarketAvailable: v.optional(v.boolean()),
+      proMarketStatus: v.optional(
+        v.union(
+          v.literal("pending"),
+          v.literal("active"),
+          v.literal("disabled"),
+        ),
+      ),
+      proMarketPrefs: v.optional(
+        v.object({
+          trade: v.optional(v.string()),
+          kind: v.union(v.literal("independant"), v.literal("entreprise")),
+          availability: v.union(
+            v.literal("immediate"),
+            v.literal("week"),
+            v.literal("busy"),
+          ),
+          experienceYears: v.number(),
+          priceFrom: v.optional(v.number()),
+          priceUnit: v.optional(v.string()),
+          urgent: v.boolean(),
+          homeService: v.boolean(),
+        }),
+      ),
+      proMarketRequestedAt: v.optional(v.number()),
+      proMarketValidatedAt: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
       .index("by_user", ["userId"])
       .index("by_profession", ["profession"])
-      .index("by_subscription", ["subscriptionStatus"]),
+      .index("by_subscription", ["subscriptionStatus"])
+      .index("by_promarket_status", ["proMarketStatus"]),
 
     expertServiceRequests: defineTable({
       userId: v.id("users"),
@@ -1632,6 +1671,12 @@ const schema = defineSchema(
         v.literal("active"),
         v.literal("suspended"),
       ),
+      /**
+       * Profil Expert BatiBuild d'origine (règle d'accès : toute fiche réelle
+       * est OBLIGATOIREMENT la projection d'un compte Expert BatiBuild actif).
+       * Absent uniquement pour les fiches de démonstration.
+       */
+      expertProfileId: v.optional(v.id("expertProfiles")),
       /** Fiche de démonstration (jamais présentée comme un vrai professionnel). */
       demo: v.boolean(),
       createdAt: v.number(),
@@ -1643,6 +1688,7 @@ const schema = defineSchema(
       .index("by_region", ["region"])
       .index("by_status", ["status"])
       .index("by_status_region", ["status", "region"])
+      .index("by_expert", ["expertProfileId"])
       .index("by_demo", ["demo"]),
 
     /** Demandes de service / de devis créées par les clients. */

@@ -45,6 +45,7 @@ import { toast } from "sonner";
 
 type AdminTab =
   | "overview"
+  | "experts"
   | "professionals"
   | "requests"
   | "reviews"
@@ -57,6 +58,7 @@ export function ProMarketAdmin() {
 
   const tabs: { key: AdminTab; label: string }[] = [
     { key: "overview", label: t("admin.tabs.overview") },
+    { key: "experts", label: t("admin.tabs.experts") },
     { key: "professionals", label: t("admin.tabs.professionals") },
     { key: "requests", label: t("admin.tabs.requests") },
     { key: "reviews", label: t("admin.tabs.reviews") },
@@ -93,6 +95,7 @@ export function ProMarketAdmin() {
       </div>
 
       {tab === "overview" && <StatsTab />}
+      {tab === "experts" && <ExpertsTab />}
       {tab === "professionals" && <ProfessionalsTab />}
       {tab === "requests" && <RequestsTab />}
       {tab === "reviews" && <ReviewsTab />}
@@ -234,6 +237,226 @@ function SmallStat({ label, value }: { label: string; value: number | string }) 
 }
 
 // ----------------------------------------------------------------------------
+// Experts BatiBuild sur ProMarket (règle d'accès professionnels)
+// ----------------------------------------------------------------------------
+
+type ExpertBucket =
+  | "all"
+  | "eligible"
+  | "active"
+  | "pending"
+  | "disabled"
+  | "not_opted_in"
+  | "incomplete";
+
+function ExpertsTab() {
+  const { t } = useTranslation("promarket");
+  const [bucket, setBucket] = useState<ExpertBucket>("all");
+  const [search, setSearch] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const counts = useQuery(api.promarketAdmin.adminProMarketExpertCounts, {});
+  const experts = useQuery(api.promarketAdmin.adminListProMarketExperts, {
+    bucket,
+    ...(search.trim() ? { q: search.trim() } : {}),
+  });
+  const setStatus = useMutation(api.promarketAdmin.adminSetExpertProMarketStatus);
+
+  const run = async (
+    expertId: string,
+    action: "approve" | "reject" | "disable" | "enable",
+    label: string,
+  ) => {
+    setBusy(expertId);
+    try {
+      await setStatus({ expertId: expertId as any, action });
+      toast.success(label);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("common.error"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const buckets: { key: ExpertBucket; label: string; value?: number }[] = [
+    { key: "all", label: t("admin.experts.bucketAll"), value: counts?.totalExperts },
+    { key: "eligible", label: t("admin.experts.bucketEligible"), value: counts?.eligible },
+    { key: "active", label: t("admin.experts.bucketActive"), value: counts?.active },
+    { key: "pending", label: t("admin.experts.bucketPending"), value: counts?.pending },
+    { key: "disabled", label: t("admin.experts.bucketDisabled"), value: counts?.disabled },
+    {
+      key: "not_opted_in",
+      label: t("admin.experts.bucketNotOptedIn"),
+      value: counts?.notOptedIn,
+    },
+    { key: "incomplete", label: t("admin.experts.bucketIncomplete") },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <p className="rounded-xl border border-border/50 bg-muted/10 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+        {t("admin.experts.rule")}
+      </p>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {buckets.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => setBucket(item.key)}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all active:scale-95",
+              bucket === item.key
+                ? "border-primary/30 bg-primary/10 text-primary"
+                : "border-border/50 bg-muted/20 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {item.label}
+            {item.value !== undefined ? ` · ${item.value}` : ""}
+          </button>
+        ))}
+      </div>
+
+      <Input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={t("admin.search")}
+        className="h-9 max-w-xs text-xs"
+      />
+
+      {experts === undefined ? (
+        <Skeleton className="h-24 w-full rounded-xl" />
+      ) : experts.length === 0 ? (
+        <ProMarketEmpty title={t("admin.experts.noExperts")} />
+      ) : (
+        <ul className="space-y-2">
+          {experts.map((row: any) => (
+            <li
+              key={row.expertId}
+              className="rounded-2xl border border-border/50 bg-background/60 p-3"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold">
+                      {row.companyName || row.displayName}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px]",
+                        row.eligibility.eligible &&
+                          "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+                        !row.eligibility.eligible &&
+                          row.status !== "disabled" &&
+                          "border-amber-500/30 text-amber-600 dark:text-amber-400",
+                        row.status === "disabled" &&
+                          "border-rose-500/30 text-rose-600 dark:text-rose-400",
+                      )}
+                    >
+                      {row.status === "disabled"
+                        ? t("admin.experts.stateDisabled")
+                        : row.eligibility.eligible
+                          ? row.eligibility.available
+                            ? t("admin.experts.stateActive")
+                            : t("admin.experts.statePaused")
+                          : t("admin.experts.statePending")}
+                    </Badge>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {t(`profession.${row.profession}` as any, {
+                      defaultValue: row.profession,
+                    })}
+                    {" · "}
+                    {row.tradeLabel}
+                    {row.regions.length > 0 ? ` · ${row.regions.join(", ")}` : ""}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {row.ownerName} {row.email ? `· ${row.email}` : ""}
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                    <span>{t("admin.experts.requests", { count: row.requestsReceived })}</span>
+                    <span>
+                      {t("admin.experts.applications", { count: row.applications })}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Star className="h-3 w-3" />
+                      {row.rating.toFixed(1)} ({row.ratingCount})
+                    </span>
+                  </div>
+                  {row.eligibility.reasons.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {row.eligibility.reasons.map((reason: string) => (
+                        <span
+                          key={reason}
+                          className="rounded-full border border-border/50 bg-muted/20 px-2 py-0.5 text-[10px] text-muted-foreground"
+                        >
+                          {t(`proSpace.expertOnly.reasons.${reason}`)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {row.status !== "active" && (
+                    <Button
+                      size="sm"
+                      className="h-8 gap-1 text-[11px]"
+                      disabled={busy === row.expertId}
+                      onClick={() =>
+                        run(
+                          row.expertId,
+                          row.status === "disabled" ? "enable" : "approve",
+                          t("admin.experts.enable"),
+                        )
+                      }
+                    >
+                      {busy === row.expertId ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="h-3 w-3" />
+                      )}
+                      {t("admin.experts.enable")}
+                    </Button>
+                  )}
+                  {row.status !== "disabled" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1 text-[11px]"
+                      disabled={busy === row.expertId}
+                      onClick={() =>
+                        run(row.expertId, "disable", t("admin.experts.disable"))
+                      }
+                    >
+                      <Ban className="h-3 w-3" />
+                      {t("admin.experts.disable")}
+                    </Button>
+                  )}
+                  {row.status === "pending" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1 text-[11px]"
+                      disabled={busy === row.expertId}
+                      onClick={() => run(row.expertId, "reject", t("admin.experts.reject"))}
+                    >
+                      <X className="h-3 w-3" />
+                      {t("admin.experts.reject")}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
 // Professionnels
 // ----------------------------------------------------------------------------
 
@@ -318,6 +541,14 @@ function ProfessionalsTab() {
                     {!profile.hasAccount && (
                       <Badge variant="outline" className="text-[10px] text-muted-foreground">
                         {t("admin.demoOnly")}
+                      </Badge>
+                    )}
+                    {!profile.demo && !profile.linkedToExpert && (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-500/30 text-[10px] text-amber-600 dark:text-amber-400"
+                      >
+                        {t("admin.experts.orphanProfile")}
                       </Badge>
                     )}
                   </div>

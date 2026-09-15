@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
+import { getFreePlanStatus } from "./access";
 import {
   avgRating,
   isStaff,
@@ -13,6 +14,11 @@ import {
   requireStaff,
   reviewStatusValidator,
 } from "./promarketShared";
+import {
+  evaluateExpertForProMarket,
+  proMarketTradeForExpert,
+  syncProMarketProfileFromExpert,
+} from "./proMarketAccess";
 import { promarketTradeLabel, normalizeProMarketText } from "../lib/promarketMeta";
 
 // ============================================================================
@@ -59,6 +65,9 @@ export const adminListProfessionals = query({
         email: p.email,
         // Les coordonnées restent visibles pour l'administration.
         hasAccount: Boolean(p.userId),
+        // Règle d'accès : une fiche réelle DOIT être adossée à un compte Expert.
+        // `linkedToExpert: false` signale une fiche historique à retirer.
+        linkedToExpert: Boolean(p.expertProfileId),
       }));
   },
 });
@@ -137,6 +146,222 @@ export const adminSetBadges = mutation({
       });
     }
     return null;
+  },
+});
+
+// ----------------------------------------------------------------------------
+// Experts BatiBuild sur ProMarket
+//
+// RÈGLE D'ACCÈS PROFESSIONNELS §4 — l'administrateur pilote l'accès ProMarket
+// des Experts BatiBuild : validation, désactivation et suivi (demandes,
+// candidatures/devis, note moyenne). Aucune fiche ProMarket indépendante
+// n'existe : les profils listés ici sont tous adossés à un compte Expert.
+// ----------------------------------------------------------------------------
+
+export const adminListProMarketExperts = query({
+  args: {
+    bucket: v.optional(
+      v.union(
+        v.literal("all"),
+        v.literal("eligible"),
+        v.literal("active"),
+        v.literal("pending"),
+        v.literal("disabled"),
+        v.literal("not_opted_in"),
+        v.literal("incomplete"),
+      ),
+    ),
+    q: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireStaff(ctx);
+
+    const experts = await ctx.db.query("expertProfiles").take(500);
+    const needle = args.q ? normalizeProMarketText(args.q) : "";
+    const bucket = args.bucket ?? "all";
+    const free = await getFreePlanStatus(ctx);
+
+    const rows = [];
+    for (const expert of experts) {
+      const user = expert.userId ? await ctx.db.get(expert.userId) : null;
+      const eligibility = await evaluateExpertForProMarket(ctx, expert, free);
+      const profile = await ctx.db
+        .query("promarketProfiles")
+        .withIndex("by_expert", (q: any) => q.eq("expertProfileId", expert._id))
+        .first();
+
+      const requests = profile
+        ? await ctx.db
+            .query("promarketRequests")
+            .withIndex("by_professional", (q: any) =>
+              q.eq("professionalId", profile._id),
+            )
+            .take(300)
+        : [];
+      const quotes = profile
+        ? await ctx.db
+            .query("promarketQuotes")
+            .withIndex("by_professional", (q: any) =>
+              q.eq("professionalId", profile._id),
+            )
+            .take(300)
+        : [];
+
+      const status = expert.proMarketStatus ?? null;
+      const optedIn = expert.proMarketOptIn === true;
+      const inBucket =
+        bucket === "all"
+          ? true
+          : bucket === "eligible"
+            ? eligibility.eligible
+            : bucket === "active"
+              ? eligibility.eligible && eligibility.available
+              : bucket === "pending"
+                ? optedIn && status !== "active" && status !== "disabled"
+                : bucket === "disabled"
+                  ? status === "disabled"
+                  : bucket === "not_opted_in"
+                    ? !optedIn
+                    : eligibility.reasons.includes("incomplete_profile");
+      if (!inBucket) continue;
+
+      if (needle) {
+        const hay = normalizeProMarketText(
+          [
+            expert.displayName,
+            expert.companyName ?? "",
+            user?.email ?? "",
+            promarketTradeLabel(proMarketTradeForExpert(expert)),
+          ].join(" "),
+        );
+        if (!hay.includes(needle)) continue;
+      }
+
+      rows.push({
+        expertId: expert._id,
+        userId: expert.userId,
+        ownerName: user?.name ?? user?.email ?? "Expert",
+        email: expert.email,
+        displayName: expert.displayName,
+        companyName: expert.companyName ?? null,
+        profession: expert.profession,
+        trade: proMarketTradeForExpert(expert),
+        tradeLabel: promarketTradeLabel(proMarketTradeForExpert(expert)),
+        regions: expert.regions ?? [],
+        isVisible: expert.isVisible,
+        optIn: optedIn,
+        available: expert.proMarketAvailable !== false,
+        status,
+        eligibility,
+        profileId: profile?._id ?? null,
+        acceptedContacts: profile?.contacts ?? 0,
+        requestsReceived: requests.length,
+        applications: quotes.length,
+        jobsDone: requests.filter((r: Doc<"promarketRequests">) => r.status === "done")
+          .length,
+        rating: profile ? avgRating(profile) : 0,
+        ratingCount: profile?.ratingCount ?? 0,
+      });
+    }
+
+    return rows.sort((a, b) => b.requestsReceived - a.requestsReceived);
+  },
+});
+
+/** Activation / désactivation ProMarket d'un Expert (administrateur). */
+export const adminSetExpertProMarketStatus = mutation({
+  args: {
+    expertId: v.id("expertProfiles"),
+    action: v.union(
+      v.literal("approve"),
+      v.literal("reject"),
+      v.literal("disable"),
+      v.literal("enable"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    await requireStaff(ctx);
+    const expert = await ctx.db.get(args.expertId);
+    if (!expert) throw new ConvexError("Expert introuvable");
+
+    const now = Date.now();
+    // « approve »/« enable » valident l'accès ; « reject »/« disable » le
+    // retirent. Le sync masque ou republie la fiche ProMarket en conséquence.
+    const patch =
+      args.action === "approve" || args.action === "enable"
+        ? {
+            proMarketStatus: "active" as const,
+            proMarketOptIn: true,
+            proMarketValidatedAt: now,
+            updatedAt: now,
+          }
+        : {
+            proMarketStatus: "disabled" as const,
+            updatedAt: now,
+          };
+
+    await ctx.db.patch(expert._id, patch);
+    const updated = await ctx.db.get(expert._id);
+    const { profileId } = await syncProMarketProfileFromExpert(ctx, updated);
+
+    if (expert.userId) {
+      const published = args.action === "approve" || args.action === "enable";
+      await notify(ctx, {
+        userId: expert.userId,
+        type: "promarket_verified",
+        title: published
+          ? "ProMarket activé pour votre profil"
+          : "ProMarket désactivé pour votre profil",
+        message: published
+          ? "Votre profil Expert est désormais visible sur ProMarket."
+          : "L'administration a désactivé votre visibilité sur ProMarket.",
+        link: "/promarket/pro-space",
+      });
+    }
+
+    return { profileId, status: patch.proMarketStatus };
+  },
+});
+
+/** Compteurs de pilotage (éligibles / actifs / en attente / désactivés). */
+export const adminProMarketExpertCounts = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireStaff(ctx);
+    const experts = await ctx.db.query("expertProfiles").take(500);
+    const free = await getFreePlanStatus(ctx);
+
+    let eligible = 0;
+    let active = 0;
+    let pending = 0;
+    let disabled = 0;
+    let notOptedIn = 0;
+    for (const expert of experts) {
+      const status = expert.proMarketStatus ?? null;
+      const optedIn = expert.proMarketOptIn === true;
+      if (!optedIn) notOptedIn++;
+      if (status === "disabled") disabled++;
+      if (optedIn && status !== "active" && status !== "disabled") pending++;
+      const eligibility = await evaluateExpertForProMarket(ctx, expert, free);
+      if (eligibility.eligible) {
+        eligible++;
+        if (eligibility.available) active++;
+      }
+    }
+
+    const profiles = await ctx.db.query("promarketProfiles").take(1000);
+    return {
+      totalExperts: experts.length,
+      eligible,
+      active,
+      pending,
+      disabled,
+      notOptedIn,
+      publishedProfiles: profiles.filter(
+        (p: Doc<"promarketProfiles">) => !p.demo && p.status === "active",
+      ).length,
+      demoProfiles: profiles.filter((p: Doc<"promarketProfiles">) => p.demo).length,
+    };
   },
 });
 

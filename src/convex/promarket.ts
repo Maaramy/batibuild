@@ -5,6 +5,7 @@ import { getCurrentUser } from "./users";
 import { forumAttachmentValidator } from "./schema";
 import {
   PROMARKET_CATEGORIES,
+  PROMARKET_TRADE_LABELS,
   interpretProMarketNeed,
   promarketRegionLabel,
   promarketTradeLabel,
@@ -26,8 +27,14 @@ import {
   requestSummary,
   requireUser,
   runSearch,
-  serviceValidator,
 } from "./promarketShared";
+import {
+  buildProMarketEligibilityFilter,
+  evaluateExpertForProMarket,
+  getExpertProMarketContext,
+  proMarketExpertOnlyError,
+  syncProMarketProfileFromExpert,
+} from "./proMarketAccess";
 
 // ============================================================================
 // ProMarket — marketplace de services professionnels (clients & professionnels)
@@ -166,12 +173,17 @@ export const getProfessional = query({
     const viewer = await getCurrentUser(ctx);
     const profile = await ctx.db.get(args.professionalId);
     if (!profile) return null;
-    if (
-      profile.status === "suspended" &&
-      !isStaff(viewer) &&
-      profile.userId !== viewer?._id
-    ) {
+    const isOwner = Boolean(viewer && profile.userId === viewer._id);
+    if (profile.status === "suspended" && !isStaff(viewer) && !isOwner) {
       return null;
+    }
+    // RÈGLE D'ACCÈS PROFESSIONNELS : une fiche réelle qui n'est plus adossée à
+    // un Expert BatiBuild éligible n'est plus publique.
+    if (!profile.demo && !isStaff(viewer) && !isOwner) {
+      const expert = profile.expertProfileId
+        ? await ctx.db.get(profile.expertProfileId)
+        : null;
+      if (!(await evaluateExpertForProMarket(ctx, expert)).eligible) return null;
     }
 
     const saved = viewer
@@ -292,9 +304,11 @@ export const listSavedProfessionals = query({
       .order("desc")
       .take(100);
     const out = [];
+    const isEligible = await buildProMarketEligibilityFilter(ctx);
     for (const row of rows) {
       const profile = await ctx.db.get(row.professionalId);
       if (!profile || profile.status === "suspended") continue;
+      if (!(await isEligible(profile))) continue;
       out.push({ ...publicProfile(profile, user), savedAt: row.createdAt });
     }
     return out;
@@ -328,17 +342,48 @@ export const toggleSavedProfessional = mutation({
 });
 
 // ----------------------------------------------------------------------------
-// Espace professionnel
+// Espace professionnel — RÈGLE D'ACCÈS PROFESSIONNELS
+//
+// ProMarket n'a AUCUN système d'inscription professionnelle : l'espace
+// professionnel est l'espace de l'Expert BatiBuild. La fiche ProMarket est une
+// projection synchronisée de `expertProfiles` (cf. proMarketAccess.ts).
 // ----------------------------------------------------------------------------
 
-/** Fiche ProMarket de l'utilisateur courant + statistiques. */
+/** Fiche ProMarket de l'Expert connecté + éligibilité + statistiques. */
 export const getMyProfessionalProfile = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
-    if (!user) return { profile: null, stats: null };
-    const profile = await getOwnProfile(ctx, user._id);
-    if (!profile) return { profile: null, stats: null };
+    if (!user) {
+      return { profile: null, stats: null, expert: null, eligibility: null };
+    }
+
+    const { expert, profile, eligibility } = await getExpertProMarketContext(
+      ctx,
+      user._id,
+    );
+
+    const expertSummary = expert
+      ? {
+          _id: expert._id,
+          profession: expert.profession,
+          displayName: expert.displayName,
+          companyName: expert.companyName ?? null,
+          description: expert.description ?? null,
+          specialties: expert.specialties ?? [],
+          regions: expert.regions ?? [],
+          phone: expert.phone,
+          isVisible: expert.isVisible,
+          proMarketOptIn: expert.proMarketOptIn === true,
+          proMarketAvailable: expert.proMarketAvailable !== false,
+          proMarketStatus: expert.proMarketStatus ?? null,
+          proMarketPrefs: expert.proMarketPrefs ?? null,
+        }
+      : null;
+
+    if (!profile) {
+      return { profile: null, stats: null, expert: expertSummary, eligibility };
+    }
 
     const requests = await ctx.db
       .query("promarketRequests")
@@ -351,6 +396,8 @@ export const getMyProfessionalProfile = query({
 
     return {
       profile: publicProfile(profile, user),
+      expert: expertSummary,
+      eligibility,
       stats: {
         newRequests: requests.filter((r: Doc<"promarketRequests">) => r.status === "new")
           .length,
@@ -382,137 +429,113 @@ export const getMyProfessionalProfile = query({
   },
 });
 
-/** Création / mise à jour de sa fiche professionnelle. */
-export const upsertMyProfile = mutation({
+/**
+ * Préférences ProMarket de l'Expert BatiBuild connecté.
+ *
+ * RÈGLE D'ACCÈS PROFESSIONNELS (§1 et §3) : aucun compte professionnel
+ * ProMarket n'est créé ici. Cette mutation écrit les préférences SUR le profil
+ * Expert existant (« Disponible sur ProMarket » / « Disponible pour de
+ * nouvelles missions ») puis synchronise la fiche ProMarket depuis ce profil.
+ * Un utilisateur sans profil Expert est refusé avec un message actionnable.
+ */
+export const setMyProMarketPreferences = mutation({
   args: {
-    displayName: v.string(),
-    companyName: v.optional(v.string()),
-    trade: v.string(),
-    kind: v.union(v.literal("independant"), v.literal("entreprise")),
-    description: v.optional(v.string()),
-    specialties: v.array(v.string()),
-    services: v.optional(v.array(serviceValidator)),
-    region: v.string(),
-    city: v.string(),
-    zones: v.array(v.string()),
-    phone: v.string(),
-    whatsapp: v.optional(v.string()),
-    email: v.optional(v.string()),
-    website: v.optional(v.string()),
-    certifications: v.optional(v.array(v.string())),
-    experienceYears: v.number(),
-    availability: v.union(
-      v.literal("immediate"),
-      v.literal("week"),
-      v.literal("busy"),
+    optIn: v.boolean(),
+    available: v.optional(v.boolean()),
+    trade: v.optional(v.string()),
+    kind: v.optional(v.union(v.literal("independant"), v.literal("entreprise"))),
+    availability: v.optional(
+      v.union(v.literal("immediate"), v.literal("week"), v.literal("busy")),
     ),
-    urgent: v.boolean(),
-    homeService: v.boolean(),
+    experienceYears: v.optional(v.number()),
     priceFrom: v.optional(v.number()),
     priceUnit: v.optional(v.string()),
-    logoStorageId: v.optional(v.id("_storage")),
-    gallery: v.optional(
-      v.array(
-        v.object({
-          storageId: v.id("_storage"),
-          name: v.optional(v.string()),
-          caption: v.optional(v.string()),
-        }),
-      ),
-    ),
+    urgent: v.optional(v.boolean()),
+    homeService: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    const displayName = args.displayName.trim();
-    if (displayName.length < 3) {
-      throw new ConvexError("Le nom professionnel doit contenir au moins 3 caractères.");
+
+    const expert = await ctx.db
+      .query("expertProfiles")
+      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .first();
+    // §1 — ProMarket n'accueille que des Experts BatiBuild existants.
+    if (!expert) throw proMarketExpertOnlyError("no_expert_profile");
+
+    if (args.trade !== undefined && args.trade !== "" && !PROMARKET_TRADE_LABELS[args.trade]) {
+      throw new ConvexError("Métier ProMarket inconnu.");
     }
-    if (!args.trade) throw new ConvexError("Choisissez votre métier.");
-    if (!args.region) throw new ConvexError("Choisissez votre gouvernorat.");
-    if (!args.city.trim()) throw new ConvexError("Indiquez votre ville.");
-    if (!args.phone.trim()) throw new ConvexError("Un numéro de téléphone est requis.");
-    if (args.experienceYears < 0 || args.experienceYears > 70) {
+    if (
+      args.experienceYears !== undefined &&
+      (args.experienceYears < 0 || args.experienceYears > 70)
+    ) {
       throw new ConvexError("Années d'expérience invalides.");
+    }
+    if (args.priceFrom !== undefined && (args.priceFrom < 0 || args.priceFrom > 1_000_000)) {
+      throw new ConvexError("Tarif indicatif invalide.");
     }
 
     const now = Date.now();
-    const existing = await getOwnProfile(ctx, user._id);
-
-    const payload = {
-      displayName,
-      companyName: args.companyName?.trim() || undefined,
-      trade: args.trade,
-      category: categoryForTrade(args.trade),
-      kind: args.kind,
-      description: args.description?.trim(),
-      specialties: args.specialties.filter(Boolean).slice(0, 20),
-      services: args.services?.slice(0, 30),
-      region: args.region,
-      city: args.city.trim(),
-      zones: args.zones.filter(Boolean).slice(0, 30),
-      phone: args.phone.trim(),
-      whatsapp: args.whatsapp?.trim() || args.phone.trim(),
-      email: args.email?.trim() || user.email,
-      website: args.website?.trim(),
-      certifications: args.certifications?.filter(Boolean).slice(0, 20),
-      experienceYears: Math.round(args.experienceYears),
-      availability: args.availability,
-      urgent: args.urgent,
-      homeService: args.homeService,
-      priceFrom: args.priceFrom,
-      priceUnit: args.priceUnit,
-      logoStorageId: args.logoStorageId,
-      gallery: args.gallery?.slice(0, 12),
-      updatedAt: now,
+    const previous = expert.proMarketPrefs;
+    const prefs = {
+      trade: args.trade?.trim() || previous?.trade,
+      kind: args.kind ?? previous?.kind ?? (expert.companyName ? "entreprise" : "independant"),
+      availability: args.availability ?? previous?.availability ?? "week",
+      experienceYears: Math.round(args.experienceYears ?? previous?.experienceYears ?? 0),
+      priceFrom: args.priceFrom ?? previous?.priceFrom,
+      priceUnit: args.priceUnit?.trim() || previous?.priceUnit,
+      urgent: args.urgent ?? previous?.urgent ?? false,
+      homeService: args.homeService ?? previous?.homeService ?? false,
     };
 
-    if (existing) {
-      // Les badges de vérification restent inchangés (attribution admin).
-      await ctx.db.patch(existing._id, payload);
-      return existing._id;
-    }
+    // Première activation → validation administrateur requise. Un refus
+    // administratif n'est jamais contourné par un nouveau clic de l'expert.
+    const status =
+      args.optIn && expert.proMarketStatus === undefined
+        ? ("pending" as const)
+        : expert.proMarketStatus;
 
-    const id = await ctx.db.insert("promarketProfiles", {
-      ...payload,
-      userId: user._id,
-      ratingSum: 0,
-      ratingCount: 0,
-      views: 0,
-      contacts: 0,
-      quoteCount: 0,
-      completedCount: 0,
-      verifiedIdentity: false,
-      verifiedPro: false,
-      verifiedDocs: false,
-      recommended: false,
-      // Une nouvelle fiche est validée par l'administration avant publication.
-      status: "pending",
-      demo: false,
-      createdAt: now,
+    await ctx.db.patch(expert._id, {
+      proMarketOptIn: args.optIn,
+      proMarketAvailable: args.available ?? expert.proMarketAvailable ?? true,
+      proMarketPrefs: prefs,
+      proMarketStatus: status,
+      proMarketRequestedAt:
+        args.optIn && !expert.proMarketRequestedAt ? now : expert.proMarketRequestedAt,
+      updatedAt: now,
     });
 
-    if (!isStaff(user)) {
+    const updated = await ctx.db.get(expert._id);
+    const { profileId, eligibility } = await syncProMarketProfileFromExpert(ctx, updated);
+
+    if (args.optIn && !isStaff(user)) {
       await notify(ctx, {
         userId: user._id,
         type: "promarket_verified",
-        title: "Fiche ProMarket créée",
+        title: "ProMarket — activation enregistrée",
         message:
-          "Votre fiche sera visible dans ProMarket après validation par l'équipe BatiBuild.",
+          "Votre profil Expert sera publié sur ProMarket après validation par l'équipe BatiBuild.",
         link: "/promarket/pro-space",
       });
     }
-    return id;
+
+    return { profileId, eligibility };
   },
 });
 
-/** Demandes reçues / opportunités du professionnel connecté. */
+/**
+ * Demandes reçues / opportunités de l'Expert connecté.
+ * Seul un Expert BatiBuild éligible à ProMarket a un espace professionnel.
+ */
 export const listProfessionalRequests = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
-    if (!user) return { profile: null, assigned: [], opportunities: [] };
-    const profile = await getOwnProfile(ctx, user._id);
-    if (!profile) return { profile: null, assigned: [], opportunities: [] };
+    if (!user) return { profile: null, assigned: [], opportunities: [], eligibility: null };
+    const { profile, eligibility } = await getExpertProMarketContext(ctx, user._id);
+    const empty = { profile: null, assigned: [], opportunities: [], eligibility };
+    if (!profile || !eligibility.eligible) return empty;
 
     const rows = await ctx.db
       .query("promarketRequests")
@@ -573,6 +596,7 @@ export const listProfessionalRequests = query({
       profile: publicProfile(profile, user),
       assigned,
       opportunities,
+      eligibility,
     };
   },
 });
@@ -853,12 +877,26 @@ export const createRequest = mutation({
       }
     }
 
+    // RÈGLE D'ACCÈS PROFESSIONNELS : une demande ne peut viser qu'un Expert
+    // BatiBuild actif et éligible. Une fiche de démonstration (sans compte) ne
+    // reçoit jamais de demande : celle-ci est PUBLIÉE et distribuée aux
+    // Experts éligibles du métier.
     let target: Doc<"promarketProfiles"> | null = null;
     if (args.professionalId) {
-      target = await ctx.db.get(args.professionalId);
-      if (!target || target.status !== "active") {
+      const candidate = await ctx.db.get(args.professionalId);
+      if (!candidate || candidate.status !== "active") {
         throw new ConvexError("Professionnel indisponible.");
       }
+      const expert = candidate.expertProfileId
+        ? await ctx.db.get(candidate.expertProfileId)
+        : null;
+      const eligibility = await evaluateExpertForProMarket(ctx, expert);
+      if (!candidate.demo && !eligibility.eligible) {
+        throw new ConvexError(
+          "Ce professionnel n'est plus disponible sur ProMarket.",
+        );
+      }
+      target = candidate.demo ? null : candidate;
     }
 
     const now = Date.now();
