@@ -25,7 +25,8 @@
     "locating": "Locating…",
     "locationDenied": "Location denied: pick a governorate manually.",
     "locationReady": "Location enabled",
-    "quickSearch": "Quick searches"
+    "quickSearch": "Quick searches",
+    "coveredRegions": "Governorates covered"
   },
   "categories": {
     "title": "Professional categories",
@@ -65,7 +66,6 @@
     "showMore": "Show more",
     "anyDistance": "All Tunisia",
     "distanceKm": "Within {{km}} km",
-    "allRegions": "All governorates",
     "allCities": "All cities",
     "allTrades": "All trades",
     "allCategories": "All categories",

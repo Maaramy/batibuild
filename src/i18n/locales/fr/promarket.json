@@ -25,7 +25,8 @@
     "locating": "Localisation…",
     "locationDenied": "Localisation refusée : choisissez un gouvernorat manuellement.",
     "locationReady": "Localisation activée",
-    "quickSearch": "Recherches rapides"
+    "quickSearch": "Recherches rapides",
+    "coveredRegions": "Gouvernorats couverts"
   },
   "categories": {
     "title": "Catégories de professionnels",
@@ -65,7 +66,6 @@
     "showMore": "Afficher plus",
     "anyDistance": "Toute la Tunisie",
     "distanceKm": "Moins de {{km}} km",
-    "allRegions": "Tous les gouvernorats",
     "allCities": "Toutes les villes",
     "allTrades": "Tous les métiers",
     "allCategories": "Toutes les catégories",

@@ -296,7 +296,7 @@ export default function ProMarketSearch() {
               value={region}
               onChange={(e) => setRegion(e.target.value)}
             >
-              <option value="">{t("search.allRegions")}</option>
+              <option value="">{t("search.region")}</option>
               {PROMARKET_REGIONS.map((r) => (
                 <option key={r.slug} value={r.slug}>
                   {r.label}

@@ -1,5 +1,8 @@
 import { ProMarketAssistant } from "@/components/promarket/ProMarketAssistant";
 import {
+  CardCarousel,
+  CarouselItem,
+  CarouselTile,
   ProfessionalCard,
   ProfessionalCardSkeleton,
   ProIcon,
@@ -14,11 +17,13 @@ import { useProMarketGeo } from "@/hooks/use-promarket-geo";
 import { useDirection } from "@/hooks/use-direction";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import {
+  PROMARKET_CATEGORIES,
   PROMARKET_REGIONS,
   PROMARKET_TRADES,
   promarketRegionLabel,
   promarketTradeLabel,
 } from "@/lib/promarketMeta";
+import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowRight,
@@ -35,13 +40,18 @@ import {
   Users,
   Wrench,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 // ============================================================================
 // ProMarket — page d'accueil (« /promarket »)
+//
+// Interface volontairement compacte :
+//   • un bouton d'action unique ouvre la zone de recherche dépliable ;
+//   • les catégories et les professionnels sont présentés en carrousels
+//     horizontaux (swipe tactile, aucun débordement de page).
 // ============================================================================
 
 const QUICK_TRADES = [
@@ -67,8 +77,14 @@ export default function ProMarketHome() {
   const navigate = useNavigate();
   const geo = useProMarketGeo();
 
+  // Recherche : la zone complète n'est montée qu'à l'ouverture du bouton.
+  const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
+  const [trade, setTrade] = useState("");
   const [region, setRegion] = useState("");
+  const [city, setCity] = useState("");
+  const [urgent, setUrgent] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const ensureDemoData = useMutation(api.promarket.ensureDemoData);
 
@@ -92,23 +108,41 @@ export default function ProMarketHome() {
 
   const totalProfessionals = featured?.total ?? 0;
 
+  const trades = useMemo(
+    () => (category ? PROMARKET_TRADES.filter((tr) => tr.category === category) : PROMARKET_TRADES),
+    [category],
+  );
+
   const goSearch = (overrides?: {
     q?: string;
     trade?: string;
     region?: string;
+    category?: string;
+    city?: string;
+    urgent?: boolean;
   }) => {
     const params = new URLSearchParams();
     const finalQuery = overrides?.q ?? query.trim();
     const finalRegion = overrides?.region ?? region;
+    const finalTrade = overrides?.trade ?? trade;
+    const finalCategory = overrides?.category ?? category;
+    const finalCity = overrides?.city ?? city.trim();
+    const finalUrgent = overrides?.urgent ?? urgent;
     if (finalQuery) params.set("q", finalQuery);
     if (finalRegion) params.set("region", finalRegion);
-    if (overrides?.trade) params.set("trade", overrides.trade);
+    if (finalTrade) params.set("trade", finalTrade);
+    if (finalCategory) params.set("category", finalCategory);
+    if (finalCity) params.set("city", finalCity);
+    if (finalUrgent) params.set("urgent", "1");
     if (geo.coords) {
       params.set("lat", String(geo.coords.lat));
       params.set("lng", String(geo.coords.lng));
     }
     navigate(`/promarket/search?${params.toString()}`);
   };
+
+  const selectClass =
+    "h-9 w-full rounded-md border border-input bg-background px-2 text-xs";
 
   return (
     <ProMarketShell
@@ -132,95 +166,199 @@ export default function ProMarketHome() {
         </Button>
       }
     >
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-border/50 bg-gradient-to-br from-primary/[0.06] via-background to-emerald-500/[0.05] p-4 sm:p-6">
-        <h2 className="text-xl font-bold leading-tight sm:text-2xl lg:text-3xl">
-          {t("hero.title")}
-        </h2>
-        <p className="mt-1.5 max-w-2xl text-xs text-muted-foreground sm:text-sm">
-          {t("hero.subtitle")}
-        </p>
-
-        <div className="mt-4 flex flex-col gap-2 lg:flex-row">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && goSearch()}
-              placeholder={t("hero.searchPlaceholder")}
-              aria-label={t("hero.searchPlaceholder")}
-              className="h-11 ps-9 text-sm"
-            />
-          </div>
-          <div className="relative lg:w-64">
-            <MapPin className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <select
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              aria-label={t("search.region")}
-              className="h-11 w-full appearance-none rounded-md border border-input bg-background ps-9 pe-8 text-sm"
-            >
-              <option value="">{t("hero.wherePlaceholder")}</option>
-              {PROMARKET_REGIONS.map((r) => (
-                <option key={r.slug} value={r.slug}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              className="h-11 flex-1 gap-1.5 px-5 text-sm lg:flex-none"
-              onClick={() => goSearch()}
-            >
-              <Search className="h-4 w-4" />
-              {t("hero.searchButton")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-11 gap-1.5 text-xs"
-              onClick={geo.request}
-              disabled={geo.status === "loading"}
-            >
-              <Navigation className="h-4 w-4" />
-              <span className="hidden sm:inline">
-                {geo.status === "loading" ? t("hero.locating") : t("hero.useMyLocation")}
-              </span>
-            </Button>
-          </div>
-        </div>
-
-        {geo.status === "denied" && (
-          <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
-            {t("hero.locationDenied")}
-          </p>
-        )}
-        {geo.status === "ready" && (
-          <p className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400">
-            {t("hero.locationReady")}
-          </p>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {t("hero.quickSearch")}
+      {/* ── Recherche : bouton compact + zone dépliable ──────────────────── */}
+      <section className="rounded-2xl border border-border/50 bg-gradient-to-br from-primary/[0.06] via-background to-emerald-500/[0.05] p-3 sm:p-4">
+        <button
+          type="button"
+          onClick={() => setSearchOpen((value) => !value)}
+          aria-expanded={searchOpen}
+          className="flex w-full items-center gap-3 rounded-xl bg-primary px-3.5 py-3 text-primary-foreground shadow-sm transition-transform active:scale-[0.99] sm:px-4"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-foreground/15">
+            <Search className="h-4 w-4" aria-hidden />
           </span>
-          {QUICK_TRADES.map((slug) => (
-            <button
-              key={slug}
-              type="button"
-              onClick={() => goSearch({ trade: slug })}
-              className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-muted/20 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary active:scale-95"
-            >
-              <ProIcon name={tradeIcon(slug)} className="h-3 w-3" />
-              {promarketTradeLabel(slug)}
-            </button>
-          ))}
-        </div>
+          <span className="min-w-0 flex-1 text-start">
+            <span className="block truncate text-sm font-semibold sm:text-base">
+              {t("hero.title")}
+            </span>
+            <span className="mt-0.5 block truncate text-[11px] opacity-90">
+              {t("hero.searchPlaceholder")}
+            </span>
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 transition-transform",
+              searchOpen && "rotate-180",
+            )}
+            aria-hidden
+          />
+        </button>
+
+        {searchOpen && (
+          <div className="mt-3 max-h-[65vh] space-y-3 overflow-y-auto overscroll-contain rounded-xl border border-border/50 bg-background/80 p-3">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && goSearch()}
+                placeholder={t("hero.searchPlaceholder")}
+                aria-label={t("hero.searchPlaceholder")}
+                className="h-10 ps-9 text-sm"
+              />
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("search.category")}
+                </span>
+                <select
+                  value={category}
+                  onChange={(e) => {
+                    setCategory(e.target.value);
+                    setTrade("");
+                  }}
+                  className={selectClass}
+                >
+                  <option value="">{t("search.allCategories")}</option>
+                  {PROMARKET_CATEGORIES.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("search.trade")}
+                </span>
+                <select
+                  value={trade}
+                  onChange={(e) => setTrade(e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="">{t("search.allTrades")}</option>
+                  {trades.map((tr) => (
+                    <option key={tr.slug} value={tr.slug}>
+                      {tr.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("search.region")}
+                </span>
+                <select
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="">{t("hero.wherePlaceholder")}</option>
+                  {PROMARKET_REGIONS.map((r) => (
+                    <option key={r.slug} value={r.slug}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("search.city")}
+                </span>
+                <Input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder={t("search.allCities")}
+                  className="h-9 text-xs"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={urgent}
+                  onChange={(e) => setUrgent(e.target.checked)}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                {t("search.urgent")}
+              </label>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1.5 text-xs text-muted-foreground"
+                onClick={() => {
+                  setQuery("");
+                  setCategory("");
+                  setTrade("");
+                  setRegion("");
+                  setCity("");
+                  setUrgent(false);
+                }}
+              >
+                {t("search.clearFilters")}
+              </Button>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                size="sm"
+                className="h-10 flex-1 gap-1.5 text-sm"
+                onClick={() => goSearch()}
+              >
+                <Search className="h-4 w-4" />
+                {t("hero.searchButton")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-10 gap-1.5 text-xs"
+                onClick={geo.request}
+                disabled={geo.status === "loading"}
+              >
+                <Navigation className="h-4 w-4" />
+                {geo.status === "loading" ? t("hero.locating") : t("hero.useMyLocation")}
+              </Button>
+            </div>
+
+            {geo.status === "denied" && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                {t("hero.locationDenied")}
+              </p>
+            )}
+            {geo.status === "ready" && (
+              <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                {t("hero.locationReady")}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("hero.quickSearch")}
+              </span>
+              {QUICK_TRADES.map((slug) => (
+                <button
+                  key={slug}
+                  type="button"
+                  onClick={() => goSearch({ trade: slug })}
+                  className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-muted/20 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary active:scale-95"
+                >
+                  <ProIcon name={tradeIcon(slug)} className="h-3 w-3" />
+                  {promarketTradeLabel(slug)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ── Indicateurs ──────────────────────────────────────────────────── */}
@@ -238,7 +376,7 @@ export default function ProMarketHome() {
         <StatTile
           icon={MapPin}
           value={PROMARKET_REGIONS.length}
-          label={t("search.allRegions")}
+          label={t("hero.coveredRegions")}
         />
         <StatTile
           icon={BadgeCheck}
@@ -247,17 +385,16 @@ export default function ProMarketHome() {
         />
       </section>
 
-      {/* ── Assistant ────────────────────────────────────────────────────── */}
+      {/* ── Assistant « Analyser mon besoin » ────────────────────────────── */}
       <div className="mt-4">
         <ProMarketAssistant />
       </div>
 
-      {/* ── Catégories ───────────────────────────────────────────────────── */}
+      {/* ── Catégories (carrousel : icône + nom uniquement) ──────────────── */}
       <section className="mt-6">
         <SectionHeading
           icon={Compass}
           title={t("categories.title")}
-          subtitle={t("categories.subtitle")}
           action={
             <Button
               size="sm"
@@ -270,64 +407,49 @@ export default function ProMarketHome() {
             </Button>
           }
         />
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {(categories ?? []).map((category) => (
-            <button
-              key={category.slug}
-              type="button"
-              onClick={() =>
-                navigate(`/promarket/search?category=${category.slug}`)
-              }
-              className="group flex items-start gap-3 rounded-2xl border border-border/50 bg-background/60 p-3.5 text-start transition-colors hover:border-primary/40 active:scale-[0.99]"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <ProIcon name={category.icon} className="h-4 w-4" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">{category.label}</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  {category.description}
-                </span>
-                <span className="mt-1 block text-[11px] font-medium text-primary">
-                  {category.count > 0
-                    ? t("categories.professionalsOther", { count: category.count })
-                    : t("assistant.noSuggestion")}
-                </span>
-              </span>
-              <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 rtl:rotate-180" />
-            </button>
-          ))}
+        <div className="mt-3">
+          <CardCarousel label={t("categories.title")}>
+            {(categories ?? []).map((category) => (
+              <CarouselItem key={category.slug} size="tile">
+                <CarouselTile
+                  icon={<ProIcon name={category.icon} className="h-4 w-4" />}
+                  label={category.label}
+                  onClick={() => navigate(`/promarket/search?category=${category.slug}`)}
+                />
+              </CarouselItem>
+            ))}
+          </CardCarousel>
         </div>
       </section>
 
-      {/* ── Près de vous ─────────────────────────────────────────────────── */}
+      {/* ── Près de vous (carrousel) ─────────────────────────────────────── */}
       {geo.coords && nearby && nearby.results.length > 0 && (
         <section className="mt-6">
-          <SectionHeading
-            icon={Navigation}
-            title={t("hero.useMyLocation")}
-            subtitle={t("search.geoHint")}
-          />
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {nearby.results.map((p: any) => (
-              <ProfessionalCard key={p._id} profile={p} />
-            ))}
+          <SectionHeading icon={Navigation} title={t("hero.useMyLocation")} />
+          <div className="mt-3">
+            <CardCarousel label={t("hero.useMyLocation")}>
+              {nearby.results.map((p: any) => (
+                <CarouselItem key={p._id}>
+                  <ProfessionalCard profile={p} className="h-full" />
+                </CarouselItem>
+              ))}
+            </CardCarousel>
           </div>
         </section>
       )}
 
-      {/* ── Professionnels mis en avant ──────────────────────────────────── */}
+      {/* ── Professionnels recommandés (carrousel) ───────────────────────── */}
       <section className="mt-6">
-        <SectionHeading
-          icon={Star}
-          title={t("assistant.suggestions")}
-          subtitle={t("categories.subtitle")}
-        />
+        <SectionHeading icon={Star} title={t("assistant.suggestions")} />
         {featured === undefined ? (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            <ProfessionalCardSkeleton />
-            <ProfessionalCardSkeleton />
-            <ProfessionalCardSkeleton />
+          <div className="mt-3">
+            <CardCarousel hideDots>
+              {[0, 1, 2].map((i) => (
+                <CarouselItem key={i}>
+                  <ProfessionalCardSkeleton />
+                </CarouselItem>
+              ))}
+            </CardCarousel>
           </div>
         ) : featured.results.length === 0 ? (
           <div className="mt-3">
@@ -362,10 +484,14 @@ export default function ProMarketHome() {
           </div>
         ) : (
           <>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {featured.results.map((p: any) => (
-                <ProfessionalCard key={p._id} profile={p} />
-              ))}
+            <div className="mt-3">
+              <CardCarousel label={t("assistant.suggestions")}>
+                {featured.results.map((p: any) => (
+                  <CarouselItem key={p._id}>
+                    <ProfessionalCard profile={p} className="h-full" />
+                  </CarouselItem>
+                ))}
+              </CardCarousel>
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
               {t("search.demoNotice")}
@@ -397,9 +523,9 @@ export default function ProMarketHome() {
         </Button>
       </section>
 
-      {/* ── Régions couvertes ────────────────────────────────────────────── */}
+      {/* ── Gouvernorats couverts ────────────────────────────────────────── */}
       <section className="mt-6">
-        <SectionHeading icon={MapPin} title={t("search.allRegions")} />
+        <SectionHeading icon={MapPin} title={t("hero.coveredRegions")} />
         <div className="mt-3 flex flex-wrap gap-1.5">
           {PROMARKET_REGIONS.map((r) => (
             <button

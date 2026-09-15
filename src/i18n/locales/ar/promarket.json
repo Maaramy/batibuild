@@ -25,7 +25,8 @@
     "locating": "جارٍ تحديد الموقع…",
     "locationDenied": "تم رفض تحديد الموقع: اختر الولاية يدوياً.",
     "locationReady": "تم تنشيط تحديد الموقع",
-    "quickSearch": "بحوث سريعة"
+    "quickSearch": "بحوث سريعة",
+    "coveredRegions": "الولايات المغطاة"
   },
   "categories": {
     "title": "تصنيفات المهنيين",
@@ -65,7 +66,6 @@
     "showMore": "عرض المزيد",
     "anyDistance": "كل تونس",
     "distanceKm": "أقل من {{km}} كم",
-    "allRegions": "كل الولايات",
     "allCities": "كل المدن",
     "allTrades": "كل الحرف",
     "allCategories": "كل التصنيفات",

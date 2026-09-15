@@ -9,7 +9,6 @@ import {
 } from "@/lib/promarketMeta";
 import { cn } from "@/lib/utils";
 import {
-  ArrowRight,
   BadgeCheck,
   Boxes,
   Building2,
@@ -17,7 +16,6 @@ import {
   Calendar,
   ClipboardCheck,
   ClipboardList,
-  Clock,
   Compass,
   DoorOpen,
   DraftingCompass,
@@ -33,7 +31,6 @@ import {
   Palette,
   Palmtree,
   Paintbrush,
-  Phone,
   Plug,
   Scale,
   ShieldCheck,
@@ -48,6 +45,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { Children, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
@@ -185,29 +183,6 @@ export function VerificationBadges({
   );
 }
 
-export function AvailabilityBadge({
-  availability,
-  className,
-}: {
-  availability: string;
-  className?: string;
-}) {
-  const label =
-    PROMARKET_AVAILABILITY_LABELS[availability] ?? PROMARKET_AVAILABILITY_LABELS.busy;
-  const tone =
-    availability === "immediate"
-      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-      : availability === "week"
-        ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-        : "border-border bg-muted/50 text-muted-foreground";
-  return (
-    <Badge variant="outline" className={cn("gap-1 text-[10px] font-medium", tone, className)}>
-      <Clock className="h-3 w-3" />
-      {label}
-    </Badge>
-  );
-}
-
 export function RequestStatusBadge({
   status,
   className,
@@ -342,198 +317,262 @@ export interface ProMarketCardData {
   demo?: boolean;
 }
 
+/**
+ * Carte professionnel — version compacte et aérée.
+ *
+ * Seules les informations essentielles sont affichées : avatar, nom, métier,
+ * localisation, note éventuelle, statut vérifié/actif discret et un unique
+ * bouton d'action principal (« Voir le profil »). Les descriptions, badges
+ * secondaires, tarifs et puces de spécialités sont désormais uniquement
+ * visibles sur la fiche détaillée.
+ */
 export function ProfessionalCard({
   profile,
   saved,
   onToggleSaved,
+  className,
 }: {
   profile: ProMarketCardData;
   saved?: boolean;
   onToggleSaved?: (id: string) => void;
+  className?: string;
 }) {
   const { t } = useTranslation("promarket");
+  const name = profile.companyName || profile.displayName;
+  const verified = Boolean(
+    profile.recommended ||
+      profile.verifiedPro ||
+      profile.verifiedIdentity ||
+      profile.verifiedDocs,
+  );
+  const verifiedLabel = profile.recommended
+    ? t("card.recommended")
+    : profile.verifiedPro
+      ? t("card.verifiedPro")
+      : profile.verifiedIdentity
+        ? t("card.verifiedIdentity")
+        : t("card.verifiedDocs");
+  const availability =
+    PROMARKET_AVAILABILITY_LABELS[profile.availability] ??
+    PROMARKET_AVAILABILITY_LABELS.busy;
+  const availabilityTone =
+    profile.availability === "immediate"
+      ? "bg-emerald-500"
+      : profile.availability === "week"
+        ? "bg-amber-500"
+        : "bg-muted-foreground/50";
 
   return (
-    <div className="group flex flex-col gap-3 rounded-2xl border border-border/50 bg-background/60 p-3.5 transition-colors hover:border-primary/40 sm:p-4">
-      <div className="flex items-start gap-3">
-        <ProAvatar name={profile.displayName} />
+    <article
+      className={cn(
+        "flex h-full flex-col gap-2.5 rounded-2xl border border-border/50 bg-background p-3 transition-colors hover:border-primary/40",
+        className,
+      )}
+    >
+      <div className="flex items-start gap-2.5">
+        <ProAvatar name={name} className="h-10 w-10 rounded-xl text-xs" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">
-                {profile.companyName || profile.displayName}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {profile.tradeLabel}
-                {profile.companyName ? ` · ${profile.displayName}` : ""}
-              </p>
-            </div>
-            {onToggleSaved && (
-              <button
-                type="button"
-                onClick={() => onToggleSaved(profile._id)}
-                aria-label={saved ? t("card.saved") : t("card.save")}
-                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <Heart
-                  className={cn("h-4 w-4", saved && "fill-rose-500 text-rose-500")}
-                />
-              </button>
+          <div className="flex items-center gap-1">
+            <p className="truncate text-sm font-semibold text-foreground">{name}</p>
+            {verified && (
+              <span className="shrink-0 text-sky-500" title={verifiedLabel}>
+                <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
+              </span>
             )}
           </div>
-
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
+          <p className="truncate text-xs text-muted-foreground">
+            {profile.tradeLabel}
+            {profile.companyName ? ` · ${profile.displayName}` : ""}
+          </p>
+          <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+            <MapPin className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="truncate">
               {profile.city}
               {profile.regionLabel ? ` · ${profile.regionLabel}` : ""}
             </span>
-            {profile.distanceKm !== undefined && (
-              <span>{t("card.distance", { km: profile.distanceKm })}</span>
-            )}
-          </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <RatingInline rating={profile.rating} count={profile.ratingCount} />
-            <span className="text-xs text-muted-foreground">
-              {t("card.experience", { count: profile.experienceYears })}
-            </span>
-          </div>
+          </p>
         </div>
-      </div>
-
-      <VerificationBadges profile={profile} />
-
-      {profile.description && (
-        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-          {profile.description}
-        </p>
-      )}
-
-      {profile.specialties.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {profile.specialties.slice(0, 4).map((s) => (
-            <Badge
-              key={s}
-              variant="outline"
-              className="border-border/60 text-[10px] font-normal"
-            >
-              {s}
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <AvailabilityBadge availability={profile.availability} />
-        {profile.urgent && (
-          <Badge
-            variant="outline"
-            className="border-rose-500/30 bg-rose-500/10 text-[10px] font-medium text-rose-600 dark:text-rose-400"
+        {onToggleSaved && (
+          <button
+            type="button"
+            onClick={() => onToggleSaved(profile._id)}
+            aria-label={saved ? t("card.saved") : t("card.save")}
+            className="-me-1 -mt-1 shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <Zap className="h-3 w-3" />
-            {t("search.urgent")}
-          </Badge>
-        )}
-        {profile.homeService && (
-          <Badge
-            variant="outline"
-            className="border-border/60 text-[10px] font-normal text-muted-foreground"
-          >
-            {t("search.homeService")}
-          </Badge>
+            <Heart className={cn("h-4 w-4", saved && "fill-rose-500 text-rose-500")} />
+          </button>
         )}
       </div>
 
-      <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/40 pt-3">
-        <span className="text-xs font-medium text-foreground">
-          {profile.priceFrom !== undefined
-            ? t("card.from", {
-                price: profile.priceFrom,
-                unit: profile.priceUnit ?? "TND",
-              })
-            : t("card.priceOnRequest")}
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+        {profile.ratingCount > 0 ? (
+          <RatingInline rating={profile.rating} count={profile.ratingCount} />
+        ) : (
+          <span className="text-[11px] text-muted-foreground">{t("card.noReviews")}</span>
+        )}
+        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+          <span className={cn("h-1.5 w-1.5 rounded-full", availabilityTone)} aria-hidden />
+          {availability}
         </span>
-        <Button asChild size="sm" variant="ghost" className="gap-1 text-xs">
-          <Link to={`/promarket/pro/${profile._id}`}>
-            <Eye className="h-3.5 w-3.5" />
-            {t("card.viewProfile")}
-            <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
-          </Link>
-        </Button>
+        {profile.demo && <DemoBadge />}
       </div>
-    </div>
+
+      <Button asChild size="sm" className="mt-auto h-8 w-full gap-1.5 text-xs">
+        <Link to={`/promarket/pro/${profile._id}`}>
+          <Eye className="h-3.5 w-3.5" />
+          {t("card.viewProfile")}
+        </Link>
+      </Button>
+    </article>
   );
 }
 
-export function ProfessionalCardSkeleton() {
+/** Squelette compact, aligné sur la carte (`h-full` pour un alignement stable). */
+export function ProfessionalCardSkeleton({ className }: { className?: string }) {
   return (
-    <div className="rounded-2xl border border-border/50 p-4">
-      <div className="flex items-start gap-3">
-        <Skeleton className="h-11 w-11 rounded-xl" />
+    <div
+      className={cn(
+        "flex h-full flex-col gap-2.5 rounded-2xl border border-border/50 p-3",
+        className,
+      )}
+    >
+      <div className="flex items-start gap-2.5">
+        <Skeleton className="h-10 w-10 rounded-xl" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-3.5 w-2/3" />
           <Skeleton className="h-3 w-1/3" />
           <Skeleton className="h-3 w-1/2" />
         </div>
       </div>
-      <Skeleton className="mt-3 h-3 w-full" />
-      <Skeleton className="mt-2 h-3 w-4/5" />
-      <Skeleton className="mt-3 h-8 w-full rounded-lg" />
+      <Skeleton className="h-3 w-1/2" />
+      <Skeleton className="mt-auto h-8 w-full rounded-lg" />
     </div>
   );
 }
 
-/** Puces de contact (appel / WhatsApp / message). */
-export function ContactChips({
-  phone,
-  whatsapp,
-  onCall,
-  onWhatsApp,
+// ----------------------------------------------------------------------------
+// Carrousels horizontaux (mobile-first)
+// ----------------------------------------------------------------------------
+
+/**
+ * Carrousel horizontal : défilement natif (swipe tactile), accroche sur les
+ * cartes et indicateur de pagination discret. Seule la piste défile : la page
+ * ne déborde jamais horizontalement.
+ */
+export function CardCarousel({
+  children,
   className,
+  label,
+  hideDots,
 }: {
-  phone?: string;
-  whatsapp?: string;
-  onCall?: () => void;
-  onWhatsApp?: () => void;
+  children: React.ReactNode;
   className?: string;
+  label?: string;
+  hideDots?: boolean;
 }) {
-  const { t } = useTranslation("promarket");
-  if (!phone && !whatsapp) return null;
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+  const count = Children.count(children);
+
+  const sync = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const origin = track.getBoundingClientRect().left;
+    let best = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    Array.from(track.children).forEach((child, index) => {
+      const distance = Math.abs(
+        (child as HTMLElement).getBoundingClientRect().left - origin,
+      );
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = index;
+      }
+    });
+    setActive(best);
+  }, []);
+
+  useEffect(() => {
+    sync();
+  }, [sync, count]);
+
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      {phone && (
-        <Button
-          asChild
-          size="sm"
-          variant="outline"
-          className="gap-1.5 text-xs"
-          onClick={onCall}
-        >
-          <a href={`tel:${phone.replace(/\s+/g, "")}`}>
-            <Phone className="h-3.5 w-3.5" />
-            {t("card.call")}
-          </a>
-        </Button>
-      )}
-      {whatsapp && (
-        <Button
-          asChild
-          size="sm"
-          variant="outline"
-          className="gap-1.5 text-xs"
-          onClick={onWhatsApp}
-        >
-          <a
-            href={`https://wa.me/${whatsapp.replace(/[^0-9]/g, "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Phone className="h-3.5 w-3.5" />
-            {t("card.whatsapp")}
-          </a>
-        </Button>
+    <div className={cn("min-w-0", className)}>
+      <div
+        ref={trackRef}
+        onScroll={sync}
+        role="group"
+        aria-label={label}
+        className="-mx-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto scroll-smooth px-3 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0"
+      >
+        {children}
+      </div>
+      {!hideDots && count > 1 && (
+        <div className="mt-2 flex items-center justify-center gap-1" aria-hidden>
+          {Array.from({ length: count }).map((_, index) => (
+            <span
+              key={index}
+              className={cn(
+                "h-1.5 rounded-full transition-all",
+                index === active ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/30",
+              )}
+            />
+          ))}
+        </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Élément de carrousel : largeur cohérente et accroche au défilement.
+ * `tile` = tuile compacte (catégories), `card` = carte professionnel.
+ */
+export function CarouselItem({
+  children,
+  className,
+  size = "card",
+}: {
+  children: React.ReactNode;
+  className?: string;
+  size?: "card" | "tile";
+}) {
+  return (
+    <div
+      className={cn(
+        "shrink-0 snap-start",
+        size === "tile"
+          ? "w-[30%] max-w-[8.5rem] sm:w-[7.5rem]"
+          : "w-[72%] max-w-[15rem] sm:w-60",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Carte compacte générique de carrousel (catégories, raccourcis…). */
+export function CarouselTile({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full flex-col items-center gap-2 rounded-2xl border border-border/50 bg-background p-3 text-center transition-colors hover:border-primary/40 active:scale-[0.98]"
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        {icon}
+      </span>
+      <span className="line-clamp-2 text-xs font-semibold leading-tight">{label}</span>
+    </button>
   );
 }
 

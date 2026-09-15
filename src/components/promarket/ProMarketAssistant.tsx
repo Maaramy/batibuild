@@ -1,7 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ProfessionalCard, ProfessionalCardSkeleton } from "@/components/promarket/bits";
+import {
+  CardCarousel,
+  CarouselItem,
+  ProfessionalCard,
+  ProfessionalCardSkeleton,
+} from "@/components/promarket/bits";
 import { api } from "@/convex/_generated/api";
 import {
   promarketRegionLabel,
@@ -38,7 +43,9 @@ export function ProMarketAssistant({
   );
 
   const need = result?.need;
-  const professionals = result?.professionals ?? [];
+  // Règle produit : jamais plus de 5 professionnels recommandés, et seulement
+  // ceux réellement disponibles (aucun remplissage artificiel).
+  const professionals = (result?.professionals ?? []).slice(0, 5);
 
   return (
     <section
@@ -126,16 +133,28 @@ export function ProMarketAssistant({
               <p className="text-xs font-semibold text-foreground">
                 {t("assistant.suggestions")}
               </p>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <CardCarousel label={t("assistant.suggestions")}>
                 {professionals.map((p: any) => (
-                  <ProfessionalCard key={p._id} profile={p} />
+                  <CarouselItem key={p._id}>
+                    <ProfessionalCard profile={p} className="h-full" />
+                  </CarouselItem>
                 ))}
-              </div>
+              </CardCarousel>
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              {t("assistant.noSuggestion")}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs text-muted-foreground">
+                {t("assistant.noSuggestion")}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1.5 text-[11px]"
+                onClick={() => setSubmitted(null)}
+              >
+                {t("assistant.refine")}
+              </Button>
+            </div>
           )}
 
           <div className="flex flex-wrap gap-2">
@@ -173,10 +192,14 @@ export function ProMarketAssistant({
       )}
 
       {submitted && result === undefined && (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          <ProfessionalCardSkeleton />
-          <ProfessionalCardSkeleton />
-          <ProfessionalCardSkeleton />
+        <div className="mt-3">
+          <CardCarousel hideDots>
+            {[0, 1, 2].map((i) => (
+              <CarouselItem key={i}>
+                <ProfessionalCardSkeleton />
+              </CarouselItem>
+            ))}
+          </CardCarousel>
         </div>
       )}
     </section>

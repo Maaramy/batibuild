@@ -158,7 +158,8 @@ export const interpretNeed = query({
         region: need.region,
         city: need.city,
         sort: "relevance",
-        limit: 6,
+        // Règle produit : l'assistant ne recommande jamais plus de 5 experts.
+        limit: 5,
       },
       viewer,
     );
