@@ -149,6 +149,48 @@ export default function ProMarketProfile() {
       }`}
       badge={<VerificationBadges profile={profile} />}
       backTo="/promarket"
+      bottomBar={
+        <>
+          <Button
+            size="sm"
+            className="h-11 flex-1 gap-1.5 text-xs font-semibold sm:text-sm"
+            onClick={() => setRequestDialog("quote")}
+          >
+            <Send className="h-4 w-4" />
+            {t("profile.requestQuote")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-11 flex-1 gap-1.5 border-border bg-transparent text-xs transition-colors hover:border-primary/50 hover:bg-primary/[0.06] hover:text-primary sm:text-sm"
+            onClick={() => setRequestDialog("service")}
+          >
+            <MessageSquare className="h-4 w-4" />
+            {t("profile.message")}
+          </Button>
+          {profile.phone && (
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="h-11 w-11 shrink-0 gap-1.5 border-border bg-transparent p-0 text-xs transition-colors hover:border-primary/50 hover:bg-primary/[0.06] hover:text-primary"
+              onClick={() =>
+                registerContact({
+                  professionalId: profile._id as any,
+                  channel: "phone",
+                }).catch(() => {})
+              }
+            >
+              <a
+                href={`tel:${profile.phone.replace(/\s+/g, "")}`}
+                aria-label={t("card.call")}
+              >
+                <Phone className="h-4 w-4" />
+              </a>
+            </Button>
+          )}
+        </>
+      }
     >
       {/* ── Carte d'en-tête ─────────────────────────────────────────────── */}
       <section className="rounded-2xl border border-border/50 bg-background/60 p-4">
@@ -206,44 +248,9 @@ export default function ProMarketProfile() {
           </div>
         </div>
 
-        {/* ── Actions ────────────────────────────────────────────────────── */}
+        {/* ── Actions secondaires (les 3 actions principales sont dans la
+             barre fixe en bas : devis, message, appeler) ────────────────── */}
         <div className="mt-4 flex flex-wrap gap-2 border-t border-border/40 pt-3">
-          <Button
-            size="sm"
-            className="gap-1.5 text-xs"
-            onClick={() => setRequestDialog("quote")}
-          >
-            <Send className="h-3.5 w-3.5" />
-            {t("profile.requestQuote")}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 text-xs"
-            onClick={() => setRequestDialog("service")}
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-            {t("profile.message")}
-          </Button>
-          {profile.phone && (
-            <Button
-              asChild
-              size="sm"
-              variant="outline"
-              className="gap-1.5 text-xs"
-              onClick={() =>
-                registerContact({
-                  professionalId: profile._id as any,
-                  channel: "phone",
-                }).catch(() => {})
-              }
-            >
-              <a href={`tel:${profile.phone.replace(/\s+/g, "")}`}>
-                <Phone className="h-3.5 w-3.5" />
-                {t("card.call")}
-              </a>
-            </Button>
-          )}
           {profile.whatsapp && (
             <Button
               asChild

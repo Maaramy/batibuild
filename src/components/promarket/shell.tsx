@@ -16,6 +16,7 @@ export function ProMarketShell({
   badge,
   action,
   children,
+  bottomBar,
   backTo = "/dashboard",
 }: {
   title: string;
@@ -23,6 +24,8 @@ export function ProMarketShell({
   badge?: React.ReactNode;
   action?: React.ReactNode;
   children: React.ReactNode;
+  /** Barre d'actions fixe en bas (bottom navigation bar, ex. profil pro). */
+  bottomBar?: React.ReactNode;
   backTo?: string;
 }) {
   const navigate = useNavigate();
@@ -55,8 +58,17 @@ export function ProMarketShell({
 
         <ProMarketTabs />
 
-        <div className="mt-4">{children}</div>
+        <div className={cn("mt-4", bottomBar && "pb-20 sm:pb-16")}>{children}</div>
       </div>
+
+      {/* ── Barre d'actions fixe en bas (mobile-first, RTL-friendly) ─────── */}
+      {bottomBar && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="mx-auto flex max-w-6xl items-center gap-2 px-3 py-2.5 sm:px-5 sm:py-3 lg:px-8">
+            {bottomBar}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
