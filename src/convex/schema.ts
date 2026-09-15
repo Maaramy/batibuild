@@ -780,6 +780,11 @@ const schema = defineSchema(
         v.literal("forum_new_request"),
         v.literal("forum_reply"),
         v.literal("forum_reported"),
+        v.literal("promarket_new_request"),
+        v.literal("promarket_quote"),
+        v.literal("promarket_message"),
+        v.literal("promarket_review"),
+        v.literal("promarket_verified"),
       ),
       title: v.string(),
       message: v.string(),
@@ -1540,6 +1545,258 @@ const schema = defineSchema(
       .index("by_status", ["status"])
       .index("by_created", ["createdAt"])
       .index("by_reporter", ["reporterId"]),
+
+    // ── ProMarket — marketplace de services professionnels ─────────
+    // Voir `src/convex/promarket.ts` (logique métier, permissions, badges)
+    // et `src/convex/promarketDemo.ts` (jeu de données de démonstration).
+    // Le catalogue des catégories/métiers/régions vit dans
+    // `src/lib/promarketMeta.ts` (module partagé client + serveur).
+
+    /** Catégories gérées par l'admin (amorçage = catalogue par défaut). */
+    promarketCategories: defineTable({
+      slug: v.string(),
+      label: v.string(),
+      icon: v.string(),
+      description: v.optional(v.string()),
+      order: v.number(),
+      active: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_slug", ["slug"])
+      .index("by_order", ["order"]),
+
+    /** Fiches professionnels (prestataires ProMarket). */
+    promarketProfiles: defineTable({
+      /** Compte utilisateur propriétaire (absent pour une fiche de démo). */
+      userId: v.optional(v.id("users")),
+      displayName: v.string(),
+      companyName: v.optional(v.string()),
+      trade: v.string(),
+      category: v.string(),
+      kind: v.union(v.literal("independant"), v.literal("entreprise")),
+      description: v.optional(v.string()),
+      specialties: v.array(v.string()),
+      services: v.optional(
+        v.array(
+          v.object({
+            name: v.string(),
+            description: v.optional(v.string()),
+            priceFrom: v.optional(v.number()),
+            unit: v.optional(v.string()),
+          }),
+        ),
+      ),
+      region: v.string(),
+      city: v.string(),
+      zones: v.array(v.string()),
+      phone: v.optional(v.string()),
+      whatsapp: v.optional(v.string()),
+      email: v.optional(v.string()),
+      website: v.optional(v.string()),
+      logoStorageId: v.optional(v.id("_storage")),
+      gallery: v.optional(
+        v.array(
+          v.object({
+            storageId: v.id("_storage"),
+            name: v.optional(v.string()),
+            caption: v.optional(v.string()),
+          }),
+        ),
+      ),
+      certifications: v.optional(v.array(v.string())),
+      experienceYears: v.number(),
+      availability: v.union(
+        v.literal("immediate"),
+        v.literal("week"),
+        v.literal("busy"),
+      ),
+      urgent: v.boolean(),
+      homeService: v.boolean(),
+      priceFrom: v.optional(v.number()),
+      priceUnit: v.optional(v.string()),
+      /** Agrégats d'avis maintenus à chaque publication / modération. */
+      ratingSum: v.number(),
+      ratingCount: v.number(),
+      views: v.number(),
+      contacts: v.number(),
+      quoteCount: v.optional(v.number()),
+      completedCount: v.optional(v.number()),
+      /** Badges — attribution ADMINISTRATIVE uniquement. */
+      verifiedIdentity: v.boolean(),
+      verifiedPro: v.boolean(),
+      verifiedDocs: v.boolean(),
+      recommended: v.boolean(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("active"),
+        v.literal("suspended"),
+      ),
+      /** Fiche de démonstration (jamais présentée comme un vrai professionnel). */
+      demo: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_trade", ["trade"])
+      .index("by_category", ["category"])
+      .index("by_region", ["region"])
+      .index("by_status", ["status"])
+      .index("by_status_region", ["status", "region"])
+      .index("by_demo", ["demo"]),
+
+    /** Demandes de service / de devis créées par les clients. */
+    promarketRequests: defineTable({
+      userId: v.id("users"),
+      /** Fiche visée (demande adressée) ou absente (demande publiée). */
+      professionalId: v.optional(v.id("promarketProfiles")),
+      projectId: v.optional(v.id("projects")),
+      kind: v.union(v.literal("service"), v.literal("quote"), v.literal("ai")),
+      trade: v.string(),
+      category: v.string(),
+      title: v.string(),
+      description: v.string(),
+      region: v.string(),
+      city: v.optional(v.string()),
+      address: v.optional(v.string()),
+      budget: v.optional(v.number()),
+      deadline: v.optional(v.string()),
+      urgent: v.boolean(),
+      phone: v.optional(v.string()),
+      email: v.optional(v.string()),
+      preferences: v.optional(v.string()),
+      attachments: v.optional(v.array(forumAttachmentValidator)),
+      status: v.union(
+        v.literal("new"),
+        v.literal("contact"),
+        v.literal("quote_requested"),
+        v.literal("quote_received"),
+        v.literal("discussing"),
+        v.literal("accepted"),
+        v.literal("in_progress"),
+        v.literal("done"),
+        v.literal("canceled"),
+      ),
+      source: v.union(
+        v.literal("search"),
+        v.literal("profile"),
+        v.literal("project"),
+        v.literal("forum"),
+        v.literal("ai"),
+      ),
+      /** Besoin exprimé en langage naturel (assistant ProMarket). */
+      aiQuery: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+      lastActivityAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_professional", ["professionalId"])
+      .index("by_status", ["status"])
+      .index("by_trade_created", ["trade", "createdAt"])
+      .index("by_created", ["createdAt"]),
+
+    /** Devis envoyés par un professionnel en réponse à une demande. */
+    promarketQuotes: defineTable({
+      requestId: v.id("promarketRequests"),
+      professionalId: v.id("promarketProfiles"),
+      professionalUserId: v.optional(v.id("users")),
+      clientUserId: v.id("users"),
+      price: v.number(),
+      delayDays: v.optional(v.number()),
+      description: v.string(),
+      conditions: v.optional(v.string()),
+      availability: v.optional(v.string()),
+      status: v.union(
+        v.literal("sent"),
+        v.literal("accepted"),
+        v.literal("refused"),
+      ),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_request", ["requestId"])
+      .index("by_professional", ["professionalId"])
+      .index("by_client", ["clientUserId"])
+      .index("by_created", ["createdAt"]),
+
+    /** Messagerie interne client ↔ professionnel (rattachée à une demande). */
+    promarketMessages: defineTable({
+      requestId: v.id("promarketRequests"),
+      senderId: v.id("users"),
+      senderRole: v.union(v.literal("client"), v.literal("professional")),
+      body: v.string(),
+      attachments: v.optional(v.array(forumAttachmentValidator)),
+      readAt: v.optional(v.number()),
+      createdAt: v.number(),
+    })
+      .index("by_request", ["requestId"])
+      .index("by_request_created", ["requestId", "createdAt"])
+      .index("by_sender", ["senderId"]),
+
+    /** Avis clients (uniquement après une demande terminée / acceptée). */
+    promarketReviews: defineTable({
+      professionalId: v.id("promarketProfiles"),
+      /** Absent pour un avis de démonstration (aucun compte associé). */
+      userId: v.optional(v.id("users")),
+      /** Nom affiché d'un avis de démonstration. */
+      authorName: v.optional(v.string()),
+      requestId: v.optional(v.id("promarketRequests")),
+      rating: v.number(),
+      quality: v.number(),
+      punctuality: v.number(),
+      professionalism: v.number(),
+      value: v.number(),
+      communication: v.number(),
+      comment: v.optional(v.string()),
+      photos: v.optional(
+        v.array(v.object({ storageId: v.id("_storage"), name: v.optional(v.string()) })),
+      ),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("approved"),
+        v.literal("hidden"),
+      ),
+      demo: v.optional(v.boolean()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_professional", ["professionalId"])
+      .index("by_professional_status", ["professionalId", "status"])
+      .index("by_user", ["userId"])
+      .index("by_status_created", ["status", "createdAt"])
+      .index("by_request", ["requestId"]),
+
+    /** Professionnels enregistrés (favoris). */
+    promarketSaved: defineTable({
+      userId: v.id("users"),
+      professionalId: v.id("promarketProfiles"),
+      createdAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_professional", ["userId", "professionalId"]),
+
+    /** Signalements (professionnel, avis ou demande). */
+    promarketReports: defineTable({
+      targetType: v.union(
+        v.literal("professional"),
+        v.literal("review"),
+        v.literal("request"),
+      ),
+      targetId: v.string(),
+      targetLabel: v.optional(v.string()),
+      reporterId: v.id("users"),
+      reason: v.string(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("reviewed"),
+        v.literal("dismissed"),
+      ),
+      createdAt: v.number(),
+    })
+      .index("by_status_created", ["status", "createdAt"])
+      .index("by_reporter", ["reporterId"])
+      .index("by_created", ["createdAt"]),
 
     // ── Connection logs (real-time analytics) ──────────────────────
     connectionLogs: defineTable({
