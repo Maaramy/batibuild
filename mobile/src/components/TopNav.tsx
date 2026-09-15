@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Logo } from "./Logo";
-import { FORUM_ICON, SETTINGS_ICON, STROKE, SUPPORT_ICON } from "./icons";
+import { FORUM_ICON, PROMARKET_ICON, SETTINGS_ICON, STROKE, SUPPORT_ICON } from "./icons";
 import { COLORS, SHAPE } from "../theme";
 
 type Props = {
@@ -11,6 +11,10 @@ type Props = {
   onOpenForum: () => void;
   /** L'utilisateur est-il actuellement sur le Forum ? */
   forumActive: boolean;
+  /** Ouvre ProMarket (marketplace de services professionnels). */
+  onOpenProMarket: () => void;
+  /** L'utilisateur est-il actuellement sur ProMarket ? */
+  proMarketActive: boolean;
   /** Ouvre la section Support de la plateforme. */
   onOpenSupport: () => void;
   /** Ouvre les paramètres de la plateforme. */
@@ -50,12 +54,15 @@ type Props = {
 export default function TopNav({
   onOpenForum,
   forumActive,
+  onOpenProMarket,
+  proMarketActive,
   onOpenSupport,
   onOpenSettings,
   onOpenNativeSettings,
 }: Props) {
   const insets = useSafeAreaInsets();
 
+  const ProMarketIcon = PROMARKET_ICON;
   const ForumIcon = FORUM_ICON;
   const SupportIcon = SUPPORT_ICON;
   const SettingsIcon = SETTINGS_ICON;
@@ -93,6 +100,21 @@ export default function TopNav({
               size={22}
               color={forumActive ? COLORS.brand700 : COLORS.inkSoft}
               strokeWidth={forumActive ? STROKE.active : STROKE.inactive}
+            />
+          </Pressable>
+
+          <Pressable
+            onPress={onOpenProMarket}
+            accessibilityRole="button"
+            accessibilityLabel="ProMarket"
+            accessibilityState={{ selected: proMarketActive }}
+            hitSlop={6}
+            style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
+          >
+            <ProMarketIcon
+              size={22}
+              color={proMarketActive ? COLORS.brand700 : COLORS.inkSoft}
+              strokeWidth={proMarketActive ? STROKE.active : STROKE.inactive}
             />
           </Pressable>
 

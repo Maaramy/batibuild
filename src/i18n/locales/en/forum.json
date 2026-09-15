@@ -7,6 +7,12 @@
     "title": "Assistance Forum",
     "description": "Ask a question, request a professional to step in, or find a supplier."
   },
+  "proMarket": {
+    "title": "Need an on-site pro?",
+    "hint": "ProMarket connects you with a qualified professional near you.",
+    "cta": "Find a ProMarket professional",
+    "ctaTrade": "Find a {{trade}} on ProMarket"
+  },
   "count": "{{count}} visible request(s)",
   "search": {
     "placeholder": "Search a request...",

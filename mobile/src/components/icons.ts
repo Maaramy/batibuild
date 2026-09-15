@@ -54,6 +54,7 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
+  Store,
   TrendingUp,
   Upload,
   User,
@@ -97,6 +98,15 @@ export const SETTINGS_ICON: LucideIcon = Settings;
  * l'onglet « Message » de la barre inférieure (messagerie interne).
  */
 export const FORUM_ICON: LucideIcon = MessagesSquare;
+
+/**
+ * ProMarket — icône de l'en-tête natif.
+ *
+ * `Store` est exactement l'icône utilisée par la plateforme Web pour ProMarket
+ * (en-tête du tableau de bord, menu principal, accès rapides des projets) :
+ * l'utilisateur retrouve le même repère visuel sur mobile et sur le Web.
+ */
+export const PROMARKET_ICON: LucideIcon = Store;
 
 /** Écran « hors ligne / erreur ». */
 export const OFFLINE_ICON: LucideIcon = CloudOff;

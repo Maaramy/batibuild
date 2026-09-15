@@ -393,5 +393,9 @@
     "title": "Page not found",
     "hint": "The link you followed no longer exists.",
     "backHome": "Back to ProMarket"
+  },
+  "demo": {
+    "seed": "Load demo profiles",
+    "seeded": "Demo profiles loaded."
   }
 }

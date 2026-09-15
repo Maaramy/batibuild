@@ -8,6 +8,12 @@
     "description": "Posez une question, demandez l'intervention d'un professionnel ou recherchez un fournisseur."
   },
   "count": "{{count}} demande(s) visible(s)",
+  "proMarket": {
+    "title": "Besoin d'une intervention ?",
+    "hint": "ProMarket vous met en relation avec un professionnel qualifié près de chez vous.",
+    "cta": "Trouver un professionnel ProMarket",
+    "ctaTrade": "Trouver un {{trade}} ProMarket"
+  },
   "search": {
     "placeholder": "Rechercher une demande...",
     "clear": "Effacer la recherche"

@@ -39,12 +39,14 @@ import {
   validateForumFiles,
   type ForumAttachmentInput,
 } from "@/lib/forumUpload";
+import { interpretProMarketNeed, promarketTradeLabel } from "@/lib/promarketMeta";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   ArrowLeft,
   Download,
+  Store,
   FileSpreadsheet,
   FileText,
   ImageUp,
@@ -200,6 +202,28 @@ export default function ForumPostDetail() {
       ? t(`specialties.${post.specialty}`, { defaultValue: post.specialty })
       : null;
   }, [post, t]);
+
+  // ── Passerelle ProMarket ──
+  // Si la demande (texte, localisation) évoque un métier du bâtiment, on
+  // propose la recherche ProMarket correspondante. L'analyse est déterministe
+  // et identique à celle de l'assistant ProMarket : aucune requête réseau.
+  const proMarketSuggestion = useMemo(() => {
+    if (!post) return null;
+    const text = [
+      post.title,
+      post.description,
+      post.materialName ?? "",
+      post.location?.region ?? "",
+      post.location?.city ?? "",
+    ].join(" ");
+    const need = interpretProMarketNeed(text);
+    if (!need.trade) return null;
+    const params = new URLSearchParams();
+    params.set("trade", need.trade);
+    if (need.region) params.set("region", need.region);
+    if (need.urgent) params.set("urgent", "1");
+    return { trade: need.trade, href: `/promarket/search?${params.toString()}` };
+  }, [post]);
 
   const uploadErrorMessage = (err: unknown): string => {
     if (err instanceof ForumUploadError) {
@@ -448,6 +472,29 @@ export default function ForumPostDetail() {
                   </ForumBadge>
                 ) : null}
               </div>
+
+              {/* Passerelle ProMarket — un professionnel pour cette demande */}
+              {proMarketSuggestion ? (
+                <div className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.05] p-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Store className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <p className="text-xs font-semibold">{t("proMarket.title")}</p>
+                    <p className="text-[11px] text-muted-foreground">{t("proMarket.hint")}</p>
+                    <button
+                      type="button"
+                      onClick={() => navigate(proMarketSuggestion.href)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-background px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-primary/10"
+                    >
+                      <Store className="h-3.5 w-3.5" />
+                      {t("proMarket.ctaTrade", {
+                        trade: promarketTradeLabel(proMarketSuggestion.trade),
+                      })}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
 
               {/* Pièces jointes */}
               {detail.attachments.length > 0 ? (

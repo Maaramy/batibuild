@@ -20,6 +20,7 @@ import EmailHistory from "./EmailHistory";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import SupportAdmin from "@/components/admin/SupportAdmin";
 import { ForumAdmin } from "@/components/admin/ForumAdmin";
+import { ProMarketAdmin } from "@/components/admin/ProMarketAdmin";
 import { AnnouncementList } from "@/components/admin/announcements/AnnouncementList";
 import { useState, useEffect } from "react";
 import {
@@ -94,6 +95,7 @@ import {
   Megaphone,
   Headset,
   MessagesSquare,
+  Store,
 } from "lucide-react";
 
 // ============================================================================
@@ -111,7 +113,7 @@ export default function AdminPanel() {
   const VALID_TABS = [
     "dashboard", "users", "projects", "investments", "materials", "virements",
     "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs",
-    "experts", "analytics", "support", "forum", "journal", "paiement", "limites",
+    "experts", "analytics", "support", "forum", "promarket", "journal", "paiement", "limites",
     "seo", "blog", "bim", "emails", "modeles", "historique",
   ];
   const initialTab =
@@ -323,7 +325,7 @@ export default function AdminPanel() {
   const isAdmin = user?.role === "admin";
   const isModerator = user?.role === "moderator";
   // Onglets accessibles au modérateur (le module support est accessible à tout le staff)
-  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs", "experts", "support", "forum"];
+  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs", "experts", "support", "forum", "promarket"];
   // Agent support : accès uniquement au module Support & Messagerie
   const canSee = (tab: string) =>
     isAdmin ||
@@ -803,6 +805,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 )}
               </TabsTrigger>
               )}
+              {canSee("promarket") && (
+              <TabsTrigger value="promarket" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Store className="h-3.5 w-3.5" />
+                <span>ProMarket</span>
+              </TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -817,6 +825,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
           {canSee("forum") && (
             <TabsContent value="forum">
               <ForumAdmin />
+            </TabsContent>
+          )}
+
+          {/* ── ProMarket ── */}
+          {canSee("promarket") && (
+            <TabsContent value="promarket">
+              <ProMarketAdmin />
             </TabsContent>
           )}
 

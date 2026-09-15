@@ -54,6 +54,10 @@ import frForum from "./locales/fr/forum.json";
 import enForum from "./locales/en/forum.json";
 import arForum from "./locales/ar/forum.json";
 
+import frPromarket from "./locales/fr/promarket.json";
+import enPromarket from "./locales/en/promarket.json";
+import arPromarket from "./locales/ar/promarket.json";
+
 export const SUPPORTED_LANGUAGES = [
   { code: "fr", label: "Français", dir: "ltr" as const, flag: "🇫🇷" },
   { code: "en", label: "English", dir: "ltr" as const, flag: "🇬🇧" },
@@ -86,6 +90,7 @@ i18n
         materials: frMaterials,
         contact: frContact,
         forum: frForum,
+        promarket: frPromarket,
       },
       en: {
         common: enCommon,
@@ -101,6 +106,7 @@ i18n
         materials: enMaterials,
         contact: enContact,
         forum: enForum,
+        promarket: enPromarket,
       },
       ar: {
         common: arCommon,
@@ -116,6 +122,7 @@ i18n
         materials: arMaterials,
         contact: arContact,
         forum: arForum,
+        promarket: arPromarket,
       },
     },
     fallbackLng: "fr",
@@ -134,6 +141,7 @@ i18n
       "materials",
       "contact",
       "forum",
+      "promarket",
     ],
     interpolation: {
       escapeValue: false,

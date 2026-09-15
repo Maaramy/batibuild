@@ -44,6 +44,7 @@ import {
   Search,
   SearchX,
   Sparkles,
+  Store,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -335,6 +336,18 @@ export default function ForumPage() {
                 {t("subtitle")}
               </p>
             </div>
+            {/* Passerelle ProMarket — trouver directement un professionnel */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 gap-1.5 text-xs"
+              title={t("proMarket.cta")}
+              aria-label={t("proMarket.cta")}
+              onClick={() => navigate("/promarket/search")}
+            >
+              <Store className="h-3.5 w-3.5" />
+              <span className="hidden lg:inline">{t("proMarket.cta")}</span>
+            </Button>
             <Button
               size="sm"
               className="hidden h-9 shrink-0 gap-1.5 text-xs sm:inline-flex"

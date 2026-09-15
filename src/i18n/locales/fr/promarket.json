@@ -393,5 +393,9 @@
     "title": "Page introuvable",
     "hint": "Le lien que vous avez suivi n'existe plus.",
     "backHome": "Retour à ProMarket"
+  },
+  "demo": {
+    "seed": "Charger des fiches de démonstration",
+    "seeded": "Fiches de démonstration chargées."
   }
 }

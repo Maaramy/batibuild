@@ -50,6 +50,14 @@ const SupplierStats = lazy(() => import("./pages/SupplierStats.tsx"));
 const SupplierQuotes = lazy(() => import("./pages/SupplierQuotes.tsx"));
 const UserMessages = lazy(() => import("./pages/UserMessages.tsx"));
 const SupportPage = lazy(() => import("./pages/SupportPage.tsx"));
+const ProMarketHome = lazy(() => import("./pages/ProMarketHome.tsx"));
+const ProMarketSearch = lazy(() => import("./pages/ProMarketSearch.tsx"));
+const ProMarketProfile = lazy(() => import("./pages/ProMarketProfile.tsx"));
+const NewProMarketRequest = lazy(() => import("./pages/NewProMarketRequest.tsx"));
+const ProMarketRequests = lazy(() => import("./pages/ProMarketRequests.tsx"));
+const ProMarketRequestDetail = lazy(() => import("./pages/ProMarketRequestDetail.tsx"));
+const ProMarketSaved = lazy(() => import("./pages/ProMarketSaved.tsx"));
+const ProMarketProSpace = lazy(() => import("./pages/ProMarketProSpace.tsx"));
 const ForumPage = lazy(() => import("./pages/ForumPage.tsx"));
 const ForumPostDetail = lazy(() => import("./pages/ForumPostDetail.tsx"));
 const NewForumPost = lazy(() => import("./pages/NewForumPost.tsx"));
@@ -355,6 +363,70 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <SupportPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/promarket"
+                  element={
+                    <RequireAuth>
+                      <ProMarketHome />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/promarket/search"
+                  element={
+                    <RequireAuth>
+                      <ProMarketSearch />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/promarket/pro-space"
+                  element={
+                    <RequireAuth>
+                      <ProMarketProSpace />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/promarket/saved"
+                  element={
+                    <RequireAuth>
+                      <ProMarketSaved />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/promarket/requests"
+                  element={
+                    <RequireAuth>
+                      <ProMarketRequests />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/promarket/request/new"
+                  element={
+                    <RequireAuth>
+                      <NewProMarketRequest />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/promarket/request/:requestId"
+                  element={
+                    <RequireAuth>
+                      <ProMarketRequestDetail />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/promarket/pro/:professionalId"
+                  element={
+                    <RequireAuth>
+                      <ProMarketProfile />
                     </RequireAuth>
                   }
                 />

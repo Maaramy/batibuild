@@ -298,6 +298,55 @@ export const PROMARKET_REVIEW_CRITERIA_LABELS: Record<string, string> = {
 };
 
 // ============================================================================
+// Intégration Projet — métiers suggérés selon le type de projet BatiBuild
+// ============================================================================
+
+/**
+ * Métiers pertinents pour un type de projet BatiBuild.
+ *
+ * Même logique que l'assistant ProMarket : une correspondance déterministe et
+ * lisible (aucune clé d'API), utilisée par « Trouver des professionnels pour ce
+ * projet » sur la page d'un projet.
+ */
+export const PROMARKET_TRADES_BY_PROJECT_CATEGORY: Record<string, string[]> = {
+  maison: ["macon", "electricien", "plombier", "peintre", "carreleur", "menuisier"],
+  villa: ["macon", "electricien", "plombier", "carreleur", "pisciniste", "paysagiste"],
+  appartement: ["electricien", "plombier", "peintre", "carreleur", "menuisier"],
+  studio: ["electricien", "plombier", "peintre", "menuisier"],
+  duplex: ["macon", "electricien", "plombier", "peintre", "carreleur"],
+  immeuble: ["entreprise_construction", "chef_chantier", "coffreur", "ferrailleur", "electricien"],
+  local_commercial: ["electricien", "peintre", "climaticien", "menuisier", "installateur_reseau"],
+  bureau: ["electricien", "peintre", "installateur_reseau", "climaticien", "menuisier"],
+  entrepot: ["macon", "electricien", "etancheur", "installateur_reseau"],
+  residence_touristique: ["entreprise_construction", "chef_chantier", "plombier", "electricien", "pisciniste"],
+  projet_neuf: ["macon", "electricien", "plombier", "peintre", "carreleur", "menuisier"],
+  renovation_complete: ["macon", "electricien", "plombier", "peintre", "carreleur", "menuisier", "climaticien"],
+  extension_batiment: ["macon", "coffreur", "ferrailleur", "electricien", "plombier"],
+  renovation_cuisine: ["menuisier", "plombier", "electricien", "carreleur", "installateur_sanitaire"],
+  renovation_salle_de_bain: ["installateur_sanitaire", "carreleur", "plombier", "electricien", "etancheur"],
+  peinture_interieure: ["peintre", "platrier"],
+  piscine: ["pisciniste", "macon", "carreleur", "paysagiste"],
+  restaurant: ["electricien", "plombier", "climaticien", "carreleur", "menuisier"],
+  cafe: ["electricien", "plombier", "climaticien", "menuisier"],
+  electricite_complete: ["electricien", "installateur_reseau"],
+  plomberie_complete: ["plombier", "installateur_sanitaire", "chauffagiste"],
+};
+
+/** Métiers suggérés pour un type de projet (repli : gros œuvre + finitions). */
+export function suggestTradesForProject(category: string | undefined): string[] {
+  if (!category) return ["macon", "electricien", "plombier", "peintre"];
+  return (
+    PROMARKET_TRADES_BY_PROJECT_CATEGORY[category] ?? [
+      "macon",
+      "electricien",
+      "plombier",
+      "peintre",
+      "carreleur",
+    ]
+  );
+}
+
+// ============================================================================
 // Assistant ProMarket — interprétation d'un besoin exprimé en langage naturel
 // ============================================================================
 

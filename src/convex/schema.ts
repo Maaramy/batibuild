@@ -1662,6 +1662,8 @@ const schema = defineSchema(
       budget: v.optional(v.number()),
       deadline: v.optional(v.string()),
       urgent: v.boolean(),
+      /** Intervention à domicile souhaitée par le client. */
+      homeService: v.optional(v.boolean()),
       phone: v.optional(v.string()),
       email: v.optional(v.string()),
       preferences: v.optional(v.string()),

@@ -31,8 +31,10 @@ import {
   isDashboardRoute,
   isForumRoute,
   isLandingRoute,
+  isProMarketRoute,
   LOADING_MESSAGE,
   pathOfUrl,
+  PROMARKET_PATH,
   SETTINGS_PATH,
   shouldShowBottomNav,
   SUPPORT_PATH,
@@ -277,6 +279,9 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   }, []);
 
   const handleOpenForum = useCallback(() => goToPath(FORUM_PATH), [goToPath]);
+
+  // ProMarket — marketplace de services professionnels (route réelle du Web).
+  const handleOpenProMarket = useCallback(() => goToPath(PROMARKET_PATH), [goToPath]);
   const handleOpenSupport = useCallback(() => goToPath(SUPPORT_PATH), [goToPath]);
   const handleOpenSettings = useCallback(() => goToPath(SETTINGS_PATH), [goToPath]);
 
@@ -406,6 +411,8 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
       <TopNav
         onOpenForum={handleOpenForum}
         forumActive={isForumRoute(currentPath)}
+        onOpenProMarket={handleOpenProMarket}
+        proMarketActive={isProMarketRoute(currentPath)}
         onOpenSupport={handleOpenSupport}
         onOpenSettings={handleOpenSettings}
         onOpenNativeSettings={openSettings}

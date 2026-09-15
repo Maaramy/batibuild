@@ -36,6 +36,8 @@ export { default as Briefcase } from "../../node_modules/lucide-react/dist/esm/i
 export { default as Building } from "../../node_modules/lucide-react/dist/esm/icons/building.js";
 export { default as Building2 } from "../../node_modules/lucide-react/dist/esm/icons/building-2.js";
 export { default as LifeBuoy } from "../../node_modules/lucide-react/dist/esm/icons/life-buoy.js";
+export { default as Flag } from "../../node_modules/lucide-react/dist/esm/icons/flag.js";
+export { default as Navigation } from "../../node_modules/lucide-react/dist/esm/icons/navigation.js";
 export { default as Signal } from "../../node_modules/lucide-react/dist/esm/icons/signal.js";
 export { default as SignalHigh } from "../../node_modules/lucide-react/dist/esm/icons/signal-high.js";
 export { default as SignalLow } from "../../node_modules/lucide-react/dist/esm/icons/signal-low.js";
