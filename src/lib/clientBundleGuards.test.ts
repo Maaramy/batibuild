@@ -10,8 +10,8 @@
 // Ils échouent dès qu'une régression réintroduit le poids supprimé, pour que
 // l'optimisation ne puisse pas se perdre silencieusement.
 // ============================================================================
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { buildProjectQuickActions } from "./projectQuickActions";
@@ -30,6 +30,17 @@ function sourceFiles(dir: string): string[] {
 }
 
 const isServerOnly = (file: string) => file.includes(`${join("src", "convex")}`);
+
+/**
+ * Toute la surface client compilée : `src` **et** la toolbar Vly à la racine
+ * (`vly-toolbar-readonly.tsx`, incluse dans `tsconfig.app.json`). Cette
+ * dernière importe aussi des icônes lucide : elle doit donc être couverte par
+ * le garde-fou du shim, sinon une de ses icônes peut sortir du shim à
+ * l'occasion d'un nettoyage et casser l'aperçu.
+ */
+function clientSourceFiles(): string[] {
+  return [...sourceFiles(SRC), join(REPO_ROOT, "vly-toolbar-readonly.tsx")];
+}
 
 /** Tous les spécificateurs importés par un fichier (formes statique et dynamique). */
 function importSpecifiers(code: string): string[] {
@@ -89,7 +100,7 @@ describe("bundle client — poids du build", () => {
     const missing = new Set<string>();
     const namespaceImports: string[] = [];
 
-    for (const file of sourceFiles(SRC)) {
+    for (const file of clientSourceFiles()) {
       if (file.endsWith("lucide-shim.js") || isServerOnly(file)) continue;
       const code = readFileSync(file, "utf8");
 
@@ -124,6 +135,50 @@ describe("bundle client — poids du build", () => {
       namespaceImports,
       "`import * as ... from \"lucide-react\"` contourne le shim (bundle complet)",
     ).toEqual([]);
+  });
+
+  it("chaque icône ré-exportée par le shim existe et fournit un export par défaut", () => {
+    // Deuxième cause du runtime « The requested module
+    // '/src/lib/lucide-shim.js' does not provide an export named 'X' » : le nom
+    // EST déclaré dans le shim, mais la cible de son `export { default as X }
+    // from "..."` n'existe plus (icône renommée/supprimée lors d'une montée de
+    // version de lucide) ou ne fournit pas d'export par défaut. Le shim reste
+    // alors syntaxiquement valide tout en cassant le navigateur dès qu'il est
+    // chargé — donc toute l'application, y compris l'aperçu.
+    // Une icône est utilisable si son module (ou la chaîne de ré-export vers
+    // laquelle il pointe) fournit un export par défaut. Les icônes dépréciées
+    // de lucide sont de simples alias : `export { default } from './ellipsis.js'`
+    // (ex. `more-horizontal`, `loader-2`), il faut donc suivre la chaîne.
+    const providesDefaultExport = (file: string, depth = 0): boolean => {
+      if (depth > 5) return true;
+      const code = readFileSync(file, "utf8");
+      if (/as default\s*\}/.test(code) || /export default\b/.test(code)) return true;
+      const reExport = code.match(/export \{ default \} from ["']([^"']+)["']/);
+      if (!reExport) return false;
+      const next = resolve(dirname(file), reExport[1]);
+      return existsSync(next) ? providesDefaultExport(next, depth + 1) : false;
+    };
+
+    const shimPath = join(SRC, "lib", "lucide-shim.js");
+    const shim = readFileSync(shimPath, "utf8");
+    const re = /export \{ default as (\w+) \} from "([^"]+)";/g;
+    const broken: string[] = [];
+    let checked = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(shim))) {
+      const [, name, specifier] = m;
+      checked += 1;
+      const target = resolve(dirname(shimPath), specifier);
+      if (!existsSync(target)) {
+        broken.push(`${name} → fichier introuvable (${specifier})`);
+        continue;
+      }
+      if (!providesDefaultExport(target)) {
+        broken.push(`${name} → la cible n'a pas d'export par défaut (${specifier})`);
+      }
+    }
+    expect(checked, "aucune icône ré-exportée détectée dans le shim").toBeGreaterThan(0);
+    expect(broken, "icônes déclarées dans le shim mais inutilisables").toEqual([]);
   });
 
   it("le build de production plafonne le heap V8 pour survivre à la sandbox", () => {

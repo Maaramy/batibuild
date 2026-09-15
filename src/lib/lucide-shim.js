@@ -10,6 +10,14 @@
  * Plain .js on purpose: source files keep full typing against the real
  * "lucide-react" package (tsc never sees this alias), and this file's deep
  * node_modules imports have no type declarations to satisfy.
+ *
+ * AJOUTER UNE ICÔNE ICI dès qu'un fichier de `src` en importe une nouvelle,
+ * sinon le navigateur casse au chargement avec
+ * « does not provide an export named 'X' ». Deux garde-fous dans
+ * src/lib/clientBundleGuards.test.ts vérifient automatiquement que chaque
+ * icône utilisée est exportée ici, et que chaque export pointe vers un module
+ * lucide réellement doté d'un export par défaut (une icône absente ou renommée
+ * lors d'une montée de version échoue en test au lieu de casser l'aperçu).
  */
 export { default as Activity } from "../../node_modules/lucide-react/dist/esm/icons/activity.js";
 export { default as AlertCircle } from "../../node_modules/lucide-react/dist/esm/icons/alert-circle.js";
