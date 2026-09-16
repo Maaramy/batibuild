@@ -61,7 +61,10 @@ interface HeaderNavProps {
  * `active` fourni par l'appelant est prioritaire ; sinon la route cible est
  * comparée au chemin courant (égalité, ou sous-page de la route cible).
  */
-export function isHeaderNavItemActive(item: HeaderNavItem, pathname: string): boolean {
+export function isHeaderNavItemActive(
+  item: { path?: string; active?: boolean },
+  pathname: string,
+): boolean {
   if (typeof item.active === "boolean") return item.active;
   if (!item.path) return false;
   const base = item.path.split("?")[0].replace(/\/+$/, "");
