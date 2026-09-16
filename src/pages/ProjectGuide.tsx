@@ -616,13 +616,14 @@ export default function ProjectGuide() {
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
             <Target className="h-3 w-3" /> Progression des phases
           </p>
-          <div className="flex min-w-[760px] items-center">
+          <div className="flex min-w-[520px] items-center">
             {JOURNEY.map((step, i) => {
               const phase = roadmap.phases.find((p) => p.id === step.phase);
               const done = phase?.status === "done";
               const active = phase?.status === "in_progress";
+              const phaseLabel = phase?.title?.trim() || step.label;
               return (
-                <div key={i} className="flex items-center flex-1 last:flex-none">
+                <div key={i} className="flex items-center flex-1 last:flex-none" title={phaseLabel}>
                   <div className="flex flex-col items-center gap-1 flex-1">
                     <div
                       className={`flex h-7 w-7 items-center justify-center rounded-full border text-[10px] font-bold transition-colors ${
@@ -632,7 +633,8 @@ export default function ProjectGuide() {
                       {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
                     </div>
                     <span className={`text-[9px] font-medium whitespace-nowrap ${done ? "text-emerald-600 dark:text-emerald-400" : active ? "text-cyan-600 dark:text-cyan-400" : "text-muted-foreground/50"}`}>
-                      {step.label}
+                      Étape {i + 1}
+                      <span className="sr-only"> — {phaseLabel}</span>
                     </span>
                   </div>
                   {i < JOURNEY.length - 1 && <div className={`h-px flex-1 mb-4 ${done ? "bg-emerald-500/60" : "bg-border/60"}`} />}
