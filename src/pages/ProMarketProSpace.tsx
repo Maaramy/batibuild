@@ -428,9 +428,33 @@ function ProMarketExpertStatus({
         </p>
         {reasons.length > 0 && (
           <ul className="mt-1 list-inside list-disc space-y-0.5">
-            {reasons.map((reason) => (
-              <li key={reason}>{t(`proSpace.expertOnly.reasons.${reason}`)}</li>
-            ))}
+            {reasons.map((reason) => {
+              // Profil incomplet : afficher PRÉCISÉMENT les champs manquants
+              // (évalués côté serveur sur les données persistées Convex) au
+              // lieu du message générique.
+              if (reason === "incomplete_profile") {
+                const missing = eligibility?.missingFields ?? [];
+                if (missing.length > 0) {
+                  return (
+                    <li key={reason}>
+                      <span className="font-semibold">
+                        {t("proSpace.expertOnly.missingFieldsIntro")}
+                      </span>{" "}
+                      {missing
+                        .map((field) =>
+                          t(`proSpace.expertOnly.missingFields.${field}`),
+                        )
+                        .join(", ")}
+                    </li>
+                  );
+                }
+              }
+              return (
+                <li key={reason}>
+                  {t(`proSpace.expertOnly.reasons.${reason}`)}
+                </li>
+              );
+            })}
           </ul>
         )}
         {eligibility?.eligible && !eligibility.available && (
