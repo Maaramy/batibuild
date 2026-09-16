@@ -10,14 +10,12 @@ const GROUP_A_LABELS = [
   "Coût estimatif",
   "Plans",
   "Choix matériaux",
-  "Exécution (Guide de A à Z)",
-  "Consultation expert / entreprise",
+  "Consultation",
+  "Exécution",
+  "Investissement",
 ];
 
-const GROUP_B_LABELS = [
-  "Coût estimatif",
-  "Consultation pro / expert / entreprise",
-];
+const GROUP_B_LABELS = ["Coût estimatif", "Consultation"];
 
 const PID = "proj_1";
 
@@ -81,7 +79,7 @@ describe("projectJourneyGroup — groupe déduit du type de projet", () => {
 });
 
 describe("buildProjectJourney — ordre des étapes", () => {
-  it("Maison : 5 étapes dans l'ordre officiel", () => {
+  it("Maison : 6 étapes dans l'ordre officiel", () => {
     expect(buildProjectJourney("maison", PID).map((s) => s.label)).toEqual(GROUP_A_LABELS);
   });
 
@@ -91,6 +89,12 @@ describe("buildProjectJourney — ordre des étapes", () => {
 
   it("Appartement : même structure que Maison", () => {
     expect(buildProjectJourney("appartement", PID).map((s) => s.label)).toEqual(GROUP_A_LABELS);
+  });
+
+  it("le parcours du groupe A se termine par consultation, exécution puis investissement", () => {
+    const keys = buildProjectJourney("maison", PID).map((s) => s.key);
+    expect(keys.indexOf("consult")).toBeLessThan(keys.indexOf("execution"));
+    expect(keys.indexOf("execution")).toBeLessThan(keys.indexOf("investment"));
   });
 
   it("Rénovation : uniquement coût estimatif + consultation", () => {
@@ -125,15 +129,17 @@ describe("buildProjectJourney — liens et contexte du projet", () => {
       "cost",
       "plans",
       "materials",
-      "execution",
       "consult",
+      "execution",
+      "investment",
     ]);
     expect(steps.map((s) => s.href)).toEqual([
       "/dashboard/project/proj_1",
       "/dashboard/plans/proj_1",
       "/dashboard/ai-materials?project=proj_1",
-      "/dashboard/guide?project=proj_1",
       "/dashboard/professionals-directory?project=proj_1",
+      "/dashboard/guide?project=proj_1",
+      "/dashboard/investments?project=proj_1",
     ]);
   });
 
