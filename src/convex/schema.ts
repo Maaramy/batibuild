@@ -754,6 +754,15 @@ const schema = defineSchema(
         v.literal("promarket_message"),
         v.literal("promarket_review"),
         v.literal("promarket_verified"),
+        // ── BatiMarket (marketplace matériaux) ──
+        v.literal("marketplace_order"),
+        v.literal("marketplace_status"),
+        v.literal("marketplace_stock"),
+        v.literal("marketplace_review"),
+        v.literal("marketplace_promo"),
+        v.literal("marketplace_availability"),
+        v.literal("marketplace_message"),
+        v.literal("marketplace_supplier"),
       ),
       title: v.string(),
       message: v.string(),
@@ -1744,6 +1753,405 @@ const schema = defineSchema(
       .index("by_status_created", ["status", "createdAt"])
       .index("by_reporter", ["reporterId"])
       .index("by_created", ["createdAt"]),
+
+    // ── BatiMarket — marketplace matériaux multi-vendeurs ──────────
+    //
+    // Module NATIF de BatiBuild : aucun système d'authentification ou de
+    // comptes parallèle. Les vendeurs sont des utilisateurs BatiBuild dont le
+    // dossier fournisseur (`marketplaceSuppliers`) est validé ; les clients
+    // sont les utilisateurs/projets existants.
+    //
+    // Logique métier (permissions, panier multi-vendeurs, stock, TVA) :
+    // `src/convex/batimarket.ts`. Catalogue partagé :
+    // `src/lib/batimarketMeta.ts` (module sans dépendance, client + serveur).
+
+    /** Dossier fournisseur (statut de vérification professionnelle). */
+    marketplaceSuppliers: defineTable({
+      userId: v.id("users"),
+      companyName: v.string(),
+      legalName: v.optional(v.string()),
+      /** Matricule fiscal tunisien. */
+      taxId: v.optional(v.string()),
+      /** Registre de commerce (RNE). */
+      registryNumber: v.optional(v.string()),
+      contactName: v.optional(v.string()),
+      phone: v.string(),
+      email: v.string(),
+      address: v.optional(v.string()),
+      governorate: v.string(),
+      description: v.optional(v.string()),
+      logoUrl: v.optional(v.string()),
+      logoStorageId: v.optional(v.id("_storage")),
+      bannerUrl: v.optional(v.string()),
+      bannerStorageId: v.optional(v.id("_storage")),
+      website: v.optional(v.string()),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("review"),
+        v.literal("active"),
+        v.literal("suspended"),
+      ),
+      /** Note interne de vérification (admin). */
+      verificationNote: v.optional(v.string()),
+      submittedAt: v.number(),
+      verifiedAt: v.optional(v.number()),
+      verifiedBy: v.optional(v.id("users")),
+      suspendedReason: v.optional(v.string()),
+      /** Données de démonstration (mode Démo explicitement séparé). */
+      demo: v.optional(v.boolean()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_status", ["status"])
+      .index("by_governorate", ["governorate"])
+      .index("by_status_demo", ["status", "demo"]),
+
+    /** Boutique publique du fournisseur (vitrine + zones de livraison). */
+    marketplaceStores: defineTable({
+      supplierId: v.id("marketplaceSuppliers"),
+      userId: v.id("users"),
+      name: v.string(),
+      slug: v.string(),
+      description: v.optional(v.string()),
+      logoUrl: v.optional(v.string()),
+      bannerUrl: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      whatsapp: v.optional(v.string()),
+      address: v.optional(v.string()),
+      governorate: v.string(),
+      deliveryZones: v.array(v.string()),
+      openingHours: v.optional(v.string()),
+      legalInfo: v.optional(v.string()),
+      active: v.boolean(),
+      ratingSum: v.number(),
+      ratingCount: v.number(),
+      ordersCount: v.number(),
+      views: v.number(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_supplier", ["supplierId"])
+      .index("by_user", ["userId"])
+      .index("by_slug", ["slug"])
+      .index("by_active", ["active"])
+      .index("by_governorate", ["governorate"]),
+
+    /** Catégories BatiMarket (gérées dynamiquement depuis l'administration). */
+    marketplaceCategories: defineTable({
+      slug: v.string(),
+      label: v.string(),
+      labelAr: v.optional(v.string()),
+      icon: v.string(),
+      /** Slug de catégorie parente, absent pour une catégorie racine. */
+      parent: v.optional(v.string()),
+      order: v.number(),
+      active: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_slug", ["slug"])
+      .index("by_parent", ["parent"])
+      .index("by_order", ["order"]),
+
+    /** Marques (gérées depuis l'administration). */
+    marketplaceBrands: defineTable({
+      slug: v.string(),
+      name: v.string(),
+      active: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_slug", ["slug"])
+      .index("by_name", ["name"]),
+
+    /** Articles en vente. Prix stockés HT ; le TTC est dérivé (prixHT + TVA). */
+    marketplaceProducts: defineTable({
+      supplierId: v.id("marketplaceSuppliers"),
+      storeId: v.id("marketplaceStores"),
+      userId: v.id("users"),
+      name: v.string(),
+      description: v.optional(v.string()),
+      category: v.string(),
+      subcategory: v.optional(v.string()),
+      brand: v.optional(v.string()),
+      sku: v.optional(v.string()),
+      images: v.array(v.string()),
+      unit: v.string(),
+      priceHT: v.number(),
+      vatRate: v.number(),
+      /** Prix TTC maintenu en base pour les recherches/tri (dérivé du HT). */
+      priceTTC: v.number(),
+      stock: v.number(),
+      lowStockThreshold: v.optional(v.number()),
+      minOrderQty: v.number(),
+      availability: v.union(
+        v.literal("disponible"),
+        v.literal("sur_commande"),
+        v.literal("rupture"),
+      ),
+      deliveryAvailable: v.boolean(),
+      pickupAvailable: v.boolean(),
+      deliveryDays: v.optional(v.number()),
+      deliveryZones: v.array(v.string()),
+      deliveryFee: v.number(),
+      specs: v.array(v.object({ label: v.string(), value: v.string() })),
+      status: v.union(
+        v.literal("draft"),
+        v.literal("active"),
+        v.literal("suspended"),
+        v.literal("archived"),
+      ),
+      views: v.number(),
+      salesCount: v.number(),
+      ratingSum: v.number(),
+      ratingCount: v.number(),
+      demo: v.optional(v.boolean()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_supplier", ["supplierId"])
+      .index("by_store", ["storeId"])
+      .index("by_category", ["category"])
+      .index("by_category_sub", ["category", "subcategory"])
+      .index("by_status", ["status"])
+      .index("by_status_category", ["status", "category"])
+      .index("by_brand", ["brand"])
+      .index("by_supplier_status", ["supplierId", "status"])
+      .index("by_created", ["createdAt"])
+      .index("by_name", ["name"]),
+
+    /** Mouvements de stock (journal : vente, réappro, ajustement…). */
+    marketplaceInventory: defineTable({
+      productId: v.id("marketplaceProducts"),
+      supplierId: v.id("marketplaceSuppliers"),
+      userId: v.optional(v.id("users")),
+      delta: v.number(),
+      stockAfter: v.number(),
+      reason: v.union(
+        v.literal("initial"),
+        v.literal("restock"),
+        v.literal("sale"),
+        v.literal("cancel"),
+        v.literal("adjustment"),
+      ),
+      orderId: v.optional(v.id("marketplaceOrders")),
+      note: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_product", ["productId"])
+      .index("by_supplier", ["supplierId"])
+      .index("by_created", ["createdAt"])
+      .index("by_order", ["orderId"]),
+
+    /** Panier (un par utilisateur) — multi-vendeurs. */
+    marketplaceCarts: defineTable({
+      userId: v.id("users"),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    }).index("by_user", ["userId"]),
+
+    /** Lignes de panier (rattachées au vendeur pour le regroupement). */
+    marketplaceCartItems: defineTable({
+      cartId: v.id("marketplaceCarts"),
+      userId: v.id("users"),
+      productId: v.id("marketplaceProducts"),
+      supplierId: v.id("marketplaceSuppliers"),
+      quantity: v.number(),
+      addedAt: v.number(),
+    })
+      .index("by_cart", ["cartId"])
+      .index("by_user", ["userId"])
+      .index("by_cart_product", ["cartId", "productId"])
+      .index("by_user_supplier", ["userId", "supplierId"]),
+
+    /** Commandes — une commande par fournisseur (commande multi-vendeurs éclatée). */
+    marketplaceOrders: defineTable({
+      orderNumber: v.string(),
+      userId: v.id("users"),
+      supplierId: v.id("marketplaceSuppliers"),
+      storeId: v.id("marketplaceStores"),
+      status: v.union(
+        v.literal("new"),
+        v.literal("confirmed"),
+        v.literal("preparing"),
+        v.literal("shipped"),
+        v.literal("delivering"),
+        v.literal("delivered"),
+        v.literal("canceled"),
+      ),
+      /** Récapitulatif financier HT / TVA / TTC (livraison incluse dans les frais). */
+      subtotalHT: v.number(),
+      vatAmount: v.number(),
+      deliveryFee: v.number(),
+      totalTTC: v.number(),
+      itemCount: v.number(),
+      deliveryMode: v.string(),
+      pickup: v.boolean(),
+      /** Adresse de livraison (absente pour un retrait). */
+      shipping: v.optional(
+        v.object({
+          name: v.string(),
+          phone: v.string(),
+          address: v.string(),
+          governorate: v.string(),
+          city: v.optional(v.string()),
+          notes: v.optional(v.string()),
+        }),
+      ),
+      /** Projet BatiBuild rattaché (commande issue du DQE / des besoins projet). */
+      projectId: v.optional(v.id("projects")),
+      source: v.optional(
+        v.union(
+          v.literal("catalog"),
+          v.literal("project"),
+          v.literal("dqe"),
+          v.literal("ai"),
+        ),
+      ),
+      statusHistory: v.array(
+        v.object({
+          status: v.string(),
+          at: v.number(),
+          byUserId: v.optional(v.id("users")),
+          note: v.optional(v.string()),
+        }),
+      ),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_supplier", ["supplierId"])
+      .index("by_status", ["status"])
+      .index("by_status_created", ["status", "createdAt"])
+      .index("by_supplier_created", ["supplierId", "createdAt"])
+      .index("by_created", ["createdAt"])
+      .index("by_number", ["orderNumber"]),
+
+    /** Lignes de commande (instantané du produit au moment de l'achat). */
+    marketplaceOrderItems: defineTable({
+      orderId: v.id("marketplaceOrders"),
+      productId: v.id("marketplaceProducts"),
+      supplierId: v.id("marketplaceSuppliers"),
+      userId: v.id("users"),
+      name: v.string(),
+      unit: v.string(),
+      image: v.optional(v.string()),
+      quantity: v.number(),
+      unitPriceHT: v.number(),
+      vatRate: v.number(),
+      lineHT: v.number(),
+      lineVAT: v.number(),
+      lineTTC: v.number(),
+      /** Avis déjà déposé pour cette ligne (empêche les faux avis). */
+      reviewed: v.boolean(),
+      createdAt: v.number(),
+    })
+      .index("by_order", ["orderId"])
+      .index("by_supplier", ["supplierId"])
+      .index("by_product", ["productId"])
+      .index("by_user", ["userId"])
+      .index("by_user_product", ["userId", "productId"]),
+
+    /** Favoris (produits, fournisseurs, boutiques). */
+    marketplaceFavorites: defineTable({
+      userId: v.id("users"),
+      kind: v.union(
+        v.literal("product"),
+        v.literal("supplier"),
+        v.literal("store"),
+      ),
+      targetId: v.string(),
+      createdAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_kind", ["userId", "kind"])
+      .index("by_user_target", ["userId", "targetId"]),
+
+    /** Avis produits — réservés aux acheteurs d'une commande LIVRÉE. */
+    marketplaceReviews: defineTable({
+      productId: v.id("marketplaceProducts"),
+      supplierId: v.id("marketplaceSuppliers"),
+      userId: v.id("users"),
+      authorName: v.string(),
+      orderId: v.id("marketplaceOrders"),
+      orderItemId: v.id("marketplaceOrderItems"),
+      rating: v.number(),
+      comment: v.optional(v.string()),
+      status: v.union(
+        v.literal("published"),
+        v.literal("hidden"),
+      ),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_product", ["productId"])
+      .index("by_supplier", ["supplierId"])
+      .index("by_user", ["userId"])
+      .index("by_user_product", ["userId", "productId"])
+      .index("by_order", ["orderId"]),
+
+    /** Zones et tarifs de livraison configurés par le fournisseur. */
+    marketplaceDeliveries: defineTable({
+      supplierId: v.id("marketplaceSuppliers"),
+      governorate: v.string(),
+      mode: v.union(
+        v.literal("fixed"),
+        v.literal("per_item"),
+        v.literal("free_above"),
+        v.literal("pickup"),
+      ),
+      fee: v.number(),
+      freeAbove: v.optional(v.number()),
+      minDays: v.optional(v.number()),
+      maxDays: v.optional(v.number()),
+      /** Réservé à une intégration transporteur externe ultérieure. */
+      carrier: v.optional(v.string()),
+      active: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_supplier", ["supplierId"])
+      .index("by_supplier_governorate", ["supplierId", "governorate"]),
+
+    /** Promotions (globale boutique ou ciblée sur un produit). */
+    marketplacePromotions: defineTable({
+      supplierId: v.id("marketplaceSuppliers"),
+      productId: v.optional(v.id("marketplaceProducts")),
+      title: v.string(),
+      /** Remise en pourcentage (0 → aucune remise, on utilise alors priceHT). */
+      discountPct: v.number(),
+      /** Prix HT promotionnel explicite (prioritaire sur discountPct). */
+      priceHT: v.optional(v.number()),
+      startAt: v.number(),
+      endAt: v.optional(v.number()),
+      active: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_supplier", ["supplierId"])
+      .index("by_product", ["productId"])
+      .index("by_active", ["active"])
+      .index("by_end", ["endAt"]),
+
+    /** Paramètres BatiMarket (TVA, commission, mode démo) — document unique. */
+    marketplaceSettings: defineTable({
+      defaultVatRate: v.number(),
+      currency: v.string(),
+      commissionRate: v.number(),
+      /** Mode Démo : affiche/masque les données de démonstration marquées `demo`. */
+      demoMode: v.boolean(),
+      /** Seuil global de stock faible (valeur par défaut des produits). */
+      lowStockThreshold: v.number(),
+      updatedAt: v.number(),
+      updatedBy: v.optional(v.id("users")),
+    }).index("by_updated", ["updatedAt"]),
+
+    /** Compteur des numéros de commande (BM-000001). */
+    marketplaceCounters: defineTable({
+      kind: v.string(),
+      value: v.number(),
+    }).index("by_kind", ["kind"]),
 
     // ── Connection logs (real-time analytics) ──────────────────────
     connectionLogs: defineTable({

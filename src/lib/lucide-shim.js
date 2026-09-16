@@ -112,6 +112,7 @@ export { default as Gauge } from "../../node_modules/lucide-react/dist/esm/icons
 export { default as GripVertical } from "../../node_modules/lucide-react/dist/esm/icons/grip-vertical.js";
 export { default as Globe } from "../../node_modules/lucide-react/dist/esm/icons/globe.js";
 export { default as Hammer } from "../../node_modules/lucide-react/dist/esm/icons/hammer.js";
+export { default as Handshake } from "../../node_modules/lucide-react/dist/esm/icons/handshake.js";
 export { default as HardHat } from "../../node_modules/lucide-react/dist/esm/icons/hard-hat.js";
 export { default as Heading2 } from "../../node_modules/lucide-react/dist/esm/icons/heading-2.js";
 export { default as Headset } from "../../node_modules/lucide-react/dist/esm/icons/headset.js";
@@ -137,6 +138,7 @@ export { default as Lightbulb } from "../../node_modules/lucide-react/dist/esm/i
 export { default as Link } from "../../node_modules/lucide-react/dist/esm/icons/link.js";
 export { default as Link2 } from "../../node_modules/lucide-react/dist/esm/icons/link-2.js";
 export { default as List } from "../../node_modules/lucide-react/dist/esm/icons/list.js";
+export { default as ListChecks } from "../../node_modules/lucide-react/dist/esm/icons/list-checks.js";
 export { default as ListOrdered } from "../../node_modules/lucide-react/dist/esm/icons/list-ordered.js";
 export { default as Loader2 } from "../../node_modules/lucide-react/dist/esm/icons/loader-2.js";
 export { default as Loader2Icon } from "../../node_modules/lucide-react/dist/esm/icons/loader-2.js";
@@ -205,6 +207,9 @@ export { default as Settings } from "../../node_modules/lucide-react/dist/esm/ic
 export { default as Share2 } from "../../node_modules/lucide-react/dist/esm/icons/share-2.js";
 export { default as Shield } from "../../node_modules/lucide-react/dist/esm/icons/shield.js";
 export { default as ShieldAlert } from "../../node_modules/lucide-react/dist/esm/icons/shield-alert.js";
+export { default as ShoppingBag } from "../../node_modules/lucide-react/dist/esm/icons/shopping-bag.js";
+export { default as ShoppingCart } from "../../node_modules/lucide-react/dist/esm/icons/shopping-cart.js";
+export { default as SlidersHorizontal } from "../../node_modules/lucide-react/dist/esm/icons/sliders-horizontal.js";
 export { default as ShieldCheck } from "../../node_modules/lucide-react/dist/esm/icons/shield-check.js";
 export { default as ShowerHead } from "../../node_modules/lucide-react/dist/esm/icons/shower-head.js";
 export { default as Siren } from "../../node_modules/lucide-react/dist/esm/icons/siren.js";
