@@ -85,19 +85,6 @@ export const regionValidator = v.union(
 );
 export type TunisiaRegion = (typeof TUNISIA_REGIONS)[number];
 
-// ============================================================================
-// Pièces jointes — validateur partagé (schéma + logique métier)
-// ============================================================================
-
-/** Pièce jointe stockée dans le storage Convex (demandes de service, messages…). */
-export const attachmentValidator = v.object({
-  name: v.string(),
-  type: v.string(),
-  size: v.optional(v.number()),
-  storageId: v.id("_storage"),
-});
-export type Attachment = Infer<typeof attachmentValidator>;
-
 export const REGION_LABELS: Record<TunisiaRegion, string> = {
   tunis: "Tunis",
   ariana: "Ariana",

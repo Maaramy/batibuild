@@ -29,10 +29,8 @@ import {
   isAuthRoute,
   isDashboardRoute,
   isLandingRoute,
-  isProMarketRoute,
   LOADING_MESSAGE,
   pathOfUrl,
-  PROMARKET_PATH,
   SETTINGS_PATH,
   shouldShowBottomNav,
   SUPPORT_PATH,
@@ -276,8 +274,6 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     webRef.current?.injectJavaScript(navigateScript(path));
   }, []);
 
-  // ProMarket — marketplace de services professionnels (route réelle du Web).
-  const handleOpenProMarket = useCallback(() => goToPath(PROMARKET_PATH), [goToPath]);
   const handleOpenSupport = useCallback(() => goToPath(SUPPORT_PATH), [goToPath]);
   const handleOpenSettings = useCallback(() => goToPath(SETTINGS_PATH), [goToPath]);
 
@@ -405,8 +401,6 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
           plateforme à gauche, Support et Paramètres à droite (aucun burger).
           Toute la navigation est dans la barre inférieure ci-dessous. */}
       <TopNav
-        onOpenProMarket={handleOpenProMarket}
-        proMarketActive={isProMarketRoute(currentPath)}
         onOpenSupport={handleOpenSupport}
         onOpenSettings={handleOpenSettings}
         onOpenNativeSettings={openSettings}

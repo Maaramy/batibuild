@@ -159,21 +159,6 @@ export const NAV_DESTINATIONS: readonly NavDestination[] = [
 export const SUPPORT_PATH = "/dashboard/support";
 export const SETTINGS_PATH = "/dashboard/settings";
 
-/**
- * ProMarket — marketplace de services professionnels (`src/main.tsx`).
- *
- * Route RÉELLE de la plateforme, atteignable depuis l'en-tête natif (icône
- * dédiée, aux côtés de Support et Paramètres). L'application ouvre la page
- * existante dans la WebView : aucune page n'est créée ni dupliquée.
- */
-export const PROMARKET_PATH = "/promarket";
-
-/** La route appartient-elle à ProMarket (accueil, recherche, profils, espace pro…) ? */
-export function isProMarketRoute(path: string): boolean {
-  const route = routeKey(path);
-  return route === routeKey(PROMARKET_PATH) || route.startsWith(routeKey(PROMARKET_PATH) + "/");
-}
-
 /** Route normalisée (sans query ni slash final). */
 function routeKey(path: string): string {
   return routeOfPath(path).split("?")[0];
@@ -239,8 +224,5 @@ export function isDashboardRoute(path: string): boolean {
  */
 export function shouldShowBottomNav(path: string): boolean {
   if (isAuthRoute(path) || isLandingRoute(path)) return false;
-  // ProMarket n'est pas sous `/dashboard` : la barre du bas reste néanmoins
-  // affichée pour ne pas perdre la navigation principale.
-  if (isProMarketRoute(path)) return true;
   return inSection(routeKey(path), routeKey(DASHBOARD_PATH));
 }
