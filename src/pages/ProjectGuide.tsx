@@ -5,6 +5,7 @@ import BudgetAllocation from "@/components/BudgetAllocation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
+import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { Button } from "@/components/ui/button";
@@ -557,6 +558,18 @@ export default function ProjectGuide() {
   return (
     <main className="min-h-screen bg-background pb-10">
         <ClientProPaywall>
+      {/* Parcours du projet — barre sticky « Où suis-je dans mon projet ? » :
+          permet de passer d'une étape à l'autre à tout moment, en conservant
+          le projet courant. */}
+      {selectedProject && (
+        <div className="sticky top-0 z-30 border-b border-border/20 bg-background/90 backdrop-blur-md">
+          <ProjectJourneyNav
+            projectId={selectedProject._id}
+            category={selectedProject.category}
+            maxWidthClassName="max-w-6xl"
+          />
+        </div>
+      )}
       <div className="mx-auto max-w-6xl px-3 sm:px-5 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* En-tête */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
@@ -601,7 +614,7 @@ export default function ProjectGuide() {
         {/* Parcours (barre de progression UX) */}
         <div className="rounded-xl border border-border/40 bg-background/50 p-3 sm:p-4 overflow-x-auto scrollbar-none">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-            <Target className="h-3 w-3" /> Où suis-je dans mon projet ?
+            <Target className="h-3 w-3" /> Progression des phases
           </p>
           <div className="flex min-w-[760px] items-center">
             {JOURNEY.map((step, i) => {

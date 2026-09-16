@@ -11,6 +11,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import {
 ArrowLeft, Sparkles, HardHat, Loader2, Store, Scale, Check, Trash2, MapPin, Ruler, Wand2, ShieldCheck, RefreshCw, CircleDollarSign, Building2, Info,
 Blocks, Search, X, MoreHorizontal, ExternalLink, AlertCircle, CalendarDays, LayoutGrid, CheckCircle2, FilterX
@@ -107,6 +108,12 @@ export default function AiMaterials() {
     standing: "standard",
   });
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
+
+  // Projet courant (contexte du parcours « Où suis-je dans mon projet ? »).
+  const journeyProject = useMemo(
+    () => projects.find((p: any) => p._id === projectId) as any,
+    [projects, projectId],
+  );
 
   // Pré-sélectionner uniquement les catégories correspondant aux résultats BIM réels
   useEffect(() => {
@@ -266,6 +273,13 @@ export default function AiMaterials() {
             </div>
           </div>
         </div>
+
+        {/* Parcours du projet — conservé dans l'en-tête sticky. */}
+        <ProjectJourneyNav
+          projectId={journeyProject?._id ?? null}
+          category={journeyProject?.category}
+          maxWidthClassName="max-w-7xl"
+        />
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">

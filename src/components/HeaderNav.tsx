@@ -48,6 +48,11 @@ interface HeaderNavProps {
   /** Largeur maximale de la rangée, alignée sur le contenu de la page. */
   maxWidthClassName?: string;
   className?: string;
+  /**
+   * Titre optionnel affiché au-dessus de la rangée (ex. « Où suis-je dans mon
+   * projet ? »). Même style que les autres libellés du Top Menu.
+   */
+  title?: React.ReactNode;
 }
 
 /**
@@ -68,6 +73,7 @@ export function HeaderNav({
   ariaLabel = "Navigation de la page",
   maxWidthClassName = "max-w-5xl",
   className,
+  title,
 }: HeaderNavProps) {
   const { pathname } = useLocation();
 
@@ -81,6 +87,11 @@ export function HeaderNav({
       className={cn("border-t border-border/25", className)}
     >
       <div className={cn("mx-auto px-2 sm:px-3 lg:px-4", maxWidthClassName)}>
+        {title && (
+          <p className="flex items-center gap-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {title}
+          </p>
+        )}
         {/* Rangée scrollable : un seul axe, jamais de coupure des éléments. */}
         <div
           className="flex items-center gap-1 overflow-x-auto overscroll-x-contain scrollbar-none py-1.5"

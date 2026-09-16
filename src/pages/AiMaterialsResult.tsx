@@ -10,6 +10,7 @@ import type { RecommendResult } from "@/convex/aiMaterialsEngine";
 import { AiAnalysisResults } from "@/components/ai/AiAnalysisResults";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { HeaderNav } from "@/components/HeaderNav";
+import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 
 /** Durée fixe de l'écran de chargement : 3 secondes. */
 const LOADING_DURATION_MS = 3000;
@@ -44,6 +45,12 @@ export default function AiMaterialsResult() {
   const analysis = useQuery(
     api.aiMaterials.getCopilotAnalysis,
     loading || !id ? "skip" : { analysisId: id as any },
+  );
+
+  // Projet d'origine de l'analyse — contexte du parcours du projet.
+  const journeyProject = useQuery(
+    api.projects.getProject,
+    analysis?.projectId ? { projectId: analysis.projectId } : "skip",
   );
 
   const result: RecommendResult | null = (analysis?.results?.recommend as RecommendResult) ?? null;
@@ -81,6 +88,13 @@ export default function AiMaterialsResult() {
             </div>
           </div>
         </div>
+
+        {/* Parcours du projet — conservé dans l'en-tête sticky. */}
+        <ProjectJourneyNav
+          projectId={analysis?.projectId ?? null}
+          category={journeyProject?.category}
+          maxWidthClassName="max-w-7xl"
+        />
 
         {/* Navigation de la page — menu horizontal scrollable dans l'en-tête
             (remplace l'ancienne barre de navigation inférieure). */}

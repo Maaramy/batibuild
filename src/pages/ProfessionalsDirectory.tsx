@@ -19,6 +19,7 @@ import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { profileCardClass, VerifiedBadge, TrophyLine, MetricRow, DetailRow } from "@/components/ProfileCardBits";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
 import { PROJECT_TYPE_LABELS } from "@/convex/projectTypes";
+import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { toast } from "sonner";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -142,6 +143,14 @@ export default function ProfessionalsDirectory() {
             </div>
           </div>
         </div>
+
+        {/* Parcours du projet — affiché lorsque l'annuaire est ouvert depuis un
+            projet (contexte conservé dans l'URL). */}
+        <ProjectJourneyNav
+          projectId={projectIdParam}
+          category={project?.category}
+          maxWidthClassName="max-w-7xl"
+        />
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-4">

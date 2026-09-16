@@ -18,7 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
-import { HeaderNav, type HeaderNavItem } from "@/components/HeaderNav";
+import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { runBIMEstimation } from "@/convex/bimEngine";
 
@@ -63,17 +63,6 @@ const BIM_ICONS: Record<string, any> = {
   gros_oeuvre: Building2, second_oeuvre: Paintbrush, equipements: Plug,
   main_oeuvre: Users, transport: Truck, etudes_imprevus: FileText,
 };
-
-/**
- * Types de projet dont le parcours se limite à la consultation d'un expert /
- * d'une entreprise (mêmes règles qu'avant le déplacement du menu dans
- * l'en-tête : aucune destination n'est ajoutée ni retirée).
- */
-const EXPERT_ONLY_TYPES = new Set([
-  "renovation_complete", "extension_batiment", "renovation_cuisine",
-  "renovation_salle_de_bain", "peinture_interieure", "piscine",
-  "restaurant", "cafe", "electricite_complete", "plomberie_complete",
-]);
 
 const COMPARE_REGIONS = [
   { key: "tunis", name: "Tunis" }, { key: "sousse", name: "Sousse" },
@@ -498,60 +487,6 @@ export default function ProjectDetail() {
     return { rMult: r, impactPct: i, baseCost: b, diff: d };
   }, [project?.region, ce]);
 
-  // ── Menu de navigation de l'en-tête ─────────────────────────────────────
-  // Reprend EXACTEMENT les éléments de l'ancienne barre de navigation du bas
-  // (mêmes libellés, mêmes icônes, mêmes routes, même condition d'affichage).
-  const projectNavItems: HeaderNavItem[] = useMemo(() => {
-    if (!project || project.status !== "completed") return [];
-    if (EXPERT_ONLY_TYPES.has((project.category ?? "") as string)) {
-      return [
-        {
-          icon: <HardHat className="h-3.5 w-3.5" />,
-          label: "Consulter expert / entreprise",
-          path: "/dashboard/professionals-directory",
-          onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`),
-        },
-      ];
-    }
-    return [
-      {
-        icon: <Sparkles className="h-3.5 w-3.5" />,
-        label: "Matériaux AI",
-        path: "/dashboard/ai-materials",
-        onClick: () => navigate(`/dashboard/ai-materials?project=${project._id}`),
-      },
-      {
-        icon: <LayoutGrid className="h-3.5 w-3.5" />,
-        label: "Plans IA",
-        path: "/dashboard/plans",
-        onClick: () => navigate(`/dashboard/plans/${project._id}`),
-      },
-      {
-        icon: <Rocket className="h-3.5 w-3.5" />,
-        label: "Guide A-Z",
-        path: "/dashboard/guide",
-        onClick: () => navigate(`/dashboard/guide?project=${project._id}`),
-      },
-      {
-        icon: <TrendingUp className="h-3.5 w-3.5" />,
-        label: "ROI",
-        path: "/dashboard/investments",
-        onClick: () => {
-          const type = investmentTypeForProject(project.category ?? "appartement");
-          navigate(`/dashboard/investments?type=${type}&project=${project._id}`, {
-            state: { prefill: investmentPrefill, projectId: project._id },
-          });
-        },
-      },
-      {
-        icon: <Users className="h-3.5 w-3.5" />,
-        label: "Expert",
-        path: "/dashboard/professionals-directory",
-        onClick: () => navigate(`/dashboard/professionals-directory?project=${project._id}`),
-      },
-    ];
-  }, [project, navigate, investmentPrefill]);
-
   // ── Loading / Skeleton ──────────────────────────────────────────────────
 
   if (!project) {
@@ -610,9 +545,17 @@ export default function ProjectDetail() {
           </div>
         </div>
 
-        {/* Navigation de la page — menu horizontal scrollable dans l'en-tête
-            (remplace l'ancienne barre de navigation inférieure). */}
-        {projectNavItems.length > 0 && <HeaderNav items={projectNavItems} />}
+        {/* Parcours du projet — « Où suis-je dans mon projet ? » : menu
+            horizontal scrollable, sticky avec l'en-tête, étapes déterminées
+            par le type du projet et liens conservant le contexte (id) du
+            projet. Toutes les étapes restent accessibles à tout moment. */}
+        {project.status === "completed" && (
+          <ProjectJourneyNav
+            projectId={project._id}
+            category={project.category}
+            maxWidthClassName="max-w-5xl"
+          />
+        )}
       </header>
 
       {/* ── Export Progress Overlay ── */}

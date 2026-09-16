@@ -22,6 +22,7 @@ import {
 
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
+import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { projectTypeLabel, inferFloorsFromCategory } from "@/convex/projectTypes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -141,6 +142,13 @@ export default function PlanGenerator() {
             </div>
           </div>
         </div>
+
+        {/* Parcours du projet — conservé dans l'en-tête sticky. */}
+        <ProjectJourneyNav
+          projectId={id}
+          category={project?.category}
+          maxWidthClassName="max-w-7xl"
+        />
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
