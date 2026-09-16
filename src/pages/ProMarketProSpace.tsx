@@ -92,6 +92,8 @@ interface EligibilitySummary {
   eligible: boolean;
   available: boolean;
   reasons: string[];
+  /** Champs obligatoires précis manquants (données persistées Convex). */
+  missingFields?: string[];
 }
 
 export default function ProMarketProSpace() {

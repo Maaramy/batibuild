@@ -7,6 +7,7 @@ import {
   expertProfessionTrade,
   isProMarketTrade,
   promarketRegion,
+  promarketRegionByLabel,
 } from "../lib/promarketMeta";
 
 // ============================================================================
@@ -74,10 +75,47 @@ export function proMarketTradeForExpert(expert: {
   return expertProfessionTrade(expert.profession);
 }
 
+/**
+ * Normalise une entrée de région (slug ou libellé, accents/majuscules/espaces
+ * variés) vers le slug ProMarket correspondant. Indispensable car les anciens
+ * profils Experts ont pu enregistrer des libellés (« Sidi Bou Saïd », « Le
+ * Kef ») ou des formats incohérents alors que la validation historique
+ * comparait uniquement le slug exact → faux « profil incomplet ».
+ */
+function normalizedRegionKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "");
+}
+
+/** Cache local slug → région (évite de rescanner le catalogue à chaque appel). */
+const REGION_BY_NORMALIZED_LABEL = new Map(
+  PROMARKET_REGIONS.map((region) => [normalizedRegionKey(region.label), region]),
+);
+
+/**
+ * Valeur en base = slug ProMarket OU libellé du gouvernorat (tolère les
+ * accents, la casse et les espaces) → retourne le slug canonique.
+ */
+export function canonicalProMarketRegion(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (promarketRegion(trimmed)) return promarketRegion(trimmed)!.slug;
+  const byLabel = promarketRegionByLabel(trimmed);
+  if (byLabel) return byLabel.slug;
+  const normalized = normalizedRegionKey(trimmed);
+  return REGION_BY_NORMALIZED_LABEL.get(normalized)?.slug ?? "";
+}
+
 /** Gouvernorat ProMarket : premier gouvernorat d'intervention valide. */
 function proMarketRegionForExpert(expert: { regions?: string[] }): string {
   for (const region of expert.regions ?? []) {
-    if (promarketRegion(region)) return region;
+    if (!isNonEmptyString(region)) continue;
+    const slug = canonicalProMarketRegion(region);
+    if (slug) return slug;
   }
   return "";
 }
@@ -124,9 +162,7 @@ export function incompleteProfileFields(
   trade: string,
 ): IncompleteProfileField[] {
   const missing: IncompleteProfileField[] = [];
-  if (!isNonEmptyString(expert.displayName) || expert.displayName.trim().length < 3) {
-    missing.push("displayName");
-  }
+  if (!isNonEmptyString(expert.displayName)) missing.push("displayName");
   if (!isNonEmptyString(expert.phone)) missing.push("phone");
   if (!isNonEmptyString(trade)) missing.push("trade");
   if (!hasNonEmptyItem(expert.specialties)) missing.push("specialties");
@@ -162,6 +198,7 @@ export async function evaluateExpertForProMarket(
   const reasons: ProMarketIneligibleReason[] = [];
   const trade = proMarketTradeForExpert(expert);
   const region = proMarketRegionForExpert(expert);
+  const missingFields = incompleteProfileFields(expert, trade);
   const user = expert.userId ? await ctx.db.get(expert.userId) : null;
 
   if (!user || user.status === "disabled") reasons.push("account_inactive");
@@ -174,24 +211,22 @@ export async function evaluateExpertForProMarket(
   // validation manuelle n'est requise (le profil Expert suffit).
   if (expert.proMarketStatus === "disabled") reasons.push("disabled_by_admin");
 
-  const missingFields = incompleteProfileFields(expert, trade);
-  if (missingFields.length > 0) {
-    reasons.push("incomplete_profile");
-    // Journal de développement temporaire : valeurs EXACTES lues en base et
-    // utilisées par la validation (retirer une fois le diagnostic terminé).
-    console.log("[ProMarket][validateProfile]", {
-      expertId: String(expert._id),
-      fullName: expert.displayName,
-      phone: expert.phone,
-      job: expert.profession,
-      trade,
-      specialties: expert.specialties,
-      regions: expert.regions,
-      presentation: expert.description,
-      missingFields,
-      isProfileComplete: false,
-    });
-  }
+  if (missingFields.length > 0) reasons.push("incomplete_profile");
+
+  // Journal de développement temporaire : valeurs EXACTES lues en base et
+  // utilisées par la validation (retirer une fois le diagnostic terminé).
+  console.log("[ProMarket][validateProfile]", {
+    expertId: String(expert._id),
+    fullName: expert.displayName,
+    phone: expert.phone,
+    job: expert.profession,
+    trade,
+    specialties: expert.specialties,
+    regions: expert.regions,
+    presentation: expert.description,
+    missingFields,
+    isProfileComplete: missingFields.length === 0,
+  });
 
   const eligible = reasons.length === 0;
   const available = eligible && expert.proMarketAvailable !== false;

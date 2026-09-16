@@ -257,6 +257,7 @@
       "availableHint": "Désactivez temporairement pour ne plus recevoir de nouvelles demandes.",
       "eligibleTitle": "Profil publié sur ProMarket",
       "ineligibleTitle": "Profil non publié sur ProMarket",
+      "missingFieldsIntro": "Il manque :",
       "syncedTitle": "Informations reprises de votre profil Expert",
       "syncedHint": "Ces informations sont synchronisées automatiquement : modifiez-les dans votre espace Expert.",
       "syncNotice": "Les badges de vérification (identité, professionnel, documents, Recommandé BatiBuild) sont attribués uniquement par l'administration.",
@@ -268,6 +269,14 @@
         "disabled_by_admin": "ProMarket a été désactivé par l'administration.",
         "incomplete_profile": "Complétez votre profil Expert (nom, téléphone, métier, spécialités, régions, présentation).",
         "paused": "Vous êtes visible mais indisponible : vous ne recevez pas de nouvelles demandes."
+      },
+      "missingFields": {
+        "displayName": "Nom",
+        "phone": "Téléphone",
+        "trade": "Métier",
+        "specialties": "Spécialités",
+        "regions": "Région d'intervention",
+        "description": "Présentation"
       }
     },
     "status": {

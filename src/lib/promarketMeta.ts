@@ -223,6 +223,18 @@ export function promarketRegion(slug: string): ProMarketRegion | undefined {
   return PROMARKET_REGIONS.find((r) => r.slug === slug);
 }
 
+/**
+ * Retrouve un gouvernorat par son libellé affichable (tolère la casse et les
+ * espaces). Sert à reconnaître les régions enregistrées sous forme de libellé
+ * (ex. « Le Kef ») plutôt que de slug dans d'anciens profils Experts.
+ */
+export function promarketRegionByLabel(label: string): ProMarketRegion | undefined {
+  const needle = label.trim().toLowerCase();
+  return needle
+    ? PROMARKET_REGIONS.find((r) => r.label.toLowerCase() === needle)
+    : undefined;
+}
+
 // ============================================================================
 // Statuts, disponibilité, tri
 // ============================================================================
