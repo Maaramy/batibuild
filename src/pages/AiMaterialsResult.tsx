@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQuery } from "convex/react";
-import { ArrowLeft, Loader2, Sparkles, ShieldCheck, Info, Store } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, ShieldCheck, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { categorySpecialties } from "@/lib/supplierMatch";
@@ -9,8 +9,8 @@ import { ClientProPaywall } from "@/components/ClientProPaywall";
 import type { RecommendResult } from "@/convex/aiMaterialsEngine";
 import { AiAnalysisResults } from "@/components/ai/AiAnalysisResults";
 import { usePageSEO } from "@/hooks/use-page-seo";
-import { HeaderNav } from "@/components/HeaderNav";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { buildAiMaterialsResultJourney } from "@/lib/projectJourney";
 
 /** Durée fixe de l'écran de chargement : 3 secondes. */
 const LOADING_DURATION_MS = 3000;
@@ -67,6 +67,24 @@ export default function AiMaterialsResult() {
     return `/dashboard/suppliers-directory?${params.toString()}`;
   })();
 
+  // Les résultats sont réellement disponibles (chargement terminé, analyse et
+  // recommandation présentes, type de projet connu) : la barre d'étapes n'est
+  // affichée qu'à ce moment-là, jamais pendant le rechargement des résultats.
+  const journeyReady =
+    !loading && analysis != null && result != null && journeyProject !== undefined;
+
+  const journeySteps = useMemo(
+    () =>
+      journeyReady
+        ? buildAiMaterialsResultJourney(
+            journeyProject?.category,
+            analysis?.projectId ?? null,
+            suppliersDirectoryHref,
+          )
+        : [],
+    [journeyReady, journeyProject?.category, analysis?.projectId, suppliersDirectoryHref],
+  );
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-10">
         <ClientProPaywall>
@@ -89,26 +107,10 @@ export default function AiMaterialsResult() {
           </div>
         </div>
 
-        {/* Parcours du projet — conservé dans l'en-tête sticky. */}
-        <ProjectJourneyNav
-          projectId={analysis?.projectId ?? null}
-          category={journeyProject?.category}
-          maxWidthClassName="max-w-7xl"
-        />
-
-        {/* Navigation de la page — menu horizontal scrollable dans l'en-tête
-            (remplace l'ancienne barre de navigation inférieure). */}
-        <HeaderNav
-          maxWidthClassName="max-w-7xl"
-          items={[
-            {
-              icon: <Store className="h-3.5 w-3.5" />,
-              label: "Trouvez un fournisseur près de chez vous",
-              path: "/dashboard/suppliers-directory",
-              onClick: () => navigate(suppliersDirectoryHref),
-            },
-          ]}
-        />
+        {/* Parcours du projet — conservé dans l'en-tête sticky et masqué tant
+            que les résultats ne sont pas affichés (groupe A : coût estimatif
+            puis fournisseurs trouvés par l'analyse). */}
+        <ProjectJourneyNav steps={journeySteps} maxWidthClassName="max-w-7xl" />
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">

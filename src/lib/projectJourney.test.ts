@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { PROJECT_TYPES } from "@/convex/projectTypes";
 import {
   PROJECT_JOURNEY_GROUP_A,
+  SUPPLIERS_DIRECTORY_PATH,
+  buildAiMaterialsResultJourney,
   buildProjectJourney,
   projectJourneyGroup,
 } from "./projectJourney";
@@ -154,5 +156,40 @@ describe("buildProjectJourney — liens et contexte du projet", () => {
   it("les routes de repérage de l'étape active sont uniques", () => {
     const steps = buildProjectJourney("maison", PID);
     expect(new Set(steps.map((s) => s.path)).size).toBe(steps.length);
+  });
+});
+
+describe("buildAiMaterialsResultJourney — page « Résultat de l'analyse IA »", () => {
+  const SUPPLIER_HREF = `${SUPPLIERS_DIRECTORY_PATH}?from=materials&region=Tunis`;
+
+  it("groupe A : coût estimatif puis fournisseur", () => {
+    const steps = buildAiMaterialsResultJourney("maison", PID, SUPPLIER_HREF);
+    expect(steps.map((s) => s.label)).toEqual(["Coût estimatif", "Fournisseur"]);
+    expect(steps.map((s) => s.key)).toEqual(["cost", "supplier"]);
+  });
+
+  it("groupe A : l'étape Fournisseur ouvre l'annuaire pré-filtré des fournisseurs trouvés", () => {
+    const steps = buildAiMaterialsResultJourney("villa", PID, SUPPLIER_HREF);
+    expect(steps[1].href).toBe(SUPPLIER_HREF);
+    expect(steps[1].path).toBe(SUPPLIERS_DIRECTORY_PATH);
+    expect(steps[0].href).toBe(`/dashboard/project/${PID}`);
+  });
+
+  it("groupe A : annuaire sans pré-filtre si aucun lien n'est fourni", () => {
+    const steps = buildAiMaterialsResultJourney("appartement", PID);
+    expect(steps[1].href).toBe(SUPPLIERS_DIRECTORY_PATH);
+  });
+
+  it("groupe B : parcours réduit inchangé (coût estimatif puis consultation)", () => {
+    for (const category of ["renovation_complete", "renovation_cuisine"]) {
+      const steps = buildAiMaterialsResultJourney(category, PID, SUPPLIER_HREF);
+      expect(steps.map((s) => s.label), category).toEqual(["Coût estimatif", "Consultation"]);
+      expect(steps[1].href).toBe(`/dashboard/professionals-directory?project=${PID}`);
+    }
+  });
+
+  it("barre masquée sans identifiant de projet (aucune étape)", () => {
+    expect(buildAiMaterialsResultJourney("maison", null)).toEqual([]);
+    expect(buildAiMaterialsResultJourney("maison", "  ")).toEqual([]);
   });
 });

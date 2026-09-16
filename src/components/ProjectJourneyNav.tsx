@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { isHeaderNavItemActive } from "@/components/HeaderNav";
-import { buildProjectJourney } from "@/lib/projectJourney";
+import { buildProjectJourney, type ProjectJourneyStep } from "@/lib/projectJourney";
 import { cn } from "@/lib/utils";
 
 /**
@@ -23,6 +23,11 @@ import { cn } from "@/lib/utils";
  *
  * Le composant ne contient aucune logique métier : les liens et les libellés
  * viennent de `@/lib/projectJourney`.
+ *
+ * Une page peut fournir son propre parcours via `steps` (ex. « Résultat de
+ * l'analyse IA », où le groupe A s'affiche « Coût estimatif → Fournisseur ») ;
+ * un tableau vide masque alors la barre (utile pendant le rechargement des
+ * résultats).
  */
 
 interface ProjectJourneyNavProps {
@@ -30,6 +35,11 @@ interface ProjectJourneyNavProps {
   projectId?: string | null;
   /** Type de projet enregistré (détermine le groupe du parcours). */
   category?: string | null;
+  /**
+   * Parcours imposé par la page (prioritaire). Un tableau vide masque la barre.
+   * Sans cette prop, le parcours est déduit du type de projet.
+   */
+  steps?: ProjectJourneyStep[];
   maxWidthClassName?: string;
   className?: string;
 }
@@ -37,16 +47,19 @@ interface ProjectJourneyNavProps {
 export function ProjectJourneyNav({
   projectId,
   category,
+  steps: stepsOverride,
   maxWidthClassName = "max-w-5xl",
   className,
 }: ProjectJourneyNavProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  const steps = useMemo(
+  const defaultSteps = useMemo(
     () => buildProjectJourney(category, projectId),
     [category, projectId],
   );
+
+  const steps = stepsOverride ?? defaultSteps;
 
   if (steps.length === 0) return null;
 

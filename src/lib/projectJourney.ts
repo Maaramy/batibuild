@@ -19,6 +19,11 @@
  *
  * Chaque lien conserve le contexte du projet (`?project=…` ou `/:id`) : la
  * navigation ne recrée jamais de projet et ne perd aucune donnée.
+ *
+ * La page « Résultat de l'analyse IA » utilise en plus un parcours dédié
+ * (`buildAiMaterialsResultJourney`) : le groupe A y remplace ses étapes par
+ * « Coût estimatif → Fournisseur », le lien Fournisseur ouvrant l'annuaire des
+ * fournisseurs pré-filtré par l'analyse.
  */
 
 import { INVESTMENT_ELIGIBLE_TYPES, resolveProjectType } from "@/convex/projectTypes";
@@ -31,7 +36,8 @@ export type ProjectJourneyStepKey =
   | "materials"
   | "consult"
   | "execution"
-  | "investment";
+  | "investment"
+  | "supplier";
 
 export interface ProjectJourneyStep {
   key: ProjectJourneyStepKey;
@@ -113,6 +119,65 @@ export function buildProjectJourney(
       label: "Investissement",
       path: "/dashboard/investments",
       href: `/dashboard/investments?project=${pid}`,
+    },
+  ];
+}
+
+/** Route de l'annuaire des fournisseurs (page des fournisseurs trouvés). */
+export const SUPPLIERS_DIRECTORY_PATH = "/dashboard/suppliers-directory";
+
+/**
+ * PARCOURS AFFICHÉ SUR LA PAGE « RÉSULTAT DE L'ANALYSE IA »
+ *
+ * Cette page ne déroule pas le parcours complet : elle met en avant le lien vers
+ * l'annuaire des fournisseurs (les fournisseurs trouvés par l'analyse, filtrés
+ * par région et par spécialités).
+ *
+ *   - **Groupe A** : « Coût estimatif → Fournisseur » ;
+ *   - **Groupe B** : parcours réduit inchangé (« Coût estimatif → Consultation »).
+ *
+ * `supplierHref` est construit par la page à partir des résultats de l'analyse ;
+ * sans lui, l'annuaire est simplement ouvert sans pré-filtre. Aucune étape n'est
+ * désactivée : l'utilisateur reste libre de naviguer.
+ */
+export function buildAiMaterialsResultJourney(
+  category: string | null | undefined,
+  projectId: string | null | undefined,
+  supplierHref?: string | null,
+): ProjectJourneyStep[] {
+  const raw = (projectId ?? "").trim();
+  if (!raw) return [];
+  const pid = encodeURIComponent(raw);
+
+  const cost: ProjectJourneyStep = {
+    key: "cost",
+    label: "Coût estimatif",
+    path: `/dashboard/project/${pid}`,
+    href: `/dashboard/project/${pid}`,
+  };
+
+  // Groupe B — parcours réduit inchangé (aucune étape Fournisseur).
+  if (projectJourneyGroup(category) !== "A") {
+    return [
+      cost,
+      {
+        key: "consult",
+        label: "Consultation",
+        path: "/dashboard/professionals-directory",
+        href: `/dashboard/professionals-directory?project=${pid}`,
+      },
+    ];
+  }
+
+  // Groupe A — « Coût estimatif → Fournisseur ».
+  const href = (supplierHref ?? "").trim() || SUPPLIERS_DIRECTORY_PATH;
+  return [
+    cost,
+    {
+      key: "supplier",
+      label: "Fournisseur",
+      path: SUPPLIERS_DIRECTORY_PATH,
+      href,
     },
   ];
 }
