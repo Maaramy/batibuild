@@ -97,8 +97,6 @@ const PROJECT_QUICK_ICONS: Record<string, any> = {
   guide: Rocket,
   expert: Users,
   plan: PencilRuler,
-  // ProMarket — même icône que l'accès ProMarket de l'en-tête et du menu.
-  promarket: Store,
 };
 
 function ProjectCard({ project }: { project: any }) {
@@ -574,9 +572,6 @@ export default function Dashboard() {
     api.expertProfiles.hasExpertProfile,
     isExpert ? {} : "skip",
   );
-  // ── Espace professionnel ProMarket : uniquement pour les Experts BatiBuild ──
-  const proMarketAccess = useQuery(api.promarket.getMyProMarketAccess, {});
-  const canUseProMarketProSpace = proMarketAccess?.isExpert === true;
   // ── Real-time stats (expert + supplier) ──
   const expertKPIs = useQuery(
     api.expertStats.getExpertKPIs,
@@ -710,8 +705,6 @@ export default function Dashboard() {
               { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
               { icon: Sparkles, label: "Assistant Matériaux IA", onClick: () => { navigate("/dashboard/ai-materials"); setMobileSidebarOpen(false); } },
               { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
-              { icon: Store, label: "ProMarket", onClick: () => { navigate("/promarket"); setMobileSidebarOpen(false); } },
-              ...(canUseProMarketProSpace ? [{ icon: Briefcase, label: "Espace professionnel ProMarket", onClick: () => { navigate("/promarket/pro-space"); setMobileSidebarOpen(false); } }] : []),
             ] : []),
             // Professional features — parent + submenu
             ...(viewMode === "supplier" ? [
@@ -842,17 +835,6 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-              {/* ProMarket — accès direct depuis l'en-tête */}
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="ProMarket"
-                title="ProMarket — Trouvez le bon professionnel près de chez vous"
-                className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 cursor-pointer"
-                onClick={() => navigate("/promarket")}
-              >
-                <Store className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </Button>
               <Button
                 variant="ghost"
                 size="icon"

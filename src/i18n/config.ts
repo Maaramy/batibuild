@@ -50,10 +50,6 @@ import frContact from "./locales/fr/contact.json";
 import enContact from "./locales/en/contact.json";
 import arContact from "./locales/ar/contact.json";
 
-import frPromarket from "./locales/fr/promarket.json";
-import enPromarket from "./locales/en/promarket.json";
-import arPromarket from "./locales/ar/promarket.json";
-
 export const SUPPORTED_LANGUAGES = [
   { code: "fr", label: "Français", dir: "ltr" as const, flag: "🇫🇷" },
   { code: "en", label: "English", dir: "ltr" as const, flag: "🇬🇧" },
@@ -85,7 +81,6 @@ i18n
         supplier: frSupplier,
         materials: frMaterials,
         contact: frContact,
-        promarket: frPromarket,
       },
       en: {
         common: enCommon,
@@ -100,7 +95,6 @@ i18n
         supplier: enSupplier,
         materials: enMaterials,
         contact: enContact,
-        promarket: enPromarket,
       },
       ar: {
         common: arCommon,
@@ -115,7 +109,6 @@ i18n
         supplier: arSupplier,
         materials: arMaterials,
         contact: arContact,
-        promarket: arPromarket,
       },
     },
     fallbackLng: "fr",
@@ -133,7 +126,6 @@ i18n
       "supplier",
       "materials",
       "contact",
-      "promarket",
     ],
     interpolation: {
       escapeValue: false,

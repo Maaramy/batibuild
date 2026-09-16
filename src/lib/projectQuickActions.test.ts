@@ -8,21 +8,19 @@ function byKey(actions: ReturnType<typeof buildProjectQuickActions>) {
 }
 
 describe("buildProjectQuickActions — accès rapides d'un projet", () => {
-  it("propose les modules Matériaux · Démarche · Expert · Plan AI · ProMarket", () => {
+  it("propose les modules Matériaux · Démarche · Expert · Plan AI", () => {
     const actions = buildProjectQuickActions(project);
     expect(actions.map((a) => a.key)).toEqual([
       "materials",
       "guide",
       "expert",
       "plan",
-      "promarket",
     ]);
     expect(actions.map((a) => a.label)).toEqual([
       "Matériaux",
       "Démarche",
       "Expert",
       "Plan AI",
-      "ProMarket",
     ]);
     expect(actions.every((a) => a.tone.length > 0)).toBe(true);
   });
@@ -56,15 +54,9 @@ describe("buildProjectQuickActions — accès rapides d'un projet", () => {
     expect(byKey(buildProjectQuickActions(project)).plan.href).toBe("/dashboard/plans/proj_1");
   });
 
-  it("ProMarket ouvre la marketplace de professionnels avec le contexte du projet", () => {
-    expect(byKey(buildProjectQuickActions(project)).promarket.href).toBe(
-      "/promarket/search?project=proj_1",
-    );
-  });
-
   it("tous les liens portent l'identifiant du projet concerné (projets anciens compris)", () => {
     const legacy = buildProjectQuickActions({ _id: "proj_old" });
-    expect(legacy).toHaveLength(5);
+    expect(legacy).toHaveLength(4);
     expect(legacy.every((a) => a.href.includes("proj_old"))).toBe(true);
   });
 });

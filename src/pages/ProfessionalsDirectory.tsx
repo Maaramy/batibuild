@@ -13,7 +13,7 @@ import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Users, Search, MapPin, Phone, Mail,
   Globe, ChevronDown, X, Briefcase, FileText,
-  Loader2, Layers, Building2, Store,
+  Loader2, Layers, Building2,
 } from "lucide-react";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { profileCardClass, VerifiedBadge, TrophyLine, MetricRow, DetailRow } from "@/components/ProfileCardBits";
@@ -145,30 +145,6 @@ export default function ProfessionalsDirectory() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-4">
-        {/* Passerelle ProMarket — marketplace de services professionnels */}
-        <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/[0.04] px-3 sm:px-4 py-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Store className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold leading-tight">Besoin d'un artisan ou d'une entreprise de travaux ?</p>
-            <p className="text-[10px] text-muted-foreground leading-tight">
-              ProMarket regroupe maçons, plombiers, électriciens, peintres et autres professionnels du bâtiment.
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              const params = new URLSearchParams();
-              if (selectedRegion) params.set("region", selectedRegion);
-              if (search.trim()) params.set("q", search.trim());
-              const qs = params.toString();
-              navigate(`/promarket/search${qs ? `?${qs}` : ""}`);
-            }}
-            className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-primary/30 bg-background text-[11px] font-medium hover:bg-primary/10 active:scale-95 transition-all">
-            Ouvrir ProMarket
-          </button>
-        </div>
-
         {/* Filters */}
         <Card className="border border-border/40 overflow-hidden rounded-xl">
           <CardContent className="p-3 sm:p-4">

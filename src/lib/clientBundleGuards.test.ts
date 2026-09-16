@@ -199,8 +199,8 @@ describe("bundle client — poids du build", () => {
   });
 
   it("chaque accès rapide de projet a une icône déclarée (aucun composant `undefined`)", () => {
-    // Régression observée : un nouvel accès rapide (« ProMarket ») sans entrée
-    // dans `PROJECT_QUICK_ICONS` faisait rendre `<Icon />` avec `Icon ===
+    // Régression observée : un nouvel accès rapide sans entrée dans
+    // `PROJECT_QUICK_ICONS` faisait rendre `<Icon />` avec `Icon ===
     // undefined` → « Element type is invalid … Check the render method of
     // `ProjectCard` », écran blanc sur le tableau de bord.
     const dashboard = readFileSync(join(SRC, "pages", "Dashboard.tsx"), "utf8");

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQuery } from "convex/react";
-import { ArrowLeft, HardHat, Loader2, Sparkles, ShieldCheck, Info, Store } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, ShieldCheck, Info, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { categorySpecialties } from "@/lib/supplierMatch";
@@ -60,17 +60,6 @@ export default function AiMaterialsResult() {
     return `/dashboard/suppliers-directory?${params.toString()}`;
   })();
 
-  // Passerelle ProMarket : les matériaux analysés appellent des corps de métier
-  // (pose, mise en œuvre) ; la recherche ProMarket s'ouvre sur la région et le
-  // projet déjà connus, sans redemander la saisie à l'utilisateur.
-  const proMarketHref = (() => {
-    const params = new URLSearchParams();
-    if (result?.context?.region) params.set("region", result.context.region);
-    if (id) params.set("from", "materials");
-    const qs = params.toString();
-    return `/promarket/search${qs ? `?${qs}` : ""}`;
-  })();
-
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-10">
         <ClientProPaywall>
@@ -103,12 +92,6 @@ export default function AiMaterialsResult() {
               label: "Trouvez un fournisseur près de chez vous",
               path: "/dashboard/suppliers-directory",
               onClick: () => navigate(suppliersDirectoryHref),
-            },
-            {
-              icon: <HardHat className="h-3.5 w-3.5" />,
-              label: "Trouvez un professionnel près de chez vous",
-              path: "/promarket/search",
-              onClick: () => navigate(proMarketHref),
             },
           ]}
         />

@@ -29,10 +29,6 @@ import {
   PROJECT_TYPE_LABELS,
 } from "@/convex/projectTypes";
 import {
-  promarketTradeLabel,
-  suggestTradesForProject,
-} from "@/lib/promarketMeta";
-import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
   Target, TrendingUp, TriangleAlert, Users, Globe,
@@ -505,18 +501,6 @@ export default function ProjectDetail() {
   // ── Menu de navigation de l'en-tête ─────────────────────────────────────
   // Reprend EXACTEMENT les éléments de l'ancienne barre de navigation du bas
   // (mêmes libellés, mêmes icônes, mêmes routes, même condition d'affichage).
-  // ── ProMarket — métiers pertinents pour ce projet ──
-  // Intégration « Trouver des professionnels pour ce projet » : la catégorie
-  // du projet est traduite en métiers puis transmise à la recherche ProMarket,
-  // sans redemander à l'utilisateur de sélectionner son projet.
-  const projectTrades = useMemo(
-    () => suggestTradesForProject(normalizeLegacyCategory(project?.category)).slice(0, 6),
-    [project?.category],
-  );
-  const mainProMarketHref = projectTrades.length
-    ? `/promarket/search?trade=${projectTrades[0]}`
-    : "/promarket/search";
-
   const projectNavItems: HeaderNavItem[] = useMemo(() => {
     if (!project || project.status !== "completed") return [];
     if (EXPERT_ONLY_TYPES.has((project.category ?? "") as string)) {
@@ -630,47 +614,6 @@ export default function ProjectDetail() {
             (remplace l'ancienne barre de navigation inférieure). */}
         {projectNavItems.length > 0 && <HeaderNav items={projectNavItems} />}
       </header>
-
-      {/* ── ProMarket — « Trouver des professionnels pour ce projet » ──
-          Les métiers sont déduits du type de projet (déterministe, hors ligne)
-          puis transmis à la recherche ProMarket : l'utilisateur n'a pas à
-          resélectionner son projet. */}
-      <section className="max-w-5xl mx-auto px-4 mt-4">
-        <div className="rounded-xl border border-border/50 bg-card/60 p-3 sm:p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <Store className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm font-semibold">Trouver des professionnels pour ce projet</p>
-              <p className="text-[10px] sm:text-[11px] text-muted-foreground">
-                ProMarket — prestataires qualifiés partout en Tunisie pour concrétiser vos travaux.
-              </p>
-            </div>
-            <button
-              onClick={() => navigate(mainProMarketHref)}
-              className="hidden sm:inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-95 transition-all shrink-0">
-              Rechercher
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-0.5 px-0.5">
-            {projectTrades.map((slug) => (
-              <button key={slug}
-                onClick={() => navigate(`/promarket/search?trade=${slug}`)}
-                className="shrink-0 rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium hover:border-primary/40 hover:text-primary transition-colors">
-                {promarketTradeLabel(slug)}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => navigate(mainProMarketHref)}
-            className="sm:hidden mt-3 w-full inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-medium active:scale-95 transition-all">
-            Trouver des professionnels
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </section>
 
       {/* ── Export Progress Overlay ── */}
       {exporting && (

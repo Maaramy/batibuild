@@ -1,7 +1,7 @@
 /**
  * ACCÈS RAPIDES D'UN PROJET (liste des projets du Dashboard).
  *
- * Construit les 4 liens vers les modules liés à un projet :
+ * Construit les liens vers les modules liés à un projet :
  *
  *   - **Matériaux** → `/dashboard/ai-materials?project=…` : la page de l'assistant
  *     Matériaux IA s'ouvre avec le projet déjà sélectionné ;
@@ -10,22 +10,14 @@
  *   - **Expert** → `/dashboard/professionals-directory?project=…` : la liste des
  *     experts s'ouvre avec le contexte du projet (elle charge le projet et
  *     pré-remplit les demandes de devis / service) ;
- *   - **Plan AI** → `/dashboard/plans/:id` : le générateur de plans du projet ;
- *   - **ProMarket** → `/promarket/search?project=…` : la marketplace de services
- *     professionnels, ouverte avec le contexte du projet (l'annuaire recherche
- *     les professionnels pertinents pour ce chantier).
+ *   - **Plan AI** → `/dashboard/plans/:id` : le générateur de plans du projet.
  *
  * Les routes sont celles qui EXISTENT déjà (`src/main.tsx`) : aucune page n'est
  * créée ni dupliquée, aucun calcul n'est refait ici. La fonction est pure et
  * sans dépendance React, donc testable telle quelle.
  */
 
-export type ProjectQuickActionKey =
-  | "materials"
-  | "guide"
-  | "expert"
-  | "plan"
-  | "promarket";
+export type ProjectQuickActionKey = "materials" | "guide" | "expert" | "plan";
 
 export type ProjectQuickAction = {
   key: ProjectQuickActionKey;
@@ -48,8 +40,6 @@ const TONES = {
   expert:
     "hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400",
   plan: "hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400",
-  promarket:
-    "hover:border-primary/50 hover:bg-primary/10 hover:text-primary",
 } as const;
 
 export function buildProjectQuickActions(project: ProjectForQuickActions): ProjectQuickAction[] {
@@ -77,14 +67,6 @@ export function buildProjectQuickActions(project: ProjectForQuickActions): Proje
       label: "Plan AI",
       href: `/dashboard/plans/${project._id}`,
       tone: TONES.plan,
-    },
-    {
-      key: "promarket",
-      label: "ProMarket",
-      // ProMarket recherche les professionnels en conservant le contexte projet
-      // (la page de recherche lit le paramètre `project`).
-      href: `/promarket/search?project=${project._id}`,
-      tone: TONES.promarket,
     },
   ];
 }

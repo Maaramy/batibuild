@@ -3,32 +3,7 @@ import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus } from "./access";
-import { syncProMarketProfileFromExpert } from "./proMarketAccess";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
-
-// ============================================================================
-// RÈGLE D'ACCÈS PROFESSIONNELS — synchronisation Expert → ProMarket
-//
-// Toute modification du profil Expert est répercutée sur sa fiche ProMarket
-// (projection). C'est le SEUL chemin de publication : ProMarket n'a aucun
-// système d'inscription professionnelle indépendant.
-// ============================================================================
-
-async function syncProMarketProjection(ctx: any, expertId: Id<"expertProfiles">) {
-  const expert = await ctx.db.get(expertId);
-  if (!expert) return;
-  await syncProMarketProfileFromExpert(ctx, expert);
-}
-
-/** Masque la fiche ProMarket (l'expert n'est plus un compte BatiBuild valide). */
-async function hideProMarketProjection(ctx: any, expertId: Id<"expertProfiles">) {
-  const projection = await ctx.db
-    .query("promarketProfiles")
-    .withIndex("by_expert", (q: any) => q.eq("expertProfileId", expertId))
-    .first();
-  if (!projection) return;
-  await ctx.db.patch(projection._id, { status: "pending", updatedAt: Date.now() });
-}
 
 // ============================================================================
 // Constants
@@ -378,8 +353,6 @@ export const updateProfile = mutation({
     if (args.regions !== undefined) updates.regions = args.regions;
 
     await ctx.db.patch(profile._id, updates);
-    // §5 — synchronisation automatique du profil ProMarket.
-    await syncProMarketProjection(ctx, profile._id);
     return { success: true };
   },
 });
@@ -398,8 +371,6 @@ export const toggleVisibility = mutation({
       isVisible: !profile.isVisible,
       updatedAt: Date.now(),
     });
-    // Un profil Expert masqué disparaît automatiquement de ProMarket.
-    await syncProMarketProjection(ctx, profile._id);
     return { success: true, isVisible: !profile.isVisible };
   },
 });
@@ -473,8 +444,6 @@ export const deleteProfile = mutation({
       .first();
     if (!profile) throw new Error("Profil expert introuvable");
 
-    // §2 — un Expert supprimé ne peut plus apparaître ni postuler sur ProMarket.
-    await hideProMarketProjection(ctx, profile._id);
     await ctx.db.delete(profile._id);
 
     try {
@@ -544,8 +513,6 @@ export const adminDeleteExpertProfile = mutation({
     const profile = await ctx.db.get(args.profileId);
     if (!profile) throw new Error("Profil expert introuvable");
 
-    // §2 — retirement immédiat de ProMarket (suspension, suppression).
-    await hideProMarketProjection(ctx, profile._id);
     await ctx.db.delete(args.profileId);
 
     try {
@@ -578,7 +545,6 @@ export const adminToggleExpertVisibility = mutation({
       isVisible: !profile.isVisible,
       updatedAt: Date.now(),
     });
-    await syncProMarketProjection(ctx, args.profileId);
 
     return { success: true, isVisible: !profile.isVisible };
   },
@@ -609,9 +575,6 @@ export const adminApproveExpertSubscription = mutation({
       isVisible: true,
       updatedAt: now,
     });
-    // L'expert redevient éligible : la fiche ProMarket est republiée si toutes
-    // les règles d'accès sont remplies (validation admin ProMarket à part).
-    await syncProMarketProjection(ctx, args.profileId);
 
     try {
       await ctx.db.insert("adminLogs", {
@@ -681,7 +644,6 @@ export const adminRejectExpertSubscription = mutation({
       isVisible: false,
       updatedAt: Date.now(),
     });
-    await syncProMarketProjection(ctx, args.profileId);
 
     try {
       await ctx.db.insert("adminLogs", {
