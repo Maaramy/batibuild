@@ -74,8 +74,8 @@ export function ProjectJourneyNav({
                       className={cn(
                         "flex h-7 w-7 items-center justify-center rounded-full border text-[10px] transition-colors",
                         active
-                          ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                          : "border-border text-emerald-500/70 dark:text-emerald-400/70 group-hover:border-emerald-500/40 group-hover:text-emerald-600 dark:group-hover:text-emerald-400",
+                          ? "border-emerald-400 bg-emerald-400/15 text-emerald-500 dark:border-emerald-500/60 dark:bg-emerald-500/15 dark:text-emerald-300"
+                          : "border-border text-muted-foreground group-hover:border-foreground/40 group-hover:text-foreground",
                       )}
                     >
                       {i + 1}
@@ -91,6 +91,7 @@ export function ProjectJourneyNav({
                       {step.label}
                     </span>
                   </button>
+                  {/* Tiré gris reliant les chiffres entre eux. */}
                   {i < steps.length - 1 && (
                     <div className="mb-4 h-px flex-1 bg-border" />
                   )}
