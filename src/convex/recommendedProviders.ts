@@ -738,6 +738,14 @@ export function buildRecommendationPlan(
   };
 }
 
+/**
+ * Badge de disponibilité affiché aux clients : « Profil vérifié » —
+ * le détail d'abonnement n'est jamais exposé dans les recommandations.
+ */
+function availabilityLabel(profile: { subscriptionStatus?: string }): string {
+  return profile.subscriptionStatus === "trial" ? "Période d'essai" : "Profil vérifié";
+}
+
 /** Lit les recommandations existantes d'un projet (payload rendu par l'UI). */
 async function readProjectRecommendations(
   ctx: any,
@@ -776,12 +784,7 @@ async function readProjectRecommendations(
         regionLabel:
           (profile.regions ?? []).map(regionLabelFor).slice(0, 3).join(", ") ||
           "Tunisie",
-        availability:
-          profile.plan === "monthly" && profile.subscriptionStatus === "active"
-            ? "Abonné actif"
-            : profile.subscriptionStatus === "trial"
-              ? "Période d'essai"
-              : "Profil vérifié",
+        availability: availabilityLabel(profile),
       });
     } else {
       // Photo de l'expert : logo du profil, sinon photo du compte (users.image)
@@ -804,12 +807,7 @@ async function readProjectRecommendations(
         regionLabel:
           (profile.regions ?? []).map(regionLabelFor).slice(0, 3).join(", ") ||
           "Tunisie",
-        availability:
-          profile.plan === "monthly" && profile.subscriptionStatus === "active"
-            ? "Abonné actif"
-            : profile.subscriptionStatus === "trial"
-              ? "Période d'essai"
-              : "Profil vérifié",
+        availability: availabilityLabel(profile),
       });
     }
   }
