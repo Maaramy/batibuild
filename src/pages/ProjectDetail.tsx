@@ -19,6 +19,7 @@ import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { projectJourneyGroup } from "@/lib/projectJourney";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { runBIMEstimation } from "@/convex/bimEngine";
 
@@ -288,6 +289,11 @@ export default function ProjectDetail() {
       "Fournitures diverses et accessoires stables.",
     );
   const busy = project?.status === "analyzing" || analyzing;
+
+  // Bouton « Return on Investment » : réservé au groupe A (projets neufs /
+  // immobiliers) — le parcours du groupe B ne comporte pas d'étape
+  // investissement. Même règle que la barre d'étapes du parcours.
+  const showRoiButton = project ? projectJourneyGroup(project.category) === "A" : false;
 
   // ── Investment prefill: scrape project data for ROI page ──────────────
   const investmentPrefill = useMemo(() => {
@@ -828,16 +834,18 @@ export default function ProjectDetail() {
                       )}
                       Télécharger le devis
                     </button>
-                    <button
-                      onClick={() => {
-                        const type = investmentTypeForProject(project.category ?? "appartement");
-                        navigate(`/dashboard/investments?type=${type}&project=${project._id}`, { state: { prefill: investmentPrefill, projectId: project._id } });
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border bg-emerald-500/20 text-emerald-100 border-emerald-400/30 hover:bg-emerald-500/30 active:scale-95"
-                    >
-                      <TrendingUp className="h-3 w-3" />
-                      Return on Investment
-                    </button>
+                    {showRoiButton && (
+                      <button
+                        onClick={() => {
+                          const type = investmentTypeForProject(project.category ?? "appartement");
+                          navigate(`/dashboard/investments?type=${type}&project=${project._id}`, { state: { prefill: investmentPrefill, projectId: project._id } });
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border bg-emerald-500/20 text-emerald-100 border-emerald-400/30 hover:bg-emerald-500/30 active:scale-95"
+                      >
+                        <TrendingUp className="h-3 w-3" />
+                        Return on Investment
+                      </button>
+                    )}
                   </div>
                 </div>
 
