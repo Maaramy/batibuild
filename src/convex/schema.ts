@@ -576,12 +576,6 @@ const schema = defineSchema(
         })
       ),
 
-      // Intelligence prédictive (Groupe B) — analyse dynamique par domaine
-      // de construction (plomberie, électricité, cuisine…) croisée avec le
-      // DQE / le quantitatif du projet. Structure libre (v.any) : la forme
-      // est validée par le moteur `predictiveDomains.ts`.
-      groupBPrediction: v.optional(v.any()),
-
       // DQE — Quantitatif détaillé par lots (modèle Google Sheets)
       dqe: v.optional(v.any()),
 

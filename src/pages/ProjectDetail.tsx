@@ -20,8 +20,6 @@ import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { projectJourneyGroup } from "@/lib/projectJourney";
-import { GroupBPredictivePanel } from "@/components/GroupBPredictivePanel";
-import type { GroupBPrediction } from "@/convex/predictiveDomains";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { runBIMEstimation } from "@/convex/bimEngine";
 
@@ -299,33 +297,6 @@ export default function ProjectDetail() {
 
   // Module « Intelligence prédictive » (prix du marché) : groupe A.
   const showPredictiveModule = showRoiButton;
-
-  // Analyse dynamique du GROUPE B : activée pour tout projet hors groupe A.
-  const isGroupB = project ? projectJourneyGroup(project.category) !== "A" : false;
-
-  // ═══ Intelligence prédictive — GROUPE B (analyse dynamique par domaine) ═══
-  // Génère l'analyse spécifique au type de projet (plomberie, électricité,
-  // cuisine…) à partir des données réelles : DQE, quantitatif, surfaces,
-  // coût estimé. Côté client, on ne fait que calculer + persister.
-  const groupBPrediction = project?.groupBPrediction as GroupBPrediction | undefined;
-  const saveGroupBPrediction = useMutation(api.projects.updateGroupBPrediction);
-  const [groupBLoading, setGroupBLoading] = useState(false);
-  const [groupBError, setGroupBError] = useState<string | null>(null);
-  const handleGenerateGroupBPredictive = async () => {
-    if (!project || groupBLoading) return;
-    setGroupBLoading(true);
-    setGroupBError(null);
-    try {
-      await saveGroupBPrediction({ projectId: project._id });
-      toast.success("Analyse prédictive générée !");
-    } catch (err: any) {
-      const msg = err?.message || "Erreur lors de la génération de l'analyse";
-      setGroupBError(msg);
-      toast.error(msg);
-    } finally {
-      setGroupBLoading(false);
-    }
-  };
 
   // ── Investment prefill: scrape project data for ROI page ──────────────
   const investmentPrefill = useMemo(() => {
@@ -1685,19 +1656,6 @@ export default function ProjectDetail() {
                 </div>
               )}
             </motion.div>
-            )}
-
-            {/* ═══ Intelligence prédictive — GROUPE B (analyse dynamique par domaine) ═══ */}
-            {isGroupB && (
-              <motion.div variants={fadeUp} custom={7}>
-                <GroupBPredictivePanel
-                  prediction={groupBPrediction ?? null}
-                  loading={groupBLoading}
-                  error={groupBError}
-                  isPremium={isPremium}
-                  onGenerate={handleGenerateGroupBPredictive}
-                />
-              </motion.div>
             )}
 
             {/* ═══ Fournisseurs & Prestataires ═══ */}

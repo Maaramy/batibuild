@@ -2,10 +2,6 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { requireClientProAccess, getFreePlanStatus } from "./access";
-// Moteur « Intelligence prédictive » Groupe B — import statique obligatoire :
-// les imports dynamiques (await import) ne sont pas supportés dans les
-// fonctions Convex (« dynamic module import unsupported »).
-import { buildPredictiveAnalysis } from "./predictiveDomains";
 import {
   projectCategoryValidator,
   projectStatusValidator,
@@ -606,51 +602,7 @@ export const updatePredictiveInsights = mutation({
   },
 });
 
-// ============================================================================
-// Intelligence prédictive (Groupe B) — analyse dynamique par domaine
-// ============================================================================
 
-/**
- * Enregistre l'analyse prédictive « Groupe B » (plomberie, électricité,
- * cuisine…) sur le projet. Le calcul est effectué côté serveur à partir des
- * données réelles du projet (type, surface, coût estimé, DQE, quantitatif) :
- * cette mutation (a) valide l'accès, (b) exécute le moteur dynamique et
- * (c) persiste le résultat.
- */
-export const updateGroupBPrediction = mutation({
-  args: { projectId: v.id("projects") },
-  handler: async (ctx, args): Promise<{ success: boolean }> => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Unauthorized");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-    if (project.userId !== user._id && user.role !== "admin") {
-      throw new Error("Unauthorized");
-    }
-
-    // Calcul synchronisé via le moteur dynamique (import statique) : le
-    // domaine analysé dépend du type de projet enregistré (plomberie,
-    // électricité, cuisine…) croisé avec les données réelles du projet.
-    const ce = project.costEstimate as { totalCost?: number; breakdown?: { items?: { name?: string; quantity?: number; unitPrice?: number; totalPrice?: number }[] }[] } | undefined;
-    const dqe = (project as { dqe?: { lots?: unknown } }).dqe;
-    const prediction = buildPredictiveAnalysis({
-      projectType: project.category,
-      surface: project.surface ?? null,
-      region: project.region ?? null,
-      totalCost: ce?.totalCost ?? null,
-      dqeLots: (dqe?.lots as Parameters<typeof buildPredictiveAnalysis>[0]["dqeLots"]) ?? null,
-      ceItems: ce?.breakdown?.flatMap((b) => b?.items ?? []) ?? null,
-    });
-
-    await ctx.db.patch(args.projectId, {
-      groupBPrediction: prediction,
-      updatedAt: Date.now(),
-    });
-
-    return { success: true };
-  },
-});
 
 // ============================================================================
 // BIM Engine (professional cost estimation)
