@@ -505,6 +505,7 @@ export interface RecommendedProviderView {
   type: RecommendedType;
   profileId: string;
   name: string;
+  /** URL réellement affichable par <img src> (résolue côté backend) ou undefined. */
   logo?: string;
   phone?: string;
   email?: string;
@@ -529,6 +530,78 @@ export interface RecommendationsPayload {
 /** Libellé d'une spécialité (repli sur la clé brute). */
 function specialtyLabel(key: string): string {
   return SUPPLIER_SPECIALTIES_LABELS[key] ?? PROVIDER_TYPE_LABELS[key] ?? key;
+}
+
+// ============================================================================
+// 7. IMAGES — résolution des logos vers des URLs réellement affichables
+//    La source officielle est le champ `logo` des profils (schéma Convex).
+//    Aucun nouveau champ n'est créé : on lit uniquement ce qui existe déjà.
+// ============================================================================
+
+/**
+ * Anciens logos enregistrés comme `${window.location.origin}/api/storage/<id>`
+ * (jamais résoluble sur l'hôte de l'application, sans proxy /api) — même
+ * logique de réparation que les pages profils (supplierProfiles/expertProfiles).
+ * Les requêtes Convex sont read-only : l'URL réparée est re-persistée au
+ * prochain enregistrement du profil.
+ */
+const BROKEN_STORAGE_URL_RE = /\/api\/storage\/([A-Za-z0-9]+)(?:[?#]|$)/;
+
+/** Champs image compatibles des anciennes structures de profil (lecture seule). */
+const LOGO_FIELDS = ["logo", "logoUrl", "companyLogo", "image"] as const;
+
+/**
+ * Lit le champ image réel du profil — source officielle : `logo` ; les autres
+ * champs ne servent que si une ancienne structure en contient une.
+ */
+export function pickLogoField(profile: unknown): string | undefined {
+  const p = profile as Record<string, unknown> | null | undefined;
+  if (!p) return undefined;
+  for (const f of LOGO_FIELDS) {
+    const raw = p[f];
+    if (typeof raw === "string" && raw.trim().length > 0) return raw.trim();
+  }
+  return undefined;
+}
+
+/**
+ * Écarte les valeurs non-affichables par <img src> : storageId brut Convex
+ * (jamais envoyé comme src), data:/blob: (non fiables), chaînes vides.
+ */
+export function normalizeLogoValue(
+  value: string | undefined | null,
+): string | undefined {
+  if (!value) return undefined;
+  const v = value.trim();
+  if (!v) return undefined;
+  if (/^(data|blob):/i.test(v)) return undefined;
+  // storageId Convex brut (base64url ~32+ caractères, sans séparateur)
+  if (/^[A-Za-z0-9_-]{32,}$/.test(v)) return undefined;
+  return v;
+}
+
+/**
+ * Convertit la valeur stockée en URL exploitable par <img src> :
+ *   - champ absent/vide → undefined (fallback volontaire côté UI) ;
+ *   - ancienne URL /api/storage/<id> → vraie URL Convex Storage ;
+ *   - URL directe → inchangée ;
+ *   - fichier indisponible dans le stockage → undefined (jamais de src cassé).
+ */
+async function resolveLogoUrl(
+  ctx: any,
+  value: string | undefined | null,
+): Promise<string | undefined> {
+  const cleaned = normalizeLogoValue(value ?? undefined);
+  if (!cleaned) return undefined;
+  const match = cleaned.match(BROKEN_STORAGE_URL_RE);
+  if (!match) return cleaned;
+  try {
+    const url = await ctx.storage.getUrl(match[1] as any);
+    return normalizeLogoValue(url ?? undefined);
+  } catch {
+    // storageId invalide / fichier supprimé → fallback propre côté UI.
+    return undefined;
+  }
 }
 
 const REGION_LABEL_FALLBACK: Record<string, string> = {
@@ -683,7 +756,7 @@ async function readProjectRecommendations(
         ...base,
         type: "supplier",
         name: profile.companyName ?? "Fournisseur",
-        logo: profile.logo ?? undefined,
+        logo: await resolveLogoUrl(ctx, pickLogoField(profile)),
         phone: profile.phone,
         email: profile.email ?? undefined,
         address: profile.address ?? undefined,
@@ -703,7 +776,7 @@ async function readProjectRecommendations(
         ...base,
         type: "expert",
         name: profile.displayName ?? "Expert",
-        logo: profile.logo ?? undefined,
+        logo: await resolveLogoUrl(ctx, pickLogoField(profile)),
         phone: profile.phone,
         email: profile.email ?? undefined,
         address: profile.address ?? undefined,

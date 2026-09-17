@@ -46,6 +46,53 @@ const REGION_RANK_LABEL: Record<number, string> = {
   2: "Tunisie",
 };
 
+// ============================================================================
+// Visuel du prestataire — photo/logo RÉEL du profil, jamais de src cassé.
+//
+// L'URL vient du backend (déjà nettoyée et réparée si besoin) : une valeur
+// absente ou invalide → fallback volontaire (initiales, puis icône métier),
+// une image inaccessible (404, CORS, fichier supprimé) → onError bascule sur
+// le même fallback au lieu d'afficher une icône d'image manquante.
+// ============================================================================
+function ProviderAvatar({
+  provider,
+}: {
+  provider: RecommendedProviderView;
+}) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const initials = (provider.name ?? "?")
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+  const showImage = !!provider.logo && !imgFailed;
+
+  return showImage ? (
+    <img
+      key={provider.logo}
+      src={provider.logo as string}
+      alt={provider.name}
+      className="h-10 w-10 shrink-0 rounded-lg object-cover border border-border/30"
+      loading="lazy"
+      decoding="async"
+      onError={() => setImgFailed(true)}
+    />
+  ) : (
+    <div
+      aria-label={`Logo de ${provider.name}`}
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary border border-border/30"
+    >
+      {initials ? (
+        <span className="text-xs font-bold leading-none">{initials}</span>
+      ) : provider.type === "supplier" ? (
+        <Store className="h-4 w-4" />
+      ) : (
+        <Users className="h-4 w-4" />
+      )}
+    </div>
+  );
+}
+
 function ProviderCard({
   provider,
   onContact,
@@ -55,28 +102,11 @@ function ProviderCard({
   onContact: (p: RecommendedProviderView) => void;
   onOpenProfile: (p: RecommendedProviderView) => void;
 }) {
-  const initials = (provider.name ?? "?")
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-
   return (
     <div className="p-3 rounded-xl border border-border/40 bg-background/60 hover:border-primary/25 hover:shadow-sm transition-all">
       <div className="flex items-start gap-2.5">
-        {/* Logo / photo — ou initiales en repli (jamais de faux visuel). */}
-        {provider.logo ? (
-          <img
-            src={provider.logo}
-            alt={provider.name}
-            className="h-10 w-10 shrink-0 rounded-lg object-cover border border-border/30"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">
-            {initials || (provider.type === "supplier" ? <Store className="h-4 w-4" /> : <Users className="h-4 w-4" />)}
-          </div>
-        )}
+        {/* Photo de profil / logo réel — fallback propre si absent ou cassé. */}
+        <ProviderAvatar provider={provider} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">

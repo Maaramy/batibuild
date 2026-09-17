@@ -15,6 +15,8 @@ import {
   seedFromString,
   pickRecommendations,
   buildRecommendationPlan,
+  pickLogoField,
+  normalizeLogoValue,
   type RecommendationCandidate,
 } from "./recommendedProviders";
 import { PROJECT_TYPES, resolveProjectType } from "./projectTypes";
@@ -216,6 +218,59 @@ describe("Sélection intelligente — matching, randomisation, déduplication", 
     const seqA = [a(), a(), a()];
     const seqB = [b(), b(), b()];
     expect(seqA).toEqual(seqB);
+  });
+});
+
+describe("Images des prestataires — source et normalisation", () => {
+  it("lit le champ officiel `logo` en priorité", () => {
+    expect(pickLogoField({ logo: "https://x.example/l.png" })).toBe(
+      "https://x.example/l.png",
+    );
+    expect(
+      pickLogoField({
+        logo: "https://a.example/l.png",
+        logoUrl: "https://b.example/l.png",
+        image: "https://c.example/l.png",
+      }),
+    ).toBe("https://a.example/l.png");
+  });
+
+  it("replie sur les champs compatibles des anciennes structures", () => {
+    expect(pickLogoField({ logoUrl: "https://b.example/l.png" })).toBe(
+      "https://b.example/l.png",
+    );
+    expect(pickLogoField({ companyLogo: "https://c.example/l.png" })).toBe(
+      "https://c.example/l.png",
+    );
+    expect(pickLogoField({ image: "https://d.example/l.png" })).toBe(
+      "https://d.example/l.png",
+    );
+  });
+
+  it("aucun champ image → undefined (fallback volontaire côté UI)", () => {
+    expect(pickLogoField({})).toBeUndefined();
+    expect(pickLogoField({ logo: "   " })).toBeUndefined();
+    expect(pickLogoField(null)).toBeUndefined();
+    expect(pickLogoField(undefined)).toBeUndefined();
+  });
+
+  it("normalise : URL directe conservée", () => {
+    expect(normalizeLogoValue("https://cdn.example/logo.png")).toBe(
+      "https://cdn.example/logo.png",
+    );
+    expect(normalizeLogoValue(" /api/storage/abc123 ")).toBe(
+      "/api/storage/abc123",
+    );
+  });
+
+  it("normalise : valeurs non affichables écartées", () => {
+    expect(normalizeLogoValue(undefined)).toBeUndefined();
+    expect(normalizeLogoValue("")).toBeUndefined();
+    expect(normalizeLogoValue("   ")).toBeUndefined();
+    expect(normalizeLogoValue("data:image/png;base64,iVBOR...")).toBeUndefined();
+    expect(normalizeLogoValue("blob:https://app.example/uuid")).toBeUndefined();
+    // storageId Convex brut — jamais envoyé comme src d'un <img>
+    expect(normalizeLogoValue("jd7n4skm1r5bv8qz2c0w9x6a3e5t8h2l")).toBeUndefined();
   });
 });
 
