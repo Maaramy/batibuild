@@ -17,6 +17,7 @@ import {
   buildRecommendationPlan,
   pickLogoField,
   normalizeLogoValue,
+  EXPERT_PROFESSION_LABELS,
   type RecommendationCandidate,
 } from "./recommendedProviders";
 import { PROJECT_TYPES, resolveProjectType } from "./projectTypes";
@@ -271,6 +272,19 @@ describe("Images des prestataires — source et normalisation", () => {
     expect(normalizeLogoValue("blob:https://app.example/uuid")).toBeUndefined();
     // storageId Convex brut — jamais envoyé comme src d'un <img>
     expect(normalizeLogoValue("jd7n4skm1r5bv8qz2c0w9x6a3e5t8h2l")).toBeUndefined();
+  });
+});
+
+describe("Professions experts — libellés affichés dans le badge", () => {
+  it("libellés corrects pour les 6 professions officielles", () => {
+    expect(EXPERT_PROFESSION_LABELS.architecte).toBe("Architecte");
+    expect(EXPERT_PROFESSION_LABELS.bureau_etudes).toBe("Bureau d'études");
+    expect(EXPERT_PROFESSION_LABELS.ingenieur).toBe("Ingénieur");
+    expect(EXPERT_PROFESSION_LABELS.promoteur_immobilier).toBe(
+      "Promoteur immobilier",
+    );
+    expect(EXPERT_PROFESSION_LABELS.plombier).toBe("Plombier");
+    expect(EXPERT_PROFESSION_LABELS.electricien).toBe("Électricien");
   });
 });
 

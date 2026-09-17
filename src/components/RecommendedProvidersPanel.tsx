@@ -34,6 +34,7 @@ import {
   Phone,
   RefreshCw,
   Store,
+  UserRound,
   Users,
   Wand2,
 } from "lucide-react";
@@ -87,7 +88,7 @@ function ProviderAvatar({
       ) : provider.type === "supplier" ? (
         <Store className="h-4 w-4" />
       ) : (
-        <Users className="h-4 w-4" />
+        <UserRound className="h-4 w-4" />
       )}
     </div>
   );
@@ -112,7 +113,9 @@ function ProviderCard({
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[13px] font-semibold leading-tight">{provider.name}</span>
             <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
-              {provider.type === "supplier" ? "Fournisseur" : "Expert"}
+              {provider.type === "supplier"
+                ? "Fournisseur"
+                : provider.professionLabel ?? "Expert"}
             </Badge>
           </div>
 

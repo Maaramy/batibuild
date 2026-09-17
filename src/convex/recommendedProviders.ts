@@ -507,6 +507,8 @@ export interface RecommendedProviderView {
   name: string;
   /** URL réellement affichable par <img src> (résolue côté backend) ou undefined. */
   logo?: string;
+  /** Profession de l'expert (architecte, ingénieur…) — undefined pour un fournisseur. */
+  professionLabel?: string;
   phone?: string;
   email?: string;
   address?: string;
@@ -549,6 +551,16 @@ const BROKEN_STORAGE_URL_RE = /\/api\/storage\/([A-Za-z0-9]+)(?:[?#]|$)/;
 
 /** Champs image compatibles des anciennes structures de profil (lecture seule). */
 const LOGO_FIELDS = ["logo", "logoUrl", "companyLogo", "image"] as const;
+
+/** Libellés des professions experts — affiché à la place du mot « Expert ». */
+export const EXPERT_PROFESSION_LABELS: Record<string, string> = {
+  architecte: "Architecte",
+  bureau_etudes: "Bureau d'études",
+  ingenieur: "Ingénieur",
+  promoteur_immobilier: "Promoteur immobilier",
+  plombier: "Plombier",
+  electricien: "Électricien",
+};
 
 /**
  * Lit le champ image réel du profil — source officielle : `logo` ; les autres
@@ -772,11 +784,18 @@ async function readProjectRecommendations(
               : "Profil vérifié",
       });
     } else {
+      // Photo de l'expert : logo du profil, sinon photo du compte (users.image)
+      // — les deux sources réelles déjà existantes, aucune donnée inventée.
+      const account = profile.userId ? await ctx.db.get(profile.userId) : null;
       experts.push({
         ...base,
         type: "expert",
         name: profile.displayName ?? "Expert",
-        logo: await resolveLogoUrl(ctx, pickLogoField(profile)),
+        logo:
+          (await resolveLogoUrl(ctx, pickLogoField(profile))) ??
+          normalizeLogoValue(account?.image ?? undefined),
+        professionLabel:
+          EXPERT_PROFESSION_LABELS[profile.profession] ?? profile.profession,
         phone: profile.phone,
         email: profile.email ?? undefined,
         address: profile.address ?? undefined,
