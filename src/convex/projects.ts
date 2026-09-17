@@ -2,6 +2,10 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { requireClientProAccess, getFreePlanStatus } from "./access";
+// Moteur « Intelligence prédictive » Groupe B — import statique obligatoire :
+// les imports dynamiques (await import) ne sont pas supportés dans les
+// fonctions Convex (« dynamic module import unsupported »).
+import { buildPredictiveAnalysis } from "./predictiveDomains";
 import {
   projectCategoryValidator,
   projectStatusValidator,
@@ -625,7 +629,9 @@ export const updateGroupBPrediction = mutation({
       throw new Error("Unauthorized");
     }
 
-    const { buildPredictiveAnalysis } = await import("./predictiveDomains");
+    // Calcul synchronisé via le moteur dynamique (import statique) : le
+    // domaine analysé dépend du type de projet enregistré (plomberie,
+    // électricité, cuisine…) croisé avec les données réelles du projet.
     const ce = project.costEstimate as { totalCost?: number; breakdown?: { items?: { name?: string; quantity?: number; unitPrice?: number; totalPrice?: number }[] }[] } | undefined;
     const dqe = (project as { dqe?: { lots?: unknown } }).dqe;
     const prediction = buildPredictiveAnalysis({
