@@ -295,6 +295,10 @@ export default function ProjectDetail() {
   // investissement. Même règle que la barre d'étapes du parcours.
   const showRoiButton = project ? projectJourneyGroup(project.category) === "A" : false;
 
+  // Intelligence prédictive : réservée au groupe A (projets neufs /
+  // immobiliers) — même règle que le bouton ROI et la barre d'étapes.
+  const showPredictiveModule = showRoiButton;
+
   // ── Investment prefill: scrape project data for ROI page ──────────────
   const investmentPrefill = useMemo(() => {
     if (!project) return undefined;
@@ -1444,7 +1448,8 @@ export default function ProjectDetail() {
               )}
             </div>
 
-            {/* ═══ Intelligence prédictive (Pro/Expert) ═══ */}
+            {/* ═══ Intelligence prédictive (Pro/Expert) — groupe A uniquement ═══ */}
+            {showPredictiveModule && (
             <motion.div variants={fadeUp} custom={7}>
               {isPremium ? (
                 <div className="relative rounded-xl border border-violet-200/50 bg-gradient-to-br from-violet-500/[0.06] via-background to-background shadow-sm overflow-hidden">
@@ -1652,6 +1657,7 @@ export default function ProjectDetail() {
                 </div>
               )}
             </motion.div>
+            )}
 
             {/* ═══ Fournisseurs & Prestataires ═══ */}
             {project.providerRecommendations && (
