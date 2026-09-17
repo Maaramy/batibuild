@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useAuth } from "@/hooks/use-auth";
+import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -63,8 +64,13 @@ export default function SuppliersDirectory() {
 
   // Filtres pilotés par l'URL : l'annuaire peut être ouvert pré-filtré depuis
   // une analyse de matériaux (?from=materials&specialty=…&region=…).
-  const [search, setSearch] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Parcours du projet — contexte conservé dans l'URL lorsque l'annuaire est
+  // ouvert depuis un projet (?project=…), comme sur les autres étapes.
+  const projectIdParam = searchParams.get("project") ?? null;
+
+  const [search, setSearch] = useState("");
   const [ratingSupplier, setRatingSupplier] = useState<any>(null);
   const [myRating, setMyRating] = useState(0);
   const [sendingRating, setSendingRating] = useState(false);
@@ -224,6 +230,13 @@ export default function SuppliersDirectory() {
             </div>
           </div>
         </div>
+
+        {/* Parcours du projet — affiché lorsque l'annuaire est ouvert depuis un
+            projet (contexte conservé dans l'URL). */}
+        <ProjectJourneyNav
+          projectId={projectIdParam}
+          maxWidthClassName="max-w-7xl"
+        />
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-4">

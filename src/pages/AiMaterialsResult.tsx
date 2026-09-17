@@ -56,10 +56,12 @@ export default function AiMaterialsResult() {
   const result: RecommendResult | null = (analysis?.results?.recommend as RecommendResult) ?? null;
 
   // Lien annuaire pré-filtré : région du projet + spécialités fournisseurs
-  // correspondant aux catégories de matériaux analysées.
+  // correspondant aux catégories de matériaux analysées (contexte projet
+  // conservé pour la barre d'étapes).
   const suppliersDirectoryHref = (() => {
-    if (!result) return "/dashboard/suppliers-directory";
     const params = new URLSearchParams();
+    if (analysis?.projectId) params.set("project", analysis.projectId);
+    if (!result) return `/dashboard/suppliers-directory?${params.toString()}`;
     params.set("from", "materials");
     if (result.context?.region) params.set("region", result.context.region);
     const specs = categorySpecialties(result.categories.map((c) => c.categoryId));

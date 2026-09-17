@@ -14,8 +14,8 @@
  *     (coût estimatif → plans → choix matériaux → consultation → exécution →
  *     investissement) ;
  *   - **Groupe B** — tous les autres types (rénovation, extension, piscine,
- *     restaurant, café, travaux techniques…) : 2 étapes seulement
- *     (coût estimatif → consultation).
+ *     restaurant, café, travaux techniques…) : 3 étapes seulement
+ *     (coût estimatif → consultation → fournisseurs).
  *
  * Chaque lien conserve le contexte du projet (`?project=…` ou `/:id`) : la
  * navigation ne recrée jamais de projet et ne perd aucune donnée.
@@ -37,7 +37,8 @@ export type ProjectJourneyStepKey =
   | "consult"
   | "execution"
   | "investment"
-  | "supplier";
+  | "supplier"
+  | "suppliers";
 
 export interface ProjectJourneyStep {
   key: ProjectJourneyStepKey;
@@ -89,8 +90,18 @@ export function buildProjectJourney(
     href: `/dashboard/professionals-directory?project=${pid}`,
   };
 
-  // Groupe B — parcours réduit.
-  if (group === "B") return [cost, consult];
+  // Groupe B — coût estimatif → consultation → fournisseurs.
+  if (group === "B")
+    return [
+      cost,
+      consult,
+      {
+        key: "suppliers",
+        label: "Fournisseurs",
+        path: SUPPLIERS_DIRECTORY_PATH,
+        href: `/dashboard/suppliers-directory?project=${pid}`,
+      },
+    ];
 
   // Groupe A — parcours complet.
   return [
@@ -134,11 +145,8 @@ export const SUPPLIERS_DIRECTORY_PATH = "/dashboard/suppliers-directory";
  * par région et par spécialités).
  *
  *   - **Groupe A** : « Coût estimatif → Fournisseur » ;
- *   - **Groupe B** : parcours réduit inchangé (« Coût estimatif → Consultation »).
- *
- * `supplierHref` est construit par la page à partir des résultats de l'analyse ;
- * sans lui, l'annuaire est simplement ouvert sans pré-filtre. Aucune étape n'est
- * désactivée : l'utilisateur reste libre de naviguer.
+ *   - **Groupe B** : « Coût estimatif → Consultation » (inchangé ici : la page
+ *     elle-même est déjà centrée sur les fournisseurs trouvés par l'analyse).
  */
 export function buildAiMaterialsResultJourney(
   category: string | null | undefined,
@@ -156,7 +164,7 @@ export function buildAiMaterialsResultJourney(
     href: `/dashboard/project/${pid}`,
   };
 
-  // Groupe B — parcours réduit inchangé (aucune étape Fournisseur).
+  // Groupe B — parcours réduit (la page est déjà centrée sur les fournisseurs).
   if (projectJourneyGroup(category) !== "A") {
     return [
       cost,

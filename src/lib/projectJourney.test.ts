@@ -17,7 +17,7 @@ const GROUP_A_LABELS = [
   "Investissement",
 ];
 
-const GROUP_B_LABELS = ["Coût estimatif", "Consultation"];
+const GROUP_B_LABELS = ["Coût estimatif", "Consultation", "Fournisseurs"];
 
 const PID = "proj_1";
 
@@ -99,19 +99,19 @@ describe("buildProjectJourney — ordre des étapes", () => {
     expect(keys.indexOf("execution")).toBeLessThan(keys.indexOf("investment"));
   });
 
-  it("Rénovation : uniquement coût estimatif + consultation", () => {
+  it("Rénovation : coût estimatif + consultation + fournisseurs", () => {
     expect(buildProjectJourney("renovation_complete", PID).map((s) => s.label)).toEqual(
       GROUP_B_LABELS,
     );
   });
 
-  it("Cuisine : uniquement coût estimatif + consultation", () => {
+  it("Cuisine : coût estimatif + consultation + fournisseurs", () => {
     expect(buildProjectJourney("renovation_cuisine", PID).map((s) => s.label)).toEqual(
       GROUP_B_LABELS,
     );
   });
 
-  it("Salle de bain : uniquement coût estimatif + consultation", () => {
+  it("Salle de bain : coût estimatif + consultation + fournisseurs", () => {
     expect(buildProjectJourney("renovation_salle_de_bain", PID).map((s) => s.label)).toEqual(
       GROUP_B_LABELS,
     );
@@ -142,6 +142,16 @@ describe("buildProjectJourney — liens et contexte du projet", () => {
       "/dashboard/professionals-directory?project=proj_1",
       "/dashboard/guide?project=proj_1",
       "/dashboard/investments?project=proj_1",
+    ]);
+  });
+
+  it("groupe B : l'étape Fournisseurs pointe vers l'annuaire des fournisseurs avec le projet", () => {
+    const steps = buildProjectJourney("renovation_complete", PID);
+    expect(steps.map((s) => s.key)).toEqual(["cost", "consult", "suppliers"]);
+    expect(steps.map((s) => s.href)).toEqual([
+      `/dashboard/project/${PID}`,
+      `/dashboard/professionals-directory?project=${PID}`,
+      `/dashboard/suppliers-directory?project=${PID}`,
     ]);
   });
 
@@ -180,7 +190,7 @@ describe("buildAiMaterialsResultJourney — page « Résultat de l'analyse IA »
     expect(steps[1].href).toBe(SUPPLIERS_DIRECTORY_PATH);
   });
 
-  it("groupe B : parcours réduit inchangé (coût estimatif puis consultation)", () => {
+  it("groupe B : coût estimatif puis consultation (la page est déjà centrée fournisseurs)", () => {
     for (const category of ["renovation_complete", "renovation_cuisine"]) {
       const steps = buildAiMaterialsResultJourney(category, PID, SUPPLIER_HREF);
       expect(steps.map((s) => s.label), category).toEqual(["Coût estimatif", "Consultation"]);
