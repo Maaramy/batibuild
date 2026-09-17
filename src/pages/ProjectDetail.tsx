@@ -38,7 +38,7 @@ import {
   Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
   ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
-  LockKeyhole, RefreshCw, Rocket, LayoutGrid, HardHat,
+  LockKeyhole, RefreshCw, LayoutGrid, HardHat,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -965,34 +965,7 @@ export default function ProjectDetail() {
               </SectionCard>
             )}
 
-            {/* ═══ CTA — Assistant Matériaux IA ═══ */}
-            {done && project && (
-              <motion.div
-                variants={fadeUp}
-                custom={6.5}
-                className="rounded-xl border border-violet-200/40 bg-gradient-to-r from-violet-500/[0.06] to-background overflow-hidden"
-              >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">Assistant Matériaux IA</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Recommandations comparatives (qualité, prix, durabilité, performance) selon votre projet et votre budget.
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 shrink-0"
-                    onClick={() => navigate(`/dashboard/ai-materials?project=${project._id}`)}
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Assistant Matériaux IA
-                  </Button>
-                </div>
-              </motion.div>
-            )}
+
 
 
             {/* ═══ Quantitatif détaillé — Vue par étapes de construction ═══ */}
@@ -1278,34 +1251,6 @@ export default function ProjectDetail() {
                 </motion.div>
               );
             })()}
-{/* ═══ CTA — Guide construction A-Z ═══ */}
-            {done && project && (
-              <motion.div
-                variants={fadeUp}
-                custom={6.7}
-                className="rounded-xl border border-cyan-200/40 bg-gradient-to-r from-cyan-500/[0.06] to-background overflow-hidden"
-              >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600">
-                    <Rocket className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">Suivez les démarches de construction de vos projets</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Feuille de route personnalisée de A à Z : démarches administratives, budget, planning, chantier et contrôle.
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 shrink-0"
-                    onClick={() => navigate(`/dashboard/guide?project=${project._id}`)}
-                  >
-                    <Rocket className="h-3.5 w-3.5" />
-                    Mon projet de A à Z
-                  </Button>
-                </div>
-              </motion.div>
-            )}
 
             {/* ═══ Pie + Detail ═══ */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

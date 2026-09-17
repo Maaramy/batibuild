@@ -78,6 +78,7 @@ import { TYPE_META, fmtTND, fmtPct } from "@/components/investment/shared";
 import { REGION_LABELS } from "@/convex/investmentTypes";
 import { projectTypeLabel } from "@/convex/projectTypes";
 import { buildProjectQuickActions } from "@/lib/projectQuickActions";
+import { projectJourneyGroup } from "@/lib/projectJourney";
 import { buildInvestmentHistoryEntry } from "@/lib/investmentHistory";
 import { ANALYSIS_STATUS_LABEL, type AnalysisHistoryStatus } from "@/lib/analysisHistory";
 
@@ -197,7 +198,14 @@ function ProjectCard({ project }: { project: any }) {
           </span>
         </div>
 
-        {/* ─── Accès rapides : modules du projet (contexte transmis) ─── */}
+        {/* ─── Accès rapides : modules du projet (Groupe A uniquement) ───
+          * Maison, villa, appartement, studio, duplex, immeuble, local
+          * commercial, bureau, entrepôt, résidence touristique, projet
+          * immobilier neuf. Les projets du Groupe B (rénovation, cuisine,
+          * salle de bain, piscine…) n'affichent pas cette section : leur
+          * parcours passe par la barre d'étapes de la page projet.
+          */}
+        {projectJourneyGroup(project.category) === "A" && (
         <div className="pt-2 border-t border-border/20">
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60 mb-1.5">
             Accès rapides
@@ -231,6 +239,7 @@ function ProjectCard({ project }: { project: any }) {
             })}
           </div>
         </div>
+        )}
 
         {project.costEstimate ? (
           <div className="flex items-center justify-between pt-2 border-t border-border/20">
