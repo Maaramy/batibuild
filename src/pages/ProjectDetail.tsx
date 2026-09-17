@@ -21,6 +21,7 @@ import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { projectJourneyGroup } from "@/lib/projectJourney";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
+import { RecommendedProvidersPanel } from "@/components/RecommendedProvidersPanel";
 import { runBIMEstimation } from "@/convex/bimEngine";
 
 import {
@@ -35,7 +36,7 @@ import {
   Target, TrendingUp, TriangleAlert, Users, Globe,
   PiggyBank, Sparkles, Wallet, Gauge,
   ChevronDown, ChevronUp, Check, CheckCheck, Info,
-  Truck, FileText, Paintbrush, Plug, Phone, Building, Mail, Globe as GlobeIcon,
+  Truck, FileText, Paintbrush, Plug,
   ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
   LockKeyhole, RefreshCw, LayoutGrid, HardHat,
@@ -168,18 +169,6 @@ export default function ProjectDetail() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [showPdfPicker, setShowPdfPicker] = useState(false);
   const [pdfPickerScenario, setPdfPickerScenario] = useState("standard");
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
-  const [showSupplierDialog, setShowSupplierDialog] = useState(false);
-  const [showAllProviders, setShowAllProviders] = useState(false);
-  
-  // Fetch supplier profile when one is selected
-  const selectedProfileId = selectedSupplierId?.startsWith('registered_') 
-    ? selectedSupplierId.replace('registered_', '') as any
-    : null;
-  const selectedProfile = useQuery(
-    api.supplierProfiles.getSupplierById,
-    selectedProfileId ? { supplierId: selectedProfileId } : 'skip'
-  );
   const reportRef = useScreenshotProtection<HTMLDivElement>();
 
   // Inject screenshot protection CSS once
@@ -1603,166 +1592,12 @@ export default function ProjectDetail() {
             </motion.div>
             )}
 
-            {/* ═══ Fournisseurs & Prestataires ═══ */}
-            {project.providerRecommendations && (
-              <div className="col-span-full mb-2">
-                <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-3 border-b border-border/10">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
-                      <Users className="h-3.5 w-3.5" />
-                    </div>
-                    <h3 className="text-[16px] font-semibold">Prestataires recommandés par l’IA</h3>
-                    <Badge variant="secondary" className="text-[11px]">{project.providerRecommendations.stats.total} prestataires</Badge>
-                  </div>
-                  <div className="px-4 py-4 space-y-3">
-                    <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/10">
-                      <p className="text-[12px] sm:text-[14px] text-primary/80 flex items-start gap-1.5">
-                        <MapPin className="h-3 w-3 shrink-0 mt-0.5" />
-                        <span>{project.providerRecommendations.regionInfo.advice}</span>
-                      </p>
-                    </div>
-                    {(() => {
-                      let shown = 0;
-                      return ["essentiel", "recommande", "optionnel"].map((priority) => {
-                      const items = project.providerRecommendations!.providers.filter((p: any) => p.priority === priority);
-                      if (items.length === 0) return null;
-                      const visibleCount = showAllProviders ? items.length : Math.max(0, Math.min(items.length, 3 - shown));
-                      shown += visibleCount;
-                      const cfg = priority === "essentiel"
-                        ? { label: "Essentiel", bg: "bg-red-100", txt: "text-red-700", dot: "bg-red-500", iconBg: "bg-red-50", iconTxt: "text-red-600" }
-                        : priority === "recommande"
-                          ? { label: "Recommandé", bg: "bg-blue-100", txt: "text-blue-700", dot: "bg-blue-500", iconBg: "bg-blue-50", iconTxt: "text-blue-600" }
-                          : { label: "Optionnel", bg: "bg-slate-100", txt: "text-slate-600", dot: "bg-slate-400", iconBg: "bg-slate-50", iconTxt: "text-slate-500" };
-                      return (
-                        <div key={priority}>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <div className={`flex h-4 w-4 items-center justify-center rounded-full ${cfg.bg}`}>
-                              <span className={`text-[9px] font-bold ${cfg.txt}`}>{priority === "essentiel" ? "!" : priority === "recommande" ? "i" : "?"}</span>
-                            </div>
-                            <p className={`text-[12px] font-semibold ${cfg.txt}`}>{cfg.label} ({items.length})</p>
-                          </div>
-                          <div className="space-y-1">
-                            <AnimatePresence initial={false}>
-                            {items.slice(0, visibleCount).map((p: any, i: number) => (
-                              <motion.div
-                                key={i}
-                                initial={{ opacity: 0, y: 6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: 4 }}
-                                transition={{ duration: 0.2, ease: "easeOut" }}
-                              >
-                              <div className="p-2.5 rounded-lg hover:bg-muted/20 transition-colors border border-border/10">
-                                <div className="flex items-start gap-2">
-                                  <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${cfg.iconBg} ${cfg.iconTxt}`}>
-                                    <Users className="h-3 w-3" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1 flex-wrap">
-                                      <span className="text-[13px] font-medium">{p.label}</span>
-                                      <span className={`text-[9px] px-1 py-0.5 rounded-full ${cfg.bg} ${cfg.txt}`}>{p.priority}</span>
-                                    </div>
-                                    <p className="text-[11px] text-muted-foreground mt-0.5">{p.reason}</p>
-                                    {p.suppliers && p.suppliers.length > 0 ? (
-                                      <div className="mt-2 space-y-2">
-                                        {p.suppliers.map((s: any, si: number) => (
-                                          <div 
-                                            key={si} 
-                                            className={`p-2 rounded-lg border transition-all ${s.id && s.id.startsWith('registered_') ? 'cursor-pointer hover:bg-primary/[0.03] hover:border-primary/20 hover:shadow-sm active:scale-[0.99]' : 'bg-background/80 border-border/20'}`}
-                                            onClick={s.id && s.id.startsWith('registered_') ? () => { setSelectedSupplierId(s.id); setShowSupplierDialog(true); } : undefined}
-                                            role={s.id && s.id.startsWith('registered_') ? 'button' : undefined}
-                                            tabIndex={s.id && s.id.startsWith('registered_') ? 0 : undefined}
-                                            onKeyDown={s.id && s.id.startsWith('registered_') ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSupplierId(s.id); setShowSupplierDialog(true); } } : undefined}
-                                          >
-                                            <p className="text-[12px] font-semibold text-foreground leading-tight flex items-center gap-1.5 flex-wrap">
-                                                {s.name}
-                                                {s.id && s.id.startsWith('registered_') && (
-                                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full shadow-xs">
-                                                    <svg className="h-2 w-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                      <polyline points="20 6 9 17 4 12" />
-                                                    </svg>
-                                                    Vérifié
-                                                  </span>
-                                                )}
-                                              </p>
-                                            <div className="mt-1 space-y-0.5">
-                                              <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
-                                                <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                                                {s.phone}
-                                              </p>
-                                              {s.email && (
-                                                <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
-                                                  <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                                                  {s.email}
-                                                </p>
-                                              )}
-                                              <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
-                                                <MapPin className="h-2.5 w-2.5 shrink-0" />
-                                                <span className="truncate">{s.address}</span>
-                                              </p>
-                                              {s.website && (
-                                                <p className="text-[10px] text-blue-600/80 flex items-center gap-1">
-                                                  <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                                                  {s.website}
-                                                </p>
-                                              )}
-                                            </div>
-                                            {/* Contact button */}
-                                            <a
-                                              href={`tel:${s.phone.replace(/[^\d+]/g, '')}`}
-                                              className="mt-1.5 inline-flex w-full items-center justify-center gap-1 rounded-md border border-primary/20 bg-primary/[0.04] px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/10 hover:border-primary/30 active:scale-[0.98] transition-all"
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                                              </svg>
-                                              Contacter
-                                            </a>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <p className="text-[10px] text-muted-foreground/50 mt-0.5 flex items-center gap-1">
-                                        <MapPin className="h-2.5 w-2.5" />
-                                        {p.regionProximity}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              </motion.div>
-                            ))}
-                            </AnimatePresence>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                  {(() => {
-                    const total = project.providerRecommendations!.stats.total;
-                    if (total <= 3) return null;
-                    return (
-                      <button
-                        onClick={() => setShowAllProviders((v) => !v)}
-                        className="w-full flex items-center justify-center gap-1.5 mt-2 py-2 rounded-lg border border-primary/15 bg-primary/[0.03] text-[12px] font-medium text-primary hover:bg-primary/[0.07] hover:border-primary/25 active:scale-[0.99] transition-all"
-                      >
-                        {showAllProviders ? (
-                          <>
-                            <ChevronUp className="h-3.5 w-3.5" />
-                            Voir moins
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="h-3.5 w-3.5" />
-                            Voir plus ({total - 3})
-                          </>
-                        )}
-                      </button>
-                    );
-                  })()}
-                  </div>
-                </div>
-              </div>
-            )}
+
+            {/* ═══ Prestataires recommandés par l'IA (fournisseurs + experts) ═══ */}
+            <RecommendedProvidersPanel
+              projectId={project._id}
+              projectName={project.name}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {project.optimizationTips && project.optimizationTips.length > 0 && (
@@ -1837,108 +1672,6 @@ export default function ProjectDetail() {
           </motion.div>
         )}
       </div>
-      {/* ── Supplier Profile Dialog ── */}
-      <Dialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog}>
-        <DialogContent className="sm:max-w-md rounded-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base flex items-center gap-2">
-              <Building className="h-4 w-4 text-primary" />
-              {selectedProfile?.companyName || 'Profil fournisseur'}
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Fournisseur inscrit et vérifié sur batibuild App
-            </DialogDescription>
-          </DialogHeader>
-          {selectedProfile ? (
-            <div className="space-y-4 pt-2">
-              {/* Description */}
-              {selectedProfile.description && (
-                <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
-                  <p className="text-xs text-muted-foreground leading-relaxed">{selectedProfile.description}</p>
-                </div>
-              )}
-
-              {/* Contact Info */}
-              <div className="space-y-2">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Coordonnées</p>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-background border border-border/20">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Phone className="h-3.5 w-3.5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground">Téléphone</p>
-                      <p className="text-xs font-medium">{selectedProfile.phone}</p>
-                    </div>
-                  </div>
-                  {selectedProfile.email && (
-                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-background border border-border/20">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <Mail className="h-3.5 w-3.5" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground">Email</p>
-                        <p className="text-xs font-medium">{selectedProfile.email}</p>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-background border border-border/20">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <MapPin className="h-3.5 w-3.5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground">Adresse</p>
-                      <p className="text-xs font-medium">{selectedProfile.address}</p>
-                    </div>
-                  </div>
-                  {selectedProfile.website && (
-                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-background border border-border/20">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <GlobeIcon className="h-3.5 w-3.5" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground">Site web</p>
-                        <p className="text-xs font-medium text-blue-600">{selectedProfile.website}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Spécialités */}
-              {selectedProfile.specialtiesLabels && selectedProfile.specialtiesLabels.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Spécialités</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedProfile.specialtiesLabels.map((spec: string, idx: number) => (
-                      <span key={idx} className="text-[10px] px-2 py-1 rounded-full bg-primary/5 text-primary border border-primary/10">
-                        {spec}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Action button */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-1.5 text-xs"
-                onClick={() => {
-                  window.open(`tel:${selectedProfile.phone}`, '_blank');
-                }}
-              >
-                <Phone className="h-3 w-3" />
-                Appeler le fournisseur
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
 
       {/* Upgrade Dialog */}

@@ -1168,6 +1168,24 @@ const schema = defineSchema(
       .index("by_project", ["projectId"])
       .index("by_user_project", ["userId", "projectId"]),
 
+    // Prestataires recommandés par l'IA pour un projet — association unique
+    // (projectId + providerId + type) : un même fournisseur/expert ne peut
+    // jamais être recommandé deux fois pour le même projet. Voir
+    // `src/convex/recommendedProviders.ts` (matching + déduplication backend).
+    projectRecommendedProviders: defineTable({
+      projectId: v.id("projects"),
+      providerId: v.union(v.id("supplierProfiles"), v.id("expertProfiles")),
+      type: v.union(v.literal("supplier"), v.literal("expert")),
+      /** Spécialités réellement en correspondance avec le besoin du projet. */
+      matchedSpecialties: v.array(v.string()),
+      /** 0 = région du projet · 1 = voisine · 2 = reste de la Tunisie. */
+      regionRank: v.union(v.literal(0), v.literal(1), v.literal(2)),
+      createdAt: v.number(),
+    })
+      .index("by_project", ["projectId"])
+      .index("by_provider", ["providerId"])
+      .index("by_pair", ["projectId", "providerId", "type"]),
+
     supplierAnalytics: defineTable({
       supplierId: v.id("supplierProfiles"),
       date: v.number(),
