@@ -8,10 +8,17 @@ import { useNavigate } from "react-router";
 import {
   ArrowLeft, MessageSquare, Loader2, Clock, CheckCircle2,
   AlertCircle, Send, Package, Download, FileText,
-  Phone, Store, Briefcase, Users, User,
+  Phone, Store, Briefcase, Users, User, CalendarClock, Zap, XCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
+import { toast } from "sonner";
+import {
+  appointmentStatusMeta,
+  formatSlotLabel,
+  urgentStatusMeta,
+} from "@/lib/expertAvailability";
+import { RequestAppointmentDialog } from "@/components/expert/ExpertRequestDialogs";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -124,9 +131,11 @@ function ResponseCard({ response, kind }: { response: any; kind: "expert" | "sup
 
 export default function UserMessages() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"quotes" | "services">("services");
+  const [tab, setTab] = useState<"quotes" | "services" | "appointments">("services");
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  // Proposer une nouvelle date après un refus
+  const [rebookExpert, setRebookExpert] = useState<any>(null);
 
   // Demandes & réponses fournisseurs (devis)
   const quotes = useQuery(api.quoteRequests.getMyRequests);
@@ -137,6 +146,12 @@ export default function UserMessages() {
   const expertRequests = useQuery(api.expertServiceRequests.getMyRequests);
   const expertResponses = useQuery(api.expertServiceRequests.getMyResponses);
   const markExpertResponsesRead = useMutation(api.expertServiceRequests.responsesMarkAllRead);
+
+  // Rendez-vous & demandes urgentes (ProMarket)
+  const appointments = useQuery(api.expertAvailability.getMyAppointments);
+  const urgentRequests = useQuery(api.expertAvailability.getMyUrgentRequests);
+  const cancelAppointment = useMutation(api.expertAvailability.cancelAppointment);
+  const cancelUrgent = useMutation(api.expertAvailability.cancelUrgent);
 
   // Dès que la messagerie est consultée, on efface les badges rouges
   useEffect(() => {
@@ -167,6 +182,28 @@ export default function UserMessages() {
       responsesByRequest.set(r.serviceRequestId, list);
     }
   }
+
+  const pendingAppointmentsCount =
+    (appointments ?? []).filter((a) => a.status === "pending").length +
+    (urgentRequests ?? []).filter((u) => u.status === "pending").length;
+
+  const handleCancelAppointment = async (id: string) => {
+    try {
+      await cancelAppointment({ appointmentId: id as any });
+      toast.success("Rendez-vous annulé");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erreur");
+    }
+  };
+
+  const handleCancelUrgent = async (id: string) => {
+    try {
+      await cancelUrgent({ urgentId: id as any });
+      toast.success("Demande urgente annulée");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erreur");
+    }
+  };
 
   const unreadSupplierCount = allResponses?.filter((r) => r.readAt === undefined).length ?? 0;
   const unreadExpertCount = expertResponses?.filter((r) => r.readAt === undefined).length ?? 0;
@@ -224,7 +261,161 @@ export default function UserMessages() {
             <Store className="h-3.5 w-3.5" />
             Devis fournisseurs
           </button>
+          <button
+            onClick={() => setTab("appointments")}
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer relative ${
+              tab === "appointments"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <CalendarClock className="h-3.5 w-3.5" />
+            Rendez-vous
+            {pendingAppointmentsCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
+                {pendingAppointmentsCount}
+              </span>
+            )}
+          </button>
         </div>
+
+        {/* ══════════ ONGLET RENDEZ-VOUS (experts ProMarket) ══════════ */}
+        {tab === "appointments" && (
+          <>
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <CalendarClock className="h-4 w-4 text-blue-600" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Demandes de rendez-vous
+                </p>
+              </div>
+              {!appointments ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : appointments.length === 0 ? (
+                <Card className="border-border/40">
+                  <CardContent className="p-6 text-center">
+                    <CalendarClock className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+                    <p className="text-xs text-muted-foreground">
+                      Aucune demande de rendez-vous pour le moment.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                appointments.map((a) => {
+                  const meta = appointmentStatusMeta(a.status);
+                  const canCancel = a.status === "pending" || a.status === "approved";
+                  return (
+                    <Card key={a._id} className="border-border/40">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-xs font-semibold">{a.expertName}</p>
+                              <Badge className={`text-[9px] border ${meta.chip}`}>{meta.label}</Badge>
+                            </div>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">
+                              {formatSlotLabel(a.preferredDate, a.preferredTime)} · motif : {a.reason}
+                            </p>
+                            {a.message && (
+                              <p className="mt-1 text-[11px] italic text-muted-foreground line-clamp-2">
+                                « {a.message} »
+                              </p>
+                            )}
+                            {a.decisionMessage && (
+                              <p className="mt-1 text-[10px] text-muted-foreground">
+                                Réponse du professionnel : {a.decisionMessage}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 flex-col gap-1">
+                            {canCancel && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 gap-1 border-red-500/30 text-[10px] text-red-600 hover:bg-red-500/5"
+                                onClick={() => handleCancelAppointment(a._id)}
+                              >
+                                <XCircle className="h-3 w-3" /> Annuler
+                              </Button>
+                            )}
+                            {(a.status === "declined" || a.status === "cancelled") && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 gap-1 border-blue-500/30 text-[10px] text-blue-700 hover:bg-blue-500/5"
+                                onClick={() =>
+                                  setRebookExpert({ _id: a.expertId, displayName: a.expertName })
+                                }
+                              >
+                                <CalendarClock className="h-3 w-3" /> Autre date
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </section>
+
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-600" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Demandes urgentes
+                </p>
+              </div>
+              {!urgentRequests ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : urgentRequests.length === 0 ? (
+                <Card className="border-border/40">
+                  <CardContent className="p-6 text-center">
+                    <Zap className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+                    <p className="text-xs text-muted-foreground">Aucune demande urgente envoyée.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                urgentRequests.map((u) => {
+                  const meta = urgentStatusMeta(u.status);
+                  const canCancel = u.status === "pending" || u.status === "accepted";
+                  return (
+                    <Card key={u._id} className="border-amber-500/25 bg-amber-500/[0.04]">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-xs font-semibold">{u.expertName}</p>
+                              <Badge className={`text-[9px] border ${meta.chip}`}>{meta.label}</Badge>
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">{u.description}</p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">
+                              Envoyée le {fmtDate(u.createdAt)}
+                            </p>
+                          </div>
+                          {canCancel && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 shrink-0 gap-1 border-red-500/30 text-[10px] text-red-600 hover:bg-red-500/5"
+                              onClick={() => handleCancelUrgent(u._id)}
+                            >
+                              <XCircle className="h-3 w-3" /> Annuler
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </section>
+          </>
+        )}
 
         {/* ══════════ ONGLET DEVIS (fournisseurs) ══════════ */}
         {tab === "quotes" && (
@@ -577,6 +768,12 @@ export default function UserMessages() {
           </>
         )}
       </div>
+      {/* Nouvelle proposition de créneau après un refus ou une annulation */}
+      <RequestAppointmentDialog
+        expert={rebookExpert}
+        open={!!rebookExpert}
+        onOpenChange={(o) => { if (!o) setRebookExpert(null); }}
+      />
     </main>
   );
 }

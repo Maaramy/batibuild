@@ -11,8 +11,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Building2, MapPin, Phone, Mail, Globe, Briefcase, Loader2,
+  CalendarClock, Zap, Banknote,
 } from "lucide-react";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
+import {
+  RequestAppointmentDialog,
+  RequestUrgentDialog,
+} from "@/components/expert/ExpertRequestDialogs";
+import {
+  availabilityMeta,
+  indicativePriceLabel,
+  isBookable,
+} from "@/lib/expertAvailability";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -50,6 +60,8 @@ export default function ExpertProfile() {
   );
 
   const [ratingOpen, setRatingOpen] = useState(false);
+  const [appointmentOpen, setAppointmentOpen] = useState(false);
+  const [urgentOpen, setUrgentOpen] = useState(false);
   const [myRating, setMyRating] = useState(0);
   const [sending, setSending] = useState(false);
   const rateExpert = useMutation(api.ratings.rateExpert);
@@ -72,6 +84,21 @@ export default function ExpertProfile() {
   if (!id) return <main className="p-6 text-center text-muted-foreground">Identifiant manquant.</main>;
   if (expert === undefined) return <main className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></main>;
   if (!expert) return <main className="p-6 text-center text-muted-foreground">Expert introuvable.</main>;
+
+  // ── ProMarket : prix indicatifs, disponibilité et urgences ──
+  const profile = expert as any;
+  const price = indicativePriceLabel(profile.indicativePrice);
+  const availability = availabilityMeta(profile.availability);
+  const bookable = isBookable(profile.availability);
+  const acceptsUrgent = profile.acceptsUrgent === true;
+
+  const requireAuth = (action: () => void) => {
+    if (!user) {
+      navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    action();
+  };
 
   return (
     <main className="min-h-screen bg-background">
@@ -107,6 +134,41 @@ export default function ExpertProfile() {
           <Card className="border-border/40">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground leading-relaxed">{expert.description}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Prix indicatifs & disponibilité (ProMarket) */}
+        {(price || availability || acceptsUrgent) && (
+          <Card className="border-border/40">
+            <CardHeader className="pb-2 px-4 py-3">
+              <CardTitle className="text-sm">Prix & disponibilité</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-2">
+              {price && (
+                <div className="flex items-center gap-2">
+                  <Banknote className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span className="text-xs">Prix indicatifs :</span>
+                  <b className="text-xs">{price}</b>
+                </div>
+              )}
+              {availability && (
+                <div className="space-y-1">
+                  <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${availability.chip}`}>
+                    Disponibilité : <span aria-hidden>{availability.emoji}</span> {availability.short}
+                  </div>
+                  {bookable && profile.availabilityDetails && (
+                    <p className="whitespace-pre-line text-[11px] text-muted-foreground">
+                      {profile.availabilityDetails}
+                    </p>
+                  )}
+                </div>
+              )}
+              {acceptsUrgent && (
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                  <Zap className="h-3 w-3" /> Demandes urgentes acceptées
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -172,16 +234,32 @@ export default function ExpertProfile() {
         </Card>
 
         {/* Action buttons */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {bookable && (
+            <Button
+              className="flex-1 gap-1.5 text-xs bg-blue-600 hover:bg-blue-700"
+              onClick={() => requireAuth(() => setAppointmentOpen(true))}
+            >
+              <CalendarClock className="h-3.5 w-3.5" /> Demander un rendez-vous
+            </Button>
+          )}
+          {acceptsUrgent && (
+            <Button
+              className="flex-1 gap-1.5 text-xs bg-amber-600 hover:bg-amber-700"
+              onClick={() => requireAuth(() => setUrgentOpen(true))}
+            >
+              <Zap className="h-3.5 w-3.5" /> Demande urgente
+            </Button>
+          )}
           <Button variant="outline" className="flex-1 gap-1.5 text-xs" onClick={() => {
-            if (!user) { navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`); return; }
-            setRatingOpen(true);
-            setMyRating(0);
+            requireAuth(() => { setRatingOpen(true); setMyRating(0); });
           }}>
             ⭐ Noter cet expert
           </Button>
-          <Button className="flex-1 gap-1.5 text-xs bg-amber-600 hover:bg-amber-700"
-            onClick={() => navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`)}>
+          <Button variant="outline" className="flex-1 gap-1.5 text-xs"
+            onClick={() => {
+              if (expert.phone) window.location.href = `tel:${expert.phone}`;
+            }}>
             <Phone className="h-3.5 w-3.5" /> Contacter
           </Button>
         </div>
@@ -231,6 +309,18 @@ export default function ExpertProfile() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* ProMarket : demandes de rendez-vous et d'intervention urgente */}
+        <RequestAppointmentDialog
+          expert={expert}
+          open={appointmentOpen}
+          onOpenChange={setAppointmentOpen}
+        />
+        <RequestUrgentDialog
+          expert={expert}
+          open={urgentOpen}
+          onOpenChange={setUrgentOpen}
+        />
       </div>
     </main>
   );

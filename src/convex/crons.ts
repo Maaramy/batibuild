@@ -44,6 +44,15 @@ crons.cron(
   internal.emailNotifications.checkExpiredSubscriptions,
 );
 
+// Rendez-vous experts : rappel « rendez-vous à venir » 24 h avant le créneau
+// (ProMarket ↔ profil expert). Idempotent via `reminderSentAt`.
+// Runs every day at 09:00 AM
+crons.cron(
+  "daily-appointment-reminders",
+  "0 9 * * *",
+  internal.expertAvailability.sendAppointmentReminders,
+);
+
 // Weekly market intelligence sync — refreshes material offers with price drift,
 // stock changes and logs price history for the analytics/trends module
 // Runs every Monday at 04:00 AM

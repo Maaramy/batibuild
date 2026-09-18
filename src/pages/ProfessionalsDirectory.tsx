@@ -13,8 +13,19 @@ import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Users, Search, MapPin, Phone, Mail,
   Globe, ChevronDown, X, Briefcase, FileText,
-  Loader2, Layers, Building2,
+  Loader2, Layers, Building2, CalendarClock, Zap, Banknote,
 } from "lucide-react";
+import {
+  RequestAppointmentDialog,
+  RequestUrgentDialog,
+} from "@/components/expert/ExpertRequestDialogs";
+import {
+  AVAILABILITY_FILTERS,
+  availabilityMeta,
+  indicativePriceLabel,
+  matchesAvailabilityFilter,
+  type AvailabilityFilter,
+} from "@/lib/expertAvailability";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { profileCardClass, VerifiedBadge, TrophyLine, MetricRow, DetailRow } from "@/components/ProfileCardBits";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
@@ -64,6 +75,25 @@ export default function ProfessionalsDirectory() {
   const [search, setSearch] = useState("");
   const [selectedProfession, setSelectedProfession] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
+  // ProMarket : filtres disponibilité / urgences + dialogues de demande
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
+  const [appointmentExpert, setAppointmentExpert] = useState<any>(null);
+  const [urgentExpert, setUrgentExpert] = useState<any>(null);
+
+  const openAppointment = (expert: any) => {
+    if (!user) {
+      navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    setAppointmentExpert(expert);
+  };
+  const openUrgent = (expert: any) => {
+    if (!user) {
+      navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    setUrgentExpert(expert);
+  };
   // (les coordonnées des experts sont toujours affichées sur la carte)
   const [devisExpert, setDevisExpert] = useState<any>(null);
   const [ratingExpert, setRatingExpert] = useState<any>(null);
@@ -115,11 +145,15 @@ export default function ProfessionalsDirectory() {
       }
       if (selectedProfession && e.profession !== selectedProfession) return false;
       if (selectedRegion && !(e.regions ?? []).includes(selectedRegion)) return false;
+      // Disponibilité / urgences : n'affiche que les profils réellement concernés
+      if (!matchesAvailabilityFilter(e, availabilityFilter)) return false;
       return true;
     });
-  }, [experts, search, selectedProfession, selectedRegion]);
+  }, [experts, search, selectedProfession, selectedRegion, availabilityFilter]);
 
-  const hasFilters = !!(search || selectedProfession || selectedRegion);
+  const hasFilters = !!(
+    search || selectedProfession || selectedRegion || availabilityFilter !== "all"
+  );
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
@@ -192,6 +226,24 @@ export default function ProfessionalsDirectory() {
               </div>
             </div>
 
+            {/* ProMarket : filtres disponibilité & urgences */}
+            <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {AVAILABILITY_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setAvailabilityFilter(f.value)}
+                  className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all ${
+                    availabilityFilter === f.value
+                      ? "border-blue-500/40 bg-blue-500/10 text-blue-700"
+                      : "border-border/40 bg-background text-muted-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  {f.value === "urgent" && "⚡ "}
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
             {hasFilters && (
               <div className="flex items-center gap-2 mt-2.5 flex-wrap">
                 <span className="text-[9px] text-muted-foreground">Filtres actifs :</span>
@@ -213,7 +265,13 @@ export default function ProfessionalsDirectory() {
                     <button onClick={() => setSelectedRegion("")}><X className="h-2.5 w-2.5" /></button>
                   </Badge>
                 )}
-                <button onClick={() => { setSearch(""); setSelectedProfession(""); setSelectedRegion(""); }}
+                {availabilityFilter !== "all" && (
+                  <Badge variant="secondary" className="text-[9px] gap-1 h-5 px-1.5">
+                    {AVAILABILITY_FILTERS.find((f) => f.value === availabilityFilter)?.label}
+                    <button onClick={() => setAvailabilityFilter("all")}><X className="h-2.5 w-2.5" /></button>
+                  </Badge>
+                )}
+                <button onClick={() => { setSearch(""); setSelectedProfession(""); setSelectedRegion(""); setAvailabilityFilter("all"); }}
                   className="text-[9px] text-primary hover:underline">Tout effacer</button>
               </div>
             )}
@@ -240,7 +298,7 @@ export default function ProfessionalsDirectory() {
               {hasFilters ? "Essayez de modifier vos filtres." : "Aucun expert ou entreprise n'est encore inscrit."}
             </p>
             {hasFilters && (
-              <button onClick={() => { setSearch(""); setSelectedProfession(""); setSelectedRegion(""); }}
+              <button onClick={() => { setSearch(""); setSelectedProfession(""); setSelectedRegion(""); setAvailabilityFilter("all"); }}
                 className="text-[10px] text-primary hover:underline mt-2">Réinitialiser les filtres</button>
             )}
           </div>
@@ -270,6 +328,29 @@ export default function ProfessionalsDirectory() {
                       </div>
                     </div>
 
+                    {/* ── ProMarket : prix indicatifs, disponibilité, urgences ── */}
+                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-border/30 pt-2.5">                      {indicativePriceLabel((e as any).indicativePrice) && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/5 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                          <Banknote className="h-2.5 w-2.5" />
+                          Prix indicatifs : {indicativePriceLabel((e as any).indicativePrice)}
+                        </span>
+                      )}
+                      {(() => {
+                        const meta = availabilityMeta((e as any).availability);
+                        if (!meta) return null;
+                        return (
+                          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${meta.chip}`}>
+                            Disponibilité : <span aria-hidden>{meta.emoji}</span> {meta.short}
+                          </span>
+                        );
+                      })()}
+                      {(e as any).acceptsUrgent === true && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          <Zap className="h-2.5 w-2.5" /> Demandes urgentes acceptées
+                        </span>
+                      )}
+                    </div>
+
                     {/* ── Détails ── */}
                     <div className="mt-3 space-y-1.5 border-t border-border/30 pt-3">
                       {e.description && (
@@ -290,6 +371,29 @@ export default function ProfessionalsDirectory() {
                         />
                       )}
                     </div>
+
+                    {/* ── Actions ProMarket : rendez-vous & urgence ── */}
+                    {((e as any).availability === "appointment" ||
+                      (e as any).acceptsUrgent === true) && (
+                      <div className="mt-2.5 flex gap-1.5">
+                        {(e as any).availability === "appointment" && (
+                          <button
+                            onClick={() => openAppointment(e)}
+                            className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-blue-500/30 bg-blue-500/5 px-2 py-2 text-[10px] font-medium text-blue-700 transition-colors hover:bg-blue-500/10"
+                          >
+                            <CalendarClock className="h-3 w-3" /> Rendez-vous
+                          </button>
+                        )}
+                        {(e as any).acceptsUrgent === true && (
+                          <button
+                            onClick={() => openUrgent(e)}
+                            className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2 py-2 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-500/10"
+                          >
+                            <Zap className="h-3 w-3" /> Urgence
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                     {/* ── Actions ── */}
                     <div className="mt-3 flex gap-1.5">
@@ -545,6 +649,20 @@ export default function ProfessionalsDirectory() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ProMarket : demandes de rendez-vous et d'intervention urgente */}
+      <RequestAppointmentDialog
+        expert={appointmentExpert}
+        open={!!appointmentExpert}
+        onOpenChange={(o) => { if (!o) setAppointmentExpert(null); }}
+        project={project ? { _id: project._id as any, name: project.name, region: project.region } : null}
+      />
+      <RequestUrgentDialog
+        expert={urgentExpert}
+        open={!!urgentExpert}
+        onOpenChange={(o) => { if (!o) setUrgentExpert(null); }}
+        project={project ? { _id: project._id as any, name: project.name, region: project.region } : null}
+      />
     </main>
   );
 }

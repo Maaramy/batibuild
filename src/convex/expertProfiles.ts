@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus } from "./access";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
+import { normalizeIndicativePrice } from "../lib/expertAvailability";
 
 // ============================================================================
 // Constants
@@ -176,6 +177,11 @@ export const getActiveExperts = query({
         profession: e.profession,
         specialties: e.specialties,
         regions: e.regions,
+        // ProMarket : informations d'achat affichées sur les cartes
+        indicativePrice: e.indicativePrice,
+        availability: e.availability,
+        availabilityDetails: e.availabilityDetails,
+        acceptsUrgent: e.acceptsUrgent,
         plan: e.plan,
       });
     }
@@ -202,6 +208,11 @@ export const getExpertById = query({
       specialties: profile.specialties,
       regions: profile.regions ?? [],
       logo: profile.logo,
+      // ProMarket : prix indicatifs, disponibilité, urgences
+      indicativePrice: profile.indicativePrice,
+      availability: profile.availability,
+      availabilityDetails: profile.availabilityDetails,
+      acceptsUrgent: profile.acceptsUrgent,
     };
   },
 });
@@ -232,6 +243,16 @@ export const createProfile = mutation({
     logoStorageId: v.optional(v.id("_storage")),
     specialties: v.array(v.string()),
     regions: v.array(v.string()),
+    indicativePrice: v.optional(v.string()),
+    availability: v.optional(
+      v.union(
+        v.literal("immediate"),
+        v.literal("this_week"),
+        v.literal("appointment"),
+      ),
+    ),
+    availabilityDetails: v.optional(v.string()),
+    acceptsUrgent: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -265,6 +286,10 @@ export const createProfile = mutation({
       logo,
       specialties: args.specialties,
       regions: args.regions,
+      indicativePrice: normalizeIndicativePrice(args.indicativePrice),
+      availability: args.availability,
+      availabilityDetails: args.availabilityDetails?.trim() || undefined,
+      acceptsUrgent: args.acceptsUrgent,
       plan: "none",
       subscriptionStatus: "inactive",
       isVisible: true,
@@ -314,6 +339,16 @@ export const updateProfile = mutation({
     clearLogo: v.optional(v.boolean()),
     specialties: v.optional(v.array(v.string())),
     regions: v.optional(v.array(v.string())),
+    indicativePrice: v.optional(v.string()),
+    availability: v.optional(
+      v.union(
+        v.literal("immediate"),
+        v.literal("this_week"),
+        v.literal("appointment"),
+      ),
+    ),
+    availabilityDetails: v.optional(v.string()),
+    acceptsUrgent: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -350,6 +385,16 @@ export const updateProfile = mutation({
     }
     if (args.specialties !== undefined) updates.specialties = args.specialties;
     if (args.regions !== undefined) updates.regions = args.regions;
+    // ProMarket : prix indicatifs (chaîne vide = champ retiré), disponibilité,
+    // zones précises et acceptation des urgences.
+    if (args.indicativePrice !== undefined) {
+      updates.indicativePrice = normalizeIndicativePrice(args.indicativePrice);
+    }
+    if (args.availability !== undefined) updates.availability = args.availability;
+    if (args.availabilityDetails !== undefined) {
+      updates.availabilityDetails = args.availabilityDetails?.trim() || undefined;
+    }
+    if (args.acceptsUrgent !== undefined) updates.acceptsUrgent = args.acceptsUrgent;
 
     await ctx.db.patch(profile._id, updates);
     return { success: true };

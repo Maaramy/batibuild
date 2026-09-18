@@ -736,6 +736,8 @@ const schema = defineSchema(
         v.literal("support_ticket_created"),
         v.literal("support_reply"),
         v.literal("support_ticket_resolved"),
+        v.literal("expert_appointment"),
+        v.literal("expert_urgent"),
       ),
       title: v.string(),
       message: v.string(),
@@ -1298,6 +1300,19 @@ const schema = defineSchema(
       logo: v.optional(v.string()),
       specialties: v.array(v.string()),
       regions: v.array(v.string()),
+      // ── ProMarket : prix indicatifs, disponibilité, acceptation des urgences ──
+      // Texte libre affiché tel quel (« À partir de 80 TND », « Sur devis »…).
+      indicativePrice: v.optional(v.string()),
+      availability: v.optional(
+        v.union(
+          v.literal("immediate"),
+          v.literal("this_week"),
+          v.literal("appointment")
+        )
+      ),
+      // Créneaux précisés par l'expert quand la disponibilité = « Rendez-vous ».
+      availabilityDetails: v.optional(v.string()),
+      acceptsUrgent: v.optional(v.boolean()),
       plan: v.union(
         v.literal("trial"),
         v.literal("monthly"),
@@ -1372,6 +1387,68 @@ const schema = defineSchema(
       .index("by_request", ["serviceRequestId"])
       .index("by_expert", ["expertId"])
       .index("by_user", ["userId"]),
+
+    // ── Demandes de rendez-vous (ProMarket ↔ profil expert) ──
+    expertAppointments: defineTable({
+      userId: v.id("users"),
+      expertId: v.id("expertProfiles"),
+      projectId: v.optional(v.id("projects")),
+      projectName: v.optional(v.string()),
+      // Date souhaitée (timestamp du jour sélectionné) + heure « HH:MM ».
+      preferredDate: v.number(),
+      preferredTime: v.string(),
+      reason: v.string(),
+      message: v.optional(v.string()),
+      userPhone: v.optional(v.string()),
+      userEmail: v.optional(v.string()),
+      userName: v.optional(v.string()),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("approved"),
+        v.literal("declined"),
+        v.literal("cancelled"),
+        v.literal("completed"),
+      ),
+      decisionMessage: v.optional(v.string()),
+      decidedAt: v.optional(v.number()),
+      // Rappel « rendez-vous à venir » envoyé une seule fois (idempotence).
+      reminderSentAt: v.optional(v.number()),
+      readAt: v.optional(v.number()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_expert", ["expertId"])
+      .index("by_status", ["status"])
+      .index("by_date", ["preferredDate"]),
+
+    // ── Demandes en urgence (intervention rapide) ──
+    expertUrgentRequests: defineTable({
+      userId: v.id("users"),
+      expertId: v.id("expertProfiles"),
+      projectId: v.optional(v.id("projects")),
+      projectName: v.optional(v.string()),
+      description: v.string(),
+      region: v.optional(v.string()),
+      userPhone: v.string(),
+      userEmail: v.optional(v.string()),
+      userName: v.optional(v.string()),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("accepted"),
+        v.literal("declined"),
+        v.literal("completed"),
+        v.literal("cancelled"),
+      ),
+      decisionMessage: v.optional(v.string()),
+      decidedAt: v.optional(v.number()),
+      readAt: v.optional(v.number()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_expert", ["expertId"])
+      .index("by_status", ["status"]),
 
     expertAnalytics: defineTable({
       expertId: v.id("expertProfiles"),
