@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { PROJECT_TYPES } from "@/convex/projectTypes";
 import {
   PROJECT_JOURNEY_GROUP_A,
+  MATERIALS_PAGE_PATH,
   SUPPLIERS_DIRECTORY_PATH,
   buildAiMaterialsResultJourney,
   buildProjectJourney,
@@ -190,12 +191,26 @@ describe("buildAiMaterialsResultJourney — page « Résultat de l'analyse IA »
     expect(steps[1].href).toBe(SUPPLIERS_DIRECTORY_PATH);
   });
 
-  it("groupe B : coût estimatif puis consultation (la page est déjà centrée fournisseurs)", () => {
+  it("groupe B : coût estimatif, liste prix puis fournisseur", () => {
     for (const category of ["renovation_complete", "renovation_cuisine"]) {
       const steps = buildAiMaterialsResultJourney(category, PID, SUPPLIER_HREF);
-      expect(steps.map((s) => s.label), category).toEqual(["Coût estimatif", "Consultation"]);
-      expect(steps[1].href).toBe(`/dashboard/professionals-directory?project=${PID}`);
+      expect(steps.map((s) => s.label), category).toEqual([
+        "Coût estimatif",
+        "Liste prix",
+        "Fournisseur",
+      ]);
+      expect(steps.map((s) => s.key), category).toEqual(["cost", "priceList", "supplier"]);
     }
+  });
+
+  it("groupe B : « Liste prix » ouvre la page Matériaux de construction, « Fournisseur » l'annuaire pré-filtré", () => {
+    const steps = buildAiMaterialsResultJourney("extension_batiment", PID, SUPPLIER_HREF);
+    expect(steps[1].href).toBe(`${MATERIALS_PAGE_PATH}?project=${PID}`);
+    expect(steps[1].path).toBe(MATERIALS_PAGE_PATH);
+    expect(steps[2].href).toBe(SUPPLIER_HREF);
+    expect(steps[2].path).toBe(SUPPLIERS_DIRECTORY_PATH);
+    // Le contexte du projet est conservé sur les deux premières étapes.
+    expect(steps.slice(0, 2).every((s) => s.href.includes(PID))).toBe(true);
   });
 
   it("barre masquée sans identifiant de projet (aucune étape)", () => {

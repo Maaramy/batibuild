@@ -111,7 +111,8 @@ export default function AiMaterialsResult() {
 
         {/* Parcours du projet — conservé dans l'en-tête sticky et masqué tant
             que les résultats ne sont pas affichés (groupe A : coût estimatif
-            puis fournisseurs trouvés par l'analyse). */}
+            puis fournisseurs trouvés par l'analyse ; groupe B : coût estimatif
+            puis liste des prix puis fournisseurs). */}
         <ProjectJourneyNav steps={journeySteps} maxWidthClassName="max-w-7xl" />
       </header>
 

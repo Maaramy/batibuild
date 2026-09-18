@@ -22,8 +22,10 @@
  *
  * La page « Résultat de l'analyse IA » utilise en plus un parcours dédié
  * (`buildAiMaterialsResultJourney`) : le groupe A y remplace ses étapes par
- * « Coût estimatif → Fournisseur », le lien Fournisseur ouvrant l'annuaire des
- * fournisseurs pré-filtré par l'analyse.
+ * « Coût estimatif → Fournisseur », le groupe B par
+ * « Coût estimatif → Liste prix → Fournisseur ». Le lien Fournisseur ouvre
+ * l'annuaire des fournisseurs pré-filtré par l'analyse, et « Liste prix » la
+ * page « Matériaux de construction ».
  */
 
 import { INVESTMENT_ELIGIBLE_TYPES, resolveProjectType } from "@/convex/projectTypes";
@@ -34,6 +36,7 @@ export type ProjectJourneyStepKey =
   | "cost"
   | "plans"
   | "materials"
+  | "priceList"
   | "consult"
   | "execution"
   | "investment"
@@ -137,6 +140,9 @@ export function buildProjectJourney(
 /** Route de l'annuaire des fournisseurs (page des fournisseurs trouvés). */
 export const SUPPLIERS_DIRECTORY_PATH = "/dashboard/suppliers-directory";
 
+/** Route de la liste des prix — page « Matériaux de construction ». */
+export const MATERIALS_PAGE_PATH = "/dashboard/materials";
+
 /**
  * PARCOURS AFFICHÉ SUR LA PAGE « RÉSULTAT DE L'ANALYSE IA »
  *
@@ -145,8 +151,8 @@ export const SUPPLIERS_DIRECTORY_PATH = "/dashboard/suppliers-directory";
  * par région et par spécialités).
  *
  *   - **Groupe A** : « Coût estimatif → Fournisseur » ;
- *   - **Groupe B** : « Coût estimatif → Consultation » (inchangé ici : la page
- *     elle-même est déjà centrée sur les fournisseurs trouvés par l'analyse).
+ *   - **Groupe B** : « Coût estimatif → Liste prix → Fournisseur », où
+ *     « Liste prix » ouvre la page « Matériaux de construction ».
  */
 export function buildAiMaterialsResultJourney(
   category: string | null | undefined,
@@ -164,28 +170,29 @@ export function buildAiMaterialsResultJourney(
     href: `/dashboard/project/${pid}`,
   };
 
-  // Groupe B — parcours réduit (la page est déjà centrée sur les fournisseurs).
+  // Lien Fournisseur : annuaire pré-filtré par l'analyse lorsqu'il est fourni.
+  const href = (supplierHref ?? "").trim() || SUPPLIERS_DIRECTORY_PATH;
+  const supplier: ProjectJourneyStep = {
+    key: "supplier",
+    label: "Fournisseur",
+    path: SUPPLIERS_DIRECTORY_PATH,
+    href,
+  };
+
+  // Groupe B — « Coût estimatif → Liste prix → Fournisseur ».
   if (projectJourneyGroup(category) !== "A") {
     return [
       cost,
       {
-        key: "consult",
-        label: "Consultation",
-        path: "/dashboard/professionals-directory",
-        href: `/dashboard/professionals-directory?project=${pid}`,
+        key: "priceList",
+        label: "Liste prix",
+        path: MATERIALS_PAGE_PATH,
+        href: `${MATERIALS_PAGE_PATH}?project=${pid}`,
       },
+      supplier,
     ];
   }
 
   // Groupe A — « Coût estimatif → Fournisseur ».
-  const href = (supplierHref ?? "").trim() || SUPPLIERS_DIRECTORY_PATH;
-  return [
-    cost,
-    {
-      key: "supplier",
-      label: "Fournisseur",
-      path: SUPPLIERS_DIRECTORY_PATH,
-      href,
-    },
-  ];
+  return [cost, supplier];
 }
