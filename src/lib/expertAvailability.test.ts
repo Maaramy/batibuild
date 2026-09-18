@@ -1,8 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
+  APPOINTMENT_REASON_LIMIT,
   AVAILABILITY_OPTIONS,
   AVAILABILITY_FILTERS,
   APPOINTMENT_STATUS_META,
+  BASE_APPOINTMENT_REASONS,
+  CUSTOM_APPOINTMENT_REASON,
+  PROFESSION_APPOINTMENT_REASONS,
+  appointmentReasonOptions,
+  isPresetAppointmentReason,
   URGENT_STATUS_META,
   appointmentStatusMeta,
   availabilityLabel,
@@ -27,6 +33,66 @@ import {
 
 // 18 septembre 2026, 12:00 heure locale
 const NOW = new Date(2026, 8, 18, 12, 0, 0).getTime();
+
+describe("motifs de demande prêts à sélectionner", () => {
+  it("propose les motifs génériques puis le choix libre, même sans expert connu", () => {
+    const options = appointmentReasonOptions(null);
+    expect(options).toEqual([...BASE_APPOINTMENT_REASONS, CUSTOM_APPOINTMENT_REASON]);
+    expect(options[options.length - 1]).toBe(CUSTOM_APPOINTMENT_REASON);
+  });
+
+  it("adapte les motifs au métier de l'expert", () => {
+    const plombier = appointmentReasonOptions({ profession: "plombier" });
+    expect(plombier).toContain("Fuite d'eau");
+    expect(plombier).toContain("Chauffe-eau");
+    expect(plombier).not.toContain("Étude de plans");
+
+    const electricien = appointmentReasonOptions({ profession: "electricien" });
+    expect(electricien).toContain("Panne électrique");
+    expect(electricien).not.toContain("Fuite d'eau");
+
+    // Tous les métiers du profil expert ont des motifs dédiés
+    for (const profession of Object.keys(PROFESSION_APPOINTMENT_REASONS)) {
+      expect(appointmentReasonOptions({ profession }).length).toBeGreaterThan(
+        BASE_APPOINTMENT_REASONS.length,
+      );
+    }
+  });
+
+  it("ajoute les spécialités réelles de l'expert sans doublon", () => {
+    const options = appointmentReasonOptions({
+      profession: "architecte",
+      specialties: ["Permis de construire", "Permis de construire", "  ", null],
+    });
+    expect(options.filter((o) => o === "Permis de construire")).toHaveLength(1);
+    expect(options).toContain("Conception & décoration");
+  });
+
+  it("borne la liste et garde « Autre motif » en dernière position", () => {
+    const options = appointmentReasonOptions({
+      profession: "electricien",
+      specialties: Array.from({ length: 20 }, (_, i) => `Spécialité ${i}`),
+    });
+    expect(options).toHaveLength(APPOINTMENT_REASON_LIMIT);
+    expect(options[options.length - 1]).toBe(CUSTOM_APPOINTMENT_REASON);
+    expect(options).toContain("Panne électrique");
+  });
+
+  it("un métier inconnu retombe sur les motifs génériques", () => {
+    expect(appointmentReasonOptions({ profession: "macon" })).toEqual(
+      appointmentReasonOptions(null),
+    );
+  });
+
+  it("détecte si le motif saisi est un motif proposé", () => {
+    const options = appointmentReasonOptions({ profession: "plombier" });
+    expect(isPresetAppointmentReason("Fuite d'eau", options)).toBe(true);
+    expect(isPresetAppointmentReason("  Fuite d'eau  ", options)).toBe(true);
+    expect(isPresetAppointmentReason("Motif personnel", options)).toBe(false);
+    expect(isPresetAppointmentReason("", options)).toBe(false);
+    expect(isPresetAppointmentReason(undefined, options)).toBe(false);
+  });
+});
 
 describe("disponibilité expert", () => {
   it("expose les trois options demandées, dans l'ordre", () => {

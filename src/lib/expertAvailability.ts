@@ -256,6 +256,74 @@ export function validateAppointmentDraft(
   };
 }
 
+// ── Motifs de rendez-vous (pré-sélection) ───────────────────────────────────
+
+/** Motifs proposés à tous les experts, quel que soit le métier. */
+export const BASE_APPOINTMENT_REASONS = [
+  "Devis / estimation",
+  "Visite du chantier",
+  "Conseil technique",
+  "Suivi des travaux",
+];
+
+/** Motifs supplémentaires selon le métier de l'expert. */
+export const PROFESSION_APPOINTMENT_REASONS: Record<string, string[]> = {
+  architecte: ["Étude de plans", "Permis de construire", "Conception & décoration"],
+  bureau_etudes: ["Étude de structure", "Dimensionnement", "Plans exécutifs"],
+  ingenieur: ["Diagnostic technique", "Installations techniques", "Contrôle de conformité"],
+  promoteur_immobilier: ["Projet immobilier", "Estimation foncière", "Financement du projet"],
+  plombier: ["Fuite d'eau", "Installation sanitaire", "Chauffe-eau", "Entretien plomberie"],
+  electricien: ["Panne électrique", "Installation électrique", "Tableau électrique", "Mise en conformité"],
+};
+
+/** Choix libre : dernière option, elle ouvre la saisie du motif. */
+export const CUSTOM_APPOINTMENT_REASON = "Autre motif";
+
+/** Nombre maximal de motifs proposés (choix libre compris). */
+export const APPOINTMENT_REASON_LIMIT = 8;
+
+export interface AppointmentReasonSource {
+  profession?: string | null;
+  /** Spécialités déjà mises en forme (« Permis de construire », …). */
+  specialties?: (string | null | undefined)[] | null;
+}
+
+/**
+ * Motifs prêts à sélectionner par le client, dans l'ordre d'affichage :
+ * métier puis spécialités de l'expert, motifs génériques, et enfin le choix
+ * libre. Aucun doublon, liste bornée à `APPOINTMENT_REASON_LIMIT`.
+ * L'expert reste libre de saisir un autre motif (le champ demeure éditable).
+ */
+export function appointmentReasonOptions(
+  source?: AppointmentReasonSource | null,
+): string[] {
+  const options: string[] = [];
+  const add = (raw: string | null | undefined) => {
+    const value = (raw ?? "").replace(/\s+/g, " ").trim();
+    if (!value || value === CUSTOM_APPOINTMENT_REASON) return;
+    if (options.includes(value)) return;
+    if (options.length >= APPOINTMENT_REASON_LIMIT - 1) return;
+    options.push(value);
+  };
+
+  for (const reason of PROFESSION_APPOINTMENT_REASONS[source?.profession ?? ""] ?? []) {
+    add(reason);
+  }
+  for (const specialty of source?.specialties ?? []) add(specialty);
+  for (const reason of BASE_APPOINTMENT_REASONS) add(reason);
+
+  return [...options, CUSTOM_APPOINTMENT_REASON];
+}
+
+/** Le motif saisi correspond-il à un motif proposé ? (surlignage du choix) */
+export function isPresetAppointmentReason(
+  reason: string | null | undefined,
+  options: string[],
+): boolean {
+  const value = (reason ?? "").trim();
+  return !!value && options.includes(value);
+}
+
 // ── Filtres ProMarket ───────────────────────────────────────────────────────
 
 export type AvailabilityFilter = "all" | "immediate" | "this_week" | "appointment" | "urgent";

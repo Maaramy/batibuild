@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -12,10 +12,14 @@ import {
 import { toast } from "sonner";
 import { CalendarClock, Loader2, Send, Zap, AlertTriangle } from "lucide-react";
 import {
+  CUSTOM_APPOINTMENT_REASON,
+  appointmentReasonOptions,
+  isPresetAppointmentReason,
   validateAppointmentDraft,
   toDateInputValue,
   formatSlotLabel,
 } from "@/lib/expertAvailability";
+import { SPECIALTY_LABELS } from "./expertProfileOptions";
 
 // ============================================================================
 // DEMANDES CLIENT → EXPERT (ProMarket)
@@ -32,6 +36,8 @@ interface ExpertTarget {
   _id: string;
   displayName: string;
   availabilityDetails?: string | null;
+  profession?: string | null;
+  specialties?: string[] | null;
 }
 
 interface CommonProps {
@@ -64,8 +70,34 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const reasonInputRef = useRef<HTMLInputElement>(null);
 
   const today = toDateInputValue(Date.now());
+
+  // Motifs prêts à sélectionner : métier + spécialités réelles de l'expert,
+  // puis motifs génériques, et enfin le choix libre.
+  const reasonOptions = useMemo(
+    () =>
+      appointmentReasonOptions({
+        profession: expert?.profession,
+        specialties: (expert?.specialties ?? []).map((s) => SPECIALTY_LABELS[s] ?? s),
+      }),
+    [expert?.profession, expert?.specialties],
+  );
+
+  const presetReasons = reasonOptions.filter((r) => r !== CUSTOM_APPOINTMENT_REASON);
+  // « Autre motif » n'est actif qu'une fois un motif personnel réellement saisi.
+  const customReasonActive =
+    reason.trim().length > 0 && !isPresetAppointmentReason(reason, presetReasons);
+
+  const pickReason = (value: string) => {
+    if (value === CUSTOM_APPOINTMENT_REASON) {
+      setReason("");
+      reasonInputRef.current?.focus();
+      return;
+    }
+    setReason(value);
+  };
 
   const reset = () => {
     setDate("");
@@ -157,11 +189,44 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
 
           <div>
             <label className="text-[10px] font-medium text-muted-foreground">Motif de la demande</label>
+            <div className="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Motifs de demande proposés">
+              {presetReasons.map((option) => {
+                const active = reason.trim() === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => pickReason(option)}
+                    className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all active:scale-95 ${
+                      active
+                        ? "border-blue-500/50 bg-blue-500/10 text-blue-700"
+                        : "border-border/50 bg-muted/25 text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                aria-pressed={customReasonActive}
+                onClick={() => pickReason(CUSTOM_APPOINTMENT_REASON)}
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all active:scale-95 ${
+                  customReasonActive
+                    ? "border-blue-500/50 bg-blue-500/10 text-blue-700"
+                    : "border-border/50 bg-muted/25 text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground"
+                }`}
+              >
+                {CUSTOM_APPOINTMENT_REASON}
+              </button>
+            </div>
             <Input
+              ref={reasonInputRef}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Ex : visite du chantier, devis, conseil technique…"
-              className="h-9 text-xs mt-1"
+              placeholder="Sélectionnez un motif ci-dessus ou saisissez le vôtre…"
+              className="h-9 text-xs mt-2"
             />
           </div>
 
