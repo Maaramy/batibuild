@@ -69,22 +69,20 @@ export default function AiMaterialsResult() {
     return `/dashboard/suppliers-directory?${params.toString()}`;
   })();
 
-  // Les résultats sont réellement disponibles (chargement terminé, analyse et
-  // recommandation présentes, type de projet connu) : la barre d'étapes n'est
+  // Les résultats sont réellement disponibles (chargement terminé, analyse,
+  // recommandation et projet d'origine connus) : la barre d'étapes n'est
   // affichée qu'à ce moment-là, jamais pendant le rechargement des résultats.
+  // Son ordre (Coût estimatif → Liste prix → Fournisseur) ne dépend pas du type
+  // de projet.
   const journeyReady =
     !loading && analysis != null && result != null && journeyProject !== undefined;
 
   const journeySteps = useMemo(
     () =>
       journeyReady
-        ? buildAiMaterialsResultJourney(
-            journeyProject?.category,
-            analysis?.projectId ?? null,
-            suppliersDirectoryHref,
-          )
+        ? buildAiMaterialsResultJourney(analysis?.projectId ?? null, suppliersDirectoryHref)
         : [],
-    [journeyReady, journeyProject?.category, analysis?.projectId, suppliersDirectoryHref],
+    [journeyReady, analysis?.projectId, suppliersDirectoryHref],
   );
 
   return (
@@ -110,9 +108,8 @@ export default function AiMaterialsResult() {
         </div>
 
         {/* Parcours du projet — conservé dans l'en-tête sticky et masqué tant
-            que les résultats ne sont pas affichés (groupe A : coût estimatif
-            puis fournisseurs trouvés par l'analyse ; groupe B : coût estimatif
-            puis liste des prix puis fournisseurs). */}
+            que les résultats ne sont pas affichés : coût estimatif, liste des
+            prix, puis fournisseurs trouvés par l'analyse. */}
         <ProjectJourneyNav steps={journeySteps} maxWidthClassName="max-w-7xl" />
       </header>
 

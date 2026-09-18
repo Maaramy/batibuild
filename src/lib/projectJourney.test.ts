@@ -173,38 +173,19 @@ describe("buildProjectJourney — liens et contexte du projet", () => {
 describe("buildAiMaterialsResultJourney — page « Résultat de l'analyse IA »", () => {
   const SUPPLIER_HREF = `${SUPPLIERS_DIRECTORY_PATH}?from=materials&region=Tunis`;
 
-  it("groupe A : coût estimatif puis fournisseur", () => {
-    const steps = buildAiMaterialsResultJourney("maison", PID, SUPPLIER_HREF);
-    expect(steps.map((s) => s.label)).toEqual(["Coût estimatif", "Fournisseur"]);
-    expect(steps.map((s) => s.key)).toEqual(["cost", "supplier"]);
+  it("ordre strict : coût estimatif, liste prix, fournisseur", () => {
+    const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF);
+    expect(steps.map((s) => s.label)).toEqual([
+      "Coût estimatif",
+      "Liste prix",
+      "Fournisseur",
+    ]);
+    expect(steps.map((s) => s.key)).toEqual(["cost", "priceList", "supplier"]);
   });
 
-  it("groupe A : l'étape Fournisseur ouvre l'annuaire pré-filtré des fournisseurs trouvés", () => {
-    const steps = buildAiMaterialsResultJourney("villa", PID, SUPPLIER_HREF);
-    expect(steps[1].href).toBe(SUPPLIER_HREF);
-    expect(steps[1].path).toBe(SUPPLIERS_DIRECTORY_PATH);
+  it("« Liste prix » ouvre la page Matériaux de construction, « Fournisseur » l'annuaire pré-filtré", () => {
+    const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF);
     expect(steps[0].href).toBe(`/dashboard/project/${PID}`);
-  });
-
-  it("groupe A : annuaire sans pré-filtre si aucun lien n'est fourni", () => {
-    const steps = buildAiMaterialsResultJourney("appartement", PID);
-    expect(steps[1].href).toBe(SUPPLIERS_DIRECTORY_PATH);
-  });
-
-  it("groupe B : coût estimatif, liste prix puis fournisseur", () => {
-    for (const category of ["renovation_complete", "renovation_cuisine"]) {
-      const steps = buildAiMaterialsResultJourney(category, PID, SUPPLIER_HREF);
-      expect(steps.map((s) => s.label), category).toEqual([
-        "Coût estimatif",
-        "Liste prix",
-        "Fournisseur",
-      ]);
-      expect(steps.map((s) => s.key), category).toEqual(["cost", "priceList", "supplier"]);
-    }
-  });
-
-  it("groupe B : « Liste prix » ouvre la page Matériaux de construction, « Fournisseur » l'annuaire pré-filtré", () => {
-    const steps = buildAiMaterialsResultJourney("extension_batiment", PID, SUPPLIER_HREF);
     expect(steps[1].href).toBe(`${MATERIALS_PAGE_PATH}?project=${PID}`);
     expect(steps[1].path).toBe(MATERIALS_PAGE_PATH);
     expect(steps[2].href).toBe(SUPPLIER_HREF);
@@ -213,8 +194,26 @@ describe("buildAiMaterialsResultJourney — page « Résultat de l'analyse IA »
     expect(steps.slice(0, 2).every((s) => s.href.includes(PID))).toBe(true);
   });
 
+  it("« Fournisseur » sans lien fourni → annuaire sans pré-filtre", () => {
+    const steps = buildAiMaterialsResultJourney(PID);
+    expect(steps[2].href).toBe(SUPPLIERS_DIRECTORY_PATH);
+  });
+
+  it("même ordre pour tous les types de projet (le groupe n'intervient pas)", () => {
+    const labels = ["Coût estimatif", "Liste prix", "Fournisseur"];
+    for (const type of PROJECT_TYPES) {
+      const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF);
+      expect(steps.map((s) => s.label), type).toEqual(labels);
+    }
+  });
+
+  it("les routes de repérage de l'étape active restent uniques", () => {
+    const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF);
+    expect(new Set(steps.map((s) => s.path)).size).toBe(steps.length);
+  });
+
   it("barre masquée sans identifiant de projet (aucune étape)", () => {
-    expect(buildAiMaterialsResultJourney("maison", null)).toEqual([]);
-    expect(buildAiMaterialsResultJourney("maison", "  ")).toEqual([]);
+    expect(buildAiMaterialsResultJourney(null, SUPPLIER_HREF)).toEqual([]);
+    expect(buildAiMaterialsResultJourney("  ")).toEqual([]);
   });
 });

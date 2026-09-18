@@ -21,11 +21,9 @@
  * navigation ne recrée jamais de projet et ne perd aucune donnée.
  *
  * La page « Résultat de l'analyse IA » utilise en plus un parcours dédié
- * (`buildAiMaterialsResultJourney`) : le groupe A y remplace ses étapes par
- * « Coût estimatif → Fournisseur », le groupe B par
- * « Coût estimatif → Liste prix → Fournisseur ». Le lien Fournisseur ouvre
- * l'annuaire des fournisseurs pré-filtré par l'analyse, et « Liste prix » la
- * page « Matériaux de construction ».
+ * (`buildAiMaterialsResultJourney`) : « Coût estimatif → Liste prix →
+ * Fournisseur ». « Liste prix » ouvre la page « Matériaux de construction » et
+ * « Fournisseur » l'annuaire des fournisseurs pré-filtré par l'analyse.
  */
 
 import { INVESTMENT_ELIGIBLE_TYPES, resolveProjectType } from "@/convex/projectTypes";
@@ -146,16 +144,15 @@ export const MATERIALS_PAGE_PATH = "/dashboard/materials";
 /**
  * PARCOURS AFFICHÉ SUR LA PAGE « RÉSULTAT DE L'ANALYSE IA »
  *
- * Cette page ne déroule pas le parcours complet : elle met en avant le lien vers
- * l'annuaire des fournisseurs (les fournisseurs trouvés par l'analyse, filtrés
- * par région et par spécialités).
+ * Cette page ne déroule pas le parcours complet : elle suit un ordre fixe,
+ * **identique pour tous les types de projet** (le type n'intervient pas) :
  *
- *   - **Groupe A** : « Coût estimatif → Fournisseur » ;
- *   - **Groupe B** : « Coût estimatif → Liste prix → Fournisseur », où
- *     « Liste prix » ouvre la page « Matériaux de construction ».
+ *   1. « Coût estimatif » → résultats d'estimation du projet ;
+ *   2. « Liste prix » → page existante « Matériaux de construction » ;
+ *   3. « Fournisseur » → annuaire des fournisseurs trouvés par l'analyse
+ *      (filtré par région et par spécialités lorsqu'un lien est fourni).
  */
 export function buildAiMaterialsResultJourney(
-  category: string | null | undefined,
   projectId: string | null | undefined,
   supplierHref?: string | null,
 ): ProjectJourneyStep[] {
@@ -163,36 +160,25 @@ export function buildAiMaterialsResultJourney(
   if (!raw) return [];
   const pid = encodeURIComponent(raw);
 
-  const cost: ProjectJourneyStep = {
-    key: "cost",
-    label: "Coût estimatif",
-    path: `/dashboard/project/${pid}`,
-    href: `/dashboard/project/${pid}`,
-  };
-
-  // Lien Fournisseur : annuaire pré-filtré par l'analyse lorsqu'il est fourni.
-  const href = (supplierHref ?? "").trim() || SUPPLIERS_DIRECTORY_PATH;
-  const supplier: ProjectJourneyStep = {
-    key: "supplier",
-    label: "Fournisseur",
-    path: SUPPLIERS_DIRECTORY_PATH,
-    href,
-  };
-
-  // Groupe B — « Coût estimatif → Liste prix → Fournisseur ».
-  if (projectJourneyGroup(category) !== "A") {
-    return [
-      cost,
-      {
-        key: "priceList",
-        label: "Liste prix",
-        path: MATERIALS_PAGE_PATH,
-        href: `${MATERIALS_PAGE_PATH}?project=${pid}`,
-      },
-      supplier,
-    ];
-  }
-
-  // Groupe A — « Coût estimatif → Fournisseur ».
-  return [cost, supplier];
+  return [
+    {
+      key: "cost",
+      label: "Coût estimatif",
+      path: `/dashboard/project/${pid}`,
+      href: `/dashboard/project/${pid}`,
+    },
+    {
+      key: "priceList",
+      label: "Liste prix",
+      path: MATERIALS_PAGE_PATH,
+      href: `${MATERIALS_PAGE_PATH}?project=${pid}`,
+    },
+    {
+      key: "supplier",
+      label: "Fournisseur",
+      path: SUPPLIERS_DIRECTORY_PATH,
+      // Annuaire pré-filtré par l'analyse lorsqu'il est fourni.
+      href: (supplierHref ?? "").trim() || SUPPLIERS_DIRECTORY_PATH,
+    },
+  ];
 }
