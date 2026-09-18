@@ -23,6 +23,10 @@ import { projectJourneyGroup } from "@/lib/projectJourney";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { RecommendedProvidersPanel } from "@/components/RecommendedProvidersPanel";
 import { runBIMEstimation } from "@/convex/bimEngine";
+import {
+  buildInvestmentPrefill,
+  extractProjectInvestmentFields,
+} from "@/lib/investmentPrefill";
 
 import {
   investmentTypeForProject,
@@ -287,43 +291,18 @@ export default function ProjectDetail() {
   // Module « Intelligence prédictive » (prix du marché) : groupe A.
   const showPredictiveModule = showRoiButton;
 
-  // ── Investment prefill: scrape project data for ROI page ──────────────
-  const investmentPrefill = useMemo(() => {
-    if (!project) return undefined;
-    const scenarios = ce?.budgetScenarios as Record<string, { totalCost: number }> | undefined;
-    const scenarioKey = selectedScenario || "economique";
-    const selectedCost = scenarios?.[scenarioKey]?.totalCost
-      ?? scenarios?.economique?.totalCost
-      ?? scenarios?.standard?.totalCost
-      ?? ce?.totalCost
-      ?? 0;
-    return {
-      name: project.name || undefined,
-      investmentType: investmentTypeForProject(project.category ?? "appartement"),
-      purchasePrice: Math.round(selectedCost),
-      area: project.surface ?? undefined,
-      region: project.region ?? "tunis",
-      city: "",
-      quartier: "",
-      rentMode: "mensuel" as const,
-      rentAmount: 1500,
-      monthlyRent: 1500,
-      occupancyRate: 95,
-      annualCharges: 1200,
-      insurance: 300,
-      managementFees: 0,
-      taxationPct: 10,
-      renovationCost: 0,
-      financingFees: 0,
-      agencyFees: 0,
-      furnishingCost: 0,
-      acquisitionFeesPct: 6,
-      annualAppreciationPct: 5,
-      rentGrowthPct: 5,
-      inflationPct: 6,
-      horizonYears: 10,
-    };
-  }, [project, ce, selectedScenario]);
+  // ── Données du projet transmises à l'analyse de rentabilité ────────────
+  // Extraction des 4 champs exploités par l'analyse (nom du projet, coût de
+  // construction du scénario retenu, surface construite, région) puis
+  // construction du pré-remplissage : `src/lib/investmentPrefill.ts`.
+  const investmentFields = useMemo(
+    () => extractProjectInvestmentFields(project, ce, selectedScenario),
+    [project, ce, selectedScenario],
+  );
+  const investmentPrefill = useMemo(
+    () => buildInvestmentPrefill(investmentFields, project?.category),
+    [investmentFields, project?.category],
+  );
 
   // Predictive intelligence module — abonnement Client Pro payant actif requis
   const insights = project?.predictiveInsights;
@@ -830,7 +809,13 @@ export default function ProjectDetail() {
                       <button
                         onClick={() => {
                           const type = investmentTypeForProject(project.category ?? "appartement");
-                          navigate(`/dashboard/investments?type=${type}&project=${project._id}`, { state: { prefill: investmentPrefill, projectId: project._id } });
+                          // Le scénario budgétaire affiché est transmis dans l'URL :
+                          // l'analyse de rentabilité peut ainsi retrouver seule le
+                          // même coût de construction (lien direct, actualisation).
+                          navigate(
+                            `/dashboard/investments?type=${type}&project=${project._id}&scenario=${selectedScenario}`,
+                            { state: { prefill: investmentPrefill, projectId: project._id } },
+                          );
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border bg-emerald-500/20 text-emerald-100 border-emerald-400/30 hover:bg-emerald-500/30 active:scale-95"
                       >

@@ -60,7 +60,8 @@ import { cn } from "@/lib/utils";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
+import { investmentPrefillFromProject } from "@/lib/investmentPrefill";
 import {
   DEFAULT_FORM,
   TYPE_META,
@@ -309,6 +310,7 @@ function projectPreview(form: FormState, years: number) {
     expenses *= 1.06;
     cumulative += Math.max(0, Math.round(rent) - Math.round(expenses));
   }
+
   const propertyValue = Math.round(
     (form.purchasePrice ?? 0) * Math.pow(1 + ((form.annualAppreciationPct ?? 5) / 100), years),
   );
@@ -337,17 +339,79 @@ function loadSavedLocation(): Pick<FormState, "region" | "city" | "quartier"> | 
   }
 }
 
+// ============================================================================
+// ENVELOPPE — extraction des données du projet pour l'analyse de rentabilité
+//
+// L'analyse peut être ouverte de deux façons :
+//   1. depuis les résultats d'estimation du coût — les données extraites (nom
+//      du projet, coût de construction, surface, région) sont transmises par la
+//      navigation ;
+//   2. par lien direct ou après actualisation de la page
+//      (`/dashboard/investments?project=…&scenario=…`) : les mêmes quatre champs
+//      sont relus depuis la base et retrouvés à l'identique.
+//
+// Le formulaire n'est monté qu'une fois ces données disponibles : le
+// pré-remplissage est donc appliqué une seule fois, sans écraser de saisie.
+// ============================================================================
+
 export default function InvestmentAnalysis() {
   usePageSEO({
     title: "Analyse de rentabilité immobilière - batibuild App",
-    description: "Évaluez la rentabilité de vos investissements immobiliers en Tunisie avec l'IA : Return on Investment, flux de trésorerie, prévisions, scénarios et score d'investissement.",
+    description:
+      "Évaluez la rentabilité de vos investissements immobiliers en Tunisie avec l'IA : Return on Investment, flux de trésorerie, prévisions, scénarios et score d'investissement.",
   });
-  const navigate = useNavigate();
+  const [params] = useSearchParams();
   const location = useLocation();
 
+  const statePrefill = (location.state as any)?.prefill as Partial<FormState> | undefined;
+  const projectId =
+    ((location.state as any)?.projectId as string | undefined) ??
+    params.get("project") ??
+    undefined;
+
+  // Le projet n'est relu que lorsque la navigation n'a rien transmis : aucun
+  // appel inutile depuis la page des résultats.
+  const project = useQuery(
+    api.projects.getProject,
+    projectId && !statePrefill ? { projectId: projectId as any } : "skip",
+  );
+  const prefill =
+    statePrefill ??
+    (project ? investmentPrefillFromProject(project, params.get("scenario")) : undefined);
+
+  if (projectId && !statePrefill && project === undefined) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <InvestmentAnalysisBody
+      key={projectId ?? "nouvelle-analyse"}
+      initialPrefill={prefill}
+      projectId={projectId}
+    />
+  );
+}
+
+/**
+ * Formulaire d'analyse — monté une seule fois, avec les données du projet
+ * extraites par l'enveloppe ci-dessus (nom, coût de construction, surface,
+ * région).
+ */
+function InvestmentAnalysisBody({
+  initialPrefill,
+  projectId,
+}: {
+  initialPrefill?: Partial<FormState> | null;
+  projectId?: string | null;
+}) {
+  const navigate = useNavigate();
+
   const [form, setForm] = useState<FormState>(() => {
-    const prefill = (location.state as any)?.prefill as FormState | undefined;
-    if (prefill) return { ...DEFAULT_FORM, ...prefill } as FormState;
+    if (initialPrefill) return { ...DEFAULT_FORM, ...initialPrefill } as FormState;
     const saved = loadSavedLocation();
     return (saved ? { ...DEFAULT_FORM, ...saved } : DEFAULT_FORM) as FormState;
   });
@@ -448,7 +512,7 @@ export default function InvestmentAnalysis() {
     try {
       const res = await runAnalysisAction({
         input: buildInput(),
-        projectId: (location.state as any)?.projectId as any,
+        projectId: (projectId ?? undefined) as any,
       });
       const run = res as any;
       const id = run?._id as string | undefined;
