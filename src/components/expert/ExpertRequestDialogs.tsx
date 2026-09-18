@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -68,6 +68,8 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
   const [date, setDate] = useState("");
   const [time, setTime] = useState("09:00");
   const [reason, setReason] = useState("");
+  // Choix unique : un motif proposé OU la saisie libre (« Autre motif »).
+  const [customReason, setCustomReason] = useState(false);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const reasonInputRef = useRef<HTMLInputElement>(null);
@@ -86,23 +88,31 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
   );
 
   const presetReasons = reasonOptions.filter((r) => r !== CUSTOM_APPOINTMENT_REASON);
-  // « Autre motif » n'est actif qu'une fois un motif personnel réellement saisi.
-  const customReasonActive =
-    reason.trim().length > 0 && !isPresetAppointmentReason(reason, presetReasons);
+  // Un seul motif est sélectionné à la fois : le motif proposé retenu, sinon la
+  // saisie libre — jamais les deux (aucun cumul possible).
+  const activePreset =
+    !customReason && isPresetAppointmentReason(reason, presetReasons) ? reason.trim() : "";
 
   const pickReason = (value: string) => {
     if (value === CUSTOM_APPOINTMENT_REASON) {
+      setCustomReason(true);
       setReason("");
-      reasonInputRef.current?.focus();
       return;
     }
+    setCustomReason(false);
     setReason(value);
   };
+
+  // Le champ de saisie n'apparaît qu'après le choix « Autre motif ».
+  useEffect(() => {
+    if (customReason) reasonInputRef.current?.focus();
+  }, [customReason]);
 
   const reset = () => {
     setDate("");
     setTime("09:00");
     setReason("");
+    setCustomReason(false);
     setMessage("");
   };
 
@@ -189,45 +199,52 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
 
           <div>
             <label className="text-[10px] font-medium text-muted-foreground">Motif de la demande</label>
-            <div className="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Motifs de demande proposés">
-              {presetReasons.map((option) => {
-                const active = reason.trim() === option;
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+              Sélectionnez un seul motif.
+            </p>
+            <div
+              role="radiogroup"
+              aria-label="Motif de la demande"
+              className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-1.5"
+            >
+              {[...presetReasons, CUSTOM_APPOINTMENT_REASON].map((option) => {
+                const isCustom = option === CUSTOM_APPOINTMENT_REASON;
+                const active = isCustom ? customReason : activePreset === option;
                 return (
                   <button
                     key={option}
                     type="button"
-                    aria-pressed={active}
+                    role="radio"
+                    aria-checked={active}
                     onClick={() => pickReason(option)}
-                    className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all active:scale-95 ${
+                    className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left text-[11px] font-medium transition-all active:scale-[0.98] ${
                       active
                         ? "border-blue-500/50 bg-blue-500/10 text-blue-700"
                         : "border-border/50 bg-muted/25 text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground"
                     }`}
                   >
-                    {option}
+                    <span
+                      aria-hidden="true"
+                      className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+                        active ? "border-blue-600" : "border-border"
+                      }`}
+                    >
+                      {active && <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />}
+                    </span>
+                    <span className="leading-snug">{option}</span>
                   </button>
                 );
               })}
-              <button
-                type="button"
-                aria-pressed={customReasonActive}
-                onClick={() => pickReason(CUSTOM_APPOINTMENT_REASON)}
-                className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all active:scale-95 ${
-                  customReasonActive
-                    ? "border-blue-500/50 bg-blue-500/10 text-blue-700"
-                    : "border-border/50 bg-muted/25 text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground"
-                }`}
-              >
-                {CUSTOM_APPOINTMENT_REASON}
-              </button>
             </div>
-            <Input
-              ref={reasonInputRef}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Sélectionnez un motif ci-dessus ou saisissez le vôtre…"
-              className="h-9 text-xs mt-2"
-            />
+            {customReason && (
+              <Input
+                ref={reasonInputRef}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Précisez votre motif…"
+                className="h-9 text-xs mt-2"
+              />
+            )}
           </div>
 
           <div>
