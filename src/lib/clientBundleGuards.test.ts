@@ -203,9 +203,11 @@ describe("bundle client — poids du build", () => {
     // `PROJECT_QUICK_ICONS` faisait rendre `<Icon />` avec `Icon ===
     // undefined` → « Element type is invalid … Check the render method of
     // `ProjectCard` », écran blanc sur le tableau de bord.
-    const dashboard = readFileSync(join(SRC, "pages", "Dashboard.tsx"), "utf8");
-    const block = dashboard.match(/const PROJECT_QUICK_ICONS[^=]*=\s*\{([\s\S]*?)\};/);
-    expect(block, "PROJECT_QUICK_ICONS introuvable dans Dashboard.tsx").toBeTruthy();
+    // La carte projet vit désormais dans `dashboard-parts.tsx` (extraite de
+    // `Dashboard.tsx`, devenu trop volumineux pour les outils d'édition).
+    const parts = readFileSync(join(SRC, "pages", "dashboard-parts.tsx"), "utf8");
+    const block = parts.match(/const PROJECT_QUICK_ICONS[^=]*=\s*\{([\s\S]*?)\};/);
+    expect(block, "PROJECT_QUICK_ICONS introuvable dans dashboard-parts.tsx").toBeTruthy();
     const declared = new Set(
       [...(block as RegExpMatchArray)[1].matchAll(/^\s*(\w+)\s*:/gm)].map((m) => m[1]),
     );
