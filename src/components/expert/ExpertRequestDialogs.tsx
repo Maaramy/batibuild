@@ -10,7 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { CalendarClock, ChevronLeft, ChevronRight, Loader2, Send, Zap, AlertTriangle } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Clock, Loader2, Send, Zap, AlertTriangle } from "lucide-react";
 import {
   CUSTOM_APPOINTMENT_REASON,
   appointmentReasonOptions,
@@ -174,31 +174,27 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
-      <DialogContent className="sm:max-w-md max-h-[88vh] overflow-y-auto rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <CalendarClock className="h-4 w-4 text-blue-600" />
+      {/* Version compacte : padding réduit, en-tête dense, champs de 32 px */}
+      <DialogContent className="sm:max-w-[25rem] max-h-[88vh] overflow-y-auto gap-2.5 rounded-2xl p-4 pr-10">
+        <DialogHeader className="gap-1">
+          <DialogTitle className="flex items-center gap-1.5 text-sm">
+            <CalendarClock className="h-3.5 w-3.5 text-blue-600" />
             Demander un rendez-vous
           </DialogTitle>
-          <DialogDescription className="text-xs">
-            Proposez une date et une heure à <b>{expert?.displayName}</b>. Le rendez-vous
-            n'est confirmé qu'après son approbation.
+          <DialogDescription className="text-[11px] leading-snug">
+            Proposez un créneau à <b>{expert?.displayName}</b> — confirmé après son accord.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 pt-2">
+        <div className="space-y-2">
           {expert?.availabilityDetails && (
-            <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
-                Disponibilités indiquées
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-pre-line">
-                {expert.availabilityDetails}
-              </p>
-            </div>
+            <p className="flex items-start gap-1.5 rounded-lg border border-blue-500/25 bg-blue-500/5 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
+              <Clock className="mt-px h-3 w-3 shrink-0 text-blue-600" />
+              <span className="line-clamp-2 whitespace-pre-line">{expert.availabilityDetails}</span>
+            </p>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1.5">
             <div>
               <label className="text-[10px] font-medium text-muted-foreground">Date souhaitée</label>
               <Input
@@ -206,7 +202,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 min={today}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="h-9 text-xs mt-1"
+                className="h-8 text-xs mt-0.5"
               />
             </div>
             <div>
@@ -215,7 +211,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="h-9 text-xs mt-1"
+                className="h-8 text-xs mt-0.5"
               />
             </div>
           </div>
@@ -223,15 +219,15 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
           <div>
             <label className="text-[10px] font-medium text-muted-foreground">Motif de la demande</label>
             {/* Carrousel : une ligne, flèches ◀ ▶ pour parcourir les motifs */}
-            <div className="mt-1.5 flex items-center gap-1">
+            <div className="mt-0.5 flex items-center gap-1">
               <button
                 type="button"
                 aria-label="Motifs précédents"
                 onClick={() => scrollReasons(-1)}
                 disabled={!reasonNav.back}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-3 w-3" />
               </button>
 
               <div
@@ -267,9 +263,9 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 aria-label="Motifs suivants"
                 onClick={() => scrollReasons(1)}
                 disabled={!reasonNav.forward}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
               >
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-3 w-3" />
               </button>
             </div>
             <Input
@@ -277,7 +273,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Ou précisez votre motif…"
-              className="h-9 text-xs mt-2"
+              className="h-8 text-xs mt-1"
             />
           </div>
 
@@ -289,7 +285,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Précisez votre projet, l'adresse, vos disponibilités…"
-              className="text-xs min-h-[80px] rounded-xl mt-1"
+              className="text-xs min-h-[60px] rounded-lg mt-0.5"
             />
           </div>
 
