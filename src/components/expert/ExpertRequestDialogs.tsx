@@ -10,7 +10,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { CalendarClock, Loader2, Send, Zap, AlertTriangle } from "lucide-react";
 import {
   CUSTOM_APPOINTMENT_REASON,
@@ -141,33 +140,25 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
-      <DialogContent
-        className={cn(
-          "sm:max-w-md max-h-[88vh] gap-3 overflow-y-auto overscroll-contain rounded-2xl",
-          // Mobile : feuille ancrée en bas, pleine largeur, glisse depuis le bas
-          "max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:max-w-none",
-          "max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-h-[92dvh] max-sm:rounded-b-none",
-          "max-sm:data-[state=open]:slide-in-from-bottom-6 max-sm:data-[state=closed]:slide-out-to-bottom",
-        )}
-      >
-        <DialogHeader className="max-sm:pr-8 max-sm:text-left">
-          <DialogTitle className="flex items-center gap-2 text-sm">
-            <CalendarClock className="h-3.5 w-3.5 text-blue-600" />
+      <DialogContent className="sm:max-w-md max-h-[88vh] overflow-y-auto rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <CalendarClock className="h-4 w-4 text-blue-600" />
             Demander un rendez-vous
           </DialogTitle>
-          <DialogDescription className="text-[11px] leading-snug">
+          <DialogDescription className="text-xs">
             Proposez une date et une heure à <b>{expert?.displayName}</b>. Le rendez-vous
             n'est confirmé qu'après son approbation.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2.5 pt-1">
+        <div className="space-y-3 pt-2">
           {expert?.availabilityDetails && (
-            <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 px-2.5 py-1.5">
+            <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 px-3 py-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
                 Disponibilités indiquées
               </p>
-              <p className="text-[11px] leading-snug text-muted-foreground mt-0.5 whitespace-pre-line">
+              <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-pre-line">
                 {expert.availabilityDetails}
               </p>
             </div>
@@ -181,7 +172,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 min={today}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="h-9 md:h-8 mt-1"
+                className="h-9 text-xs mt-1"
               />
             </div>
             <div>
@@ -190,14 +181,13 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="h-9 md:h-8 mt-1"
+                className="h-9 text-xs mt-1"
               />
             </div>
           </div>
 
           <div>
             <label className="text-[10px] font-medium text-muted-foreground">Motif de la demande</label>
-            {/* Tous les motifs restent visibles : aucun défilement horizontal */}
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {[...presetReasons, CUSTOM_APPOINTMENT_REASON].map((option) => {
                 const isCustom = option === CUSTOM_APPOINTMENT_REASON;
@@ -210,7 +200,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                     type="button"
                     aria-pressed={active}
                     onClick={() => pickReason(option)}
-                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-all active:scale-95 sm:py-0.5 sm:text-[11px] ${
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all active:scale-95 ${
                       active
                         ? "border-blue-500/50 bg-blue-500/10 text-blue-700"
                         : "border-border/50 bg-muted/25 text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground"
@@ -221,13 +211,12 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 );
               })}
             </div>
-
             <Input
               ref={reasonInputRef}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Ou précisez votre motif…"
-              className="h-9 md:h-8 mt-2"
+              className="h-9 text-xs mt-2"
             />
           </div>
 
@@ -239,15 +228,12 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Précisez votre projet, l'adresse, vos disponibilités…"
-              className="min-h-[72px] rounded-xl mt-1"
+              className="text-xs min-h-[80px] rounded-xl mt-1"
             />
           </div>
-        </div>
 
-        {/* Action toujours accessible : barre collée en bas sur mobile (safe area incluse) */}
-        <div className="sticky bottom-0 -mx-6 -mb-6 border-t border-border/40 bg-background/95 px-6 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur-sm sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0 sm:backdrop-blur-none">
           <Button
-            className="w-full gap-1.5 h-9 text-sm bg-blue-600 hover:bg-blue-700 sm:h-8 sm:text-xs"
+            className="w-full gap-1.5 text-xs bg-blue-600 hover:bg-blue-700"
             disabled={sending}
             onClick={handleSubmit}
           >
