@@ -3,7 +3,6 @@ import { useMutation, useQuery } from "convex/react";
 import { useNavigate } from "react-router";
 import {
   AlertTriangle,
-  CalendarDays,
   CreditCard,
   Hourglass,
   Loader2,
@@ -73,7 +72,6 @@ export function MySubscriptionCard() {
   const isTrialPhase = status.type === "trial";
   const daysTotal = isTrialPhase ? status.trialDaysTotal : status.subscriptionDaysTotal;
   const daysRemaining = isTrialPhase ? status.trialDaysRemaining : status.subscriptionDaysRemaining;
-  const startDate = isTrialPhase ? status.trialStartDate : status.subscriptionStartDate;
   const endDate = isTrialPhase ? status.trialEndDate : status.subscriptionEndDate;
 
   // Barre de progression = part de la période déjà consommée.
@@ -188,31 +186,11 @@ export function MySubscriptionCard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-2 text-[10px] sm:grid-cols-3 sm:text-xs">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-            <span>
-              Début : <span className="font-medium text-foreground">{formatDate(startDate)}</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Timer className="h-3.5 w-3.5 shrink-0" />
-            <span>
-              Expiration : <span className="font-medium text-foreground">{formatDate(endDate)}</span>
-            </span>
-          </div>
-          {!isTrialPhase && (
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <CreditCard className="h-3.5 w-3.5 shrink-0" />
-              <span>
-                Offre :{" "}
-                <span className="font-medium text-foreground">
-                  {status.planName ?? "—"}
-                  {status.price != null && status.price > 0 ? ` · ${status.price} ${status.currency}` : ""}
-                </span>
-              </span>
-            </div>
-          )}
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
+          <Timer className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            Expiration : <span className="font-medium text-foreground">{formatDate(endDate)}</span>
+          </span>
         </div>
 
         {isLocked && (
