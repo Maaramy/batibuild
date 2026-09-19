@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
-import { ExpertAvailabilityInbox } from "@/components/expert/ExpertAvailabilityInbox";
 import { AvailabilityFields } from "@/components/expert/ExpertAvailabilityFields";
 import {
   EXPERT_PROFESSIONS,
@@ -35,7 +34,7 @@ import {
   ShieldCheck, Trash2, AlertTriangle, Clock3,
   Banknote, Smartphone, Landmark, UserRound, Upload,
   Wallet, FileText, Briefcase, Ruler, HardHat, Store,
-  Wrench, Zap, ImageIcon, CalendarClock,
+  Wrench, Zap, ImageIcon,
 } from "lucide-react";
 
 // ============================================================================
@@ -127,7 +126,6 @@ export default function ExpertDashboard() {
   const profile = useQuery(api.expertProfiles.getMyProfile);
   const hasProfile = useQuery(api.expertProfiles.hasExpertProfile);
   const unreadCount = useQuery(api.expertServiceRequests.unreadCount);
-  const pendingAvailability = useQuery(api.expertAvailability.pendingAvailabilityCount);
   const paymentConfig = useQuery(api.payments.getPublicPricing);
   const createProfile = useMutation(api.expertProfiles.createProfile);
   const updateProfile = useMutation(api.expertProfiles.updateProfile);
@@ -837,25 +835,6 @@ export default function ExpertDashboard() {
                 acceptsUrgent={acceptsUrgent}
                 setAcceptsUrgent={setAcceptsUrgent}
               />
-
-              {/* Boîte de réception : demandes de rendez-vous & urgences */}
-              <Card className="border-border/40">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <CalendarClock className="h-4 w-4 text-blue-600" />
-                    Demandes de rendez-vous & urgences
-                    {(pendingAvailability ?? 0) > 0 && (
-                      <Badge className="bg-red-500 text-white text-[9px] border-0">
-                        {pendingAvailability! > 9 ? "9+" : pendingAvailability}
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <p className="text-[10px] text-muted-foreground">
-                    Approuvez ou déclinez : le client reçoit la décision immédiatement.
-                  </p>
-                </CardHeader>
-              </Card>
-              <ExpertAvailabilityInbox />
 
               {/* Actions */}
               <div className="flex items-center justify-between gap-2">
