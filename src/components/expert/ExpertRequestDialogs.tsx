@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -10,7 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { CalendarClock, Loader2, Send, Zap, AlertTriangle } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Loader2, Send, Zap, AlertTriangle } from "lucide-react";
 import {
   CUSTOM_APPOINTMENT_REASON,
   appointmentReasonOptions,
@@ -88,6 +88,75 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
   const presetReasons = reasonOptions.filter((r) => r !== CUSTOM_APPOINTMENT_REASON);
   // Le motif proposé actuellement retenu (vide si l'utilisateur écrit le sien).
   const activePreset = isPresetAppointmentReason(reason, presetReasons) ? reason.trim() : "";
+
+  // ── Motifs en mode carrousel : une ligne, flèches ◀ ▶ et pastilles ──
+  // Chaque motif est une « diapositive » ; le motif actif est celui aligné à
+  // gauche du carrousel (snap), comme dans les autres carrousels de BatiBuild.
+  const reasonSlides = [...presetReasons, CUSTOM_APPOINTMENT_REASON];
+  const reasonRowRef = useRef<HTMLDivElement>(null);
+  const [reasonNav, setReasonNav] = useState({ back: false, forward: false });
+  const [reasonIndex, setReasonIndex] = useState(0);
+
+  /** Décalage du motif par rapport au bord gauche du carrousel. */
+  const reasonOffset = useCallback((slide: HTMLElement) => {
+    const el = reasonRowRef.current;
+    if (!el) return 0;
+    return slide.getBoundingClientRect().left - el.getBoundingClientRect().left;
+  }, []);
+
+  const syncReasonNav = useCallback(() => {
+    const el = reasonRowRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const back = el.scrollLeft > 4;
+    const forward = max > 4 && el.scrollLeft < max - 4;
+    // Le défilement émet beaucoup d'événements : on ne re-rend que si l'état
+    // des flèches change réellement.
+    setReasonNav((prev) =>
+      prev.back === back && prev.forward === forward ? prev : { back, forward },
+    );
+
+    // Motif le plus proche du bord gauche → pastille active.
+    let nearest = 0;
+    let best = Number.POSITIVE_INFINITY;
+    Array.from(el.children).forEach((child, index) => {
+      const delta = Math.abs(reasonOffset(child as HTMLElement));
+      if (delta < best) {
+        best = delta;
+        nearest = index;
+      }
+    });
+    setReasonIndex((prev) => (prev === nearest ? prev : nearest));
+  }, [reasonOffset]);
+
+  /** Flèches : avance d'environ un écran de motifs. */
+  const scrollReasons = useCallback((direction: -1 | 1) => {
+    const el = reasonRowRef.current;
+    if (!el) return;
+    el.scrollBy({
+      left: direction * Math.max(140, el.clientWidth * 0.75),
+      behavior: "smooth",
+    });
+  }, []);
+
+  /** Pastille cliquable : amène son motif en tête du carrousel. */
+  const scrollToReason = useCallback(
+    (index: number) => {
+      const el = reasonRowRef.current;
+      const slide = el?.children[index] as HTMLElement | undefined;
+      if (!el || !slide) return;
+      el.scrollBy({ left: reasonOffset(slide), behavior: "smooth" });
+    },
+    [reasonOffset],
+  );
+
+  // Mesure à l'ouverture du dialogue et à chaque changement de largeur.
+  useEffect(() => {
+    if (!open) return;
+    syncReasonNav();
+    window.addEventListener("resize", syncReasonNav);
+    return () => window.removeEventListener("resize", syncReasonNav);
+  }, [open, syncReasonNav, reasonSlides.length]);
 
   const pickReason = (value: string) => {
     if (value === CUSTOM_APPOINTMENT_REASON) {
@@ -188,29 +257,75 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
 
           <div>
             <label className="text-[10px] font-medium text-muted-foreground">Motif de la demande</label>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {[...presetReasons, CUSTOM_APPOINTMENT_REASON].map((option) => {
-                const isCustom = option === CUSTOM_APPOINTMENT_REASON;
-                const active = isCustom
-                  ? activePreset === "" && reason.trim().length > 0
-                  : activePreset === option;
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => pickReason(option)}
-                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all active:scale-95 ${
-                      active
-                        ? "border-blue-500/50 bg-blue-500/10 text-blue-700"
-                        : "border-border/50 bg-muted/25 text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground"
-                    }`}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
+            <div className="mt-1.5 flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Motifs précédents"
+                onClick={() => scrollReasons(-1)}
+                disabled={!reasonNav.back}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+
+              <div
+                ref={reasonRowRef}
+                onScroll={syncReasonNav}
+                className="flex flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none scroll-smooth snap-x snap-mandatory py-0.5"
+              >
+                {reasonSlides.map((option) => {
+                  const isCustom = option === CUSTOM_APPOINTMENT_REASON;
+                  const active = isCustom
+                    ? activePreset === "" && reason.trim().length > 0
+                    : activePreset === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => pickReason(option)}
+                      className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all active:scale-95 ${
+                        active
+                          ? "border-blue-500/50 bg-blue-500/10 text-blue-700"
+                          : "border-border/50 bg-muted/25 text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                aria-label="Motifs suivants"
+                onClick={() => scrollReasons(1)}
+                disabled={!reasonNav.forward}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
             </div>
+
+            {/* Pastilles du carrousel : un point par motif, le motif visible est actif */}
+            <div className="mt-1.5 flex items-center justify-center gap-1" role="tablist" aria-label="Motifs proposés">
+              {reasonSlides.map((option, index) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="tab"
+                  aria-selected={index === reasonIndex}
+                  aria-label={`Afficher le motif : ${option}`}
+                  onClick={() => scrollToReason(index)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    index === reasonIndex
+                      ? "w-5 bg-blue-600"
+                      : "w-1.5 bg-muted-foreground/25 hover:bg-muted-foreground/40"
+                  }`}
+                />
+              ))}
+            </div>
+
             <Input
               ref={reasonInputRef}
               value={reason}
