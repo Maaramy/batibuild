@@ -97,7 +97,13 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
     const el = reasonRowRef.current;
     if (!el) return;
     const max = el.scrollWidth - el.clientWidth;
-    setReasonNav({ back: el.scrollLeft > 4, forward: max > 4 && el.scrollLeft < max - 4 });
+    const back = el.scrollLeft > 4;
+    const forward = max > 4 && el.scrollLeft < max - 4;
+    // Le défilement émet beaucoup d'événements : on ne re-rend que si les
+    // flèches changent réellement d'état.
+    setReasonNav((prev) =>
+      prev.back === back && prev.forward === forward ? prev : { back, forward },
+    );
   }, []);
 
   const scrollReasons = useCallback((direction: -1 | 1) => {
@@ -223,7 +229,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 aria-label="Motifs précédents"
                 onClick={() => scrollReasons(-1)}
                 disabled={!reasonNav.back}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
               </button>
@@ -261,7 +267,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 aria-label="Motifs suivants"
                 onClick={() => scrollReasons(1)}
                 disabled={!reasonNav.forward}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
               >
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>

@@ -94,11 +94,13 @@ export default function ExpertProfile() {
   // ── ProMarket : prix indicatifs, disponibilité et urgences ──
   const profile = expert as any;
   const price = indicativePriceLabel(profile.indicativePrice);
-  // « Sur rendez-vous » n'est pas affiché (le bouton de demande porte l'info).
-  const availability = showsAvailabilityBadge(profile.availability)
-    ? availabilityMeta(profile.availability)
-    : undefined;
+  const availabilityOption = availabilityMeta(profile.availability);
+  // « Sur rendez-vous » n'est pas affiché en pastille (le bouton de demande
+  // porte l'information), mais les créneaux saisis restent visibles.
+  const showAvailabilityChip = showsAvailabilityBadge(profile.availability);
   const bookable = isBookable(profile.availability);
+  const availabilityDetails = bookable ? profile.availabilityDetails : null;
+  const showAvailability = showAvailabilityChip || Boolean(availabilityDetails);
   const acceptsUrgent = profile.acceptsUrgent === true;
   const showContactButton = !isContactHidden(id, approvedExpertIds);
 
@@ -149,7 +151,7 @@ export default function ExpertProfile() {
         )}
 
         {/* Prix indicatifs & disponibilité (ProMarket) */}
-        {(price || availability) && (
+        {(price || showAvailability) && (
           <Card className="border-border/40">
             <CardHeader className="pb-2 px-4 py-3">
               <CardTitle className="text-sm">Prix & disponibilité</CardTitle>
@@ -162,19 +164,20 @@ export default function ExpertProfile() {
                   <b className="text-xs">{price}</b>
                 </div>
               )}
-              {availability && (
+              {showAvailability && (
                 <div className="space-y-1">
-                  <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${availability.chip}`}>
-                    Disponibilité : <span aria-hidden>{availability.emoji}</span> {availability.short}
-                  </div>
-                  {bookable && profile.availabilityDetails && (
+                  {showAvailabilityChip && availabilityOption && (
+                    <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${availabilityOption.chip}`}>
+                      Disponibilité : <span aria-hidden>{availabilityOption.emoji}</span> {availabilityOption.short}
+                    </div>
+                  )}
+                  {availabilityDetails && (
                     <p className="whitespace-pre-line text-[11px] text-muted-foreground">
-                      {profile.availabilityDetails}
+                      {availabilityDetails}
                     </p>
                   )}
                 </div>
               )}
-
             </CardContent>
           </Card>
         )}
