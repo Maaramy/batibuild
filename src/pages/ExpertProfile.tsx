@@ -19,9 +19,12 @@ import {
   RequestUrgentDialog,
 } from "@/components/expert/ExpertRequestDialogs";
 import {
+  approvedExpertIdSet,
   availabilityMeta,
   indicativePriceLabel,
   isBookable,
+  isContactHidden,
+  showsAvailabilityBadge,
 } from "@/lib/expertAvailability";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -58,6 +61,9 @@ export default function ExpertProfile() {
     api.ratings.getExpertAverage,
     id ? { expertId: id as any } : "skip",
   );
+  // Rendez-vous confirmés : l'action directe « Contacter » est alors masquée.
+  const myAppointments = useQuery(api.expertAvailability.getMyAppointments);
+  const approvedExpertIds = approvedExpertIdSet(myAppointments);
 
   const [ratingOpen, setRatingOpen] = useState(false);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
@@ -88,9 +94,13 @@ export default function ExpertProfile() {
   // ── ProMarket : prix indicatifs, disponibilité et urgences ──
   const profile = expert as any;
   const price = indicativePriceLabel(profile.indicativePrice);
-  const availability = availabilityMeta(profile.availability);
+  // « Sur rendez-vous » n'est pas affiché (le bouton de demande porte l'info).
+  const availability = showsAvailabilityBadge(profile.availability)
+    ? availabilityMeta(profile.availability)
+    : undefined;
   const bookable = isBookable(profile.availability);
   const acceptsUrgent = profile.acceptsUrgent === true;
+  const showContactButton = !isContactHidden(id, approvedExpertIds);
 
   const requireAuth = (action: () => void) => {
     if (!user) {
@@ -139,7 +149,7 @@ export default function ExpertProfile() {
         )}
 
         {/* Prix indicatifs & disponibilité (ProMarket) */}
-        {(price || availability || acceptsUrgent) && (
+        {(price || availability) && (
           <Card className="border-border/40">
             <CardHeader className="pb-2 px-4 py-3">
               <CardTitle className="text-sm">Prix & disponibilité</CardTitle>
@@ -164,11 +174,7 @@ export default function ExpertProfile() {
                   )}
                 </div>
               )}
-              {acceptsUrgent && (
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-                  <Zap className="h-3 w-3" /> Demandes urgentes acceptées
-                </div>
-              )}
+
             </CardContent>
           </Card>
         )}
@@ -256,12 +262,14 @@ export default function ExpertProfile() {
           }}>
             ⭐ Noter cet expert
           </Button>
-          <Button variant="outline" className="flex-1 gap-1.5 text-xs"
-            onClick={() => {
-              if (expert.phone) window.location.href = `tel:${expert.phone}`;
-            }}>
-            <Phone className="h-3.5 w-3.5" /> Contacter
-          </Button>
+          {showContactButton && (
+            <Button variant="outline" className="flex-1 gap-1.5 text-xs"
+              onClick={() => {
+                if (expert.phone) window.location.href = `tel:${expert.phone}`;
+              }}>
+              <Phone className="h-3.5 w-3.5" /> Contacter
+            </Button>
+          )}
         </div>
 
         {/* Ratings list */}

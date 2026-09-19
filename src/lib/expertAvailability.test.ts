@@ -8,7 +8,10 @@ import {
   CUSTOM_APPOINTMENT_REASON,
   PROFESSION_APPOINTMENT_REASONS,
   appointmentReasonOptions,
+  approvedExpertIdSet,
+  isContactHidden,
   isPresetAppointmentReason,
+  showsAvailabilityBadge,
   URGENT_STATUS_META,
   appointmentStatusMeta,
   availabilityLabel,
@@ -306,5 +309,69 @@ describe("filtres ProMarket", () => {
       ),
     ).toBe(3);
     expect(pendingRequestsCount(undefined, undefined)).toBe(0);
+  });
+});
+
+describe("carte expert — mentions et contact", () => {
+  it("n'affiche pas « Sur rendez-vous » sur la carte", () => {
+    expect(showsAvailabilityBadge("immediate")).toBe(true);
+    expect(showsAvailabilityBadge("this_week")).toBe(true);
+    // « Disponibilité : 🔵 Sur rendez-vous » est retiré de la carte
+    expect(showsAvailabilityBadge("appointment")).toBe(false);
+    // Rien de renseigné / valeur inconnue → rien à afficher
+    expect(showsAvailabilityBadge(undefined)).toBe(false);
+    expect(showsAvailabilityBadge(null)).toBe(false);
+    expect(showsAvailabilityBadge("inconnu")).toBe(false);
+  });
+
+  it("retient uniquement les experts au rendez-vous confirmé", () => {
+    const ids = approvedExpertIdSet([
+      { expertId: "exp_1", status: "approved" },
+      { expertId: "exp_2", status: "pending" },
+      { expertId: "exp_3", status: "declined" },
+      { expertId: "exp_4", status: "cancelled" },
+      { expertId: "exp_5", status: "completed" },
+      { expertId: "exp_6", status: "approved" },
+    ]);
+    expect([...ids].sort()).toEqual(["exp_1", "exp_6"]);
+
+    expect(approvedExpertIdSet(undefined).size).toBe(0);
+    expect(approvedExpertIdSet(null).size).toBe(0);
+    expect(approvedExpertIdSet([]).size).toBe(0);
+  });
+
+  it("ignore les entrées incomplètes (identifiant manquant, statut absent)", () => {
+    const ids = approvedExpertIdSet([
+      { expertId: undefined, status: "approved" },
+      { status: "approved" },
+      { expertId: "exp_9" },
+    ]);
+    expect(ids.size).toBe(0);
+  });
+
+  it("masque « Contacter » uniquement pour un rendez-vous confirmé", () => {
+    const approved = approvedExpertIdSet([
+      { expertId: "exp_1", status: "approved" },
+      { expertId: "exp_2", status: "pending" },
+    ]);
+
+    expect(isContactHidden("exp_1", approved)).toBe(true);
+    expect(isContactHidden("exp_2", approved)).toBe(false);
+    expect(isContactHidden("exp_3", approved)).toBe(false);
+
+    // Utilisateur déconnecté / aucune donnée : le bouton reste affiché
+    expect(isContactHidden("exp_1", approvedExpertIdSet(undefined))).toBe(false);
+    expect(isContactHidden("exp_1", undefined)).toBe(false);
+    // Identifiant absent : rien à masquer
+    expect(isContactHidden(undefined, approved)).toBe(false);
+    expect(isContactHidden(null, approved)).toBe(false);
+  });
+
+  it("réaffiche « Contacter » après annulation d'un rendez-vous confirmé", () => {
+    const before = approvedExpertIdSet([{ expertId: "exp_1", status: "approved" }]);
+    expect(isContactHidden("exp_1", before)).toBe(true);
+
+    const after = approvedExpertIdSet([{ expertId: "exp_1", status: "cancelled" }]);
+    expect(isContactHidden("exp_1", after)).toBe(false);
   });
 });

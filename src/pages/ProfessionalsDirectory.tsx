@@ -22,8 +22,11 @@ import {
 import {
   AVAILABILITY_FILTERS,
   availabilityMeta,
+  approvedExpertIdSet,
   indicativePriceLabel,
+  isContactHidden,
   matchesAvailabilityFilter,
+  showsAvailabilityBadge,
   type AvailabilityFilter,
 } from "@/lib/expertAvailability";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
@@ -94,7 +97,7 @@ export default function ProfessionalsDirectory() {
     }
     setUrgentExpert(expert);
   };
-  // (les coordonnées des experts sont toujours affichées sur la carte)
+  // Le bouton « Contacter » reste affiché sauf si un rendez-vous est confirmé.
   const [devisExpert, setDevisExpert] = useState<any>(null);
   const [ratingExpert, setRatingExpert] = useState<any>(null);
   const [myExpertRating, setMyExpertRating] = useState(0);
@@ -127,6 +130,14 @@ export default function ProfessionalsDirectory() {
     for (const e of experts) for (const r of e.regions ?? []) set.add(r);
     return [...set].sort();
   }, [experts]);
+
+  // Rendez-vous confirmés de l'utilisateur : le bouton « Contacter » des
+  // experts concernés est masqué sur leur carte.
+  const myAppointments = useQuery(api.expertAvailability.getMyAppointments);
+  const approvedExpertIds = useMemo(
+    () => approvedExpertIdSet(myAppointments),
+    [myAppointments],
+  );
 
   const projectRegion = project?.region ?? "";
 
@@ -308,6 +319,13 @@ export default function ProfessionalsDirectory() {
         {experts !== undefined && filtered.length > 0 && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((e) => {
+              // ProMarket : champs optionnels lus une seule fois par carte
+              const availability = (e as any).availability as string | undefined;
+              const acceptsUrgent = (e as any).acceptsUrgent === true;
+              // « Sur rendez-vous » est retiré de la carte
+              const availabilityBadge = showsAvailabilityBadge(availability)
+                ? availabilityMeta(availability)
+                : undefined;
               return (
                 <Card key={e._id} className={profileCardClass}>
                   <CardContent className="p-4">
@@ -328,25 +346,16 @@ export default function ProfessionalsDirectory() {
                       </div>
                     </div>
 
-                    {/* ── ProMarket : prix indicatifs, disponibilité, urgences ── */}
+                    {/* ── ProMarket : prix indicatifs & disponibilité ── */}
                     <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-border/30 pt-2.5">                      {indicativePriceLabel((e as any).indicativePrice) && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/5 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                           <Banknote className="h-2.5 w-2.5" />
                           Prix indicatifs : {indicativePriceLabel((e as any).indicativePrice)}
                         </span>
                       )}
-                      {(() => {
-                        const meta = availabilityMeta((e as any).availability);
-                        if (!meta) return null;
-                        return (
-                          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${meta.chip}`}>
-                            Disponibilité : <span aria-hidden>{meta.emoji}</span> {meta.short}
-                          </span>
-                        );
-                      })()}
-                      {(e as any).acceptsUrgent === true && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                          <Zap className="h-2.5 w-2.5" /> Demandes urgentes acceptées
+                      {availabilityBadge && (
+                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${availabilityBadge.chip}`}>
+                          Disponibilité : <span aria-hidden>{availabilityBadge.emoji}</span> {availabilityBadge.short}
                         </span>
                       )}
                     </div>
@@ -373,10 +382,9 @@ export default function ProfessionalsDirectory() {
                     </div>
 
                     {/* ── Actions ProMarket : rendez-vous & urgence ── */}
-                    {((e as any).availability === "appointment" ||
-                      (e as any).acceptsUrgent === true) && (
+                    {(availability === "appointment" || acceptsUrgent) && (
                       <div className="mt-2.5 flex gap-1.5">
-                        {(e as any).availability === "appointment" && (
+                        {availability === "appointment" && (
                           <button
                             onClick={() => openAppointment(e)}
                             className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-blue-500/30 bg-blue-500/5 px-2 py-2 text-[10px] font-medium text-blue-700 transition-colors hover:bg-blue-500/10"
@@ -384,7 +392,7 @@ export default function ProfessionalsDirectory() {
                             <CalendarClock className="h-3 w-3" /> Rendez-vous
                           </button>
                         )}
-                        {(e as any).acceptsUrgent === true && (
+                        {acceptsUrgent && (
                           <button
                             onClick={() => openUrgent(e)}
                             className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2 py-2 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-500/10"
@@ -397,12 +405,15 @@ export default function ProfessionalsDirectory() {
 
                     {/* ── Actions ── */}
                     <div className="mt-3 flex gap-1.5">
-                      <a
-                        href={e.phone ? `tel:${e.phone}` : undefined}
-                        className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-border/40 bg-background px-2 py-2 text-[10px] font-medium text-foreground transition-colors hover:bg-muted/50"
-                      >
-                        <Phone className="h-3 w-3" /> Contacter
-                      </a>
+                      {/* Masqué dès que le rendez-vous avec cet expert est confirmé */}
+                      {!isContactHidden(e._id, approvedExpertIds) && (
+                        <a
+                          href={e.phone ? `tel:${e.phone}` : undefined}
+                          className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-border/40 bg-background px-2 py-2 text-[10px] font-medium text-foreground transition-colors hover:bg-muted/50"
+                        >
+                          <Phone className="h-3 w-3" /> Contacter
+                        </a>
+                      )}
                       <button
                         onClick={() => {
                           if (!user) {

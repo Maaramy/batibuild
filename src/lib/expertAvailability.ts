@@ -75,6 +75,16 @@ export function isBookable(value: string | null | undefined): boolean {
   return value === "appointment";
 }
 
+/**
+ * La carte doit-elle afficher la pastille de disponibilité ?
+ * « Sur rendez-vous » est volontairement masqué (le bouton « Rendez-vous »
+ * porte déjà l'information) ; les autres disponibilités restent affichées.
+ */
+export function showsAvailabilityBadge(value: string | null | undefined): boolean {
+  const meta = availabilityMeta(value);
+  return meta !== undefined && meta.value !== "appointment";
+}
+
 // ── Prix indicatifs ─────────────────────────────────────────────────────────
 
 export const INDICATIVE_PRICE_PLACEHOLDER = "À partir de X TND";
@@ -132,6 +142,42 @@ export const URGENT_STATUS_META: Record<UrgentStatus, StatusMeta> = {
   completed: { label: "Terminée", chip: "bg-blue-500/10 text-blue-700 border-blue-500/25" },
   cancelled: { label: "Annulée", chip: "bg-muted text-muted-foreground border-border/40" },
 };
+
+// ── Contact après acceptation d'un rendez-vous ──────────────────────────────
+
+/** Forme minimale d'une demande de rendez-vous lue depuis Convex. */
+export interface AppointmentLike {
+  expertId?: unknown;
+  status?: string | null;
+}
+
+/**
+ * Identifiants des experts dont une demande de rendez-vous a été **approuvée**
+ * par l'utilisateur courant. Un rendez-vous seulement confirmé compte : une
+ * demande en attente, déclinée, annulée ou terminée ne masque rien.
+ */
+export function approvedExpertIdSet(
+  appointments: readonly AppointmentLike[] | null | undefined,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const appointment of appointments ?? []) {
+    if (isConfirmedAppointment(appointment?.status) && typeof appointment.expertId === "string") {
+      ids.add(appointment.expertId);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Le bouton « Contacter » est masqué dès que le rendez-vous avec cet expert est
+ * confirmé (l'échange se poursuit via le rendez-vous, pas par appel direct).
+ */
+export function isContactHidden(
+  expertId: string | null | undefined,
+  approvedExpertIds: ReadonlySet<string> | null | undefined,
+): boolean {
+  return typeof expertId === "string" && approvedExpertIds?.has(expertId) === true;
+}
 
 export function appointmentStatusMeta(status: string | null | undefined): StatusMeta {
   return APPOINTMENT_STATUS_META[(status ?? "") as AppointmentStatus] ?? {

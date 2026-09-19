@@ -88,6 +88,14 @@ function tomorrow(hourOffset = 0) {
   return d.getTime();
 }
 
+/**
+ * Créneau toujours situé dans la fenêtre de rappel (< 24 h), contrairement à
+ * « demain 9 h » qui sort de la fenêtre quand le test tourne avant 9 h.
+ */
+function inReminderWindow() {
+  return Date.now() + 20 * 60 * 60 * 1000;
+}
+
 const baseRequest = (expertId: string, overrides: Record<string, unknown> = {}) => ({
   expertId: expertId as any,
   preferredDate: tomorrow(),
@@ -393,7 +401,7 @@ describe("expertAvailability.sendAppointmentReminders", () => {
   it("envoie un rappel 24 h avant, une seule fois", async () => {
     const res = await asUser(t, clientId).mutation(
       api.expertAvailability.requestAppointment,
-      baseRequest(expertId),
+      baseRequest(expertId, { preferredDate: inReminderWindow() }),
     );
     const id = (res as any).appointmentId as string;
     await asUser(t, expertUserId).mutation(api.expertAvailability.respondAppointment, {
