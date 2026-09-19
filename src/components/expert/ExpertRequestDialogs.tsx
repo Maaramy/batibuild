@@ -10,6 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { CalendarClock, ChevronLeft, ChevronRight, Loader2, Send, Zap, AlertTriangle } from "lucide-react";
 import {
   CUSTOM_APPOINTMENT_REASON,
@@ -209,8 +210,16 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
-      <DialogContent className="sm:max-w-md max-h-[88vh] overflow-y-auto rounded-2xl">
-        <DialogHeader>
+      <DialogContent
+        className={cn(
+          "sm:max-w-md max-h-[88vh] overflow-y-auto overscroll-contain rounded-2xl",
+          // Mobile : feuille ancrée en bas, pleine largeur, glisse depuis le bas
+          "max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:max-w-none",
+          "max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-h-[92dvh] max-sm:rounded-b-none",
+          "max-sm:data-[state=open]:slide-in-from-bottom-6 max-sm:data-[state=closed]:slide-out-to-bottom",
+        )}
+      >
+        <DialogHeader className="max-sm:pr-8 max-sm:text-left">
           <DialogTitle className="flex items-center gap-2 text-base">
             <CalendarClock className="h-4 w-4 text-blue-600" />
             Demander un rendez-vous
@@ -241,7 +250,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 min={today}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="h-9 text-xs mt-1"
+                className="h-10 md:h-9 mt-1"
               />
             </div>
             <div>
@@ -250,7 +259,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="h-9 text-xs mt-1"
+                className="h-10 md:h-9 mt-1"
               />
             </div>
           </div>
@@ -263,9 +272,9 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 aria-label="Motifs précédents"
                 onClick={() => scrollReasons(-1)}
                 disabled={!reasonNav.back}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30 sm:h-7 sm:w-7"
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
               </button>
 
               <div
@@ -284,7 +293,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                       type="button"
                       aria-pressed={active}
                       onClick={() => pickReason(option)}
-                      className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all active:scale-95 ${
+                      className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-95 sm:px-2.5 sm:py-1 sm:text-[11px] ${
                         active
                           ? "border-blue-500/50 bg-blue-500/10 text-blue-700"
                           : "border-border/50 bg-muted/25 text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground"
@@ -301,14 +310,14 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                 aria-label="Motifs suivants"
                 onClick={() => scrollReasons(1)}
                 disabled={!reasonNav.forward}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/50 bg-background text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30 sm:h-7 sm:w-7"
               >
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
               </button>
             </div>
 
             {/* Pastilles du carrousel : un point par motif, le motif visible est actif */}
-            <div className="mt-1.5 flex items-center justify-center gap-1" role="tablist" aria-label="Motifs proposés">
+            <div className="mt-1 flex items-center justify-center" role="tablist" aria-label="Motifs proposés">
               {reasonSlides.map((option, index) => (
                 <button
                   key={option}
@@ -317,12 +326,15 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                   aria-selected={index === reasonIndex}
                   aria-label={`Afficher le motif : ${option}`}
                   onClick={() => scrollToReason(index)}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    index === reasonIndex
-                      ? "w-5 bg-blue-600"
-                      : "w-1.5 bg-muted-foreground/25 hover:bg-muted-foreground/40"
-                  }`}
-                />
+                  // Zone tactile de 24 × 12 px (mobile) autour d'une pastille de 6 px
+                  className="group/dot flex h-6 w-3 shrink-0 items-center justify-center"
+                >
+                  <span
+                    className={`block rounded-full transition-all duration-300 group-hover/dot:bg-muted-foreground/40 ${
+                      index === reasonIndex ? "h-1.5 w-5 bg-blue-600" : "h-1.5 w-1.5 bg-muted-foreground/25"
+                    }`}
+                  />
+                </button>
               ))}
             </div>
 
@@ -331,7 +343,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Ou précisez votre motif…"
-              className="h-9 text-xs mt-2"
+              className="h-10 md:h-9 mt-2"
             />
           </div>
 
@@ -343,16 +355,19 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Précisez votre projet, l'adresse, vos disponibilités…"
-              className="text-xs min-h-[80px] rounded-xl mt-1"
+              className="min-h-[80px] rounded-xl mt-1"
             />
           </div>
+        </div>
 
+        {/* Action toujours accessible : barre collée en bas sur mobile (safe area incluse) */}
+        <div className="sticky bottom-0 -mx-6 -mb-6 border-t border-border/40 bg-background/95 px-6 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-sm sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0 sm:backdrop-blur-none">
           <Button
-            className="w-full gap-1.5 text-xs bg-blue-600 hover:bg-blue-700"
+            className="w-full gap-1.5 h-10 text-sm bg-blue-600 hover:bg-blue-700 sm:h-9 sm:text-xs"
             disabled={sending}
             onClick={handleSubmit}
           >
-            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
             {sending ? "Envoi en cours…" : "Envoyer la demande"}
           </Button>
         </div>
