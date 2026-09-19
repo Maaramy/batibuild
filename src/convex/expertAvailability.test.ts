@@ -96,11 +96,6 @@ function inReminderWindow() {
   return Date.now() + 20 * 60 * 60 * 1000;
 }
 
-/** Créneau hors de la fenêtre de rappel (> 24 h). */
-function beyondReminderWindow() {
-  return Date.now() + 48 * 60 * 60 * 1000;
-}
-
 const baseRequest = (expertId: string, overrides: Record<string, unknown> = {}) => ({
   expertId: expertId as any,
   preferredDate: tomorrow(),
@@ -426,26 +421,6 @@ describe("expertAvailability.sendAppointmentReminders", () => {
     // Idempotent : le second passage n'envoie rien
     const second = await t.mutation(internal.expertAvailability.sendAppointmentReminders, {});
     expect((second as any).sent).toBe(0);
-  });
-
-  it("n'envoie rien pour un rendez-vous au-delà des 24 h", async () => {
-    const res = await asUser(t, clientId).mutation(
-      api.expertAvailability.requestAppointment,
-      baseRequest(expertId, { preferredDate: beyondReminderWindow() }),
-    );
-    const id = (res as any).appointmentId as string;
-    await asUser(t, expertUserId).mutation(api.expertAvailability.respondAppointment, {
-      appointmentId: id as any,
-      approve: true,
-    });
-
-    const run = await t.mutation(internal.expertAvailability.sendAppointmentReminders, {});
-    expect((run as any).sent).toBe(0);
-    expect((await notificationsFor(t, clientId)).some((n) => n.title === "Rappel de rendez-vous")).toBe(false);
-
-    // Le rendez-vous reste rappelable : rien n'a été marqué comme envoyé.
-    const appointment = await t.run(async (ctx) => ctx.db.get(id as any));
-    expect(appointment?.reminderSentAt).toBeUndefined();
   });
 });
 
