@@ -89,14 +89,24 @@ export async function getUserSubscriptionStatus(
     .order("desc")
     .collect();
 
-  // Abonnement mensuel de référence = un abonnement encore valide s'il existe
-  // (un renouvellement remplace l'ancien), sinon le plus récent.
+  // Abonnement mensuel de référence = un abonnement PAYÉ encore valide s'il
+  // existe (un renouvellement remplace l'ancien), sinon le plus récent.
+  //
+  // Un `pending` (virement en attente de validation) ou un `canceled`
+  // (virement refusé, abonnement annulé avant échéance) ne compte JAMAIS comme
+  // une période payée : `createSubscription` leur donne une date de fin à
+  // 30 jours dès leur création, donc s'en servir comme référence accorderait
+  // l'accès complet sans aucun paiement validé. Les dates ne sont reprises que
+  // d'un abonnement réellement payé (`active` / `expired`), ou — à défaut — du
+  // document utilisateur, que seule une activation écrit et qu'une expiration
+  // efface. Les périodes en attente restent exposées via `pendingPayment`.
   const monthly = subs.filter((s) => s.kind !== "investment");
   const activeSub = monthly.find(
-    (s) => s.endDate != null && s.endDate > now && s.status !== "canceled",
+    (s) => s.status === "active" && s.endDate != null && s.endDate > now,
   );
   const pendingSub = monthly.find((s) => s.status === "pending");
-  const reference = activeSub ?? monthly[0] ?? null;
+  const paidPeriods = monthly.filter((s) => s.status === "active" || s.status === "expired");
+  const reference = activeSub ?? paidPeriods[0] ?? null;
 
   const subscriptionEndDate =
     activeSub?.endDate ?? user.subscriptionEndDate ?? reference?.endDate ?? null;

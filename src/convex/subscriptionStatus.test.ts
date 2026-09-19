@@ -385,6 +385,78 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
     t = convexTest(schema, modules);
   });
 
+  it("virement bancaire en attente : aucun accès tant que l'admin n'a pas validé", async () => {
+    const userId = await createUser(t, { email: "pending@test.com" });
+
+    await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
+      plan: "pro",
+      paymentMethod: "bank_transfer",
+      amount: 80,
+      currency: "TND",
+    });
+
+    const status = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
+    expect(status?.status).toBe("pending");
+    expect(status?.isActive).toBe(false);
+    expect(status?.requiresPayment).toBe(false);
+
+    const access = await asUser(t, userId).query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(false);
+    expect(access.reason).toBe("pending");
+  });
+
+  it("renouvellement par virement : l'abonné garde l'accès jusqu'à la fin de sa période payée", async () => {
+    const now = Date.now();
+    const userId = await createUser(t, { email: "renew@test.com" });
+
+    // Abonnement payé par carte, encore valable 10 jours.
+    await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
+      plan: "pro",
+      paymentMethod: "card",
+      amount: 80,
+      currency: "TND",
+    });
+    await t.run(async (ctx) =>
+      ctx.db.patch(userId as any, { subscriptionEndDate: now + 10 * DAY_MS }),
+    );
+
+    // Renouvellement par virement, en attente de validation.
+    await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
+      plan: "pro",
+      paymentMethod: "bank_transfer",
+      amount: 80,
+      currency: "TND",
+    });
+
+    const status = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
+    // La période payée en cours n'est pas écourtée par le paiement en attente.
+    expect(status?.isActive).toBe(true);
+    expect(status?.subscriptionDaysRemaining).toBe(10);
+
+    const access = await asUser(t, userId).query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(true);
+  });
+
+  it("virement refusé par l'admin : aucun accès accordé", async () => {
+    const adminId = await createUser(t, { role: "admin", email: "admin2@test.com" });
+    const userId = await createUser(t, { email: "rejected@test.com" });
+
+    const subId = await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
+      plan: "pro",
+      paymentMethod: "bank_transfer",
+      amount: 80,
+      currency: "TND",
+    });
+
+    await asUser(t, adminId).mutation(api.subscriptions.adminRejectSubscription, {
+      subscriptionId: subId,
+    });
+
+    const access = await asUser(t, userId).query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(false);
+    expect(access.reason).not.toBe("ok");
+  });
+
   it("désactive l'essai et ouvre 30 jours d'abonnement", async () => {
     await setFreeOffer(t, true);
     const now = Date.now();

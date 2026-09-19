@@ -83,6 +83,12 @@ export function MySubscriptionCard() {
 
   const isExpiredPhase = status.status === "trial_expired" || status.status === "expired";
   const isPending = status.status === "pending";
+  // Aucun accès : offre gratuite désactivée et essai jamais accordé. L'utilisateur
+  // n'a jamais souscrit — afficher « abonnement expiré » serait faux.
+  const isNone = status.type === "none";
+  // Période terminée (essai ou abonnement) ou aucun droit : le CTA doit inviter
+  // à choisir/renouveler une offre, pas à consulter l'abonnement en cours.
+  const isLocked = isExpiredPhase || isNone;
 
   const copy = isTrialPhase
     ? {
@@ -96,18 +102,22 @@ export function MySubscriptionCard() {
       }
     : {
         title: "Abonnement mensuel",
-        badge: isPending
-          ? "⏳ Paiement en attente"
-          : status.isActive
-            ? "🟢 Abonnement actif"
-            : "🔴 Abonnement expiré",
+        badge: isNone
+          ? "🔴 Aucun abonnement"
+          : isPending
+            ? "⏳ Paiement en attente"
+            : status.isActive
+              ? "🟢 Abonnement actif"
+              : "🔴 Abonnement expiré",
         icon: isPending ? Hourglass : CreditCard,
         tone: isPending ? "amber" : status.isActive ? "emerald" : "red",
-        message: isPending
-          ? "Votre paiement est en cours de validation par l'administrateur."
-          : status.isActive
-            ? "Votre abonnement mensuel est actif. Renouvellement requis à l'échéance."
-            : "Votre abonnement est arrivé à expiration. Veuillez renouveler votre abonnement pour continuer.",
+        message: isNone
+          ? "Aucun abonnement actif. Choisissez une offre pour accéder aux services de la plateforme."
+          : isPending
+            ? "Votre paiement est en cours de validation par l'administrateur."
+            : status.isActive
+              ? "Votre abonnement mensuel est actif. Renouvellement requis à l'échéance."
+              : "Votre abonnement est arrivé à expiration. Veuillez renouveler votre abonnement pour continuer.",
       };
 
   const Icon = copy.icon;
@@ -148,14 +158,14 @@ export function MySubscriptionCard() {
 
           <Button
             size="sm"
-            variant={isExpiredPhase ? "default" : "outline"}
+            variant={isLocked ? "default" : "outline"}
             onClick={() => navigate("/dashboard/pricing")}
             className="h-7 shrink-0 gap-1 px-2.5 text-[10px] sm:text-xs"
           >
-            {isExpiredPhase ? (
+            {isLocked ? (
               <>
                 <CreditCard className="h-3 w-3" />
-                {isTrialPhase ? "Choisir une offre" : "Renouveler mon abonnement"}
+                {isTrialPhase || isNone ? "Choisir une offre" : "Renouveler mon abonnement"}
               </>
             ) : (
               <>
@@ -166,7 +176,7 @@ export function MySubscriptionCard() {
           </Button>
         </div>
 
-        {!isPending && (
+        {!isPending && !isNone && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[10px] font-medium sm:text-xs">
               <span className="text-muted-foreground">Jours restants</span>
@@ -205,7 +215,7 @@ export function MySubscriptionCard() {
           )}
         </div>
 
-        {isExpiredPhase && (
+        {isLocked && (
           <div className="flex items-start gap-2 rounded-lg border border-red-200/30 bg-red-500/5 p-2.5 text-[10px] text-red-600 dark:text-red-400 sm:text-xs">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
