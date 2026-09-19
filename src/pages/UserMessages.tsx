@@ -137,6 +137,11 @@ export default function UserMessages() {
   // Proposer une nouvelle date après un refus
   const [rebookExpert, setRebookExpert] = useState<any>(null);
 
+  // Rôle du compte : l'espace expert masque les devis fournisseurs,
+  // l'espace fournisseur masque les services experts.
+  const hasExpertProfile = useQuery(api.expertProfiles.hasExpertProfile);
+  const hasSupplierProfile = useQuery(api.supplierProfiles.hasSupplierProfile);
+
   // Demandes & réponses fournisseurs (devis)
   const quotes = useQuery(api.quoteRequests.getMyRequests);
   const allResponses = useQuery(api.quoteResponses.getMyResponses);
@@ -209,6 +214,23 @@ export default function UserMessages() {
   const unreadExpertCount = expertResponses?.filter((r) => r.readAt === undefined).length ?? 0;
   const totalUnread = unreadSupplierCount + unreadExpertCount;
 
+  // Un compte expert (et non fournisseur) ne voit pas les devis fournisseurs ;
+  // un compte fournisseur (et non expert) ne voit pas les services experts.
+  // Un compte double rôle conserve les deux onglets. Tant que les profils ne
+  // sont pas chargés, on affiche les deux onglets (aucun masquage à l'aveugle).
+  const isExpertAccount = hasExpertProfile === true;
+  const isSupplierAccount = hasSupplierProfile === true;
+  const showSupplierQuotes = !(isExpertAccount && !isSupplierAccount);
+  const showExpertServices = !(isSupplierAccount && !isExpertAccount);
+
+  // Si l'onglet mémorisé est masqué pour ce rôle, on retombe sur l'onglet visible.
+  const activeTab: typeof tab =
+    tab === "services" && !showExpertServices
+      ? "quotes"
+      : tab === "quotes" && !showSupplierQuotes
+        ? "services"
+        : tab;
+
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
@@ -223,7 +245,11 @@ export default function UserMessages() {
           <div className="flex-1">
             <h1 className="text-lg font-bold">Messagerie</h1>
             <p className="text-xs text-muted-foreground">
-              Vos demandes de services experts & de devis fournisseurs et les réponses reçues
+              {showExpertServices && showSupplierQuotes
+                ? "Vos demandes de services experts & de devis fournisseurs et les réponses reçues"
+                : showExpertServices
+                  ? "Vos demandes de services experts et les réponses reçues"
+                  : "Vos demandes de devis fournisseurs et les réponses reçues"}
             </p>
           </div>
           {totalUnread > 0 && (
@@ -239,32 +265,36 @@ export default function UserMessages() {
 
         {/* Tabs : Services experts / Devis fournisseurs */}
         <div className="flex gap-1.5 bg-muted/30 rounded-xl p-1">
-          <button
-            onClick={() => setTab("services")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
-              tab === "services"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Briefcase className="h-3.5 w-3.5" />
-            Services experts
-          </button>
-          <button
-            onClick={() => setTab("quotes")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
-              tab === "quotes"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Store className="h-3.5 w-3.5" />
-            Devis fournisseurs
-          </button>
+          {showExpertServices && (
+            <button
+              onClick={() => setTab("services")}
+              className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
+                activeTab === "services"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Briefcase className="h-3.5 w-3.5" />
+              Services experts
+            </button>
+          )}
+          {showSupplierQuotes && (
+            <button
+              onClick={() => setTab("quotes")}
+              className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
+                activeTab === "quotes"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Store className="h-3.5 w-3.5" />
+              Devis fournisseurs
+            </button>
+          )}
           <button
             onClick={() => setTab("appointments")}
             className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer relative ${
-              tab === "appointments"
+              activeTab === "appointments"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
@@ -280,7 +310,7 @@ export default function UserMessages() {
         </div>
 
         {/* ══════════ ONGLET RENDEZ-VOUS (experts ProMarket) ══════════ */}
-        {tab === "appointments" && (
+        {activeTab === "appointments" && (
           <>
             <section className="space-y-2">
               <div className="flex items-center gap-2">
@@ -418,7 +448,7 @@ export default function UserMessages() {
         )}
 
         {/* ══════════ ONGLET DEVIS (fournisseurs) ══════════ */}
-        {tab === "quotes" && (
+        {activeTab === "quotes" && (
           <>
             {/* Demandes en attente de réponse */}
             {quotes && quotes.filter((q) => q.status === "pending").length > 0 && (
@@ -634,7 +664,7 @@ export default function UserMessages() {
         )}
 
         {/* ══════════ ONGLET SERVICES (experts) ══════════ */}
-        {tab === "services" && (
+        {activeTab === "services" && (
           <>
             {/* Historique des demandes */}
             <div className="flex items-center gap-2">
