@@ -188,8 +188,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
 
           <div>
             <label className="text-[10px] font-medium text-muted-foreground">Motif de la demande</label>
-            {/* Motifs sur une seule ligne, défilement horizontal si besoin */}
-            <div className="mt-1.5 flex flex-nowrap items-center gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none pb-1">
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
               {[...presetReasons, CUSTOM_APPOINTMENT_REASON].map((option) => {
                 const isCustom = option === CUSTOM_APPOINTMENT_REASON;
                 const active = isCustom
@@ -201,7 +200,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
                     type="button"
                     aria-pressed={active}
                     onClick={() => pickReason(option)}
-                    className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all active:scale-95 ${
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all active:scale-95 ${
                       active
                         ? "border-blue-500/50 bg-blue-500/10 text-blue-700"
                         : "border-border/50 bg-muted/25 text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground"
