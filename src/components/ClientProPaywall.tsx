@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { useNavigate } from "react-router";
-import { CreditCard, Hourglass, Loader2, Lock } from "lucide-react";
+import { CreditCard, Hourglass, Loader2, Lock, Sparkles } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,12 @@ const REASON_COPY: Record<
     title: "Abonnement expiré",
     desc: "Votre abonnement Client Pro a expiré. Le renouvellement est obligatoire pour maintenir l'accès à vos projets et à l'ensemble des services de la plateforme.",
     cta: "Renouveler mon abonnement",
+  },
+  trial_expired: {
+    icon: Sparkles,
+    title: "Votre période d'essai est terminée",
+    desc: "Votre période d'essai gratuit est terminée. Veuillez choisir une offre pour continuer à utiliser la plateforme.",
+    cta: "Choisir une offre",
   },
   pending: {
     icon: Hourglass,

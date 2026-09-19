@@ -28,6 +28,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const NewProject = lazy(() => import("./pages/NewProject.tsx"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail.tsx"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel.tsx"));
+const SubscriptionAdminPage = lazy(() => import("./pages/SubscriptionAdminPage.tsx"));
 const PricingPage = lazy(() => import("./pages/PricingPage.tsx"));
 const MaterialsPage = lazy(() => import("./pages/MaterialsPage.tsx"));
 const AiMaterials = lazy(() => import("./pages/AiMaterials.tsx"));
@@ -223,6 +224,14 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <PricingPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/admin/subscriptions"
+                  element={
+                    <RequireAuth>
+                      <SubscriptionAdminPage />
                     </RequireAuth>
                   }
                 />

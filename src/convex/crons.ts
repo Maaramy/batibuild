@@ -44,6 +44,16 @@ crons.cron(
   internal.emailNotifications.checkExpiredSubscriptions,
 );
 
+// Période d'essai (7 jours) & abonnement mensuel (30 jours) : passe les statuts
+// en « Essai expiré » / « Expiré », notifie l'utilisateur et recalcule les
+// compteurs de jours restants depuis l'horloge serveur.
+// Runs every day at 06:30 AM (juste après le contrôle d'expiration des abonnements)
+crons.cron(
+  "daily-subscription-periods",
+  "30 6 * * *",
+  internal.subscriptionStatus.checkSubscriptionPeriods,
+);
+
 // Rendez-vous experts : rappel « rendez-vous à venir » 24 h avant le créneau
 // (ProMarket ↔ profil expert). Idempotent via `reminderSentAt`.
 // Runs every day at 09:00 AM

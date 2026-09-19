@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { subscriptionPlanValidator } from "./schema";
 import { scheduleEmailEvent, formatDateFr, planLabel, splitName } from "./emailNotifications";
+import { DAY_MS, MONTHLY_DURATION_DAYS } from "./subscriptionPeriods";
 
 // ============================================================================
 // Queries
@@ -143,8 +144,9 @@ export const checkDownloadAllowedFor = query({
 // ============================================================================
 
 // Forfaits mensuels : durée de 30 jours — renouvellement mensuel.
-// Plus aucun essai gratuit : le paiement est requis dès l'inscription.
-const MONTHLY_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 jours
+// L'essai gratuit (7 jours) est géré par `subscriptionStatus.ts` : souscrire à
+// une offre mensuelle le désactive immédiatement.
+const MONTHLY_DURATION = MONTHLY_DURATION_DAYS * DAY_MS; // 30 jours
 
 /** Create or update subscription (abonnement mensuel, 30 jours) */
 export const createSubscription = mutation({
@@ -184,6 +186,11 @@ export const createSubscription = mutation({
     const status =
       isFreePlan ? "active" : args.paymentMethod === "bank_transfer" ? "pending" : "active";
 
+    if (status === "pending") {
+      // Paiement en attente : l'essai éventuel reste actif jusqu'à validation.
+      await ctx.db.patch(user._id, { subscriptionStatus: "pending", updatedAt: now });
+    }
+
     const subscriptionId = await ctx.db.insert("subscriptions", {
       userId: user._id,
       kind,
@@ -203,9 +210,18 @@ export const createSubscription = mutation({
 
     // Update user's subscription plan (only if not pending) — dernière formule achetée
     if (status !== "pending") {
+      // Activation : la période mensuelle remplace l'essai gratuit (qui n'est
+      // jamais rejoué — `trialClaimedAt` reste en place).
       await ctx.db.patch(user._id, {
         subscriptionPlan: args.plan,
         subscriptionEndDate: now + duration,
+        subscriptionStartDate: now,
+        subscriptionDaysTotal: MONTHLY_DURATION_DAYS,
+        subscriptionDaysRemaining: MONTHLY_DURATION_DAYS,
+        subscriptionStatus: "active",
+        trialStartDate: undefined,
+        trialEndDate: undefined,
+        trialDaysRemaining: 0,
       });
 
       // Notify by email: activation (first subscription) or renewal (re-subscription)
@@ -388,11 +404,19 @@ export const adminApproveSubscription = mutation({
       updatedAt: now,
     });
 
-    // Update user's plan (use the plan from the subscription, not hardcoded)
+    // Update user's plan (use the plan from the subscription, not hardcoded).
+    // L'essai gratuit est désactivé : la période mensuelle prend le relais.
     const planDisplayName = planLabel(sub.plan);
     await ctx.db.patch(sub.userId, {
       subscriptionPlan: sub.plan,
       subscriptionEndDate: now + planDuration,
+      subscriptionStartDate: now,
+      subscriptionDaysTotal: MONTHLY_DURATION_DAYS,
+      subscriptionDaysRemaining: MONTHLY_DURATION_DAYS,
+      subscriptionStatus: "active",
+      trialStartDate: undefined,
+      trialEndDate: undefined,
+      trialDaysRemaining: 0,
     });
 
     // Notify the user

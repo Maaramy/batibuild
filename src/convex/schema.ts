@@ -346,6 +346,31 @@ const schema = defineSchema(
       role: v.optional(roleValidator),
       subscriptionPlan: v.optional(subscriptionPlanValidator),
       subscriptionEndDate: v.optional(v.number()),
+      // ── Période d'essai gratuite (7 jours) & abonnement mensuel (30 jours) ──
+      // Source de vérité = `subscriptionStatus.getUserSubscriptionStatus` : les
+      // dates sont écrites par le serveur, les compteurs « …DaysRemaining » ne
+      // sont que des miroirs recalculés à chaque écriture / passage du cron.
+      // `trialClaimedAt` est immuable : il empêche un second essai gratuit,
+      // même après suppression de la fenêtre d'essai lors d'une souscription.
+      trialClaimedAt: v.optional(v.number()),
+      trialStartDate: v.optional(v.number()),
+      trialEndDate: v.optional(v.number()),
+      trialDaysTotal: v.optional(v.number()),
+      trialDaysRemaining: v.optional(v.number()),
+      subscriptionStartDate: v.optional(v.number()),
+      subscriptionDaysTotal: v.optional(v.number()),
+      subscriptionDaysRemaining: v.optional(v.number()),
+      subscriptionStatus: v.optional(
+        v.union(
+          v.literal("trialing"),
+          v.literal("trial_expired"),
+          v.literal("active"),
+          v.literal("expired"),
+          v.literal("free"),
+          v.literal("pending"),
+          v.literal("none"),
+        ),
+      ),
       phone: v.optional(v.string()),
       company: v.optional(v.string()),
       status: v.optional(v.union(v.literal("active"), v.literal("disabled"))),

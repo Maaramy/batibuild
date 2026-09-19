@@ -903,6 +903,12 @@ export default function Dashboard() {
                       Administration
                     </DropdownMenuItem>
                   )}
+                  {(user?.role === "admin" || user?.role === "moderator") && (
+                    <DropdownMenuItem onClick={() => navigate("/dashboard/admin/subscriptions")} className="cursor-pointer gap-2 text-xs">
+                      <CreditCard className="h-3.5 w-3.5" />
+                      Essais & abonnements
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer gap-2 text-xs text-destructive focus:text-destructive">
                     <LogOut className="h-3.5 w-3.5" />

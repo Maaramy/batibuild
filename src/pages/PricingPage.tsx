@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { MySubscriptionCard } from "@/components/MySubscriptionCard";
 
 // Default payment config (fallback if not set in DB)
 const DEFAULT_PAYMENT = {
@@ -370,8 +371,14 @@ export default function PricingPage() {
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre abonnement</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
             Abonnement mensuel (30 jours) — renouvellement requis à l'échéance. Chaque forfait inclut un accès complet
-            aux outils d'estimation, matériaux IA et téléchargements. Plus aucun essai gratuit : le paiement est requis dès l'inscription.
+            aux outils d'estimation, matériaux IA et téléchargements. Pendant la période d'essai gratuit (7 jours),
+            l'accès est offert ; à son terme, la souscription à une offre devient obligatoire.
           </p>
+        </div>
+
+        {/* ═══ Mon abonnement : essai gratuit (7 j) ou abonnement mensuel (30 j) ═══ */}
+        <div className="mb-8">
+          <MySubscriptionCard />
         </div>
 
         {/* ═══ Les 3 forfaits ═══ */}

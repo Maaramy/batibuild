@@ -226,6 +226,7 @@ export { default as Target } from "../../node_modules/lucide-react/dist/esm/icon
 export { default as ThumbsDown } from "../../node_modules/lucide-react/dist/esm/icons/thumbs-down.js";
 export { default as ThumbsUp } from "../../node_modules/lucide-react/dist/esm/icons/thumbs-up.js";
 export { default as Ticket } from "../../node_modules/lucide-react/dist/esm/icons/ticket.js";
+export { default as Timer } from "../../node_modules/lucide-react/dist/esm/icons/timer.js";
 export { default as ToggleLeft } from "../../node_modules/lucide-react/dist/esm/icons/toggle-left.js";
 export { default as ToggleRight } from "../../node_modules/lucide-react/dist/esm/icons/toggle-right.js";
 export { default as Trash2 } from "../../node_modules/lucide-react/dist/esm/icons/trash-2.js";

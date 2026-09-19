@@ -15,6 +15,7 @@ const ROLE_LOG_LABELS: Record<string, string> = {
 import { P, runBIMEstimation } from "./bimEngine";
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { scheduleEmailEvent, formatDateFr, planLabel, splitName } from "./emailNotifications";
+import { DAY_MS, MONTHLY_DURATION_DAYS } from "./subscriptionPeriods";
 
 /**
  * Get the current signed in user. Returns null if the user is not signed in.
@@ -136,12 +137,20 @@ export const adminUpdateUserPlan = mutation({
     }
 
     const now = Date.now();
-    // Abonnements mensuels (30 jours) pour toutes les offres — essai gratuit supprimé
-    const planDuration = 30 * 24 * 60 * 60 * 1000;
+    // Abonnements mensuels (30 jours) pour toutes les offres. L'attribution
+    // manuelle remplace l'essai gratuit, qui n'est jamais rejoué.
+    const planDuration = MONTHLY_DURATION_DAYS * DAY_MS;
 
     await ctx.db.patch(args.userId, {
       subscriptionPlan: args.plan,
       subscriptionEndDate: now + planDuration,
+      subscriptionStartDate: now,
+      subscriptionDaysTotal: MONTHLY_DURATION_DAYS,
+      subscriptionDaysRemaining: MONTHLY_DURATION_DAYS,
+      subscriptionStatus: "active",
+      trialStartDate: undefined,
+      trialEndDate: undefined,
+      trialDaysRemaining: 0,
       updatedAt: now,
     });
 

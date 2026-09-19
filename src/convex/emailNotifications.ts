@@ -422,12 +422,15 @@ export const checkExpiredSubscriptions = internalMutation({
           updatedAt: now,
         });
 
-        // Reset user plan to free (subscription expired)
+        // Reset user plan to free (subscription expired) + miroir du statut
+        // utilisé par « Mon abonnement » et le contrôle d'accès central.
         const user = await ctx.db.get(sub.userId);
         if (user && user.subscriptionPlan !== "free") {
           await ctx.db.patch(user._id, {
             subscriptionPlan: "free",
             subscriptionEndDate: undefined,
+            subscriptionDaysRemaining: 0,
+            subscriptionStatus: "expired",
           });
         }
 

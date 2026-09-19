@@ -1,6 +1,7 @@
 import { query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { api } from "./_generated/api";
+import { getUserSubscriptionStatus } from "./subscriptionStatus";
 
 // ============================================================================
 // Accès aux services Client Pro
@@ -19,7 +20,8 @@ export type ClientProAccessReason =
   | "not_client_pro"
   | "no_subscription"
   | "pending"
-  | "expired";
+  | "expired"
+  | "trial_expired";
 
 export interface ClientProAccess {
   allowed: boolean;
@@ -58,7 +60,14 @@ export function clientProAccessError(service: string): Error {
   );
 }
 
-/** Calcule l'accès Client Pro d'un utilisateur (requêtes, mutations, actions). */
+/**
+ * Calcule l'accès Client Pro d'un utilisateur (requêtes, mutations, actions).
+ *
+ * Toute la décision vient de `getUserSubscriptionStatus` (source de vérité
+ * unique) : essai gratuit de 7 jours quand l'« Offre gratuite » est activée,
+ * puis abonnement mensuel de 30 jours ; après l'échéance de l'un ou de
+ * l'autre, le paiement (ou le renouvellement) devient obligatoire.
+ */
 export async function getClientProAccess(ctx: any, user: any): Promise<ClientProAccess> {
   if (!user) return { allowed: false, reason: "no_subscription" };
   // Admin / modérateur : accès toujours accordé
@@ -66,41 +75,26 @@ export async function getClientProAccess(ctx: any, user: any): Promise<ClientPro
     return { allowed: true, reason: "ok" };
   }
 
-  // Exception : l'administrateur a activé le « switch gratuit » sur Client Pro
-  // (prix null ou 0 dans la config) → activation AUTOMATIQUE des services,
-  // sans choix de forfait ni paiement, quel que soit le plan de l'utilisateur.
-  const free = await getFreePlanStatus(ctx);
-  if (free.proFree) {
-    return { allowed: true, reason: "ok" };
-  }
+  // Les actions n'ont PAS accès à ctx.db → on passe par la query publique.
+  const snapshot: any = ctx.db
+    ? await getUserSubscriptionStatus(ctx, user._id)
+    : await ctx.runQuery(api.subscriptionStatus.getMySubscriptionStatus);
 
-  if (user.subscriptionPlan !== "pro") {
+  // Essai gratuit actif, abonnement mensuel actif ou « Offre gratuite » avant
+  // démarrage de l'essai → services accessibles.
+  if (snapshot?.isActive) return { allowed: true, reason: "ok" };
+
+  if (snapshot?.status === "pending") return { allowed: false, reason: "pending" };
+  if (snapshot?.status === "trial_expired") return { allowed: false, reason: "trial_expired" };
+  if (snapshot?.status === "expired") return { allowed: false, reason: "expired" };
+
+  // Aucun essai accordé et offre gratuite désactivée : l'utilisateur n'a jamais
+  // été Client Pro (ou son forfait n'est plus reconnu).
+  if (user.subscriptionPlan !== "pro" && snapshot?.type !== "trial") {
     return { allowed: false, reason: "not_client_pro" };
   }
 
-  // Abonnement Client Pro payant, actif et non expiré
-  const now = Date.now();
-  // Les actions n'ont PAS accès à ctx.db → on passe par une query publique.
-  let subs: any[] = [];
-  if (ctx.db) {
-    subs = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
-      .collect();
-  } else {
-    subs = (await ctx.runQuery(api.subscriptions.getUserSubscriptions)) || [];
-  }
-
-  const proSub = subs
-    .filter((s: any) => s.plan === "pro")
-    .sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
-
-  if (!proSub) return { allowed: false, reason: "no_subscription" };
-  if (proSub.status === "pending") return { allowed: false, reason: "pending" };
-  if (proSub.endDate && proSub.endDate < now) return { allowed: false, reason: "expired" };
-  if ((proSub.amount ?? 0) <= 0) return { allowed: false, reason: "no_subscription" };
-
-  return { allowed: true, reason: "ok" };
+  return { allowed: false, reason: "no_subscription" };
 }
 
 /** Lève une erreur si l'utilisateur n'a pas accès aux services Client Pro. */
@@ -117,11 +111,18 @@ export const checkClientProAccess = query({
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
     const access = await getClientProAccess(ctx, user);
+    const snapshot = user ? await getUserSubscriptionStatus(ctx, user._id) : null;
     return {
       ...access,
       plan: user?.subscriptionPlan ?? null,
       endDate: user?.subscriptionEndDate ?? null,
       isAdmin: user?.role === "admin" || user?.role === "moderator",
+      // Détail de la période en cours (essai / abonnement) pour l'interface.
+      status: snapshot?.status ?? "none",
+      type: snapshot?.type ?? "none",
+      requiresPayment: snapshot?.requiresPayment ?? true,
+      trialDaysRemaining: snapshot?.trialDaysRemaining ?? 0,
+      subscriptionDaysRemaining: snapshot?.subscriptionDaysRemaining ?? 0,
     };
   },
 });
