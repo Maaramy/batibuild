@@ -334,13 +334,10 @@ export default function Dashboard() {
                 : 'isSubItem' in item && item.isSubItem ? "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}>
-              <div className="relative shrink-0">
+              {/* Un seul badge par entrée : la pastille posée sur l'icône faisait
+                  doublon avec le compteur de fin de ligne (visible sur « Messagerie »). */}
+              <div className="shrink-0">
                 {'icon' in item && <item.icon className="h-4 w-4" />}
-                {'badge' in item && typeof item.badge === 'number' && item.badge > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white shadow-sm">
-                    {item.badge > 9 ? '9+' : item.badge}
-                  </span>
-                )}
               </div>
               <span className="flex-1 text-left truncate">{item.label}</span>
               {'badge' in item && typeof item.badge === 'number' && item.badge > 0 && (
