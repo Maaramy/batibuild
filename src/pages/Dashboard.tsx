@@ -18,6 +18,7 @@ import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { MySubscriptionCard } from "@/components/MySubscriptionCard";
 import { AnnouncementCarousel } from "@/components/announcements/AnnouncementCarousel";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { useQuery, useMutation } from "convex/react";
 import {
   LayoutDashboard,
@@ -25,6 +26,7 @@ import {
   HardHat,
   LogOut,
   TrendingUp,
+  CalendarClock,
   Clock,
   CheckCircle2,
   FileText,
@@ -32,7 +34,6 @@ import {
   Heart,
   BarChart3,
   Settings,
-  Bell,
   Search,
   ArrowUpRight,
   Moon,
@@ -164,6 +165,11 @@ export default function Dashboard() {
     api.expertServiceRequests.unreadCount,
     isExpert ? {} : "skip",
   );
+  // Demandes de rendez-vous / urgences reçues et non encore consultées
+  const expertAvailabilityUnread = useQuery(
+    api.expertAvailability.receivedUnreadCount,
+    isExpert ? {} : "skip",
+  );
   const supplierUnread = useQuery(
     api.quoteRequests.unreadCount,
     isSupplier ? {} : "skip",
@@ -174,9 +180,18 @@ export default function Dashboard() {
     api.expertServiceRequests.responsesUnreadCount,
   );
   const clientUnread = (supplierResponsesUnread ?? 0) + (expertResponsesUnread ?? 0);
+  // Demandes non consultées qui ne passent pas par le centre de notifications
+  // (les rendez-vous et urgences, eux, y sont déjà notifiés : pas de double compte).
   const totalUnread = (supplierUnread ?? 0) + (expertUnread ?? 0) + clientUnread;
   // ── Badge Support : messages de support non lus (badge rouge du menu) ──
   const supportUnread = useQuery(api.support.myUnreadTotal) ?? 0;
+  // Lien de repli du centre de notifications : la messagerie du rôle affiché.
+  const notificationsPath =
+    viewMode === "expert"
+      ? "/dashboard/messages?tab=received"
+      : viewMode === "supplier" && hasSupplierProfile
+        ? "/dashboard/supplier/quotes"
+        : "/dashboard/messages";
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
   const costSeries = useMemo(() => {
@@ -299,10 +314,11 @@ export default function Dashboard() {
             ] : []),
             ...(viewMode === "expert" && proMenuOpen ? [
               { icon: FileText, label: "Devis reçus", isSubItem: true, badge: expertUnread ?? 0, onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
+              { icon: CalendarClock, label: "Demandes reçues", isSubItem: true, badge: expertAvailabilityUnread ?? 0, onClick: () => { navigate("/dashboard/messages?tab=received"); setMobileSidebarOpen(false); } },
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
-            { icon: MessageSquare, label: "Messagerie", badge: clientUnread, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
+            { icon: MessageSquare, label: "Messagerie", badge: clientUnread + (isExpert ? (expertAvailabilityUnread ?? 0) : 0), onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
             { icon: Headset, label: "Support", badge: supportUnread, onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
@@ -413,30 +429,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={totalUnread > 0 ? `${totalUnread} nouvelle(s) demande(s) de devis` : "Notifications"}
-                className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 relative cursor-pointer"
-                onClick={() => {
-                  const proUnread = (supplierUnread ?? 0) + (expertUnread ?? 0);
-                  // Réponses fournisseur/expert non lues → messagerie d'abord
-                  if (clientUnread > 0 && proUnread === 0) {
-                    navigate("/dashboard/messages");
-                    return;
-                  }
-                  if (viewMode === "supplier" && hasSupplierProfile) navigate("/dashboard/supplier/quotes");
-                  else if (viewMode === "expert" && hasExpertProfile) navigate("/dashboard/expert/services");
-                  else navigate("/dashboard/messages");
-                }}
-              >
-                <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                {totalUnread > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] sm:text-[9px] font-bold text-white animate-in zoom-in-50">
-                    {totalUnread > 9 ? "9+" : totalUnread}
-                  </span>
-                )}
-              </Button>
+              <NotificationCenter extraUnread={totalUnread} fallbackPath={notificationsPath} />
               {mounted && (
                 <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                   className="inline-flex h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 items-center justify-center rounded-lg border border-border/40 text-foreground/70 hover:text-foreground active:bg-muted/50 transition-all">

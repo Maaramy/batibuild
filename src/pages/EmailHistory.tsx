@@ -45,6 +45,9 @@ const EVENT_LABELS: Record<string, string> = {
   // Flux entrant — réponses reçues
   quote_received: "Devis reçu",
   service_received: "Service reçu",
+  // ProMarket — demandes reçues par un professionnel (copie administrateur)
+  expert_appointment_request: "Demande de rendez-vous expert",
+  expert_urgent_request: "Demande urgente expert",
 };
 
 const STATUS_META: Record<string, { label: string; cls: string; dot: string }> = {

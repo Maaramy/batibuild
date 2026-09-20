@@ -30,6 +30,9 @@ const EMAIL_VARIABLES = [
   { token: "{{DétailsDemande}}", label: "Détails de la demande" },
   { token: "{{MontantDevis}}", label: "Montant du devis" },
   { token: "{{Message}}", label: "Message de la réponse" },
+  { token: "{{Créneau}}", label: "Créneau souhaité (rendez-vous)" },
+  { token: "{{Motif}}", label: "Motif de la demande / besoin" },
+  { token: "{{Région}}", label: "Région / zone du projet" },
 ];
 
 // Groupes d'événements affichés dans la liste « Événements »
@@ -57,6 +60,11 @@ const EVENT_GROUPS = [
     hint: "Propositions reçues des fournisseurs et experts",
     keys: ["quote_received", "service_received"],
   },
+  {
+    label: "ProMarket · Demandes reçues par un professionnel",
+    hint: "Envoyé automatiquement à l'administrateur (copie à tous les comptes admin)",
+    keys: ["expert_appointment_request", "expert_urgent_request"],
+  },
 ] as const;
 
 const EVENT_KEYS = EVENT_GROUPS.flatMap((g) => g.keys);
@@ -75,6 +83,9 @@ const EVENT_LABELS: Record<string, string> = {
   // Flux entrant — réponses reçues
   quote_received: "Devis reçu",
   service_received: "Service reçu",
+  // ProMarket — demandes reçues par un professionnel
+  expert_appointment_request: "Demande de rendez-vous expert",
+  expert_urgent_request: "Demande urgente expert",
 };
 
 const EVENT_DESCRIPTIONS: Record<string, string> = {
@@ -91,6 +102,9 @@ const EVENT_DESCRIPTIONS: Record<string, string> = {
   // Flux entrant — réponses reçues
   quote_received: "Envoyé au client quand le fournisseur renvoie son devis",
   service_received: "Envoyé au client quand l'expert renvoie sa proposition",
+  // ProMarket — demandes reçues par un professionnel
+  expert_appointment_request: "Envoyé à l'administrateur quand un client demande un rendez-vous à un expert",
+  expert_urgent_request: "Envoyé à l'administrateur quand un client envoie une demande urgente à un expert",
 };
 
 const SAMPLE_VARS: Record<string, string> = {
@@ -110,6 +124,9 @@ const SAMPLE_VARS: Record<string, string> = {
   "{{DétailsDemande}}": "Ciment 250 sacs, fer à béton 2 t, main-d'œuvre gros œuvre",
   "{{MontantDevis}}": "48 500 TND",
   "{{Message}}": "Bonjour, merci pour votre demande. Nous vous proposons un devis détaillé ci-joint.",
+  "{{Créneau}}": "22 septembre 2026 à 09:00",
+  "{{Motif}}": "Visite du chantier avant devis",
+  "{{Région}}": "Béja",
 };
 
 export default function EmailTemplates() {
@@ -164,7 +181,9 @@ export default function EmailTemplates() {
     let html = subject
       ? `<p style="font-size:11px;color:#9ca3af;margin:0 0 8px;"><b>Objet :</b> ${subject}</p>`
       : "";
-    let body = bodyHtml.replace(/\{\{(\w+)\}\}/g, (m) => SAMPLE_VARS[m] || m);
+    // `[^}]+` : l'aperçu doit rendre les variables accentuées ({{Prénom}},
+    // {{NuméroFacture}}, {{Créneau}}…) comme le moteur d'envoi réel.
+    let body = bodyHtml.replace(/\{\{([^}]+)\}\}/g, (m) => SAMPLE_VARS[m] || m);
     html += `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.7;">${body}</div>`;
     return html;
   };

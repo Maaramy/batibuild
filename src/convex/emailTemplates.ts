@@ -27,6 +27,9 @@ export const EMAIL_EVENT_TYPES = [
   // Support & Messagerie
   "support_ticket_created",
   "support_reply",
+  // ProMarket — demandes reçues par un professionnel (copie administrateur)
+  "expert_appointment_request",
+  "expert_urgent_request",
 ] as const;
 
 export type EmailEventType = (typeof EMAIL_EVENT_TYPES)[number];
@@ -45,6 +48,8 @@ export const EMAIL_EVENT_LABELS: Record<EmailEventType, string> = {
   service_received: "Service reçu",
   support_ticket_created: "Nouvelle demande de support",
   support_reply: "Réponse du support",
+  expert_appointment_request: "Demande de rendez-vous expert",
+  expert_urgent_request: "Demande urgente expert",
 };
 
 export const EMAIL_VARIABLES = [
@@ -65,6 +70,10 @@ export const EMAIL_VARIABLES = [
   { token: "{{DétailsDemande}}", label: "Détails de la demande (matériaux, description…)" },
   { token: "{{MontantDevis}}", label: "Montant du devis / de la proposition" },
   { token: "{{Message}}", label: "Message de la réponse (fournisseur / expert)" },
+  // Variables des demandes reçues par un professionnel (ProMarket)
+  { token: "{{Créneau}}", label: "Créneau souhaité (rendez-vous)" },
+  { token: "{{Motif}}", label: "Motif de la demande / besoin exprimé" },
+  { token: "{{Région}}", label: "Région / zone du projet" },
 ] as const;
 
 export interface DefaultTemplate {
@@ -330,6 +339,62 @@ Connectez-vous à votre espace pour consulter la conversation complète et pours
 <br/><br/>
 L'équipe {{NomPlateforme}}`,
   },
+
+  // ── ProMarket : demandes reçues par un professionnel (copie administrateur) ──
+  {
+    key: "expert_appointment_request",
+    label: "Demande de rendez-vous expert",
+    subject: "Nouvelle demande de rendez-vous de {{Prénom}} {{Nom}}",
+    bodyHtml: `Bonjour {{Entreprise}},
+<br/><br/>
+Une <strong>nouvelle demande de rendez-vous</strong> vient d'être enregistrée sur la plateforme. Le professionnel concerné doit la confirmer ou la refuser depuis sa messagerie.
+<br/><br/>
+<table cellpadding="0" cellspacing="0" style="background:#f8f7ff;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #ece8ff;">
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Client :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Prénom}} {{Nom}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Créneau souhaité :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Créneau}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Motif :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{Motif}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Projet :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{NomProjet}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Coordonnées du client :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{DétailsDemande}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Message :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{Message}}</td></tr>
+</table>
+Suivez la demande depuis l'espace professionnel et la messagerie de la plateforme.
+<br/><br/>
+<a href="{{LienConnexion}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Ouvrir la messagerie</a>
+<br/><br/>
+L'équipe {{NomPlateforme}}`,
+  },
+  {
+    key: "expert_urgent_request",
+    label: "Demande urgente expert",
+    subject: "⚡ Demande urgente de {{Prénom}} {{Nom}}",
+    bodyHtml: `Bonjour {{Entreprise}},
+<br/><br/>
+Une <strong>demande d'intervention urgente</strong> vient d'être enregistrée sur la plateforme. Elle attend une réponse rapide du professionnel concerné.
+<br/><br/>
+<table cellpadding="0" cellspacing="0" style="background:#fff7ed;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #fed7aa;">
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Client :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Prénom}} {{Nom}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Région :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Région}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Besoin exprimé :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{Motif}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Projet :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{NomProjet}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Coordonnées du client :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{DétailsDemande}}</td></tr>
+</table>
+Connectez-vous à la messagerie de la plateforme pour accepter ou refuser cette demande.
+<br/><br/>
+<a href="{{LienConnexion}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Traiter la demande urgente</a>
+<br/><br/>
+L'équipe {{NomPlateforme}}`,
+  },
 ];
 
 // ----------------------------------------------------------------------------
@@ -381,6 +446,8 @@ export const adminSaveEmailTemplate = mutation({
       v.literal("service_received"),
       v.literal("support_ticket_created"),
       v.literal("support_reply"),
+      v.literal("expert_appointment_request"),
+      v.literal("expert_urgent_request"),
     ),
     subject: v.string(),
     bodyHtml: v.string(),

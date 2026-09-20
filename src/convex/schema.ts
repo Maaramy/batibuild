@@ -1059,7 +1059,9 @@ const schema = defineSchema(
         v.literal("quote_received"),
         v.literal("service_received"),
         v.literal("support_ticket_created"),
-        v.literal("support_reply")
+        v.literal("support_reply"),
+        v.literal("expert_appointment_request"),
+        v.literal("expert_urgent_request")
       ),
       label: v.string(),
       subject: v.string(),

@@ -3,6 +3,8 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus } from "./access";
+import { scheduleEmailEvent, splitName } from "./emailNotifications";
+import type { EmailVars } from "./emailNotifications";
 import {
   formatSlotLabel,
   isDecidableRequest,
@@ -20,7 +22,18 @@ import {
 // Statuts (jamais de confirmation implicite) :
 //   rendez-vous : pending → approved | declined | cancelled | completed
 //   urgence     : pending → accepted | declined | completed | cancelled
+//
+// Toute demande suit le même parcours :
+//   1. enregistrement côté serveur (statut `pending`, décision explicite) ;
+//   2. notification dans le centre de notifications de l'expert ;
+//   3. e-mail automatique à l'administrateur (modèle personnalisable dans
+//      l'espace admin : « Demande de rendez-vous expert » / « Demande urgente
+//      expert »).
 // ============================================================================
+
+/** Liens des notifications : la messagerie, onglet adapté au destinataire. */
+export const EXPERT_MESSAGING_LINK = "/dashboard/messages?tab=received";
+export const CLIENT_MESSAGING_LINK = "/dashboard/messages?tab=appointments";
 
 /** Notification insérée dans le système existant (table `notifications`). */
 async function notify(
@@ -46,6 +59,45 @@ async function notify(
   } catch {
     /* la notification ne doit jamais bloquer la demande */
   }
+}
+
+/**
+ * E-mail automatique à l'administrateur, rendu avec le modèle personnalisable
+ * de l'espace admin et toutes les variables de la demande. Tous les comptes
+ * administrateurs reçoivent une copie. Best-effort : l'échec d'un envoi ne
+ * bloque jamais l'enregistrement de la demande.
+ */
+async function emailAdminsAboutRequest(
+  ctx: any,
+  params: {
+    templateKey: "expert_appointment_request" | "expert_urgent_request";
+    dedupeKey: string;
+    vars: EmailVars;
+  },
+) {
+  try {
+    const admins = await ctx.db
+      .query("users")
+      .filter((q: any) => q.eq(q.field("role"), "admin"))
+      .collect();
+    const to = admins.map((a: any) => a.email || "").filter(Boolean)[0];
+    if (!to) return;
+
+    await scheduleEmailEvent(ctx, {
+      to,
+      templateKey: params.templateKey,
+      vars: params.vars,
+      dedupeKey: params.dedupeKey,
+      sendToAdmins: true,
+    });
+  } catch {
+    /* la notification e-mail ne doit jamais bloquer la demande */
+  }
+}
+
+/** Coordonnées du client, regroupées pour les modèles d'e-mail. */
+function clientContact(phone?: string, email?: string): string {
+  return [phone, email].filter(Boolean).join(" · ") || "—";
 }
 
 /** Trace un contact dans les statistiques existantes de l'expert. */
@@ -209,6 +261,31 @@ export const pendingAvailabilityCount = query({
   },
 });
 
+/**
+ * Nombre de demandes reçues non encore consultées (badge de la messagerie et
+ * du centre de notifications). Remis à zéro par `markAllRead`.
+ */
+export const receivedUnreadCount = query({
+  handler: async (ctx) => {
+    const { profile } = await getExpertProfileOfCurrentUser(ctx);
+    if (!profile) return 0;
+
+    const appointments = await ctx.db
+      .query("expertAppointments")
+      .withIndex("by_expert", (q) => q.eq("expertId", profile._id))
+      .collect();
+    const urgent = await ctx.db
+      .query("expertUrgentRequests")
+      .withIndex("by_expert", (q) => q.eq("expertId", profile._id))
+      .collect();
+
+    return (
+      appointments.filter((r) => r.readAt === undefined).length +
+      urgent.filter((r) => r.readAt === undefined).length
+    );
+  },
+});
+
 // ============================================================================
 // Mutations — demandes (côté client)
 // ============================================================================
@@ -283,15 +360,36 @@ export const requestAppointment = mutation({
       updatedAt: now,
     });
 
+    const slot = formatSlotLabel(args.preferredDate, args.preferredTime);
+    const clientName = args.userName || user.name;
+
     await notify(ctx, {
       userId: expert.userId,
       type: "expert_appointment",
       title: "Nouvelle demande de rendez-vous",
-      message: `Nouvelle demande de rendez-vous pour le ${formatSlotLabel(
-        args.preferredDate,
-        args.preferredTime,
-      )}.`,
-      link: "/dashboard/expert",
+      message: `Nouvelle demande de rendez-vous pour le ${slot}.`,
+      link: EXPERT_MESSAGING_LINK,
+    });
+
+    // E-mail automatique à l'administrateur (modèle personnalisable).
+    const { nom, prenom } = splitName(clientName);
+    await emailAdminsAboutRequest(ctx, {
+      templateKey: "expert_appointment_request",
+      dedupeKey: `expert_appointment_request:${appointmentId}`,
+      vars: {
+        nom,
+        prenom,
+        nomEntreprise: expert.companyName || expert.displayName,
+        entreprise: expert.displayName,
+        nomProjet: args.projectName || "—",
+        creneau: slot,
+        motif: args.reason.trim(),
+        detailsDemande: clientContact(
+          args.userPhone || user.phone,
+          args.userEmail || user.email,
+        ),
+        message: args.message?.trim() || "—",
+      },
     });
 
     await trackContact(ctx, args.expertId, now);
@@ -336,7 +434,7 @@ export const cancelAppointment = mutation({
         type: "expert_appointment",
         title: "Annulation d'un rendez-vous",
         message: `Le client a annulé le rendez-vous prévu le ${slot}.`,
-        link: "/dashboard/expert",
+        link: EXPERT_MESSAGING_LINK,
       });
     } else {
       await notify(ctx, {
@@ -344,7 +442,7 @@ export const cancelAppointment = mutation({
         type: "expert_appointment",
         title: "Rendez-vous annulé",
         message: `Votre rendez-vous du ${slot} a été annulé.`,
-        link: "/dashboard/messages",
+        link: CLIENT_MESSAGING_LINK,
       });
     }
 
@@ -417,7 +515,7 @@ export const respondAppointment = mutation({
       message: args.approve
         ? `Votre rendez-vous avec ${profile.displayName} est confirmé pour le ${slot}.`
         : "Le professionnel n'est pas disponible pour cette date.",
-      link: "/dashboard/messages",
+      link: CLIENT_MESSAGING_LINK,
     });
 
     return { success: true, status: args.approve ? "approved" : "declined" };
@@ -489,7 +587,25 @@ export const requestUrgent = mutation({
       message: `${args.userName || user.name || "Un client"} demande une intervention rapide${
         args.region ? ` — ${args.region}` : ""
       } : ${args.description.trim().slice(0, 120)}`,
-      link: "/dashboard/expert",
+      link: EXPERT_MESSAGING_LINK,
+    });
+
+    // E-mail automatique à l'administrateur (modèle personnalisable).
+    const { nom, prenom } = splitName(args.userName || user.name);
+    await emailAdminsAboutRequest(ctx, {
+      templateKey: "expert_urgent_request",
+      dedupeKey: `expert_urgent_request:${urgentId}`,
+      vars: {
+        nom,
+        prenom,
+        nomEntreprise: expert.companyName || expert.displayName,
+        entreprise: expert.displayName,
+        nomProjet: args.projectName || "—",
+        motif: args.description.trim(),
+        region: args.region || "—",
+        detailsDemande: clientContact(args.userPhone, args.userEmail || user.email),
+        message: "—",
+      },
     });
 
     await trackContact(ctx, args.expertId, now);
@@ -532,7 +648,7 @@ export const respondUrgent = mutation({
       message: args.accept
         ? `${profile.displayName} accepte votre demande urgente et vous contactera rapidement.`
         : `${profile.displayName} ne peut pas prendre en charge votre demande urgente.`,
-      link: "/dashboard/messages",
+      link: CLIENT_MESSAGING_LINK,
     });
 
     return { success: true, status: args.accept ? "accepted" : "declined" };
@@ -567,7 +683,7 @@ export const cancelUrgent = mutation({
         type: "expert_urgent",
         title: "Demande urgente annulée",
         message: "Le client a annulé sa demande urgente.",
-        link: "/dashboard/expert",
+        link: EXPERT_MESSAGING_LINK,
       });
     }
 
@@ -598,6 +714,19 @@ export const markAllRead = mutation({
       .collect();
     for (const u of urgent) {
       if (u.readAt === undefined) await ctx.db.patch(u._id, { readAt: now });
+    }
+
+    // Consulter les demandes dans la messagerie vide aussi le centre de
+    // notifications : une seule action de lecture pour l'utilisateur, les deux
+    // indicateurs restent donc cohérents.
+    const unread = await ctx.db
+      .query("notifications")
+      .withIndex("by_user_read", (q) => q.eq("userId", user._id).eq("read", false))
+      .collect();
+    for (const n of unread) {
+      if (n.type === "expert_appointment" || n.type === "expert_urgent") {
+        await ctx.db.patch(n._id, { read: true });
+      }
     }
   },
 });
@@ -641,7 +770,7 @@ export const sendAppointmentReminders = internalMutation({
         message: `Rappel : votre rendez-vous${
           expert ? ` avec ${expert.displayName}` : ""
         } est prévu le ${slot}.`,
-        link: "/dashboard/messages",
+        link: CLIENT_MESSAGING_LINK,
       });
 
       if (expert) {
@@ -652,7 +781,7 @@ export const sendAppointmentReminders = internalMutation({
           message: `Vous avez un rendez-vous prévu le ${slot}${
             appointment.userName ? ` avec ${appointment.userName}` : ""
           }.`,
-          link: "/dashboard/expert",
+          link: EXPERT_MESSAGING_LINK,
         });
       }
 

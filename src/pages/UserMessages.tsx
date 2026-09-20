@@ -4,11 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft, MessageSquare, Loader2, Clock, CheckCircle2,
   AlertCircle, Send, Package, Download, FileText,
   Phone, Store, Briefcase, Users, User, CalendarClock, Zap, XCircle,
+  Inbox, Mail, ThumbsUp, ThumbsDown,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
@@ -129,9 +130,32 @@ function ResponseCard({ response, kind }: { response: any; kind: "expert" | "sup
 
 // ── Component ────────────────────────────────────────────────────────────────
 
+type MessagesTab = "quotes" | "services" | "appointments" | "received";
+
+const MESSAGES_TABS: MessagesTab[] = ["quotes", "services", "appointments", "received"];
+
+/** Onglet initial : `?tab=` de l'URL (notifications, raccourcis), sinon services. */
+function tabFromSearch(value: string | null): MessagesTab {
+  return MESSAGES_TABS.includes(value as MessagesTab)
+    ? (value as MessagesTab)
+    : "services";
+}
+
 export default function UserMessages() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"quotes" | "services" | "appointments">("services");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // L'URL est la source de vérité de l'onglet : les notifications et les
+  // raccourcis pointent directement sur le bon onglet, y compris après
+  // rafraîchissement ou retour sur un projet existant.
+  const tab: MessagesTab = tabFromSearch(searchParams.get("tab"));
+
+  const selectTab = (next: MessagesTab) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "services") params.delete("tab");
+    else params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  };
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   // Proposer une nouvelle date après un refus
@@ -152,11 +176,27 @@ export default function UserMessages() {
   const expertResponses = useQuery(api.expertServiceRequests.getMyResponses);
   const markExpertResponsesRead = useMutation(api.expertServiceRequests.responsesMarkAllRead);
 
-  // Rendez-vous & demandes urgentes (ProMarket)
+  // Rendez-vous & demandes urgentes (ProMarket) — côté client
   const appointments = useQuery(api.expertAvailability.getMyAppointments);
   const urgentRequests = useQuery(api.expertAvailability.getMyUrgentRequests);
   const cancelAppointment = useMutation(api.expertAvailability.cancelAppointment);
   const cancelUrgent = useMutation(api.expertAvailability.cancelUrgent);
+
+  // Rendez-vous & demandes urgentes REÇUS — côté professionnel (ProMarket).
+  // Masqué tant que le rôle n'est pas chargé pour ne pas afficher de compteur
+  // ou de liste vides à un client.
+  const isExpertAccount = hasExpertProfile === true;
+  const receivedAppointments = useQuery(
+    api.expertAvailability.getExpertAppointments,
+    isExpertAccount ? {} : "skip",
+  );
+  const receivedUrgent = useQuery(
+    api.expertAvailability.getExpertUrgentRequests,
+    isExpertAccount ? {} : "skip",
+  );
+  const respondAppointment = useMutation(api.expertAvailability.respondAppointment);
+  const respondUrgent = useMutation(api.expertAvailability.respondUrgent);
+  const markReceivedRead = useMutation(api.expertAvailability.markAllRead);
 
   // Dès que la messagerie est consultée, on efface les badges rouges
   useEffect(() => {
@@ -210,26 +250,71 @@ export default function UserMessages() {
     }
   };
 
+  // ── Décision du professionnel sur une demande reçue ──
+  const [decidingId, setDecidingId] = useState<string | null>(null);
+
+  const handleRespondAppointment = async (id: string, approve: boolean) => {
+    setDecidingId(id);
+    try {
+      await respondAppointment({ appointmentId: id as any, approve });
+      toast.success(approve ? "Rendez-vous confirmé" : "Demande refusée");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erreur");
+    } finally {
+      setDecidingId(null);
+    }
+  };
+
+  const handleRespondUrgent = async (id: string, accept: boolean) => {
+    setDecidingId(id);
+    try {
+      await respondUrgent({ urgentId: id as any, accept });
+      toast.success(accept ? "Demande urgente acceptée" : "Demande urgente refusée");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erreur");
+    } finally {
+      setDecidingId(null);
+    }
+  };
+
   const unreadSupplierCount = allResponses?.filter((r) => r.readAt === undefined).length ?? 0;
   const unreadExpertCount = expertResponses?.filter((r) => r.readAt === undefined).length ?? 0;
-  const totalUnread = unreadSupplierCount + unreadExpertCount;
+
+  // Demandes reçues (rendez-vous / urgences) : compteurs du badge et de l'onglet.
+  const receivedPendingCount =
+    (receivedAppointments ?? []).filter((a) => a.status === "pending").length +
+    (receivedUrgent ?? []).filter((u) => u.status === "pending").length;
+  const receivedAppointmentsUnread =
+    (receivedAppointments ?? []).filter((a) => a.readAt === undefined).length;
+  const receivedUrgentUnread =
+    (receivedUrgent ?? []).filter((u) => u.readAt === undefined).length;
+  const receivedUnreadCount = receivedAppointmentsUnread + receivedUrgentUnread;
+  const totalUnread = unreadSupplierCount + unreadExpertCount + receivedUnreadCount;
 
   // Un compte expert (et non fournisseur) ne voit pas les devis fournisseurs ;
   // un compte fournisseur (et non expert) ne voit pas les services experts.
   // Un compte double rôle conserve les deux onglets. Tant que les profils ne
   // sont pas chargés, on affiche les deux onglets (aucun masquage à l'aveugle).
-  const isExpertAccount = hasExpertProfile === true;
   const isSupplierAccount = hasSupplierProfile === true;
   const showSupplierQuotes = !(isExpertAccount && !isSupplierAccount);
   const showExpertServices = !(isSupplierAccount && !isExpertAccount);
 
-  // Si l'onglet mémorisé est masqué pour ce rôle, on retombe sur l'onglet visible.
-  const activeTab: typeof tab =
+  // Si l'onglet demandé est masqué pour ce rôle, on retombe sur l'onglet visible.
+  const activeTab: MessagesTab =
     tab === "services" && !showExpertServices
       ? "quotes"
       : tab === "quotes" && !showSupplierQuotes
         ? "services"
-        : tab;
+        : tab === "received" && !isExpertAccount
+          ? "services"
+          : tab;
+
+  // Les demandes reçues sont marquées comme consultées dès l'ouverture de
+  // l'onglet : le badge et le centre de notifications se vident alors.
+  useEffect(() => {
+    if (activeTab !== "received" || !isExpertAccount) return;
+    if (receivedUnreadCount > 0) markReceivedRead();
+  }, [activeTab, isExpertAccount, receivedUnreadCount, markReceivedRead]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -245,11 +330,13 @@ export default function UserMessages() {
           <div className="flex-1">
             <h1 className="text-lg font-bold">Messagerie</h1>
             <p className="text-xs text-muted-foreground">
-              {showExpertServices && showSupplierQuotes
-                ? "Vos demandes de services experts & de devis fournisseurs et les réponses reçues"
-                : showExpertServices
-                  ? "Vos demandes de services experts et les réponses reçues"
-                  : "Vos demandes de devis fournisseurs et les réponses reçues"}
+              {activeTab === "received"
+                ? "Demandes de rendez-vous et urgences reçues — à confirmer ou refuser"
+                : showExpertServices && showSupplierQuotes
+                  ? "Vos demandes de services experts & de devis fournisseurs et les réponses reçues"
+                  : showExpertServices
+                    ? "Vos demandes de services experts et les réponses reçues"
+                    : "Vos demandes de devis fournisseurs et les réponses reçues"}
             </p>
           </div>
           {totalUnread > 0 && (
@@ -263,12 +350,30 @@ export default function UserMessages() {
           )}
         </div>
 
-        {/* Tabs : Services experts / Devis fournisseurs */}
-        <div className="flex gap-1.5 bg-muted/30 rounded-xl p-1">
+        {/* Tabs : Demandes reçues / Services experts / Devis fournisseurs / Rendez-vous */}
+        <div className="flex gap-1.5 bg-muted/30 rounded-xl p-1 overflow-x-auto">
+          {isExpertAccount && (
+            <button
+              onClick={() => selectTab("received")}
+              className={`flex-1 basis-auto min-w-[8rem] whitespace-nowrap flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer relative ${
+                activeTab === "received"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Inbox className="h-3.5 w-3.5" />
+              Demandes reçues
+              {receivedPendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
+                  {receivedPendingCount}
+                </span>
+              )}
+            </button>
+          )}
           {showExpertServices && (
             <button
-              onClick={() => setTab("services")}
-              className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
+              onClick={() => selectTab("services")}
+              className={`flex-1 basis-auto min-w-[8rem] whitespace-nowrap flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
                 activeTab === "services"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -280,8 +385,8 @@ export default function UserMessages() {
           )}
           {showSupplierQuotes && (
             <button
-              onClick={() => setTab("quotes")}
-              className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
+              onClick={() => selectTab("quotes")}
+              className={`flex-1 basis-auto min-w-[8rem] whitespace-nowrap flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
                 activeTab === "quotes"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -292,15 +397,15 @@ export default function UserMessages() {
             </button>
           )}
           <button
-            onClick={() => setTab("appointments")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer relative ${
+            onClick={() => selectTab("appointments")}
+            className={`flex-1 basis-auto min-w-[8rem] whitespace-nowrap flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer relative ${
               activeTab === "appointments"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <CalendarClock className="h-3.5 w-3.5" />
-            Rendez-vous
+            {isExpertAccount ? "Mes demandes" : "Rendez-vous"}
             {pendingAppointmentsCount > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
                 {pendingAppointmentsCount}
@@ -438,6 +543,268 @@ export default function UserMessages() {
                             </Button>
                           )}
                         </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </section>
+          </>
+        )}
+
+        {/* ══════════ ONGLET DEMANDES REÇUES (professionnel ProMarket) ══════════ */}
+        {activeTab === "received" && isExpertAccount && (
+          <>
+            {/* Rendez-vous reçus */}
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <CalendarClock className="h-4 w-4 text-blue-600" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Demandes de rendez-vous reçues
+                </p>
+                {receivedAppointmentsUnread > 0 && (
+                  <Badge className="ml-auto bg-red-100 text-red-700 border-red-200 text-[9px]">
+                    {receivedAppointmentsUnread} nouvelle{receivedAppointmentsUnread > 1 ? "s" : ""}
+                  </Badge>
+                )}
+              </div>
+
+              {!receivedAppointments ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : receivedAppointments.length === 0 ? (
+                <Card className="border-border/40">
+                  <CardContent className="p-6 text-center">
+                    <CalendarClock className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+                    <p className="text-xs text-muted-foreground">
+                      Aucune demande de rendez-vous reçue pour le moment.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                receivedAppointments.map((a) => {
+                  const meta = appointmentStatusMeta(a.status);
+                  const decidable = a.status === "pending";
+                  const isNew = a.readAt === undefined;
+                  const busy = decidingId === a._id;
+                  return (
+                    <Card
+                      key={a._id}
+                      className={`border-border/40 ${
+                        isNew ? "border-blue-300/50 bg-blue-500/[0.03]" : ""
+                      }`}
+                    >
+                      <CardContent className="p-4 space-y-2.5">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-xs font-semibold truncate">
+                              {a.userName || "Client"}
+                            </p>
+                            <Badge className={`text-[9px] border ${meta.chip}`}>
+                              {meta.label}
+                            </Badge>
+                            {isNew && (
+                              <Badge className="text-[9px] border bg-blue-100 text-blue-700 border-blue-200">
+                                Nouvelle
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                            {formatSlotLabel(a.preferredDate, a.preferredTime)} · motif : {a.reason}
+                          </p>
+                          {a.projectName && (
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">
+                              Projet : {a.projectName}
+                            </p>
+                          )}
+                          {a.message && (
+                            <p className="mt-1 text-[11px] italic text-muted-foreground">
+                              « {a.message} »
+                            </p>
+                          )}
+                          {a.decisionMessage && (
+                            <p className="mt-1 text-[10px] text-muted-foreground">
+                              Votre réponse : {a.decisionMessage}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          {a.userPhone && (
+                            <a
+                              href={`tel:${a.userPhone}`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-border/40 px-2 py-1 text-[10px] font-medium hover:bg-muted/40"
+                            >
+                              <Phone className="h-3 w-3" /> {a.userPhone}
+                            </a>
+                          )}
+                          {a.userEmail && (
+                            <a
+                              href={`mailto:${a.userEmail}`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-border/40 px-2 py-1 text-[10px] font-medium hover:bg-muted/40"
+                            >
+                              <Mail className="h-3 w-3" /> {a.userEmail}
+                            </a>
+                          )}
+                        </div>
+
+                        {decidable && (
+                          <div className="flex gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              className="h-7 flex-1 gap-1 border-red-500/30 text-[10px] text-red-600 hover:bg-red-500/5"
+                              onClick={() => handleRespondAppointment(a._id, false)}
+                            >
+                              {busy ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <ThumbsDown className="h-3 w-3" />
+                              )}
+                              Refuser
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={busy}
+                              className="h-7 flex-1 gap-1 bg-blue-600 text-[10px] text-white hover:bg-blue-700"
+                              onClick={() => handleRespondAppointment(a._id, true)}
+                            >
+                              {busy ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <ThumbsUp className="h-3 w-3" />
+                              )}
+                              Confirmer
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </section>
+
+            {/* Demandes urgentes reçues */}
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-600" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Demandes urgentes reçues
+                </p>
+                {receivedUrgentUnread > 0 && (
+                  <Badge className="ml-auto bg-red-100 text-red-700 border-red-200 text-[9px]">
+                    {receivedUrgentUnread} nouvelle{receivedUrgentUnread > 1 ? "s" : ""}
+                  </Badge>
+                )}
+              </div>
+
+              {!receivedUrgent ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : receivedUrgent.length === 0 ? (
+                <Card className="border-border/40">
+                  <CardContent className="p-6 text-center">
+                    <Zap className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+                    <p className="text-xs text-muted-foreground">
+                      Aucune demande urgente reçue pour le moment.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                receivedUrgent.map((u) => {
+                  const meta = urgentStatusMeta(u.status);
+                  const decidable = u.status === "pending";
+                  const isNew = u.readAt === undefined;
+                  const busy = decidingId === u._id;
+                  return (
+                    <Card
+                      key={u._id}
+                      className={`border-amber-500/25 bg-amber-500/[0.04] ${
+                        isNew ? "ring-1 ring-amber-500/30" : ""
+                      }`}
+                    >
+                      <CardContent className="p-4 space-y-2.5">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-xs font-semibold truncate">
+                              {u.userName || "Client"}
+                            </p>
+                            <Badge className={`text-[9px] border ${meta.chip}`}>
+                              {meta.label}
+                            </Badge>
+                            {isNew && (
+                              <Badge className="text-[9px] border bg-amber-100 text-amber-700 border-amber-200">
+                                Nouvelle
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">{u.description}</p>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground">
+                            {u.region && <span>Zone : {u.region}</span>}
+                            {u.projectName && <span>· Projet : {u.projectName}</span>}
+                            <span>· Reçue le {fmtDate(u.createdAt)}</span>
+                          </div>
+                          {u.decisionMessage && (
+                            <p className="mt-1 text-[10px] text-muted-foreground">
+                              Votre réponse : {u.decisionMessage}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          {u.userPhone && (
+                            <a
+                              href={`tel:${u.userPhone}`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-border/40 bg-background px-2 py-1 text-[10px] font-medium hover:bg-muted/40"
+                            >
+                              <Phone className="h-3 w-3" /> {u.userPhone}
+                            </a>
+                          )}
+                          {u.userEmail && (
+                            <a
+                              href={`mailto:${u.userEmail}`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-border/40 bg-background px-2 py-1 text-[10px] font-medium hover:bg-muted/40"
+                            >
+                              <Mail className="h-3 w-3" /> {u.userEmail}
+                            </a>
+                          )}
+                        </div>
+
+                        {decidable && (
+                          <div className="flex gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              className="h-7 flex-1 gap-1 border-red-500/30 bg-background text-[10px] text-red-600 hover:bg-red-500/5"
+                              onClick={() => handleRespondUrgent(u._id, false)}
+                            >
+                              {busy ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <ThumbsDown className="h-3 w-3" />
+                              )}
+                              Refuser
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={busy}
+                              className="h-7 flex-1 gap-1 bg-amber-600 text-[10px] text-white hover:bg-amber-700"
+                              onClick={() => handleRespondUrgent(u._id, true)}
+                            >
+                              {busy ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <ThumbsUp className="h-3 w-3" />
+                              )}
+                              Accepter
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   );

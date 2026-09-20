@@ -29,6 +29,10 @@ export type EmailVars = {
   detailsDemande?: string;
   montantDevis?: string;
   message?: string;
+  // Variables des demandes reçues par un professionnel (ProMarket)
+  creneau?: string;
+  motif?: string;
+  region?: string;
 };
 
 export const emailEventValidator = v.union(
@@ -45,6 +49,8 @@ export const emailEventValidator = v.union(
   v.literal("service_received"),
   v.literal("support_ticket_created"),
   v.literal("support_reply"),
+  v.literal("expert_appointment_request"),
+  v.literal("expert_urgent_request"),
 );
 
 // ----------------------------------------------------------------------------
@@ -106,7 +112,9 @@ export async function scheduleEmailEvent(
       | "quote_received"
       | "service_received"
       | "support_ticket_created"
-      | "support_reply";
+      | "support_reply"
+      | "expert_appointment_request"
+      | "expert_urgent_request";
     vars: EmailVars;
     dedupeKey?: string;
     sendToAdmins?: boolean;
@@ -124,8 +132,16 @@ export async function scheduleEmailEvent(
 // Rendering
 // ----------------------------------------------------------------------------
 
-function renderTokens(text: string, vars: Record<string, string>): string {
-  return text.replace(/\{\{(\w+)\}\}/g, (m, key: string) => {
+/**
+ * Remplace les jetons `{{Variable}}` d'un modèle par les valeurs résolues.
+ * Exporté pour les tests : c'est le seul endroit qui connaît la liste des
+ * variables disponibles dans l'espace admin.
+ */
+export function renderTokens(text: string, vars: Record<string, string>): string {
+  // `[^}]+` (et non `\w+`) : les variables accentuées de la plateforme
+  // ({{Prénom}}, {{NuméroFacture}}, {{Créneau}}, {{Région}}…) doivent être
+  // remplacées elles aussi, sinon le client reçoit le jeton brut.
+  return text.replace(/\{\{([^}]+)\}\}/g, (m, key: string) => {
     const lookup: Record<string, string> = {
       Nom: vars.nom || "",
       Prénom: vars.prenom || "",
@@ -143,6 +159,9 @@ function renderTokens(text: string, vars: Record<string, string>): string {
       DétailsDemande: vars.detailsDemande || "",
       MontantDevis: vars.montantDevis || "",
       Message: vars.message || "",
+      Créneau: vars.creneau || "",
+      Motif: vars.motif || "",
+      Région: vars.region || "",
     };
     return lookup[key] !== undefined ? lookup[key] : m;
   });
@@ -210,6 +229,9 @@ export const processEmailEvent = internalMutation({
         detailsDemande: v.optional(v.string()),
         montantDevis: v.optional(v.string()),
         message: v.optional(v.string()),
+        creneau: v.optional(v.string()),
+        motif: v.optional(v.string()),
+        region: v.optional(v.string()),
       }),
     ),
     dedupeKey: v.optional(v.string()),
@@ -314,6 +336,9 @@ export const processEmailEvent = internalMutation({
       detailsDemande: vars.detailsDemande || "",
       montantDevis: vars.montantDevis || "",
       message: vars.message || "",
+      creneau: vars.creneau || "",
+      motif: vars.motif || "",
+      region: vars.region || "",
     };
 
     const subject = renderTokens(template.subject, resolvedVars);

@@ -1,9 +1,10 @@
 /// <reference types="vite/client" />
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { api, internal } from "./_generated/api.js";
+import { formatSlotLabel } from "../lib/expertAvailability";
 
 const modules = import.meta.glob("./**/*.*s");
 
@@ -472,5 +473,179 @@ describe("expertAvailability queries", () => {
       {},
     );
     expect(expertView).toEqual([]);
+  });
+});
+
+// ============================================================================
+// Messagerie de l'expert & e-mail automatique à l'administrateur
+// ============================================================================
+
+/** Envois d'e-mails enregistrés par le moteur (config SMTP absente en test). */
+async function emailHistoryRows(t: ReturnType<typeof convexTest>) {
+  return t.run(async (ctx) => ctx.db.query("emailHistory").collect());
+}
+
+describe("expertAvailability — messagerie expert & e-mail administrateur", () => {
+  let t: ReturnType<typeof convexTest>;
+  let clientId: string;
+  let expertUserId: string;
+  let expertId: string;
+  let adminId: string;
+
+  beforeEach(async () => {
+    // Les notifications e-mail passent par le scheduler Convex : les tests les
+    // exécutent explicitement avec des minuteries simulées.
+    vi.useFakeTimers();
+    t = convexTest(schema, modules);
+    clientId = await createUser(t, { name: "Ahmed Ben Salah", email: "ahmed@test.com" });
+    expertUserId = await createUser(t, { name: "Sami", email: "sami@test.com" });
+    expertId = await createExpert(t, expertUserId, { acceptsUrgent: true });
+    adminId = await createUser(t, { name: "Admin", email: "admin@test.com", role: "admin" });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Exécute les envois d'e-mails programmés par les demandes. */
+  const flushEmails = () => t.finishAllScheduledFunctions(vi.runAllTimers);
+
+  it("notifie l'expert et le renvoie vers sa messagerie, pas vers l'espace expert", async () => {
+    await asUser(t, clientId).mutation(
+      api.expertAvailability.requestAppointment,
+      baseRequest(expertId),
+    );
+
+    const notifications = await notificationsFor(t, expertUserId);
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].link).toBe("/dashboard/messages?tab=received");
+    expect(notifications[0].read).toBe(false);
+  });
+
+  it("envoie automatiquement l'e-mail administrateur (modèle rendez-vous)", async () => {
+    const body = baseRequest(expertId, {
+      projectName: "Villa Béja",
+      message: "Disponible en matinée",
+      userName: "Ahmed Ben Salah",
+      userPhone: "+216 98 123 456",
+    });
+    const res = await asUser(t, clientId).mutation(
+      api.expertAvailability.requestAppointment,
+      body,
+    );
+
+    await flushEmails();
+
+    const history = await emailHistoryRows(t);
+    expect(history).toHaveLength(1);
+    expect(history[0].to).toBe("admin@test.com");
+    expect(history[0].templateKey).toBe("expert_appointment_request");
+    expect(history[0].sentToAdmins).toBe(true);
+    expect(history[0].dedupeKey).toBe(
+      `expert_appointment_request:${(res as any).appointmentId}`,
+    );
+
+    // Variables transmises au modèle personnalisable (Espace admin → E-mails).
+    const vars = JSON.parse(history[0].payloadJson!).vars;
+    expect(vars.prenom).toBe("Ahmed");
+    expect(vars.nom).toBe("Ben Salah");
+    expect(vars.entreprise).toBe("Sami Plombier");
+    expect(vars.nomProjet).toBe("Villa Béja");
+    expect(vars.motif).toBe("Visite du chantier");
+    expect(vars.creneau).toBe(formatSlotLabel(body.preferredDate, "10:00"));
+    expect(vars.detailsDemande).toBe("+216 98 123 456 · ahmed@test.com");
+    expect(vars.message).toBe("Disponible en matinée");
+  });
+
+  it("envoie automatiquement l'e-mail administrateur (modèle urgence)", async () => {
+    await asUser(t, clientId).mutation(api.expertAvailability.requestUrgent, {
+      expertId: expertId as any,
+      description: "Fuite d'eau importante",
+      userPhone: "+216 98 123 456",
+      region: "beja",
+    });
+
+    await flushEmails();
+
+    const history = await emailHistoryRows(t);
+    expect(history).toHaveLength(1);
+    expect(history[0].templateKey).toBe("expert_urgent_request");
+    expect(history[0].to).toBe("admin@test.com");
+    expect(history[0].sentToAdmins).toBe(true);
+
+    const vars = JSON.parse(history[0].payloadJson!).vars;
+    expect(vars.region).toBe("beja");
+    expect(vars.motif).toBe("Fuite d'eau importante");
+    expect(vars.detailsDemande).toBe("+216 98 123 456 · ahmed@test.com");
+
+    const notifications = await notificationsFor(t, expertUserId);
+    expect(notifications[0].link).toBe("/dashboard/messages?tab=received");
+  });
+
+  it("ne renvoie pas d'e-mail sans demande", async () => {
+    await flushEmails();
+    expect(await emailHistoryRows(t)).toHaveLength(0);
+  });
+
+  it("n'envoie qu'un e-mail par demande (idempotence du double clic)", async () => {
+    const client = asUser(t, clientId);
+    await client.mutation(api.expertAvailability.requestAppointment, baseRequest(expertId));
+    await client.mutation(api.expertAvailability.requestAppointment, baseRequest(expertId));
+    await flushEmails();
+
+    expect(await emailHistoryRows(t)).toHaveLength(1);
+  });
+
+  it("receivedUnreadCount suit la consultation et markAllRead le remet à zéro", async () => {
+    await asUser(t, clientId).mutation(
+      api.expertAvailability.requestAppointment,
+      baseRequest(expertId),
+    );
+    await asUser(t, clientId).mutation(api.expertAvailability.requestUrgent, {
+      expertId: expertId as any,
+      description: "Fuite d'eau",
+      userPhone: "+216 98 123 456",
+    });
+
+    const expert = asUser(t, expertUserId);
+    expect(await expert.query(api.expertAvailability.receivedUnreadCount, {})).toBe(2);
+    expect(await expert.query(api.expertAvailability.pendingAvailabilityCount, {})).toBe(2);
+
+    // Les deux notifications du centre de notifications sont non lues.
+    const before = await t.run(async (ctx) => ctx.db.query("notifications").collect());
+    expect(before.filter((n) => n.userId === expertUserId && !n.read)).toHaveLength(2);
+
+    await expert.mutation(api.expertAvailability.markAllRead, {});
+    expect(await expert.query(api.expertAvailability.receivedUnreadCount, {})).toBe(0);
+
+    // ... et le centre de notifications se vide en même temps (badge de la cloche).
+    const after = await t.run(async (ctx) => ctx.db.query("notifications").collect());
+    expect(after.filter((n) => n.userId === expertUserId && !n.read)).toHaveLength(0);
+    // Les demandes restent en attente : seul l'indicateur « non consultée » change.
+    expect(await expert.query(api.expertAvailability.pendingAvailabilityCount, {})).toBe(2);
+
+    // Un client sans profil expert ne voit aucun compteur.
+    expect(await asUser(t, clientId).query(api.expertAvailability.receivedUnreadCount, {})).toBe(0);
+  });
+
+  it("expose à l'expert les coordonnées du client dans la messagerie", async () => {
+    await asUser(t, clientId).mutation(
+      api.expertAvailability.requestAppointment,
+      baseRequest(expertId, {
+        userName: "Ahmed Ben Salah",
+        userPhone: "+216 98 123 456",
+        userEmail: "ahmed@test.com",
+      }),
+    );
+
+    const rows = await asUser(t, expertUserId).query(
+      api.expertAvailability.getExpertAppointments,
+      {},
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].userName).toBe("Ahmed Ben Salah");
+    expect(rows[0].userPhone).toBe("+216 98 123 456");
+    expect(rows[0].userEmail).toBe("ahmed@test.com");
+    expect(rows[0].status).toBe("pending");
   });
 });
