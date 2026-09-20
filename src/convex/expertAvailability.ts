@@ -33,7 +33,9 @@ import {
 
 /** Liens des notifications : la messagerie, onglet adapté au destinataire. */
 export const EXPERT_MESSAGING_LINK = "/dashboard/messages?tab=received";
-export const CLIENT_MESSAGING_LINK = "/dashboard/messages?tab=appointments";
+// Les rendez-vous/urgences client sont désormais affichés dans l'onglet
+// « Services experts » (fusion des demandes et des rendez-vous).
+export const CLIENT_MESSAGING_LINK = "/dashboard/messages?tab=services";
 
 /**
  * Lien profond vers une demande précise : depuis le centre de notifications,

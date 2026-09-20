@@ -8,8 +8,8 @@
 // Règles de visibilité :
 //   - « Demandes reçues » : uniquement pour un compte expert (demandes que le
 //     professionnel reçoit) ;
-//   - « Mes demandes » (rendez-vous côté client) : jamais dans l'espace expert,
-//     où les demandes reçues sont l'entrée pertinente ;
+//   - « Services experts » combine désormais les demandes de service ET les
+//     rendez-vous / urgences envoyés par le client (un seul onglet) ;
 //   - un compte fournisseur (sans profil expert) ne voit pas les services
 //     experts, et inversement ; un compte double rôle voit les deux.
 //
@@ -17,24 +17,33 @@
 // d'écran vide, ni de lien mort venu d'une notification ou d'un ancien lien.
 // ============================================================================
 
-export type MessagesTab = "quotes" | "services" | "appointments" | "received";
+export type MessagesTab = "quotes" | "services" | "received";
 
-export const MESSAGES_TABS: MessagesTab[] = [
-  "quotes",
-  "services",
-  "appointments",
-  "received",
-];
+export const MESSAGES_TABS: MessagesTab[] = ["quotes", "services", "received"];
 
 /** Onglet « par défaut » quand l'URL n'en demande pas (ou en demande un inconnu). */
 export const DEFAULT_MESSAGES_TAB: MessagesTab = "services";
+
+/** Ancien onglet « Rendez-vous », fusionné dans « Services experts ». */
+export const APPOINTMENTS_TAB_ALIAS: MessagesTab = "services";
+
+/**
+ * Rend un onglet demandé (venu d'une URL) : l'ancien onglet « appointments »
+ * est transparentement renvoyé vers « services » — aucun lien ne meurt.
+ */
+export function normalizeMessagesTab(value: string | null | undefined): MessagesTab {
+  if (value === "appointments") return APPOINTMENTS_TAB_ALIAS;
+  return MESSAGES_TABS.includes(value as MessagesTab)
+    ? (value as MessagesTab)
+    : DEFAULT_MESSAGES_TAB;
+}
 
 export interface MessagesTabLayout {
   /** Le compte possède un profil expert (chargé). */
   isExpertAccount: boolean;
   /** Le compte possède un profil fournisseur (chargé). */
   isSupplierAccount: boolean;
-  /** Onglet « Services experts » affiché. */
+  /** Onglet « Services experts » affiché (demandes de service + rendez-vous). */
   showExpertServices: boolean;
   /** Onglet « Devis fournisseurs » affiché. */
   showSupplierQuotes: boolean;
@@ -63,16 +72,13 @@ export function messagesTabLayout(
       ...(isExpertAccount ? (["received"] as MessagesTab[]) : []),
       ...(showExpertServices ? (["services"] as MessagesTab[]) : []),
       ...(showSupplierQuotes ? (["quotes"] as MessagesTab[]) : []),
-      ...(isExpertAccount ? [] : (["appointments"] as MessagesTab[])),
     ],
   };
 }
 
 /** Onglet lu depuis l'URL (`?tab=`), sinon l'onglet par défaut. */
 export function tabFromSearch(value: string | null | undefined): MessagesTab {
-  return MESSAGES_TABS.includes(value as MessagesTab)
-    ? (value as MessagesTab)
-    : DEFAULT_MESSAGES_TAB;
+  return normalizeMessagesTab(value);
 }
 
 /**

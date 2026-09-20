@@ -143,7 +143,8 @@ export default function UserMessages() {
 
   // L'URL est la source de vérité de l'onglet : les notifications et les
   // raccourcis pointent directement sur le bon onglet, y compris après
-  // rafraîchissement ou retour sur un projet existant.
+  // rafraîchissement ou retour sur un projet existant. L'ancien onglet
+  // « Rendez-vous » (`?tab=appointments`) est redirigé vers « Services ».
   const tab: MessagesTab = tabFromSearch(searchParams.get("tab"));
 
   const selectTab = (next: MessagesTab) => {
@@ -183,7 +184,8 @@ export default function UserMessages() {
 
   // Onglets visibles pour ce rôle (règles isolées dans src/lib/messagesTabs.ts
   // et couvertes par des tests). « Mes demandes » n'existe plus dans l'espace
-  // expert : un ancien lien `?tab=appointments` retombe sur un onglet visible
+  // expert : un ancien lien `?tab=appointments` est redirigé vers « services »
+  // (l'onglet rendez-vous a été fusionné dans les services experts).
   // au lieu d'un écran vide.
   const tabLayout = messagesTabLayout(hasExpertProfile, hasSupplierProfile);
   const {
@@ -360,11 +362,11 @@ export default function UserMessages() {
             <p className="text-xs text-muted-foreground">
               {activeTab === "received"
                 ? "Demandes de rendez-vous et urgences reçues — à confirmer ou refuser"
-                : showExpertServices && showSupplierQuotes
-                  ? "Vos demandes de services experts & de devis fournisseurs et les réponses reçues"
-                  : showExpertServices
-                    ? "Vos demandes de services experts et les réponses reçues"
-                    : "Vos demandes de devis fournisseurs et les réponses reçues"}
+                : activeTab === "services"
+                  ? showSupplierQuotes
+                    ? "Vos demandes de services experts & de devis fournisseurs, vos rendez-vous et les réponses reçues"
+                    : "Vos demandes de services experts, vos rendez-vous et les réponses reçues"
+                  : "Vos demandes de devis fournisseurs et les réponses reçues"}
             </p>
           </div>
           {totalUnread > 0 && (
@@ -378,7 +380,7 @@ export default function UserMessages() {
           )}
         </div>
 
-        {/* Tabs : Demandes reçues / Services experts / Devis fournisseurs / Rendez-vous */}
+        {/* Tabs : Demandes reçues / Services experts (services + rendez-vous) / Devis fournisseurs */}
         <div className="flex gap-1.5 bg-muted/30 rounded-xl p-1 overflow-x-auto">
           {isExpertAccount && (
             <button
@@ -401,7 +403,7 @@ export default function UserMessages() {
           {showExpertServices && (
             <button
               onClick={() => selectTab("services")}
-              className={`flex-1 basis-auto min-w-[8rem] whitespace-nowrap flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer ${
+              className={`flex-1 basis-auto min-w-[8rem] whitespace-nowrap flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer relative ${
                 activeTab === "services"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -409,6 +411,11 @@ export default function UserMessages() {
             >
               <Briefcase className="h-3.5 w-3.5" />
               Services experts
+              {pendingAppointmentsCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
+                  {pendingAppointmentsCount}
+                </span>
+              )}
             </button>
           )}
           {showSupplierQuotes && (
@@ -424,31 +431,12 @@ export default function UserMessages() {
               Devis fournisseurs
             </button>
           )}
-          {/* Mes propres demandes : masqué dans l'espace expert, où les
-              demandes reçues sont l'entrée pertinente. */}
-          {!isExpertAccount && (
-            <button
-              onClick={() => selectTab("appointments")}
-              className={`flex-1 basis-auto min-w-[8rem] whitespace-nowrap flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer relative ${
-                activeTab === "appointments"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <CalendarClock className="h-3.5 w-3.5" />
-              Rendez-vous
-              {pendingAppointmentsCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
-                  {pendingAppointmentsCount}
-                </span>
-              )}
-            </button>
-          )}
         </div>
 
-        {/* ══════════ ONGLET RENDEZ-VOUS (experts ProMarket) ══════════ */}
-        {activeTab === "appointments" && (
+        {/* ══════════ ONGLET SERVICES (demandes de service + rendez-vous) ══════════ */}
+        {activeTab === "services" && (
           <>
+            {/* ── Rendez-vous envoyés aux experts (fusionnés dans les services) ── */}
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <CalendarClock className="h-4 w-4 text-blue-600" />
@@ -1064,11 +1052,11 @@ export default function UserMessages() {
           </>
         )}
 
-        {/* ══════════ ONGLET SERVICES (experts) ══════════ */}
+        {/* ══════════ SERVICES — historique des demandes envoyées ══════════ */}
         {activeTab === "services" && (
           <>
-            {/* Historique des demandes */}
-            <div className="flex items-center gap-2">
+            {/* ── Historique des demandes de service envoyées aux experts ── */}
+            <div className="flex items-center gap-2 pt-2">
               <Send className="h-4 w-4 text-muted-foreground" />
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Historique des demandes</p>
               {unreadExpertCount > 0 && (
