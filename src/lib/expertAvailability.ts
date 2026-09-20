@@ -223,6 +223,9 @@ export function fromDateInputValue(value: string | null | undefined): number | u
   return date.getTime();
 }
 
+/** Heure proposée par défaut dans le formulaire de demande de rendez-vous. */
+export const DEFAULT_APPOINTMENT_TIME = "09:00";
+
 export function isValidTimeValue(value: string | null | undefined): boolean {
   const match = /^(\d{2}):(\d{2})$/.exec((value ?? "").trim());
   if (!match) return false;

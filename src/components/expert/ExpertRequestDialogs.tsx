@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -10,7 +10,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { CalendarClock, Loader2, Send, Zap, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CalendarClock, Check, ChevronDown, Clock, Loader2, Send, Zap, AlertTriangle } from "lucide-react";
 import {
   CUSTOM_APPOINTMENT_REASON,
   appointmentReasonOptions,
@@ -18,6 +19,7 @@ import {
   validateAppointmentDraft,
   toDateInputValue,
   formatSlotLabel,
+  DEFAULT_APPOINTMENT_TIME,
 } from "@/lib/expertAvailability";
 import { SPECIALTY_LABELS } from "./expertProfileOptions";
 
@@ -60,13 +62,208 @@ function useAuthGuard() {
   };
 }
 
+// ── Sélecteur d'heure compact (ouverture au clic, pensé mobile) ─────────────
+
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const MINUTE_OPTIONS = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
+const TIME_PRESETS = ["08:00", "09:00", "10:00", "14:00", "16:00", "18:00"];
+
+/** « HH:MM » normalisé — retombe sur l'heure par défaut si la valeur est invalide. */
+function splitTimeValue(value: string): { hour: string; minute: string } {
+  const match = /^(\d{1,2}):(\d{2})$/.exec((value ?? "").trim());
+  if (!match) return { hour: "09", minute: "00" };
+  return { hour: match[1].padStart(2, "0"), minute: match[2] };
+}
+
+/**
+ * Champ « Heure souhaitée » : au clic, ouvre un sélecteur compact (préréglages +
+ * colonnes heures/minutes défilables) entièrement utilisable au doigt sur mobile.
+ * La valeur reste au format « HH:MM » attendu par `validateAppointmentDraft`.
+ */
+function TimePickerField({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hoursRef = useRef<HTMLDivElement>(null);
+  const minutesRef = useRef<HTMLDivElement>(null);
+  const { hour, minute } = splitTimeValue(value);
+
+  // Fermeture au clic extérieur et sur Échap (sans fermer le dialogue parent).
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [open]);
+
+  // Centre l'heure et la minute sélectionnées dans chaque colonne à l'ouverture.
+  useEffect(() => {
+    if (!open) return;
+    for (const column of [hoursRef.current, minutesRef.current]) {
+      if (!column) continue;
+      const active = column.querySelector<HTMLElement>("[data-selected='true']");
+      if (active) {
+        column.scrollTop = active.offsetTop - column.clientHeight / 2 + active.clientHeight / 2;
+      }
+    }
+  }, [open]);
+
+  const minuteOptions = MINUTE_OPTIONS.includes(minute)
+    ? MINUTE_OPTIONS
+    : [...MINUTE_OPTIONS, minute].sort();
+
+  const select = (nextHour: string, nextMinute: string, close = false) => {
+    onChange(`${nextHour}:${nextMinute}`);
+    if (close) setOpen(false);
+  };
+
+  const optionClass = (selected: boolean) =>
+    cn(
+      "flex min-h-8 w-full items-center justify-center rounded-md px-1 py-1.5 text-[11px] tabular-nums transition-colors touch-manipulation",
+      selected
+        ? "bg-blue-600 font-semibold text-white"
+        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground active:scale-95",
+    );
+
+  return (
+    <div ref={containerRef} className="relative mt-1">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`Heure souhaitée : ${hour}:${minute}`}
+        className="flex h-9 w-full items-center justify-between gap-1.5 rounded-md border border-input bg-transparent px-2.5 text-xs shadow-xs outline-none transition-colors hover:border-primary/40 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:opacity-50"
+      >
+        <span className="flex items-center gap-1.5 tabular-nums">
+          <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          {hour}:{minute}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-xl border bg-popover p-2 text-popover-foreground shadow-lg">
+          <div className="flex flex-wrap gap-1">
+            {TIME_PRESETS.map((preset) => {
+              const active = preset === `${hour}:${minute}`;
+              return (
+                <button
+                  key={preset}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => {
+                    const { hour: h, minute: m } = splitTimeValue(preset);
+                    select(h, m, true);
+                  }}
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px] font-medium tabular-nums transition-all active:scale-95",
+                    active
+                      ? "border-blue-500/50 bg-blue-500/10 text-blue-700"
+                      : "border-border/50 bg-muted/25 text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground",
+                  )}
+                >
+                  {preset}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-2 grid grid-cols-2 gap-1.5">
+            <div className="min-w-0">
+              <p className="mb-1 text-center text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Heure
+              </p>
+              <div
+                ref={hoursRef}
+                className="relative max-h-[168px] overflow-y-auto overscroll-contain rounded-lg border border-border/50 bg-muted/20 p-1"
+              >
+                {HOUR_OPTIONS.map((option) => {
+                  const selected = option === hour;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      data-selected={selected}
+                      aria-pressed={selected}
+                      onClick={() => select(option, minute)}
+                      className={optionClass(selected)}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="min-w-0">
+              <p className="mb-1 text-center text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Minutes
+              </p>
+              <div
+                ref={minutesRef}
+                className="relative max-h-[168px] overflow-y-auto overscroll-contain rounded-lg border border-border/50 bg-muted/20 p-1"
+              >
+                {minuteOptions.map((option) => {
+                  const selected = option === minute;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      data-selected={selected}
+                      aria-pressed={selected}
+                      onClick={() => select(hour, option, true)}
+                      className={optionClass(selected)}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
+            <Check className="h-3 w-3 text-blue-600" />
+            Sélection : {hour}:{minute}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Demande de rendez-vous ──────────────────────────────────────────────────
 
 export function RequestAppointmentDialog({ expert, open, onOpenChange, project }: CommonProps) {
   const ensureAuth = useAuthGuard();
   const requestAppointment = useMutation(api.expertAvailability.requestAppointment);
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("09:00");
+  // Date pré-remplie avec le jour courant ; heure par défaut.
+  const [date, setDate] = useState(() => toDateInputValue(Date.now()));
+  const [time, setTime] = useState(DEFAULT_APPOINTMENT_TIME);
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -99,8 +296,8 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
   };
 
   const reset = () => {
-    setDate("");
-    setTime("09:00");
+    setDate(today);
+    setTime(DEFAULT_APPOINTMENT_TIME);
     setReason("");
     setMessage("");
   };
@@ -164,7 +361,8 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
+          {/* Empilé sur mobile : le sélecteur d'heure dispose ainsi de toute la largeur. */}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div>
               <label className="text-[10px] font-medium text-muted-foreground">Date souhaitée</label>
               <Input
@@ -177,12 +375,7 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
             </div>
             <div>
               <label className="text-[10px] font-medium text-muted-foreground">Heure souhaitée</label>
-              <Input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="h-9 text-xs mt-1"
-              />
+              <TimePickerField value={time} onChange={setTime} disabled={sending} />
             </div>
           </div>
 
