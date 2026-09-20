@@ -18,6 +18,12 @@
  * icône utilisée est exportée ici, et que chaque export pointe vers un module
  * lucide réellement doté d'un export par défaut (une icône absente ou renommée
  * lors d'une montée de version échoue en test au lieu de casser l'aperçu).
+ *
+ * NOTE : ce fichier est chargé une seule fois par session de navigation. Si
+ * l'aperçu affiche « does not provide an export named 'X' » juste après
+ * l'ajout d'une icône ici, la page tourne encore avec l'ancienne version du
+ * module : un rechargement complet (et non une navigation interne) suffit, le
+ * fichier étant servi à jour par le serveur de dev.
  */
 export { default as Activity } from "../../node_modules/lucide-react/dist/esm/icons/activity.js";
 export { default as AlertCircle } from "../../node_modules/lucide-react/dist/esm/icons/alert-circle.js";
