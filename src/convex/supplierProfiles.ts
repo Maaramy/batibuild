@@ -231,6 +231,9 @@ export const getSupplierById = query({
       address: profile.address,
       website: profile.website,
       description: profile.description,
+      // Logo de l'entreprise : indispensable à la fiche publique, et réparé à
+      // la lecture pour les anciennes URL `/api/storage/<id>`.
+      logo: await repairLogoUrl(ctx, profile.logo),
       specialties: profile.specialties,
       regions: profile.regions ?? [],
       specialtiesLabels: profile.specialties.map(

@@ -3,17 +3,15 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useAuth } from "@/hooks/use-auth";
-import { useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { StarRating } from "@/components/StarRating";
 import {
-  ArrowLeft, Building2, MapPin, Phone, Mail, Globe, Briefcase, Loader2,
-  CalendarClock, Zap, Banknote,
+  Banknote, Briefcase, CalendarClock, Globe, Layers, Loader2, Mail, MapPin,
+  Phone, Star, UserRound, Zap,
 } from "lucide-react";
-import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
+import { SPECIALTY_LABELS } from "@/components/expert/expertProfileOptions";
 import {
   RequestAppointmentDialog,
   RequestUrgentDialog,
@@ -26,24 +24,43 @@ import {
   isContactHidden,
   showsAvailabilityBadge,
 } from "@/lib/expertAvailability";
-import { useState } from "react";
+import {
+  ContactRow,
+  EmptyHint,
+  InfoChip,
+  InfoTile,
+  ProfileActionBar,
+  ProfileHeader,
+  ProfileHero,
+  ProfileSection,
+  ProviderAvatar,
+} from "@/components/profile/ProviderProfileUI";
+import { regionLabel } from "@/lib/providerRegions";
 import { toast } from "sonner";
 
-const REGION_LABELS: Record<string, string> = {
-  tunis: "Tunis", ariana: "Ariana", ben_arous: "Ben Arous", manouba: "Manouba",
-  nabeul: "Nabeul", bizerte: "Bizerte", sousse: "Sousse", monastir: "Monastir",
-  mahdia: "Mahdia", sfax: "Sfax", gabes: "Gabès", medenine: "Médenine",
-  tozeur: "Tozeur", kebili: "Kébili", gafsa: "Gafsa", sidi_bouzid: "Sidi Bouzid",
-  kasserine: "Kasserine", le_kef: "Le Kef", jendouba: "Jendouba", beja: "Béja",
-  siliana: "Siliana", zaghouan: "Zaghouan", tataouine: "Tataouine",
-};
+// ============================================================================
+// FICHE PUBLIQUE EXPERT (ProMarket)
+//
+// Mise en page mobile-first partagée avec la fiche fournisseur
+// (`ProviderProfileUI`) : identité → informations clés en 2 colonnes → sections
+// détaillées → actions accessibles au pouce. Aucune logique métier modifiée :
+// prix indicatifs, disponibilité, urgences, rendez-vous (masquage du contact
+// après approbation) et notation restent inchangés.
+// ============================================================================
 
 const PROFESSION_LABELS: Record<string, string> = {
   architecte: "Architecte",
   bureau_etudes: "Bureau d'études",
   ingenieur: "Ingénieur",
   promoteur_immobilier: "Promoteur immobilier",
+  plombier: "Plombier",
+  electricien: "Électricien",
 };
+
+/** Libellé de spécialité expert, avec repli sur la clé brute. */
+function specialtyLabel(value: string): string {
+  return SPECIALTY_LABELS[value] ?? value;
+}
 
 export default function ExpertProfile() {
   const { id } = useParams<{ id: string }>();
@@ -88,7 +105,13 @@ export default function ExpertProfile() {
   });
 
   if (!id) return <main className="p-6 text-center text-muted-foreground">Identifiant manquant.</main>;
-  if (expert === undefined) return <main className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></main>;
+  if (expert === undefined) {
+    return (
+      <main className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </main>
+    );
+  }
   if (!expert) return <main className="p-6 text-center text-muted-foreground">Expert introuvable.</main>;
 
   // ── ProMarket : prix indicatifs, disponibilité et urgences ──
@@ -101,6 +124,10 @@ export default function ExpertProfile() {
   const bookable = isBookable(profile.availability);
   const acceptsUrgent = profile.acceptsUrgent === true;
   const showContactButton = !isContactHidden(id, approvedExpertIds);
+  const availabilityText = bookable
+    ? "Sur rendez-vous"
+    : availability?.short ?? "Non précisée";
+  const zones = (profile.regions ?? []) as string[];
 
   const requireAuth = (action: () => void) => {
     if (!user) {
@@ -110,226 +137,285 @@ export default function ExpertProfile() {
     action();
   };
 
+  const hasActions = bookable || acceptsUrgent || (showContactButton && !!profile.phone);
+
   return (
-    <main className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-muted/50 transition-colors">
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold tracking-tight truncate">{expert.displayName}</h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <Badge variant="outline" className="text-[10px]">{PROFESSION_LABELS[expert.profession] ?? expert.profession}</Badge>
-              {avg && avg.count > 0 && <StarRating value={avg.avg} count={avg.count} size="xs" />}
-            </div>
+    <main className="min-h-screen bg-gradient-to-b from-primary/[0.04] via-background to-background">
+      <ProfileHeader
+        title="Profil expert"
+        subtitle={PROFESSION_LABELS[profile.profession] ?? profile.profession}
+        onBack={() => navigate(-1)}
+        right={
+          <ProviderAvatar
+            name={profile.displayName}
+            logo={profile.logo}
+            kind="expert"
+            size="xs"
+          />
+        }
+      />
+
+      <div className="mx-auto w-full max-w-3xl px-4 pb-6 pt-3 sm:px-6 sm:pb-10">
+        <div className="space-y-3 sm:space-y-4">
+          {/* ── Identité : logo à gauche, nom / métier / note à droite ── */}
+          <ProfileHero
+            kind="expert"
+            name={profile.displayName}
+            logo={profile.logo}
+            typeLabel={PROFESSION_LABELS[profile.profession] ?? profile.profession}
+            subtitle={profile.companyName}
+            rating={<StarRating value={avg?.avg ?? 0} count={avg?.count} size="xs" />}
+            chips={
+              <>
+                {(zones.length > 0 || profile.address) && (
+                  <InfoChip icon={MapPin}>
+                    {zones.length > 0 ? regionLabel(zones[0]) : profile.address}
+                  </InfoChip>
+                )}
+                {profile.specialties.length > 0 && (
+                  <InfoChip icon={Layers}>
+                    {profile.specialties.length} spécialité
+                    {profile.specialties.length > 1 ? "s" : ""}
+                  </InfoChip>
+                )}
+                {acceptsUrgent && (
+                  <InfoChip icon={Zap}>Urgences acceptées</InfoChip>
+                )}
+              </>
+            }
+          />
+
+          {/* ── Informations clés : 2 colonnes sur mobile ── */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <InfoTile
+              icon={Banknote}
+              label="Prix indicatifs"
+              value={price ?? "Sur devis"}
+              tone="emerald"
+            />
+            <InfoTile
+              icon={CalendarClock}
+              label="Disponibilité"
+              value={availabilityText}
+              tone="blue"
+            />
+            <InfoTile
+              icon={MapPin}
+              label="Localisation"
+              value={profile.address ?? (zones[0] ? regionLabel(zones[0]) : "Tunisie")}
+            />
+            <InfoTile
+              icon={Star}
+              label="Note clients"
+              value={avg && avg.count > 0 ? `${avg.avg}/5` : "Aucun avis"}
+              tone="amber"
+            />
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 shrink-0">
-            <Building2 className="h-5 w-5" />
-          </div>
-        </div>
 
-        {/* Company */}
-        {expert.companyName && (
-          <Card className="border-border/40">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground"><Briefcase className="inline h-3 w-3 mr-1" />{expert.companyName}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Description */}
-        {expert.description && (
-          <Card className="border-border/40">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground leading-relaxed">{expert.description}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Prix indicatifs & disponibilité (ProMarket) */}
-        {(price || availability) && (
-          <Card className="border-border/40">
-            <CardHeader className="pb-2 px-4 py-3">
-              <CardTitle className="text-sm">Prix & disponibilité</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 space-y-2">
-              {price && (
-                <div className="flex items-center gap-2">
-                  <Banknote className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                  <span className="text-xs">Prix indicatifs :</span>
-                  <b className="text-xs">{price}</b>
-                </div>
+          {/* ── Actions principales (accessibles au pouce sur mobile) ── */}
+          {hasActions && (
+            <ProfileActionBar>
+              {bookable && (
+                <Button
+                  className="h-10 gap-1.5 text-xs bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={() => requireAuth(() => setAppointmentOpen(true))}
+                >
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  Rendez-vous
+                </Button>
               )}
-              {availability && (
-                <div className="space-y-1">
-                  <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${availability.chip}`}>
-                    Disponibilité : <span aria-hidden>{availability.emoji}</span> {availability.short}
-                  </div>
-                  {bookable && profile.availabilityDetails && (
-                    <p className="whitespace-pre-line text-[11px] text-muted-foreground">
-                      {profile.availabilityDetails}
-                    </p>
-                  )}
-                </div>
+              {acceptsUrgent && (
+                <Button
+                  className="h-10 gap-1.5 text-xs bg-amber-600 text-white hover:bg-amber-700"
+                  onClick={() => requireAuth(() => setUrgentOpen(true))}
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  Urgence
+                </Button>
               )}
+              {showContactButton && profile.phone && (
+                <Button
+                  variant="outline"
+                  className="h-10 gap-1.5 text-xs"
+                  onClick={() => {
+                    window.location.href = `tel:${profile.phone}`;
+                  }}
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  Contacter
+                </Button>
+              )}
+            </ProfileActionBar>
+          )}
 
-            </CardContent>
-          </Card>
-        )}
+          {profile.description && (
+            <ProfileSection icon={UserRound} title="Présentation">
+              <p className="whitespace-pre-line text-[12px] leading-relaxed text-muted-foreground">
+                {profile.description}
+              </p>
+            </ProfileSection>
+          )}
 
-        {/* Specialties */}
-        <Card className="border-border/40">
-          <CardHeader className="pb-2 px-4 py-3">
-            <CardTitle className="text-sm">Spécialités</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="flex flex-wrap gap-1.5">
-              {expert.specialties.map((sp: string) => (
-                <Badge key={sp} variant="secondary" className="text-[10px]">
-                  {SUPPLIER_SPECIALTIES_LABELS[sp as keyof typeof SUPPLIER_SPECIALTIES_LABELS] ?? sp}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+          {bookable && profile.availabilityDetails && (
+            <ProfileSection icon={CalendarClock} title="Disponibilités indiquées">
+              <p className="whitespace-pre-line text-[12px] leading-relaxed text-muted-foreground">
+                {profile.availabilityDetails}
+              </p>
+            </ProfileSection>
+          )}
 
-        {/* Regions */}
-        {expert.regions && expert.regions.length > 0 && (
-          <Card className="border-border/40">
-            <CardHeader className="pb-2 px-4 py-3">
-              <CardTitle className="text-sm">Zones de couverture</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
+          <ProfileSection
+            icon={Layers}
+            title="Spécialités & services"
+            hint={`${profile.specialties.length}`}
+          >
+            {profile.specialties.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
-                {expert.regions.map((r: string) => (
-                  <Badge key={r} variant="outline" className="text-[10px] gap-1">
-                    <MapPin className="h-2.5 w-2.5" />{REGION_LABELS[r] ?? r}
-                  </Badge>
+                {profile.specialties.map((sp: string) => (
+                  <InfoChip key={sp}>{specialtyLabel(sp)}</InfoChip>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Contact */}
-        <Card className="border-border/40">
-          <CardHeader className="pb-2 px-4 py-3">
-            <CardTitle className="text-sm">Contact</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2">
-            {expert.phone && (
-              <a href={`tel:${expert.phone}`} className="flex items-center gap-2 text-xs hover:text-amber-600 transition-colors">
-                <Phone className="h-3.5 w-3.5 shrink-0" />{expert.phone}
-              </a>
+            ) : (
+              <EmptyHint>Aucune spécialité renseignée.</EmptyHint>
             )}
-            {expert.email && (
-              <a href={`mailto:${expert.email}`} className="flex items-center gap-2 text-xs hover:text-amber-600 transition-colors">
-                <Mail className="h-3.5 w-3.5 shrink-0" />{expert.email}
-              </a>
-            )}
-            {expert.website && (
-              <a href={expert.website.startsWith("http") ? expert.website : `https://${expert.website}`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs hover:text-amber-600 transition-colors">
-                <Globe className="h-3.5 w-3.5 shrink-0" />{expert.website}
-              </a>
-            )}
-          </CardContent>
-        </Card>
+          </ProfileSection>
 
-        {/* Action buttons */}
-        <div className="flex flex-wrap gap-2">
-          {bookable && (
-            <Button
-              className="flex-1 gap-1.5 text-xs bg-blue-600 hover:bg-blue-700"
-              onClick={() => requireAuth(() => setAppointmentOpen(true))}
-            >
-              <CalendarClock className="h-3.5 w-3.5" /> Demander un rendez-vous
-            </Button>
+          {zones.length > 0 && (
+            <ProfileSection icon={MapPin} title="Zones d'intervention" hint={`${zones.length}`}>
+              <div className="flex flex-wrap gap-1.5">
+                {zones.map((r: string) => (
+                  <InfoChip key={r} icon={MapPin}>
+                    {regionLabel(r)}
+                  </InfoChip>
+                ))}
+              </div>
+            </ProfileSection>
           )}
-          {acceptsUrgent && (
-            <Button
-              className="flex-1 gap-1.5 text-xs bg-amber-600 hover:bg-amber-700"
-              onClick={() => requireAuth(() => setUrgentOpen(true))}
-            >
-              <Zap className="h-3.5 w-3.5" /> Demande urgente
-            </Button>
-          )}
-          <Button variant="outline" className="flex-1 gap-1.5 text-xs" onClick={() => {
-            requireAuth(() => { setRatingOpen(true); setMyRating(0); });
-          }}>
-            ⭐ Noter cet expert
-          </Button>
-          {showContactButton && (
-            <Button variant="outline" className="flex-1 gap-1.5 text-xs"
-              onClick={() => {
-                if (expert.phone) window.location.href = `tel:${expert.phone}`;
-              }}>
-              <Phone className="h-3.5 w-3.5" /> Contacter
-            </Button>
-          )}
-        </div>
 
-        {/* Ratings list */}
-        {ratings && ratings.length > 0 && (
-          <Card className="border-border/40">
-            <CardHeader className="pb-2 px-4 py-3">
-              <CardTitle className="text-sm">Avis clients ({ratings.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 space-y-2">
-              {ratings.map((r) => (
-                <div key={r._id} className="rounded-lg border border-border/30 px-3 py-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium">{r.userName}</span>
-                    <StarRating value={r.rating} size="xs" />
-                  </div>
-                  {r.comment && <p className="text-[10px] text-muted-foreground mt-1">{r.comment}</p>}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Rating Dialog */}
-        <Dialog open={ratingOpen} onOpenChange={(o) => { if (!o) setRatingOpen(false); }}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="text-sm">Noter {expert.displayName}</DialogTitle>
-              <DialogDescription className="text-[11px]">Votre note aide les autres clients.</DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col items-center gap-3 pt-2">
-              <StarRating value={myRating} size="md" interactive onChange={setMyRating} />
-              <Button className="w-full gap-1.5 text-xs" disabled={sending || myRating === 0}
-                onClick={async () => {
-                  setSending(true);
-                  try {
-                    await rateExpert({ expertId: id as any, rating: myRating });
-                    toast.success(`Note ${myRating}/5 enregistrée !`);
-                    setRatingOpen(false);
-                  } catch (err: any) { toast.error(err?.message ?? "Erreur"); }
-                  finally { setSending(false); }
-                }}>
-                {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                Enregistrer
-              </Button>
+          <ProfileSection icon={Phone} title="Contact">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {profile.phone && (
+                <ContactRow icon={Phone} href={`tel:${profile.phone}`}>
+                  {profile.phone}
+                </ContactRow>
+              )}
+              {profile.email && (
+                <ContactRow icon={Mail} href={`mailto:${profile.email}`}>
+                  {profile.email}
+                </ContactRow>
+              )}
+              {profile.website && (
+                <ContactRow
+                  icon={Globe}
+                  href={
+                    profile.website.startsWith("http")
+                      ? profile.website
+                      : `https://${profile.website}`
+                  }
+                  external
+                >
+                  {profile.website}
+                </ContactRow>
+              )}
+              {profile.companyName && (
+                <ContactRow icon={Briefcase}>{profile.companyName}</ContactRow>
+              )}
+              {profile.address && (
+                <ContactRow icon={MapPin}>{profile.address}</ContactRow>
+              )}
+              {!profile.phone && !profile.email && !profile.website && !profile.address && (
+                <EmptyHint>Aucune information de contact publiée.</EmptyHint>
+              )}
             </div>
-          </DialogContent>
-        </Dialog>
+          </ProfileSection>
 
-        {/* ProMarket : demandes de rendez-vous et d'intervention urgente */}
-        <RequestAppointmentDialog
-          expert={expert}
-          open={appointmentOpen}
-          onOpenChange={setAppointmentOpen}
-        />
-        <RequestUrgentDialog
-          expert={expert}
-          open={urgentOpen}
-          onOpenChange={setUrgentOpen}
-        />
+          <ProfileSection
+            icon={Star}
+            title="Avis clients"
+            hint={ratings && ratings.length > 0 ? `${ratings.length}` : undefined}
+            action={
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 shrink-0 gap-1 px-2 text-[10px]"
+                onClick={() => requireAuth(() => { setRatingOpen(true); setMyRating(0); })}
+              >
+                <Star className="h-3 w-3" />
+                Noter
+              </Button>
+            }
+          >
+            {ratings && ratings.length > 0 ? (
+              <div className="space-y-2">
+                {ratings.map((r) => (
+                  <div key={r._id} className="rounded-xl border border-border/40 bg-background/60 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate text-[11px] font-medium">{r.userName}</span>
+                      <StarRating value={r.rating} size="xs" />
+                    </div>
+                    {r.comment && (
+                      <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{r.comment}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyHint>
+                Aucun avis pour le moment — soyez le premier à partager votre expérience.
+              </EmptyHint>
+            )}
+          </ProfileSection>
+
+          <p className="px-1 pt-1 text-center text-[10px] leading-snug text-muted-foreground/70">
+            Les informations publiées par le professionnel sont indicatives et ne
+            constituent pas un engagement contractuel.
+          </p>
+        </div>
       </div>
+
+      {/* Rating Dialog */}
+      <Dialog open={ratingOpen} onOpenChange={(o) => { if (!o) setRatingOpen(false); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Noter {profile.displayName}</DialogTitle>
+            <DialogDescription className="text-[11px]">Votre note aide les autres clients.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 pt-2">
+            <StarRating value={myRating} size="md" interactive onChange={setMyRating} />
+            <Button
+              className="w-full gap-1.5 text-xs"
+              disabled={sending || myRating === 0}
+              onClick={async () => {
+                setSending(true);
+                try {
+                  await rateExpert({ expertId: id as any, rating: myRating });
+                  toast.success(`Note ${myRating}/5 enregistrée !`);
+                  setRatingOpen(false);
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Erreur");
+                } finally {
+                  setSending(false);
+                }
+              }}
+            >
+              {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Enregistrer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ProMarket : demandes de rendez-vous et d'intervention urgente */}
+      <RequestAppointmentDialog
+        expert={expert}
+        open={appointmentOpen}
+        onOpenChange={setAppointmentOpen}
+      />
+      <RequestUrgentDialog
+        expert={expert}
+        open={urgentOpen}
+        onOpenChange={setUrgentOpen}
+      />
     </main>
   );
 }

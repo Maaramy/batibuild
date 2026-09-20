@@ -207,7 +207,8 @@ export const getExpertById = query({
       profession: profile.profession,
       specialties: profile.specialties,
       regions: profile.regions ?? [],
-      logo: profile.logo,
+      // Logo réparé à la lecture (anciennes URL `/api/storage/<id>`).
+      logo: await repairLogoUrl(ctx, profile.logo),
       // ProMarket : prix indicatifs, disponibilité, urgences
       indicativePrice: profile.indicativePrice,
       availability: profile.availability,
