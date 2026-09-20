@@ -182,6 +182,7 @@ export { default as Pencil } from "../../node_modules/lucide-react/dist/esm/icon
 export { default as PencilRuler } from "../../node_modules/lucide-react/dist/esm/icons/pencil-ruler.js";
 export { default as Percent } from "../../node_modules/lucide-react/dist/esm/icons/percent.js";
 export { default as Phone } from "../../node_modules/lucide-react/dist/esm/icons/phone.js";
+export { default as PhoneCall } from "../../node_modules/lucide-react/dist/esm/icons/phone-call.js";
 export { default as PieChart } from "../../node_modules/lucide-react/dist/esm/icons/pie-chart.js";
 export { default as PiggyBank } from "../../node_modules/lucide-react/dist/esm/icons/piggy-bank.js";
 export { default as Plug } from "../../node_modules/lucide-react/dist/esm/icons/plug.js";

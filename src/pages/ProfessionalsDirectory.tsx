@@ -116,6 +116,8 @@ export default function ProfessionalsDirectory() {
   });
   const [sendingDevis, setSendingDevis] = useState(false);
   const createServiceRequest = useMutation(api.expertServiceRequests.create);
+  // Suivi statistique : ouverture d'une fiche depuis l'annuaire (clic).
+  const recordExpertEvent = useMutation(api.expertStats.recordExpertEvent);
 
   const availableProfessions = useMemo(() => {
     if (!experts) return [];
@@ -409,6 +411,13 @@ export default function ProfessionalsDirectory() {
                       {!isContactHidden(e._id, approvedExpertIds) && (
                         <a
                           href={e.phone ? `tel:${e.phone}` : undefined}
+                          onClick={() => {
+                            recordExpertEvent({
+                              expertId: e._id,
+                              eventType: "contact",
+                              source: "search",
+                            }).catch(() => {});
+                          }}
                           className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-border/40 bg-background px-2 py-2 text-[10px] font-medium text-foreground transition-colors hover:bg-muted/50"
                         >
                           <Phone className="h-3 w-3" /> Contacter
@@ -456,7 +465,14 @@ export default function ProfessionalsDirectory() {
                       </button>
                     </div>
                     <button
-                      onClick={() => navigate(`/dashboard/expert-profile/${e._id}`)}
+                      onClick={() => {
+                        recordExpertEvent({
+                          expertId: e._id,
+                          eventType: "click",
+                          source: "search",
+                        }).catch(() => {});
+                        navigate(`/dashboard/expert-profile/${e._id}`);
+                      }}
                       className="mt-1.5 flex w-full items-center justify-center rounded-xl bg-muted py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/70 cursor-pointer"
                     >
                       Voir profil

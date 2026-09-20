@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useAuth } from "@/hooks/use-auth";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { StarRating } from "@/components/StarRating";
@@ -36,6 +36,7 @@ import {
   ProviderAvatar,
 } from "@/components/profile/ProviderProfileUI";
 import { regionLabel } from "@/lib/providerRegions";
+import { currentEventSource } from "@/lib/analyticsSource";
 import { toast } from "sonner";
 
 // ============================================================================
@@ -90,14 +91,31 @@ export default function ExpertProfile() {
   const rateExpert = useMutation(api.ratings.rateExpert);
   const recordEvent = useMutation(api.expertStats.recordExpertEvent);
   const viewRecorded = useRef(false);
+  // Source de la visite (annuaire interne, moteur de recherche, réseau social…),
+  // évaluée une seule fois : alimente le graphique « Sources de trafic ».
+  const sourceRef = useRef(currentEventSource());
 
   // Track profile view (once per page load)
   useEffect(() => {
     if (expert && id && !viewRecorded.current) {
       viewRecorded.current = true;
-      recordEvent({ expertId: id as any, eventType: "view" }).catch(() => {});
+      recordEvent({
+        expertId: id as any,
+        eventType: "view",
+        source: sourceRef.current,
+      }).catch(() => {});
     }
   }, [expert, id, recordEvent]);
+
+  // Contact engagé depuis la fiche (appel, e-mail) : compté une fois par clic.
+  const trackContact = useCallback(() => {
+    if (!id) return;
+    recordEvent({
+      expertId: id as any,
+      eventType: "contact",
+      source: sourceRef.current,
+    }).catch(() => {});
+  }, [id, recordEvent]);
 
   usePageSEO({
     title: expert ? `${expert.displayName} — Expert` : "Profil Expert",
@@ -238,6 +256,7 @@ export default function ExpertProfile() {
                   variant="outline"
                   className="h-10 gap-1.5 text-xs"
                   onClick={() => {
+                    trackContact();
                     window.location.href = `tel:${profile.phone}`;
                   }}
                 >
@@ -295,12 +314,12 @@ export default function ExpertProfile() {
           <ProfileSection icon={Phone} title="Contact">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {profile.phone && (
-                <ContactRow icon={Phone} href={`tel:${profile.phone}`}>
+                <ContactRow icon={Phone} href={`tel:${profile.phone}`} onActivate={trackContact}>
                   {profile.phone}
                 </ContactRow>
               )}
               {profile.email && (
-                <ContactRow icon={Mail} href={`mailto:${profile.email}`}>
+                <ContactRow icon={Mail} href={`mailto:${profile.email}`} onActivate={trackContact}>
                   {profile.email}
                 </ContactRow>
               )}

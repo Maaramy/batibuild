@@ -270,4 +270,487 @@ describe("expertStats — getExpertKPIs", () => {
     expect(kpis30d.views).toBe(1); // only recent
     expect(kpis90d.views).toBe(2); // both
   });
+
+  it("expose le détail performance (clics, contacts, rendez-vous, urgences)", async () => {
+    const userId = await createUser(t);
+    const expertId = await createExpertProfile(t, userId);
+    const clientId = await createUser(t, { email: "client@test.com" });
+
+    await t.run(async (ctx) => {
+      // 4 vues, 2 clics, 1 contact
+      for (const eventType of [
+        "view",
+        "view",
+        "view",
+        "view",
+        "click",
+        "click",
+        "contact",
+      ] as const) {
+        await ctx.db.insert("expertAnalytics", {
+          expertId: expertId as any,
+          date: Date.now(),
+          eventType,
+        });
+      }
+      // 1 demande en attente
+      await ctx.db.insert("expertServiceRequests", {
+        userId: clientId as any,
+        expertId: expertId as any,
+        requestType: "devis",
+        serviceType: "devis",
+        description: "Demande",
+        userPhone: "+216 99 000 000",
+        userEmail: "client@test.com",
+        userName: "Client Test",
+        status: "pending",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      // 2 rendez-vous dont 1 confirmé, 1 urgence acceptée
+      const now = Date.now();
+      await ctx.db.insert("expertAppointments", {
+        userId: clientId as any,
+        expertId: expertId as any,
+        preferredDate: now,
+        preferredTime: "09:00",
+        reason: "Visite",
+        status: "approved",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.insert("expertAppointments", {
+        userId: clientId as any,
+        expertId: expertId as any,
+        preferredDate: now,
+        preferredTime: "10:00",
+        reason: "Devis",
+        status: "pending",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.insert("expertUrgentRequests", {
+        userId: clientId as any,
+        expertId: expertId as any,
+        description: "Fuite importante",
+        region: "beja",
+        userPhone: "+216 99 000 000",
+        status: "accepted",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.insert("expertRatings", {
+        expertId: expertId as any,
+        userId: clientId as any,
+        rating: 5,
+        createdAt: now,
+      });
+    });
+
+    const kpis = (await asUser(t, userId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertKPIs, { period: "30d" });
+    }))!;
+
+    expect(kpis.views).toBe(4);
+    expect(kpis.clicks).toBe(2);
+    expect(kpis.contacts).toBe(1);
+    expect(kpis.contactRate).toBe(25); // 1 contact / 4 vues
+    expect(kpis.pendingRequests).toBe(1);
+    expect(kpis.appointments).toBe(2);
+    expect(kpis.appointmentsApproved).toBe(1);
+    expect(kpis.appointmentsPending).toBe(1);
+    expect(kpis.urgentRequests).toBe(1);
+    expect(kpis.urgentAccepted).toBe(1);
+    expect(kpis.avgRating).toBe(5);
+    expect(kpis.totalRatings).toBe(1);
+  });
+});
+
+// ============================================================================
+// Séries, répartitions et lecture de l'activité
+// ============================================================================
+
+describe("expertStats — séries et répartitions", () => {
+  const t = convexTest({ schema, modules });
+
+  it("getExpertViewsOverTime renvoie une série journalière continue", async () => {
+    const userId = await createUser(t);
+    const expertId = await createExpertProfile(t, userId);
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("expertAnalytics", {
+        expertId: expertId as any,
+        date: now,
+        eventType: "view",
+      });
+      await ctx.db.insert("expertAnalytics", {
+        expertId: expertId as any,
+        date: now,
+        eventType: "contact",
+      });
+      // Hors période : jamais compté sur 7 jours
+      await ctx.db.insert("expertAnalytics", {
+        expertId: expertId as any,
+        date: now - 60 * 24 * 60 * 60 * 1000,
+        eventType: "view",
+      });
+    });
+
+    const series = await asUser(t, userId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertViewsOverTime, {
+        period: "7d",
+      });
+    });
+
+    // 8 jours de série (aujourd'hui compris), dont les jours vides à 0
+    expect(series.length).toBeGreaterThanOrEqual(7);
+    expect(series.every((d) => typeof d.views === "number")).toBe(true);
+
+    const today = series[series.length - 1];
+    expect(today.views).toBe(1);
+    expect(today.contacts).toBe(1);
+
+    const totalViews = series.reduce((s, d) => s + d.views, 0);
+    expect(totalViews).toBe(1); // l'événement de 60 jours est exclu
+  });
+
+  it("getExpertTrafficSources regroupe les visites par source", async () => {
+    const userId = await createUser(t);
+    const expertId = await createExpertProfile(t, userId);
+
+    await t.run(async (ctx) => {
+      for (const source of ["search", "search", "social"] as const) {
+        await ctx.db.insert("expertAnalytics", {
+          expertId: expertId as any,
+          date: Date.now(),
+          eventType: "view",
+          source,
+        });
+      }
+      await ctx.db.insert("expertAnalytics", {
+        expertId: expertId as any,
+        date: Date.now(),
+        eventType: "view",
+      });
+    });
+
+    const sources = await asUser(t, userId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertTrafficSources, {
+        period: "30d",
+      });
+    });
+
+    expect(sources[0]).toEqual({ name: "search", value: 2 });
+    expect(sources).toContainEqual({ name: "social", value: 1 });
+    // Sans source explicite, l'événement est classé « other »
+    expect(sources).toContainEqual({ name: "other", value: 1 });
+  });
+
+  it("getExpertDemandBreakdown sépare devis, services, rendez-vous et urgences", async () => {
+    const userId = await createUser(t);
+    const expertId = await createExpertProfile(t, userId);
+    const clientId = await createUser(t, { email: "client2@test.com" });
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      for (const requestType of ["devis", "service", "service"] as const) {
+        await ctx.db.insert("expertServiceRequests", {
+          userId: clientId as any,
+          expertId: expertId as any,
+          requestType,
+          serviceType: requestType,
+          description: "Demande",
+          userPhone: "+216 99 000 000",
+          userEmail: "client2@test.com",
+          userName: "Client",
+          status: "pending",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+      await ctx.db.insert("expertAppointments", {
+        userId: clientId as any,
+        expertId: expertId as any,
+        preferredDate: now,
+        preferredTime: "09:00",
+        reason: "Visite",
+        status: "pending",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.insert("expertUrgentRequests", {
+        userId: clientId as any,
+        expertId: expertId as any,
+        description: "Urgence",
+        userPhone: "+216 99 000 000",
+        status: "pending",
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    const breakdown = await asUser(t, userId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertDemandBreakdown, {
+        period: "30d",
+      });
+    });
+
+    expect(breakdown).toEqual([
+      { name: "Devis", value: 1 },
+      { name: "Services experts", value: 2 },
+      { name: "Rendez-vous", value: 1 },
+      { name: "Urgences", value: 1 },
+    ]);
+  });
+
+  it("getExpertRegions classe les régions par volume de demandes", async () => {
+    const userId = await createUser(t);
+    const expertId = await createExpertProfile(t, userId);
+    const clientId = await createUser(t, { email: "client3@test.com" });
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      for (const region of ["beja", "beja", "tunis"] as const) {
+        await ctx.db.insert("expertServiceRequests", {
+          userId: clientId as any,
+          expertId: expertId as any,
+          requestType: "devis",
+          serviceType: "devis",
+          description: "Demande",
+          region,
+          userPhone: "+216 99 000 000",
+          userEmail: "client3@test.com",
+          userName: "Client",
+          status: "pending",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+      // Sans région : ignorée
+      await ctx.db.insert("expertUrgentRequests", {
+        userId: clientId as any,
+        expertId: expertId as any,
+        description: "Urgence sans région",
+        userPhone: "+216 99 000 000",
+        status: "pending",
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    const regions = await asUser(t, userId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertRegions, { period: "30d" });
+    });
+
+    expect(regions).toEqual([
+      { name: "beja", value: 2 },
+      { name: "tunis", value: 1 },
+    ]);
+  });
+
+  it("getExpertDemandTable calcule demandes, réponses, taux et en attente", async () => {
+    const userId = await createUser(t);
+    const expertId = await createExpertProfile(t, userId);
+    const clientId = await createUser(t, { email: "client4@test.com" });
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      const requestIds: any[] = [];
+      for (const status of ["pending", "responded", "pending"] as const) {
+        requestIds.push(
+          await ctx.db.insert("expertServiceRequests", {
+            userId: clientId as any,
+            expertId: expertId as any,
+            requestType: "devis",
+            serviceType: "devis",
+            description: "Demande",
+            userPhone: "+216 99 000 000",
+            userEmail: "client4@test.com",
+            userName: "Client",
+            status,
+            createdAt: now,
+            updatedAt: now,
+          }),
+        );
+      }
+      await ctx.db.insert("expertServiceResponses", {
+        serviceRequestId: requestIds[1],
+        expertId: expertId as any,
+        userId: clientId as any,
+        message: "Voici mon offre",
+        createdAt: now,
+      });
+    });
+
+    const table = await asUser(t, userId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertDemandTable, {
+        period: "30d",
+      });
+    });
+
+    const devisRow = table.find((r) => r.key === "devis")!;
+    expect(devisRow.requests).toBe(3);
+    expect(devisRow.responses).toBe(1);
+    expect(devisRow.rate).toBe(33); // 1/3
+    expect(devisRow.pending).toBe(2);
+    expect(devisRow.lastAt).toBeGreaterThan(0);
+
+    // Les types sans demande restent présents mais à zéro
+    expect(table.find((r) => r.key === "urgent")!.requests).toBe(0);
+  });
+
+  it("getExpertRecentActivity fusionne et trie les interactions", async () => {
+    const userId = await createUser(t);
+    const expertId = await createExpertProfile(t, userId);
+    const clientId = await createUser(t, { email: "client5@test.com" });
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("expertServiceRequests", {
+        userId: clientId as any,
+        expertId: expertId as any,
+        requestType: "devis",
+        serviceType: "devis",
+        description: "Devis plomberie",
+        userPhone: "+216 99 000 000",
+        userEmail: "client5@test.com",
+        userName: "Amine",
+        status: "pending",
+        createdAt: now - 2 * 24 * 60 * 60 * 1000,
+        updatedAt: now,
+      });
+      await ctx.db.insert("expertAppointments", {
+        userId: clientId as any,
+        expertId: expertId as any,
+        preferredDate: now,
+        preferredTime: "09:00",
+        reason: "Visite de chantier",
+        userName: "Sonia",
+        status: "approved",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.insert("expertRatings", {
+        expertId: expertId as any,
+        userId: clientId as any,
+        rating: 4,
+        comment: "Travail soigné",
+        createdAt: now - 20 * 24 * 60 * 60 * 1000,
+      });
+    });
+
+    const activity = await asUser(t, userId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertRecentActivity, {
+        period: "30d",
+      });
+    });
+
+    expect(activity.length).toBe(3);
+    // Plus récente en premier
+    expect(activity[0].kind).toBe("appointment");
+    expect(activity[0].title).toBe("Sonia");
+    expect(activity.map((a) => a.kind)).toContain("rating");
+    const rating = activity.find((a) => a.kind === "rating")!;
+    expect(rating.subtitle).toBe("Travail soigné");
+
+    // Hors période
+    const shortActivity = await asUser(t, userId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertRecentActivity, {
+        period: "7d",
+      });
+    });
+    expect(shortActivity.map((a) => a.kind)).not.toContain("rating");
+  });
+});
+
+// ============================================================================
+// Visibilité et complétude du profil
+// ============================================================================
+
+describe("expertStats — visibilité et complétude", () => {
+  const t = convexTest({ schema, modules });
+
+  it("getExpertVisibility classe le profil parmi les experts visibles du même métier", async () => {
+    const myUserId = await createUser(t, { email: "moi@test.com" });
+    const myExpertId = await createExpertProfile(t, myUserId);
+    const peerUserId = await createUser(t, { email: "peer@test.com" });
+    const peerExpertId = await createExpertProfile(t, peerUserId);
+    const hiddenUserId = await createUser(t, { email: "hidden@test.com" });
+    const hiddenExpertId = await createExpertProfile(t, hiddenUserId);
+    const clientId = await createUser(t, { email: "client6@test.com" });
+
+    await t.run(async (ctx) => {
+      // Le pair est mieux noté → il passe devant
+      await ctx.db.insert("expertRatings", {
+        expertId: peerExpertId as any,
+        userId: clientId as any,
+        rating: 5,
+        createdAt: Date.now(),
+      });
+      // Un profil masqué est exclu du classement
+      await ctx.db.patch(hiddenExpertId, { isVisible: false });
+    });
+
+    const visibility = (await asUser(t, myUserId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertVisibility, {});
+    }))!;
+
+    expect(visibility.total).toBe(2); // le profil masqué n'est pas compté
+    expect(visibility.rank).toBe(2);
+    expect(visibility.isVisible).toBe(true);
+    expect(visibility.profession).toBe("architecte");
+
+    // Aucun profil → réponse nulle, pas d'erreur
+    const otherUser = await createUser(t, { email: "sans-profil@test.com" });
+    const none = await asUser(t, otherUser).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertVisibility, {});
+    });
+    expect(none).toBeNull();
+
+    // Le profil reste compté même masqué (statut affiché à l'expert)
+    const hiddenVisibility = (await asUser(t, hiddenUserId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertVisibility, {});
+    }))!;
+    expect(hiddenVisibility.isVisible).toBe(false);
+    expect(hiddenVisibility.rank).toBeNull();
+  });
+
+  it("getExpertProfileCompleteness liste les informations manquantes", async () => {
+    const userId = await createUser(t);
+    const expertId = await createExpertProfile(t, userId);
+
+    const before = (await asUser(t, userId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertProfileCompleteness, {});
+    }))!;
+
+    expect(before.total).toBeGreaterThan(0);
+    expect(before.score).toBeLessThan(100);
+    const keys = before.missing.map((m) => m.key);
+    expect(keys).toContain("logo");
+    expect(keys).toContain("description");
+    expect(keys).toContain("indicativePrice");
+    // Le téléphone et l'e-mail sont déjà renseignés par le helper
+    expect(keys).not.toContain("phone");
+    expect(before.filled + before.missing.length).toBe(before.total);
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(expertId, {
+        logo: "https://cdn.test/logo.png",
+        description: "Artisan expérimenté",
+        companyName: "Atelier Test",
+        address: "12 rue du Chantier, Béja",
+        website: "https://atelier.test",
+        indicativePrice: "À partir de 80 TND",
+        availability: "appointment",
+      });
+    });
+
+    const after = (await asUser(t, userId).run(async (ctx) => {
+      return ctx.runQuery(api.expertStats.getExpertProfileCompleteness, {});
+    }))!;
+
+    expect(after.score).toBe(100);
+    expect(after.missing).toEqual([]);
+  });
 });

@@ -283,11 +283,14 @@ export function ContactRow({
   icon: Icon,
   href,
   external,
+  onActivate,
   children,
 }: {
   icon: LucideIcon;
   href?: string;
   external?: boolean;
+  /** Déclenché au clic sur la ligne (ex. suivi statistique d'un contact). */
+  onActivate?: () => void;
   children: ReactNode;
 }) {
   const inner = (
@@ -310,6 +313,7 @@ export function ContactRow({
 
   return (
     <a
+      onClick={onActivate}
       href={href}
       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       className="flex min-w-0 items-center gap-2.5 rounded-xl border border-border/40 bg-background/60 px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-muted/40 active:scale-[0.99]"
