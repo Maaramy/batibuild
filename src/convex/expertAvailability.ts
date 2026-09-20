@@ -35,6 +35,17 @@ import {
 export const EXPERT_MESSAGING_LINK = "/dashboard/messages?tab=received";
 export const CLIENT_MESSAGING_LINK = "/dashboard/messages?tab=appointments";
 
+/**
+ * Lien profond vers une demande précise : depuis le centre de notifications,
+ * un clic ouvre la messagerie sur l'onglet « Demandes reçues » ET met la
+ * demande concernée en évidence (`?request=<id>`).
+ */
+export function expertMessagingLink(requestId?: string): string {
+  return requestId
+    ? `${EXPERT_MESSAGING_LINK}&request=${requestId}`
+    : EXPERT_MESSAGING_LINK;
+}
+
 /** Notification insérée dans le système existant (table `notifications`). */
 async function notify(
   ctx: any,
@@ -368,7 +379,7 @@ export const requestAppointment = mutation({
       type: "expert_appointment",
       title: "Nouvelle demande de rendez-vous",
       message: `Nouvelle demande de rendez-vous pour le ${slot}.`,
-      link: EXPERT_MESSAGING_LINK,
+      link: expertMessagingLink(appointmentId),
     });
 
     // E-mail automatique à l'administrateur (modèle personnalisable).
@@ -587,7 +598,7 @@ export const requestUrgent = mutation({
       message: `${args.userName || user.name || "Un client"} demande une intervention rapide${
         args.region ? ` — ${args.region}` : ""
       } : ${args.description.trim().slice(0, 120)}`,
-      link: EXPERT_MESSAGING_LINK,
+      link: expertMessagingLink(urgentId),
     });
 
     // E-mail automatique à l'administrateur (modèle personnalisable).

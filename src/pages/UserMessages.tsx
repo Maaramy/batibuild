@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft, MessageSquare, Loader2, Clock, CheckCircle2,
@@ -20,6 +20,12 @@ import {
   urgentStatusMeta,
 } from "@/lib/expertAvailability";
 import { RequestAppointmentDialog } from "@/components/expert/ExpertRequestDialogs";
+import {
+  messagesTabLayout,
+  resolveMessagesTab,
+  tabFromSearch,
+  type MessagesTab,
+} from "@/lib/messagesTabs";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -130,16 +136,6 @@ function ResponseCard({ response, kind }: { response: any; kind: "expert" | "sup
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-type MessagesTab = "quotes" | "services" | "appointments" | "received";
-
-const MESSAGES_TABS: MessagesTab[] = ["quotes", "services", "appointments", "received"];
-
-/** Onglet initial : `?tab=` de l'URL (notifications, raccourcis), sinon services. */
-function tabFromSearch(value: string | null): MessagesTab {
-  return MESSAGES_TABS.includes(value as MessagesTab)
-    ? (value as MessagesTab)
-    : "services";
-}
 
 export default function UserMessages() {
   const navigate = useNavigate();
@@ -154,6 +150,9 @@ export default function UserMessages() {
     const params = new URLSearchParams(searchParams);
     if (next === "services") params.delete("tab");
     else params.set("tab", next);
+    // Le lien profond (`?request=<id>`) ne survit pas à un changement d'onglet
+    // manuel : la mise en évidence appartient au clic d'origine.
+    params.delete("request");
     setSearchParams(params, { replace: true });
   };
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
@@ -182,10 +181,20 @@ export default function UserMessages() {
   const cancelAppointment = useMutation(api.expertAvailability.cancelAppointment);
   const cancelUrgent = useMutation(api.expertAvailability.cancelUrgent);
 
+  // Onglets visibles pour ce rôle (règles isolées dans src/lib/messagesTabs.ts
+  // et couvertes par des tests). « Mes demandes » n'existe plus dans l'espace
+  // expert : un ancien lien `?tab=appointments` retombe sur un onglet visible
+  // au lieu d'un écran vide.
+  const tabLayout = messagesTabLayout(hasExpertProfile, hasSupplierProfile);
+  const {
+    isExpertAccount,
+    showExpertServices,
+    showSupplierQuotes,
+  } = tabLayout;
+
   // Rendez-vous & demandes urgentes REÇUS — côté professionnel (ProMarket).
   // Masqué tant que le rôle n'est pas chargé pour ne pas afficher de compteur
   // ou de liste vides à un client.
-  const isExpertAccount = hasExpertProfile === true;
   const receivedAppointments = useQuery(
     api.expertAvailability.getExpertAppointments,
     isExpertAccount ? {} : "skip",
@@ -291,23 +300,9 @@ export default function UserMessages() {
   const receivedUnreadCount = receivedAppointmentsUnread + receivedUrgentUnread;
   const totalUnread = unreadSupplierCount + unreadExpertCount + receivedUnreadCount;
 
-  // Un compte expert (et non fournisseur) ne voit pas les devis fournisseurs ;
-  // un compte fournisseur (et non expert) ne voit pas les services experts.
-  // Un compte double rôle conserve les deux onglets. Tant que les profils ne
-  // sont pas chargés, on affiche les deux onglets (aucun masquage à l'aveugle).
-  const isSupplierAccount = hasSupplierProfile === true;
-  const showSupplierQuotes = !(isExpertAccount && !isSupplierAccount);
-  const showExpertServices = !(isSupplierAccount && !isExpertAccount);
-
-  // Si l'onglet demandé est masqué pour ce rôle, on retombe sur l'onglet visible.
-  const activeTab: MessagesTab =
-    tab === "services" && !showExpertServices
-      ? "quotes"
-      : tab === "quotes" && !showSupplierQuotes
-        ? "services"
-        : tab === "received" && !isExpertAccount
-          ? "services"
-          : tab;
+  // L'onglet réellement affiché : celui de l'URL s'il est visible pour le rôle,
+  // sinon le repli calculé par `resolveMessagesTab`.
+  const activeTab: MessagesTab = resolveMessagesTab(tab, tabLayout);
 
   // Les demandes reçues sont marquées comme consultées dès l'ouverture de
   // l'onglet : le badge et le centre de notifications se vident alors.
@@ -315,6 +310,39 @@ export default function UserMessages() {
     if (activeTab !== "received" || !isExpertAccount) return;
     if (receivedUnreadCount > 0) markReceivedRead();
   }, [activeTab, isExpertAccount, receivedUnreadCount, markReceivedRead]);
+
+  // ── Lien profond depuis le centre de notifications ──
+  // `?tab=received&request=<id>` : on amène l'utilisateur directement sur la
+  // demande concernée — défilement puis halo lumineux qui s'estompe. La mise en
+  // évidence passe par l'API Web Animations (aucun état React à synchroniser).
+  const focusRequestId = searchParams.get("request");
+  const focusedRequestRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== "received" || !isExpertAccount || !focusRequestId) return;
+    // Une seule fois par demande ciblée (les listes se rafraîchissent en direct).
+    if (focusedRequestRef.current === focusRequestId) return;
+    const node = document.getElementById(`request-${focusRequestId}`);
+    // La liste n'est pas encore chargée : le prochain rendu relancera l'effet.
+    if (!node) return;
+    focusedRequestRef.current = focusRequestId;
+    node.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (typeof node.animate === "function") {
+      node.animate(
+        [
+          { boxShadow: "0 0 0 3px rgba(59,130,246,0.55)", borderRadius: "0.75rem" },
+          { boxShadow: "0 0 0 3px rgba(59,130,246,0)" },
+        ],
+        { duration: 2800, easing: "ease-out" },
+      );
+    }
+  }, [
+    activeTab,
+    isExpertAccount,
+    focusRequestId,
+    receivedAppointments,
+    receivedUrgent,
+  ]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -396,22 +424,26 @@ export default function UserMessages() {
               Devis fournisseurs
             </button>
           )}
-          <button
-            onClick={() => selectTab("appointments")}
-            className={`flex-1 basis-auto min-w-[8rem] whitespace-nowrap flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer relative ${
-              activeTab === "appointments"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <CalendarClock className="h-3.5 w-3.5" />
-            {isExpertAccount ? "Mes demandes" : "Rendez-vous"}
-            {pendingAppointmentsCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
-                {pendingAppointmentsCount}
-              </span>
-            )}
-          </button>
+          {/* Mes propres demandes : masqué dans l'espace expert, où les
+              demandes reçues sont l'entrée pertinente. */}
+          {!isExpertAccount && (
+            <button
+              onClick={() => selectTab("appointments")}
+              className={`flex-1 basis-auto min-w-[8rem] whitespace-nowrap flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer relative ${
+                activeTab === "appointments"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <CalendarClock className="h-3.5 w-3.5" />
+              Rendez-vous
+              {pendingAppointmentsCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
+                  {pendingAppointmentsCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* ══════════ ONGLET RENDEZ-VOUS (experts ProMarket) ══════════ */}
@@ -591,7 +623,8 @@ export default function UserMessages() {
                   return (
                     <Card
                       key={a._id}
-                      className={`border-border/40 ${
+                      id={`request-${a._id}`}
+                      className={`border-border/40 scroll-mt-20 ${
                         isNew ? "border-blue-300/50 bg-blue-500/[0.03]" : ""
                       }`}
                     >
@@ -723,7 +756,8 @@ export default function UserMessages() {
                   return (
                     <Card
                       key={u._id}
-                      className={`border-amber-500/25 bg-amber-500/[0.04] ${
+                      id={`request-${u._id}`}
+                      className={`border-amber-500/25 bg-amber-500/[0.04] scroll-mt-20 ${
                         isNew ? "ring-1 ring-amber-500/30" : ""
                       }`}
                     >

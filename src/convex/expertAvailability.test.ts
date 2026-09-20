@@ -511,14 +511,17 @@ describe("expertAvailability — messagerie expert & e-mail administrateur", () 
   const flushEmails = () => t.finishAllScheduledFunctions(vi.runAllTimers);
 
   it("notifie l'expert et le renvoie vers sa messagerie, pas vers l'espace expert", async () => {
-    await asUser(t, clientId).mutation(
+    const res = await asUser(t, clientId).mutation(
       api.expertAvailability.requestAppointment,
       baseRequest(expertId),
     );
 
     const notifications = await notificationsFor(t, expertUserId);
     expect(notifications).toHaveLength(1);
-    expect(notifications[0].link).toBe("/dashboard/messages?tab=received");
+    // Lien profond : la messagerie s'ouvre directement sur la demande reçue.
+    expect(notifications[0].link).toBe(
+      `/dashboard/messages?tab=received&request=${(res as any).appointmentId}`,
+    );
     expect(notifications[0].read).toBe(false);
   });
 
@@ -558,7 +561,7 @@ describe("expertAvailability — messagerie expert & e-mail administrateur", () 
   });
 
   it("envoie automatiquement l'e-mail administrateur (modèle urgence)", async () => {
-    await asUser(t, clientId).mutation(api.expertAvailability.requestUrgent, {
+    const res = await asUser(t, clientId).mutation(api.expertAvailability.requestUrgent, {
       expertId: expertId as any,
       description: "Fuite d'eau importante",
       userPhone: "+216 98 123 456",
@@ -579,7 +582,9 @@ describe("expertAvailability — messagerie expert & e-mail administrateur", () 
     expect(vars.detailsDemande).toBe("+216 98 123 456 · ahmed@test.com");
 
     const notifications = await notificationsFor(t, expertUserId);
-    expect(notifications[0].link).toBe("/dashboard/messages?tab=received");
+    expect(notifications[0].link).toBe(
+      `/dashboard/messages?tab=received&request=${(res as any).urgentId}`,
+    );
   });
 
   it("ne renvoie pas d'e-mail sans demande", async () => {

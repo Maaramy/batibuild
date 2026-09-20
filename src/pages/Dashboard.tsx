@@ -165,7 +165,9 @@ export default function Dashboard() {
     api.expertServiceRequests.unreadCount,
     isExpert ? {} : "skip",
   );
-  // Demandes de rendez-vous / urgences reçues et non encore consultées
+  // Demandes de rendez-vous / urgences reçues et non encore consultées.
+  // Comptées une seule fois : sur l'entrée « Messagerie » (le sous-menu
+  // « Demandes reçues » n'affiche plus de badge, pour éviter le doublon).
   const expertAvailabilityUnread = useQuery(
     api.expertAvailability.receivedUnreadCount,
     isExpert ? {} : "skip",
@@ -314,7 +316,7 @@ export default function Dashboard() {
             ] : []),
             ...(viewMode === "expert" && proMenuOpen ? [
               { icon: FileText, label: "Devis reçus", isSubItem: true, badge: expertUnread ?? 0, onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
-              { icon: CalendarClock, label: "Demandes reçues", isSubItem: true, badge: expertAvailabilityUnread ?? 0, onClick: () => { navigate("/dashboard/messages?tab=received"); setMobileSidebarOpen(false); } },
+              { icon: CalendarClock, label: "Demandes reçues", isSubItem: true, onClick: () => { navigate("/dashboard/messages?tab=received"); setMobileSidebarOpen(false); } },
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
