@@ -394,9 +394,10 @@ describe("deleteUser — cascade complète", () => {
 
     await asUser(t, adminId).mutation(api.users.deleteUser, { userId: targetId as any });
 
-    const logs = await t.run(async (ctx) =>
-      ctx.db.query("adminLogs").withIndex("by_admin", (q: any) => q.eq("adminId", adminId as any)).collect(),
-    );
+    const logs = await t.run(async (ctx) => {
+      const all = await ctx.db.query("adminLogs").collect();
+      return all.filter((l: any) => l.adminId === adminId);
+    });
     const deleteLog = logs.find((l: any) => l.action === "delete_user");
     expect(deleteLog).toBeDefined();
     expect(deleteLog!.targetUserEmail).toBe("cible@test.com");
@@ -421,11 +422,8 @@ describe("deleteUser — cascade complète", () => {
       expect(await ctx.db.get(u2 as any)).toBeNull();
       expect(await ctx.db.get(adminId as any)).not.toBeNull();
       // Cascade u1 : aucun projet restant
-      const projects = await ctx.db
-        .query("projects")
-        .withIndex("by_user", (q: any) => q.eq("userId", u1 as any))
-        .collect();
-      expect(projects).toEqual([]);
+      const allProjects = await ctx.db.query("projects").collect();
+      expect(allProjects.filter((p: any) => p.userId === u1)).toEqual([]);
     });
   });
 });
