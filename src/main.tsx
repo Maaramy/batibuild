@@ -1,5 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
+import { FeatureGate } from "@/components/FeatureGate";
+import { FeatureFlagsProvider } from "@/hooks/use-feature-flags";
 import { SEO } from "@/components/SEO";
 import { useSessionTracking } from "@/hooks/use-session-tracking";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
@@ -176,13 +178,14 @@ createRoot(document.getElementById("root")!).render(
         storageKey="budgetbati-theme"
       >
         <ConvexAuthProvider client={convex}>
+          <FeatureFlagsProvider>
           <BrowserRouter>
             <SessionTracker />
             <RouteSyncer />
             <SEO />
-            <Suspense fallback={<RouteLoading />}>
-              <Routes>
+            <Suspense fallback={<RouteLoading />}>              <Routes>
                 <Route path="/" element={<Landing />} />
+
                 <Route
                   path="/auth"
                   element={<AuthPage redirectAfterAuth="/dashboard" />}
@@ -199,7 +202,9 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/new"
                   element={
                     <RequireAuth>
-                      <NewProject />
+                      <FeatureGate flag="construction_cost_estimation">
+                        <NewProject />
+                      </FeatureGate>
                     </RequireAuth>
                   }
                 />
@@ -207,7 +212,9 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/project/:id"
                   element={
                     <RequireAuth>
-                      <ProjectDetail />
+                      <FeatureGate flag="construction_cost_estimation">
+                        <ProjectDetail />
+                      </FeatureGate>
                     </RequireAuth>
                   }
                 />
@@ -239,7 +246,9 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/materials"
                   element={
                     <RequireAuth>
-                      <MaterialsPage />
+                      <FeatureGate flag="ai_materials">
+                        <MaterialsPage />
+                      </FeatureGate>
                     </RequireAuth>
                   }
                 />
@@ -247,7 +256,9 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/ai-materials"
                   element={
                     <RequireAuth>
-                      <AiMaterials />
+                      <FeatureGate flag="ai_materials">
+                        <AiMaterials />
+                      </FeatureGate>
                     </RequireAuth>
                   }
                 />
@@ -255,7 +266,9 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/ai-materials/result/:id"
                   element={
                     <RequireAuth>
-                      <AiMaterialsResult />
+                      <FeatureGate flag="ai_materials">
+                        <AiMaterialsResult />
+                      </FeatureGate>
                     </RequireAuth>
                   }
                 />
@@ -263,7 +276,9 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/plans/:id"
                   element={
                     <RequireAuth>
-                      <PlanGenerator />
+                      <FeatureGate flag="architectural_plans">
+                        <PlanGenerator />
+                      </FeatureGate>
                     </RequireAuth>
                   }
                 />
@@ -392,7 +407,9 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/investments"
                   element={
                     <RequireAuth>
-                      <InvestmentAnalysis />
+                      <FeatureGate flag="investment_project">
+                        <InvestmentAnalysis />
+                      </FeatureGate>
                     </RequireAuth>
                   }
                 />
@@ -400,13 +417,19 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/investments/result/:analysisId"
                   element={
                     <RequireAuth>
-                      <InvestmentResults />
+                      <FeatureGate flag="investment_project">
+                        <InvestmentResults />
+                      </FeatureGate>
                     </RequireAuth>
                   }
                 />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/construction/demo" element={<DemoProject />} />
-                <Route path="/investments/demo" element={<DemoInvestment />} />
+                <Route path="/investments/demo" element={
+                  <FeatureGate flag="investment_project">
+                    <DemoInvestment />
+                  </FeatureGate>
+                } />
                 <Route path="/share/investment/:token" element={<ShareInvestment />} />
                 <Route path="/blog" element={<BlogPage />} />
                 <Route path="/blog/:slug" element={<BlogPostPage />} />
@@ -418,6 +441,7 @@ createRoot(document.getElementById("root")!).render(
             </Suspense>
             <Toaster />
           </BrowserRouter>
+          </FeatureFlagsProvider>
         </ConvexAuthProvider>
       </ThemeProvider>
     </RootErrorBoundary>

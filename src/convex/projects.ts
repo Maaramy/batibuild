@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { requireClientProAccess, getFreePlanStatus } from "./access";
+import { readFlag } from "./featureFlags";
 import {
   projectCategoryValidator,
   projectStatusValidator,
@@ -179,6 +180,11 @@ export const createProject = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
+
+    // Feature flag : module désactivé → création bloquée côté serveur.
+    if (!(await readFlag(ctx, "construction_cost_estimation"))) {
+      throw new Error("Cette fonctionnalité n'est actuellement pas disponible.");
+    }
 
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Projets de construction");

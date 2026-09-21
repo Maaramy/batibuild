@@ -914,6 +914,8 @@ const schema = defineSchema(
         v.literal("reject_expert_subscription"),
         v.literal("verify_expert_receipt"),
         v.literal("delete_expert_receipt"),
+        v.literal("feature_flag_enabled"),
+        v.literal("feature_flag_disabled"),
       ),
       targetUserId: v.optional(v.id("users")),
       targetUserEmail: v.optional(v.string()),
@@ -974,6 +976,26 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_specialties", ["specialties"])
       .index("by_subscription", ["subscriptionStatus"]),
+
+    // ── Feature flags (système central de gestion des fonctionnalités) ──────
+    // Un document par fonctionnalité : l'admin active/désactive des modules
+    // entiers depuis l'espace admin. Un flag désactivé masque TOUTES les
+    // entrées UI (menus, cartes, CTA) et bloque les routes — sans jamais
+    // supprimer le code, les tables ou les fonctions backend correspondantes.
+    // Système générique : ajouter un module = insérer un document, pas de
+    // changement de structure.
+    featureFlags: defineTable({
+      /** Identifiant interne stable, ex. "ai_materials". */
+      key: v.string(),
+      /** Nom affiché dans l'admin. */
+      name: v.string(),
+      /** Description affichée dans l'admin. */
+      description: v.string(),
+      enabled: v.boolean(),
+      updatedAt: v.number(),
+      updatedBy: v.optional(v.id("users")),
+    })
+      .index("by_key", ["key"]),
 
     paymentConfig: defineTable({
       bankName: v.string(),

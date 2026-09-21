@@ -36,6 +36,7 @@ import { TYPE_META, fmtTND, fmtPct } from "@/components/investment/shared";
 import { REGION_LABELS } from "@/convex/investmentTypes";
 import { projectTypeLabel } from "@/convex/projectTypes";
 import { buildProjectQuickActions } from "@/lib/projectQuickActions";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { projectJourneyGroup } from "@/lib/projectJourney";
 import { buildInvestmentHistoryEntry } from "@/lib/investmentHistory";
 import { ANALYSIS_STATUS_LABEL, type AnalysisHistoryStatus } from "@/lib/analysisHistory";
@@ -68,7 +69,13 @@ export function ProjectCard({ project }: { project: any }) {
 
   // ACCÈS RAPIDES — modules liés au projet (routes + contexte du projet).
   // Voir `@/lib/projectQuickActions` (construction des liens, testée).
-  const quickActions = buildProjectQuickActions(project);
+  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
+  const quickActions = buildProjectQuickActions(project).filter((a) => {
+    // Feature flags : les modules désactivés par l'admin disparaissent des
+    // cartes (aucun accès visuel résiduel).
+    if (a.key === "plan") return isFeatureEnabled("architectural_plans");
+    return true;
+  });
 
   const statusColors: Record<string, string> = {
     draft: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",

@@ -32,6 +32,7 @@ import {
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -257,6 +258,7 @@ function ThemeToggle() {
 }
 
 function Navbar() {
+  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
@@ -288,10 +290,10 @@ function Navbar() {
 
         <nav className="hidden md:flex items-center gap-8">
           <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a>
-          <a href="/dashboard/ai-materials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Matériaux IA</a>
+          {isFeatureEnabled("ai_materials") && <a href="/dashboard/ai-materials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Matériaux IA</a>}
           <a href="/dashboard/guide" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Guide A-Z</a>
           <a href="/dashboard/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Tarifs</a>
-          <a href="#investments" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Investissement</a>
+          {isFeatureEnabled("investment_project") && <a href="#investments" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Investissement</a>}
           <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Avis</a>
           <a href="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</a>
         </nav>
@@ -333,10 +335,10 @@ function Navbar() {
         >
           <div className="px-4 py-4 space-y-3">
             <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Fonctionnalités</a>
-            <a href="/dashboard/ai-materials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Assistant Matériaux IA</a>
+            {isFeatureEnabled("ai_materials") && <a href="/dashboard/ai-materials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Assistant Matériaux IA</a>}
             <a href="/dashboard/guide" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Guide Construction A-Z</a>
             <a href="/dashboard/pricing" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Tarifs & abonnements</a>
-            <a href="#investments" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Investissement</a>
+            {isFeatureEnabled("investment_project") && <a href="#investments" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Investissement</a>}
             <a href="#testimonials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Avis</a>
             <div className="flex gap-2 pt-2 border-t border-border/50">
               <Button variant="outline" size="sm" className="flex-1" onClick={() => { navigate("/auth"); setMobileOpen(false); }}>Connexion</Button>
@@ -351,6 +353,7 @@ function Navbar() {
 
 function HeroSection() {
   const navigate = useNavigate();
+  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
 
   return (
     <section className="relative overflow-hidden pt-16">
@@ -646,12 +649,11 @@ function HeroSection() {
             <p className="label-overline mb-4">Toute la plateforme</p>
             <div className="flex flex-wrap justify-center gap-2">
               {[
-                { label: "Assistant Matériaux IA", icon: Sparkles, to: "/dashboard/ai-materials" },
+                ...(isFeatureEnabled("ai_materials") ? [{ label: "Assistant Matériaux IA", icon: Sparkles, to: "/dashboard/ai-materials" }, { label: "Prix des matériaux", icon: Table2, to: "/dashboard/materials" }] : []),
                 { label: "Guide Construction A-Z", icon: ClipboardList, to: "/dashboard/guide" },
-                { label: "Investissement immobilier", icon: ChartBar, to: "/dashboard/investments" },
+                ...(isFeatureEnabled("investment_project") ? [{ label: "Investissement immobilier", icon: ChartBar, to: "/dashboard/investments" }] : []),
                 { label: "Espace fournisseur", icon: Store, to: "/dashboard/supplier" },
-                { label: "Prix des matériaux", icon: Table2, to: "/dashboard/materials" },
-              ].map((mod) => (
+              ].map((mod: any) => (
                 <button
                   key={mod.label}
                   onClick={() => navigate(mod.to)}
@@ -968,6 +970,13 @@ function HowItWorksSection() {
 function FeaturesSection() {
   const ref = useRef(null);
   const navigate = useNavigate();
+  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
+  const visibleFeatures = FEATURES.filter(
+    (f) =>
+      (f.to !== "/dashboard/ai-materials" && f.to !== "/dashboard/materials") || isFeatureEnabled("ai_materials")
+  ).filter(
+    (f) => f.to !== "/dashboard/investments" || isFeatureEnabled("investment_project")
+  );
 
   return (
     <section id="features" ref={ref} className="relative py-24 lg:py-32">
@@ -984,7 +993,7 @@ function FeaturesSection() {
         </div>
 
         <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {FEATURES.map((feature, index) => (
+          {visibleFeatures.map((feature, index) => (
             <motion.div
               key={feature.title}
               initial={{ opacity: 0, y: 30 }}
@@ -1022,9 +1031,11 @@ function FeaturesSection() {
 /* ── Investment Analysis section ── */
 
 function InvestmentsSection() {
+  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
+  if (!isFeatureEnabled("investment_project")) return null;
   const navigate = useNavigate();
   return (
-    <section id="investments" className="relative py-24 lg:py-32 overflow-hidden">
+    <section id="investments" className="relative py-24 lg:py-32 overflow-hidden" data-flag={isFeatureEnabled("investment_project") ? "on" : "off"}>
       {/* Background decorations */}
       <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/3 via-transparent to-blue-500/3" />
       <div className="absolute top-1/4 -right-40 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl" />
@@ -1298,6 +1309,7 @@ function CTASection() {
 }
 
 function Footer() {
+  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
   return (
     <footer className="border-t border-border/50 py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -1312,10 +1324,10 @@ function Footer() {
             <h4 className="text-sm font-semibold mb-3">Produit</h4>
             <ul className="space-y-2">
               <li><a href="#features" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a></li>
-              <li><a href="/dashboard/ai-materials" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Assistant Matériaux IA</a></li>
+              {isFeatureEnabled("ai_materials") && <li><a href="/dashboard/ai-materials" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Assistant Matériaux IA</a></li>}
               <li><a href="/dashboard/guide" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Guide Construction A-Z</a></li>
-              <li><a href="/dashboard/investments" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Investissement immobilier</a></li>
-              <li><a href="/dashboard/materials" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Prix des matériaux</a></li>
+              {isFeatureEnabled("investment_project") && <li><a href="/dashboard/investments" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Investissement immobilier</a></li>}
+              {isFeatureEnabled("ai_materials") && <li><a href="/dashboard/materials" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Prix des matériaux</a></li>}
               <li><a href="/dashboard/pricing" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Tarifs & abonnements</a></li>
               <li><a href="/blog" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Blog</a></li>
             </ul>

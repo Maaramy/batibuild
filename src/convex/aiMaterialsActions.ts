@@ -5,6 +5,7 @@ import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 import { vly } from "../lib/vly-integrations";
 import { requireClientProAccess } from "./access";
+import { readFlag } from "./featureFlags";
 import { inferFloorsFromCategory } from "./projectTypes";
 import {
   COPILOT_CATEGORY_BY_ID,
@@ -116,6 +117,11 @@ export const recommendMaterials = action({
   handler: async (ctx, args): Promise<RecommendResult> => {
     const user = await ctx.runQuery(api.users.currentUser);
     if (!user) throw new Error("Non connecté");
+
+    // Feature flag : module désactivé → analyse bloquée côté serveur.
+    if (!(await ctx.runQuery(api.featureFlags.getFlagsMap, {}))?.ai_materials) {
+      throw new Error("Cette fonctionnalité n'est actuellement pas disponible.");
+    }
 
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Matériaux IA");

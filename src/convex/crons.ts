@@ -72,4 +72,13 @@ crons.cron(
   internal.marketData.runMarketSyncInternal,
 );
 
+// Feature flags : auto-provisionne les documents manquants du catalogue
+// (nouvelle fonctionnalité ajoutée = document créé au prochain passage).
+// Runs every day at 07:00 AM
+crons.cron(
+  "daily-feature-flags-provision",
+  "0 7 * * *",
+  internal.featureFlags.ensureFlagDocs,
+);
+
 export default crons;

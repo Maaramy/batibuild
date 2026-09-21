@@ -67,6 +67,7 @@ import { toast } from "sonner";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useTheme } from "next-themes";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { fmtTND, fmtPct } from "@/components/investment/shared";
 import {
   MiniStat,
@@ -89,6 +90,9 @@ export default function Dashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  // Feature flags : masque intégralement les modules désactivés par l'admin
+  // (menus, raccourcis, cartes, sections — mobile et desktop).
+  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -294,12 +298,18 @@ export default function Dashboard() {
             { icon: LayoutDashboard, label: "Tableau de bord", active: true, onClick: () => setMobileSidebarOpen(false) },
             // Client features — only visible in client mode
             ...(inClientMode ? [
-              { icon: Plus, label: "Nouveau projet", onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
+              ...(isFeatureEnabled("construction_cost_estimation") ? [
+                { icon: Plus, label: "Nouveau projet", onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
+              ] : []),
               { icon: Rocket, label: "Démarche de construction", onClick: () => { navigate("/dashboard/guide"); setMobileSidebarOpen(false); } },
               { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
-              { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
-              { icon: Sparkles, label: "Assistant Matériaux IA", onClick: () => { navigate("/dashboard/ai-materials"); setMobileSidebarOpen(false); } },
-              { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
+              ...(isFeatureEnabled("ai_materials") ? [
+                { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
+                { icon: Sparkles, label: "Assistant Matériaux IA", onClick: () => { navigate("/dashboard/ai-materials"); setMobileSidebarOpen(false); } },
+              ] : []),
+              ...(isFeatureEnabled("investment_project") ? [
+                { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
+              ] : []),
             ] : []),
             // Professional features — parent + submenu
             ...(viewMode === "supplier" ? [
@@ -875,6 +885,7 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
+              {isFeatureEnabled("investment_project") && (
               <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
                 onClick={() => navigate("/dashboard/investments")}>
                 <CardContent className="p-3 sm:p-4 flex items-center gap-3">
@@ -887,6 +898,8 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
+              )}
+              {isFeatureEnabled("ai_materials") && (
               <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
                 onClick={() => navigate("/dashboard/materials")}>
                 <CardContent className="p-3 sm:p-4 flex items-center gap-3">
@@ -899,6 +912,7 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
+              )}
               <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
                 onClick={() => navigate("/dashboard/pricing")}>
                 <CardContent className="p-3 sm:p-4 flex items-center gap-3">
@@ -912,6 +926,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
+              {isFeatureEnabled("ai_materials") && (
               <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
                 onClick={() => navigate("/dashboard/ai-materials")}>
                 <CardContent className="p-3 sm:p-4 flex items-center gap-3">
@@ -924,6 +939,7 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
+              )}
               <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
                 onClick={() => navigate("/dashboard/guide")}>
                 <CardContent className="p-3 sm:p-4 flex items-center gap-3">
@@ -1096,6 +1112,7 @@ export default function Dashboard() {
           </Card>
 
           {/* ── Mes projets d'investissement enregistrés (avec statistiques) ── */}
+          {isFeatureEnabled("investment_project") && (
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm shadow-none">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -1163,6 +1180,7 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
+          )}
               </ClientProPaywall>
             </>
           )}

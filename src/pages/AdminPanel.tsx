@@ -20,6 +20,7 @@ import EmailHistory from "./EmailHistory";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import SupportAdmin from "@/components/admin/SupportAdmin";
 import { AnnouncementList } from "@/components/admin/announcements/AnnouncementList";
+import { FeatureFlagsAdmin } from "@/components/admin/FeatureFlagsAdmin";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -110,7 +111,7 @@ export default function AdminPanel() {
     "dashboard", "users", "projects", "investments", "materials", "virements",
     "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs",
     "experts", "analytics", "support", "journal", "paiement", "limites",
-    "seo", "blog", "bim", "emails", "modeles", "historique",
+    "seo", "blog", "bim", "emails", "modeles", "historique", "features",
   ];
   const initialTab =
     isSupportAgentRole
@@ -315,7 +316,7 @@ export default function AdminPanel() {
   const isAdmin = user?.role === "admin";
   const isModerator = user?.role === "moderator";
   // Onglets accessibles au modérateur (le module support est accessible à tout le staff)
-  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs", "experts", "support"];
+  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs", "experts", "support", "features"];
   // Agent support : accès uniquement au module Support & Messagerie
   const canSee = (tab: string) =>
     isAdmin ||
@@ -644,6 +645,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 <Users className="h-3.5 w-3.5" />
                 <span>Utilisateurs</span>
               </TabsTrigger>
+              {canSee("features") && (
+              <TabsTrigger value="features" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Cpu className="h-3.5 w-3.5" />
+                <span>Fonctionnalités</span>
+              </TabsTrigger>
+              )}
               {canSee("projects") && (
               <TabsTrigger value="projects" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Building2 className="h-3.5 w-3.5" />
@@ -791,6 +798,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
           {canSee("support") && (
             <TabsContent value="support">
               <SupportAdmin />
+            </TabsContent>
+          )}
+
+          {/* ── Gestion des fonctionnalités (feature flags) ── */}
+          {canSee("features") && (
+            <TabsContent value="features">
+              <FeatureFlagsAdmin />
             </TabsContent>
           )}
 
@@ -3849,6 +3863,8 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                           reject_subscription: { label: "Abonnement rejeté", icon: X, color: "text-red-500" },
                           update_user_role: { label: "Rôle modifié", icon: Users, color: "text-blue-500" },
                           update_user_plan: { label: "Plan modifié", icon: CreditCard, color: "text-purple-500" },
+                          feature_flag_enabled: { label: "Fonctionnalité activée", icon: Cpu, color: "text-emerald-500" },
+                          feature_flag_disabled: { label: "Fonctionnalité désactivée", icon: Cpu, color: "text-amber-500" },
                         };
                         const config = actionConfig[log.action] || { label: log.action, icon: Activity, color: "text-muted-foreground" };
                         const Icon = config.icon;

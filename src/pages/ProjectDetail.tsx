@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { projectJourneyGroup } from "@/lib/projectJourney";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { RecommendedProvidersPanel } from "@/components/RecommendedProvidersPanel";
 import { runBIMEstimation } from "@/convex/bimEngine";
@@ -282,11 +283,15 @@ export default function ProjectDetail() {
       "Fournitures diverses et accessoires stables.",
     );
   const busy = project?.status === "analyzing" || analyzing;
+  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
 
   // Bouton « Return on Investment » : réservé au groupe A (projets neufs /
   // immobiliers) — le parcours du groupe B ne comporte pas d'étape
   // investissement. Même règle que la barre d'étapes du parcours.
-  const showRoiButton = project ? projectJourneyGroup(project.category) === "A" : false;
+  const showRoiButton =
+    project && isFeatureEnabled("investment_project")
+      ? projectJourneyGroup(project.category) === "A"
+      : false;
 
   // Module « Intelligence prédictive » (prix du marché) : groupe A.
   const showPredictiveModule = showRoiButton;
