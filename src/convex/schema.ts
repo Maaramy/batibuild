@@ -1443,6 +1443,10 @@ const schema = defineSchema(
       expertId: v.id("expertProfiles"),
       projectId: v.optional(v.id("projects")),
       projectName: v.optional(v.string()),
+      // Informations du projet transmises avec la demande (affichage expert,
+      // e-mails). Optionnelles : les demandes sans projet restent valides.
+      projectCategory: v.optional(v.string()),
+      projectSurface: v.optional(v.number()),
       // Date souhaitée (timestamp du jour sélectionné) + heure « HH:MM ».
       preferredDate: v.number(),
       preferredTime: v.string(),

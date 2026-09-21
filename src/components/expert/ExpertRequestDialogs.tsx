@@ -22,6 +22,10 @@ import {
   DEFAULT_APPOINTMENT_TIME,
 } from "@/lib/expertAvailability";
 import { SPECIALTY_LABELS } from "./expertProfileOptions";
+import {
+  PROJECT_TYPE_LABELS,
+  resolveProjectType,
+} from "@/convex/projectTypes";
 
 // ============================================================================
 // DEMANDES CLIENT → EXPERT (ProMarket)
@@ -47,7 +51,15 @@ interface CommonProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Contexte optionnel du projet (navigation depuis un projet). */
-  project?: { _id?: string; name?: string; region?: string } | null;
+  project?: {
+    _id?: string;
+    name?: string;
+    region?: string;
+    /** Type de projet (slug) — affiché et transmis avec la demande. */
+    category?: string | null;
+    /** Surface du projet (m²) — affichée et transmise avec la demande. */
+    surface?: number | null;
+  } | null;
 }
 
 function useAuthGuard() {
@@ -319,6 +331,9 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
         message: message.trim() || undefined,
         projectId: (project?._id as any) || undefined,
         projectName: project?.name,
+        // Informations du projet sélectionné, transmises automatiquement.
+        projectCategory: project?.category || undefined,
+        projectSurface: project?.surface ?? undefined,
       });
       toast.success("Votre demande de rendez-vous a été envoyée au professionnel.", {
         description: `${expert.displayName} — ${formatSlotLabel(
@@ -350,6 +365,33 @@ export function RequestAppointmentDialog({ expert, open, onOpenChange, project }
         </DialogHeader>
 
         <div className="space-y-3 pt-2">
+          {/* Informations du projet sélectionné — récupérées automatiquement,
+              jamais saisies par l'utilisateur. Masquées si aucun projet. */}
+          {(project?.category || project?.surface) && (
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                Projet concerné
+              </p>
+              <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+                {project?.category && (
+                  <div className="min-w-0">
+                    <p className="text-[9px] text-muted-foreground">Type de projet</p>
+                    <p className="text-[11px] font-semibold truncate">
+                      {resolveProjectType(project.category)
+                        ? PROJECT_TYPE_LABELS[resolveProjectType(project.category)!]
+                        : project.category}
+                    </p>
+                  </div>
+                )}
+                {project?.surface ? (
+                  <div className="min-w-0">
+                    <p className="text-[9px] text-muted-foreground">Surface</p>
+                    <p className="text-[11px] font-semibold truncate">{project.surface} m²</p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
           {expert?.availabilityDetails && (
             <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 px-3 py-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">

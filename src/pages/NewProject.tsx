@@ -23,6 +23,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BIM_CATEGORIES, BIM_CATEGORY_LABELS } from "@/convex/bimEngine";
+import { projectJourneyGroup } from "@/lib/projectJourney";
 import { inferFloorsFromCategory } from "@/convex/projectTypes";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -958,6 +959,9 @@ export default function NewProject() {
                   )}
                 </div>
 
+                {/* Nombre de niveaux : masqué pour le groupe B (studio, rénovation,
+                    travaux…) — le champ et les données restent gérés par le backend. */}
+                {projectJourneyGroup(selectedCategory) === "A" && (
                 <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                   <Label htmlFor="floors" className="text-xs sm:text-sm font-semibold">
                     Nombre de niveaux
@@ -982,6 +986,7 @@ export default function NewProject() {
                     Ajusté automatiquement selon le type de projet sélectionné.
                   </p>
                 </div>
+                )}
 
               </div>
 

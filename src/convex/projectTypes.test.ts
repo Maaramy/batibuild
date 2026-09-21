@@ -195,12 +195,19 @@ describe("investmentTypeForProject — lien direct avec le module Investissement
 // Restriction Investissement — 11 éligibles / 10 exclus
 
 describe("INVESTMENT_ELIGIBLE_TYPES / INVESTMENT_INELIGIBLE_TYPES", () => {
-  it("les 11 types immobiliers sont éligibles", () => {
+  it("les 10 types immobiliers sont éligibles (studio exclu → groupe B)", () => {
     const expected = [
-      "maison", "villa", "appartement", "studio", "duplex", "immeuble",
+      "maison", "villa", "appartement", "duplex", "immeuble",
       "local_commercial", "bureau", "entrepot", "residence_touristique", "projet_neuf",
     ];
     expect(INVESTMENT_ELIGIBLE_TYPES).toEqual(expected);
+  });
+
+  it("le studio n'est ni éligible investissement, ni dupliqué dans une liste d'exclusion", () => {
+    expect(isInvestmentEligible("studio")).toBe(false);
+    expect(INVESTMENT_INELIGIBLE_TYPES).not.toContain("studio");
+    // Le classement reste « tout le reste = groupe B » : aucune double appartenance.
+    expect(INVESTMENT_ELIGIBLE_TYPES).not.toContain("studio");
   });
 
   it("les 10 types rénovation/travaux sont exclus", () => {
@@ -219,15 +226,16 @@ describe("INVESTMENT_ELIGIBLE_TYPES / INVESTMENT_INELIGIBLE_TYPES", () => {
     expect(overlap).toEqual([]);
   });
 
-  it("la somme couvre exactement PROJECT_TYPES", () => {
+  it("la somme couvre PROJECT_TYPES sauf le studio (groupe B sans analyse investissement)", () => {
     const all = [...INVESTMENT_ELIGIBLE_TYPES, ...INVESTMENT_INELIGIBLE_TYPES].sort();
-    const expected = [...PROJECT_TYPES].sort();
+    const expected = [...PROJECT_TYPES].sort().filter((t) => t !== "studio");
     expect(all).toEqual(expected);
+    expect(INVESTMENT_ELIGIBLE_TYPES).not.toContain("studio");
   });
 });
 
 describe("isInvestmentEligible", () => {
-  it("les 11 types éligibles retournent true", () => {
+  it("les 10 types éligibles retournent true", () => {
     for (const t of INVESTMENT_ELIGIBLE_TYPES) {
       expect(isInvestmentEligible(t), `${t}`).toBe(true);
     }

@@ -685,7 +685,18 @@ export default function ProfessionalsDirectory() {
         expert={appointmentExpert}
         open={!!appointmentExpert}
         onOpenChange={(o) => { if (!o) setAppointmentExpert(null); }}
-        project={project ? { _id: project._id as any, name: project.name, region: project.region } : null}
+        project={
+          project
+            ? {
+                _id: project._id as any,
+                name: project.name,
+                region: project.region,
+                // Contexte projet transmis automatiquement à la demande :
+                category: project.category,
+                surface: project.surface,
+              }
+            : null
+        }
       />
       <RequestUrgentDialog
         expert={urgentExpert}

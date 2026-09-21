@@ -452,7 +452,9 @@ const LABEL_ALIASES: Record<string, ProjectType> = {
 };
 
 /**
- * Types éligibles au module Investissement.
+ * Types éligibles au module Investissement (Groupe A — parcours complet).
+ * Le studio est volontairement exclu (Groupe B) : bien de petite surface,
+ * mono-niveau, sans analyse de rentabilité immobilière.
  * Les types de rénovation, travaux techniques et équipements extérieurs
  * sont exclus de l'investissement car ce ne sont pas des biens immobiliers.
  */
@@ -460,7 +462,6 @@ export const INVESTMENT_ELIGIBLE_TYPES: string[] = [
   "maison",
   "villa",
   "appartement",
-  "studio",
   "duplex",
   "immeuble",
   "local_commercial",

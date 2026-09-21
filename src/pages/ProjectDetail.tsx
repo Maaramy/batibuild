@@ -44,7 +44,7 @@ import {
   Truck, FileText, Paintbrush, Plug,
   ChevronRight, Download,
   Brain, Crown, ArrowUpRight, ArrowDownRight, Minus, CalendarRange,
-  LockKeyhole, RefreshCw, LayoutGrid, HardHat,
+  LockKeyhole, RefreshCw, LayoutGrid, HardHat, Home,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -843,6 +843,7 @@ export default function ProjectDetail() {
                 { icon: Globe, label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", color: "from-rose-500/10 to-rose-500/5 text-rose-600" },
                 { icon: Users, label: "Main-d'œuvre", value: "1 lot", color: "from-emerald-500/10 to-emerald-500/5 text-emerald-600" },
                 { icon: Clock, label: "Durée estimée", value: ai.estimatedDuration ?? "Non estimée", color: "from-amber-500/10 to-amber-500/5 text-amber-600" },
+                { icon: Home, label: "Type de projet", value: PROJECT_TYPE_LABELS[project.category] ?? project.category, color: "from-violet-500/10 to-violet-500/5 text-violet-600" },
               ].map((s, i) => (
                 <div key={i} className="flex items-center gap-2.5 p-3 rounded-xl bg-gradient-to-br from-background to-muted/20 border border-border/30 shadow-xs">
                   <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br", s.color)}>
@@ -1639,7 +1640,11 @@ export default function ProjectDetail() {
                   { label: "Catégorie", value: ai.category, icon: Building2 },
                   { label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", icon: MapPin },
                   { label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", icon: Ruler },
-                  { label: "Étages", value: String(project.floors ?? 1), icon: Building2 },
+                  // « Étages » masqué pour le groupe B (studio, rénovation…) :
+                  // aucune case vide ni espace réservé — données backend intactes.
+                  ...(projectJourneyGroup(project.category) === "A"
+                    ? [{ label: "Étages", value: String(project.floors ?? 1), icon: Building2 }]
+                    : []),
 
                   { label: "Créé le", value: new Date(project.createdAt).toLocaleDateString("fr-FR"), icon: Calendar },
                   { label: "Statut", value: "Terminé", icon: CheckCircle2 },

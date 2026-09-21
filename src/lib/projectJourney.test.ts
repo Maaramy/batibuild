@@ -24,12 +24,11 @@ const PID = "proj_1";
 const SUPPLIER_HREF = `${SUPPLIERS_DIRECTORY_PATH}?from=materials&region=Tunis`;
 
 describe("projectJourneyGroup — groupe déduit du type de projet", () => {
-  it("classe en groupe A les projets neufs / immobiliers", () => {
+  it("classe en groupe A les projets neufs / immobiliers (studio exclu)", () => {
     for (const type of [
       "maison",
       "villa",
       "appartement",
-      "studio",
       "duplex",
       "immeuble",
       "local_commercial",
@@ -42,8 +41,18 @@ describe("projectJourneyGroup — groupe déduit du type de projet", () => {
     }
   });
 
+  it("classe le studio en groupe B (parcours court, hors investissement)", () => {
+    expect(projectJourneyGroup("studio")).toBe("B");
+    expect(buildProjectJourney("studio", PID).map((s) => s.key)).toEqual([
+      "cost",
+      "consult",
+      "suppliers",
+    ]);
+  });
+
   it("classe en groupe B la rénovation, les équipements et les travaux techniques", () => {
     for (const type of [
+      "studio",
       "renovation_complete",
       "extension_batiment",
       "renovation_cuisine",
@@ -72,9 +81,11 @@ describe("projectJourneyGroup — groupe déduit du type de projet", () => {
     expect(projectJourneyGroup("type_inexistant")).toBe("B");
   });
 
-  it("le groupe A correspond aux 11 types éligibles (aucun type oublié du catalogue)", () => {
+  it("le groupe A correspond aux 10 types éligibles (aucun type oublié du catalogue)", () => {
     const groupA = PROJECT_TYPES.filter((t) => PROJECT_JOURNEY_GROUP_A.includes(t));
-    expect(groupA).toHaveLength(11);
+    expect(groupA).toHaveLength(10);
+    // Le studio n'appartient jamais au groupe A.
+    expect(groupA).not.toContain("studio");
     // Chaque type officiel obtient bien une barre non vide.
     for (const type of PROJECT_TYPES) {
       expect(buildProjectJourney(type, PID).length).toBeGreaterThanOrEqual(2);
