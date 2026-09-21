@@ -74,6 +74,7 @@ export const EMAIL_VARIABLES = [
   { token: "{{Créneau}}", label: "Créneau souhaité (rendez-vous)" },
   { token: "{{Motif}}", label: "Motif de la demande / besoin exprimé" },
   { token: "{{Région}}", label: "Région / zone du projet" },
+  { token: "{{SurfaceProjet}}", label: "Surface du projet (m²)" },
 ] as const;
 
 export interface DefaultTemplate {
@@ -358,6 +359,10 @@ Une <strong>nouvelle demande de rendez-vous</strong> vient d'être enregistrée 
   <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{Motif}}</td></tr>
   <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Projet :</td></tr>
   <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{NomProjet}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Type de projet :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{TypeProjet}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Surface :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{SurfaceProjet}}</td></tr>
   <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Coordonnées du client :</td></tr>
   <tr><td style="color:#111827;font-size:14px;padding:3px 0;">{{DétailsDemande}}</td></tr>
   <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Message :</td></tr>

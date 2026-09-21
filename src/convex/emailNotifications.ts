@@ -34,6 +34,8 @@ export type EmailVars = {
   creneau?: string;
   motif?: string;
   region?: string;
+  // Informations du projet attaché à une demande (rendez-vous / urgent)
+  surfaceProjet?: string;
 };
 
 export const emailEventValidator = v.union(
@@ -163,6 +165,7 @@ export function renderTokens(text: string, vars: Record<string, string>): string
       Créneau: vars.creneau || "",
       Motif: vars.motif || "",
       Région: vars.region || "",
+      SurfaceProjet: vars.surfaceProjet || "",
     };
     return lookup[key] !== undefined ? lookup[key] : m;
   });
@@ -233,6 +236,7 @@ export const processEmailEvent = internalMutation({
         creneau: v.optional(v.string()),
         motif: v.optional(v.string()),
         region: v.optional(v.string()),
+        surfaceProjet: v.optional(v.string()),
       }),
     ),
     dedupeKey: v.optional(v.string()),

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
+import { PROJECT_TYPE_LABELS } from "./projectTypes";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 import { scheduleEmailEvent, splitName } from "./emailNotifications";
 import type { EmailVars } from "./emailNotifications";
@@ -395,6 +396,11 @@ export const requestAppointment = mutation({
         nomEntreprise: expert.companyName || expert.displayName,
         entreprise: expert.displayName,
         nomProjet: args.projectName || "—",
+        typeProjet: args.projectCategory
+          ? PROJECT_TYPE_LABELS[args.projectCategory as keyof typeof PROJECT_TYPE_LABELS] ??
+            args.projectCategory
+          : "—",
+        surfaceProjet: args.projectSurface ? `${args.projectSurface} m²` : "—",
         creneau: slot,
         motif: args.reason.trim(),
         detailsDemande: clientContact(

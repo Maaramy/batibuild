@@ -26,6 +26,10 @@ import {
   tabFromSearch,
   type MessagesTab,
 } from "@/lib/messagesTabs";
+import {
+  PROJECT_TYPE_LABELS,
+  resolveProjectType,
+} from "@/convex/projectTypes";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -634,9 +638,16 @@ export default function UserMessages() {
                           <p className="mt-0.5 text-[11px] text-muted-foreground">
                             {formatSlotLabel(a.preferredDate, a.preferredTime)} · motif : {a.reason}
                           </p>
-                          {a.projectName && (
+                          {(a.projectName || a.projectCategory || a.projectSurface) && (
                             <p className="mt-0.5 text-[10px] text-muted-foreground">
-                              Projet : {a.projectName}
+                              Projet : {a.projectName || "—"}
+                              {a.projectCategory && (
+                                <> · {resolveProjectType(a.projectCategory)
+                                  ? PROJECT_TYPE_LABELS[resolveProjectType(a.projectCategory)!]
+                                  : a.projectCategory}
+                                </>
+                              )}
+                              {a.projectSurface ? <> · {a.projectSurface} m²</> : null}
                             </p>
                           )}
                           {a.message && (

@@ -149,6 +149,37 @@ describe("expertAvailability.requestAppointment", () => {
     expect(notifications[0].message).toContain("10:00");
   });
 
+  it("transmet les informations du projet (type + surface) avec la demande", async () => {
+    const result = await asUser(t, clientId).mutation(
+      api.expertAvailability.requestAppointment,
+      baseRequest(expertId, {
+        projectName: "Mon studio",
+        projectCategory: "studio",
+        projectSurface: 75,
+      }),
+    );
+    expect(result.success).toBe(true);
+
+    const rows = await t.run(async (ctx) => ctx.db.query("expertAppointments").collect());
+    expect(rows).toHaveLength(1);
+    expect(rows[0].projectName).toBe("Mon studio");
+    expect(rows[0].projectCategory).toBe("studio");
+    expect(rows[0].projectSurface).toBe(75);
+  });
+
+  it("accepte une demande sans informations projet (champs optionnels)", async () => {
+    const result = await asUser(t, clientId).mutation(
+      api.expertAvailability.requestAppointment,
+      baseRequest(expertId),
+    );
+    expect(result.success).toBe(true);
+
+    const rows = await t.run(async (ctx) => ctx.db.query("expertAppointments").collect());
+    expect(rows).toHaveLength(1);
+    expect(rows[0].projectCategory).toBeUndefined();
+    expect(rows[0].projectSurface).toBeUndefined();
+  });
+
   it("ne duplique pas une demande identique (idempotence)", async () => {
     const client = asUser(t, clientId);
     const first = await client.mutation(
@@ -528,6 +559,8 @@ describe("expertAvailability — messagerie expert & e-mail administrateur", () 
   it("envoie automatiquement l'e-mail administrateur (modèle rendez-vous)", async () => {
     const body = baseRequest(expertId, {
       projectName: "Villa Béja",
+      projectCategory: "villa",
+      projectSurface: 120,
       message: "Disponible en matinée",
       userName: "Ahmed Ben Salah",
       userPhone: "+216 98 123 456",
@@ -554,6 +587,8 @@ describe("expertAvailability — messagerie expert & e-mail administrateur", () 
     expect(vars.nom).toBe("Ben Salah");
     expect(vars.entreprise).toBe("Sami Plombier");
     expect(vars.nomProjet).toBe("Villa Béja");
+    expect(vars.typeProjet).toBe("Villa");
+    expect(vars.surfaceProjet).toBe("120 m²");
     expect(vars.motif).toBe("Visite du chantier");
     expect(vars.creneau).toBe(formatSlotLabel(body.preferredDate, "10:00"));
     expect(vars.detailsDemande).toBe("+216 98 123 456 · ahmed@test.com");
