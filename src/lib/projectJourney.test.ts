@@ -21,6 +21,7 @@ const GROUP_A_LABELS = [
 const GROUP_B_LABELS = ["Coût estimatif", "Consultation", "Fournisseurs"];
 
 const PID = "proj_1";
+const SUPPLIER_HREF = `${SUPPLIERS_DIRECTORY_PATH}?from=materials&region=Tunis`;
 
 describe("projectJourneyGroup — groupe déduit du type de projet", () => {
   it("classe en groupe A les projets neufs / immobiliers", () => {
@@ -170,8 +171,136 @@ describe("buildProjectJourney — liens et contexte du projet", () => {
   });
 });
 
+describe("buildProjectJourney — filtrage par feature flags de l'administration", () => {
+  it("sans état de flags, toutes les étapes s'affichent (comportement par défaut)", () => {
+    expect(buildProjectJourney("maison", PID, undefined).map((s) => s.key)).toEqual([
+      "cost",
+      "plans",
+      "materials",
+      "consult",
+      "execution",
+      "investment",
+    ]);
+    expect(buildProjectJourney("maison", PID, null).map((s) => s.key)).toHaveLength(6);
+  });
+
+  it("« Plans » disparaît quand architectural_plans est désactivé (ordre conservé)", () => {
+    const flags = { architectural_plans: false };
+    expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
+      "cost",
+      "materials",
+      "consult",
+      "execution",
+      "investment",
+    ]);
+  });
+
+  it("« Choix matériaux » disparaît quand ai_materials est désactivé", () => {
+    const flags = { ai_materials: false };
+    expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
+      "cost",
+      "plans",
+      "consult",
+      "execution",
+      "investment",
+    ]);
+  });
+
+  it("« Investissement » disparaît quand investment_project est désactivé", () => {
+    const flags = { investment_project: false };
+    expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
+      "cost",
+      "plans",
+      "materials",
+      "consult",
+      "execution",
+    ]);
+  });
+
+  it("« Coût estimatif » disparaît quand construction_cost_estimation est désactivé (groupe A et B)", () => {
+    const flags = { construction_cost_estimation: false };
+    expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
+      "plans",
+      "materials",
+      "consult",
+      "execution",
+      "investment",
+    ]);
+    expect(buildProjectJourney("renovation_complete", PID, flags).map((s) => s.key)).toEqual([
+      "consult",
+      "suppliers",
+    ]);
+  });
+
+  it("toutes les étapes gérées par un flag disparaissent ensemble (groupe B)", () => {
+    const flags = { construction_cost_estimation: false };
+    expect(buildProjectJourney("piscine", PID, flags).map((s) => s.key)).toEqual([
+      "consult",
+      "suppliers",
+    ]);
+  });
+
+  it("les étapes non pilotées par un flag (consult, execution, suppliers) restent toujours affichées", () => {
+    const flags = {
+      construction_cost_estimation: false,
+      architectural_plans: false,
+      ai_materials: false,
+      investment_project: false,
+    };
+    expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
+      "consult",
+      "execution",
+    ]);
+  });
+
+  it("réactiver le flag restaure l'étape à sa place d'origine", () => {
+    const off = buildProjectJourney("maison", PID, { architectural_plans: false });
+    const back = buildProjectJourney("maison", PID, { architectural_plans: true });
+    expect(off.map((s) => s.key)).not.toContain("plans");
+    expect(back.map((s) => s.key)).toEqual([
+      "cost",
+      "plans",
+      "materials",
+      "consult",
+      "execution",
+      "investment",
+    ]);
+  });
+
+  it("le contexte projet reste conservé après filtrage", () => {
+    const steps = buildProjectJourney("maison", PID, { architectural_plans: false });
+    expect(steps.every((s) => s.href.includes(PID))).toBe(true);
+  });
+
+  it("les routes de repérage restent uniques après filtrage", () => {
+    const steps = buildProjectJourney("maison", PID, { ai_materials: false });
+    expect(new Set(steps.map((s) => s.path)).size).toBe(steps.length);
+  });
+});
+
+describe("buildAiMaterialsResultJourney — filtrage par feature flags", () => {
+  it("« Liste prix » disparaît quand ai_materials est désactivé (« Fournisseur » reste)", () => {
+    const off = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF, { ai_materials: false });
+    expect(off.map((s) => s.key)).toEqual(["cost", "supplier"]);
+  });
+
+  it("« Coût estimatif » disparaît quand construction_cost_estimation est désactivé", () => {
+    const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF, {
+      construction_cost_estimation: false,
+    });
+    expect(steps.map((s) => s.key)).toEqual(["priceList", "supplier"]);
+  });
+
+  it("sans flags fournis, l'ordre complet est conservé", () => {
+    expect(buildAiMaterialsResultJourney(PID, SUPPLIER_HREF).map((s) => s.key)).toEqual([
+      "cost",
+      "priceList",
+      "supplier",
+    ]);
+  });
+});
+
 describe("buildAiMaterialsResultJourney — page « Résultat de l'analyse IA »", () => {
-  const SUPPLIER_HREF = `${SUPPLIERS_DIRECTORY_PATH}?from=materials&region=Tunis`;
 
   it("ordre strict : coût estimatif, liste prix, fournisseur", () => {
     const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF);

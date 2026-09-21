@@ -20,6 +20,11 @@
  * Chaque lien conserve le contexte du projet (`?project=…` ou `/:id`) : la
  * navigation ne recrée jamais de projet et ne perd aucune donnée.
  *
+ * Les étapes sont également pilotées par les feature flags de l'administration
+ * (`featureFlags` Convex) : une étape dont le module est désactivé disparaît de
+ * la barre (les autres conservent leur ordre) et réapparaît dès réactivation.
+ * Sans état de flags fourni, toutes les étapes restent affichées.
+ *
  * La page « Résultat de l'analyse IA » utilise en plus un parcours dédié
  * (`buildAiMaterialsResultJourney`) : « Coût estimatif → Liste prix →
  * Fournisseur ». « Liste prix » ouvre la page « Matériaux de construction » et
@@ -29,6 +34,42 @@
 import { INVESTMENT_ELIGIBLE_TYPES, resolveProjectType } from "@/convex/projectTypes";
 
 export type ProjectJourneyGroup = "A" | "B";
+
+/**
+ * État des feature flags (map `getFlagsMap` de Convex). Une clé absente ou un
+ * état non chargé = fonctionnalité considérée comme activée (comportement
+ * identique au repli local de `use-feature-flags`).
+ */
+export type ProjectJourneyFlags = Record<string, boolean> | null | undefined;
+
+/** Clés de feature flags qui pilotent les étapes du parcours. */
+export const JOURNEY_FLAG_KEYS = {
+  cost: "construction_cost_estimation",
+  plans: "architectural_plans",
+  materials: "ai_materials",
+  priceList: "ai_materials",
+  investment: "investment_project",
+} as const;
+
+/**
+ * Une étape est affichée si le flag qui pilote son module est activé.
+ * Sans état fourni (chargement en cours, appel historique sans flags), toutes
+ * les étapes restent affichées — aucune régression.
+ */
+function isFlagEnabled(flags: ProjectJourneyFlags, key: string): boolean {
+  return flags?.[key] ?? true;
+}
+
+/** Filtre les étapes dont le module est désactivé (l'ordre est conservé). */
+function filterDisabledSteps(
+  steps: ProjectJourneyStep[],
+  flags: ProjectJourneyFlags,
+): ProjectJourneyStep[] {
+  return steps.filter((step) => {
+    const flagKey = JOURNEY_FLAG_KEYS[step.key as keyof typeof JOURNEY_FLAG_KEYS];
+    return !flagKey || isFlagEnabled(flags, flagKey);
+  });
+}
 
 export type ProjectJourneyStepKey =
   | "cost"
@@ -67,10 +108,15 @@ export function projectJourneyGroup(category: string | null | undefined): Projec
  * Étapes du parcours pour un projet donné, dans l'ordre officiel.
  * Retourne un tableau vide si l'identifiant du projet est absent (la barre
  * n'est alors pas affichée plutôt que d'afficher des liens sans contexte).
+ *
+ * `flags` (optionnel) : état des feature flags de l'administration — les
+ * étapes correspondant à un module désactivé sont retirées de la barre (l'ordre
+ * des étapes restantes est conservé) et reviennent dès réactivation.
  */
 export function buildProjectJourney(
   category: string | null | undefined,
   projectId: string | null | undefined,
+  flags?: ProjectJourneyFlags,
 ): ProjectJourneyStep[] {
   const raw = (projectId ?? "").trim();
   if (!raw) return [];
@@ -93,46 +139,52 @@ export function buildProjectJourney(
 
   // Groupe B — coût estimatif → consultation → fournisseurs.
   if (group === "B")
-    return [
-      cost,
-      consult,
-      {
-        key: "suppliers",
-        label: "Fournisseurs",
-        path: SUPPLIERS_DIRECTORY_PATH,
-        href: `/dashboard/suppliers-directory?project=${pid}`,
-      },
-    ];
+    return filterDisabledSteps(
+      [
+        cost,
+        consult,
+        {
+          key: "suppliers",
+          label: "Fournisseurs",
+          path: SUPPLIERS_DIRECTORY_PATH,
+          href: `/dashboard/suppliers-directory?project=${pid}`,
+        },
+      ],
+      flags,
+    );
 
   // Groupe A — parcours complet.
-  return [
-    cost,
-    {
-      key: "plans",
-      label: "Plans",
-      path: `/dashboard/plans/${pid}`,
-      href: `/dashboard/plans/${pid}`,
-    },
-    {
-      key: "materials",
-      label: "Choix matériaux",
-      path: "/dashboard/ai-materials",
-      href: `/dashboard/ai-materials?project=${pid}`,
-    },
-    consult,
-    {
-      key: "execution",
-      label: "Exécution",
-      path: "/dashboard/guide",
-      href: `/dashboard/guide?project=${pid}`,
-    },
-    {
-      key: "investment",
-      label: "Investissement",
-      path: "/dashboard/investments",
-      href: `/dashboard/investments?project=${pid}`,
-    },
-  ];
+  return filterDisabledSteps(
+    [
+      cost,
+      {
+        key: "plans",
+        label: "Plans",
+        path: `/dashboard/plans/${pid}`,
+        href: `/dashboard/plans/${pid}`,
+      },
+      {
+        key: "materials",
+        label: "Choix matériaux",
+        path: "/dashboard/ai-materials",
+        href: `/dashboard/ai-materials?project=${pid}`,
+      },
+      consult,
+      {
+        key: "execution",
+        label: "Exécution",
+        path: "/dashboard/guide",
+        href: `/dashboard/guide?project=${pid}`,
+      },
+      {
+        key: "investment",
+        label: "Investissement",
+        path: "/dashboard/investments",
+        href: `/dashboard/investments?project=${pid}`,
+      },
+    ],
+    flags,
+  );
 }
 
 /** Route de l'annuaire des fournisseurs (page des fournisseurs trouvés). */
@@ -155,30 +207,34 @@ export const MATERIALS_PAGE_PATH = "/dashboard/materials";
 export function buildAiMaterialsResultJourney(
   projectId: string | null | undefined,
   supplierHref?: string | null,
+  flags?: ProjectJourneyFlags,
 ): ProjectJourneyStep[] {
   const raw = (projectId ?? "").trim();
   if (!raw) return [];
   const pid = encodeURIComponent(raw);
 
-  return [
-    {
-      key: "cost",
-      label: "Coût estimatif",
-      path: `/dashboard/project/${pid}`,
-      href: `/dashboard/project/${pid}`,
-    },
-    {
-      key: "priceList",
-      label: "Liste prix",
-      path: MATERIALS_PAGE_PATH,
-      href: `${MATERIALS_PAGE_PATH}?project=${pid}`,
-    },
-    {
-      key: "supplier",
-      label: "Fournisseur",
-      path: SUPPLIERS_DIRECTORY_PATH,
-      // Annuaire pré-filtré par l'analyse lorsqu'il est fourni.
-      href: (supplierHref ?? "").trim() || SUPPLIERS_DIRECTORY_PATH,
-    },
-  ];
+  return filterDisabledSteps(
+    [
+      {
+        key: "cost",
+        label: "Coût estimatif",
+        path: `/dashboard/project/${pid}`,
+        href: `/dashboard/project/${pid}`,
+      },
+      {
+        key: "priceList",
+        label: "Liste prix",
+        path: MATERIALS_PAGE_PATH,
+        href: `${MATERIALS_PAGE_PATH}?project=${pid}`,
+      },
+      {
+        key: "supplier",
+        label: "Fournisseur",
+        path: SUPPLIERS_DIRECTORY_PATH,
+        // Annuaire pré-filtré par l'analyse lorsqu'il est fourni.
+        href: (supplierHref ?? "").trim() || SUPPLIERS_DIRECTORY_PATH,
+      },
+    ],
+    flags,
+  );
 }

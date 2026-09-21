@@ -283,7 +283,7 @@ export default function ProjectDetail() {
       "Fournitures diverses et accessoires stables.",
     );
   const busy = project?.status === "analyzing" || analyzing;
-  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
+  const { isEnabled: isFeatureEnabled, flags: journeyFlags } = useFeatureFlags();
 
   // Bouton « Return on Investment » : réservé au groupe A (projets neufs /
   // immobiliers) — le parcours du groupe B ne comporte pas d'étape
@@ -535,6 +535,7 @@ export default function ProjectDetail() {
           <ProjectJourneyNav
             projectId={project._id}
             category={project.category}
+            flags={journeyFlags}
             maxWidthClassName="max-w-5xl"
           />
         )}

@@ -11,6 +11,7 @@ import { AiAnalysisResults } from "@/components/ai/AiAnalysisResults";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { buildAiMaterialsResultJourney } from "@/lib/projectJourney";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 
 /** Durée fixe de l'écran de chargement : 3 secondes. */
 const LOADING_DURATION_MS = 3000;
@@ -22,6 +23,7 @@ export default function AiMaterialsResult() {
   });
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { flags: journeyFlags } = useFeatureFlags();
 
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
@@ -80,9 +82,9 @@ export default function AiMaterialsResult() {
   const journeySteps = useMemo(
     () =>
       journeyReady
-        ? buildAiMaterialsResultJourney(analysis?.projectId ?? null, suppliersDirectoryHref)
+        ? buildAiMaterialsResultJourney(analysis?.projectId ?? null, suppliersDirectoryHref, journeyFlags)
         : [],
-    [journeyReady, analysis?.projectId, suppliersDirectoryHref],
+    [journeyReady, analysis?.projectId, suppliersDirectoryHref, journeyFlags],
   );
 
   return (

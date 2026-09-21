@@ -2,7 +2,11 @@ import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { isHeaderNavItemActive } from "@/components/HeaderNav";
-import { buildProjectJourney, type ProjectJourneyStep } from "@/lib/projectJourney";
+import {
+  buildProjectJourney,
+  ProjectJourneyFlags,
+  type ProjectJourneyStep,
+} from "@/lib/projectJourney";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,6 +40,11 @@ interface ProjectJourneyNavProps {
   /** Type de projet enregistré (détermine le groupe du parcours). */
   category?: string | null;
   /**
+   * État des feature flags de l'administration : retire les étapes dont le
+   * module est désactivé. Sans état fourni, toutes les étapes s'affichent.
+   */
+  flags?: ProjectJourneyFlags;
+  /**
    * Parcours imposé par la page (prioritaire). Un tableau vide masque la barre.
    * Sans cette prop, le parcours est déduit du type de projet.
    */
@@ -47,6 +56,7 @@ interface ProjectJourneyNavProps {
 export function ProjectJourneyNav({
   projectId,
   category,
+  flags,
   steps: stepsOverride,
   maxWidthClassName = "max-w-5xl",
   className,
@@ -55,8 +65,8 @@ export function ProjectJourneyNav({
   const { pathname } = useLocation();
 
   const defaultSteps = useMemo(
-    () => buildProjectJourney(category, projectId),
-    [category, projectId],
+    () => buildProjectJourney(category, projectId, flags),
+    [category, projectId, flags],
   );
 
   const steps = stepsOverride ?? defaultSteps;

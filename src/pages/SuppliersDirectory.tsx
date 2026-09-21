@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useAuth } from "@/hooks/use-auth";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,7 @@ export default function SuppliersDirectory() {
   });
 
   const navigate = useNavigate();
+  const { flags: journeyFlags } = useFeatureFlags();
   const suppliers = useQuery(api.supplierProfiles.getActiveSuppliers);
 
   // Filtres pilotés par l'URL : l'annuaire peut être ouvert pré-filtré depuis
@@ -235,6 +237,7 @@ export default function SuppliersDirectory() {
             projet (contexte conservé dans l'URL). */}
         <ProjectJourneyNav
           projectId={projectIdParam}
+          flags={journeyFlags}
           maxWidthClassName="max-w-7xl"
         />
       </header>

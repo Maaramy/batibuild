@@ -34,6 +34,7 @@ import { profileCardClass, VerifiedBadge, TrophyLine, MetricRow, DetailRow } fro
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
 import { PROJECT_TYPE_LABELS } from "@/convex/projectTypes";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { toast } from "sonner";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ export default function ProfessionalsDirectory() {
   const projectIdParam = searchParams.get("project");
   const scenarioParam = searchParams.get("scenario") ?? "standard";
   const { user } = useAuth();
+  const { flags: journeyFlags } = useFeatureFlags();
   const experts = useQuery(api.expertProfiles.getActiveExperts);
   const project = useQuery(
     api.projects.getProject,
@@ -196,6 +198,7 @@ export default function ProfessionalsDirectory() {
         <ProjectJourneyNav
           projectId={projectIdParam}
           category={project?.category}
+          flags={journeyFlags}
           maxWidthClassName="max-w-7xl"
         />
       </header>
