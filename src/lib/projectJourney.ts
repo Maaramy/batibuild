@@ -10,9 +10,8 @@
  *
  *   - **Groupe A** — projets neufs / immobiliers (maison, villa, appartement,
  *     studio, duplex, immeuble, local commercial, bureau, entrepôt, résidence
- *     touristique, projet immobilier neuf) : parcours complet en 6 étapes
- *     (coût estimatif → plans → choix matériaux → consultation → exécution →
- *     investissement) ;
+ *     touristique, projet immobilier neuf) : parcours en 5 étapes
+ *     (coût estimatif → plans → choix matériaux → consultation → exécution) ;
  *   - **Groupe B** — tous les autres types (rénovation, extension, piscine,
  *     restaurant, café, travaux techniques…) : 3 étapes seulement
  *     (coût estimatif → consultation → fournisseurs).
@@ -48,7 +47,6 @@ export const JOURNEY_FLAG_KEYS = {
   plans: "architectural_plans",
   materials: "ai_materials",
   priceList: "ai_materials",
-  investment: "investment_project",
 } as const;
 
 /**
@@ -78,7 +76,6 @@ export type ProjectJourneyStepKey =
   | "priceList"
   | "consult"
   | "execution"
-  | "investment"
   | "supplier"
   | "suppliers";
 
@@ -175,12 +172,6 @@ export function buildProjectJourney(
         label: "Exécution",
         path: "/dashboard/guide",
         href: `/dashboard/guide?project=${pid}`,
-      },
-      {
-        key: "investment",
-        label: "Investissement",
-        path: "/dashboard/investments",
-        href: `/dashboard/investments?project=${pid}`,
       },
     ],
     flags,

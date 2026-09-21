@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  * Rendu sous forme d'ÉTAPES NUMÉROTÉES (pastilles 1, 2, 3… reliées par une
  * ligne), exactement comme la barre de progression des phases du guide A-Z :
  *
- *   - étapes déterminées automatiquement par le type du projet (6 étapes pour
+ *   - étapes déterminées automatiquement par le type du projet (5 étapes pour
  *     les projets neufs / immobiliers, 3 pour les autres), puis filtrées par
  *     les feature flags de l'administration via la prop `flags` — une étape
  *     dont le module est désactivé disparaît, les autres conservent leur ordre ;
