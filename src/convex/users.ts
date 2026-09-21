@@ -516,80 +516,22 @@ export const deleteUser = mutation({
     const targetUser = await ctx.db.get(userId);
     if (!targetUser) throw new Error("Utilisateur introuvable");
 
-    // 1. Delete all user's projects
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const project of projects) {
-      await ctx.db.delete(project._id);
-    }
+    // Cascade complète (projets, profils, abonnements, fichiers, relations,
+    // auth) exécutée dans la MÊME transaction : si une étape échoue, rien
+    // n'est supprimé et l'utilisateur reste intact.
+    const result = await ctx.runMutation(internal.userDeletion.deleteUserCompletely, {
+      userId,
+    });
 
-    // 2. Delete all user's subscriptions
-    const subscriptions = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const sub of subscriptions) {
-      await ctx.db.delete(sub._id);
-    }
-
-    // 3. Delete all user's notifications
-    const notifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const notif of notifications) {
-      await ctx.db.delete(notif._id);
-    }
-
-    // 4. Delete all user's reports
-    const reports = await ctx.db
-      .query("reports")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const report of reports) {
-      await ctx.db.delete(report._id);
-    }
-
-    // 5. Delete auth accounts linked to this user
-    const authAccounts = await ctx.db
-      .query("authAccounts")
-      .filter((q) => q.eq(q.field("userId"), userId))
-      .collect();
-    for (const account of authAccounts) {
-      await ctx.db.delete(account._id);
-    }
-
-    // 6. Delete auth sessions linked to this user
-    const sessions = await ctx.db
-      .query("authSessions")
-      .filter((q) => q.eq(q.field("userId"), userId))
-      .collect();
-    for (const session of sessions) {
-      await ctx.db.delete(session._id);
-    }
-
-    // 7. Delete verification codes linked to this user (via auth accounts)
-    const accountIds = authAccounts.map((a) => a._id);
-    for (const accId of accountIds) {
-      const verifications = await ctx.db
-        .query("authVerificationCodes")
-        .withIndex("accountId", (q) => q.eq("accountId", accId))
-        .collect();
-      for (const verif of verifications) {
-        await ctx.db.delete(verif._id);
-      }
-    }
-
-    // 8. Finally, delete the user document
-    await ctx.db.delete(userId);
-
-    // Log the action
+    // Log the action (données techniques du compte supprimé, pour audit).
+    const summary = Object.entries(result.deleted ?? {})
+      .filter(([, n]) => (n as number) > 0)
+      .map(([table, n]) => `${table}:${n}`)
+      .join(", ");
     await logAdminAction(
       ctx, admin, "delete_user",
       { userId, email: targetUser?.email },
-      targetUser?.name || "Utilisateur supprimé",
+      `${targetUser?.name || "Utilisateur supprimé"}${summary ? ` — ${summary}` : ""}`,
     );
 
     return { success: true };
@@ -1007,59 +949,11 @@ export const batchDeleteUsers = mutation({
           continue;
         }
 
-        // Delete projects
-        const projects = await ctx.db
-          .query("projects")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect();
-        for (const p of projects) await ctx.db.delete(p._id);
+        // Cascade complète réutilisée (même transaction par utilisateur).
+        await ctx.runMutation(internal.userDeletion.deleteUserCompletely, {
+          userId,
+        });
 
-        // Delete subscriptions
-        const subs = await ctx.db
-          .query("subscriptions")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect();
-        for (const s of subs) await ctx.db.delete(s._id);
-
-        // Delete notifications
-        const notifs = await ctx.db
-          .query("notifications")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect();
-        for (const n of notifs) await ctx.db.delete(n._id);
-
-        // Delete reports
-        const reports = await ctx.db
-          .query("reports")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .collect();
-        for (const r of reports) await ctx.db.delete(r._id);
-
-        // Delete auth accounts
-        const authAccounts = await ctx.db
-          .query("authAccounts")
-          .filter((q) => q.eq(q.field("userId"), userId))
-          .collect();
-        for (const a of authAccounts) {
-          // Also delete verification codes
-          const verifs = await ctx.db
-            .query("authVerificationCodes")
-            .withIndex("accountId", (q) => q.eq("accountId", a._id))
-            .collect();
-          for (const v of verifs) await ctx.db.delete(v._id);
-
-          await ctx.db.delete(a._id);
-        }
-
-        // Delete sessions
-        const sessions = await ctx.db
-          .query("authSessions")
-          .filter((q) => q.eq(q.field("userId"), userId))
-          .collect();
-        for (const ses of sessions) await ctx.db.delete(ses._id);
-
-        // Delete user
-        await ctx.db.delete(userId);
         deleted.push(targetUser.email || targetUser.name || userId);
       } catch (err: any) {
         errors.push(err.message);

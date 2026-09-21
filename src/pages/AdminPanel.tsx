@@ -194,6 +194,8 @@ export default function AdminPanel() {
   const toggleExpertVisibility = useMutation(api.expertProfiles.adminToggleExpertVisibility);
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const deletingUser = deletingUserId ? (allUsers.find((u: any) => u._id === deletingUserId) ?? null) : null;
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [batchDeleting, setBatchDeleting] = useState(false);
 
@@ -261,20 +263,19 @@ export default function AdminPanel() {
   const deleteMaterial = useMutation(api.materials.deleteMaterialPrice);
   const bulkUpdateMaterialPrices = useMutation(api.materials.bulkUpdateMaterialPrices);
 
-  // Handle user deletion
-  useEffect(() => {
+  // Handle user deletion (confirmée via le dialogue dédié)
+  const confirmDeleteUser = async () => {
     if (!deletingUserId) return;
-    const doDelete = async () => {
-      try {
-        await deleteUser({ userId: deletingUserId as any });
-        toast.success("Utilisateur supprimé avec succès");
-      } catch (err: any) {
-        toast.error(err.message || "Erreur lors de la suppression");
-      }
-      setDeletingUserId(null);
-    };
-    doDelete();
-  }, [deletingUserId, deleteUser]);
+    setDeleting(true);
+    try {
+      await deleteUser({ userId: deletingUserId as any });
+      toast.success("L'utilisateur et toutes ses données associées ont été supprimés définitivement.");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la suppression");
+    }
+    setDeleting(false);
+    setDeletingUserId(null);
+  };
 
   // Handle batch delete
   const handleBatchDelete = async () => {
@@ -596,6 +597,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
   const totalCost = allProjects.reduce((sum: number, p: any) => sum + (p.costEstimate?.totalCost || 0), 0);
 
   return (
+    <>
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/3 via-background to-background">
       {/* Top accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-primary via-blue-500 to-violet-500/30" />
@@ -1071,13 +1073,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                                   <button
                                     type="button"
                                     onClick={handleDelete}
-                                    className="p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
-                                    title="Supprimer"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </td>
+                              className="p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
+                              title="Supprimer définitivement"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
                             </tr>
                           );
                         })}
@@ -4678,5 +4680,51 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
           </p>
         </div>
     </main>
+
+    {/* ── Confirmation de suppression définitive d'un utilisateur ── */}
+    <AlertDialog open={!!deletingUserId} onOpenChange={(open) => { if (!open && !deleting) setDeletingUserId(null); }}>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Supprimer définitivement cet utilisateur ?</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3">
+              <p>
+                Cette action supprimera définitivement le compte et toutes les
+                données associées (profils, projets, abonnements, reçus,
+                messages, fichiers et autres données personnelles). Cette action
+                est irréversible.
+              </p>
+              {deletingUser && (
+                <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm">
+                  <p className="font-medium text-foreground">{deletingUser.name || "Sans nom"}</p>
+                  <p className="text-xs text-muted-foreground">{deletingUser.email || ""}</p>
+                </div>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault();
+              confirmDeleteUser();
+            }}
+            disabled={deleting}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {deleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Suppression...
+              </>
+            ) : (
+              "Supprimer définitivement"
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
