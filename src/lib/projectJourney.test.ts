@@ -15,6 +15,7 @@ const GROUP_A_LABELS = [
   "Choix matériaux",
   "Consultation",
   "Exécution",
+  "Investissement",
 ];
 
 const GROUP_B_LABELS = ["Coût estimatif", "Consultation", "Fournisseurs"];
@@ -82,7 +83,7 @@ describe("projectJourneyGroup — groupe déduit du type de projet", () => {
 });
 
 describe("buildProjectJourney — ordre des étapes", () => {
-  it("Maison : 5 étapes dans l'ordre officiel", () => {
+  it("Maison : 6 étapes dans l'ordre officiel", () => {
     expect(buildProjectJourney("maison", PID).map((s) => s.label)).toEqual(GROUP_A_LABELS);
   });
 
@@ -94,10 +95,10 @@ describe("buildProjectJourney — ordre des étapes", () => {
     expect(buildProjectJourney("appartement", PID).map((s) => s.label)).toEqual(GROUP_A_LABELS);
   });
 
-  it("le parcours du groupe A se termine par consultation puis exécution (investissement retiré)", () => {
+  it("le parcours du groupe A se termine par consultation, exécution puis investissement", () => {
     const keys = buildProjectJourney("maison", PID).map((s) => s.key);
     expect(keys.indexOf("consult")).toBeLessThan(keys.indexOf("execution"));
-    expect(keys).not.toContain("investment");
+    expect(keys.indexOf("execution")).toBeLessThan(keys.indexOf("investment"));
   });
 
   it("Rénovation : coût estimatif + consultation + fournisseurs", () => {
@@ -126,7 +127,7 @@ describe("buildProjectJourney — ordre des étapes", () => {
 });
 
 describe("buildProjectJourney — liens et contexte du projet", () => {
-  it("chaque étape pointe vers le module correspondant (aucune étape investissement)", () => {
+  it("chaque étape pointe vers le module correspondant (investissement en dernière position)", () => {
     const steps = buildProjectJourney("villa", PID);
     expect(steps.map((s) => s.key)).toEqual([
       "cost",
@@ -134,6 +135,7 @@ describe("buildProjectJourney — liens et contexte du projet", () => {
       "materials",
       "consult",
       "execution",
+      "investment",
     ]);
     expect(steps.map((s) => s.href)).toEqual([
       "/dashboard/project/proj_1",
@@ -141,6 +143,7 @@ describe("buildProjectJourney — liens et contexte du projet", () => {
       "/dashboard/ai-materials?project=proj_1",
       "/dashboard/professionals-directory?project=proj_1",
       "/dashboard/guide?project=proj_1",
+      "/dashboard/investments?project=proj_1",
     ]);
   });
 
@@ -176,8 +179,9 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
       "materials",
       "consult",
       "execution",
+      "investment",
     ]);
-    expect(buildProjectJourney("maison", PID, null).map((s) => s.key)).toHaveLength(5);
+    expect(buildProjectJourney("maison", PID, null).map((s) => s.key)).toHaveLength(6);
   });
 
   it("« Plans » disparaît quand architectural_plans est désactivé (ordre conservé)", () => {
@@ -187,6 +191,7 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
       "materials",
       "consult",
       "execution",
+      "investment",
     ]);
   });
 
@@ -197,14 +202,19 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
       "plans",
       "consult",
       "execution",
+      "investment",
     ]);
   });
 
-  it("le flag investment_project n'a plus aucune influence (étape retirée du parcours)", () => {
-    const off = buildProjectJourney("maison", PID, { investment_project: false });
-    const on = buildProjectJourney("maison", PID, { investment_project: true });
-    expect(off.map((s) => s.key)).toEqual(on.map((s) => s.key));
-    expect(off.some((s) => /invest/i.test(s.label))).toBe(false);
+  it("« Investissement » disparaît quand investment_project est désactivé (groupe A)", () => {
+    const flags = { investment_project: false };
+    expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
+      "cost",
+      "plans",
+      "materials",
+      "consult",
+      "execution",
+    ]);
   });
 
   it("« Coût estimatif » disparaît quand construction_cost_estimation est désactivé (groupe A et B)", () => {
@@ -214,6 +224,7 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
       "materials",
       "consult",
       "execution",
+      "investment",
     ]);
     expect(buildProjectJourney("renovation_complete", PID, flags).map((s) => s.key)).toEqual([
       "consult",
@@ -252,18 +263,37 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
       "materials",
       "consult",
       "execution",
+      "investment",
     ]);
   });
 
-  it("aucune étape du parcours ne référence l'investissement, quels que soient les flags et le type", () => {
-    for (const type of PROJECT_TYPES) {
-      for (const flags of [undefined, { investment_project: true }, { investment_project: false }]) {
-        const steps = buildProjectJourney(type, PID, flags);
-        expect(
-          steps.some((s) => s.label.includes("Investissement") || s.href.includes("/dashboard/investments")),
-          type,
-        ).toBe(false);
-      }
+  it("« Investissement » : désactivation → aucun vestige, réactivation → retour exact (groupe A)", () => {
+    const off = buildProjectJourney("villa", PID, { investment_project: false });
+    expect(off.map((s) => s.key)).toEqual([
+      "cost",
+      "plans",
+      "materials",
+      "consult",
+      "execution",
+    ]);
+    expect(off.some((s) => /invest/i.test(s.label))).toBe(false);
+    expect(off.some((s) => s.href.includes("/dashboard/investments"))).toBe(false);
+    const on = buildProjectJourney("villa", PID, { investment_project: true });
+    expect(on.map((s) => s.key)).toEqual([
+      "cost",
+      "plans",
+      "materials",
+      "consult",
+      "execution",
+      "investment",
+    ]);
+    expect(on[on.length - 1].href).toBe(`/dashboard/investments?project=${PID}`);
+  });
+
+  it("groupe B : l'étape Investissement n'apparaît jamais, quel que soit le flag", () => {
+    for (const flags of [undefined, { investment_project: true }, { investment_project: false }]) {
+      const steps = buildProjectJourney("renovation_complete", PID, flags);
+      expect(steps.map((s) => s.key)).toEqual(["cost", "consult", "suppliers"]);
     }
   });
 
