@@ -267,6 +267,32 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
     ]);
   });
 
+  it("« Investissement » : désactivation → aucun vestige, réactivation → retour exact (groupe A)", () => {
+    // Désactivé : l'étape disparaît entièrement (pas d'espace réservé), les
+    // autres conservent leur ordre et leurs liens.
+    const off = buildProjectJourney("villa", PID, { investment_project: false });
+    expect(off.map((s) => s.key)).toEqual([
+      "cost",
+      "plans",
+      "materials",
+      "consult",
+      "execution",
+    ]);
+    expect(off.some((s) => /invest/i.test(s.label))).toBe(false);
+    expect(off.some((s) => s.href.includes("/dashboard/investments"))).toBe(false);
+    // Réactivé : l'étape réapparaît en dernière position avec son lien d'origine.
+    const on = buildProjectJourney("villa", PID, { investment_project: true });
+    expect(on.map((s) => s.key)).toEqual([
+      "cost",
+      "plans",
+      "materials",
+      "consult",
+      "execution",
+      "investment",
+    ]);
+    expect(on[on.length - 1].href).toBe(`/dashboard/investments?project=${PID}`);
+  });
+
   it("le contexte projet reste conservé après filtrage", () => {
     const steps = buildProjectJourney("maison", PID, { architectural_plans: false });
     expect(steps.every((s) => s.href.includes(PID))).toBe(true);

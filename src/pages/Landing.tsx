@@ -480,6 +480,7 @@ function HeroSection() {
                     <p className="text-[10px] text-muted-foreground">Devis détaillé & rapport IA</p>
                   </div>
                 </DropdownMenuItem>
+                {isFeatureEnabled("investment_project") && (
                 <DropdownMenuItem onClick={() => navigate("/investments/demo")} className="cursor-pointer gap-2">
                   <Landmark className="h-4 w-4 text-indigo-600" />
                   <div className="min-w-0">
@@ -487,6 +488,7 @@ function HeroSection() {
                     <p className="text-[10px] text-muted-foreground">Rentabilité, ROI & scénarios</p>
                   </div>
                 </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </motion.div>
@@ -673,11 +675,25 @@ function HeroSection() {
 
 
 function HowItWorksSection() {
+  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
   const [mode, setMode] = useState<"construction" | "investissement">("construction");
   const [activeStep, setActiveStep] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sectionRef = useRef(null);
+
+  // Flag « Projet d'investissement » : l'onglet du sélecteur disparaît et le
+  // mode construction reste actif (aucun état orphelin).
+  const productModes: {
+    id: "construction" | "investissement";
+    label: string;
+    icon: typeof HardHat;
+  }[] = [
+    { id: "construction", label: "Construction", icon: HardHat },
+    ...(isFeatureEnabled("investment_project")
+      ? [{ id: "investissement" as const, label: "Investissement", icon: Landmark }]
+      : []),
+  ];
 
   const CONSTRUCTION_STEPS = [
     {
@@ -809,12 +825,7 @@ function HowItWorksSection() {
 
           {/* Sélecteur de produit */}
           <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-1 rounded-full border border-border/40 bg-muted/30 p-1">
-            {(
-              [
-                { id: "construction", label: "Construction", icon: HardHat },
-                { id: "investissement", label: "Investissement", icon: Landmark },
-              ] as const
-            ).map((p) => (
+            {productModes.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setMode(p.id)}
