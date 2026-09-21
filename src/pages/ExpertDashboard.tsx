@@ -542,7 +542,7 @@ export default function ExpertDashboard() {
                         <p className="text-sm font-semibold">Abonnement Expert</p>
                         <p className="text-lg font-black text-violet-600 mt-1">{MONTHLY_PRICE} TND<small className="text-[9px] font-normal text-muted-foreground">/mois</small></p>
                         <ul className="mt-2 space-y-1">
-                          {["Profil expert complet", "Badge certifié", "Demandes de devis", "Statistiques avancées", "Support prioritaire"].map((f) => (
+                          {["Présentez votre expertise aux porteurs de projets", "Recevez des demandes de consultation adaptées à votre profil", "Développez votre visibilité auprès de nouveaux clients", "Gérez vos demandes et rendez-vous depuis votre espace", "Valorisez votre profil, vos services et vos tarifs"].map((f) => (
                             <li key={f} className="flex items-center gap-1 text-[9px] text-muted-foreground">
                               <Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />{f}
                             </li>
