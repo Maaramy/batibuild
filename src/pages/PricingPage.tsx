@@ -35,10 +35,56 @@ type PlanId = "pro" | "supplier" | "expert";
 
 const PLAN_LABELS: Record<string, string> = { pro: "Client Pro", supplier: "Fournisseur", expert: "Expert" };
 
-const PLANS: { id: PlanId; quota: number; description: string; popular?: boolean }[] = [
-  { id: "pro", quota: -1, description: "Estimez vos projets de construction — accès complet illimité" },
-  { id: "supplier", quota: -1, description: "Vendez vos matériaux sur la plateforme" },
-  { id: "expert", quota: -1, description: "Offrez vos services d'expertise", popular: true },
+/**
+ * Contenu marketing des trois offres — avantages spécifiques à chaque type
+ * d'utilisateur (client : estimation & analyse de projets ; fournisseur :
+ * visibilité, catalogue et opportunités commerciales ; expert : consultation,
+ * visibilité et développement de l'activité).
+ */
+const PLANS: {
+  id: PlanId;
+  quota: number;
+  subtitle: string;
+  features: string[];
+  popular?: boolean;
+}[] = [
+  {
+    id: "pro",
+    quota: -1,
+    subtitle: "Votre projet. Votre budget. Vos décisions, mieux préparées.",
+    features: [
+      "Estimez vos projets au juste prix du marché tunisien",
+      "Analysez la rentabilité de vos investissements",
+      "Comparez vos scénarios avant de vous engager",
+      "Générez et téléchargez vos études en PDF",
+      "Accédez à vos projets et analyses sans limitation",
+    ],
+    popular: true,
+  },
+  {
+    id: "supplier",
+    quota: -1,
+    subtitle: "Plus de visibilité. Plus d’opportunités. Plus de clients.",
+    features: [
+      "Présentez vos matériaux aux porteurs de projets",
+      "Développez votre visibilité auprès des professionnels",
+      "Recevez des opportunités adaptées à vos produits",
+      "Mettez en avant votre catalogue et vos prix",
+      "Gérez votre présence fournisseur simplement",
+    ],
+  },
+  {
+    id: "expert",
+    quota: -1,
+    subtitle: "Votre expertise. De nouvelles opportunités. Votre croissance.",
+    features: [
+      "Présentez votre expertise aux porteurs de projets",
+      "Recevez des demandes de consultation adaptées à votre profil",
+      "Développez votre visibilité auprès de nouveaux clients",
+      "Gérez vos demandes et rendez-vous depuis votre espace",
+      "Valorisez votre profil, vos services et vos tarifs",
+    ],
+  },
 ];
 
 function PaymentField({
@@ -255,7 +301,8 @@ export default function PricingPage() {
     plan: PlanId,
     price: number,
     _quota: number,
-    description: string,
+    subtitle: string,
+    features: string[],
     popular?: boolean,
     index = 0,
   ) => {
@@ -293,7 +340,7 @@ export default function PricingPage() {
 
         <div className="mb-5">
           <h3 className="text-lg font-semibold">{PLAN_LABELS[plan]}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
         </div>
 
         <div className="mb-5">
@@ -307,28 +354,18 @@ export default function PricingPage() {
           )}
         </div>
 
-        <ul className="mb-8 space-y-3 flex-1">
-          <li className="flex items-start gap-2 text-sm">
-            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <span>Projets de construction illimités</span>
-          </li>
-          <li className="flex items-start gap-2 text-sm">
-            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <span>Analyses de rentabilité illimitées</span>
-          </li>
-          <li className="flex items-start gap-2 text-sm">
-            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <span>Téléchargements PDF illimités</span>
-          </li>
-          <li className="flex items-start gap-2 text-sm">
-            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <span>Estimation IA aux prix tunisiens</span>
-          </li>
+        <ul className="mb-8 flex-1 space-y-3">
+          {features.map((feature) => (
+            <li key={feature} className="flex items-start gap-2 text-sm">
+              <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <span className="min-w-0 leading-snug">{feature}</span>
+            </li>
+          ))}
         </ul>
 
         <Button
           variant={popular && !isCurrent ? "default" : "outline"}
-          className="w-full h-11 text-sm gap-1"
+          className="mt-auto w-full h-11 text-sm gap-1"
           onClick={() => handleSelectPlan(plan)}
           disabled={(!reached && isCurrent) || (isPending && plan === currentSubscription?.plan)}
         >
@@ -382,9 +419,9 @@ export default function PricingPage() {
         </div>
 
         {/* ═══ Les 3 forfaits ═══ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 pt-2">
           {PLANS.map((p, i) =>
-            renderPlanCard(p.id, priceFor(p.id), p.quota, p.description, p.popular, i),
+            renderPlanCard(p.id, priceFor(p.id), p.quota, p.subtitle, p.features, p.popular, i),
           )}
         </div>
 
