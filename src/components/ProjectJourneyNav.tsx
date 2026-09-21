@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router";
 import { isHeaderNavItemActive } from "@/components/HeaderNav";
 import {
   buildProjectJourney,
-  ProjectJourneyFlags,
+  type ProjectJourneyFlags,
   type ProjectJourneyStep,
 } from "@/lib/projectJourney";
 import { cn } from "@/lib/utils";
@@ -16,7 +16,9 @@ import { cn } from "@/lib/utils";
  * ligne), exactement comme la barre de progression des phases du guide A-Z :
  *
  *   - étapes déterminées automatiquement par le type du projet (6 étapes pour
- *     les projets neufs / immobiliers, 2 étapes pour les autres) ;
+ *     les projets neufs / immobiliers, 3 pour les autres), puis filtrées par
+ *     les feature flags de l'administration via la prop `flags` — une étape
+ *     dont le module est désactivé disparaît, les autres conservent leur ordre ;
  *   - chaque étape est un vrai lien vers le module correspondant, avec
  *     l'identifiant du projet conservé dans l'URL ;
  *   - navigation libre : aucune étape n'est désactivée, et l'étape active est

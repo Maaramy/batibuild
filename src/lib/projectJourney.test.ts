@@ -276,6 +276,23 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
     const steps = buildProjectJourney("maison", PID, { ai_materials: false });
     expect(new Set(steps.map((s) => s.path)).size).toBe(steps.length);
   });
+
+  it("invariant : le parcours n'est jamais vide avec un projet valide, même tous flags désactivés", () => {
+    const allOff = {
+      construction_cost_estimation: false,
+      architectural_plans: false,
+      ai_materials: false,
+      investment_project: false,
+    };
+    // Consultation / Exécution / Fournisseurs ne dépendent d'aucun flag.
+    for (const type of PROJECT_TYPES) {
+      expect(buildProjectJourney(type, PID, allOff).length, type).toBeGreaterThanOrEqual(1);
+    }
+    // Parcours dédié « Résultat IA » : seule l'étape Fournisseur subsiste.
+    expect(buildAiMaterialsResultJourney(PID, SUPPLIER_HREF, allOff).map((s) => s.key)).toEqual([
+      "supplier",
+    ]);
+  });
 });
 
 describe("buildAiMaterialsResultJourney — filtrage par feature flags", () => {
