@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { getFreePlanStatus } from "./access";
+import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 import { normalizeIndicativePrice } from "../lib/expertAvailability";
 
@@ -119,13 +119,15 @@ export const getRandomByProfession = query({
       .withIndex("by_profession", (q) => q.eq("profession", args.profession as any))
       .collect();
 
+    const now = Date.now();
     const free = await getFreePlanStatus(ctx);
-    const active = experts.filter((e) =>
-      free.expertFree
-        ? e.isVisible
-        : e.isVisible &&
-          (e.subscriptionStatus === "active" || e.subscriptionStatus === "trial")
-    );
+    const active = [];
+    for (const e of experts) {
+      if (!e.isVisible) continue;
+      // Paiement obligatoire : sans offre gratuite ni abonnement actif, le
+      // profil reste strictement invisible, même si `isVisible` est vrai.
+      if (await isProfilePaymentActive(ctx, free.expertFree, e, now)) active.push(e);
+    }
     if (active.length === 0) return null;
 
     // Fisher-Yates shuffle and pick first
@@ -148,19 +150,12 @@ export const getActiveExperts = query({
     const free = await getFreePlanStatus(ctx);
     const experts = await ctx.db.query("expertProfiles").collect();
 
-    const visible = experts
-      .filter((e) => e.isVisible)
-      .filter((e) => {
-        // « Offre gratuite » : tous les profils visibles sont actifs automatiquement
-        if (free.expertFree) return true;
-        if (
-          (e.subscriptionStatus === "active" || e.subscriptionStatus === "trial") &&
-          e.subscriptionEndDate && e.subscriptionEndDate < now
-        ) {
-          return false;
-        }
-        return true;
-      });
+    const visible = [];
+    for (const e of experts) {
+      if (!e.isVisible) continue;
+      // Paiement obligatoire : profil inactif / expiré = strictement invisible.
+      if (await isProfilePaymentActive(ctx, free.expertFree, e, now)) visible.push(e);
+    }
 
     const result = [];
     for (const e of visible) {
@@ -195,6 +190,9 @@ export const getExpertById = query({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.expertId);
     if (!profile || !profile.isVisible) return null;
+    // Paiement obligatoire : profil inactif / expiré = strictement invisible.
+    const free = await getFreePlanStatus(ctx);
+    if (!(await isProfilePaymentActive(ctx, free.expertFree, profile))) return null;
     return {
       _id: profile._id,
       displayName: profile.displayName,
@@ -402,7 +400,15 @@ export const updateProfile = mutation({
   },
 });
 
-/** Toggle expert profile visibility */
+/**
+ * Toggle expert profile visibility — VERROUILLÉ.
+ *
+ * Règle produit : la visibilité d'un profil expert est gérée automatiquement
+ * selon l'état du paiement (offre gratuite ou abonnement actif = visible,
+ * sinon strictement invisible). L'utilisateur ne peut pas la modifier ; seul
+ * l'administrateur contrôle le champ `isVisible` (voir
+ * `adminToggleExpertVisibility`).
+ */
 export const toggleVisibility = mutation({
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
@@ -412,11 +418,9 @@ export const toggleVisibility = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .first();
     if (!profile) throw new Error("Profil expert introuvable");
-    await ctx.db.patch(profile._id, {
-      isVisible: !profile.isVisible,
-      updatedAt: Date.now(),
-    });
-    return { success: true, isVisible: !profile.isVisible };
+    throw new Error(
+      "La visibilité de votre profil est gérée automatiquement selon l'état de votre abonnement."
+    );
   },
 });
 

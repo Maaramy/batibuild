@@ -23,7 +23,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   Building2, Phone, Mail, MapPin, Globe, CheckCircle2,
-  Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard,
+  Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard, Lock,
   Store, ShieldCheck, Trash2, AlertTriangle,
   Banknote, Smartphone, Landmark, UserRound, Clock3, Upload, Image as ImageIcon, X,
   Wallet, BarChart3, FileText,
@@ -192,7 +192,6 @@ export default function SupplierDashboard() {
   const requestSub = useMutation(api.supplierProfiles.requestSubscription);
   const uploadSupplierPaymentProof = useMutation(api.supplierProfiles.uploadSupplierPaymentProof);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
-  const toggleVis = useMutation(api.supplierProfiles.toggleVisibility);
   const deleteProfile = useMutation(api.supplierProfiles.deleteProfile);
 
   const [saving, setSaving] = useState(false);
@@ -522,10 +521,26 @@ export default function SupplierDashboard() {
                               {(profile as any)?.planFree ? "Offre gratuite · Illimité" : `${remainingDays} jour${remainingDays > 1 ? 's' : ''}`}
                             </Badge>
                           )}
-                          <button onClick={() => toggleVis()}
-                            className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
-                            {profile.isVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                            {profile.isVisible ? "Visible" : "Masqué"}
+                          {/* Visibilité gérée automatiquement (verrouillée) — clic → info */}
+                          <button
+                            type="button"
+                            title="La visibilité est gérée automatiquement selon l'état de votre abonnement"
+                            onClick={() =>
+                              toast.info(
+                                effStatus === "active"
+                                  ? "Votre profil est publié automatiquement tant que votre abonnement est actif."
+                                  : "Votre profil n'est pas visible : activez votre abonnement pour être publié. La visibilité est gérée automatiquement.",
+                              )
+                            }
+                            className="flex cursor-help items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            {profile.isVisible && effStatus === "active" ? (
+                              <Eye className="h-3.5 w-3.5" />
+                            ) : (
+                              <EyeOff className="h-3.5 w-3.5" />
+                            )}
+                            {profile.isVisible && effStatus === "active" ? "Visible" : "Masqué"}
+                            <Lock className="h-3 w-3 opacity-60" />
                           </button>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1.5">

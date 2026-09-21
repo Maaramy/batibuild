@@ -273,17 +273,24 @@ describe("expertProfiles.toggleVisibility", () => {
     t = convexTest(schema, modules);
   });
 
-  it("toggles profile visibility", async () => {
+  it("is locked: the user cannot change profile visibility", async () => {
     const userId = await createTestUser(t);
     const userT = asUser(t, userId);
 
     await userT.mutation(api.expertProfiles.createProfile, baseProfileArgs);
 
-    const result1 = await userT.mutation(api.expertProfiles.toggleVisibility);
-    expect(result1.isVisible).toBe(false);
+    // Règle produit : la visibilité est gérée automatiquement selon le
+    // paiement — toute tentative utilisateur est rejetée.
+    await expect(
+      userT.mutation(api.expertProfiles.toggleVisibility),
+    ).rejects.toThrow(/gérée automatiquement/);
 
-    const result2 = await userT.mutation(api.expertProfiles.toggleVisibility);
-    expect(result2.isVisible).toBe(true);
+    // Le profil n'a pas été modifié (il reste dans son état d'origine).
+    const profile = await t.run(async (ctx) => {
+      const all = await ctx.db.query("expertProfiles").collect();
+      return all.find((p: any) => p.userId === userId);
+    });
+    expect(profile!.isVisible).toBe(true); // valeur posée à la création
   });
 });
 

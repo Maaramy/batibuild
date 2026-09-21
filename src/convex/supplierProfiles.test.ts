@@ -236,6 +236,105 @@ describe("supplierProfiles.getRandomBySpecialty", () => {
 });
 
 // ============================================================================
+// Visibilité verrouillée — paiement obligatoire
+// ============================================================================
+
+describe("supplierProfiles — visibilité verrouillée", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  it("toggleVisibility is locked: the user cannot change profile visibility", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+
+    await userT.mutation(api.supplierProfiles.createProfile, {
+      companyName: "ACME",
+      phone: "+216 99 666 666",
+      email: "acme@test.com",
+      address: "Tunis",
+      specialties: ["ciment"],
+      regions: ["tunis"],
+    });
+
+    // Règle produit : la visibilité est gérée automatiquement selon le
+    // paiement — toute tentative utilisateur est rejetée.
+    await expect(
+      userT.mutation(api.supplierProfiles.toggleVisibility),
+    ).rejects.toThrow(/gérée automatiquement/);
+
+    // Le profil n'a pas été modifié (il reste dans son état d'origine).
+    const profile = await t.run(async (ctx) => {
+      const all = await ctx.db.query("supplierProfiles").collect();
+      return all.find((p: any) => p.userId === userId);
+    });
+    expect(profile!.isVisible).toBe(true); // valeur posée à la création
+  });
+
+  it("getSupplierById renvoie null pour un profil sans abonnement actif même si isVisible", async () => {
+    const supplierId = await createTestSupplierProfile(t, {
+      companyName: "Inactif",
+      subscriptionStatus: "inactive",
+      isVisible: true,
+      specialties: ["ciment"],
+    });
+
+    const result = await t.query(api.supplierProfiles.getSupplierById, {
+      supplierId: supplierId as any,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("getSupplierById renvoie le profil d'un abonné actif et visible", async () => {
+    const supplierId = await createTestSupplierProfile(t, {
+      companyName: "Actif",
+      subscriptionStatus: "active",
+      isVisible: true,
+      specialties: ["ciment"],
+    });
+
+    const result = await t.query(api.supplierProfiles.getSupplierById, {
+      supplierId: supplierId as any,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.companyName).toBe("Actif");
+  });
+
+  it("getSupplierById masque un abonné actif expiré", async () => {
+    const supplierId = await createTestSupplierProfile(t, {
+      companyName: "Expiré",
+      subscriptionStatus: "active",
+      subscriptionEndDate: Date.now() - 24 * 60 * 60 * 1000,
+      isVisible: true,
+      specialties: ["ciment"],
+    });
+
+    const result = await t.query(api.supplierProfiles.getSupplierById, {
+      supplierId: supplierId as any,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("tout profil visible est servi quand l'offre gratuite est activée", async () => {
+    await enableFreeSupplierPlan(t);
+    const supplierId = await createTestSupplierProfile(t, {
+      companyName: "Gratuit",
+      subscriptionStatus: "inactive",
+      isVisible: true,
+      specialties: ["ciment"],
+    });
+
+    const result = await t.query(api.supplierProfiles.getSupplierById, {
+      supplierId: supplierId as any,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.companyName).toBe("Gratuit");
+  });
+});
+
+// ============================================================================
 // Logo persistence & legacy URL repair
 // ============================================================================
 

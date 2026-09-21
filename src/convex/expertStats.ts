@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, mutation, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
+import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 
 // ============================================================================
 // STATISTIQUES EXPERT — performances et visibilité d'un profil professionnel
@@ -493,10 +494,16 @@ export const getExpertVisibility = query({
     );
     const index = scored.findIndex((s) => s.id === profile._id);
 
+    // Visibilité effective : un profil dont le paiement n'est pas actif reste
+    // strictement invisible, quel que soit le champ `isVisible` (géré par
+    // l'administrateur / l'abonnement, jamais par l'utilisateur).
+    const free = await getFreePlanStatus(ctx);
+    const paymentActive = await isProfilePaymentActive(ctx, free.expertFree, profile);
+
     return {
       rank: index >= 0 ? index + 1 : null,
       total: scored.length,
-      isVisible: profile.isVisible === true,
+      isVisible: profile.isVisible === true && paymentActive,
       profession: profile.profession,
     };
   },

@@ -52,6 +52,47 @@ export async function getFreePlanStatus(ctx: any): Promise<FreePlanStatus> {
   }
 }
 
+/**
+ * Visibilité d'un profil professionnel (Expert / Fournisseur).
+ *
+ * Règle produit : un profil dont le paiement n'est pas actif reste STRICTEMENT
+ * invisible pour les utilisateurs, quel que soit le champ `isVisible` — la
+ * gestion de la visibilité est verrouillée côté serveur et ne peut pas être
+ * modifiée par l'utilisateur (l'administrateur seul la contrôle).
+ *
+ * - « Offre gratuite » (switch admin, prix null/0) : tous les profils sont
+ *   actifs sans paiement.
+ * - Sinon : l'abonnement doit être actif (ou essai legacy) ET non expiré.
+ */
+export interface PaymentGatedProfile {
+  isVisible?: boolean | null;
+  subscriptionStatus?: string | null;
+  subscriptionEndDate?: number | null;
+}
+
+/**
+ * Le paiement couvre-t-il l'espace de ce profil ? (offre gratuite, abonnement
+ * actif non expiré, ou essai legacy encore dans les délais.)
+ */
+export async function isProfilePaymentActive(
+  ctx: any,
+  freePlanEnabled: boolean,
+  profile: PaymentGatedProfile,
+  now = Date.now(),
+): Promise<boolean> {
+  if (freePlanEnabled) return true;
+  const status = profile.subscriptionStatus;
+  if (status !== "active" && status !== "trial") return false;
+  if (
+    status === "active" &&
+    profile.subscriptionEndDate &&
+    profile.subscriptionEndDate < now
+  ) {
+    return false;
+  }
+  return true;
+}
+
 /** Message d'erreur standard renvoyé par les fonctions backend gatées. */
 export function clientProAccessError(service: string): Error {
   return new Error(

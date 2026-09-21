@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { getFreePlanStatus } from "./access";
+import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 
 // ============================================================================
 // Mutations
@@ -30,14 +30,12 @@ export const create = mutation({
     // Verify supplier exists and is active
     const supplier = await ctx.db.get(args.supplierId);
     if (!supplier) throw new Error("Fournisseur introuvable");
+    if (!supplier.isVisible) throw new Error("Ce fournisseur n'est pas actif");
 
-    // « Offre gratuite » (switch admin) : tous les fournisseurs visibles reçoivent des demandes
+    // Paiement obligatoire : sans offre gratuite ni abonnement actif non
+    // expiré, le profil reste strictement invisible et ne reçoit aucune demande.
     const free = await getFreePlanStatus(ctx);
-    if (
-      !free.supplierFree &&
-      supplier.subscriptionStatus !== "active" &&
-      supplier.subscriptionStatus !== "trial"
-    ) {
+    if (!(await isProfilePaymentActive(ctx, free.supplierFree, supplier, Date.now()))) {
       throw new Error("Ce fournisseur n'est pas actif");
     }
 

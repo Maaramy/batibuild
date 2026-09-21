@@ -3,6 +3,7 @@ import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { DEFAULT_TEMPLATES, EMAIL_EVENT_LABELS } from "./emailTemplates";
 import { decryptPassword } from "./emailConfig";
+import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 
 // ============================================================================
 // Automatic Email Notifications Engine
@@ -521,6 +522,53 @@ export const checkExpiredSubscriptions = internalMutation({
               sendToAdmins: true,
             },
           );
+        }
+      }
+    }
+
+    // Expert profiles — paiement obligatoire : un profil visible dont
+    // l'abonnement expire est masqué automatiquement (miroir des fournisseurs).
+    // « Offre gratuite » (switch admin) : pas d'expiration.
+    const free = await getFreePlanStatus(ctx);
+    if (!free.expertFree) {
+      const activeExperts = await ctx.db
+        .query("expertProfiles")
+        .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "active"))
+        .collect();
+
+      for (const profile of activeExperts) {
+        if (
+          profile.isVisible &&
+          !(await isProfilePaymentActive(ctx, false, profile, now))
+        ) {
+          expiredCount++;
+          await ctx.db.patch(profile._id, {
+            subscriptionStatus: "inactive",
+            isVisible: false,
+            updatedAt: now,
+          });
+
+          const user = await ctx.db.get(profile.userId);
+          const to = profile.email || user?.email;
+          if (to) {
+            await ctx.scheduler.runAfter(
+              0,
+              internal.emailNotifications.processEmailEvent,
+              {
+                to,
+                recipientName: profile.displayName,
+                templateKey: "subscription_expired",
+                vars: {
+                  nomEntreprise: profile.displayName,
+                  typeAbonnement: "Expert",
+                  dateExpiration: formatDateFr(profile.subscriptionEndDate),
+                  dateActivation: formatDateFr(profile.subscriptionStartDate),
+                },
+                dedupeKey: `expert_expired:${to}:${profile._id}`,
+                sendToAdmins: true,
+              },
+            );
+          }
         }
       }
     }

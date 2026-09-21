@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
-import { getFreePlanStatus } from "./access";
+import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 import { scheduleEmailEvent, splitName } from "./emailNotifications";
 import type { EmailVars } from "./emailNotifications";
 import {
@@ -136,14 +136,10 @@ async function assertProMarketEligible(ctx: any, expert: any) {
   if (!expert) throw new Error("Professionnel introuvable");
   if (!expert.isVisible) throw new Error("Ce professionnel n'est pas disponible");
 
+  // Paiement obligatoire : sans offre gratuite ni abonnement actif non expiré,
+  // le profil reste strictement invisible et ne peut pas recevoir de demandes.
   const free = await getFreePlanStatus(ctx);
-  if (free.expertFree) return;
-
-  const status = expert.subscriptionStatus;
-  if (status !== "active" && status !== "trial") {
-    throw new Error("Ce professionnel n'est pas disponible");
-  }
-  if (expert.subscriptionEndDate && expert.subscriptionEndDate < Date.now()) {
+  if (!(await isProfilePaymentActive(ctx, free.expertFree, expert, Date.now()))) {
     throw new Error("Ce professionnel n'est pas disponible");
   }
 }

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { getFreePlanStatus } from "./access";
+import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 
@@ -128,20 +128,12 @@ export const getActiveSuppliers = query({
           )
           .collect();
 
-    const visible = suppliers
-      .filter((s) => s.isVisible)
-      .filter((s) => {
-        if (free.supplierFree) return true;
-        // Filter out expired monthly
-        if (
-          s.subscriptionStatus === "active" &&
-          s.subscriptionEndDate &&
-          s.subscriptionEndDate < now
-        ) {
-          return false;
-        }
-        return true;
-      });
+    const visible = [];
+    for (const s of suppliers) {
+      if (!s.isVisible) continue;
+      // Paiement obligatoire : profil inactif / expiré = strictement invisible.
+      if (await isProfilePaymentActive(ctx, free.supplierFree, s, now)) visible.push(s);
+    }
 
     const result = [];
     for (const s of visible) {
@@ -223,6 +215,12 @@ export const getSupplierById = query({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.supplierId);
     if (!profile || !profile.isVisible) return null;
+    // Paiement obligatoire : profil inactif / expiré = strictement invisible.
+    const now = Date.now();
+    const free = await getFreePlanStatus(ctx);
+    if (!(await isProfilePaymentActive(ctx, free.supplierFree, profile, now))) {
+      return null;
+    }
     return {
       _id: profile._id,
       companyName: profile.companyName,
@@ -572,7 +570,15 @@ export const adminRejectSupplierSubscription = mutation({
   },
 });
 
-/** Toggle supplier visibility */
+/**
+ * Toggle supplier visibility — VERROUILLÉ.
+ *
+ * Règle produit : la visibilité d'un profil fournisseur est gérée
+ * automatiquement selon l'état du paiement (offre gratuite ou abonnement
+ * actif = visible, sinon strictement invisible). L'utilisateur ne peut pas la
+ * modifier ; seul l'administrateur contrôle le champ `isVisible` (voir
+ * `adminToggleVisibility`).
+ */
 export const toggleVisibility = mutation({
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
@@ -585,10 +591,9 @@ export const toggleVisibility = mutation({
 
     if (!profile) throw new Error("Aucun profil fournisseur");
 
-    await ctx.db.patch(profile._id, {
-      isVisible: !profile.isVisible,
-      updatedAt: Date.now(),
-    });
+    throw new Error(
+      "La visibilité de votre profil est gérée automatiquement selon l'état de votre abonnement."
+    );
   },
 });
 
@@ -837,20 +842,12 @@ export const getRandomBySpecialty = query({
       .query("supplierProfiles")
       .collect();
 
-    const visible = allProfiles.filter((p) => {
-      if (!p.isVisible) return false;
-      if (free.supplierFree) return true;
-      if (p.subscriptionStatus !== "active" && p.subscriptionStatus !== "trial") return false;
-      // Exclure les abonnements actifs expirés (comme getActiveSuppliers)
-      if (
-        p.subscriptionStatus === "active" &&
-        p.subscriptionEndDate &&
-        p.subscriptionEndDate < now
-      ) {
-        return false;
-      }
-      return true;
-    });
+    const visible = [];
+    for (const p of allProfiles) {
+      if (!p.isVisible) continue;
+      // Paiement obligatoire : profil inactif / expiré = strictement invisible.
+      if (await isProfilePaymentActive(ctx, free.supplierFree, p, now)) visible.push(p);
+    }
 
     // 1. Try exact specialty match
     const matching = visible.filter(
