@@ -45,6 +45,7 @@ export { default as Bot } from "../../node_modules/lucide-react/dist/esm/icons/b
 export { default as Boxes } from "../../node_modules/lucide-react/dist/esm/icons/boxes.js";
 export { default as Brain } from "../../node_modules/lucide-react/dist/esm/icons/brain.js";
 export { default as BrainCircuit } from "../../node_modules/lucide-react/dist/esm/icons/brain-circuit.js";
+// Icône de vue perspective 3D (FloorPlan3D)
 export { default as Box } from "../../node_modules/lucide-react/dist/esm/icons/box.js";
 export { default as FolderKanban } from "../../node_modules/lucide-react/dist/esm/icons/folder-kanban.js";
 export { default as Briefcase } from "../../node_modules/lucide-react/dist/esm/icons/briefcase.js";
