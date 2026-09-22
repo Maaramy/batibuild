@@ -1578,6 +1578,29 @@ const schema = defineSchema(
       .index("by_created", ["createdAt"])
       .index("by_order", ["displayOrder"]),
 
+    // ── COUCHE D'EXTENSION « INTELLIGENCE » (Batibuild) ─────────────────
+    // Table additive dédiée aux nouvelles fonctionnalités (copilote IA,
+    // suivi financier, variantes, achats, planning, devis, dossier, alertes).
+    // PRINCIPE : EXTEND, DON'T REPLACE — cette table ne remplace ni ne modifie
+    // aucune table existante ; elle stocke uniquement des données DÉRIVÉES et
+    // des préférences utilisateur, sous forme de payloads JSON (`v.any()`,
+    // même convention que `dqe`). Le projet original reste la source de vérité :
+    // toute « application » de variante/copilote passe par les mutations
+    // EXISTANTES des modules d'origine, après confirmation explicite.
+    projectIntelligence: defineTable({
+      userId: v.id("users"),
+      projectId: v.id("projects"),
+      /** Payload segmenté : { finance?, purchases?, guide?, planning?,
+       *  variants?, quotes?, copilot?, dismissedAlerts? } — chaque segment est
+       *  indépendant et optionnel (patch partiel). */
+      data: v.any(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_project", ["projectId"])
+      .index("by_user", ["userId"])
+      .index("by_user_project", ["userId", "projectId"]),
+
     // ── Connection logs (real-time analytics) ──────────────────────
     connectionLogs: defineTable({
       sessionId: v.string(),

@@ -51,6 +51,9 @@ export { default as Box } from "../../node_modules/lucide-react/dist/esm/icons/b
 // (Focus = « Ajuster à la scène », Contrast = bascule Architectural/Réaliste)
 export { default as Focus } from "../../node_modules/lucide-react/dist/esm/icons/focus.js";
 export { default as Contrast } from "../../node_modules/lucide-react/dist/esm/icons/contrast.js";
+// Icônes du hub Intelligence projet (ProjectIntelligence) : dossier + copilote
+export { default as FolderOpen } from "../../node_modules/lucide-react/dist/esm/icons/folder-open.js";
+export { default as MessageCircleQuestion } from "../../node_modules/lucide-react/dist/esm/icons/message-circle-question.js";
 export { default as FolderKanban } from "../../node_modules/lucide-react/dist/esm/icons/folder-kanban.js";
 export { default as Briefcase } from "../../node_modules/lucide-react/dist/esm/icons/briefcase.js";
 export { default as Building } from "../../node_modules/lucide-react/dist/esm/icons/building.js";

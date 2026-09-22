@@ -23,6 +23,7 @@ import { projectJourneyGroup } from "@/lib/projectJourney";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { RecommendedProvidersPanel } from "@/components/RecommendedProvidersPanel";
+import { ProjectIntelligence } from "@/components/intelligence/ProjectIntelligence";
 import { runBIMEstimation } from "@/convex/bimEngine";
 import {
   buildInvestmentPrefill,
@@ -153,6 +154,16 @@ export default function ProjectDetail() {
   const generatePredictive = useAction(api.predictive.generatePredictiveInsights);
   const [predictiveLoading, setPredictiveLoading] = useState(false);
   const [predictiveError, setPredictiveError] = useState<string | null>(null);
+
+  // ── Couche Intelligence (extension) : feuille de route existante pour le
+  // guide/planning dérivé. Lecture seule — aucune régénération, aucune écriture
+  // vers le module roadmap existant.
+  const roadmapData = useQuery(
+    api.roadmap.getRoadmap,
+    project ? { projectId: project._id } : "skip",
+  );
+  const { isEnabled: intelligenceEnabledRaw } = useFeatureFlags();
+  const showIntelligence = intelligenceEnabledRaw("construction_cost_estimation");
 
   const PROGRESS_STEPS = [
     "Préparation des données...",
@@ -1631,6 +1642,30 @@ export default function ProjectDetail() {
             </div>
 
             {/* ═══ Project Info ═══ */}
+
+            {/* ═══ Intelligence projet (couche d'extension — EXTEND, DON'T REPLACE) ═══
+                 Copilote IA, suivi financier, variantes, guide & planning,
+                 liste d'achat, comparateur de devis, dossier, alertes, score de
+                 préparation. Lit les données existantes, n'en modifie aucune
+                 sans validation explicite. */}
+            {showIntelligence && project && (
+              <ProjectIntelligence
+                projectId={project._id}
+                project={project}
+                projectName={project.name}
+                roadmapSteps={(roadmapData?.results as any)?.construction?.map((s: any) => ({
+                  id: s.id,
+                  title: s.title,
+                  dureeJours: s.dureeJours ?? 1,
+                  status: s.status ?? "todo",
+                })) ?? []}
+                pricePredictions={project.predictiveInsights?.pricePredictions?.map((p) => ({
+                  material: p.material,
+                  trend: p.trend,
+                  predictedChangePct: p.predictedChangePct,
+                }))}
+              />
+            )}
 
             <SectionCard icon={Info} title="Informations projet">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
