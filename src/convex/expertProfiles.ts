@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
+import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubscription";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 import { normalizeIndicativePrice } from "../lib/expertAvailability";
 
@@ -257,6 +258,15 @@ export const createProfile = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non authentifié");
 
+    // ── Réservé au profil Expert (vérification backend obligatoire) ──
+    // La création d'un premier profil expert vaut déclaration du rôle : les
+    // comptes legacy sans userRole sont acceptés et alignés ci-dessous.
+    await requireProfileRoleForCreation(ctx, user, "expert");
+    // Création du premier profil expert : le champ userRole est aligné.
+    if (!user.userRole) {
+      await ctx.db.patch(user._id, { userRole: "expert", updatedAt: Date.now() });
+    }
+
     const existing = await ctx.db
       .query("expertProfiles")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
@@ -432,6 +442,8 @@ export const requestSubscription = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non authentifié");
+    // ── Réservé au profil Expert ──
+    await requireProfileRole(ctx, user, "expert");
     const profile = await ctx.db
       .query("expertProfiles")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
@@ -462,6 +474,8 @@ export const uploadExpertPaymentProof = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non authentifié");
+    // ── Réservé au profil Expert ──
+    await requireProfileRole(ctx, user, "expert");
     const profile = await ctx.db
       .query("expertProfiles")
       .withIndex("by_user", (q) => q.eq("userId", user._id))

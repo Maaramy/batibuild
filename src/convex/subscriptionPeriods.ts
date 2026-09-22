@@ -66,6 +66,21 @@ export interface SubscriptionSnapshot {
   trialShouldStart: boolean;
   /** L'« Offre gratuite » (switch admin) est-elle activée pour Client Pro ? */
   freeOfferEnabled: boolean;
+  /** ── Compatibilité profil ↔ abonnement (règle obligatoire) ── */
+  /** Profil actif résolu (client / supplier / expert ou null). */
+  profileRole: "client" | "supplier" | "expert" | null;
+  /** Forfait attendu pour ce profil. */
+  expectedPlan: string;
+  /** Forfait de l'abonnement de référence. */
+  activePlan: string | null;
+  /** Vrai si le forfait actif correspond exactement au profil actif. */
+  planCompatible: boolean;
+  /** Libellé du forfait attendu (affichage). */
+  expectedPlanLabel: string | null;
+  /** Libellé du profil actif (affichage). */
+  profileRoleLabel: string | null;
+  /** Libellé du forfait de référence (affichage). */
+  activePlanLabel: string | null;
 }
 
 /** Jours restants (arrondis au jour supérieur), jamais négatifs. */
@@ -90,6 +105,29 @@ export const PLAN_LABELS: Record<string, string> = {
 export function planDisplayName(plan: string | null | undefined): string | null {
   if (!plan) return null;
   return PLAN_LABELS[plan] ?? plan;
+}
+
+/** Libellé français d'un forfait attendu (« Client Pro », « Expert »…). */
+function planLabel2Label(plan: string | null | undefined): string | null {
+  if (!plan) return null;
+  const labels: Record<string, string> = {
+    pro: "Client Pro",
+    expert: "Expert",
+    supplier: "Fournisseur",
+    free: "Gratuit",
+  };
+  return labels[plan] ?? plan;
+}
+
+/** Libellé français d'un type de profil (« Client Pro », « Expert »…). */
+function profileRoleLabel(role: string | null | undefined): string | null {
+  if (!role) return null;
+  const labels: Record<string, string> = {
+    client: "Client Pro",
+    supplier: "Fournisseur",
+    expert: "Expert",
+  };
+  return labels[role] ?? role;
 }
 
 /** Libellés de statut utilisés par l'interface et l'administration. */
@@ -123,6 +161,13 @@ export interface SnapshotInput {
   subscriptionPrice?: number | null;
   /** Un paiement mensuel est en attente de validation. */
   pendingPayment?: boolean;
+  /** ── Compatibilité profil ↔ abonnement (règle obligatoire) ── */
+  profileCompatibility?: {
+    profileRole: "client" | "supplier" | "expert" | null;
+    expectedPlan: string;
+    activePlan: string | null;
+    compatible: boolean;
+  } | null;
 }
 
 /**
@@ -146,6 +191,7 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     subscriptionPlan,
     subscriptionPrice,
     pendingPayment = false,
+    profileCompatibility = null,
   } = input;
 
   const trialUsed = trialClaimedAt != null;
@@ -170,6 +216,14 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     subscriptionEndDate: subscriptionEndDate ?? null,
     trialShouldStart: false,
     freeOfferEnabled,
+    // ── Compatibilité profil ↔ abonnement ──
+    profileRole: profileCompatibility?.profileRole ?? null,
+    expectedPlan: profileCompatibility?.expectedPlan ?? "pro",
+    activePlan: profileCompatibility?.activePlan ?? null,
+    planCompatible: profileCompatibility?.compatible ?? true,
+    expectedPlanLabel: planLabel2Label(profileCompatibility?.expectedPlan ?? null),
+    profileRoleLabel: profileRoleLabel(profileCompatibility?.profileRole ?? null),
+    activePlanLabel: planLabel2Label(profileCompatibility?.activePlan ?? null),
   };
 
   // Admin / modérateur : accès toujours accordé (bypass de test).

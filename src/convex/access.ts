@@ -2,6 +2,7 @@ import { query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { api } from "./_generated/api";
 import { getUserSubscriptionStatus } from "./subscriptionStatus";
+import { resolveProfileRole, type UserRole } from "./profileSubscription";
 
 // ============================================================================
 // Accès aux services Client Pro
@@ -18,6 +19,7 @@ import { getUserSubscriptionStatus } from "./subscriptionStatus";
 export type ClientProAccessReason =
   | "ok"
   | "not_client_pro"
+  | "plan_not_allowed_for_profile"
   | "no_subscription"
   | "pending"
   | "expired"
@@ -116,14 +118,36 @@ export async function getClientProAccess(ctx: any, user: any): Promise<ClientPro
     return { allowed: true, reason: "ok" };
   }
 
+  // ── Règle obligatoire : les services Client Pro exigent le profil Client Pro ──
+  // Vérification backend (profil explicite, ou inféré des profils spécialisés).
+  // Un Expert ou un Fournisseur n'accède JAMAIS aux fonctionnalités Client Pro,
+  // même avec un abonnement payant actif.
+  //
+  // Les requêtes/mutations ont `ctx.db` ; les actions n'ont PAS `ctx.db` et
+  // passent par la query publique `getMyProfileRole` (même utilisateur).
+  let profileRole: UserRole | null;
+  if (ctx.db) {
+    profileRole = await resolveProfileRole(ctx, user);
+  } else {
+    profileRole = (await ctx.runQuery(api.profileSubscription.getMyProfileRole)) as UserRole | null;
+  }
+  if (profileRole !== null && profileRole !== "client") {
+    return { allowed: false, reason: "not_client_pro" };
+  }
+
   // Les actions n'ont PAS accès à ctx.db → on passe par la query publique.
   const snapshot: any = ctx.db
     ? await getUserSubscriptionStatus(ctx, user._id)
     : await ctx.runQuery(api.subscriptionStatus.getMySubscriptionStatus);
 
-  // Essai gratuit actif, abonnement mensuel actif ou « Offre gratuite » avant
-  // démarrage de l'essai → services accessibles.
-  if (snapshot?.isActive) return { allowed: true, reason: "ok" };
+  // Période active (essai gratuit, abonnement mensuel ou « Offre gratuite »)
+  // ET forfait compatible avec le profil — sinon refus.
+  if (snapshot?.isActive && snapshot?.planCompatible !== false) {
+    return { allowed: true, reason: "ok" };
+  }
+  if (snapshot?.isActive && snapshot?.planCompatible === false) {
+    return { allowed: false, reason: "plan_not_allowed_for_profile" };
+  }
 
   if (snapshot?.status === "pending") return { allowed: false, reason: "pending" };
   if (snapshot?.status === "trial_expired") return { allowed: false, reason: "trial_expired" };
@@ -158,6 +182,10 @@ export const checkClientProAccess = query({
       plan: user?.subscriptionPlan ?? null,
       endDate: user?.subscriptionEndDate ?? null,
       isAdmin: user?.role === "admin" || user?.role === "moderator",
+      // Profil actif + compatibilité (affichage et messages de paywall).
+      profileRole: snapshot?.profileRole ?? null,
+      expectedPlan: snapshot?.expectedPlan ?? "pro",
+      planCompatible: snapshot?.planCompatible ?? true,
       // Détail de la période en cours (essai / abonnement) pour l'interface.
       status: snapshot?.status ?? "none",
       type: snapshot?.type ?? "none",

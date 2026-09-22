@@ -16,6 +16,13 @@ import { P, runBIMEstimation } from "./bimEngine";
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { scheduleEmailEvent, formatDateFr, planLabel, splitName } from "./emailNotifications";
 import { DAY_MS, MONTHLY_DURATION_DAYS } from "./subscriptionPeriods";
+import {
+  PLAN_VALUE_LABELS,
+  PROFILE_ROLE_LABELS,
+  checkProfileSubscriptionCompatibility,
+  expectedPlanForProfile,
+  getReferenceSubscriptionPlan,
+} from "./profileSubscription";
 
 /**
  * Get the current signed in user. Returns null if the user is not signed in.
@@ -114,10 +121,27 @@ export const adminSetUserProfileRole = mutation({
 
     const targetUser = await ctx.db.get(args.userId);
     const roleLabel = args.userRole === "supplier" ? "Fournisseur" : args.userRole === "expert" ? "Expert" : "Client Pro";
+
+    // ── État de compatibilité après changement de profil (administration) ──
+    // L'attribution manuelle admin reste possible (override), mais l'état
+    // incompatible est consigné dans le journal pour traçabilité.
+    const { plan: activePlan } = await getReferenceSubscriptionPlan(ctx, args.userId);
+    const compatibility = checkProfileSubscriptionCompatibility(
+      { userRole: args.userRole },
+      activePlan ?? targetUser?.subscriptionPlan ?? null,
+    );
+
     await logAdminAction(
       ctx, admin, "update_user_role",
       { userId: args.userId, email: targetUser?.email },
-      `Profil utilisateur changé en ${roleLabel}`,
+      `Profil utilisateur changé en ${roleLabel}` +
+        (compatibility.compatible
+          ? " — abonnement compatible"
+          : ` — INCOMPATIBILITÉ : abonnement actif « ${
+              compatibility.activePlan
+                ? (PLAN_VALUE_LABELS[compatibility.activePlan] ?? compatibility.activePlan)
+                : "aucun"
+            } » au lieu de « ${PLAN_VALUE_LABELS[compatibility.expectedPlan]} »`),
     );
   },
 });
@@ -140,6 +164,13 @@ export const adminUpdateUserPlan = mutation({
     // Abonnements mensuels (30 jours) pour toutes les offres. L'attribution
     // manuelle remplace l'essai gratuit, qui n'est jamais rejoué.
     const planDuration = MONTHLY_DURATION_DAYS * DAY_MS;
+
+    // ── Compatibilité profil ↔ abonnement (règle obligatoire) ──
+    // L'administrateur conserve la main (override manuel) mais l'état
+    // incompatible est signalé dans la réponse pour affichage immédiat.
+    const targetBefore = await ctx.db.get(args.userId);
+    const expectedPlan = expectedPlanForProfile(targetBefore?.userRole);
+    const planCompatible = args.plan === "free" || args.plan === expectedPlan;
 
     await ctx.db.patch(args.userId, {
       subscriptionPlan: args.plan,
@@ -192,6 +223,18 @@ export const adminUpdateUserPlan = mutation({
         updatedAt: now,
       });
     }
+
+    return {
+      success: true,
+      planCompatible,
+      expectedPlan,
+      message: planCompatible
+        ? undefined
+        : `Attention : profil « ${
+            PROFILE_ROLE_LABELS[targetBefore?.userRole ?? "client"]
+          } » — l'offre attendue est ${PLAN_VALUE_LABELS[expectedPlan]}. ` +
+          "L'abonnement attribué reste incompatible tant que le profil n'est pas aligné.",
+    };
   },
 });
 
@@ -246,7 +289,30 @@ export const setUserRole = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
     await ctx.db.patch(user._id, { userRole: args.userRole, updatedAt: Date.now() });
-    return { success: true };
+
+    // ── Compatibilité immédiate profil ↔ abonnement ──
+    // Aucune conversion automatique de forfait : si l'abonnement actif ne
+    // correspond plus au nouveau profil, l'interface est informée pour
+    // inviter l'utilisateur à souscrire à l'offre correspondante.
+    const { plan } = await getReferenceSubscriptionPlan(ctx, user._id);
+    const compatibility = checkProfileSubscriptionCompatibility(
+      { userRole: args.userRole },
+      plan ?? user.subscriptionPlan ?? null,
+    );
+
+    return {
+      success: true,
+      compatibility: {
+        compatible: compatibility.compatible,
+        activePlan: compatibility.activePlan,
+        expectedPlan: compatibility.expectedPlan,
+        activePlanLabel: compatibility.activePlan
+          ? (PLAN_VALUE_LABELS[compatibility.activePlan] ?? compatibility.activePlan)
+          : null,
+        expectedPlanLabel: PLAN_VALUE_LABELS[compatibility.expectedPlan],
+        profileRoleLabel: PROFILE_ROLE_LABELS[args.userRole],
+      },
+    };
   },
 });
 

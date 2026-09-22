@@ -133,6 +133,8 @@ export default function PricingPage() {
   const paymentConfig = useQuery(api.payments.getPublicPricing);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const uploadPaymentProof = useMutation(api.subscriptions.uploadPaymentProof);
+  // ── Règle profil ↔ abonnement : n'afficher QUE les offres du profil actif ──
+  const profileRole = useQuery(api.profileSubscription.getMyProfileRole);
 
   const [uploading, setUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
@@ -142,6 +144,17 @@ export default function PricingPage() {
     const p = searchParams.get("plan");
     return p === "pro" ? "pro" : p === "supplier" ? "supplier" : "expert";
   });
+
+  // ── Offres autorisées pour le profil actif (Client Pro → pro, Fournisseur →
+  // supplier, Expert → expert). Le backend refuse de toute façon tout achat
+  // incompatible — ce filtrage n'est qu'un guidage d'affichage. ──
+  const allowedPlans: PlanId[] =
+    profileRole === "supplier" ? ["supplier"] : profileRole === "expert" ? ["expert"] : ["pro"];
+  const visiblePlans = PLANS.filter((p) => allowedPlans.includes(p.id));
+  // Forfait pré-sélectionné invalide pour ce profil → aligné sur l'offre autorisée.
+  const effectiveSelectedPlan: PlanId = allowedPlans.includes(selectedPlan)
+    ? selectedPlan
+    : allowedPlans[0];
 
   // Prix par forfait — null/0 signifie forfait gratuit
   const priceFor = (plan: PlanId): number => {
@@ -156,7 +169,7 @@ export default function PricingPage() {
     return p == null || p === 0;
   };
 
-  const currentPrice = priceFor(selectedPlan);
+  const currentPrice = priceFor(effectiveSelectedPlan);
   const currency = paymentConfig?.currency || DEFAULT_PAYMENT.currency;
 
   const BANK_INFO: Record<string, string> = paymentConfig ? {
@@ -195,6 +208,8 @@ export default function PricingPage() {
   const isCurrentPlan = (plan: PlanId) => currentPlan === plan && !isPending;
 
   const handleSelectPlan = async (planId: PlanId) => {
+    // Garde-frontière : ne jamais lancer une souscription incompatible.
+    if (!allowedPlans.includes(planId)) return;
     if (!isAuthenticated) {
       navigate("/auth");
       return;
@@ -418,10 +433,25 @@ export default function PricingPage() {
           <MySubscriptionCard />
         </div>
 
+        {/* ═══ Les forfaits autorisés pour le profil actif ═══ */}
+        {profileRole != null && profileRole !== "client" && (
+          <div className="mb-6 flex items-start gap-2 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-xs text-blue-700 dark:text-blue-300">
+            <Shield className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Votre profil est «{" "}
+              <strong>{PLAN_LABELS[profileRole]}</strong> ». Seules les offres{" "}
+              <strong>{PLAN_LABELS[profileRole]}</strong> peuvent être souscrites avec ce type de
+              profil.
+            </span>
+          </div>
+        )}
+
         {/* ═══ Les 3 forfaits ═══ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 pt-2">
-          {PLANS.map((p, i) =>
-            renderPlanCard(p.id, priceFor(p.id), p.quota, p.subtitle, p.features, p.popular, i),
+        <div
+          className={`grid grid-cols-1 ${visiblePlans.length > 1 ? "md:grid-cols-3" : "md:grid-cols-1 max-w-md mx-auto"} gap-6 mb-10 pt-2`}
+        >
+          {visiblePlans.map((p, i) =>
+            renderPlanCard(p.id, priceFor(p.id), p.quota, p.subtitle, p.features, p.popular && visiblePlans.length > 1, i),
           )}
         </div>
 
@@ -471,19 +501,21 @@ export default function PricingPage() {
             <div>
               <h2 className="text-base font-semibold leading-tight">Moyen de paiement</h2>
               <p className="text-[11px] text-muted-foreground">
-                <strong>{PLAN_LABELS[selectedPlan]} · {currentPrice} {currency}</strong> (paiement unique)
+                <strong>{PLAN_LABELS[effectiveSelectedPlan]} · {currentPrice} {currency}</strong> (paiement unique)
               </p>
             </div>
           </div>
 
-          {/* Abonnement selector */}
-          <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
-            {(["pro", "supplier", "expert"] as PlanId[]).map((p) => (
+          {/* Abonnement selector — offres du profil uniquement */}
+          <div
+            className={`mb-4 grid ${visiblePlans.length > 1 ? "grid-cols-2" : "grid-cols-1"} gap-1 rounded-xl border border-border/40 bg-muted/20 p-1`}
+          >
+            {(visiblePlans.map((p) => p.id) as PlanId[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setSelectedPlan(p)}
                 className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-medium transition-all ${
-                  selectedPlan === p
+                  effectiveSelectedPlan === p
                     ? "border-border/40 bg-background text-primary shadow-sm"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}

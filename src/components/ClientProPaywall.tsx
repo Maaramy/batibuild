@@ -26,6 +26,12 @@ const REASON_COPY: Record<
     desc: "Cet espace est réservé aux clients titulaires de l'offre Client Pro. Souscrivez à un abonnement payant actif pour accéder à l'ensemble des services : projets de construction, projets d'investissement, matériaux IA, plans architecturaux et suivi de A à Z.",
     cta: "Voir les offres",
   },
+  plan_not_allowed_for_profile: {
+    icon: Lock,
+    title: "Abonnement incompatible avec votre profil",
+    desc: "Votre type d'abonnement ne correspond pas à votre type de profil. Seule l'offre correspondant exactement à votre profil actif peut être souscrite : Client Pro → offre Client Pro, Expert → offre Expert, Fournisseur → offre Fournisseur. Régularisez votre abonnement pour retrouver l'accès.",
+    cta: "Régulariser mon abonnement",
+  },
   no_subscription: {
     icon: CreditCard,
     title: "Abonnement requis",

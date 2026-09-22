@@ -4,6 +4,13 @@ import { getCurrentUser } from "./users";
 import { subscriptionPlanValidator } from "./schema";
 import { scheduleEmailEvent, formatDateFr, planLabel, splitName } from "./emailNotifications";
 import { DAY_MS, MONTHLY_DURATION_DAYS } from "./subscriptionPeriods";
+import {
+  PROFILE_ROLE_LABELS,
+  PROFILE_SUBSCRIPTION_ERROR_MARKER,
+  PLAN_VALUE_LABELS,
+  expectedPlanForProfile,
+  resolveProfileRole,
+} from "./profileSubscription";
 
 // ============================================================================
 // Queries
@@ -161,6 +168,19 @@ export const createSubscription = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
+
+    // ── Règle obligatoire : le forfait doit correspondre au profil actif ──
+    // Client Pro → pro · Fournisseur → supplier · Expert → expert.
+    // Vérification backend : le frontend ne peut pas contourner cette règle.
+    const profileRole = await resolveProfileRole(ctx, user);
+    const expectedPlan = expectedPlanForProfile(profileRole);
+    if (args.plan !== expectedPlan) {
+      const roleLabel = PROFILE_ROLE_LABELS[profileRole ?? "client"];
+      throw new Error(
+        `${PROFILE_SUBSCRIPTION_ERROR_MARKER}Votre profil « ${roleLabel} » autorise uniquement l'offre ${PLAN_VALUE_LABELS[expectedPlan]}. ` +
+          "Seules les offres correspondant à votre type de profil peuvent être souscrites.",
+      );
+    }
 
     const now = Date.now();
     const kind = args.kind ?? "construction"; // legacy : construction

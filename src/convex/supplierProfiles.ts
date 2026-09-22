@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
+import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubscription";
 import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 
@@ -263,6 +264,13 @@ export const createProfile = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
 
+    // ── Réservé au profil Fournisseur (vérification backend obligatoire) ──
+    await requireProfileRoleForCreation(ctx, user, "supplier");
+    // Création du premier profil fournisseur : le champ userRole est aligné.
+    if (!user.userRole) {
+      await ctx.db.patch(user._id, { userRole: "supplier", updatedAt: Date.now() });
+    }
+
     // Check if already has a profile
     const existing = await ctx.db
       .query("supplierProfiles")
@@ -365,6 +373,8 @@ export const requestSubscription = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
 
+    // ── Réservé au profil Fournisseur ──
+    await requireProfileRole(ctx, user, "supplier");
     const profile = await ctx.db
       .query("supplierProfiles")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
@@ -403,6 +413,8 @@ export const uploadSupplierPaymentProof = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
 
+    // ── Réservé au profil Fournisseur ──
+    await requireProfileRole(ctx, user, "supplier");
     const profile = await ctx.db
       .query("supplierProfiles")
       .withIndex("by_user", (q) => q.eq("userId", user._id))

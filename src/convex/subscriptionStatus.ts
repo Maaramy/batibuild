@@ -7,6 +7,7 @@ import {
 } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
+import { compatibilityFieldsForUser } from "./profileSubscription";
 import { scheduleEmailEvent, formatDateFr, splitName } from "./emailNotifications";
 import {
   DAY_MS,
@@ -113,12 +114,16 @@ export async function getUserSubscriptionStatus(
   const subscriptionStartDate =
     activeSub?.startDate ?? user.subscriptionStartDate ?? reference?.startDate ?? null;
 
-  return computeSubscriptionSnapshot({
+  // ── Compatibilité profil ↔ abonnement (règle obligatoire) ──
+  const profileCompatibility = await compatibilityFieldsForUser(ctx, user, now);
+
+  const snapshot = computeSubscriptionSnapshot({
     now,
     isAdmin: user.role === "admin" || user.role === "moderator",
     freeOfferEnabled: pricing.freeOfferEnabled,
     planPrice: pricing.planPrice,
     currency: pricing.currency,
+    profileCompatibility,
     plan: user.subscriptionPlan ?? null,
     trialClaimedAt: user.trialClaimedAt ?? null,
     trialStartDate: user.trialStartDate ?? null,
@@ -129,6 +134,9 @@ export async function getUserSubscriptionStatus(
     subscriptionPrice: reference?.amount ?? pricing.planPrice,
     pendingPayment: !activeSub && !!pendingSub,
   });
+
+  // Libellés de compatibilité déjà calculés par `computeSubscriptionSnapshot`.
+  return snapshot;
 }
 
 // ============================================================================
@@ -164,6 +172,8 @@ export const listUsersSubscriptionStatus = query({
           name: user.name ?? null,
           email: user.email ?? null,
           role: user.role ?? null,
+          userRole: user.userRole ?? null,
+          plan: user.subscriptionPlan ?? null,
           createdAt: user.createdAt ?? user._creationTime,
           statusLabel: PHASE_LABELS[snapshot.status],
           snapshot,

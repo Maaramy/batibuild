@@ -3472,8 +3472,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                               value={u.subscriptionPlan || "free"}
                               onChange={async (e) => {
                                 try {
-                                  await updateUserPlan({ userId: u._id, plan: e.target.value as any });
-                                  toast.success("Plan mis à jour");
+                                  const res = await updateUserPlan({ userId: u._id, plan: e.target.value as any });
+                                  if (res?.planCompatible === false && res?.message) {
+                                    toast.warning(res.message, { duration: 8000 });
+                                  } else {
+                                    toast.success("Plan mis à jour");
+                                  }
                                 } catch (err: any) {
                                   toast.error(err.message || "Erreur");
                                 }
@@ -3493,9 +3497,40 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                           )}
                         </td>
                         <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {(() => {
+                              const role = u.userRole as string | undefined;
+                              const plan = u.subscriptionPlan as string | undefined;
+                              if (!plan || plan === "free") return null;
+                              const expected =
+                                role === "supplier" ? "supplier" : role === "expert" ? "expert" : "pro";
+                              const ok = plan === expected;
+                              return (
+                                <span
+                                  title={
+                                    ok
+                                      ? "Abonnement compatible avec le profil"
+                                      : `Incompatibilité : profil ${
+                                          role === "supplier" ? "Fournisseur" : role === "expert" ? "Expert" : "Client Pro"
+                                        } avec abonnement ${
+                                          plan === "supplier" ? "Fournisseur" : plan === "expert" ? "Expert" : "Client Pro"
+                                        }`
+                                  }
+                                  className={cn(
+                                    "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold",
+                                    ok
+                                      ? "bg-emerald-500/10 text-emerald-600"
+                                      : "bg-red-500/10 text-red-600",
+                                  )}
+                                >
+                                  {ok ? "✓" : "!"}
+                                </span>
+                              );
+                            })()}
                           {(u.createdAt ?? (u as any)._creationTime)
                             ? new Date(u.createdAt ?? (u as any)._creationTime).toLocaleDateString("fr-FR")
                             : "—"}
+                          </div>
                         </td>
                         <td className="py-2.5 px-2 text-right">
                           <div className="flex items-center justify-end gap-1">

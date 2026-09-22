@@ -202,6 +202,20 @@ export function MySubscriptionCard() {
             </span>
           </div>
         )}
+
+        {!isLocked && status.planCompatible === false && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200/40 bg-amber-500/5 p-2.5 text-[10px] text-amber-600 dark:text-amber-400 sm:text-xs">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Incompatibilité détectée : votre profil est «{" "}
+              <strong>{status.profileRoleLabel ?? status.profileRole}</strong> » mais votre abonnement
+              actif est «{" "}
+              <strong>{status.activePlanLabel ?? status.activePlan}</strong> ». Souscrivez à l'offre{" "}
+              <strong>{status.expectedPlanLabel ?? status.expectedPlan}</strong> pour régulariser votre
+              compte.
+            </span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -162,10 +162,21 @@ export default function ProfilePage() {
     if (newRole === currentRole) return;
     setSavingRole(true);
     try {
-      await setUserRole({ userRole: newRole as any });
-      toast.success(`Profil mis à jour : ${
-        newRole === "supplier" ? "Fournisseur" : newRole === "expert" ? "Expert" : "Client Pro"
-      }`);
+      const result = await setUserRole({ userRole: newRole as any });
+      // ── Compatibilité profil ↔ abonnement (calculée côté backend) ──
+      const compatibility = (result as any)?.compatibility;
+      if (compatibility && !compatibility.compatible) {
+        toast.warning(
+          `Votre profil est désormais « ${compatibility.profileRoleLabel} », mais votre abonnement actif est « ${
+            compatibility.activePlanLabel ?? "aucun"
+          } ». Souscrivez à l'offre ${compatibility.expectedPlanLabel} pour régulariser votre compte.`,
+          { duration: 8000 },
+        );
+      } else {
+        toast.success(`Profil mis à jour : ${
+          newRole === "supplier" ? "Fournisseur" : newRole === "expert" ? "Expert" : "Client Pro"
+        }`);
+      }
       // Reload to reflect changes
       window.location.reload();
     } catch (err) {

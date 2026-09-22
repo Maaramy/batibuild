@@ -115,10 +115,21 @@ export default function Dashboard() {
     if (newRole === (user as any)?.userRole) return;
     setSavingRole(true);
     try {
-      await setUserRole({ userRole: newRole as any });
-      toast.success(`Profil mis à jour : ${
-        newRole === "supplier" ? "Fournisseur" : newRole === "expert" ? "Expert" : "Client Pro"
-      }`);
+      const result = await setUserRole({ userRole: newRole as any });
+      // ── Compatibilité profil ↔ abonnement (calculée côté backend) ──
+      const compatibility = (result as any)?.compatibility;
+      if (compatibility && !compatibility.compatible) {
+        toast.warning(
+          `Votre profil est désormais « ${compatibility.profileRoleLabel} », mais votre abonnement actif est « ${
+            compatibility.activePlanLabel ?? "aucun"
+          } ». Souscrivez à l'offre ${compatibility.expectedPlanLabel} pour régulariser votre compte.`,
+          { duration: 8000 },
+        );
+      } else {
+        toast.success(`Profil mis à jour : ${
+          newRole === "supplier" ? "Fournisseur" : newRole === "expert" ? "Expert" : "Client Pro"
+        }`);
+      }
       window.location.reload();
     } catch (err) {
       toast.error("Erreur lors de la mise à jour du rôle");
