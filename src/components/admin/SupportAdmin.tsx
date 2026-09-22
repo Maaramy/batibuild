@@ -25,6 +25,7 @@ import {
   Inbox,
   Loader2,
   Lock,
+  Megaphone,
   NotebookPen,
   Paperclip,
   Search,
@@ -45,7 +46,42 @@ const CATEGORY_LABELS: Record<string, string> = {
   project: "Projet",
   feature: "Fonctionnalité",
   other: "Autre",
+  ad_request: "Demande d'annonce",
 };
+
+const AD_STAGE_LABELS: Record<string, string> = {
+  nouvelle: "Nouvelle",
+  en_cours: "En cours",
+  acceptee: "Acceptée",
+  refusee: "Refusée",
+  terminee: "Terminée",
+};
+
+const AD_STAGE_STYLES: Record<string, string> = {
+  nouvelle: "bg-amber-500/10 text-amber-600 border-amber-500/25",
+  en_cours: "bg-blue-500/10 text-blue-600 border-blue-500/25",
+  acceptee: "bg-emerald-500/10 text-emerald-600 border-emerald-500/25",
+  refusee: "bg-red-500/10 text-red-600 border-red-500/25",
+  terminee: "bg-violet-500/10 text-violet-600 border-violet-500/25",
+};
+
+const AD_PAYMENT_LABELS: Record<string, string> = {
+  pending: "En attente de paiement",
+  proof_uploaded: "Preuve téléversée",
+  confirmed: "Paiement confirmé",
+  rejected: "Preuve refusée",
+  not_required: "Sans objet",
+};
+
+const AD_PAYMENT_STYLES: Record<string, string> = {
+  pending: "bg-amber-500/10 text-amber-600 border-amber-500/25",
+  proof_uploaded: "bg-blue-500/10 text-blue-600 border-blue-500/25",
+  confirmed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/25",
+  rejected: "bg-red-500/10 text-red-600 border-red-500/25",
+  not_required: "bg-muted text-muted-foreground border-border",
+};
+
+const AD_STAGE_KEYS = ["nouvelle", "en_cours", "acceptee", "refusee", "terminee"] as const;
 
 const STATUS_STYLES: Record<string, { label: string; cls: string; icon: any }> = {
   open: { label: "Nouveau", cls: "bg-amber-500/10 text-amber-600 border-amber-500/25", icon: Clock },
@@ -105,6 +141,16 @@ export default function SupportAdmin() {
   const addInternalSupportNote = useMutation(api.support.addInternalSupportNote);
   const markTicketRead = useMutation(api.support.markTicketRead);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+  const adminUpdateAdRequest = useMutation(api.support.adminUpdateAdRequest);
+  const adminSetAdPaymentStatus = useMutation(api.support.adminSetAdPaymentStatus);
+  const adminPublishAdRequest = useMutation(api.support.adminPublishAdRequest);
+
+  // Demande d'annonce — édition admin
+  const [adPrice, setAdPrice] = useState("");
+  const [adDuration, setAdDuration] = useState("");
+  const [adExternalUrl, setAdExternalUrl] = useState("");
+  const [adSaving, setAdSaving] = useState(false);
+  const [adPublishing, setAdPublishing] = useState(false);
 
   // Ouverture directe d'un ticket depuis une notification (?tab=support&ticket=...)
   const [searchParams] = useSearchParams();
@@ -156,6 +202,24 @@ export default function SupportAdmin() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages?.length, selectedId]);
+
+  // Synchroniser les champs d'édition annonce avec la demande sélectionnée.
+  useEffect(() => {
+    if (selected?.category === "ad_request" && selected.adRequest) {
+      setAdPrice(
+        selected.adRequest.price !== undefined && selected.adRequest.price !== null
+          ? String(selected.adRequest.price)
+          : "",
+      );
+      setAdDuration(
+        selected.adRequest.finalDurationDays !== undefined
+          ? String(selected.adRequest.finalDurationDays)
+          : String(selected.adRequest.publicationDurationDays ?? ""),
+      );
+      setAdExternalUrl("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?._id, selected?.adRequest?.price, selected?.adRequest?.finalDurationDays]);
 
   // Marquer comme lus à l'ouverture (côté équipe support)
   useEffect(() => {
@@ -230,6 +294,91 @@ export default function SupportAdmin() {
       toast.success("Ticket assigné");
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'assignation");
+    }
+  };
+
+  const handleAdStage = async (stage: string) => {
+    if (!selected) return;
+    try {
+      await adminUpdateAdRequest({ ticketId: selected._id, stage: stage as any });
+      toast.success(`Demande d'annonce : ${AD_STAGE_LABELS[stage]}`);
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    }
+  };
+
+  const handleAdSaveDetails = async () => {
+    if (!selected) return;
+    setAdSaving(true);
+    try {
+      await adminUpdateAdRequest({
+        ticketId: selected._id,
+        price:
+          adPrice.trim() === ""
+            ? undefined
+            : adPrice.trim() === "0"
+              ? null
+              : Number(adPrice),
+        finalDurationDays: adDuration.trim() === "" ? undefined : Number(adDuration),
+        adminResponse: undefined,
+      });
+      toast.success("Prix et durée enregistrés");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'enregistrement");
+    } finally {
+      setAdSaving(false);
+    }
+  };
+
+  const handleAdRespond = async () => {
+    if (!selected || !reply.trim()) return;
+    setAdSaving(true);
+    try {
+      await adminUpdateAdRequest({
+        ticketId: selected._id,
+        adminResponse: reply,
+      });
+      setReply("");
+      toast.success("Réponse envoyée au demandeur");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    } finally {
+      setAdSaving(false);
+    }
+  };
+
+  const handleAdPayment = async (paymentStatus: string) => {
+    if (!selected) return;
+    try {
+      await adminSetAdPaymentStatus({ ticketId: selected._id, paymentStatus: paymentStatus as any });
+      toast.success(
+        paymentStatus === "confirmed" ? "Paiement confirmé" : "Statut de paiement mis à jour",
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    }
+  };
+
+  const handleAdPublish = async () => {
+    if (!selected) return;
+    if (
+      !confirm(
+        "Publier cette annonce maintenant ? Elle sera visible publiquement selon les paramètres définis.",
+      )
+    ) {
+      return;
+    }
+    setAdPublishing(true);
+    try {
+      await adminPublishAdRequest({
+        ticketId: selected._id,
+        externalUrl: adExternalUrl.trim() || undefined,
+      });
+      toast.success("Annonce publiée");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la publication");
+    } finally {
+      setAdPublishing(false);
     }
   };
 
@@ -440,6 +589,15 @@ export default function SupportAdmin() {
                       <Badge variant="outline" className={cn("text-[10px]", pr.cls)}>
                         {pr.label}
                       </Badge>
+                      {t.category === "ad_request" && (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 text-[10px] text-primary border-primary/30 bg-primary/5"
+                        >
+                          <Megaphone className="h-3 w-3" />
+                          Annonce
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 pt-0.5">
                       <Avatar className="h-5 w-5">
@@ -608,6 +766,261 @@ export default function SupportAdmin() {
                   </div>
                 </div>
               </div>
+
+              {/* Demande d'annonce — gestion complète */}
+              {selected.category === "ad_request" && selected.adRequest && (
+                <div className="border-b border-border/50 bg-primary/[0.02] px-4 py-3 space-y-3">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-primary flex-wrap">
+                    <Megaphone className="h-3.5 w-3.5" />
+                    Demande d'annonce
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px]",
+                        AD_STAGE_STYLES[selected.adRequest.stage],
+                      )}
+                    >
+                      {AD_STAGE_LABELS[selected.adRequest.stage]}
+                    </Badge>
+                    {selected.adRequest.paymentStatus && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px]",
+                          AD_PAYMENT_STYLES[selected.adRequest.paymentStatus],
+                        )}
+                      >
+                        {AD_PAYMENT_LABELS[selected.adRequest.paymentStatus]}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Détails de la demande */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1 text-[11px]">
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">Société :</span>{" "}
+                      {selected.adRequest.companyName}
+                    </p>
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">Demandeur :</span>{" "}
+                      {selected.adRequest.requesterName}
+                    </p>
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">Téléphone :</span>{" "}
+                      {selected.adRequest.phone}
+                    </p>
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">E-mail :</span>{" "}
+                      {selected.adRequest.email}
+                    </p>
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">Type d'annonce :</span>{" "}
+                      {selected.adRequest.adType}
+                    </p>
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">Durée souhaitée :</span>{" "}
+                      {selected.adRequest.publicationDurationDays} jour(s)
+                    </p>
+                  </div>
+                  {selected.adRequest.additionalInfo && (
+                    <p className="text-[11px] text-muted-foreground whitespace-pre-wrap">
+                      <span className="font-medium text-foreground">Infos complémentaires :</span>{" "}
+                      {selected.adRequest.additionalInfo}
+                    </p>
+                  )}
+
+                  {/* Fichiers : logo, pièce jointe, preuve de paiement */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {selected.adRequestFiles?.logoUrl && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <img
+                          src={selected.adRequestFiles.logoUrl}
+                          alt="Logo"
+                          className="h-8 w-8 rounded object-cover border border-border/50"
+                        />
+                        Logo
+                      </div>
+                    )}
+                    {selected.adRequestFiles?.attachmentUrl && (
+                      <a
+                        href={selected.adRequestFiles.attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-[11px] text-primary hover:underline"
+                      >
+                        <Paperclip className="h-3 w-3" />
+                        {selected.adRequestFiles.attachmentName ?? "Pièce jointe"}
+                      </a>
+                    )}
+                    {selected.adRequestFiles?.paymentProofUrl && (
+                      <a
+                        href={selected.adRequestFiles.paymentProofUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-[11px] text-amber-600 hover:underline"
+                      >
+                        <Paperclip className="h-3 w-3" />
+                        {selected.adRequestFiles.paymentProofName ?? "Preuve de paiement"}
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Décision (statut de la demande) */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Décision :
+                    </span>
+                    {AD_STAGE_KEYS.map((key) => (
+                      <Button
+                        key={key}
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "h-7 text-[11px] gap-1",
+                          selected.adRequest!.stage === key
+                            ? AD_STAGE_STYLES[key]
+                            : "text-muted-foreground",
+                        )}
+                        disabled={adPublishing}
+                        onClick={() => void handleAdStage(key)}
+                      >
+                        {AD_STAGE_LABELS[key]}
+                      </Button>
+                    ))}
+                  </div>
+
+                  {/* Prix + durée + lien */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">
+                        Prix de l'annonce (TND, 0 = gratuit)
+                      </label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.5"
+                        placeholder="Ex. : 150"
+                        value={adPrice}
+                        onChange={(e) => setAdPrice(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">
+                        Durée de publication (jours)
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="Ex. : 30"
+                        value={adDuration}
+                        onChange={(e) => setAdDuration(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">
+                        Lien externe (optionnel)
+                      </label>
+                      <Input
+                        type="url"
+                        placeholder="https://..."
+                        value={adExternalUrl}
+                        onChange={(e) => setAdExternalUrl(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px] gap-1"
+                      disabled={adSaving}
+                      onClick={() => void handleAdSaveDetails()}
+                    >
+                      {adSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CircleCheck className="h-3 w-3" />}
+                      Enregistrer prix/durée
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px] gap-1 text-violet-600 border-violet-500/30 hover:bg-violet-500/10"
+                      disabled={adSaving || !reply.trim()}
+                      onClick={() => void handleAdRespond()}
+                    >
+                      <Send className="h-3 w-3" />
+                      Répondre au demandeur
+                    </Button>
+                  </div>
+
+                  {/* Paiement — quand la demande est acceptée */}
+                  {selected.adRequest.stage === "acceptee" && (
+                    <div className="rounded-lg border border-border/40 bg-background/60 p-2.5 space-y-2">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Paiement
+                      </p>
+                      <div className="flex gap-1.5 flex-wrap">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] gap-1 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10"
+                          onClick={() => void handleAdPayment("confirmed")}
+                        >
+                          <CircleCheck className="h-3 w-3" />
+                          Confirmer le paiement
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] gap-1 text-red-600 border-red-500/30 hover:bg-red-500/10"
+                          onClick={() => void handleAdPayment("rejected")}
+                        >
+                          <CircleAlert className="h-3 w-3" />
+                          Refuser la preuve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] gap-1"
+                          onClick={() => void handleAdPayment("not_required")}
+                        >
+                          Sans objet (gratuit)
+                        </Button>
+                      </div>
+
+                      {/* Publication */}
+                      <div className="flex items-center gap-2 flex-wrap pt-1">
+                        {selected.adRequest.announcementId ? (
+                          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[10px]">
+                            <CircleCheck className="h-3 w-3 mr-1" />
+                            Annonce publiée
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-7 text-[11px] gap-1"
+                            disabled={adPublishing}
+                            onClick={() => void handleAdPublish()}
+                          >
+                            {adPublishing ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Megaphone className="h-3 w-3" />
+                            )}
+                            Publier l'annonce
+                          </Button>
+                        )}
+                        {selected.adRequest.publishedAt && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Publiée le {fmtDateTime(selected.adRequest.publishedAt)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 max-h-[46vh] lg:max-h-[calc(100vh-36rem)] min-h-[220px]">
