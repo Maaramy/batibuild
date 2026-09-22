@@ -103,6 +103,8 @@ interface FloorPlan3DProps {
   plan: FloorPlan;
   selectedRoomId?: string | null;
   onSelectRoom?: (roomId: string | null) => void;
+  /** Repli de compatibilité : `lite` équivaut à la qualité "low". */
+  lite?: boolean;
   fullscreen?: boolean;
   className?: string;
   /** Niveau de qualité forcé (sinon détection automatique). */
@@ -131,15 +133,16 @@ export function FloorPlan3DHD({
   plan,
   selectedRoomId,
   onSelectRoom,
+  lite,
   fullscreen = false,
   className,
   quality: qualityProp,
 }: FloorPlan3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Hooks toujours appelés (jamais conditionnels) : la détection auto tourne à
-  // chaque rendu, `qualityProp` ne fait que surcharger le résultat.
+  // chaque rendu, `qualityProp`/`lite` ne font que surcharger le résultat.
   const autoQuality = useMemo(detectQualityLevel, []);
-  const quality = qualityProp ?? autoQuality;
+  const quality = qualityProp ?? (lite ? "low" : autoQuality);
   const qs = useMemo(() => qualitySettings(quality), [quality]);
 
   const [showLabels, setShowLabels] = useState(true);
@@ -186,6 +189,7 @@ export function FloorPlan3DHD({
     controls.maxDistance = dist * 2.6;
     camera.near = Math.max(0.05, fitDist * 0.01);
     camera.far = fitDist * 12;
+    controls.autoRotate = false;
     camera.updateProjectionMatrix();
     controls.update();
   }, [plan]);
