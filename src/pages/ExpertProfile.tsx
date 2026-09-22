@@ -36,6 +36,7 @@ import {
   ProviderAvatar,
 } from "@/components/profile/ProviderProfileUI";
 import { regionLabel } from "@/lib/providerRegions";
+import { stripCjk, sanitizeStringList } from "@/lib/sanitizeText";
 import { currentEventSource } from "@/lib/analyticsSource";
 import { toast } from "sonner";
 
@@ -58,9 +59,10 @@ const PROFESSION_LABELS: Record<string, string> = {
   electricien: "Électricien",
 };
 
-/** Libellé de spécialité expert, avec repli sur la clé brute. */
+/** Libellé de spécialité expert, avec repli sur la clé brute nettoyée (CJK retirés). */
 function specialtyLabel(value: string): string {
-  return SPECIALTY_LABELS[value] ?? value;
+  const clean = stripCjk(value);
+  return SPECIALTY_LABELS[clean] ?? clean;
 }
 
 export default function ExpertProfile() {
@@ -145,7 +147,10 @@ export default function ExpertProfile() {
   const availabilityText = bookable
     ? "Sur rendez-vous"
     : availability?.short ?? "Non précisée";
-  const zones = (profile.regions ?? []) as string[];
+  // Spécificités et zones nettoyées à la lecture : les profils enregistrés avec
+  // des caractères chinois ne s'affichent jamais (CJK retirés, vides exclus).
+  const specialties = sanitizeStringList(profile.specialties);
+  const zones = sanitizeStringList(profile.regions);
 
   const requireAuth = (action: () => void) => {
     if (!user) {
@@ -190,10 +195,10 @@ export default function ExpertProfile() {
                     {zones.length > 0 ? regionLabel(zones[0]) : profile.address}
                   </InfoChip>
                 )}
-                {profile.specialties.length > 0 && (
+                {specialties.length > 0 && (
                   <InfoChip icon={Layers}>
-                    {profile.specialties.length} spécialité
-                    {profile.specialties.length > 1 ? "s" : ""}
+                    {specialties.length} spécialité
+                    {specialties.length > 1 ? "s" : ""}
                   </InfoChip>
                 )}
                 {acceptsUrgent && (
@@ -286,11 +291,11 @@ export default function ExpertProfile() {
           <ProfileSection
             icon={Layers}
             title="Spécialités & services"
-            hint={`${profile.specialties.length}`}
+            hint={`${specialties.length}`}
           >
-            {profile.specialties.length > 0 ? (
+            {specialties.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
-                {profile.specialties.map((sp: string) => (
+                {specialties.map((sp: string) => (
                   <InfoChip key={sp}>{specialtyLabel(sp)}</InfoChip>
                 ))}
               </div>

@@ -5,6 +5,7 @@ import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubscription";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 import { normalizeIndicativePrice } from "../lib/expertAvailability";
+import { stripCjk, sanitizeStringList } from "../lib/sanitizeText";
 
 // ============================================================================
 // Constants
@@ -282,22 +283,24 @@ export const createProfile = mutation({
     }
 
     const now = Date.now();
+    // Nettoyage systématique : aucun caractère chinois/CJK ne doit être
+    // persisté dans les spécificités du profil expert.
     const profileId = await ctx.db.insert("expertProfiles", {
       userId: user._id,
       profession: args.profession,
-      displayName: args.displayName,
-      companyName: args.companyName,
+      displayName: stripCjk(args.displayName) || args.displayName,
+      companyName: args.companyName ? stripCjk(args.companyName) : undefined,
       phone: args.phone,
       email: args.email,
-      address: args.address,
+      address: args.address ? stripCjk(args.address) : undefined,
       website: args.website,
-      description: args.description,
+      description: args.description ? stripCjk(args.description) : undefined,
       logo,
-      specialties: args.specialties,
-      regions: args.regions,
+      specialties: sanitizeStringList(args.specialties),
+      regions: sanitizeStringList(args.regions),
       indicativePrice: normalizeIndicativePrice(args.indicativePrice),
       availability: args.availability,
-      availabilityDetails: args.availabilityDetails?.trim() || undefined,
+      availabilityDetails: stripCjk(args.availabilityDetails) || undefined,
       acceptsUrgent: args.acceptsUrgent,
       plan: "none",
       subscriptionStatus: "inactive",
@@ -371,13 +374,13 @@ export const updateProfile = mutation({
 
     const updates: Record<string, any> = { updatedAt: Date.now() };
     if (args.profession !== undefined) updates.profession = args.profession;
-    if (args.displayName !== undefined) updates.displayName = args.displayName;
-    if (args.companyName !== undefined) updates.companyName = args.companyName;
+    if (args.displayName !== undefined) updates.displayName = stripCjk(args.displayName) || args.displayName;
+    if (args.companyName !== undefined) updates.companyName = stripCjk(args.companyName);
     if (args.phone !== undefined) updates.phone = args.phone;
     if (args.email !== undefined) updates.email = args.email;
-    if (args.address !== undefined) updates.address = args.address;
+    if (args.address !== undefined) updates.address = stripCjk(args.address);
     if (args.website !== undefined) updates.website = args.website;
-    if (args.description !== undefined) updates.description = args.description;
+    if (args.description !== undefined) updates.description = stripCjk(args.description);
     // Logo: clearLogo > logoStorageId (server-resolved URL) > legacy raw URL.
     // When no logo arg is given, heal a legacy broken logo URL on save.
     if (args.clearLogo) {
@@ -392,8 +395,9 @@ export const updateProfile = mutation({
       const repaired = await repairLogoUrl(ctx, profile.logo);
       if (repaired !== profile.logo) updates.logo = repaired;
     }
-    if (args.specialties !== undefined) updates.specialties = args.specialties;
-    if (args.regions !== undefined) updates.regions = args.regions;
+    // Spécificités : CJK retirés, trim, vides et doublons supprimés.
+    if (args.specialties !== undefined) updates.specialties = sanitizeStringList(args.specialties);
+    if (args.regions !== undefined) updates.regions = sanitizeStringList(args.regions);
     // ProMarket : prix indicatifs (chaîne vide = champ retiré), disponibilité,
     // zones précises et acceptation des urgences.
     if (args.indicativePrice !== undefined) {
@@ -401,7 +405,7 @@ export const updateProfile = mutation({
     }
     if (args.availability !== undefined) updates.availability = args.availability;
     if (args.availabilityDetails !== undefined) {
-      updates.availabilityDetails = args.availabilityDetails?.trim() || undefined;
+      updates.availabilityDetails = stripCjk(args.availabilityDetails) || undefined;
     }
     if (args.acceptsUrgent !== undefined) updates.acceptsUrgent = args.acceptsUrgent;
 

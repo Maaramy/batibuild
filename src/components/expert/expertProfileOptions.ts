@@ -24,7 +24,7 @@ const ARCHITECTE_SPECIALTIES = [
 
 const BUREAU_ETUDES_SPECIALTIES = [
   "etudes_structure", "dimensionnement", "bim_modeling",
-  "assistance_technique", " controle_technique", "etudes_impact",
+  "assistance_technique", "controle_technique", "etudes_impact",
   "geotechnique", "topographie", "plans_executeifs",
   "dossier_consultation_entreprises",
 ];
@@ -44,7 +44,7 @@ const PROMOTEUR_SPECIALTIES = [
 ];
 
 const PLOMBIER_SPECIALTIES = [
-  "installation_eau_croisse", "reparation_fuites", "depannage_plomberie",
+  "installation_eau_croisee", "reparation_fuites", "depannage_plomberie",
   "installation_sanitaires", "canalisation_evacuation", "chauffe_eau",
   "plomberie_industrielle", "maintenance_preventive", "raccordement_gaz",
   "traitement_eau",
@@ -91,13 +91,16 @@ export const SPECIALTY_LABELS: Record<string, string> = {
   etudes_marche: "Études de marché", negociation: "Négociation",
   suivi_livraison: "Suivi de livraison",
   // Plombier
-  installation_eau_croisse: "Installation eau croissée",
+  installation_eau_croisee: "Installation eau croisée",
+  installation_eau_croisse: "Installation eau croisée",
   reparation_fuites: "Réparation de fuites",
   depannage_plomberie: "Dépannage plomberie",
+  installation_sanitaires: "Installation sanitaires",
   installation_sanitaires_p: "Installation sanitaires",
   canalisation_evacuation: "Canalisation & évacuation",
   chauffe_eau: "Chauffe-eau",
   plomberie_industrielle: "Plomberie industrielle",
+  maintenance_preventive: "Maintenance préventive",
   maintenance_preventive_p: "Maintenance préventive",
   raccordement_gaz: "Raccordement gaz",
   traitement_eau: "Traitement de l'eau",
