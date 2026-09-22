@@ -172,29 +172,6 @@ export const deleteUserCompletely = internalMutation({
         .withIndex("by_ticket", (q: any) => q.eq("ticketId", ticket._id))
         .collect();
       await deleteAll(ctx, notes);
-      // Demande d'annonce : fichiers (logo, pièce jointe, preuve de paiement)
-      // + désactivation de l'annonce publiée éventuelle (jamais de lien public
-      // orphelin vers un compte supprimé).
-      const ad = (ticket as any).adRequest;
-      if (ad) {
-        await deleteStorage(ctx, ad.logoStorageId);
-        await deleteStorage(ctx, ad.attachmentStorageId);
-        await deleteStorage(ctx, ad.paymentProofStorageId);
-        if (ad.announcementId) {
-          try {
-            const announcement = await ctx.db.get(ad.announcementId);
-            if (announcement) {
-              await ctx.db.patch(ad.announcementId, {
-                isActive: false,
-                status: "disabled",
-                updatedAt: Date.now(),
-              });
-            }
-          } catch {
-            // annonce déjà supprimée
-          }
-        }
-      }
       await ctx.db.delete(ticket._id);
     }
     // Messages envoyés par l'utilisateur dans les tickets d'AUTRES comptes

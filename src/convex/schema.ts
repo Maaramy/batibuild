@@ -785,7 +785,6 @@ const schema = defineSchema(
         v.literal("project"),
         v.literal("feature"),
         v.literal("other"),
-        v.literal("ad_request"),
       ),
       priority: v.union(
         v.literal("low"),
@@ -812,57 +811,6 @@ const schema = defineSchema(
       // Compteurs de messages non lus (temps réel, par côté)
       userUnreadCount: v.optional(v.number()),
       adminUnreadCount: v.optional(v.number()),
-      // ── Demande d'annonce (catégorie « ad_request ») ────────────────────────
-      // Workflow : Demande → Validation admin → Prix → Paiement → Publication.
-      // Une annonce n'est JAMAIS publiée automatiquement : la publication est
-      // déclenchée explicitement par l'administrateur après paiement confirmé.
-      adRequest: v.optional(
-        v.object({
-          // Formulaire soumis par la société / le professionnel
-          companyName: v.string(),
-          requesterName: v.string(),
-          phone: v.string(),
-          email: v.string(),
-          adTitle: v.string(),
-          adDescription: v.string(),
-          adType: v.string(),
-          publicationDurationDays: v.number(),
-          additionalInfo: v.optional(v.string()),
-          logoStorageId: v.optional(v.id("_storage")),
-          logoName: v.optional(v.string()),
-          attachmentStorageId: v.optional(v.id("_storage")),
-          attachmentName: v.optional(v.string()),
-          // Étapes administrateur
-          stage: v.union(
-            v.literal("nouvelle"),
-            v.literal("en_cours"),
-            v.literal("acceptee"),
-            v.literal("refusee"),
-            v.literal("terminee"),
-          ),
-          price: v.optional(v.number()),
-          finalDurationDays: v.optional(v.number()),
-          adminResponse: v.optional(v.string()),
-          decidedAt: v.optional(v.number()),
-          // Paiement (preuve téléversée par le demandeur, confirmée par l'admin)
-          paymentStatus: v.optional(
-            v.union(
-              v.literal("pending"),
-              v.literal("proof_uploaded"),
-              v.literal("confirmed"),
-              v.literal("rejected"),
-              v.literal("not_required"),
-            ),
-          ),
-          paymentProofStorageId: v.optional(v.id("_storage")),
-          paymentProofName: v.optional(v.string()),
-          paymentProofUploadedAt: v.optional(v.number()),
-          paymentConfirmedAt: v.optional(v.number()),
-          // Publication (annonce créée dans le module « announcements »)
-          announcementId: v.optional(v.id("announcements")),
-          publishedAt: v.optional(v.number()),
-        }),
-      ),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"])

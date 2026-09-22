@@ -25,7 +25,6 @@ import {
   Inbox,
   Loader2,
   Lock,
-  Megaphone,
   NotebookPen,
   Paperclip,
   Search,
@@ -46,42 +45,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   project: "Projet",
   feature: "Fonctionnalité",
   other: "Autre",
-  ad_request: "Demande d'annonce",
 };
-
-const AD_STAGE_LABELS: Record<string, string> = {
-  nouvelle: "Nouvelle",
-  en_cours: "En cours",
-  acceptee: "Acceptée",
-  refusee: "Refusée",
-  terminee: "Terminée",
-};
-
-const AD_STAGE_STYLES: Record<string, string> = {
-  nouvelle: "bg-amber-500/10 text-amber-600 border-amber-500/25",
-  en_cours: "bg-blue-500/10 text-blue-600 border-blue-500/25",
-  acceptee: "bg-emerald-500/10 text-emerald-600 border-emerald-500/25",
-  refusee: "bg-red-500/10 text-red-600 border-red-500/25",
-  terminee: "bg-violet-500/10 text-violet-600 border-violet-500/25",
-};
-
-const AD_PAYMENT_LABELS: Record<string, string> = {
-  pending: "En attente de paiement",
-  proof_uploaded: "Preuve téléversée",
-  confirmed: "Paiement confirmé",
-  rejected: "Preuve refusée",
-  not_required: "Sans objet",
-};
-
-const AD_PAYMENT_STYLES: Record<string, string> = {
-  pending: "bg-amber-500/10 text-amber-600 border-amber-500/25",
-  proof_uploaded: "bg-blue-500/10 text-blue-600 border-blue-500/25",
-  confirmed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/25",
-  rejected: "bg-red-500/10 text-red-600 border-red-500/25",
-  not_required: "bg-muted text-muted-foreground border-border",
-};
-
-const AD_STAGE_KEYS = ["nouvelle", "en_cours", "acceptee", "refusee", "terminee"] as const;
 
 const STATUS_STYLES: Record<string, { label: string; cls: string; icon: any }> = {
   open: { label: "Nouveau", cls: "bg-amber-500/10 text-amber-600 border-amber-500/25", icon: Clock },
@@ -141,16 +105,6 @@ export default function SupportAdmin() {
   const addInternalSupportNote = useMutation(api.support.addInternalSupportNote);
   const markTicketRead = useMutation(api.support.markTicketRead);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
-  const adminUpdateAdRequest = useMutation(api.support.adminUpdateAdRequest);
-  const adminSetAdPaymentStatus = useMutation(api.support.adminSetAdPaymentStatus);
-  const adminPublishAdRequest = useMutation(api.support.adminPublishAdRequest);
-
-  // Demande d'annonce — édition admin
-  const [adPrice, setAdPrice] = useState("");
-  const [adDuration, setAdDuration] = useState("");
-  const [adExternalUrl, setAdExternalUrl] = useState("");
-  const [adSaving, setAdSaving] = useState(false);
-  const [adPublishing, setAdPublishing] = useState(false);
 
   // Ouverture directe d'un ticket depuis une notification (?tab=support&ticket=...)
   const [searchParams] = useSearchParams();
@@ -202,24 +156,6 @@ export default function SupportAdmin() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages?.length, selectedId]);
-
-  // Synchroniser les champs d'édition annonce avec la demande sélectionnée.
-  useEffect(() => {
-    if (selected?.category === "ad_request" && selected.adRequest) {
-      setAdPrice(
-        selected.adRequest.price !== undefined && selected.adRequest.price !== null
-          ? String(selected.adRequest.price)
-          : "",
-      );
-      setAdDuration(
-        selected.adRequest.finalDurationDays !== undefined
-          ? String(selected.adRequest.finalDurationDays)
-          : String(selected.adRequest.publicationDurationDays ?? ""),
-      );
-      setAdExternalUrl("");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected?._id, selected?.adRequest?.price, selected?.adRequest?.finalDurationDays]);
 
   // Marquer comme lus à l'ouverture (côté équipe support)
   useEffect(() => {
@@ -294,91 +230,6 @@ export default function SupportAdmin() {
       toast.success("Ticket assigné");
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'assignation");
-    }
-  };
-
-  const handleAdStage = async (stage: string) => {
-    if (!selected) return;
-    try {
-      await adminUpdateAdRequest({ ticketId: selected._id, stage: stage as any });
-      toast.success(`Demande d'annonce : ${AD_STAGE_LABELS[stage]}`);
-    } catch (err: any) {
-      toast.error(err.message || "Erreur");
-    }
-  };
-
-  const handleAdSaveDetails = async () => {
-    if (!selected) return;
-    setAdSaving(true);
-    try {
-      await adminUpdateAdRequest({
-        ticketId: selected._id,
-        price:
-          adPrice.trim() === ""
-            ? undefined
-            : adPrice.trim() === "0"
-              ? null
-              : Number(adPrice),
-        finalDurationDays: adDuration.trim() === "" ? undefined : Number(adDuration),
-        adminResponse: undefined,
-      });
-      toast.success("Prix et durée enregistrés");
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'enregistrement");
-    } finally {
-      setAdSaving(false);
-    }
-  };
-
-  const handleAdRespond = async () => {
-    if (!selected || !reply.trim()) return;
-    setAdSaving(true);
-    try {
-      await adminUpdateAdRequest({
-        ticketId: selected._id,
-        adminResponse: reply,
-      });
-      setReply("");
-      toast.success("Réponse envoyée au demandeur");
-    } catch (err: any) {
-      toast.error(err.message || "Erreur");
-    } finally {
-      setAdSaving(false);
-    }
-  };
-
-  const handleAdPayment = async (paymentStatus: string) => {
-    if (!selected) return;
-    try {
-      await adminSetAdPaymentStatus({ ticketId: selected._id, paymentStatus: paymentStatus as any });
-      toast.success(
-        paymentStatus === "confirmed" ? "Paiement confirmé" : "Statut de paiement mis à jour",
-      );
-    } catch (err: any) {
-      toast.error(err.message || "Erreur");
-    }
-  };
-
-  const handleAdPublish = async () => {
-    if (!selected) return;
-    if (
-      !confirm(
-        "Publier cette annonce maintenant ? Elle sera visible publiquement selon les paramètres définis.",
-      )
-    ) {
-      return;
-    }
-    setAdPublishing(true);
-    try {
-      await adminPublishAdRequest({
-        ticketId: selected._id,
-        externalUrl: adExternalUrl.trim() || undefined,
-      });
-      toast.success("Annonce publiée");
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de la publication");
-    } finally {
-      setAdPublishing(false);
     }
   };
 
@@ -589,15 +440,6 @@ export default function SupportAdmin() {
                       <Badge variant="outline" className={cn("text-[10px]", pr.cls)}>
                         {pr.label}
                       </Badge>
-                      {t.category === "ad_request" && (
-                        <Badge
-                          variant="outline"
-                          className="gap-1 text-[10px] text-primary border-primary/30 bg-primary/5"
-                        >
-                          <Megaphone className="h-3 w-3" />
-                          Annonce
-                        </Badge>
-                      )}
                     </div>
                     <div className="flex items-center gap-1.5 pt-0.5">
                       <Avatar className="h-5 w-5">
