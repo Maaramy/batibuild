@@ -47,6 +47,9 @@ export { default as Brain } from "../../node_modules/lucide-react/dist/esm/icons
 export { default as BrainCircuit } from "../../node_modules/lucide-react/dist/esm/icons/brain-circuit.js";
 // Icône de vue perspective 3D (FloorPlan3D)
 export { default as Box } from "../../node_modules/lucide-react/dist/esm/icons/box.js";
+// Icônes de la vue 3D HD (FloorPlan3DHD) : cadrage auto + mode réaliste
+export { default as Focus } from "../../node_modules/lucide-react/dist/esm/icons/focus.js";
+export { default as Contrast } from "../../node_modules/lucide-react/dist/esm/icons/contrast.js";
 export { default as FolderKanban } from "../../node_modules/lucide-react/dist/esm/icons/folder-kanban.js";
 export { default as Briefcase } from "../../node_modules/lucide-react/dist/esm/icons/briefcase.js";
 export { default as Building } from "../../node_modules/lucide-react/dist/esm/icons/building.js";

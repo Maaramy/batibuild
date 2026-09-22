@@ -993,6 +993,10 @@ const schema = defineSchema(
       /** Description affichée dans l'admin. */
       description: v.string(),
       enabled: v.boolean(),
+      /** Mode progressif (off/beta/on) pour le déploiement par étapes. */
+      mode: v.optional(
+        v.union(v.literal("off"), v.literal("beta"), v.literal("on")),
+      ),
       updatedAt: v.number(),
       updatedBy: v.optional(v.id("users")),
     })
