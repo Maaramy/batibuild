@@ -1,18 +1,23 @@
 import { useId, useMemo } from "react";
 import type { FloorPlan } from "@/lib/floorPlanEngine";
 import { FurnitureLayer } from "./FurnitureLayer";
+import { cn } from "@/lib/utils";
 
 // ============================================================================
 // PLAN 2D STYLE « DESSIN D'ARCHITECTE »
 // Poché des murs (double trait fusionné), trame millimétrée légère, chaînes de
 // cotes avec traits obliques, portes à vantail + arc, fenêtres triple trait,
-// rose des vents et étiquettes pièces NOM + surface.
+// rose des vents et étiquettes pièces NOM + surface + dimensions.
+// Sélection de pièces : clic/tap → onSelectRoom (synchro 2D ↔ 3D) ; la pièce
+// sélectionnée est surlignée. Perçage des murs élargi pour des ouvertures
+// propres (pas de chevauchement poché/ouverture).
 // ============================================================================
 
 const INK = "#1c1917"; // trait d'encre (murs, cotes)
 const PAPER = "#fdfdfb"; // fond papier
 const GRID = "#e7e5e4"; // trame
 const DIMC = "#78716c"; // cotes
+const SEL = "#7c3aed"; // sélection
 
 /** Teintes très légères par nature de pièce (remplissage ~14 %). */
 const ROOM_TINT: Record<string, string> = {
@@ -36,7 +41,23 @@ const ROOM_TINT: Record<string, string> = {
   polyvalent: "#94a3b8",
 };
 
-export function FloorPlan2D({ plan }: { plan: FloorPlan }) {
+export interface FloorPlan2DProps {
+  plan: FloorPlan;
+  /** Pièce sélectionnée (synchronisation 3D → 2D). */
+  selectedRoomId?: string | null;
+  onSelectRoom?: (roomId: string | null) => void;
+  /** Afficher les chaînes de cotes globales (par défaut : oui). */
+  showDimensions?: boolean;
+  className?: string;
+}
+
+export function FloorPlan2D({
+  plan,
+  selectedRoomId,
+  onSelectRoom,
+  showDimensions = true,
+  className,
+}: FloorPlan2DProps) {
   const clipId = useId();
   const gridId = useId();
 
@@ -55,10 +76,14 @@ export function FloorPlan2D({ plan }: { plan: FloorPlan }) {
 
   const rooms = useMemo(() => plan.rooms, [plan]);
 
+  const handleRoomClick = (roomId: string) => {
+    onSelectRoom?.(selectedRoomId === roomId ? null : roomId);
+  };
+
   return (
     <svg
       viewBox={`${-PAD} ${-PAD} ${W + PAD * 2} ${H + PAD * 2}`}
-      className="w-full h-auto select-none"
+      className={cn("w-full h-auto select-none", className)}
       role="img"
       aria-label={`Plan 2D — ${plan.rooms.length} pièces`}
       style={{ fontFamily: "inherit" }}
@@ -166,7 +191,7 @@ export function FloorPlan2D({ plan }: { plan: FloorPlan }) {
                   p1={(d.wall === "N" || d.wall === "S" ? r.x + d.position : r.y + d.position) * S}
                   len={d.width * S}
                   line={d.wall === "N" ? ry : d.wall === "S" ? ry + rh : d.wall === "W" ? rx : rx + rw}
-                  band={isEdge(d.wall === "N" ? r.y : d.wall === "S" ? r.y + r.h - plan.width : d.wall === "W" ? r.x : r.x + r.w - plan.length) ? EXT : INT}
+                  band={isEdge(d.wall === "N" ? r.y : d.wall === "S" ? r.y + r.h - plan.width : d.wall === "W" ? r.x : d.wall === "E" ? r.x + r.w - plan.length : 0) ? EXT : INT}
                   inward={d.wall === "N" ? 1 : d.wall === "S" ? -1 : d.wall === "W" ? 1 : -1}
                   vertical={d.wall === "W" || d.wall === "E"}
                   isEntry={!!d.isEntry}
@@ -177,8 +202,42 @@ export function FloorPlan2D({ plan }: { plan: FloorPlan }) {
         })}
       </g>
 
-      {/* ── Passe 4 : étiquettes des pièces ── */}
+      {/* ── Passe 4 : zones cliquables + étiquettes des pièces ── */}
       <g clipPath={`url(#${clipId})`}>
+        {/* Zone de clic transparente par pièce (synchro 2D ↔ 3D) */}
+        {rooms.map((r) => (
+          <rect
+            key={`hit-${r.id}`}
+            x={r.x * S}
+            y={r.y * S}
+            width={r.w * S}
+            height={r.h * S}
+            fill="transparent"
+            className="cursor-pointer"
+            onClick={() => handleRoomClick(r.id)}
+          >
+            <title>{`${r.label} — ${r.area.toFixed(2)} m²`}</title>
+          </rect>
+        ))}
+        {selectedRoomId && (() => {
+          const r = rooms.find((x) => x.id === selectedRoomId);
+          if (!r) return null;
+          return (
+            <rect
+              x={r.x * S + 1.5}
+              y={r.y * S + 1.5}
+              width={Math.max(0, r.w * S - 3)}
+              height={Math.max(0, r.h * S - 3)}
+              fill={SEL}
+              opacity={0.16}
+              stroke={SEL}
+              strokeWidth={1.6}
+              strokeDasharray="6 3"
+              rx={2}
+              pointerEvents="none"
+            />
+          );
+        })()}
         {rooms.map((r) => {
           const cx = (r.x + r.w / 2) * S;
           const cy = (r.y + r.h / 2) * S;
@@ -187,7 +246,7 @@ export function FloorPlan2D({ plan }: { plan: FloorPlan }) {
           const nameSize = Math.max(7.5, Math.min(11, S * 0.32));
           if (!mid) return null;
           return (
-            <g key={`l-${r.id}`} textAnchor="middle">
+            <g key={`l-${r.id}`} textAnchor="middle" pointerEvents="none">
               <text
                 x={cx}
                 y={big ? cy - 2 : cy + 3}
@@ -216,8 +275,12 @@ export function FloorPlan2D({ plan }: { plan: FloorPlan }) {
       </g>
 
       {/* ── Chaînes de cotes ── */}
-      <DimChain from={0} to={W} at={-EXT / 2 - 14} label={`${plan.length.toFixed(2)} m`} />
-      <DimChain vertical from={0} to={H} at={-EXT / 2 - 14} label={`${plan.width.toFixed(2)} m`} />
+      {showDimensions && (
+        <>
+          <DimChain from={0} to={W} at={-EXT / 2 - 14} label={`${plan.length.toFixed(2)} m`} />
+          <DimChain vertical from={0} to={H} at={-EXT / 2 - 14} label={`${plan.width.toFixed(2)} m`} />
+        </>
+      )}
 
       {/* ── Rose des vents ── */}
       <NorthArrow cx={W + PAD * 0.55} cy={-PAD * 0.45} r={11} />

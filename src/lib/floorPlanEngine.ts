@@ -1043,6 +1043,170 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
   return variants;
 }
 
+// ============================================================================
+// RÉPARATION ARCHITECTURALE (2D ↔ 3D)
+// ----------------------------------------------------------------------------
+// Corrige automatiquement les incohérences qui cassent la lisibilité du plan
+// 2D et la correspondance géométrique avec la scène 3D. Sans risque : n'agit
+// que sur les anomalies avérées, sinon le plan est rendu tel quel.
+// ============================================================================
+
+const REPAIR_TOL = 0.02;
+
+/** Ramène une valeur dans [0, max] en tolérance près. */
+const clamp = (v: number, max: number) => Math.min(Math.max(v, 0), max);
+
+/** Clamp d'une ouverture (porte/fenêtre) sur la longueur de son mur. */
+function clampOpening(
+  opening: { wall: WallSide; position: number; width: number; isEntry?: boolean },
+  room: { x: number; y: number; w: number; h: number },
+) {
+  const vertical = opening.wall === "W" || opening.wall === "E";
+  const wallLen = vertical ? room.h : room.w;
+  const width = Math.min(opening.width, wallLen * 0.9);
+  const position = clamp(
+    Math.min(opening.position, wallLen - width),
+    wallLen - width,
+  );
+  opening.width = width;
+  opening.position = position;
+}
+
+/**
+ * Répare un plan d'étage en place :
+ *  1. rectangles bornés à l'emprise, sans dimension nulle (murs continus) ;
+ *  2. suppression des chevauchements de pièces (recadrage successif) ;
+ *  3. surfaces recalculées (2D = 3D : même données) ;
+ *  4. portes/fenêtres clampées dans leur mur (fenêtres sur murs, pas de
+ *     porte hors clôture) ;
+ *  5. portes candidates requalifiées en fenêtres si le mur est extérieur
+ *     (l'accès principal reste une porte) ;
+ *  6. toute pièce sans accès reçoit une porte sur son mur le plus grand.
+ */
+export function repairFloorPlan(plan: FloorPlan): FloorPlan {
+  const { rooms } = plan;
+
+  // 1) Bornes de l'emprise + surface minimale
+  for (const r of rooms) {
+    r.w = Math.max(0.8, Math.min(r.w, plan.length));
+    r.h = Math.max(0.8, Math.min(r.h, plan.width));
+    r.x = clamp(r.x, plan.length - r.w);
+    r.y = clamp(r.y, plan.width - r.h);
+  }
+
+  // 2) Chevauchements : chaque pièce est recadrée contre les précédentes.
+  // Résolutions essayées dans l'ordre (première faisable retenue) :
+  //   a. couper le débord droit à gauche de la pièce placée ;
+  //   b. pousser la pièce à droite de la pièce placée ;
+  //   c. couper le débord bas au-dessus de la pièce placée ;
+  //   d. pousser la pièce sous la pièce placée ;
+  //   e. en dernier recours, conserver le plus grand fragment non chevauché.
+  const placed: FloorPlan["rooms"] = [];
+  for (const r of rooms) {
+    for (const p of placed) {
+      const ox = Math.min(r.x + r.w, p.x + p.w) - Math.max(r.x, p.x);
+      const oy = Math.min(r.y + r.h, p.y + p.h) - Math.max(r.y, p.y);
+      if (ox <= REPAIR_TOL || oy <= REPAIR_TOL) continue;
+      const trimLeftW = p.x - r.x; // (a)
+      const pushRightX = p.x + p.w; // (b)
+      const spaceRight = plan.length - pushRightX;
+      const trimTopH = p.y - r.y; // (c)
+      const pushBottomY = p.y + p.h; // (d)
+      const spaceBottom = plan.width - pushBottomY;
+      if (trimLeftW >= 0.8) {
+        r.w = trimLeftW;
+      } else if (spaceRight >= 0.8) {
+        r.x = Math.max(r.x, pushRightX);
+      } else if (trimTopH >= 0.8) {
+        r.h = trimTopH;
+      } else if (spaceBottom >= 0.8) {
+        r.y = Math.max(r.y, pushBottomY);
+      } else {
+        // (e) plus grand fragment restant hors de p
+        const leftW = Math.max(0, p.x - r.x);
+        const rightW = Math.max(0, r.x + r.w - (p.x + p.w));
+        const topH = Math.max(0, p.y - r.y);
+        const bottomH = Math.max(0, r.y + r.h - (p.y + p.h));
+        const best = Math.max(leftW, rightW, topH, bottomH);
+        if (best === rightW && rightW >= 0.8) {
+          r.x = Math.min(p.x + p.w, plan.length - 0.8);
+          r.w = Math.min(r.w, plan.length - r.x);
+        } else if (best === bottomH && bottomH >= 0.8) {
+          r.y = Math.min(p.y + p.h, plan.width - 0.8);
+          r.h = Math.min(r.h, plan.width - r.y);
+        } else if (best === leftW && leftW >= 0.8) {
+          r.w = leftW;
+        } else if (best === topH && topH >= 0.8) {
+          r.h = topH;
+        } else {
+          // Aucun fragment exploitable : réduire au minimum vital
+          r.w = Math.max(0.8, Math.min(r.w, plan.length - r.x));
+        }
+      }
+    }
+    r.w = Math.max(0.8, Math.min(r.w, plan.length - r.x));
+    r.h = Math.max(0.8, Math.min(r.h, plan.width - r.y));
+    placed.push(r);
+  }
+
+  // 3) Surfaces recalculées (source de vérité unique 2D = 3D)
+  for (const r of rooms) r.area = r.w * r.h;
+  plan.area = rooms.reduce((s, r) => s + r.area, 0);
+
+  // 4) Ouvertures clampées dans leur mur
+  for (const r of rooms) {
+    for (const d of r.doors) clampOpening(d, r);
+    for (const w of r.windows) clampOpening(w, r);
+  }
+
+  // 5) Portes candidates sur mur extérieur → fenêtres (sauf entrée principale
+  //    et sauf si c'est le seul accès de la pièce : une porte de service ou de
+  //    balcon reste une porte — jamais une perte d'accès).
+  const onEdge = (edge: number, max: number) =>
+    Math.abs(edge) < REPAIR_TOL || Math.abs(edge - max) < REPAIR_TOL;
+  for (const r of rooms) {
+    const otherDoors = r.doors.filter(
+      (d) =>
+        d.width > 0.01 &&
+        !((d.wall === "N" && onEdge(r.y, 0)) ||
+          (d.wall === "S" && onEdge(r.y + r.h, plan.width)) ||
+          (d.wall === "W" && onEdge(r.x, 0)) ||
+          (d.wall === "E" && onEdge(r.x + r.w, plan.length))),
+    ).length;
+    for (const d of r.doors) {
+      if (d.isEntry) continue;
+      const isOnFacade =
+        (d.wall === "N" && onEdge(r.y, 0)) ||
+        (d.wall === "S" && onEdge(r.y + r.h, plan.width)) ||
+        (d.wall === "W" && onEdge(r.x, 0)) ||
+        (d.wall === "E" && onEdge(r.x + r.w, plan.length));
+      if (isOnFacade && otherDoors >= 1) {
+        r.windows.push({ wall: d.wall, position: d.position, width: d.width });
+        d.width = 0; // marquée pour suppression
+      }
+    }
+    r.doors = r.doors.filter((d) => d.width > 0.01);
+  }
+
+  // 6) Toute pièce reçoit un accès : porte sur le mur le plus grand si aucun accès
+  for (const r of rooms) {
+    const hasAccess = r.doors.length > 0;
+    if (hasAccess) continue;
+    const wallLen = (wall: WallSide) => (wall === "N" || wall === "S" ? r.w : r.h);
+    const candidates: WallSide[] = ["N", "S", "W", "E"];
+    const best = candidates.sort((a, b) => wallLen(b) - wallLen(a))[0];
+    const len = wallLen(best);
+    const width = Math.min(0.8, len * 0.6);
+    r.doors.push({
+      wall: best,
+      position: clamp((len - width) / 2, len - width),
+      width,
+    });
+  }
+
+  return plan;
+}
+
 /** Synthèse des surfaces par nature de pièce (fiche technique). */
 export function summarizeSurfaces(plan: FloorPlan): {
   label: string;

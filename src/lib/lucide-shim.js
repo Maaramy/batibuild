@@ -45,6 +45,7 @@ export { default as Bot } from "../../node_modules/lucide-react/dist/esm/icons/b
 export { default as Boxes } from "../../node_modules/lucide-react/dist/esm/icons/boxes.js";
 export { default as Brain } from "../../node_modules/lucide-react/dist/esm/icons/brain.js";
 export { default as BrainCircuit } from "../../node_modules/lucide-react/dist/esm/icons/brain-circuit.js";
+export { default as Box } from "../../node_modules/lucide-react/dist/esm/icons/box.js";
 export { default as FolderKanban } from "../../node_modules/lucide-react/dist/esm/icons/folder-kanban.js";
 export { default as Briefcase } from "../../node_modules/lucide-react/dist/esm/icons/briefcase.js";
 export { default as Building } from "../../node_modules/lucide-react/dist/esm/icons/building.js";
@@ -159,7 +160,9 @@ export { default as Megaphone } from "../../node_modules/lucide-react/dist/esm/i
 export { default as Map } from "../../node_modules/lucide-react/dist/esm/icons/map.js";
 export { default as MapPin } from "../../node_modules/lucide-react/dist/esm/icons/map-pin.js";
 export { default as MapPinned } from "../../node_modules/lucide-react/dist/esm/icons/map-pinned.js";
+export { default as Maximize } from "../../node_modules/lucide-react/dist/esm/icons/maximize.js";
 export { default as Maximize2 } from "../../node_modules/lucide-react/dist/esm/icons/maximize-2.js";
+export { default as Minimize } from "../../node_modules/lucide-react/dist/esm/icons/minimize.js";
 export { default as Menu } from "../../node_modules/lucide-react/dist/esm/icons/menu.js";
 export { default as MessageCircle } from "../../node_modules/lucide-react/dist/esm/icons/message-circle.js";
 export { default as MessageSquare } from "../../node_modules/lucide-react/dist/esm/icons/message-square.js";

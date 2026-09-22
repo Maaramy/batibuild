@@ -37,6 +37,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   generateFloorPlans,
   summarizeSurfaces,
+  repairFloorPlan,
   VARIANTS_PER_PROJECT,
 } from "@/lib/floorPlanEngine";
 import type { FloorPlan, FloorPlanVariant } from "@/lib/floorPlanEngine";
@@ -94,7 +95,9 @@ export default function PlanGenerator() {
     loading || !id ? "skip" : { projectId: id as any },
   );
 
-  // ── Génération des 10 variantes (déterministe) ──
+  // ── Génération des 10 variantes (déterministe) + réparation architecturale
+  // de chaque niveau : garantit murs continus, surfaces exactes, ouvertures
+  // dans les murs, accès à toute pièce (2D et 3D partagent les mêmes données).
   const allVariants: FloorPlanVariant[] = useMemo(() => {
     if (!project) return [];
     return generateFloorPlans({
@@ -106,7 +109,15 @@ export default function PlanGenerator() {
       kitchens: project.kitchens ?? undefined,
       livingRooms: project.livingRooms ?? undefined,
       wcs: project.wcs ?? undefined,
-    });
+    }).map((variant) => ({
+      ...variant,
+      floors: variant.floors.map((f) =>
+        repairFloorPlan({
+          ...f,
+          rooms: f.rooms.map((r) => ({ ...r, doors: [...r.doors], windows: [...r.windows] })),
+        }),
+      ),
+    }));
   }, [project]);
 
   const variants = allVariants;
@@ -282,11 +293,17 @@ function VariantCard({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  // Sélection partagée 2D ↔ 3D : cliquer une pièce dans l'une des vues la
+  // met en surbrillance dans l'autre (même identifiant de pièce).
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const floor: FloorPlan = variant.floors[Math.min(floorIdx, variant.floors.length - 1)];
   const surfaces = useMemo(() => summarizeSurfaces(floor), [floor]);
   const analysis = useMemo(() => analyzeFloorPlan(floor), [floor]);
   const floorLabel = floor.level === 0 ? "Rez-de-chaussée" : `Niveau ${floor.level}`;
   const v = variant.validation;
+  const selectedRoom = selectedRoomId
+    ? floor.rooms.find((r) => r.id === selectedRoomId) ?? null
+    : null;
 
   const handleDownload = async () => {
     if (pdfBusy) return;
@@ -375,7 +392,7 @@ function VariantCard({
             )}
           </div>
 
-          {/* Plan 2D ou 3D */}
+          {/* Plan 2D ou 3D — sélection de pièce synchronisée entre les vues */}
           {view === "2d" ? (
             <div
               className="relative group cursor-zoom-in"
@@ -390,13 +407,43 @@ function VariantCard({
                 }
               }}
             >
-              <FloorPlan2D plan={floor} />
+              <FloorPlan2D
+                plan={floor}
+                selectedRoomId={selectedRoomId}
+                onSelectRoom={setSelectedRoomId}
+              />
               <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border bg-background/90 px-2 py-1 text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100">
                 <Maximize2 className="h-3 w-3" /> Plein écran
               </span>
             </div>
           ) : (
-            <FloorPlan3D plan={floor} />
+            <FloorPlan3D
+              plan={floor}
+              selectedRoomId={selectedRoomId}
+              onSelectRoom={setSelectedRoomId}
+            />
+          )}
+
+          {/* Info pièce sélectionnée (synchro 2D ↔ 3D) */}
+          {selectedRoom && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-violet-500/30 bg-violet-500/[0.05] px-3 py-2">
+              <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+                {selectedRoom.label}
+              </span>
+              <span className="text-[10px] text-muted-foreground tabular-nums">
+                {selectedRoom.area.toFixed(2)} m²
+              </span>
+              <span className="text-[10px] text-muted-foreground tabular-nums">
+                {selectedRoom.w.toFixed(2)} × {selectedRoom.h.toFixed(2)} m
+              </span>
+              <button
+                type="button"
+                className="ml-auto text-[10px] font-medium text-violet-600 hover:underline cursor-pointer"
+                onClick={() => setSelectedRoomId(null)}
+              >
+                Désélectionner
+              </button>
+            </div>
           )}
 
           {/* Actions : export PDF + analyse */}
