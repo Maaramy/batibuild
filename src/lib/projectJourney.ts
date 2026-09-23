@@ -48,6 +48,7 @@ export const JOURNEY_FLAG_KEYS = {
   plans: "architectural_plans",
   materials: "ai_materials",
   priceList: "ai_materials",
+  execution: "construction_guide",
   investment: "investment_project",
 } as const;
 

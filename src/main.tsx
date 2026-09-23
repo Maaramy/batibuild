@@ -286,7 +286,9 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/guide"
                   element={
                     <RequireAuth>
-                      <ProjectGuide />
+                      <FeatureGate flag="construction_guide">
+                        <ProjectGuide />
+                      </FeatureGate>
                     </RequireAuth>
                   }
                 />

@@ -251,16 +251,31 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
     ]);
   });
 
-  it("les étapes non pilotées par un flag (consult, execution, suppliers) restent toujours affichées", () => {
+  it("« Exécution & suivi » disparaît quand construction_guide est désactivé", () => {
+    const flags = { construction_guide: false };
+    const steps = buildProjectJourney("maison", PID, flags);
+    expect(steps.map((s) => s.key)).toEqual([
+      "cost",
+      "plans",
+      "materials",
+      "consult",
+      "investment",
+    ]);
+    // Aucun vestige : ni libellé, ni lien vers le guide.
+    expect(steps.some((s) => /ex[ée]cution/i.test(s.label))).toBe(false);
+    expect(steps.some((s) => s.href.includes("/dashboard/guide"))).toBe(false);
+  });
+
+  it("les étapes non pilotées par un flag (consult, suppliers) restent toujours affichées", () => {
     const flags = {
       construction_cost_estimation: false,
       architectural_plans: false,
       ai_materials: false,
+      construction_guide: false,
       investment_project: false,
     };
     expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
       "consult",
-      "execution",
     ]);
   });
 
@@ -323,9 +338,10 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
       construction_cost_estimation: false,
       architectural_plans: false,
       ai_materials: false,
+      construction_guide: false,
       investment_project: false,
     };
-    // Consultation / Exécution / Fournisseurs ne dépendent d'aucun flag.
+    // Consultation / Fournisseurs ne dépendent d'aucun flag.
     for (const type of PROJECT_TYPES) {
       expect(buildProjectJourney(type, PID, allOff).length, type).toBeGreaterThanOrEqual(1);
     }

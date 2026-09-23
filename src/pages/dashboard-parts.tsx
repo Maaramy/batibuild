@@ -72,8 +72,12 @@ export function ProjectCard({ project }: { project: any }) {
   const { isEnabled: isFeatureEnabled } = useFeatureFlags();
   const quickActions = buildProjectQuickActions(project).filter((a) => {
     // Feature flags : les modules désactivés par l'admin disparaissent des
-    // cartes (aucun accès visuel résiduel).
+    // cartes (aucun accès visuel résiduel). Même configuration centrale que
+    // les gardes de routes et le parcours du projet — aucun lien résiduel
+    // vers une page devenue inaccessible.
     if (a.key === "plan") return isFeatureEnabled("architectural_plans");
+    if (a.key === "materials") return isFeatureEnabled("ai_materials");
+    if (a.key === "guide") return isFeatureEnabled("construction_guide");
     return true;
   });
 

@@ -46,6 +46,12 @@ export const FEATURE_FLAGS_CATALOG = [
     description: "Génération/analyse des plans",
   },
   {
+    key: "construction_guide",
+    name: "Exécution & suivi",
+    description:
+      "Guide de construction de A à Z et suivi de l'exécution",
+  },
+  {
     key: "plans_3d_enhanced",
     name: "Rendu 3D amélioré des plans architecturaux",
     description:

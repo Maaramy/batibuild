@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { isHeaderNavItemActive } from "@/components/HeaderNav";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import {
   buildProjectJourney,
   type ProjectJourneyFlags,
@@ -17,8 +18,11 @@ import { cn } from "@/lib/utils";
  *
  *   - étapes déterminées automatiquement par le type du projet (6 étapes pour
  *     les projets neufs / immobiliers, 3 pour les autres), puis filtrées par
- *     les feature flags de l'administration via la prop `flags` — une étape
- *     dont le module est désactivé disparaît, les autres conservent leur ordre ;
+ *     les feature flags de l'administration — une étape dont le module est
+ *     désactivé disparaît, les autres conservent leur ordre. L'état est lu
+ *     directement depuis le contexte central des flags (`FeatureFlagsProvider`,
+ *     la même configuration que les gardes de routes) : la barre est donc
+ *     synchronisée sur TOUTES les pages sans câblage par page ;
  *   - chaque étape est un vrai lien vers le module correspondant, avec
  *     l'identifiant du projet conservé dans l'URL ;
  *   - navigation libre : aucune étape n'est désactivée, et l'étape active est
@@ -42,8 +46,10 @@ interface ProjectJourneyNavProps {
   /** Type de projet enregistré (détermine le groupe du parcours). */
   category?: string | null;
   /**
-   * État des feature flags de l'administration : retire les étapes dont le
-   * module est désactivé. Sans état fourni, toutes les étapes s'affichent.
+   * État des feature flags de l'administration. Facultatif : par défaut la
+   * barre lit le contexte central (`FeatureFlagsProvider`), donc toute page
+   * hérite automatiquement de l'état activé/désactivé sans le transmettre.
+   * Fournir cette prop reste possible (override explicite).
    */
   flags?: ProjectJourneyFlags;
   /**
@@ -66,9 +72,15 @@ export function ProjectJourneyNav({
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
+  // Source unique de vérité : le contexte central des feature flags (même
+  // configuration que les gardes de routes `FeatureGate`) — la prop `flags`
+  // ne sert que d'override explicite (et pour les tests).
+  const { flags: contextFlags } = useFeatureFlags();
+  const resolvedFlags = flags ?? contextFlags;
+
   const defaultSteps = useMemo(
-    () => buildProjectJourney(category, projectId, flags),
-    [category, projectId, flags],
+    () => buildProjectJourney(category, projectId, resolvedFlags),
+    [category, projectId, resolvedFlags],
   );
 
   const steps = stepsOverride ?? defaultSteps;
