@@ -1,7 +1,8 @@
 # BatiBuild Mobile — Build Android 100 % autonome sur GitHub Actions
 #
-# Flux : git push origin main → runner ubuntu-latest → Node + JDK 17 + Android SDK
-#        → npm/bun install → prebuild (si android/ absent) → Gradle
+# Flux : git push origin main → runner ubuntu-latest → Node 22 + Bun + JDK 17
+#        → setup-android@v4 (SDK + licences) → npm/bun install → prebuild
+#        (si android/ absent) → composants SDK du projet → Gradle
 #        → Batibuild-debug.apk + Batibuild-release.apk + Batibuild-release.aab
 #        → Artifacts du run.
 #
@@ -22,6 +23,26 @@
 # ce qui évite l'échec « :app:validateSigningDebug » sur un runner vierge.
 #
 # Ce workflow n'utilise PAS EAS et n'a besoin d'aucun EXPO_TOKEN.
+#
+# ── SDK Android : MÉTHODE UNIQUE ────────────────────────────────────────────
+# Le SDK est installé par `android-actions/setup-android@v4` : c'est lui qui
+# télécharge les cmdline-tools, accepte les licences lui-même
+# (`accept-android-sdk-licenses: true`, sans journalisation) et installe
+# `platform-tools`. Aucun cmdline-tools n'est téléchargé à la main et AUCUNE
+# commande `sdkmanager --licenses` n'est exécutée par le workflow.
+#
+# L'ancien SDK préinstallé de l'image du runner (cmdline-tools 12.0 dans
+# `cmdline-tools/latest`) est supprimé et retiré du PATH AVANT l'appel à
+# l'action : c'est ce conflit qui provoquait « Wrong version in preinstalled
+# sdkmanager » puis l'échec de l'acceptation des licences (« Fetch remote
+# repository »). Après l'action, PATH et ANDROID_SDK_ROOT / ANDROID_HOME sont
+# normalisés puis vérifiés : un SEUL sdkmanager reste résoluble, et il
+# appartient au SDK configuré.
+#
+# Les composants exigés par le projet (plateforme, build-tools, NDK, CMake)
+# sont lus dans le catalogue React Native du projet
+# (`mobile/node_modules/react-native/gradle/libs.versions.toml`) : aucune
+# version n'est imposée en dur, la configuration Android existante est suivie.
 #
 # ── Diagnostic d'échec ──────────────────────────────────────────────────────
 # Les tâches Gradle sont lancées via `mobile/scripts/ci-gradle.sh` : en cas
@@ -98,35 +119,142 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Setup Android SDK (cmdline-tools + licences)
-        uses: android-actions/setup-android@v3
+      # ══════════════════════════════════════════════════════════════════════
+      # CONFIGURATION DU SDK ANDROID — MÉTHODE UNIQUE
+      #
+      # CAUSE DE L'ÉCHEC CORRIGÉE ICI : l'image du runner embarque un SDK
+      # préinstallé dont les cmdline-tools 12.0 (`cmdline-tools/latest`) étaient
+      # résolus AVANT ceux de l'action. setup-android détectait alors
+      # « Wrong version in preinstalled sdkmanager », téléchargeait une autre
+      # version, puis l'acceptation des licences / « Fetch remote repository »
+      # échouait — et le `sdkmanager --licenses` manuel du workflow utilisait ce
+      # même ancien binaire.
+      #
+      # Le SDK est donc maintenant configuré en TROIS temps, sans aucune
+      # installation manuelle de cmdline-tools et sans aucune commande
+      # `sdkmanager --licenses` :
+      #   1. l'emplacement du SDK est fixé (et l'ancien sdkmanager supprimé) ;
+      #   2. setup-android@v4 installe ses propres cmdline-tools, accepte LES
+      #      licences lui-même et installe platform-tools ;
+      #   3. PATH et variables d'environnement sont normalisés : un SEUL
+      #      sdkmanager reste résoluble, et il appartient au SDK configuré.
+      # ══════════════════════════════════════════════════════════════════════
 
-      - name: Diagnostics — Java / Node / Android SDK / Gradle
+      - name: Préparer l'emplacement du SDK Android (supprimer l'ancien sdkmanager)
+        shell: bash
         run: |
-          echo "── Java ──"
-          java -version
-          javac -version
-          echo "JAVA_HOME=$JAVA_HOME"
-          echo "── Node / npm / Bun ──"
-          node --version
-          npm --version
-          bun --version
-          echo "── Android SDK ──"
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<non défini>}"
-          sdkmanager --version
-          adb --version
-          echo "── Ressources du runner ──"
-          nproc
-          free -m
-          df -h /
-          echo "── Gradle (wrapper du projet, pas de Gradle global) ──"
-          if [ -f android/gradlew ]; then
-            chmod +x android/gradlew
-            android/gradlew --version
-          else
-            echo "android/gradlew absent — le projet natif sera généré par expo prebuild."
+          set -euo pipefail
+
+          IMAGE_SDK="/usr/local/lib/android/sdk"
+          SDK_ROOT="$IMAGE_SDK"
+
+          # SDK de l'image non inscriptible (ou absent) → SDK propre au runner.
+          # L'ancien SDK n'est alors plus utilisé : on récupère son espace disque.
+          if [ ! -d "$SDK_ROOT" ] || [ ! -w "$SDK_ROOT" ]; then
+            SDK_ROOT="${RUNNER_TEMP}/android-sdk"
+            echo "ℹ️  SDK de l'image absent ou non inscriptible → SDK du build : $SDK_ROOT"
+            if [ -d "$IMAGE_SDK" ]; then
+              sudo rm -rf "$IMAGE_SDK" 2>/dev/null \
+                || rm -rf "$IMAGE_SDK" 2>/dev/null \
+                || echo "⚠️  ancien SDK non supprimable (ignoré : optimisation d'espace disque uniquement)"
+            fi
           fi
+          mkdir -p "$SDK_ROOT"
+
+          # Ancien sdkmanager préinstallé (cmdline-tools 12.0 / 16.0) : SUPPRIMÉ
+          # pour qu'il ne puisse plus être résolu par PATH ni entrer en conflit
+          # avec celui que setup-android@v4 installe dans cmdline-tools/<version>.
+          if [ -d "$SDK_ROOT/cmdline-tools/latest" ]; then
+            echo "Suppression de l'ancien sdkmanager préinstallé : $SDK_ROOT/cmdline-tools/latest"
+            rm -rf "$SDK_ROOT/cmdline-tools/latest" 2>/dev/null \
+              || sudo rm -rf "$SDK_ROOT/cmdline-tools/latest"
+          fi
+
+          # PATH nettoyé : plus aucun chemin d'un SDK Android préinstallé.
+          # (L'action ajoutera ensuite SES dossiers en tête de PATH.)
+          CLEAN_PATH=""
+          IFS=':' read -r -a ENTRIES <<< "$PATH"
+          for entry in "${ENTRIES[@]}"; do
+            [ -n "$entry" ] || continue
+            case "$entry" in
+              */cmdline-tools/*) continue ;;
+              "$IMAGE_SDK" | "$IMAGE_SDK"/*) continue ;;
+              /usr/lib/android-sdk | /usr/lib/android-sdk/*) continue ;;
+              /opt/android* | /opt/android*/*) continue ;;
+            esac
+            CLEAN_PATH="${CLEAN_PATH:+$CLEAN_PATH:}$entry"
+          done
+
+          # Variables officielles : identiques pour TOUTES les étapes suivantes.
+          {
+            echo "ANDROID_SDK_ROOT=$SDK_ROOT"
+            echo "ANDROID_HOME=$SDK_ROOT"
+          } >> "$GITHUB_ENV"
+          # Une seule ligne → ajoutée en tête de PATH pour les étapes suivantes.
+          echo "$CLEAN_PATH" >> "$GITHUB_PATH"
+
+          echo "✅ Emplacement du SDK Android : $SDK_ROOT"
+          echo "   cmdline-tools présents : $(ls "$SDK_ROOT/cmdline-tools" 2>/dev/null || echo 'aucun — installés par setup-android')"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+          packages: 'platform-tools'
+
+      - name: Vérifier le SDK Android et normaliser PATH
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "$SDK_ROOT" ] || [ ! -d "$SDK_ROOT" ]; then
+            echo "❌ ANDROID_SDK_ROOT / ANDROID_HOME non défini par setup-android."
+            exit 1
+          fi
+
+          # Un SEUL sdkmanager, et il doit appartenir au SDK configuré.
+          SDK_MANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDK_MANAGER" ]; then
+            echo "❌ sdkmanager introuvable dans le PATH."
+            exit 1
+          fi
+          case "$SDK_MANAGER" in
+            "$SDK_ROOT"/*) ;;
+            *)
+              echo "❌ sdkmanager résolu HORS du SDK configuré : $SDK_MANAGER (SDK_ROOT=$SDK_ROOT)"
+              exit 1
+              ;;
+          esac
+          TOOLS_DIR="$(dirname "$SDK_MANAGER")"
+
+          # PATH final : outils du SDK de l'action en tête, aucun chemin d'un SDK
+          # préinstallé, et plus aucun dossier cmdline-tools concurrent.
+          CLEAN_PATH="$TOOLS_DIR:$SDK_ROOT/platform-tools"
+          IFS=':' read -r -a ENTRIES <<< "$PATH"
+          for entry in "${ENTRIES[@]}"; do
+            [ -n "$entry" ] || continue
+            case "$entry" in
+              "$TOOLS_DIR" | "$SDK_ROOT/platform-tools") continue ;;
+              */cmdline-tools/*) continue ;;
+              /usr/local/lib/android/sdk | /usr/local/lib/android/sdk/*) continue ;;
+              /usr/lib/android-sdk | /usr/lib/android-sdk/*) continue ;;
+              /opt/android* | /opt/android*/*) continue ;;
+            esac
+            CLEAN_PATH="$CLEAN_PATH:$entry"
+          done
+
+          {
+            echo "ANDROID_SDK_ROOT=$SDK_ROOT"
+            echo "ANDROID_HOME=$SDK_ROOT"
+          } >> "$GITHUB_ENV"
+          echo "$CLEAN_PATH" >> "$GITHUB_PATH"
+
+          echo "✅ ANDROID_SDK_ROOT=$SDK_ROOT"
+          echo "✅ ANDROID_HOME=$SDK_ROOT"
+          echo "✅ sdkmanager résolu : $SDK_MANAGER"
+          echo "✅ sdkmanager --version : $(sdkmanager --version)"
 
       - name: Install dependencies (lockfile auto-détecté)
         run: |
@@ -176,8 +304,20 @@ jobs:
           node scripts/ensure-debug-keystore.mjs
           ls -la android/app/debug.keystore
 
+      # ── COMPOSANTS ANDROID SDK RÉELLEMENT NÉCESSAIRES AU PROJET ────────────
+      # Versions AUTO-DÉTECTÉES dans le catalogue du projet
+      # (`node_modules/react-native/gradle/libs.versions.toml`, avec repli sur
+      # les versions actuelles de React Native) : aucune version n'est imposée
+      # en dur, la plateforme et les build-tools suivent la configuration
+      # Android EXISTANTE du projet (compileSdk 36 aujourd'hui).
+      #
+      # Les licences SDK sont acceptées par setup-android@v4 lui-même : plus
+      # aucun `sdkmanager --licenses` ici.
       - name: Installation des composants Android SDK du projet
+        shell: bash
         run: |
+          set -euo pipefail
+
           CATALOG=node_modules/react-native/gradle/libs.versions.toml
 
           read_version() {
@@ -200,77 +340,81 @@ jobs:
           CMAKE_VERSION=3.22.1
           echo "Versions lues dans le projet : compileSdk=$COMPILE_SDK targetSdk=$TARGET_SDK buildTools=$BUILD_TOOLS ndk=$NDK_VERSION cmake=$CMAKE_VERSION"
 
-          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          # UN SEUL SDK : celui configuré par setup-android@v4 (puis normalisé par
+          # l'étape « Vérifier le SDK Android et normaliser PATH »). L'ancien SDK
+          # préinstallé de l'image n'est jamais utilisé.
+          SDK_ROOT="${ANDROID_SDK_ROOT:?SDK Android non configuré — étape « Setup Android SDK » manquante}"
+          test -d "$SDK_ROOT"
 
           echo "── Libération d'espace disque (composants préinstallés inutiles) ──"
           df -h / | tail -1
           # Le runner embarque plusieurs NDK (≥ 2 Go chacun), les images
           # d'émulateur et les sources Android : plusieurs Go récupérables.
-          if [ -d "$SDK/ndk" ]; then
-            for d in "$SDK/ndk"/*; do
+          if [ -d "$SDK_ROOT/ndk" ]; then
+            for d in "$SDK_ROOT/ndk"/*; do
               [ -e "$d" ] || continue
               if [ "$(basename "$d")" != "$NDK_VERSION" ]; then
                 echo "  - suppression ndk/$(basename "$d")"
-                rm -rf "$d" || echo "    (non supprimable, ignoré)"
+                rm -rf "$d" 2>/dev/null || echo "    (non supprimable, ignoré)"
               fi
             done
           fi
-          for old in system-images emulator sources skins; do
-            if [ -e "$SDK/$old" ]; then
-              echo "  - suppression $old/"
-              rm -rf "$SDK/$old" || echo "    (non supprimable, ignoré)"
+          for obsolete in system-images emulator sources skins; do
+            if [ -e "$SDK_ROOT/$obsolete" ]; then
+              echo "  - suppression $obsolete/"
+              rm -rf "$SDK_ROOT/$obsolete" 2>/dev/null || echo "    (non supprimable, ignoré)"
             fi
           done
-          if [ -d "$SDK/platforms" ]; then
-            for d in "$SDK/platforms"/*; do
+          if [ -d "$SDK_ROOT/platforms" ]; then
+            for d in "$SDK_ROOT/platforms"/*; do
               [ -e "$d" ] || continue
               if [ "$(basename "$d")" != "android-${COMPILE_SDK}" ]; then
                 echo "  - suppression platforms/$(basename "$d")"
-                rm -rf "$d" || echo "    (non supprimable, ignoré)"
+                rm -rf "$d" 2>/dev/null || echo "    (non supprimable, ignoré)"
               fi
             done
           fi
-          if [ -d "$SDK/build-tools" ]; then
-            for d in "$SDK/build-tools"/*; do
+          if [ -d "$SDK_ROOT/build-tools" ]; then
+            for d in "$SDK_ROOT/build-tools"/*; do
               [ -e "$d" ] || continue
               if [ "$(basename "$d")" != "$BUILD_TOOLS" ]; then
                 echo "  - suppression build-tools/$(basename "$d")"
-                rm -rf "$d" || echo "    (non supprimable, ignoré)"
+                rm -rf "$d" 2>/dev/null || echo "    (non supprimable, ignoré)"
               fi
             done
           fi
           df -h / | tail -1
 
-          echo "── Acceptation des licences SDK ──"
-          set +o pipefail
-          yes | sdkmanager --licenses >/dev/null 2>&1
-          LICENSE_STATUS=${PIPESTATUS[1]:-0}
-          set -o pipefail
-          if [ "$LICENSE_STATUS" -ne 0 ] && [ "$LICENSE_STATUS" -ne 141 ]; then
-            echo "❌ sdkmanager --licenses a échoué (code $LICENSE_STATUS)"
-            exit 1
-          fi
-          echo "✅ Licences Android SDK acceptées"
+          # LICENCES : elles sont acceptées par setup-android@v4
+          # (`accept-android-sdk-licenses: true`, journalisation désactivée).
+          # AUCUN `sdkmanager --licenses` n'est exécuté ici : cet appel manuel
+          # résolvait l'ancien sdkmanager préinstallé et provoquait l'échec
+          # « Fetch remote repository ».
+          test -d "$SDK_ROOT/licenses"
+          test -n "$(ls -A "$SDK_ROOT/licenses")"
+          echo "Licences acceptées : $(ls "$SDK_ROOT/licenses" | tr '\n' ' ')"
 
-          echo "── Installation des paquets requis ──"
-          sdkmanager --install \
+          echo "── Installation des paquets requis (sdkmanager du SDK configuré) ──"
+          sdkmanager --sdk_root="$SDK_ROOT" --install \
             "platform-tools" \
             "platforms;android-${COMPILE_SDK}" \
             "build-tools;${BUILD_TOOLS}" \
             "cmake;${CMAKE_VERSION}" \
             "ndk;${NDK_VERSION}"
 
-          {
-            echo "ANDROID_SDK_ROOT=$ANDROID_HOME"
-            echo "ANDROID_HOME=$ANDROID_HOME"
-          } >> "$GITHUB_ENV"
+          # Vérification réelle : les composants EXIGÉS par le projet sont bien
+          # installés dans le SDK configuré (aucun contournement si absent).
+          test -d "$SDK_ROOT/platforms/android-${COMPILE_SDK}"
+          test -d "$SDK_ROOT/build-tools/${BUILD_TOOLS}"
+          test -d "$SDK_ROOT/ndk/${NDK_VERSION}"
+          test -d "$SDK_ROOT/cmake/${CMAKE_VERSION}"
 
-          echo "── Contenu du SDK ──"
-          ls "$ANDROID_HOME"
-          ls "$ANDROID_HOME/platforms"
-          ls "$ANDROID_HOME/build-tools"
-          ls "$ANDROID_HOME/cmake"
-          ls "$ANDROID_HOME/ndk"
+          echo "── Contenu du SDK : $SDK_ROOT ──"
+          ls "$SDK_ROOT"
+          ls "$SDK_ROOT/platforms"
+          ls "$SDK_ROOT/build-tools"
+          ls "$SDK_ROOT/cmake"
+          ls "$SDK_ROOT/ndk"
           df -h / | tail -1
 
       - name: Cache Gradle
@@ -282,6 +426,67 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/gradle/wrapper/gradle-wrapper.properties', 'mobile/package.json', 'mobile/bun.lock') }}
           restore-keys: |
             gradle-${{ runner.os }}-
+
+      # ══════════════════════════════════════════════════════════════════════
+      # VÉRIFICATION AVANT BUILD — Java, SDK, adb, chemins
+      # Échoue immédiatement (4 secondes) si un outil manque, si le SDK n'est
+      # pas celui configuré, ou si un ancien sdkmanager préinstallé était
+      # redevenu prioritaire dans PATH.
+      # ══════════════════════════════════════════════════════════════════════
+      - name: Vérification avant build (Java, Android SDK, adb, PATH)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "── Java (JDK 17 Temurin) ──"
+          java -version
+          javac -version
+          echo "JAVA_HOME=$JAVA_HOME"
+
+          echo "── Node / npm / Bun ──"
+          node --version
+          npm --version
+          bun --version
+
+          echo "── Android SDK ──"
+          sdkmanager --version
+          adb version
+          echo "$ANDROID_SDK_ROOT"
+          ls "$ANDROID_SDK_ROOT/platforms"
+
+          echo "── Outils réellement résolus par PATH ──"
+          SDK_MANAGER="$(command -v sdkmanager)"
+          ADB="$(command -v adb)"
+          echo "sdkmanager → $SDK_MANAGER"
+          echo "adb        → $ADB"
+          case "$SDK_MANAGER" in
+            "$ANDROID_SDK_ROOT"/*) echo "✅ sdkmanager appartient au SDK configuré" ;;
+            *)
+              echo "❌ sdkmanager résolu hors du SDK configuré ($ANDROID_SDK_ROOT)."
+              exit 1
+              ;;
+          esac
+          case "$ADB" in
+            "$ANDROID_SDK_ROOT"/*) echo "✅ adb appartient au SDK configuré" ;;
+            *)
+              echo "❌ adb résolu hors du SDK configuré ($ANDROID_SDK_ROOT)."
+              exit 1
+              ;;
+          esac
+          if [ "${ANDROID_HOME:-}" != "$ANDROID_SDK_ROOT" ]; then
+            echo "❌ ANDROID_HOME ($ANDROID_HOME) ≠ ANDROID_SDK_ROOT ($ANDROID_SDK_ROOT)"
+            exit 1
+          fi
+          echo "✅ ANDROID_HOME = ANDROID_SDK_ROOT = $ANDROID_SDK_ROOT"
+
+          echo "── Ressources du runner ──"
+          nproc
+          free -m
+          df -h /
+
+          echo "── Gradle (wrapper du projet, aucun Gradle global) ──"
+          test -x android/gradlew
+          android/gradlew --version
 
       - name: Configurer la signature Release (secrets optionnels)
         env:
