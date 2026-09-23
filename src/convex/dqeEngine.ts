@@ -138,6 +138,21 @@ const DQE_TO_CATALOG: Record<string, string> = {
 export type DqeLivePriceMap = Map<string, { unit: string; unitPrice: number }>;
 
 /**
+ * Référence du catalogue officiel 2026 associée à une désignation du
+ * « Quantitatif détaillé » (utilisée notamment pour proposer des articles
+ * compatibles lors de la personnalisation d'un article).
+ */
+export function resolveCatalogReference(designation: string) {
+  const catName = DQE_TO_CATALOG[designation] ?? designation;
+  return CATALOG_BY_NAME.get(normKey(catName));
+}
+
+/** Clé de comparaison des libellés (identique au moteur DQE). */
+export function normalizeDesignationKey(s: string): string {
+  return normKey(s);
+}
+
+/**
  * Résout le prix unitaire d'une désignation DQE : prix en direct de la base si
  * disponible, sinon référence catalogue 2026, sinon prix interne de référence.
  */

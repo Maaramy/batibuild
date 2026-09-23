@@ -590,6 +590,53 @@ const schema = defineSchema(
       .index("by_category", ["category"])
       .index("by_favorite", ["userId", "isFavorite"]),
 
+    // Personnalisation du « Quantitatif détaillé » — scénario « Personnalisé »
+    // Les scénarios Économique / Standard / Premium d'origine ne sont jamais
+    // modifiés : les modifications d'articles sont stockées à part (une ligne
+    // par projet et par utilisateur) puis superposées à l'affichage.
+    quantitatifCustomizations: defineTable({
+      projectId: v.id("projects"),
+      userId: v.id("users"),
+      // Scénario de référence choisi par l'utilisateur au moment de la
+      // première modification : « scénario de référence + modifications ».
+      baseScenario: v.union(
+        v.literal("economique"),
+        v.literal("standard"),
+        v.literal("premium"),
+      ),
+      modifications: v.array(
+        v.object({
+          // Identifiant stable de l'article : `${lotId}::${index de ligne}`.
+          lineKey: v.string(),
+          lotId: v.string(),
+          lotName: v.string(),
+          lineIndex: v.number(),
+          // Désignation d'origine (permet la ré-initialisation et la
+          // re-résolution lorsque le quantitatif est régénéré).
+          baseDesignation: v.string(),
+          designation: v.string(),
+          unit: v.string(),
+          quantity: v.number(),
+          // Prix unitaire au niveau de référence « Standard » du moteur
+          // (le scénario affiché applique son propre facteur).
+          unitPrice: v.number(),
+          nature: v.string(),
+          priceScenario: v.union(
+            v.literal("economique"),
+            v.literal("standard"),
+            v.literal("premium"),
+          ),
+          // Vrai lorsque l'article a été remplacé par un article compatible.
+          replacedArticle: v.boolean(),
+          updatedAt: v.number(),
+        }),
+      ),
+      updatedAt: v.number(),
+    })
+      .index("by_project", ["projectId"])
+      .index("by_project_user", ["projectId", "userId"])
+      .index("by_user", ["userId"]),
+
     // Material Prices (admin-managed database of Tunisian market prices)
     materialPrices: defineTable({
       category: materialCategoryValidator,

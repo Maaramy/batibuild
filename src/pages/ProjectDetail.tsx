@@ -23,6 +23,31 @@ import { projectJourneyGroup } from "@/lib/projectJourney";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { RecommendedProvidersPanel } from "@/components/RecommendedProvidersPanel";
+import { ArticleEditDialog } from "@/components/quantitatif/ArticleEditDialog";
+import { QuantitatifDetails } from "@/components/quantitatif/QuantitatifDetails";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  BUDGET_SCENARIO_LABELS,
+  PERSONALIZED_SCENARIO_KEY,
+  budgetScenarioFactor,
+  PERSONALIZED_SCENARIO_LABEL,
+  computeQuantitatifTotals,
+  indexCustomizations,
+  overlayCustomizations,
+  quantitatifLineKey,
+  scaleDqeLots,
+  type BudgetScenarioKey,
+  type QuantitatifCustomizationEntry,
+} from "@/convex/quantitatifCustomLogic";
 import { runBIMEstimation } from "@/convex/bimEngine";
 import {
   buildInvestmentPrefill,
@@ -43,6 +68,7 @@ import {
   Truck, FileText, Paintbrush, Plug,
   ChevronRight, Download,
   RefreshCw, LayoutGrid, HardHat,
+  RotateCcw, Wand2,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -149,6 +175,16 @@ export default function ProjectDetail() {
   const startAnalysis = useMutation(api.projects.startAnalysis);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
   const consumeDownload = useMutation(api.subscriptions.consumeDownload);
+  const resetAllCustomizations = useMutation(
+    api.quantitatifCustom.resetAllCustomizations,
+  );
+  // ── Personnalisation du « Quantitatif détaillé » ──
+  // Scénario « Personnalisé » stocké séparément : les scénarios Économique,
+  // Standard et Premium d'origine ne sont jamais écrasés.
+  const customization = useQuery(
+    api.quantitatifCustom.getCustomization,
+    project?._id ? { projectId: project._id } : "skip",
+  );
 
   const PROGRESS_STEPS = [
     "Préparation des données...",
@@ -161,6 +197,13 @@ export default function ProjectDetail() {
   const [refreshingQuantitatif, setRefreshingQuantitatif] = useState(false);
   const [openCat, setOpenCat] = useState<string>("__all_expanded");
   const [selectedScenario, setSelectedScenario] = useState<string>("standard");
+  const [editingLine, setEditingLine] = useState<{
+    lotId: string;
+    lotName: string;
+    lineIndex: number;
+    line: any;
+  } | null>(null);
+  const [confirmResetAll, setConfirmResetAll] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportLabel, setExportLabel] = useState("");
@@ -192,7 +235,11 @@ export default function ProjectDetail() {
   const handleDownloadClick = () => {
     if (exporting) return;
     // Quotas removed — always open scenario picker
-    setPdfPickerScenario(selectedScenario);
+    // Le scénario « Personnalisé » est exporté à partir de son scénario de
+    // référence : le PDF conserve les 3 scénarios budgétaires d'origine.
+    setPdfPickerScenario(
+      selectedScenario === PERSONALIZED_SCENARIO_KEY ? baseScenarioKey : selectedScenario,
+    );
     setShowPdfPicker(true);
   };
 
@@ -278,6 +325,77 @@ export default function ProjectDetail() {
       "Fournitures diverses et accessoires stables.",
     );
   const busy = project?.status === "analyzing" || analyzing;
+
+  // ════════════════════════════════════════════════════════════════════════
+  // Personnalisation du « Quantitatif détaillé » — scénario « Personnalisé »
+  // Les scénarios Économique / Standard / Premium d'origine ne sont jamais
+  // écrasés : les modifications d'articles sont stockées séparément puis
+  // superposées à la copie affichée du quantitatif.
+  // ════════════════════════════════════════════════════════════════════════
+  const scenarios = ce?.budgetScenarios;
+  const customizationEntries = useMemo(
+    () => (customization?.modifications ?? []) as QuantitatifCustomizationEntry[],
+    [customization],
+  );
+  const customizationByKey = useMemo(
+    () => indexCustomizations(customizationEntries),
+    [customizationEntries],
+  );
+  const hasCustomization = customizationEntries.length > 0;
+  const baseScenarioKey = (customization?.baseScenario ?? "standard") as BudgetScenarioKey;
+  // Le scénario « Personnalisé » n'existe que s'il porte au moins une
+  // modification : sans modification, il retombe sur son scénario de référence.
+  const isPersonalizedScenario =
+    hasCustomization && selectedScenario === PERSONALIZED_SCENARIO_KEY;
+  const effectiveScenario: BudgetScenarioKey =
+    selectedScenario === PERSONALIZED_SCENARIO_KEY
+      ? baseScenarioKey
+      : (selectedScenario as BudgetScenarioKey);
+
+  // Quantitatif brut (niveau de référence du moteur) indexé par clé d'article.
+  const rawDqeLots = useMemo(
+    () => ((project as any)?.dqe?.lots ?? []) as any[],
+    [project],
+  );
+  const rawLineByKey = useMemo(() => {
+    // `Map` est aussi une icône lucide importée dans ce fichier : on cible
+    // explicitement le constructeur global.
+    const map = new globalThis.Map<string, any>();
+    for (const lot of rawDqeLots) {
+      (lot?.lines ?? []).forEach((line: any, index: number) =>
+        map.set(quantitatifLineKey(lot.id, index), line),
+      );
+    }
+    return map;
+  }, [rawDqeLots]);
+
+  // Surface construite (m²) — base du coût au m².
+  const builtSurface = project?.surface ? project.surface * (project.floors || 1) : 0;
+
+  // Totaux du scénario « Personnalisé » = scénario de référence + modifications.
+  const personalized = useMemo(() => {
+    if (!hasCustomization || !rawDqeLots.length) return null;
+    const baseFactor = budgetScenarioFactor(scenarios, baseScenarioKey);
+    const scaled = scaleDqeLots(rawDqeLots, baseFactor * realCostFactor);
+    const overlay = overlayCustomizations(scaled, customizationEntries, {
+      scaleFactor: baseFactor,
+      realCostFactor,
+    });
+    return {
+      lots: overlay.lots,
+      totals: computeQuantitatifTotals(overlay.lots, builtSurface),
+      modifiedCount: overlay.modifiedCount,
+    };
+  }, [
+    hasCustomization,
+    rawDqeLots,
+    scenarios,
+    baseScenarioKey,
+    realCostFactor,
+    customizationEntries,
+    builtSurface,
+  ]);
+
   const { isEnabled: isFeatureEnabled, flags: journeyFlags } = useFeatureFlags();
 
   // Bouton « Return on Investment » : réservé au groupe A (projets neufs /
@@ -293,8 +411,8 @@ export default function ProjectDetail() {
   // construction du scénario retenu, surface construite, région) puis
   // construction du pré-remplissage : `src/lib/investmentPrefill.ts`.
   const investmentFields = useMemo(
-    () => extractProjectInvestmentFields(project, ce, selectedScenario),
-    [project, ce, selectedScenario],
+    () => extractProjectInvestmentFields(project, ce, effectiveScenario),
+    [project, ce, effectiveScenario],
   );
   const investmentPrefill = useMemo(
     () => buildInvestmentPrefill(investmentFields, project?.category),
@@ -359,15 +477,13 @@ export default function ProjectDetail() {
     return { parts: parts.join(" · "), diffPct };
   }, [project, ce]);
 
-  const scenarios = ce?.budgetScenarios;
-
   // Scale factor based on selected scenario vs standard
   const scaleFactor = useMemo(() => {
     if (!scenarios || !scenarios.standard) return 1;
-    const sel = scenarios[selectedScenario as keyof typeof scenarios];
-    if (!sel || selectedScenario === "standard") return 1;
+    const sel = scenarios[effectiveScenario as keyof typeof scenarios];
+    if (!sel || effectiveScenario === "standard") return 1;
     return sel.totalCost / scenarios.standard.totalCost;
-  }, [scenarios, selectedScenario]);
+  }, [scenarios, effectiveScenario]);
 
   // Scaled breakdown for current scenario
   const scaledBreakdown = useMemo(() => {
@@ -386,16 +502,23 @@ export default function ProjectDetail() {
   // Current total cost for selected scenario
   const currentTotal = useMemo(() => {
     if (!scenarios) return ce?.totalCost || 0;
-    const sel = scenarios[selectedScenario as keyof typeof scenarios];
+    const sel = scenarios[effectiveScenario as keyof typeof scenarios];
     return sel?.totalCost || ce?.totalCost || 0;
-  }, [scenarios, selectedScenario, ce?.totalCost]);
+  }, [scenarios, effectiveScenario, ce?.totalCost]);
 
   // Current cost per m²
   const currentCostM2 = useMemo(() => {
     if (!scenarios) return ce?.costPerSquareMeter || 0;
-    const sel = scenarios[selectedScenario as keyof typeof scenarios];
+    const sel = scenarios[effectiveScenario as keyof typeof scenarios];
     return sel?.costPerM2 || ce?.costPerSquareMeter || 0;
-  }, [scenarios, selectedScenario, ce?.costPerSquareMeter]);
+  }, [scenarios, effectiveScenario, ce?.costPerSquareMeter]);
+
+  // Total et coût/m² réellement affichés : le scénario « Personnalisé » n'est
+  // pris en compte que lorsqu'il est effectivement affiché.
+  const displayTotal =
+    personalized && isPersonalizedScenario ? personalized.totals.total : currentTotal;
+  const displayCostM2 =
+    personalized && isPersonalizedScenario ? personalized.totals.costPerM2 : currentCostM2;
 
   // Main-d'œuvre : 1 lot affiché sur la page de résultat.
 
@@ -741,19 +864,23 @@ export default function ProjectDetail() {
                   <div className="min-w-0">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60 mb-1">
                       Coût total estimé TTC
-                      {selectedScenario !== "standard" && scenarios && (
-                        <span className="ml-1.5 text-white/80">({scenarios[selectedScenario as keyof typeof scenarios]?.label})</span>
+                      {selectedScenario !== "standard" && (
+                        <span className="ml-1.5 text-white/80">
+                          ({isPersonalizedScenario
+                            ? PERSONALIZED_SCENARIO_LABEL
+                            : scenarios?.[selectedScenario as keyof typeof scenarios]?.label})
+                        </span>
                       )}
                     </p>
                     <p className="text-4xl sm:text-5xl font-black tracking-tight text-white tabular-nums">
-                      {fmt(currentTotal)}
+                      {fmt(displayTotal)}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    {currentCostM2 > 0 && (
+                    {displayCostM2 > 0 && (
                       <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/15 text-[10px] text-white">
                         <Ruler className="h-3 w-3 text-white/70" />
-                        <span className="font-semibold">{fmt(currentCostM2)}</span>
+                        <span className="font-semibold">{fmt(displayCostM2)}</span>
                         <span className="text-white/60">/m²</span>
                       </div>
                     )}
@@ -785,7 +912,7 @@ export default function ProjectDetail() {
                           // l'analyse de rentabilité peut ainsi retrouver seule le
                           // même coût de construction (lien direct, actualisation).
                           navigate(
-                            `/dashboard/investments?type=${type}&project=${project._id}&scenario=${selectedScenario}`,
+                            `/dashboard/investments?type=${type}&project=${project._id}&scenario=${effectiveScenario}`,
                             { state: { prefill: investmentPrefill, projectId: project._id } },
                           );
                         }}
@@ -870,7 +997,7 @@ export default function ProjectDetail() {
             {/* ═══ Budget Scenarios ═══ */}
             {scenarios && (
               <SectionCard icon={PiggyBank} title="Scénarios budgétaires" badge="cliquez pour appliquer">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className={cn("grid grid-cols-1 gap-3", hasCustomization ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3")}>
                   {(["economique", "standard", "premium"] as const).map((key) => {
                     const s = scenarios[key];
                     if (!s) return null;
@@ -899,17 +1026,67 @@ export default function ProjectDetail() {
                           <span className={cn("font-semibold text-sm", isActive && "text-primary")}>{s.label}</span>
                         </div>
                         <p className={cn("text-xl font-extrabold", isActive && "text-primary")}>{fmt(s.totalCost)}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{fmt(s.costPerM2)} /m²</p>
-                        <div className="mt-3 h-1.5 rounded-full bg-muted/50 overflow-hidden">
-                          <div className={cn("h-full rounded-full", key === "economique" ? "bg-emerald-400" : key === "standard" ? "bg-blue-400" : "bg-violet-400")}
-                            style={{ width: `${key === "economique" ? 60 : key === "standard" ? 80 : 100}%` }} />
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{fmt(s.costPerM2)} /m²</p>                          <div className="mt-3 h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                            <div className={cn("h-full rounded-full", key === "economique" ? "bg-emerald-400" : key === "standard" ? "bg-blue-400" : "bg-violet-400")}
+                              style={{ width: `${key === "economique" ? 60 : key === "standard" ? 80 : 100}%` }} />
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    {/* Scénario « Personnalisé » : affiché uniquement lorsqu'au
+                        moins une modification d'article existe. */}
+                    {hasCustomization && personalized && (
+                      <button
+                        onClick={() => setSelectedScenario(PERSONALIZED_SCENARIO_KEY)}
+                        className={cn(
+                          "relative rounded-xl border-2 p-4 transition-all text-left w-full",
+                          isPersonalizedScenario
+                            ? "border-amber-400/60 bg-gradient-to-br from-amber-400/[0.10] to-background shadow-md ring-1 ring-amber-400/25 scale-[1.02]"
+                            : "border-dashed border-amber-400/40 bg-card hover:shadow-md hover:border-amber-400/60 active:scale-[0.98]",
+                        )}>
+                        <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+                          <Badge className="bg-amber-500 text-white text-[9px] h-4.5 px-2 shadow whitespace-nowrap">
+                            {customizationEntries.length} article{customizationEntries.length > 1 ? "s" : ""} modifié{customizationEntries.length > 1 ? "s" : ""}
+                          </Badge>
                         </div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Wand2 className={cn("h-4 w-4", isPersonalizedScenario ? "text-amber-600" : "text-muted-foreground")} />
+                          <span className={cn("font-semibold text-sm", isPersonalizedScenario && "text-amber-700")}>
+                            {PERSONALIZED_SCENARIO_LABEL}
+                          </span>
+                        </div>
+                        <p className={cn("text-xl font-extrabold", isPersonalizedScenario && "text-amber-700")}>
+                          {fmt(personalized.totals.total)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {fmt(personalized.totals.costPerM2)} /m²
+                        </p>
+                        <p className="text-[9px] text-muted-foreground/70 mt-1">
+                          Base : {BUDGET_SCENARIO_LABELS[baseScenarioKey]}
+                        </p>
                       </button>
-                    );
-                  })}
-                </div>
-              </SectionCard>
-            )}
+                    )}
+                  </div>
+
+                  {hasCustomization && personalized && (
+                    <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-border/10">
+                      <p className="text-[10px] text-muted-foreground flex-1 min-w-[180px]">
+                        Scénario Personnalisé dérivé de « {BUDGET_SCENARIO_LABELS[baseScenarioKey]} » —
+                        les scénarios Économique, Standard et Premium d'origine restent inchangés.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[10px] gap-1.5 text-amber-600 border-amber-400/40 hover:text-amber-700 shrink-0"
+                        onClick={() => setConfirmResetAll(true)}>
+                        <RotateCcw className="h-3 w-3" />
+                        Réinitialiser toutes les modifications
+                      </Button>
+                    </div>
+                  )}
+                </SectionCard>
+              )}
 
 
 
@@ -931,35 +1108,149 @@ export default function ProjectDetail() {
               };
               const NATURE_ORDER = ["materiaux", "main_oeuvre", "equipements", "transport", "etudes"];
               // ── Données DQE (lots hiérarchiques) — calés sur le scénario ──
-              const dqeLots: any[] = hasDqeLots
-                ? dqe.lots.map((lot: any) => ({
-                    ...lot,
-                    subtotal: Math.round(lot.subtotal * scaleFactor * realCostFactor),
-                    lines: lot.lines?.map((line: any) => ({
-                      ...line,
-                      total: Math.round(line.total * scaleFactor * realCostFactor),
-                      unitPrice: Math.round((line.total * scaleFactor * realCostFactor) / Math.max(1, line.quantity) * 100) / 100,
-                    })),
-                  }))
+              // Le scénario « Personnalisé » réutilise le quantitatif mis à
+              // l'échelle de son scénario de référence, modifications
+              // superposées. Les autres scénarios gardent leurs données d'origine.
+              const scaledDqeLots: any[] = hasDqeLots
+                ? scaleDqeLots(dqe.lots, scaleFactor * realCostFactor)
                 : [];
+              const dqeLots: any[] =
+                isPersonalizedScenario && personalized
+                  ? personalized.lots
+                  : scaledDqeLots;
               // Totaux DQE recalculés à partir des lots scalés
-              const dqeTotals = dqe?.totals ? {
-                materiaux: Math.round(dqe.totals.materiaux * scaleFactor * realCostFactor),
-                mainOeuvre: Math.round(dqe.totals.mainOeuvre * scaleFactor * realCostFactor),
-                equipements: Math.round(dqe.totals.equipements * scaleFactor * realCostFactor),
-                transport: Math.round(dqe.totals.transport * scaleFactor * realCostFactor),
-                etudes: Math.round(dqe.totals.etudes * scaleFactor * realCostFactor),
-                total: Math.round(dqe.totals.total * scaleFactor * realCostFactor),
-                costPerM2: Math.round(dqe.totals.costPerM2 * scaleFactor * realCostFactor),
-              } : undefined;
+              const dqeTotals = isPersonalizedScenario && personalized
+                ? personalized.totals
+                : dqe?.totals ? {
+                    materiaux: Math.round(dqe.totals.materiaux * scaleFactor * realCostFactor),
+                    mainOeuvre: Math.round(dqe.totals.mainOeuvre * scaleFactor * realCostFactor),
+                    equipements: Math.round(dqe.totals.equipements * scaleFactor * realCostFactor),
+                    transport: Math.round(dqe.totals.transport * scaleFactor * realCostFactor),
+                    etudes: Math.round(dqe.totals.etudes * scaleFactor * realCostFactor),
+                    total: Math.round(dqe.totals.total * scaleFactor * realCostFactor),
+                    costPerM2: Math.round(dqe.totals.costPerM2 * scaleFactor * realCostFactor),
+                  } : undefined;
 
               // ── Données BIM (fallback plat) ──
               const flatBreakdown = scaledBreakdown ?? [];
 
               // Prix moyen par région (référence comparative)
-              const avgM2 = (ce as any)?.avgRegionPriceM2 ?? currentCostM2;
-              const totalBudg = currentTotal;
-              const surfaceTot = project?.surface ? project.surface * (project.floors || 1) : 0;
+              const avgM2 = (ce as any)?.avgRegionPriceM2 ?? displayCostM2;
+              const surfaceTot = builtSurface;
+              const totalBudg = displayTotal;
+              // Récapitulatif du bloc : coût/m² du scénario réellement affiché
+              // (masque volontairement la valeur globale pour ce sous-bloc).
+              const currentCostM2 = displayCostM2;
+
+              // ── Vue DQE : composant dédié, articles personnalisables ──
+              // Les 4 catégories autorisées rendent chaque article cliquable ;
+              // les autres catégories restent en lecture seule.
+              if (hasDqeLots) {
+                const dqeScenarioBadge = isPersonalizedScenario
+                  ? {
+                      label: `${PERSONALIZED_SCENARIO_LABEL} — ${customizationEntries.length} article${
+                        customizationEntries.length > 1 ? "s" : ""
+                      } modifié${customizationEntries.length > 1 ? "s" : ""}`,
+                      tone: "amber" as const,
+                    }
+                  : selectedScenario !== "standard" && scenarios
+                    ? {
+                        label:
+                          scenarios[selectedScenario as keyof typeof scenarios]?.label ?? "",
+                        tone: "primary" as const,
+                      }
+                    : null;
+                return (
+                  <>
+                    <QuantitatifDetails
+                      lots={dqeLots}
+                      dqeTotals={dqeTotals}
+                      totalBudg={totalBudg}
+                      avgM2={avgM2}
+                      displayedCostM2={currentCostM2}
+                      builtSurface={surfaceTot}
+                      regionLabel={
+                        project?.region
+                          ? REGION_LABELS[project.region] ?? project.region
+                          : undefined
+                      }
+                      scenarioBadge={dqeScenarioBadge}
+                      isPersonalized={isPersonalizedScenario}
+                      modifiedCount={customizationEntries.length}
+                      customizationByKey={customizationByKey}
+                      rawLineByKey={rawLineByKey}
+                      refreshing={refreshingQuantitatif}
+                      onRefresh={refreshQuantitatif}                        onOpenArticle={setEditingLine}
+                      />
+
+                    {/* Popup de modification d'un article du quantitatif */}
+                    {editingLine && (
+                      <ArticleEditDialog
+                        open
+                        onOpenChange={(v) => {
+                          if (!v) setEditingLine(null);
+                        }}
+                        projectId={project._id}
+                        lotId={editingLine.lotId}
+                        lotName={editingLine.lotName}
+                        lineIndex={editingLine.lineIndex}
+                        line={editingLine.line}
+                        scenarios={scenarios}
+                        baseScenario={baseScenarioKey}
+                        displayedScenario={effectiveScenario}
+                        scaleFactor={scaleFactor}
+                        realCostFactor={realCostFactor}
+                        existing={customizationByKey.get(
+                          quantitatifLineKey(editingLine.lotId, editingLine.lineIndex),
+                        )}
+                        quantitatifTotal={
+                          isPersonalizedScenario && personalized
+                            ? personalized.totals.total
+                            : currentTotal
+                        }
+                        builtSurface={builtSurface}
+                        onSaved={() => setSelectedScenario(PERSONALIZED_SCENARIO_KEY)}
+                      />
+                    )}
+
+                    {/* Confirmation : réinitialiser toutes les modifications */}
+                    <AlertDialog open={confirmResetAll} onOpenChange={setConfirmResetAll}>
+                      <AlertDialogContent className="max-w-sm">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-sm">
+                            Réinitialiser toutes les modifications ?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription className="text-xs">
+                            Les {customizationEntries.length} article
+                            {customizationEntries.length > 1 ? "s" : ""} personnalisé
+                            {customizationEntries.length > 1 ? "s" : ""} seront restaurés selon le
+                            scénario de référence « {BUDGET_SCENARIO_LABELS[baseScenarioKey]} » et le
+                            scénario Personnalisé sera supprimé. Les scénarios Économique, Standard
+                            et Premium ne sont jamais modifiés.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="text-xs">Annuler</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="text-xs"
+                            onClick={async () => {
+                              try {
+                                await resetAllCustomizations({ projectId: project._id });
+                                setSelectedScenario(baseScenarioKey);
+                                toast.success("Toutes les modifications ont été réinitialisées");
+                              } catch (err: any) {
+                                toast.error(err?.message || "Erreur lors de la réinitialisation");
+                              }
+                            }}
+                          >
+                            Réinitialiser
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                );
+              }
 
               return (
                 <motion.div variants={fadeUp} custom={7}
@@ -973,11 +1264,17 @@ export default function ProjectDetail() {
                         <Layers className="h-3.5 w-3.5" />
                       </div>
                       <h3 className="text-sm font-semibold">Quantitatif détaillé</h3>
-                      {selectedScenario !== "standard" && scenarios && (
+                      {isPersonalizedScenario ? (
+                        <Badge variant="outline" className="text-[9px] text-amber-700 border-amber-400/40 bg-amber-400/10">
+                          {PERSONALIZED_SCENARIO_LABEL} — {customizationEntries.length} article
+                          {customizationEntries.length > 1 ? "s" : ""} modifié
+                          {customizationEntries.length > 1 ? "s" : ""}
+                        </Badge>
+                      ) : selectedScenario !== "standard" && scenarios ? (
                         <Badge variant="outline" className="text-[9px] text-primary border-primary/30">
                           {scenarios[selectedScenario as keyof typeof scenarios]?.label}
                         </Badge>
-                      )}
+                      ) : null}
                       <Badge variant="secondary" className="text-[9px]">
                         {hasDqeLots ? `${dqeLots.length} étapes` : `${totalItems} postes`}
                       </Badge>
