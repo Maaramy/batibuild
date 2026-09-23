@@ -30,6 +30,7 @@ import {
   isDashboardRoute,
   isLandingRoute,
   LOADING_MESSAGE,
+  parseUnreadCount,
   pathOfUrl,
   SETTINGS_PATH,
   shouldShowBottomNav,
@@ -78,9 +79,9 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
 
   const [currentPath, setCurrentPath] = useState<string>(currentPathRef.current);
   /**
-   * Onglet explicitement choisi parmi ceux qui partagent la route `/dashboard`
-   * (« Projets » et « Dashboard »). Il départage l'état actif de la barre du
-   * bas ; remis à `null` dès qu'on quitte cette route.
+   * Onglet explicitement choisi sur la route d'accueil `/dashboard`
+   * (« Home »). Il confirme l'état actif de la barre du bas ; remis à `null`
+   * dès qu'on quitte cette route (« Mes projets » a sa propre route).
    */
   const [navOverride, setNavOverride] = useState<NavId | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,6 +91,13 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   const [error, setError] = useState<WebViewError | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /**
+   * Nombre de messages non lus publié par la plateforme Web (Convex temps réel,
+   * voir `MessagingBadgeSync`). `null` = valeur encore inconnue : aucune
+   * pastille n'est affichée tant que le serveur n'a pas répondu, et la dernière
+   * valeur fiable est CONSERVÉE en cas d'erreur de synchronisation.
+   */
+  const [unreadMessages, setUnreadMessages] = useState<number | null>(null);
 
   /**
    * Pont des téléchargements « blob: » (PDF jsPDF : estimation du coût de
@@ -213,7 +221,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     currentPathRef.current = path;
     setCurrentPath(path);
 
-    // Hors de `/dashboard`, le choix « Projets / Dashboard » n'a plus de sens.
+    // Hors de `/dashboard`, le choix explicite « Home » n'a plus de sens.
     if (!isDashboardRoute(path)) setNavOverride(null);
 
     // Le routeur a confirmé la route demandée : le loader disparaît tout de
@@ -249,8 +257,8 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
           : activeNavId(currentPathRef.current);
       if (currentActive === destination.id) return;
 
-      // « Projets » et « Dashboard » partagent `/dashboard` : on mémorise
-      // l'onglet réellement choisi pour l'état actif.
+      // « Home » est la route d'accueil : on mémorise l'onglet réellement
+      // choisi pour l'état actif (« Mes projets » a sa propre route).
       setNavOverride(isDashboardRoute(destination.path) ? destination.id : null);
 
       // Retour visuel immédiat (optimiste) ; la WebView confirme ensuite.
@@ -342,6 +350,16 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
       // Fichiers générés dans le navigateur (PDF jsPDF, exports CSV/texte) : le
       // pont les transforme en fichiers natifs puis ouvre la feuille de partage.
       if (bridgeRef.current?.handle(msg)) return;
+
+      // Pastille de la Messagerie : la plateforme Web publie le compteur
+      // serveur ; le natif ne fait que l'afficher (aucun calcul, aucune donnée
+      // inventée). Un message non exploitable est ignoré : le dernier compteur
+      // fiable reste affiché.
+      const unread = parseUnreadCount(msg);
+      if (unread !== null) {
+        setUnreadMessages(unread);
+        return;
+      }
 
       if (msg.type === "share") {
         const parts = [msg.text, msg.url].filter(Boolean);
@@ -508,9 +526,15 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
       {/* Barre de navigation INFÉRIEURE — fixe en bas de l'écran, dans la
           colonne racine (jamais en position absolue) : elle ne recouvre donc
           jamais le contenu de la page. Mêmes sections et mêmes routes que
-          l'ancienne barre (Profile · Projets · Home · ROI · Message). */}
+          l'ancienne barre (Profile · Mes projets · Home · ROI · Message). La
+          pastille rouge éventuelle vient du serveur (voir `NavBadge`). */}
       {showBottomNav && (
-        <BottomNav active={active} onSelect={handleNavSelect} onOpenSettings={openSettings} />
+        <BottomNav
+          active={active}
+          badges={unreadMessages === null ? undefined : { messages: unreadMessages }}
+          onSelect={handleNavSelect}
+          onOpenSettings={openSettings}
+        />
       )}
 
       {/* Réglages natifs — appui long sur la marque (en-tête) ou sur la barre. */}

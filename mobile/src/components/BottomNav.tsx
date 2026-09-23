@@ -4,13 +4,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { NAV_DESTINATIONS, type NavDestination, type NavId } from "../config";
 import { NAV_ICONS, NAV_STROKE } from "./icons";
+import NavBadge from "./NavBadge";
 import { COLORS, SHAPE } from "../theme";
 
 /**
  * BARRE DE NAVIGATION INFÉRIEURE (application Android).
  *
  * Elle remplace le menu horizontal qui avait été placé dans l'en-tête : mêmes
- * sections (Profile · Projets · Home · ROI · Message), mêmes routes, mêmes
+ * sections (Profile · Mes projets · Home · ROI · Message), mêmes routes, mêmes
  * icônes — mais dans une **barre fixe en bas de l'écran**, comme dans les
  * versions précédentes de l'application.
  *
@@ -38,16 +39,31 @@ import { COLORS, SHAPE } from "../theme";
  * aucune page n'est créée, aucune logique métier n'est touchée. Le fond de la
  * barre est BLANC (#FFFFFF) — c'est le chrome natif de l'application,
  * indépendant du thème de la plateforme Web.
+ *
+ * PASTILLE ROUGE : chaque onglet peut recevoir un compteur non lu via `badges`
+ * (en pratique, l'onglet « Messagerie »). Le compteur vient du SERVEUR — il est
+ * publié par la page Web chargée dans la WebView, à partir de la requête Convex
+ * temps réel (`api.messaging.unreadCount`, voir `MessagingBadgeSync`), puis
+ * affiché par le composant réutilisable `NavBadge` (« 99+ » au-delà de 99, rien
+ * du tout à 0). Le badge est posé en absolu au-dessus de l'icône : il ne
+ * déplace jamais les autres icônes, quelle que soit la taille de l'écran.
  */
 
 type ItemProps = {
   destination: NavDestination;
   selected: boolean;
+  unreadCount?: number;
   onSelect: (destination: NavDestination) => void;
   onOpenSettings: () => void;
 };
 
-function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps) {
+function NavItem({
+  destination,
+  selected,
+  unreadCount,
+  onSelect,
+  onOpenSettings,
+}: ItemProps) {
   const Icon = NAV_ICONS[destination.id];
   const color = selected ? COLORS.brand700 : COLORS.muted;
 
@@ -66,11 +82,16 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
     >
       {/* Emplacement réservé sur tous les onglets : aucun décalage à la sélection. */}
       <View style={[styles.indicator, selected && styles.indicatorActive]} />
-      <Icon
-        size={19}
-        color={color}
-        strokeWidth={selected ? NAV_STROKE.active : NAV_STROKE.inactive}
-      />
+      {/* L'icône et sa pastille partagent le même conteneur : la pastille se
+          place en haut à droite de l'icône sans agrandir la barre. */}
+      <View style={styles.iconWrap}>
+        <Icon
+          size={19}
+          color={color}
+          strokeWidth={selected ? NAV_STROKE.active : NAV_STROKE.inactive}
+        />
+        <NavBadge count={unreadCount} />
+      </View>
       <Text
         numberOfLines={1}
         style={[styles.label, { color, fontWeight: selected ? "700" : "500" }]}
@@ -84,11 +105,16 @@ function NavItem({ destination, selected, onSelect, onOpenSettings }: ItemProps)
 type Props = {
   /** Onglet courant (`null` hors de l'espace connecté). */
   active: NavId | null;
+  /**
+   * Compteurs non lus par onglet (issus du serveur). Un compteur nul ou absent
+   * n'affiche aucune pastille.
+   */
+  badges?: Partial<Record<NavId, number>>;
   onSelect: (destination: NavDestination) => void;
   onOpenSettings: () => void;
 };
 
-export default function BottomNav({ active, onSelect, onOpenSettings }: Props) {
+export default function BottomNav({ active, badges, onSelect, onOpenSettings }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -101,6 +127,7 @@ export default function BottomNav({ active, onSelect, onOpenSettings }: Props) {
           key={destination.id}
           destination={destination}
           selected={active === destination.id}
+          unreadCount={badges?.[destination.id]}
           onSelect={onSelect}
           onOpenSettings={onOpenSettings}
         />
@@ -135,6 +162,12 @@ const styles = StyleSheet.create({
   },
   tabPressed: {
     opacity: 0.6,
+  },
+  iconWrap: {
+    // Conteneur de l'icône : la pastille (absolue) s'ancre ici, sans décaler
+    // les autres onglets ni modifier la hauteur de la barre.
+    alignItems: "center",
+    justifyContent: "center",
   },
   indicator: {
     width: 20,

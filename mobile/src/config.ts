@@ -23,6 +23,15 @@ export const LOGIN_PATH = "/auth";
 export const DASHBOARD_PATH = "/dashboard";
 
 /**
+ * Page dédiée « Mes projets » : liste COMPLÈTE des projets de l'utilisateur
+ * connecté (en cours, terminés, réalisés, archivés).
+ *
+ * Route RÉELLE de la plateforme (`src/main.tsx`) : aucune page n'est créée ni
+ * dupliquée côté natif, la WebView affiche la page de la plateforme.
+ */
+export const PROJECTS_PATH = "/dashboard/projects";
+
+/**
  * Message de chargement unique (Splash natif et voile de chargement WebView).
  * Aucun autre texte ne doit être affiché sous ce message.
  */
@@ -131,15 +140,14 @@ export type NavDestination = {
 
 /**
  * Les 5 sections de la barre de navigation inférieure, dans l'ordre imposé :
- * Profile · Projets · Home · ROI · Message.
+ * Profile · Mes projets · Home · ROI · Message.
  *
  * Les routes sont celles qui existent déjà dans le routeur de la plateforme
  * (`src/main.tsx`) : la navigation ne crée aucune page et ne duplique rien.
  *
- * « Projets » et « Home » pointent tous les deux vers `/dashboard` (la
- * plateforme n'expose qu'une seule route d'accueil connectée, qui contient la
- * liste des projets). L'onglet visuellement actif suit le dernier onglet
- * choisi lorsque la WebView est sur `/dashboard` — voir `WebViewScreen`.
+ * « Mes projets » ouvre la page DÉDIÉE `/dashboard/projects` (liste complète
+ * des projets de l'utilisateur) ; « Home » reste l'accueil connecté
+ * (`/dashboard`), qui conserve ses raccourcis et statistiques.
  *
  * « ROI » ouvre l'analyse immobilière (`/dashboard/investments`) : c'est la
  * page qui calcule le retour sur investissement, le rendement, les scénarios et
@@ -149,7 +157,7 @@ export type NavDestination = {
  */
 export const NAV_DESTINATIONS: readonly NavDestination[] = [
   { id: "profile", label: "Profile", path: "/dashboard/profile" },
-  { id: "projects", label: "Projets", path: DASHBOARD_PATH },
+  { id: "projects", label: "Mes projets", path: PROJECTS_PATH },
   { id: "dashboard", label: "Home", path: DASHBOARD_PATH },
   { id: "investments", label: "ROI", path: "/dashboard/investments" },
   { id: "messages", label: "Message", path: "/dashboard/messages" },
@@ -173,9 +181,9 @@ function inSection(path: string, base: string): boolean {
  * Onglet actif pour une route donnée.
  *
  * `/dashboard` est l'accueil de l'espace connecté : c'est l'onglet central
- * (« Home ») qui est actif par défaut. « Projets » pointe sur la même
- * route : c'est le dernier onglet choisi par l'utilisateur qui départage les
- * deux (voir `WebViewScreen`).
+ * (« Home ») qui y est actif. « Mes projets » a sa PROPRE route
+ * (`/dashboard/projects`) et reste actif pendant la consultation d'un projet
+ * ouvert depuis cette liste (`/dashboard/project/:id`).
  *
  * La page Support n'est plus une entrée du menu de l'en-tête (elle est
  * accessible depuis les icônes de l'en-tête) : aucune entrée n'est active sur
@@ -188,14 +196,49 @@ export function activeNavId(path: string): NavId | null {
   if (inSection(route, "/dashboard/investments")) return "investments";
   if (inSection(route, "/dashboard/messages")) return "messages";
   if (inSection(route, "/dashboard/support")) return null;
+  // « Mes projets » : la page dédiée ET chaque projet ouvert depuis celle-ci
+  // (l'utilisateur voit donc toujours l'onglet de ses projets actif pendant
+  // la consultation du projet sélectionné).
+  if (inSection(route, PROJECTS_PATH)) return "projects";
+  if (inSection(route, "/dashboard/project")) return "projects";
   if (route === routeKey(DASHBOARD_PATH)) return "dashboard";
   if (inSection(route, DASHBOARD_PATH)) return "projects";
   return null;
 }
 
+/* ------------------------------------------------------------------ *
+ * Pastille de la Messagerie (publiée par la plateforme Web)
+ * ------------------------------------------------------------------ */
+
 /**
- * Onglets qui partagent la route `/dashboard` : « Projets » et « Home ».
- * Utilisé pour savoir si le choix de l'utilisateur doit être mémorisé.
+ * Type du message publié par la plateforme Web depuis la WebView.
+ *
+ * Valeur IDENTIQUE à `NATIVE_UNREAD_MESSAGE_TYPE` dans
+ * `src/lib/nativeBridge.ts` (plateforme Web) — toute modification doit être
+ * faite des deux côtés en même temps.
+ */
+export const UNREAD_MESSAGE_TYPE = "batibuild:unread";
+
+/**
+ * Compteur de messages non lus extrait d'un message de la WebView.
+ *
+ * Renvoie `null` si le message n'est pas un compteur exploitable : le natif
+ * CONSERVE alors le dernier compteur fiable (aucun faux « 0 », aucun
+ * clignotement pendant le chargement ou en cas d'erreur de synchronisation).
+ */
+export function parseUnreadCount(raw: unknown): number | null {
+  if (!raw || typeof raw !== "object") return null;
+  const message = raw as { type?: unknown; count?: unknown };
+  if (message.type !== UNREAD_MESSAGE_TYPE) return null;
+  const count = message.count;
+  if (typeof count !== "number" || !Number.isFinite(count) || count < 0) return null;
+  return Math.floor(count);
+}
+
+/**
+ * La route est-elle l'accueil connecté (`/dashboard`) ?
+ * Sert à mémoriser le choix explicite de l'onglet « Home » (voir
+ * `WebViewScreen`) ; la route reste distincte de `/dashboard/projects`.
  */
 export function isDashboardRoute(path: string): boolean {
   return routeKey(path) === routeKey(DASHBOARD_PATH);

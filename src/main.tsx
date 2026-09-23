@@ -3,6 +3,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { FeatureGate } from "@/components/FeatureGate";
 import { FeatureFlagsProvider } from "@/hooks/use-feature-flags";
 import { SEO } from "@/components/SEO";
+import { MessagingBadgeSync } from "@/components/MessagingBadgeSync";
 import { useSessionTracking } from "@/hooks/use-session-tracking";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
@@ -27,6 +28,7 @@ const VlyToolbar = lazy(() =>
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
+const MyProjects = lazy(() => import("./pages/MyProjects.tsx"));
 const NewProject = lazy(() => import("./pages/NewProject.tsx"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail.tsx"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel.tsx"));
@@ -181,6 +183,9 @@ createRoot(document.getElementById("root")!).render(
           <FeatureFlagsProvider>
           <BrowserRouter>
             <SessionTracker />
+            {/* Pastille temps réel de la Messagerie : publiée vers la barre de
+                navigation native de l'application Android. */}
+            <MessagingBadgeSync />
             <RouteSyncer />
             <SEO />
             <Suspense fallback={<RouteLoading />}>              <Routes>
@@ -195,6 +200,16 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <Dashboard />
+                    </RequireAuth>
+                  }
+                />
+                {/* Liste complète des projets de l'utilisateur — cible de
+                    l'onglet « Mes projets » de l'application Android. */}
+                <Route
+                  path="/dashboard/projects"
+                  element={
+                    <RequireAuth>
+                      <MyProjects />
                     </RequireAuth>
                   }
                 />

@@ -51,6 +51,54 @@ export const getUserProjects = query({
   },
 });
 
+/**
+ * Projets de l'utilisateur connecté préparés pour la page « Mes projets ».
+ *
+ * Mêmes projets que `getUserProjects` (aucune donnée inventée, aucune copie de
+ * projet) + **miniature du plan lorsque le projet possède réellement un
+ * document image** : l'URL est résolue côté serveur depuis le stockage Convex
+ * (`_storage`). Sans document image, `thumbnailUrl` vaut `null` et la carte
+ * affiche son visuel de repli.
+ *
+ * LECTURE STRICTEMENT PRIVÉE : la liste est filtrée sur `userId` de la session
+ * (aucun argument, donc aucun identifiant ne peut être fourni par le client).
+ * Les projets d'un autre utilisateur ne sont jamais renvoyés.
+ */
+export const getMyProjectsForCards = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return [];
+
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .collect();
+
+    return await Promise.all(
+      projects.map(async (project) => {
+        const image = (project.files ?? []).find(
+          (file) =>
+            file.type?.startsWith("image/") ||
+            /\.(png|jpe?g|webp|gif)$/i.test(file.name ?? ""),
+        );
+
+        let thumbnailUrl = image?.url;
+        if (!thumbnailUrl && image?.storageId) {
+          thumbnailUrl = (await ctx.storage.getUrl(image.storageId)) ?? undefined;
+        }
+
+        return {
+          ...project,
+          thumbnailUrl: thumbnailUrl ?? null,
+          thumbnailName: image?.name ?? null,
+        };
+      }),
+    );
+  },
+});
+
 /** Get all projects (admin only, returns empty if not admin) */
 export const getAllProjects = query({
   args: {},

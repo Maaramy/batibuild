@@ -22,6 +22,7 @@ import { NotificationCenter } from "@/components/NotificationCenter";
 import { useQuery, useMutation } from "convex/react";
 import {
   LayoutDashboard,
+  LayoutGrid,
   Plus,
   HardHat,
   LogOut,
@@ -180,13 +181,6 @@ export default function Dashboard() {
     api.expertServiceRequests.unreadCount,
     isExpert ? {} : "skip",
   );
-  // Demandes de rendez-vous / urgences reçues et non encore consultées.
-  // Comptées une seule fois : sur l'entrée « Messagerie » (le sous-menu
-  // « Demandes reçues » n'affiche plus de badge, pour éviter le doublon).
-  const expertAvailabilityUnread = useQuery(
-    api.expertAvailability.receivedUnreadCount,
-    isExpert ? {} : "skip",
-  );
   const supplierUnread = useQuery(
     api.quoteRequests.unreadCount,
     isSupplier ? {} : "skip",
@@ -197,6 +191,11 @@ export default function Dashboard() {
     api.expertServiceRequests.responsesUnreadCount,
   );
   const clientUnread = (supplierResponsesUnread ?? 0) + (expertResponsesUnread ?? 0);
+  // ── Badge « Messagerie » : SOURCE UNIQUE (même requête que la pastille de
+  // l'application Android). Elle agrège les réponses reçues côté client et les
+  // demandes / rendez-vous / urgences reçus côté professionnel, à partir des
+  // données du serveur — aucune logique dupliquée entre le web et le mobile. ──
+  const messagingUnread = useQuery(api.messaging.unreadCount);
   // Demandes non consultées qui ne passent pas par le centre de notifications
   // (les rendez-vous et urgences, eux, y sont déjà notifiés : pas de double compte).
   const totalUnread = (supplierUnread ?? 0) + (expertUnread ?? 0) + clientUnread;
@@ -312,6 +311,9 @@ export default function Dashboard() {
               ...(isFeatureEnabled("construction_cost_estimation") ? [
                 { icon: Plus, label: "Nouveau projet", onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
               ] : []),
+              // Page dédiée « Mes projets » — même destination que l'onglet de
+              // la barre de navigation de l'application Android.
+              { icon: LayoutGrid, label: "Mes projets", onClick: () => { navigate("/dashboard/projects"); setMobileSidebarOpen(false); } },
               { icon: Rocket, label: "Démarche de construction", onClick: () => { navigate("/dashboard/guide"); setMobileSidebarOpen(false); } },
               { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
               ...(isFeatureEnabled("ai_materials") ? [
@@ -341,7 +343,7 @@ export default function Dashboard() {
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
-            { icon: MessageSquare, label: "Messagerie", badge: clientUnread + (isExpert ? (expertAvailabilityUnread ?? 0) : 0), onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
+            { icon: MessageSquare, label: "Messagerie", badge: messagingUnread ?? 0, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
             { icon: Headset, label: "Support", badge: supportUnread, onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),

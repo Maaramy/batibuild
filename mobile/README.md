@@ -35,7 +35,11 @@ Android Native Shell
 │      Occupe exactement la hauteur restante : jamais recouverte par la barre.
 │
 └── Bottom Nav — BARRE DE NAVIGATION INFÉRIEURE (fond blanc, fixe)
-       Profile · Projets · Home · ROI · Message
+       Profile · Mes projets · Home · ROI · Message
+       → « Mes projets » ouvre la page dédiée /dashboard/projects
+         (tous les projets de l'utilisateur connecté) ;
+       → pastille ROUGE sur « Message » dès qu'un message non lu existe
+         (compteur du serveur, temps réel, « 99+ » au-delà de 99).
        → visible dans TOUT l'espace connecté (/dashboard et ses sous-pages) ;
          masquée uniquement sur la connexion / inscription et l'accueil public ;
        → safe area basse gérée (barre système Android, gestes, encoche) ;
@@ -49,7 +53,7 @@ n'entraîne le rechargement de la WebView (donc session, cookies, état et histo
 préservés).
 
 La **barre de navigation inférieure** (`BottomNav.tsx`) aligne les 5 sections
-(`Profile · Projets · Home · ROI · Message`) dans une barre **fixe en bas de l'écran**, à
+(`Profile · Mes projets · Home · ROI · Message`) dans une barre **fixe en bas de l'écran**, à
 onglets de largeur égale (icône lucide 19 pt + libellé 10,5 pt) : elle s'adapte donc à toutes
 les tailles d'écran (petit téléphone, grand écran, tablette, paysage) sans jamais déborder.
 L'élément **actif** est clairement identifié (icône et libellé en teinte de marque, libellé en
@@ -68,7 +72,7 @@ Toute la coque native (en-tête, barre de navigation inférieure, guide, écran 
 | Élément | Icône |
 |---|---|
 | Profile | `User` |
-| Projets | `HardHat` |
+| Mes projets | `HardHat` |
 | Home | `LayoutDashboard` |
 | ROI | `TrendingUp` (celle de l'action « Return on Investment » de la page Résultats coût de construction) |
 | Message | `MessageSquare` |
@@ -156,7 +160,7 @@ mobile/
 | **Splash** | **Fond BLANC**, logo officiel et **un seul message : « Chargement.... »** (aucun slogan, aucune image de présentation). Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
 | **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
-| **Barre de navigation inférieure** | **Barre FIXE en bas de l'écran** (`BottomNav.tsx`) : 5 sections (Profile · Projets · Home · ROI · Message), icône **lucide 19 pt** + libellé **10,5 pt**, onglets de **largeur égale** (`flex: 1`) donc aucun débordement sur petit ou grand écran. Élément **actif** : icône et libellé en teinte de marque (`brand700`), libellé en gras, **indicateur émeraude** au-dessus de l'icône (emplacement réservé sur tous les onglets → aucun décalage) ; inactifs en gris ; état pressé = légère atténuation. Fond **blanc**, safe area basse gérée (`useSafeAreaInsets`, minimum 6 pt). Rendue **après** la WebView (jamais en position absolue) : elle ne recouvre jamais le contenu. Visible dans tout l'espace connecté — voir `shouldShowBottomNav()` dans `src/config.ts`. |
+| **Barre de navigation inférieure** | **Barre FIXE en bas de l'écran** (`BottomNav.tsx`) : 5 sections (Profile · **Mes projets** · Home · ROI · Message), icône **lucide 19 pt** + libellé **10,5 pt**, onglets de **largeur égale** (`flex: 1`) donc aucun débordement sur petit ou grand écran. Élément **actif** : icône et libellé en teinte de marque (`brand700`), libellé en gras, **indicateur émeraude** au-dessus de l'icône (emplacement réservé sur tous les onglets → aucun décalage) ; inactifs en gris ; état pressé = légère atténuation. Fond **blanc**, safe area basse gérée (`useSafeAreaInsets`, minimum 6 pt). Rendue **après** la WebView (jamais en position absolue) : elle ne recouvre jamais le contenu. Visible dans tout l'espace connecté — voir `shouldShowBottomNav()` dans `src/config.ts`. |
 | **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. **Aucun menu de navigation** (et aucun burger : celui de l'en-tête web est masqué dans l'application). **Appui long sur la marque** (ou sur la barre du bas) → réglages natifs. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
 | **Guides de démarrage** | **7 guides**, un seul parcours (les anciens écrans d'introduction ont été supprimés) : **Évitez les surcoûts · Devis clé en main · Choisissez les meilleurs matériaux · Ne perdez plus une seule étape · Investissez sans risque · Suivez l'évolution des prix · Trouvez les bons prestataires**. Chaque guide = **illustration dédiée** + **titre** + **texte descriptif** + indicateur **« n / 7 »** (pastilles) + bouton **Suivant** (puis **Commencer** au 7ᵉ) + bouton **Passer**. Les illustrations sont des **scènes vectorielles dessinées pour BatiBuild** (`GuideIllustrations.tsx`, voir la note ci-dessous). Mémorisé via `onboardingCompleted` (AsyncStorage). |
@@ -167,7 +171,8 @@ mobile/
 | **Session** | Cookies, stockage local, cache persistants entre les lancements (`sharedCookiesEnabled`, `thirdPartyCookiesEnabled`, `cacheEnabled`, `domStorageEnabled`). |
 | **Navigation interne** | Toutes les pages `*.freebuff.app` restent dans la WebView. |
 | **Liens externes** | Sites partenaires, réseaux sociaux, documents externes → navigateur système (`Linking`). |
-| **Navigation des 5 sections** | Depuis la **barre inférieure**, routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard`, `/dashboard/investments`, `/dashboard/messages`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. « Projets » et « Home » ouvrent tous les deux `/dashboard` ; l'onglet actif suit le dernier onglet choisi. « ROI » ouvre `/dashboard/investments` (analyse du retour sur investissement) et porte l'icône `TrendingUp`, la même que l'action « Return on Investment » de la page Résultats coût de construction. |
+| **Navigation des 5 sections** | Depuis la **barre inférieure**, routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard/projects`, `/dashboard`, `/dashboard/investments`, `/dashboard/messages`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. « Mes projets » ouvre la **page dédiée `/dashboard/projects`** (tous les projets de l'utilisateur : en cours, terminés, réalisés, archivés) ; l'onglet reste actif pendant la consultation d'un projet ouvert depuis cette liste. « Home » reste l'accueil connecté (`/dashboard`). « ROI » ouvre `/dashboard/investments` (analyse du retour sur investissement) et porte l'icône `TrendingUp`, la même que l'action « Return on Investment » de la page Résultats coût de construction. |
+| **Pastille de la Messagerie** | Pastille **rouge** (composant réutilisable `NavBadge.tsx`) posée en haut à droite de l'icône « Message » : texte blanc, cerclage blanc (lisible en mode clair comme sombre), **jamais de déplacement des autres icônes** (positionnement absolu), plafond **« 99+ »** et **rien du tout à 0**. Le compteur vient du **serveur** : la plateforme Web, chargée dans la WebView, publie en **temps réel** le nombre de messages non lus de l'utilisateur connecté (`api.messaging.unreadCount` → `src/lib/nativeBridge.ts` → `postMessage`, lue par `WebViewScreen`) — donc **sans rechargement** et sans pastille « 0 » fantôme au démarrage. En cas d'erreur de synchronisation, le dernier compteur fiable reste affiché. Ouvrir la messagerie marque les messages comme lus : la pastille disparaît dès que tout est lu. |
 | **Support / Paramètres** | Barre supérieure → `/dashboard/support` et `/dashboard/settings` (mêmes routes web, aucun écran dupliqué). |
 | **Retour Android** | Historique WebView → page précédente ; sinon confirmation « Voulez-vous quitter BatiBuild ? » (Annuler / Quitter). |
 | **Chargement** | Écran de chargement natif (logo officiel + « Chargement.... » + barre de progression), **borné à 1 s** — jamais de page blanche ni de loader bloqué. |
@@ -390,9 +395,12 @@ n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
   ces PDF sont fabriqués dans la page (`blob:`) et passent désormais par le pont natif
   (`src/download.ts`), qui les écrit puis ouvre la feuille de partage Android. Enregistrez le
   fichier depuis cette feuille (Fichiers, Drive…) ou envoyez-le directement.
-- **Le menu de navigation est dans la barre du bas** : les 5 sections (Profile · Projets ·
+- **Le menu de navigation est dans la barre du bas** : les 5 sections (Profile · **Mes projets** ·
   Home · ROI · Message) sont dans la **barre fixe inférieure**, visible sur toutes les pages de
   l'espace connecté et masquée uniquement sur la connexion / inscription et l'accueil public.
+- **Aucune pastille rouge sur « Message »** : elle n'apparaît que si des messages non lus
+  existent réellement pour l'utilisateur connecté (compteur du serveur). Ouvrir la messagerie
+  les marque comme lus et fait disparaître la pastille ; il n'y a jamais de badge « 0 ».
 - **La barre du bas ne recouvre pas le contenu** : elle est rendue après la WebView dans la
   colonne racine — la page occupe exactement la hauteur restante, aucun padding n'est à ajouter.
 - **Modifier le projet natif** : `android/` est **commité** ; après un changement
