@@ -475,7 +475,7 @@ function weightsFor(profile: Profile, ctx: ProjectContext, budgetMode: BudgetMod
 
 export type PriceBand = { min: number; avg: number; max: number };
 
-function priceBandFor(m: CatalogMaterial, offers: Offer[]): PriceBand {
+export function priceBandFor(m: CatalogMaterial, offers: Offer[]): PriceBand {
   const isFiniteNum = (n: number | undefined | null): n is number =>
     typeof n === "number" && Number.isFinite(n);
   if (offers.length > 0) {
@@ -700,10 +700,10 @@ const PROFILE_LABEL: Record<Profile, string> = {
   premium: "Premium",
 };
 
-const TVA = 0.19;
-const TRANSPORT_PCT = 0.035;  // 3,5 % du coût matériaux (marché tunisien — transport local)
-const WASTE_PCT = 0.07;        // 7 % pertes & déchets chantier
-const ACCESSORIES_PCT = 0.05;  // 5 % quincaillerie, visserie, consommables
+export const TVA = 0.19;
+export const TRANSPORT_PCT = 0.035;  // 3,5 % du coût matériaux (marché tunisien — transport local)
+export const WASTE_PCT = 0.07;        // 7 % pertes & déchets chantier
+export const ACCESSORIES_PCT = 0.05;  // 5 % quincaillerie, visserie, consommables
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JUSTIFICATION TECHNIQUE PAR MODE

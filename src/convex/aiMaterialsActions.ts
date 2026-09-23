@@ -19,6 +19,7 @@ import {
   RecommendResult,
   ProjectContext,
 } from "./aiMaterialsEngine";
+import { optimizeChoice } from "./choiceOptimizer";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AI MATERIALS COPILOT — Actions IA (fichier « use node »).
@@ -320,6 +321,64 @@ export const improveCopilotPerformance = action({
     await requireClientProAccess(ctx, user, "Matériaux IA");
 
     return improvePerformance({ result: args.result as RecommendResult });
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OPTIMISER MON CHOIX (§5) — évalue la sélection sur les 9 axes du scoring
+// et propose des alternatives réelles du catalogue (coût de bascule complet).
+// ═══════════════════════════════════════════════════════════════════════════
+export const optimizeChoiceCopilot = action({
+  args: { result: v.any(), enhanceWithAI: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const user = await ctx.runQuery(api.users.currentUser);
+    if (!user) throw new Error("Non connecté");
+
+    // Services Client Pro : abonnement payant actif requis
+    await requireClientProAccess(ctx, user, "Matériaux IA");
+
+    const { materials, offers } = await loadMarketData(ctx);
+    const choice = optimizeChoice({
+      result: args.result as RecommendResult,
+      materials,
+      offers,
+    });
+
+    // Enrichissement IA optionnel : un résumé en langage naturel, avec repli
+    // déterministe (l'analyse chiffrée est toujours complète sans l'API).
+    if (args.enhanceWithAI !== false && choice.alternatives.length > 0) {
+      try {
+        const aiRes = await vly.ai.completion({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "Tu es un expert matériaux de construction Tunisie 2026. Réponds avec un JSON valide : {\"summary\": \"2-4 phrases en français évaluant la sélection actuelle et commentant les 2-3 meilleures alternatives (prix, qualité, disponibilité), sans inventer de chiffres hors de ceux fournis\"}.",
+            },
+            {
+              role: "user",
+              content:
+                `Score global de la sélection : ${choice.overallScore}/100 (${choice.verdict}).\n` +
+                `Axes faibles : ${choice.axes.filter((a) => a.verdict === "faible").map((a) => `${a.label} (${a.score}/100)`).join(" ; ") || "aucun"}.\n` +
+                `Meilleures alternatives :\n${choice.alternatives.slice(0, 5).map((a) => `- ${a.categoryLabel} : ${a.currentName} → ${a.alternativeName} (${a.axisLabel} +${a.gain} pts, surcoût ${a.extraCost} TND)`).join("\n")}\n`,
+            },
+          ],
+          temperature: 0.4,
+          maxTokens: 400,
+        });
+        if (aiRes.success && aiRes.data?.choices?.[0]?.message?.content) {
+          const parsed = JSON.parse(stripFences(aiRes.data.choices[0].message.content));
+          if (typeof parsed?.summary === "string" && parsed.summary.length > 20) {
+            return sanitizeValue({ ...choice, summary: parsed.summary });
+          }
+        }
+      } catch {
+        // Repli déterministe : analyse inchangée, sans résumé IA
+      }
+    }
+
+    return sanitizeValue({ ...choice, summary: "" });
   },
 });
 
