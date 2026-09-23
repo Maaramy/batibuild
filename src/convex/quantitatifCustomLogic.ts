@@ -65,6 +65,70 @@ export function quantitatifLineKey(lotId: string, lineIndex: number): string {
   return `${lotId}::${lineIndex}`;
 }
 
+export interface LockedArticleReference {
+  /** Quantité de l'article dans le quantitatif du projet (verrouillée). */
+  quantity: number;
+  /** Prix unitaire de l'article dans le quantitatif du projet (verrouillé). */
+  unitPrice: number;
+  /** Désignation de l'article dans le quantitatif du projet. */
+  designation: string;
+  /** Unité de l'article dans le quantitatif du projet. */
+  unit: string;
+}
+
+/**
+ * Article de référence d'une ligne du quantitatif, relu dans les lots
+ * enregistrés du projet.
+ *
+ * La quantité et le prix unitaire ne proviennent JAMAIS du client : ils sont
+ * toujours résolus ici, côté serveur, ce qui rend le verrouillage
+ * (quantité = quantité de référence, prix unitaire = prix de référence décliné
+ * selon le scénario) impossible à contourner.
+ *
+ * La position (`lineIndex`) est utilisée en priorité ; si le quantitatif a été
+ * régénéré et que la ligne a bougé, la désignation d'origine sert de repli —
+ * jamais une autre ligne (retourne `null` dans ce cas).
+ */
+export function resolveLockedArticle(
+  dqeLots: any[] | null | undefined,
+  lotId: string,
+  lineIndex: number,
+  baseDesignation?: string,
+): LockedArticleReference | null {
+  const lot = (dqeLots ?? []).find((l: any) => l?.id === lotId);
+  const lines: any[] = lot?.lines ?? [];
+  const atIndex = lines[lineIndex];
+  const line =
+    atIndex && (!baseDesignation || atIndex.designation === baseDesignation)
+      ? atIndex
+      : baseDesignation
+        ? lines.find((l: any) => l?.designation === baseDesignation)
+        : undefined;
+  if (!line) return null;
+  const quantity = Number(line.quantity) || 0;
+  const unitPrice = Number(line.unitPrice) || 0;
+  if (!(quantity > 0) || !(unitPrice > 0)) return null;
+  return {
+    quantity,
+    unitPrice,
+    designation: String(line.designation ?? ""),
+    unit: String(line.unit ?? ""),
+  };
+}
+
+/**
+ * Prix unitaire verrouillé d'un article : prix de référence du quantitatif
+ * (niveau « Standard » du moteur) décliné selon le scénario de budget choisi.
+ * Recalculé côté serveur, il ne peut pas être fourni par le client.
+ */
+export function lockedUnitPriceForScenario(
+  referenceUnitPrice: number,
+  scenarios: any,
+  priceScenario: BudgetScenarioKey,
+): number {
+  return unitPriceForScenario(referenceUnitPrice, scenarios, priceScenario);
+}
+
 export interface QuantitatifCustomizationEntry {
   lineKey: string;
   lotId: string;

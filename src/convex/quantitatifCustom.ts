@@ -14,7 +14,9 @@ import { getCurrentUser } from "./users";
 import {
   isEditableLot,
   isNoopCustomization,
+  lockedUnitPriceForScenario,
   quantitatifLineKey,
+  resolveLockedArticle,
 } from "./quantitatifCustomLogic";
 import { buildLivePriceIndex, getCompatibleArticles } from "./quantitatifCatalog";
 
@@ -108,6 +110,12 @@ export const getCompatibleArticlesForLine = query({
 /**
  * Enregistre (ou met à jour) la personnalisation d'un article. Une sauvegarde
  * sans effet (identique au scénario de référence) supprime la personnalisation.
+ *
+ * La **quantité** et le **prix unitaire** sont verrouillés : ils ne sont jamais
+ * acceptés depuis le client (aucun argument correspondant) mais relus dans le
+ * quantitatif du projet, le prix unitaire étant décliné selon le scénario de
+ * budget demandé. Seules les informations autorisées de l'article
+ * (désignation, unité, niveau de finition, remplacement) sont enregistrées.
  */
 export const saveItemCustomization = mutation({
   args: {
@@ -118,11 +126,6 @@ export const saveItemCustomization = mutation({
     baseDesignation: v.string(),
     designation: v.string(),
     unit: v.string(),
-    baseUnit: v.string(),
-    quantity: v.number(),
-    baseQuantity: v.number(),
-    unitPrice: v.number(),
-    baseUnitPrice: v.number(),
     nature: v.string(),
     priceScenario: scenarioValidator,
     replacedArticle: v.boolean(),
@@ -134,7 +137,28 @@ export const saveItemCustomization = mutation({
     if (!isEditableLot(args.lotId)) {
       throw new Error("Cette catégorie n'est pas modifiable");
     }
-    if (!(args.quantity > 0) || !(args.unitPrice > 0)) {
+
+    // ── Verrouillage (quantité & prix unitaire) ──────────────────────────
+    // Source de vérité : l'article de référence du quantitatif du projet. Une
+    // tentative de contournement (client forgé, arguments supplémentaires) est
+    // rejetée par la validation des arguments, et toute valeur de quantité ou
+    // de prix unitaire envoyée serait ignorée par ce recalcul.
+    const reference = resolveLockedArticle(
+      (project as any)?.dqe?.lots,
+      args.lotId,
+      args.lineIndex,
+      args.baseDesignation,
+    );
+    if (!reference) {
+      throw new Error("Article de référence introuvable dans le quantitatif du projet");
+    }
+    const quantity = reference.quantity;
+    const unitPrice = lockedUnitPriceForScenario(
+      reference.unitPrice,
+      (project as any)?.costEstimate?.budgetScenarios,
+      args.priceScenario,
+    );
+    if (!(quantity > 0) || !(unitPrice > 0)) {
       throw new Error("Quantité et prix unitaire doivent être positifs");
     }
 
@@ -150,8 +174,8 @@ export const saveItemCustomization = mutation({
       baseDesignation: args.baseDesignation,
       designation: args.designation,
       unit: args.unit,
-      quantity: args.quantity,
-      unitPrice: args.unitPrice,
+      quantity,
+      unitPrice,
       nature: args.nature,
       priceScenario: args.priceScenario,
       replacedArticle: args.replacedArticle,
@@ -162,11 +186,11 @@ export const saveItemCustomization = mutation({
       baseDesignation: args.baseDesignation,
       designation: args.designation,
       unit: args.unit,
-      baseUnit: args.baseUnit,
-      quantity: args.quantity,
-      baseQuantity: args.baseQuantity,
-      unitPrice: args.unitPrice,
-      baseUnitPrice: args.baseUnitPrice,
+      baseUnit: reference.unit,
+      quantity,
+      baseQuantity: reference.quantity,
+      unitPrice,
+      baseUnitPrice: reference.unitPrice,
       priceScenario: args.priceScenario,
     });
 

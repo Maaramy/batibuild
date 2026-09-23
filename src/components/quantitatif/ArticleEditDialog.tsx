@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   Check,
   Loader2,
+  Lock,
   RotateCcw,
   Search,
   Sparkles,
@@ -41,12 +42,16 @@ const fmt = (n: number) =>
 
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
+/** Message exact affiché lorsqu'aucun article du même usage n'existe. */
+export const NO_COMPATIBLE_ARTICLE_MESSAGE =
+  "Aucun article compatible trouvé dans le référentiel pour cet usage.";
+
 export type ArticleScenarioChoice = BudgetScenarioKey | typeof PERSONALIZED_SCENARIO_KEY;
 
 interface SelectedArticle {
   name: string;
   unit: string;
-  unitPrice: number;
+  /** L'article provient de la liste prédéfinie (remplacement). */
   replaced: boolean;
 }
 
@@ -107,76 +112,73 @@ export function ArticleEditDialog({
   const [scenario, setScenario] = useState<ArticleScenarioChoice>(
     existing?.priceScenario ?? displayedScenario,
   );
-  const [article, setArticle] = useState<SelectedArticle | null>(() => {
-    if (!existing?.replacedArticle) return null;
-    // Prix de base de l'article (niveau catalogue), indépendamment du niveau
-    // de finition déjà appliqué à cet article.
-    return {
-      name: existing.designation,
-      unit: existing.unit,
-      unitPrice: standardLevelFromPrice(
-        existing.unitPrice,
-        scenarios,
-        existing.priceScenario,
-      ),
-      replaced: true,
-    };
-  });
-  const [quantity, setQuantity] = useState<number>(
-    Number(existing?.quantity ?? line?.quantity) || 1,
+  const [article, setArticle] = useState<SelectedArticle | null>(() =>
+    existing?.replacedArticle
+      ? { name: existing.designation, unit: existing.unit, replaced: true }
+      : null,
   );
-  const [unitPriceInput, setUnitPriceInput] = useState<string>(() => {
-    const base = existing ? existing.unitPrice : Number(line?.unitPrice) || 0;
-    return String(Math.round(base * displayFactor * 100) / 100);
-  });
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
 
-  // Prix de référence (niveau « Standard » du moteur) de l'article retenu.
-  const articleStandardBase = article ? article.unitPrice : Number(line?.unitPrice) || 0;
+  // ── Quantité & prix unitaire : VERROUILLÉS ──────────────────────────────
+  // Ces deux valeurs proviennent exclusivement de l'article de référence du
+  // quantitatif (ou de la personnalisation déjà enregistrée). Elles sont
+  // affichées en lecture seule et ne peuvent être modifiées ni par saisie, ni
+  // par boutons, ni au clavier, ni via le DOM. Le montant reste recalculé
+  // automatiquement : montant = quantité × prix unitaire. Le serveur relit lui
+  // aussi ces deux valeurs (voir `saveItemCustomization`) : la restriction
+  // n'est donc pas contournable. Choisir un article compatible ne met à jour
+  // que les informations autorisées de l'article (désignation, unité).
+  const quantity = Number(existing?.quantity ?? line?.quantity) || 0;
 
-  // Montants du popup exprimés au niveau du scénario affiché (comme le tableau
-  // du quantitatif) ; seule la valeur enregistrée est ramenée au niveau de
+  // Prix de référence (niveau « Standard » du moteur) de l'article de
+  // référence : il n'est jamais remplacé par un prix saisi par l'utilisateur,
+  // ni par le prix catalogue d'un article de remplacement.
+  const baseStandardPrice = existing
+    ? standardLevelFromPrice(existing.unitPrice, scenarios, existing.priceScenario)
+    : Number(line?.unitPrice) || 0;
+
+  // Montant affiché exprimé au niveau du scénario affiché (comme le tableau du
+  // quantitatif) ; seule la valeur enregistrée est ramenée au niveau de
   // référence du moteur.
   const scenarioDisplayedPrice = useMemo(() => {
     const stdPrice =
       scenario === PERSONALIZED_SCENARIO_KEY
         ? existing
           ? existing.unitPrice
-          : articleStandardBase
-        : unitPriceForScenario(articleStandardBase, scenarios, scenario);
+          : baseStandardPrice
+        : unitPriceForScenario(baseStandardPrice, scenarios, scenario);
     return Math.round(stdPrice * displayFactor * 100) / 100;
-  }, [scenario, existing, articleStandardBase, scenarios, displayFactor]);
+  }, [scenario, existing, baseStandardPrice, scenarios, displayFactor]);
 
-  const manualDisplayedPrice = useMemo(() => {
-    if (!unitPriceInput.trim()) return null;
-    const parsed = Number(unitPriceInput.replace(",", "."));
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  }, [unitPriceInput]);
-
-  const effectiveDisplayedPrice = manualDisplayedPrice ?? scenarioDisplayedPrice;
-  const effectiveStdUnitPrice = effectiveDisplayedPrice / (displayFactor || 1);
+  const effectiveStdUnitPrice = scenarioDisplayedPrice / (displayFactor || 1);
 
   const oldStdTotal = existing
     ? existing.quantity * existing.unitPrice
     : (Number(line?.quantity) || 0) * (Number(line?.unitPrice) || 0);
 
   const oldAmount = Math.round(oldStdTotal * displayFactor);
-  const newAmount = Math.round(quantity * effectiveDisplayedPrice);
+  const newAmount = Math.round(quantity * scenarioDisplayedPrice);
   const difference = newAmount - oldAmount;
   const projectedTotal = quantitatifTotal - oldAmount + newAmount;
 
   const unit = article?.unit || line?.unit || "";
   const designation = article?.name || line?.designation || "";
 
+  // Les articles compatibles sont chargés dès l'ouverture du popup : leur
+  // absence doit masquer complètement la barre « Choisir un article
+  // compatible » (aucun champ de recherche vide, aucune liste vide, aucune
+  // proposition provenant d'un autre usage).
   const compatible = useQuery(
     api.quantitatifCustom.getCompatibleArticlesForLine,
-    open && showPicker
+    open
       ? { projectId: projectId as any, lotId, designation: line?.designation ?? "", unit: line?.unit ?? "" }
       : "skip",
   );
+  const compatibleLoaded = compatible !== undefined;
+  const hasCompatible = (compatible?.articles?.length ?? 0) > 0;
 
   const filteredArticles = useMemo(() => {
     const list = compatible?.articles ?? [];
@@ -186,35 +188,28 @@ export function ArticleEditDialog({
   }, [compatible, pickerQuery]);
 
   const pickArticle = (a: any) => {
-    const sameUnit = a.unit === (line?.unit ?? "");
-    setArticle({ name: a.name, unit: a.unit, unitPrice: a.unitPrice, replaced: true });
-    setUnitPriceInput(String(Math.round(a.unitPrice * displayFactor * 100) / 100));
-    if (!sameUnit) setQuantity(1);
+    // Seules les informations autorisées de l'article changent : la quantité et
+    // le prix unitaire (donc le montant) restent verrouillés par le système.
+    setArticle({ name: a.name, unit: a.unit, replaced: true });
     setShowPicker(false);
-    toast.success(
-      sameUnit
-        ? `Article remplacé par « ${a.name} »`
-        : `Article remplacé — quantité ajustée à 1 (${a.unit})`,
-    );
+    toast.success(`Article remplacé par « ${a.name} » — quantité et prix unitaire inchangés`);
   };
 
   const revertArticle = () => {
     setArticle(null);
-    setUnitPriceInput(
-      String(Math.round((Number(line?.unitPrice) || 0) * displayFactor * 100) / 100),
-    );
-    setQuantity(Number(line?.quantity) || 1);
     setScenario(displayedScenario);
   };
 
   const handleSave = async () => {
     if (saving) return;
+    // Quantité et prix unitaire sont verrouillés (valeurs de référence) : on
+    // vérifie seulement qu'ils restent exploitables pour le calcul du montant.
     if (!(quantity > 0)) {
-      toast.error("La quantité doit être supérieure à 0");
+      toast.error("La quantité de référence de l'article doit être supérieure à 0");
       return;
     }
-    if (!(effectiveDisplayedPrice > 0) || !(effectiveStdUnitPrice > 0)) {
-      toast.error("Le prix unitaire doit être supérieur à 0");
+    if (!(scenarioDisplayedPrice > 0) || !(effectiveStdUnitPrice > 0)) {
+      toast.error("Le prix unitaire de référence de l'article doit être supérieur à 0");
       return;
     }
     setSaving(true);
@@ -231,11 +226,6 @@ export function ArticleEditDialog({
         baseDesignation: line?.designation ?? "",
         designation,
         unit,
-        baseUnit: line?.unit ?? "",
-        quantity,
-        baseQuantity: Number(line?.quantity) || 0,
-        unitPrice: Math.round(effectiveStdUnitPrice * 100) / 100,
-        baseUnitPrice: Math.round((Number(line?.unitPrice) || 0) * 100) / 100,
         nature: line?.nature ?? "materiaux",
         priceScenario: storedScenario,
         replacedArticle: !!article,
@@ -284,7 +274,7 @@ export function ArticleEditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {showPicker ? (
+        {showPicker && hasCompatible ? (
           /* ───────────── Sélection d'un article compatible ───────────── */
           <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -304,6 +294,11 @@ export function ArticleEditDialog({
               </Badge>
             </div>
 
+            <p className="text-[10px] text-muted-foreground">
+              Articles du même usage que l'article actuel uniquement. Prix indicatifs du
+              référentiel — la quantité et le prix unitaire de l'article restent verrouillés.
+            </p>
+
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
@@ -315,15 +310,9 @@ export function ArticleEditDialog({
             </div>
 
             <div className="rounded-lg border divide-y divide-border/10 max-h-[45vh] overflow-y-auto">
-              {compatible === undefined && (
-                <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Recherche des articles compatibles…
-                </div>
-              )}
-              {compatible !== undefined && filteredArticles.length === 0 && (
+              {filteredArticles.length === 0 && (
                 <p className="py-6 text-center text-xs text-muted-foreground">
-                  Aucun article compatible trouvé dans le référentiel pour cet usage.
+                  Aucun article ne correspond à votre recherche.
                 </p>
               )}
               {filteredArticles.map((a: any) => (
@@ -344,7 +333,7 @@ export function ArticleEditDialog({
                       )}
                       {a.sameSubcategory && !a.unitCompatible && (
                         <Badge variant="outline" className="text-[8px] h-4 px-1">
-                          même usage
+                          même sous-famille
                         </Badge>
                       )}
                       {a.sku && (
@@ -376,36 +365,14 @@ export function ArticleEditDialog({
               <Row label="Nom" value={designation} />
               <Row label="Catégorie" value={lotName} />
               <Row label="Unité" value={unit} />
-              <Row
-                label="Quantité"
-                valueNode={
-                  <Input
-                    value={String(quantity)}
-                    onChange={(e) => {
-                      const parsed = Number(e.target.value.replace(",", "."));
-                      setQuantity(Number.isFinite(parsed) ? parsed : 0);
-                    }}
-                    inputMode="decimal"
-                    className="h-6 w-24 text-[11px] text-right tabular-nums ml-auto"
-                  />
-                }
-              />
+              {/* Quantité et prix unitaire : lecture seule stricte — aucun champ
+                  éditable, aucun bouton +/−, donc aucune saisie possible (ni au
+                  clavier, ni via le DOM). */}
+              <Row label="Quantité" valueNode={<ReadOnlyValue value={String(quantity)} />} />
               <Row
                 label="Prix unitaire"
-                valueNode={
-                  <Input
-                    value={unitPriceInput}
-                    onChange={(e) => setUnitPriceInput(e.target.value)}
-                    inputMode="decimal"
-                    className="h-6 w-28 text-[11px] text-right tabular-nums ml-auto"
-                  />
-                }
-                hint={
-                  manualDisplayedPrice != null &&
-                  Math.abs(manualDisplayedPrice - scenarioDisplayedPrice) > 0.01
-                    ? "prix personnalisé"
-                    : undefined
-                }
+                valueNode={<ReadOnlyValue value={fmt(scenarioDisplayedPrice)} />}
+                hint="verrouillé"
               />
               <Row label="Montant" value={fmt(newAmount)} strong />
             </div>
@@ -420,7 +387,7 @@ export function ArticleEditDialog({
                   // Valeurs déjà utilisées par le moteur de calcul : le choix
                   // d'un scénario recalcule le prix unitaire de l'article.
                   ...BUDGET_SCENARIO_KEYS.map((k) => {
-                    const std = unitPriceForScenario(articleStandardBase, scenarios, k);
+                    const std = unitPriceForScenario(baseStandardPrice, scenarios, k);
                     return {
                       key: k as ArticleScenarioChoice,
                       label: BUDGET_SCENARIO_LABELS[k],
@@ -433,7 +400,7 @@ export function ArticleEditDialog({
                     label: PERSONALIZED_SCENARIO_LABEL,
                     // Valeur personnalisée déjà enregistrée pour cet article,
                     // sinon niveau de référence (catalogue).
-                    raw: existing ? existing.unitPrice : articleStandardBase,
+                    raw: existing ? existing.unitPrice : baseStandardPrice,
                     hint: existing ? "valeur personnalisée" : "niveau de référence",
                   },
                 ].map((opt) => {
@@ -442,12 +409,7 @@ export function ArticleEditDialog({
                     <button
                       key={opt.key}
                       type="button"
-                      onClick={() => {
-                        setScenario(opt.key);
-                        setUnitPriceInput(
-                          String(Math.round(opt.raw * displayFactor * 100) / 100),
-                        );
-                      }}
+                      onClick={() => setScenario(opt.key)}
                       className={cn(
                         "flex items-start gap-2 rounded-lg border p-2 text-left transition-all",
                         active
@@ -486,7 +448,8 @@ export function ArticleEditDialog({
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-semibold truncate">{article.name}</p>
                     <p className="text-[9px] text-muted-foreground">
-                      Article de remplacement — {fmt(article.unitPrice)} / {article.unit}
+                      Article de remplacement — unité {article.unit || "—"} · quantité et prix
+                      unitaire verrouillés
                     </p>
                   </div>
                   <Button
@@ -504,16 +467,31 @@ export function ArticleEditDialog({
                   Article actuel : <span className="font-medium text-foreground/80">{line?.designation}</span>
                 </p>
               )}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full h-8 text-xs gap-1.5"
-                onClick={() => setShowPicker(true)}
-              >
-                <Search className="h-3.5 w-3.5" />
-                Choisir un article compatible
-              </Button>
+              {/* Aucun article du même usage dans le référentiel : la barre
+                  « Choisir un article compatible » est entièrement masquée
+                  (pas de champ vide, pas de liste vide, aucun article d'un
+                  autre usage) et l'article sélectionné est conservé. */}
+              {!compatibleLoaded ? (
+                <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed py-2 text-[10px] text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Recherche des articles compatibles…
+                </div>
+              ) : hasCompatible ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-8 text-xs gap-1.5"
+                  onClick={() => setShowPicker(true)}
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  Choisir un article compatible
+                </Button>
+              ) : (
+                <p className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-2.5 py-2 text-[10px] leading-snug text-amber-700">
+                  {NO_COMPATIBLE_ARTICLE_MESSAGE}
+                </p>
+              )}
             </div>
 
             {/* Impact */}
@@ -594,6 +572,23 @@ export function ArticleEditDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Valeur strictement en lecture seule : aucun élément éditable n'est rendu, la
+ * valeur ne peut donc pas être modifiée par saisie, au clavier ou via le DOM.
+ */
+function ReadOnlyValue({ value }: { value: string }) {
+  return (
+    <span
+      aria-readonly="true"
+      title="Valeur verrouillée (lecture seule)"
+      className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-muted/40 px-2 py-0.5 ml-auto select-none"
+    >
+      <Lock className="h-3 w-3 text-muted-foreground/60" />
+      <span className="text-[11px] font-medium tabular-nums text-foreground/80">{value}</span>
+    </span>
   );
 }
 

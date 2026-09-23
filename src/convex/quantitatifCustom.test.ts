@@ -480,31 +480,30 @@ describe("quantitatifCustom — persistance", () => {
     t = convexTest(schema, modules);
   });
 
-  async function setup(needle = CIMENT) {
+  async function setup(needle = CIMENT, overrides: Record<string, unknown> = {}) {
     const userId = await createUser(t);
-    const projectId = await createProject(t, userId);
     const { dqe } = dqeFixture();
+    // Le quantitatif enregistré du projet est la source de vérité du serveur
+    // (quantité et prix unitaire verrouillés).
+    const projectId = await createProject(t, userId, { dqe, ...overrides });
     const target = findLine(dqe.lots, "gros_oeuvre", needle);
     return { userId, projectId, dqe, target };
   }
 
   function saveArgs(projectId: any, target: any, overrides: Record<string, unknown> = {}) {
+    // Aucune quantité ni prix unitaire : ces deux valeurs sont verrouillées et
+    // relues côté serveur.
     return {
       projectId,
       lotId: "gros_oeuvre",
       lotName: target.lot.name,
       lineIndex: target.index,
       baseDesignation: target.line.designation,
-      designation: target.line.designation,
+      designation: `${target.line.designation} — variante`,
       unit: target.line.unit,
-      baseUnit: target.line.unit,
-      quantity: target.line.quantity,
-      baseQuantity: target.line.quantity,
-      unitPrice: target.line.unitPrice + 5,
-      baseUnitPrice: target.line.unitPrice,
       nature: target.line.nature,
       priceScenario: "standard" as const,
-      replacedArticle: false,
+      replacedArticle: true,
       baseScenario: "standard" as const,
       ...overrides,
     };
@@ -526,8 +525,10 @@ describe("quantitatifCustom — persistance", () => {
     });
     expect(doc?.modifiedCount).toBe(1);
     expect(doc?.baseScenario).toBe("standard");
-    expect(doc?.modifications[0].unitPrice).toBeCloseTo(target.line.unitPrice + 5, 6);
-    expect(doc?.modifications[0].designation).toBe(target.line.designation);
+    // Quantité et prix unitaire verrouillés : valeurs de l'article de référence.
+    expect(doc?.modifications[0].quantity).toBe(target.line.quantity);
+    expect(doc?.modifications[0].unitPrice).toBeCloseTo(target.line.unitPrice, 6);
+    expect(doc?.modifications[0].designation).toBe(`${target.line.designation} — variante`);
   });
 
   it("regroupe plusieurs articles dans un seul scénario Personnalisé", async () => {
@@ -545,13 +546,7 @@ describe("quantitatifCustom — persistance", () => {
         lotName: other.lot.name,
         lineIndex: other.index,
         baseDesignation: other.line.designation,
-        designation: other.line.designation,
         unit: other.line.unit,
-        baseUnit: other.line.unit,
-        quantity: other.line.quantity,
-        baseQuantity: other.line.quantity,
-        unitPrice: other.line.unitPrice + 2,
-        baseUnitPrice: other.line.unitPrice,
         nature: other.line.nature,
       }),
     );
@@ -572,20 +567,28 @@ describe("quantitatifCustom — persistance", () => {
     );
     await asUser(t, userId).mutation(
       api.quantitatifCustom.saveItemCustomization,
-      saveArgs(projectId, target, { unitPrice: target.line.unitPrice + 40 }),
+      saveArgs(projectId, target, { designation: "Autre article", unit: "u" }),
     );
     const doc = await asUser(t, userId).query(api.quantitatifCustom.getCustomization, {
       projectId,
     });
     expect(doc?.modifiedCount).toBe(1);
-    expect(doc?.modifications[0].unitPrice).toBeCloseTo(target.line.unitPrice + 40, 6);
+    expect(doc?.modifications[0].designation).toBe("Autre article");
+    expect(doc?.modifications[0].unit).toBe("u");
+    // Quantité et prix unitaire restent ceux de l'article de référence.
+    expect(doc?.modifications[0].quantity).toBe(target.line.quantity);
+    expect(doc?.modifications[0].unitPrice).toBeCloseTo(target.line.unitPrice, 6);
   });
 
   it("ne crée rien pour une sauvegarde sans effet", async () => {
     const { userId, projectId, target } = await setup();
     const res = await asUser(t, userId).mutation(
       api.quantitatifCustom.saveItemCustomization,
-      saveArgs(projectId, target, { unitPrice: target.line.unitPrice }),
+      saveArgs(projectId, target, {
+        designation: target.line.designation,
+        unit: target.line.unit,
+        replacedArticle: false,
+      }),
     );
     expect(res.removed).toBe(true);
     expect(
@@ -606,11 +609,7 @@ describe("quantitatifCustom — persistance", () => {
       saveArgs(projectId, other, {
         lineIndex: other.index,
         baseDesignation: other.line.designation,
-        designation: other.line.designation,
-        quantity: other.line.quantity,
-        baseQuantity: other.line.quantity,
-        unitPrice: other.line.unitPrice + 3,
-        baseUnitPrice: other.line.unitPrice,
+        unit: other.line.unit,
         nature: other.line.nature,
       }),
     );
@@ -656,13 +655,8 @@ describe("quantitatifCustom — persistance", () => {
         lotName: vrd?.name ?? "Transports & autres",
         lineIndex: 0,
         baseDesignation: "Benne",
-        designation: "Benne",
+        designation: "Benne 8 m³",
         unit: "bennes",
-        baseUnit: "bennes",
-        quantity: 1,
-        baseQuantity: 1,
-        unitPrice: 200,
-        baseUnitPrice: 160,
         nature: "transport",
         priceScenario: "standard" as const,
         replacedArticle: false,
@@ -671,20 +665,82 @@ describe("quantitatifCustom — persistance", () => {
     ).rejects.toThrow(/modifiable/i);
   });
 
-  it("refuse un prix ou une quantité non positifs", async () => {
+  it("verrouille la quantité et le prix unitaire : aucune valeur client n'est acceptée", async () => {
     const { userId, projectId, target } = await setup();
+    // Tentative de forçage : la quantité et le prix unitaire ne font plus
+    // partie de l'API (la validation des arguments rejette tout champ
+    // supplémentaire) et seraient de toute façon ignorés par le recalcul
+    // serveur depuis l'article de référence.
     await expect(
-      asUser(t, userId).mutation(
-        api.quantitatifCustom.saveItemCustomization,
-        saveArgs(projectId, target, { unitPrice: 0 }),
-      ),
-    ).rejects.toThrow(/positifs/i);
+      asUser(t, userId).mutation(api.quantitatifCustom.saveItemCustomization, {
+        ...saveArgs(projectId, target),
+        quantity: 9_999,
+        unitPrice: 1,
+        baseQuantity: 1,
+        baseUnitPrice: 1,
+      } as any),
+    ).rejects.toThrow(/Unexpected field|extra field/i);
+
+    await asUser(t, userId).mutation(
+      api.quantitatifCustom.saveItemCustomization,
+      saveArgs(projectId, target),
+    );
+    const doc = await asUser(t, userId).query(api.quantitatifCustom.getCustomization, {
+      projectId,
+    });
+    expect(doc?.modifications[0].quantity).toBe(target.line.quantity);
+    expect(doc?.modifications[0].unitPrice).toBeCloseTo(target.line.unitPrice, 6);
+  });
+
+  it("décline le prix unitaire verrouillé selon le scénario de budget", async () => {
+    const { userId, projectId, target } = await setup(CIMENT, {
+      costEstimate: {
+        totalCost: 100_000,
+        currency: "TND",
+        breakdown: [],
+        contingencyBuffer: 0,
+        contingencyPercentage: 0,
+        budgetScenarios: {
+          economique: { totalCost: 80_000, costPerM2: 800, label: "Économique", multiplier: 0.8 },
+          standard: { totalCost: 100_000, costPerM2: 1_000, label: "Standard", multiplier: 1 },
+          premium: { totalCost: 125_000, costPerM2: 1_250, label: "Premium", multiplier: 1.25 },
+        },
+      },
+    });
+
+    await asUser(t, userId).mutation(
+      api.quantitatifCustom.saveItemCustomization,
+      saveArgs(projectId, target, { priceScenario: "premium", baseScenario: "premium" }),
+    );
+    const doc = await asUser(t, userId).query(api.quantitatifCustom.getCustomization, {
+      projectId,
+    });
+    expect(doc?.modifications[0].unitPrice).toBeCloseTo(
+      unitPriceForScenario(target.line.unitPrice, SCENARIOS, "premium"),
+      6,
+    );
+    expect(doc?.modifications[0].quantity).toBe(target.line.quantity);
+  });
+
+  it("refuse un article de référence introuvable dans le quantitatif", async () => {
+    const userId = await createUser(t, { email: "sans-dqe@test.com" });
+    // Projet enregistré sans quantitatif : aucune référence à verrouiller.
+    const projectId = await createProject(t, userId);
     await expect(
-      asUser(t, userId).mutation(
-        api.quantitatifCustom.saveItemCustomization,
-        saveArgs(projectId, target, { quantity: 0 }),
-      ),
-    ).rejects.toThrow(/positifs/i);
+      asUser(t, userId).mutation(api.quantitatifCustom.saveItemCustomization, {
+        projectId,
+        lotId: "gros_oeuvre",
+        lotName: "Gros œuvre (fondations, structures)",
+        lineIndex: 0,
+        baseDesignation: "Article inconnu",
+        designation: "Article inconnu — variante",
+        unit: "u",
+        nature: "materiaux",
+        priceScenario: "standard" as const,
+        replacedArticle: false,
+        baseScenario: "standard" as const,
+      }),
+    ).rejects.toThrow(/introuvable/i);
   });
 
   it("isole les personnalisations par utilisateur", async () => {
