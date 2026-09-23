@@ -7,21 +7,23 @@ import { useAuth } from "@/hooks/use-auth";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "@/components/StarRating";
 import {
-  ArrowLeft, Store, Search, MapPin, Phone, Mail,
-  ChevronDown, X, Filter, FileText, Loader2, Send, Layers,
+  ArrowLeft, Store, MapPin, Phone, Mail, Briefcase, Star,
+  FileText, Loader2, Send, Layers,
 } from "lucide-react";
+import {
+  DirectorySearchBar,
+  type DirectoryCriterionGroup,
+  type DirectorySearchChip,
+} from "@/components/directory/DirectorySearch";
 import { toast } from "sonner";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
-import { profileCardClass, VerifiedBadge, TrophyLine, MetricRow, DetailRow } from "@/components/ProfileCardBits";
+import { profileCardClass, VerifiedBadge } from "@/components/ProfileCardBits";
 
 // ── Region labels ────────────────────────────────────────────────────────────
 
@@ -114,12 +116,6 @@ export default function SuppliersDirectory() {
   );
   const autoSpecialtiesKey = autoSpecialties.join(",");
   const selectedRegion = searchParams.get("region") ?? "";
-  // La première spécialité appliquée est affichée dans la liste déroulante,
-  // les suivantes restent visibles sous forme de badges (filtre « au moins une »).
-  const selectedSpecialty =
-    autoSpecialties.find((sp) => availableSpecialties.includes(sp)) ??
-    autoSpecialties[0] ??
-    "";
 
   /** Met à jour les filtres dans l'URL (remplace les anciens états locaux). */
   const setFilters = (patch: {
@@ -172,6 +168,82 @@ export default function SuppliersDirectory() {
 
   const activeFilterCount =
     (autoSpecialties.length > 0 ? 1 : 0) + (selectedRegion ? 1 : 0) + (search ? 1 : 0);
+
+  /** Réinitialise tous les critères de recherche. */
+  const resetFilters = () => {
+    setSearch("");
+    setFilters({ specialty: [], region: null, from: null });
+  };
+
+  /**
+   * Bascule « Type » de l'annuaire : les fournisseurs et les experts restent
+   * deux listes distinctes (données et logique inchangées), le critère Type
+   * navigue donc vers l'annuaire correspondant en conservant la région.
+   */
+  const goToExperts = () => {
+    const qs = selectedRegion ? `?region=${encodeURIComponent(selectedRegion)}` : "";
+    navigate(`/dashboard/professionals-directory${qs}`);
+  };
+
+  /** Critères proposés dans le panneau de recherche. */
+  const searchGroups: DirectoryCriterionGroup[] = [
+    {
+      id: "type",
+      label: "Type",
+      options: [
+        { value: "expert", label: "Experts", icon: Briefcase },
+        { value: "fournisseur", label: "Fournisseurs", icon: Store },
+      ],
+      selected: ["fournisseur"],
+      onSelect: (v) => {
+        if (v === "expert") goToExperts();
+      },
+    },
+    {
+      id: "specialty",
+      label: "Spécialité / activité",
+      options: availableSpecialties.map((sp) => ({
+        value: sp,
+        label: SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp,
+      })),
+      selected: autoSpecialties.filter((sp) => availableSpecialties.includes(sp)),
+      onSelect: (v) =>
+        setFilters({
+          specialty: autoSpecialties.includes(v)
+            ? autoSpecialties.filter((sp) => sp !== v)
+            : [...autoSpecialties, v],
+          from: null, // l'utilisateur reprend la main sur les filtres
+        }),
+    },
+    {
+      id: "region",
+      label: "Région / gouvernorat",
+      options: availableRegions.map((r) => ({ value: r, label: REGION_LABELS[r] ?? r })),
+      selected: selectedRegion ? [selectedRegion] : [],
+      onSelect: (v) =>
+        setFilters({ region: selectedRegion === v ? null : v, from: null }),
+    },
+  ];
+
+  /** Critères retenus, affichés dans la barre de recherche. */
+  const searchChips: DirectorySearchChip[] = [
+    ...(search ? [{ key: "q", label: `« ${search} »`, onRemove: () => setSearch("") }] : []),
+    ...autoSpecialties.map((sp) => ({
+      key: `specialty-${sp}`,
+      label: SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp,
+      onRemove: () =>
+        setFilters({ specialty: autoSpecialties.filter((x) => x !== sp) }),
+    })),
+    ...(selectedRegion
+      ? [
+          {
+            key: "region",
+            label: REGION_LABELS[selectedRegion] ?? selectedRegion,
+            onRemove: () => setFilters({ region: null }),
+          },
+        ]
+      : []),
+  ];
 
   const openQuoteDialog = (s: any) => {
     if (!user) {
@@ -243,123 +315,17 @@ export default function SuppliersDirectory() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-4">
-        {/* ── Filters bar ── */}
-        <Card className="border border-border/40 overflow-hidden rounded-xl">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher un fournisseur…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="h-9 text-sm pl-8 pr-8 rounded-lg"
-                />
-                {search && (
-                  <button
-                    onClick={() => setSearch("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Specialty filter */}
-              <div className="relative min-w-[180px]">
-                <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <select
-                  value={selectedSpecialty}
-                  onChange={(e) =>
-                    setFilters({
-                      specialty: e.target.value ? [e.target.value] : [],
-                      from: null, // l'utilisateur reprend la main sur les filtres
-                    })
-                  }
-                  className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-8 text-sm appearance-none"
-                >
-                  <option value="">Toutes spécialités</option>
-                  {availableSpecialties.map((sp) => (
-                    <option key={sp} value={sp}>
-                      {SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              </div>
-
-              {/* Region filter */}
-              <div className="relative min-w-[180px]">
-                <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <select
-                  value={selectedRegion}
-                  onChange={(e) =>
-                    setFilters({
-                      region: e.target.value || null,
-                      from: null, // l'utilisateur reprend la main sur les filtres
-                    })
-                  }
-                  className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-8 text-sm appearance-none"
-                >
-                  <option value="">Toutes régions</option>
-                  {availableRegions.map((r) => (
-                    <option key={r} value={r}>
-                      {REGION_LABELS[r] ?? r}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              </div>
-            </div>
-
-            {/* Active filters chips */}
-            {activeFilterCount > 0 && (
-              <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-                <span className="text-[9px] text-muted-foreground">Filtres actifs :</span>
-                {search && (
-                  <Badge variant="secondary" className="text-[9px] gap-1 h-5 px-1.5">
-                    « {search} »
-                    <button onClick={() => setSearch("")}>
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </Badge>
-                )}
-                {autoSpecialties.map((sp) => (
-                  <Badge key={sp} variant="secondary" className="text-[9px] gap-1 h-5 px-1.5">
-                    {SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp}
-                    <button
-                      onClick={() =>
-                        setFilters({
-                          specialty: autoSpecialties.filter((x) => x !== sp),
-                        })
-                      }
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </Badge>
-                ))}
-                {selectedRegion && (
-                  <Badge variant="secondary" className="text-[9px] gap-1 h-5 px-1.5">
-                    {REGION_LABELS[selectedRegion] ?? selectedRegion}
-                    <button onClick={() => setFilters({ region: null })}>
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </Badge>
-                )}
-                <button
-                  onClick={() => {
-                    setSearch("");
-                    setFilters({ specialty: [], region: null, from: null });
-                  }}
-                  className="text-[9px] text-primary hover:underline"
-                >
-                  Tout effacer
-                </button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Recherche unique : une seule barre + panneau de critères */}
+        <DirectorySearchBar
+          query={search}
+          onQueryChange={setSearch}
+          placeholder="Rechercher un expert ou fournisseur…"
+          groups={searchGroups}
+          chips={searchChips}
+          onReset={resetFilters}
+          resultCount={filtered.length}
+          loading={suppliers === undefined}
+        />
 
         {/* ── Loading state ── */}
         {suppliers === undefined && (
@@ -433,51 +399,82 @@ export default function SuppliersDirectory() {
             {filtered.map((s) => {
               const isOwnProfile = user?._id && s.userId && user._id === s.userId;
               return (
-                <div key={s._id} className={profileCardClass}>
-                  <div className="p-4">
-                    {/* ── En-tête : avatar + identité (gauche) · métriques (droite) ── */}
-                    <div className="flex gap-3">
-                      <div className="flex w-[34%] shrink-0 flex-col items-center gap-1 text-center">
-                        <div className="relative">
-                          <div
-                            className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-full ${
-                              s.logo ? "" : "bg-primary/10 text-primary"
-                            }`}
-                          >
-                            {s.logo ? (
-                              <img src={s.logo} alt={s.companyName} className="h-full w-full object-cover" />
-                            ) : (
-                              <Store className="h-6 w-6" />
-                            )}
-                          </div>
-                          <VerifiedBadge />
+                <article key={s._id} className={`${profileCardClass} flex flex-col`}>
+                  <div className="flex-1 p-3.5">
+                    {/* ── Identité : logo, raison sociale, activité, région ── */}
+                    <div className="flex items-start gap-3">
+                      <div className="relative shrink-0">
+                        <div
+                          className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-full ${
+                            s.logo ? "" : "bg-primary/10 text-primary"
+                          }`}
+                        >
+                          {s.logo ? (
+                            <img src={s.logo} alt={s.companyName} className="h-full w-full object-cover" />
+                          ) : (
+                            <Store className="h-6 w-6" />
+                          )}
                         </div>
-                        <h3 className="line-clamp-2 text-sm font-bold leading-tight">{s.companyName}</h3>
-                        <TrophyLine>Vérifié</TrophyLine>
+                        <VerifiedBadge />
                       </div>
-
-                      {/* Métriques empilées, séparées par de fines lignes */}
-                      <div className="flex-1 min-w-0 self-start divide-y divide-border/60 overflow-hidden rounded-xl border border-border/30 bg-muted/10">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-1.5">
+                          <h3 className="line-clamp-2 min-w-0 flex-1 text-[13px] font-bold leading-snug">
+                            {s.companyName}
+                          </h3>
+                          {isOwnProfile && (
+                            <span className="inline-flex shrink-0 items-center rounded-full border border-border/50 bg-muted/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Mon profil
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-primary">
+                          <Layers className="h-3 w-3 shrink-0" />
+                          <span className="truncate">
+                            {s.specialties
+                              .slice(0, 2)
+                              .map((sp) => SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp)
+                              .join(" · ")}
+                            {s.specialties.length > 2 ? ` +${s.specialties.length - 2}` : ""}
+                          </span>
+                        </p>
+                        {(s.regions ?? []).length > 0 && (
+                          <p className="mt-1 flex items-start gap-1 text-[10px] text-muted-foreground">
+                            <MapPin className="mt-px h-3 w-3 shrink-0" />
+                            <span className="line-clamp-1">
+                              {(s.regions ?? []).map((r) => REGION_LABELS[r] ?? r).join(", ")}
+                            </span>
+                          </p>
+                        )}
                         <SupplierCardMetrics supplierId={s._id} specialtyCount={s.specialties.length} />
                       </div>
                     </div>
 
-                    {/* ── Détails ── */}
-                    <div className="mt-3 space-y-1.5 border-t border-border/30 pt-3">
+                    {/* ── Description & coordonnées (2 lignes max) ── */}
+                    <div className="mt-2.5 space-y-1 border-t border-border/30 pt-2.5">
                       {s.description && (
-                        <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">{s.description}</p>
+                        <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+                          {s.description}
+                        </p>
                       )}
-                      <DetailRow
-                        icon={Layers}
-                        label={`Spécialités : ${s.specialties.map((sp) => SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp).join(", ")}`}
-                      />
-                      {s.address && <DetailRow icon={MapPin} label={s.address} />}
-                      <DetailRow icon={Phone} label={s.phone} />
-                      {s.email && <DetailRow icon={Mail} label={s.email} />}
+                      {s.address && (
+                        <p className="flex items-start gap-1 text-[10px] text-muted-foreground">
+                          <Store className="mt-px h-3 w-3 shrink-0" />
+                          <span className="line-clamp-1">{s.address}</span>
+                        </p>
+                      )}
+                      {s.email && (
+                        <p className="flex items-start gap-1 text-[10px] text-muted-foreground">
+                          <Mail className="mt-px h-3 w-3 shrink-0" />
+                          <span className="line-clamp-1 break-all">{s.email}</span>
+                        </p>
+                      )}
                     </div>
+                  </div>
 
-                    {/* ── Actions ── */}
-                    <div className="mt-3 flex gap-1.5">
+                  {/* ── Actions ── */}
+                  <div className="mt-auto space-y-1.5 border-t border-border/30 bg-muted/[0.12] p-2.5">
+                    <div className="flex gap-1.5">
                       <a
                         href={`tel:${s.phone.replace(/[^\d+]/g, "")}`}
                         className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-border/40 bg-background px-2 py-1.5 text-[10px] font-medium text-foreground transition-colors hover:bg-muted/50"
@@ -512,12 +509,12 @@ export default function SuppliersDirectory() {
                     </div>
                     <button
                       onClick={() => navigate(`/dashboard/supplier-profile/${s._id}`)}
-                      className="mt-1.5 flex w-full items-center justify-center rounded-xl bg-muted py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/70 cursor-pointer"
+                      className="flex w-full items-center justify-center gap-1 rounded-xl border border-primary/25 bg-primary/[0.08] py-2 text-xs font-bold text-primary transition-colors hover:bg-primary/[0.14] cursor-pointer"
                     >
-                      Voir profil
+                      Voir le profil
                     </button>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
@@ -644,11 +641,21 @@ function SupplierCardMetrics({ supplierId, specialtyCount }: { supplierId: strin
   const rating = useQuery(api.ratings.getSupplierAverage, { supplierId: supplierId as any });
   const count = rating?.count ?? 0;
   const avg = rating?.avg ?? null;
+  // Métriques compactes sur une seule ligne : la carte reste courte.
   return (
-    <>
-      <MetricRow value={count} label="évaluations" />
-      <MetricRow value={avg !== null ? `${avg.toFixed(2).replace(".", ",")} ★` : "—"} label="note globale" />
-      <MetricRow value={specialtyCount} label="spécialités" />
-    </>
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-muted-foreground">
+      <span>
+        <b className="font-semibold text-foreground">{count}</b> évaluation{count > 1 ? "s" : ""}
+      </span>
+      <span aria-hidden className="text-muted-foreground/40">·</span>
+      <span className="inline-flex items-center gap-0.5 font-medium text-amber-600">
+        <Star className="h-2.5 w-2.5" />
+        {avg !== null ? avg.toFixed(2).replace(".", ",") : "—"}
+      </span>
+      <span aria-hidden className="text-muted-foreground/40">·</span>
+      <span>
+        {specialtyCount} spécialité{specialtyCount > 1 ? "s" : ""}
+      </span>
+    </div>
   );
 }

@@ -5,16 +5,18 @@ import { api } from "@/convex/_generated/api";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { StarRating } from "@/components/StarRating";
 import {
-  ArrowLeft, Users, Search, MapPin, Phone, Mail,
-  Globe, ChevronDown, X, Briefcase, FileText,
-  Loader2, Layers, Building2, CalendarClock, Zap, Banknote,
+  ArrowLeft, Users, MapPin, Phone, Briefcase, FileText, Star,
+  Loader2, Layers, Building2, CalendarClock, Zap, Banknote, Store,
 } from "lucide-react";
+import {
+  DirectorySearchBar,
+  type DirectoryCriterionGroup,
+  type DirectorySearchChip,
+} from "@/components/directory/DirectorySearch";
 import {
   RequestAppointmentDialog,
   RequestUrgentDialog,
@@ -30,7 +32,7 @@ import {
   type AvailabilityFilter,
 } from "@/lib/expertAvailability";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
-import { profileCardClass, VerifiedBadge, TrophyLine, MetricRow, DetailRow } from "@/components/ProfileCardBits";
+import { profileCardClass, VerifiedBadge } from "@/components/ProfileCardBits";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
 import { PROJECT_TYPE_LABELS } from "@/convex/projectTypes";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
@@ -170,6 +172,97 @@ export default function ProfessionalsDirectory() {
     search || selectedProfession || selectedRegion || availabilityFilter !== "all"
   );
 
+  /** Réinitialise tous les critères de recherche. */
+  const resetFilters = () => {
+    setSearch("");
+    setSelectedProfession("");
+    setSelectedRegion("");
+    setAvailabilityFilter("all");
+  };
+
+  /**
+   * Bascule « Type » de l'annuaire : les experts et les fournisseurs restent
+   * deux listes distinctes (données et logique inchangées), le critère Type
+   * navigue donc vers l'annuaire correspondant en conservant le contexte.
+   */
+  const goToSuppliers = () => {
+    const qs = selectedRegion ? `?region=${encodeURIComponent(selectedRegion)}` : "";
+    navigate(`/dashboard/suppliers-directory${qs}`);
+  };
+
+  /** Critères proposés dans le panneau de recherche. */
+  const searchGroups: DirectoryCriterionGroup[] = [
+    {
+      id: "type",
+      label: "Type",
+      options: [
+        { value: "expert", label: "Experts", icon: Briefcase },
+        { value: "fournisseur", label: "Fournisseurs", icon: Store },
+      ],
+      selected: ["expert"],
+      onSelect: (v) => {
+        if (v === "fournisseur") goToSuppliers();
+      },
+    },
+    {
+      id: "profession",
+      label: "Métier / activité",
+      options: availableProfessions.map((p) => ({
+        value: p,
+        label: PROFESSION_LABELS[p] ?? p,
+      })),
+      selected: selectedProfession ? [selectedProfession] : [],
+      onSelect: (v) => setSelectedProfession(selectedProfession === v ? "" : v),
+    },
+    {
+      id: "region",
+      label: "Région / gouvernorat",
+      options: availableRegions.map((r) => ({ value: r, label: REGION_LABELS[r] ?? r })),
+      selected: selectedRegion ? [selectedRegion] : [],
+      onSelect: (v) => setSelectedRegion(selectedRegion === v ? "" : v),
+    },
+    {
+      id: "availability",
+      label: "Disponibilité & urgences",
+      options: AVAILABILITY_FILTERS.map((f) => ({ value: f.value, label: f.label })),
+      selected: availabilityFilter !== "all" ? [availabilityFilter] : [],
+      onSelect: (v) => setAvailabilityFilter(v as AvailabilityFilter),
+    },
+  ];
+
+  /** Critères retenus, affichés dans la barre de recherche. */
+  const searchChips: DirectorySearchChip[] = [
+    ...(search ? [{ key: "q", label: `« ${search} »`, onRemove: () => setSearch("") }] : []),
+    ...(selectedProfession
+      ? [
+          {
+            key: "profession",
+            label: PROFESSION_LABELS[selectedProfession] ?? selectedProfession,
+            onRemove: () => setSelectedProfession(""),
+          },
+        ]
+      : []),
+    ...(selectedRegion
+      ? [
+          {
+            key: "region",
+            label: REGION_LABELS[selectedRegion] ?? selectedRegion,
+            onRemove: () => setSelectedRegion(""),
+          },
+        ]
+      : []),
+    ...(availabilityFilter !== "all"
+      ? [
+          {
+            key: "availability",
+            label:
+              AVAILABILITY_FILTERS.find((f) => f.value === availabilityFilter)?.label ?? "",
+            onRemove: () => setAvailabilityFilter("all"),
+          },
+        ]
+      : []),
+  ];
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
       {/* Header */}
@@ -204,95 +297,17 @@ export default function ProfessionalsDirectory() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-4">
-        {/* Filters */}
-        <Card className="border border-border/40 overflow-hidden rounded-xl">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input placeholder="Rechercher un professionnel…" value={search}
-                  onChange={(e) => setSearch(e.target.value)} className="h-9 text-sm pl-8 pr-8 rounded-lg" />
-                {search && (
-                  <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <div className="relative min-w-[180px]">
-                <Briefcase className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <select value={selectedProfession} onChange={(e) => setSelectedProfession(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-8 text-sm appearance-none">
-                  <option value="">Toutes professions</option>
-                  {availableProfessions.map((p) => (
-                    <option key={p} value={p}>{PROFESSION_LABELS[p] ?? p}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              </div>
-              <div className="relative min-w-[180px]">
-                <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-8 text-sm appearance-none">
-                  <option value="">Toutes les régions</option>
-                  {availableRegions.map((r) => (
-                    <option key={r} value={r}>{REGION_LABELS[r] ?? r}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              </div>
-            </div>
-
-            {/* ProMarket : filtres disponibilité & urgences */}
-            <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              {AVAILABILITY_FILTERS.map((f) => (
-                <button
-                  key={f.value}
-                  onClick={() => setAvailabilityFilter(f.value)}
-                  className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all ${
-                    availabilityFilter === f.value
-                      ? "border-blue-500/40 bg-blue-500/10 text-blue-700"
-                      : "border-border/40 bg-background text-muted-foreground hover:bg-muted/50"
-                  }`}
-                >
-                  {f.value === "urgent" && "⚡ "}
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            {hasFilters && (
-              <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-                <span className="text-[9px] text-muted-foreground">Filtres actifs :</span>
-                {search && (
-                  <Badge variant="secondary" className="text-[9px] gap-1 h-5 px-1.5">
-                    « {search} »
-                    <button onClick={() => setSearch("")}><X className="h-2.5 w-2.5" /></button>
-                  </Badge>
-                )}
-                {selectedProfession && (
-                  <Badge variant="secondary" className="text-[9px] gap-1 h-5 px-1.5">
-                    {PROFESSION_LABELS[selectedProfession] ?? SUPPLIER_SPECIALTIES_LABELS[selectedProfession] ?? selectedProfession}
-                    <button onClick={() => setSelectedProfession("")}><X className="h-2.5 w-2.5" /></button>
-                  </Badge>
-                )}
-                {selectedRegion && (
-                  <Badge variant="secondary" className="text-[9px] gap-1 h-5 px-1.5">
-                    {REGION_LABELS[selectedRegion] ?? selectedRegion}
-                    <button onClick={() => setSelectedRegion("")}><X className="h-2.5 w-2.5" /></button>
-                  </Badge>
-                )}
-                {availabilityFilter !== "all" && (
-                  <Badge variant="secondary" className="text-[9px] gap-1 h-5 px-1.5">
-                    {AVAILABILITY_FILTERS.find((f) => f.value === availabilityFilter)?.label}
-                    <button onClick={() => setAvailabilityFilter("all")}><X className="h-2.5 w-2.5" /></button>
-                  </Badge>
-                )}
-                <button onClick={() => { setSearch(""); setSelectedProfession(""); setSelectedRegion(""); setAvailabilityFilter("all"); }}
-                  className="text-[9px] text-primary hover:underline">Tout effacer</button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Recherche unique : une seule barre + panneau de critères */}
+        <DirectorySearchBar
+          query={search}
+          onQueryChange={setSearch}
+          placeholder="Rechercher un expert ou fournisseur…"
+          groups={searchGroups}
+          chips={searchChips}
+          onReset={resetFilters}
+          resultCount={filtered.length}
+          loading={experts === undefined}
+        />
 
         {/* Loading */}
         {experts === undefined && (
@@ -314,7 +329,7 @@ export default function ProfessionalsDirectory() {
               {hasFilters ? "Essayez de modifier vos filtres." : "Aucun expert ou entreprise n'est encore inscrit."}
             </p>
             {hasFilters && (
-              <button onClick={() => { setSearch(""); setSelectedProfession(""); setSelectedRegion(""); setAvailabilityFilter("all"); }}
+              <button onClick={resetFilters}
                 className="text-[10px] text-primary hover:underline mt-2">Réinitialiser les filtres</button>
             )}
           </div>
@@ -332,63 +347,87 @@ export default function ProfessionalsDirectory() {
                 ? availabilityMeta(availability)
                 : undefined;
               return (
-                <Card key={e._id} className={profileCardClass}>
-                  <CardContent className="p-4">
-                    {/* ── En-tête : avatar + identité (gauche) · métriques (droite) ── */}
-                    <div className="flex gap-3">
-                      <div className="flex w-[34%] shrink-0 flex-col items-center gap-1 text-center">
-                        <div className="relative">
-                          <AvatarWithInitials logo={e.logo} name={e.displayName} size="lg" />
-                          <VerifiedBadge />
-                        </div>
-                        <h3 className="line-clamp-2 text-sm font-bold leading-tight">{e.displayName}</h3>
-                        <TrophyLine>{PROFESSION_LABELS[e.profession] ?? e.profession}</TrophyLine>
+                <article key={e._id} className={`${profileCardClass} flex flex-col`}>
+                  <div className="flex-1 p-3.5">
+                    {/* ── Identité : logo, nom, métier, région, métriques ── */}
+                    <div className="flex items-start gap-3">
+                      <div className="relative shrink-0">
+                        <AvatarWithInitials logo={e.logo} name={e.displayName} size="lg" />
+                        <VerifiedBadge />
                       </div>
-
-                      {/* Métriques empilées, séparées par de fines lignes */}
-                      <div className="flex-1 min-w-0 self-start divide-y divide-border/60 overflow-hidden rounded-xl border border-border/30 bg-muted/10">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-1.5">
+                          <h3 className="line-clamp-2 min-w-0 flex-1 text-[13px] font-bold leading-snug">
+                            {e.displayName}
+                          </h3>
+                          {acceptsUrgent && (
+                            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700">
+                              <Zap className="h-2.5 w-2.5" /> Urgence
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-primary">
+                          <Briefcase className="h-3 w-3 shrink-0" />
+                          <span className="truncate">
+                            {PROFESSION_LABELS[e.profession] ?? e.profession}
+                          </span>
+                        </p>
+                        {e.companyName && (
+                          <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Building2 className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{e.companyName}</span>
+                          </p>
+                        )}
+                        {(e.regions ?? []).length > 0 && (
+                          <p className="mt-1 flex items-start gap-1 text-[10px] text-muted-foreground">
+                            <MapPin className="mt-px h-3 w-3 shrink-0" />
+                            <span className="line-clamp-1">
+                              {(e.regions ?? []).map((r) => REGION_LABELS[r] ?? r).join(", ")}
+                            </span>
+                          </p>
+                        )}
                         <ExpertCardMetrics expertId={e._id} specialtyCount={e.specialties.length} />
                       </div>
                     </div>
 
-                    {/* ── ProMarket : prix indicatifs & disponibilité ── */}
-                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-border/30 pt-2.5">                      {indicativePriceLabel((e as any).indicativePrice) && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/5 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                          <Banknote className="h-2.5 w-2.5" />
-                          Prix indicatifs : {indicativePriceLabel((e as any).indicativePrice)}
+                    {/* ── Activité & description (2 lignes maximum) ── */}
+                    <div className="mt-2.5 space-y-1 border-t border-border/30 pt-2.5">
+                      <p className="flex items-start gap-1 text-[10px] text-muted-foreground">
+                        <Layers className="mt-px h-3 w-3 shrink-0" />
+                        <span className="line-clamp-1">
+                          {e.specialties.map((sp) => SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp).join(", ")}
                         </span>
-                      )}
-                      {availabilityBadge && (
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${availabilityBadge.chip}`}>
-                          Disponibilité : <span aria-hidden>{availabilityBadge.emoji}</span> {availabilityBadge.short}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* ── Détails ── */}
-                    <div className="mt-3 space-y-1.5 border-t border-border/30 pt-3">
+                      </p>
                       {e.description && (
-                        <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">{e.description}</p>
-                      )}
-                      {e.companyName && <DetailRow icon={Building2} label={e.companyName} />}
-                      <DetailRow
-                        icon={Layers}
-                        label={`Spécialités : ${e.specialties.map((sp) => SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp).join(", ")}`}
-                      />
-                      {e.address && <DetailRow icon={MapPin} label={e.address} />}
-                      <DetailRow icon={Phone} label={e.phone} />
-                      {e.email && <DetailRow icon={Mail} label={e.email} />}
-                      {e.website && (
-                        <DetailRow
-                          icon={Globe}
-                          label={e.website.startsWith("http") ? e.website : `https://${e.website}`}
-                        />
+                        <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+                          {e.description}
+                        </p>
                       )}
                     </div>
 
-                    {/* ── Actions ProMarket : rendez-vous & urgence ── */}
+                    {/* ── Disponibilité & prix indicatifs ── */}
+                    {(availabilityBadge || indicativePriceLabel((e as any).indicativePrice)) && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                        {indicativePriceLabel((e as any).indicativePrice) && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/5 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                            <Banknote className="h-2.5 w-2.5" />
+                            {indicativePriceLabel((e as any).indicativePrice)}
+                          </span>
+                        )}
+                        {availabilityBadge && (
+                          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${availabilityBadge.chip}`}>
+                            <span aria-hidden>{availabilityBadge.emoji}</span> {availabilityBadge.short}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+
+                  {/* ── Actions ── */}
+                  <div className="mt-auto space-y-1.5 border-t border-border/30 bg-muted/[0.12] p-2.5">
                     {(availability === "appointment" || acceptsUrgent) && (
-                      <div className="mt-2.5 flex gap-1.5">
+                      <div className="flex gap-1.5">
                         {availability === "appointment" && (
                           <button
                             onClick={() => openAppointment(e)}
@@ -408,8 +447,7 @@ export default function ProfessionalsDirectory() {
                       </div>
                     )}
 
-                    {/* ── Actions ── */}
-                    <div className="mt-3 flex gap-1.5">
+                    <div className="flex gap-1.5">
                       {/* Masqué dès que le rendez-vous avec cet expert est confirmé */}
                       {!isContactHidden(e._id, approvedExpertIds) && (
                         <a
@@ -476,12 +514,12 @@ export default function ProfessionalsDirectory() {
                         }).catch(() => {});
                         navigate(`/dashboard/expert-profile/${e._id}`);
                       }}
-                      className="mt-1.5 flex w-full items-center justify-center rounded-xl bg-muted py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/70 cursor-pointer"
+                      className="flex w-full items-center justify-center gap-1 rounded-xl border border-primary/25 bg-primary/[0.08] py-2 text-xs font-bold text-primary transition-colors hover:bg-primary/[0.14] cursor-pointer"
                     >
-                      Voir profil
+                      Voir le profil
                     </button>
-                  </CardContent>
-                </Card>
+                  </div>
+                </article>
               );
             })}
           </div>
@@ -714,11 +752,21 @@ function ExpertCardMetrics({ expertId, specialtyCount }: { expertId: string; spe
   const rating = useQuery(api.ratings.getExpertAverage, { expertId: expertId as any });
   const count = rating?.count ?? 0;
   const avg = rating?.avg ?? null;
+  // Métriques compactes sur une seule ligne : la carte reste courte.
   return (
-    <>
-      <MetricRow value={count} label="évaluations" />
-      <MetricRow value={avg !== null ? `${avg.toFixed(2).replace(".", ",")} ★` : "—"} label="note globale" />
-      <MetricRow value={specialtyCount} label="spécialités" />
-    </>
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-muted-foreground">
+      <span>
+        <b className="font-semibold text-foreground">{count}</b> évaluation{count > 1 ? "s" : ""}
+      </span>
+      <span aria-hidden className="text-muted-foreground/40">·</span>
+      <span className="inline-flex items-center gap-0.5 font-medium text-amber-600">
+        <Star className="h-2.5 w-2.5" />
+        {avg !== null ? avg.toFixed(2).replace(".", ",") : "—"}
+      </span>
+      <span aria-hidden className="text-muted-foreground/40">·</span>
+      <span>
+        {specialtyCount} spécialité{specialtyCount > 1 ? "s" : ""}
+      </span>
+    </div>
   );
 }
