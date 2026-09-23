@@ -40,6 +40,9 @@ export default function CopilotCard() {
                 <p className="text-[10px] sm:text-xs lg:text-sm text-muted-foreground">
                   Votre assistant intelligent de projet
                 </p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground/70">
+                  Analyses par règles sur les données du projet — sans IA externe
+                </p>
               </div>
             </div>
 

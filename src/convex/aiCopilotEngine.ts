@@ -115,6 +115,41 @@ export type CopilotProjectContext = {
   optimizationTips: string[];
   technicalRecommendations: string[];
   memory: { note: string; kind: string }[];
+
+  // ── Extensions déterministes (données structurées, OPTIONNELLES) ──────────
+  // Aucune n'est devinée : absente, elle est simplement signalée comme
+  // non disponible. Elles ne modifient aucune structure existante.
+  /** Surface totale du terrain (m²) si enregistrée. */
+  surfaceTotale?: number | null;
+  /** Suivi budgétaire réel (feuille de route) : dépenses enregistrées vs budget prévu. */
+  budget?: null | { planned: number; consumed: number; gap: number };
+  /** Planning d'exécution (feuille de route) : compteurs + prochaine tâche + retard. */
+  planning?: null | {
+    total: number;
+    done: number;
+    inProgress: number;
+    late: boolean;
+    nextTask: string | null;
+  };
+  /** Nombre de documents joints au projet. */
+  documents?: number;
+  /** Détail calculable du DQE (prix/quantités manquants, article le plus coûteux). */
+  dqeArticles?: null | {
+    total: number;
+    withoutPrice: number;
+    withoutQuantity: number;
+    topItem: string | null;
+    topItemCost: number | null;
+  };
+  /** Signalements structurés de l'analyse Matériaux AI. */
+  materialIssues?: null | {
+    selected: number;
+    withoutPrice: number;
+    withoutSupplier: number;
+    unavailable: number;
+  };
+  /** Éléments structurés du plan (détectés dans l'analyse existante, jamais devinés). */
+  planDetail?: null | { doors: number | null; windows: number | null };
 };
 
 // ── Formatage (jamais de devise codée en dur) ───────────────────────────────
@@ -296,11 +331,13 @@ export type CopilotMode =
   | "plans"
   | "journey"
   | "risks"
+  | "preparation"
   | "optimize";
 
 export function quickSuggestions(ctx: CopilotProjectContext): QuickSuggestion[] {
   const out: QuickSuggestion[] = [];
   out.push({ emoji: "📊", label: "Où en est mon projet ?", mode: "summary" });
+  out.push({ emoji: "🧭", label: "Indice de préparation", mode: "preparation" });
   if (ctx.cost) out.push({ emoji: "💰", label: "Analyser mon budget", mode: "budget" });
   if (ctx.materials) out.push({ emoji: "🧱", label: "Optimiser mes matériaux", mode: "optimize" });
   out.push({ emoji: "📐", label: "Analyser mon plan", mode: "plans" });
@@ -397,12 +434,48 @@ export function buildProjectSummary(ctx: CopilotProjectContext): CopilotAnswer {
 
 // ── Analyse 2 : budget (§ pourquoi mon budget est élevé) ────────────────────
 
+/** Suivi budgétaire réel (feuille de route) : dépenses enregistrées vs budget prévu. */
+function budgetTracking(ctx: CopilotProjectContext): {
+  facts: CopilotFact[];
+  lines: string[];
+  alerts: string[];
+} {
+  const b = ctx.budget;
+  if (!b) return { facts: [], lines: [], alerts: [] };
+  const cur = ctx.currency;
+  const gap = b.planned > 0 ? b.consumed - b.planned : b.consumed;
+  const pct = b.planned > 0 ? (gap / b.planned) * 100 : 0;
+  const facts: CopilotFact[] = [
+    { label: "Budget prévu (suivi)", value: fmtMoney(b.planned, cur), kind: "data" },
+    { label: "Dépenses enregistrées", value: fmtMoney(b.consumed, cur), kind: "data" },
+    {
+      label: gap >= 0 ? "Écart (dépassement)" : "Écart (marge restante)",
+      value: `${gap >= 0 ? "+" : "−"}${fmtMoney(Math.abs(gap), cur)} (${fmtPct(Math.abs(pct))})`,
+      kind: "calculation",
+    },
+  ];
+  const lines = [
+    `Suivi réel du budget : ${fmtMoney(b.consumed, cur)} de dépenses enregistrées pour ${fmtMoney(b.planned, cur)} prévus ` +
+      `(${gap >= 0 ? "dépassement" : "marge restante"} de ${fmtMoney(Math.abs(gap), cur)}).`,
+  ];
+  const alerts: string[] = [];
+  if (gap > 0) {
+    alerts.push(
+      `⚠️ Le montant actuellement enregistré dépasse le budget prévu de ${fmtMoney(gap, cur)}, soit +${fmtPct(pct)}.`,
+    );
+  }
+  return { facts, lines, alerts };
+}
+
 export function analyzeBudget(ctx: CopilotProjectContext): CopilotAnswer {
+  const tracking = budgetTracking(ctx);
   if (!ctx.cost) {
     return {
       title: "Analyse du budget",
-      content: `${NOT_AVAILABLE} L'estimation des coûts n'a pas encore été réalisée pour ce projet.`,
-      facts: [],
+      content:
+        `${NOT_AVAILABLE} L'estimation des coûts n'a pas encore été réalisée pour ce projet.` +
+        (tracking.lines.length > 0 ? `\n${tracking.lines.join("\n")}` : ""),
+      facts: tracking.facts,
       missing: ["Estimation des coûts"],
       actions: [{ id: "open-cost", label: "Ouvrir l'estimation", kind: "navigate", target: "project" }],
     };
@@ -427,6 +500,9 @@ export function analyzeBudget(ctx: CopilotProjectContext): CopilotAnswer {
       kind: "calculation" as FactKind,
     })),
   ];
+
+  // Suivi budgétaire réel (dépenses enregistrées vs budget prévu).
+  facts.push(...tracking.facts);
 
   // Écarts estimation ↔ DQE (uniquement sur lots de libellés concordants).
   const missing: string[] = [];
@@ -466,9 +542,11 @@ export function analyzeBudget(ctx: CopilotProjectContext): CopilotAnswer {
 
   const topNames = top.map((l) => `« ${l.label} » (${fmtPct(l.percentage)})`).join(", ");
   const content =
+    (tracking.alerts.length > 0 ? `${tracking.alerts.join("\n")}\n` : "") +
     `Pourquoi votre budget est élevé : ${top.length > 0 ? `il est concentré sur ${topNames}, soit ` : ""}` +
     `${fmtPct(top.reduce((s, l) => s + l.percentage, 0))} du total (${fmtMoney(cost.totalCost, cur)}).\n` +
     (cost.costPerSquareMeter != null ? `Votre coût au m² ressort à ${fmtMoney(cost.costPerSquareMeter, cur)}.\n` : "") +
+    (tracking.lines.length > 0 ? `${tracking.lines.join("\n")}\n` : "") +
     (ecartLots.length > 0 ? `Postes présentant un écart important (estimation vs DQE) : ${ecartLots.join(" ; ")}.\n` : "") +
     `Où chercher des économies : sur les lots les plus lourds (${topNames}). ` +
     (ctx.optimizationTips.length > 0
@@ -524,17 +602,42 @@ export function analyzeDqe(ctx: CopilotProjectContext): CopilotAnswer {
     });
   }
 
+  // Détail calculable du DQE : articles sans prix / sans quantité, article le plus coûteux.
+  const missing: string[] = ctx.cost ? [] : ["Estimation des coûts"];
+  const articleLines: string[] = [];
+  if (ctx.dqeArticles) {
+    const a = ctx.dqeArticles;
+    facts.push({ label: "Articles sans prix", value: `${a.withoutPrice}`, kind: "data" });
+    facts.push({ label: "Articles sans quantité", value: `${a.withoutQuantity}`, kind: "data" });
+    if (a.topItem) {
+      facts.push({
+        label: "Article le plus coûteux",
+        value: `${a.topItem}${a.topItemCost != null ? ` — ${fmtMoney(a.topItemCost, cur)}` : ""}`,
+        kind: "data",
+      });
+    }
+    if (a.withoutPrice > 0) {
+      missing.push(`${a.withoutPrice} article(s) DQE sans prix`);
+      articleLines.push(`${a.withoutPrice} article(s) ne disposent pas encore d'un prix.`);
+    }
+    if (a.withoutQuantity > 0) {
+      missing.push(`${a.withoutQuantity} article(s) DQE sans quantité`);
+      articleLines.push(`${a.withoutQuantity} article(s) ne disposent pas encore de quantité.`);
+    }
+  }
+
   const heaviest = lots[0];
   return {
     title: "Analyse du DQE",
     content:
       `Votre DQE couvre ${lots.length} lot(s) pour un total de ${fmtMoney(ctx.dqe.grandTotal, cur)}.\n` +
       (heaviest ? `Le lot le plus lourd est « ${heaviest.name} » (${fmtMoney(heaviest.subtotal, cur)}).\n` : "") +
+      (articleLines.length > 0 ? `${articleLines.join(" ")}\n` : "") +
       (ctx.cost
         ? `Confronté à l'estimation (${fmtMoney(ctx.cost.totalCost, cur)}), l'écart est de ${fmtMoney(Math.abs(ctx.cost.totalCost - ctx.dqe.grandTotal), cur)}.`
         : `Pour confronter le DQE à l'estimation, réalisez d'abord l'estimation des coûts.`),
     facts,
-    missing: ctx.cost ? [] : ["Estimation des coûts"],
+    missing,
     actions: [{ id: "dqe-project", label: "Voir le détail dans le projet", kind: "navigate", target: "project" }],
   };
 }
@@ -573,6 +676,24 @@ export function analyzeMaterials(ctx: CopilotProjectContext): CopilotAnswer {
       kind: "data",
     });
   }
+  // Signalements structurés (prix / fournisseur / disponibilité) — jamais inventés.
+  if (ctx.materialIssues) {
+    const mi = ctx.materialIssues;
+    facts.push({ label: "Catégories sélectionnées", value: `${mi.selected}`, kind: "data" });
+    if (mi.withoutPrice > 0) {
+      facts.push({ label: "Matériaux sans prix", value: `${mi.withoutPrice}`, kind: "data" });
+      missing.push(`${mi.withoutPrice} catégorie(s) de matériaux sans prix`);
+    }
+    if (mi.withoutSupplier > 0) {
+      facts.push({ label: "Matériaux sans fournisseur", value: `${mi.withoutSupplier}`, kind: "data" });
+      missing.push(`${mi.withoutSupplier} catégorie(s) de matériaux sans fournisseur`);
+    }
+    if (mi.unavailable > 0) {
+      facts.push({ label: "Matériaux indisponibles", value: `${mi.unavailable}`, kind: "data" });
+      missing.push(`${mi.unavailable} catégorie(s) de matériaux en rupture de disponibilité`);
+    }
+  }
+
   const substitutable = m.categories.filter((c) => (c.cheapestSaving ?? 0) > 0 && c.cheapestLabel);
   if (substitutable.length > 0) {
     facts.push({
@@ -641,6 +762,32 @@ export function analyzePlans(ctx: CopilotProjectContext): CopilotAnswer {
       kind: "calculation",
     });
   }
+  if (ctx.surfaceTotale != null) {
+    facts.push({
+      label: "Surface totale du terrain",
+      value: `${ctx.surfaceTotale.toLocaleString("fr-FR")} m²`,
+      kind: "data",
+    });
+    if (ctx.surface != null && ctx.surfaceTotale > 0) {
+      facts.push({
+        label: "Emprise bâtie / terrain",
+        value: fmtPct((ctx.surface / ctx.surfaceTotale) * 100),
+        kind: "calculation",
+      });
+    }
+  }
+  // Portes / fenêtres : uniquement si l'analyse existante les a réellement détectées.
+  if (ctx.planDetail) {
+    if (ctx.planDetail.doors != null) {
+      facts.push({ label: "Portes détectées", value: `${ctx.planDetail.doors}`, kind: "data" });
+    }
+    if (ctx.planDetail.windows != null) {
+      facts.push({ label: "Fenêtres détectées", value: `${ctx.planDetail.windows}`, kind: "data" });
+    }
+    if (ctx.planDetail.doors == null && ctx.planDetail.windows == null) {
+      missing.push("Portes / fenêtres (non détectées dans les données du projet)");
+    }
+  }
 
   const content =
     `Lecture de votre plan (${projectLabel(ctx)}) : ` +
@@ -695,9 +842,28 @@ export function analyzeJourney(ctx: CopilotProjectContext): CopilotAnswer {
       kind: "calculation",
     });
   }
+  // Planning réel (feuille de route) : compteurs + prochaine tâche + retard.
+  if (ctx.planning) {
+    facts.push({
+      label: "Planning",
+      value: `${ctx.planning.done}/${ctx.planning.total} tâche(s) terminée(s), ${ctx.planning.inProgress} en cours`,
+      kind: "calculation",
+    });
+    if (ctx.planning.nextTask) {
+      facts.push({ label: "Prochaine tâche", value: ctx.planning.nextTask, kind: "data" });
+    }
+    facts.push({
+      label: "Retard",
+      value: ctx.planning.late
+        ? "oui — la date de fin prévue est dépassée et des tâches restent ouvertes"
+        : "aucun retard enregistré",
+      kind: "calculation",
+    });
+  }
 
   const missing = j.missing.map((m) => `Parcours — ${m}`);
-  if (roadSteps.length > 0) missing.push("Dates du planning (pour calculer les retards)");
+  if (roadSteps.length === 0 && !ctx.planning) missing.push("Planning d'exécution");
+  if (ctx.planning && ctx.planning.late) missing.push("Tâches en retard au planning");
 
   return {
     title: "Parcours projet",
@@ -866,6 +1032,305 @@ export function optimizeProject(ctx: CopilotProjectContext): CopilotAnswer {
   };
 }
 
+// ── Indice de préparation du projet (score déterministe, jamais une IA) ─────
+//
+// Barème FIXE et configurable : chaque élément réellement présent dans le
+// projet rapporte des points. Rien n'est deviné : un élément absent ne
+// rapporte rien et est listé dans `missing`. Ce score est présenté comme un
+// « indice de préparation », jamais comme une évaluation générée par une IA.
+
+export type PreparationItem = {
+  label: string;
+  points: number;
+  earned: number;
+  done: boolean;
+};
+
+export type PreparationScore = {
+  total: number; // points obtenus
+  max: number; // 100
+  items: PreparationItem[];
+  missing: string[];
+};
+
+/** Barème officiel de l'indice de préparation (total = 100 points). */
+export const PREPARATION_WEIGHTS = {
+  projectInfo: 10,
+  estimation: 15,
+  plan2D: 15,
+  plan3D: 10,
+  dqe: 15,
+  materials: 10,
+  professionals: 10,
+  planning: 10,
+  documents: 5,
+} as const;
+
+export function computePreparationScore(ctx: CopilotProjectContext): PreparationScore {
+  const hasProjectInfo =
+    !!ctx.name && !!ctx.category && (ctx.surface != null || ctx.surfaceTotale != null);
+  const hasProfessionals =
+    ctx.professionals.quotes > 0 ||
+    ctx.professionals.appointments > 0 ||
+    ctx.professionals.recommendedProviders > 0;
+  const hasPlanning = (ctx.planning?.total ?? 0) > 0 || (ctx.roadmap?.steps.length ?? 0) > 0;
+  const hasDocuments = (ctx.documents ?? 0) > 0;
+
+  const raw: { label: string; points: number; done: boolean }[] = [
+    { label: "Informations projet", points: PREPARATION_WEIGHTS.projectInfo, done: hasProjectInfo },
+    { label: "Estimation des coûts", points: PREPARATION_WEIGHTS.estimation, done: !!ctx.cost },
+    { label: "Plan 2D", points: PREPARATION_WEIGHTS.plan2D, done: ctx.plans.has2D },
+    { label: "Modèle 3D", points: PREPARATION_WEIGHTS.plan3D, done: ctx.plans.has3D },
+    { label: "DQE", points: PREPARATION_WEIGHTS.dqe, done: !!ctx.dqe },
+    { label: "Matériaux", points: PREPARATION_WEIGHTS.materials, done: !!ctx.materials },
+    { label: "Professionnels", points: PREPARATION_WEIGHTS.professionals, done: hasProfessionals },
+    { label: "Planning", points: PREPARATION_WEIGHTS.planning, done: hasPlanning },
+    { label: "Documents", points: PREPARATION_WEIGHTS.documents, done: hasDocuments },
+  ];
+
+  const items: PreparationItem[] = raw.map((r) => ({
+    label: r.label,
+    points: r.points,
+    earned: r.done ? r.points : 0,
+    done: r.done,
+  }));
+  return {
+    total: items.reduce((s, i) => s + i.earned, 0),
+    max: items.reduce((s, i) => s + i.points, 0),
+    items,
+    missing: items.filter((i) => !i.done).map((i) => i.label),
+  };
+}
+
+export function analyzePreparation(ctx: CopilotProjectContext): CopilotAnswer {
+  const prep = computePreparationScore(ctx);
+  const facts: CopilotFact[] = [
+    { label: "Indice de préparation", value: `${prep.total} / ${prep.max} points`, kind: "calculation" },
+    ...prep.items.map((i) => ({
+      label: i.label,
+      value: i.done ? `✔ ${i.points} / ${i.points} point(s)` : `0 / ${i.points} point(s)`,
+      kind: "calculation" as FactKind,
+    })),
+  ];
+
+  return {
+    title: "Indice de préparation du projet",
+    content:
+      `Indice de préparation du projet : ${prep.total} / ${prep.max} points ` +
+      `(score déterministe, calculé uniquement à partir des éléments enregistrés).\n` +
+      (prep.missing.length > 0
+        ? `Éléments encore manquants : ${prep.missing.join(", ")}.\n`
+        : `Tous les éléments du barème sont renseignés.\n`) +
+      `Il ne s'agit pas d'une évaluation générée par une IA : chaque point correspond à un élément réellement présent dans votre projet.`,
+    facts,
+    missing: prep.missing,
+    actions: buildRecommendations(ctx)
+      .slice(0, 4)
+      .map((r) => ({
+        id: `rec-${r.id}`,
+        label: r.actionLabel,
+        kind: "navigate" as const,
+        target: r.target,
+      })),
+  };
+}
+
+// ── Recommandations par règles (configurables) ──────────────────────────────
+
+export type CopilotRecommendation = {
+  id: string;
+  emoji: string;
+  message: string;
+  actionLabel: string;
+  target: CopilotActionTarget;
+};
+
+/** Recommandations contextuelles : uniquement des règles, aucune IA externe. */
+export function buildRecommendations(ctx: CopilotProjectContext): CopilotRecommendation[] {
+  const out: CopilotRecommendation[] = [];
+  const cur = ctx.currency;
+
+  if (!ctx.cost) {
+    out.push({
+      id: "no-estimation",
+      emoji: "💰",
+      message:
+        "Aucune estimation des coûts n'est actuellement associée à ce projet. Lancez l'estimation pour débloquer les analyses budget, coût/m² et DQE.",
+      actionLabel: "Ouvrir l'estimation",
+      target: "project",
+    });
+  }
+  if (!ctx.plans.saved) {
+    out.push({
+      id: "no-plan",
+      emoji: "📐",
+      message:
+        "Votre projet ne possède pas encore de plan enregistré. Générez le plan 2D/3D dans le module Plans architecturaux AI.",
+      actionLabel: "Créer un plan",
+      target: "plans",
+    });
+  }
+  if (!ctx.dqe) {
+    out.push({
+      id: "no-dqe",
+      emoji: "📋",
+      message:
+        "Aucun DQE n'est actuellement associé à ce projet. Générez-le pour confronter les quantités réelles au budget.",
+      actionLabel: "Accéder au DQE",
+      target: "project",
+    });
+  }
+  if (!ctx.materials) {
+    out.push({
+      id: "no-materials",
+      emoji: "🧱",
+      message:
+        "Aucune analyse Matériaux AI n'est enregistrée pour ce projet. Lancez-la pour chiffrer les matériaux.",
+      actionLabel: "Ouvrir Matériaux AI",
+      target: "materials",
+    });
+  }
+  if ((ctx.planning?.total ?? 0) === 0 && (ctx.roadmap?.steps.length ?? 0) === 0) {
+    out.push({
+      id: "no-planning",
+      emoji: "📅",
+      message:
+        "Aucun planning n'est actuellement associé au projet. Créez le planning pour suivre l'avancement réel du chantier.",
+      actionLabel: "Créer le planning",
+      target: "project",
+    });
+  }
+  if (ctx.budget && ctx.budget.planned > 0 && ctx.budget.consumed > ctx.budget.planned) {
+    out.push({
+      id: "budget-overrun",
+      emoji: "⚠️",
+      message:
+        `Les dépenses enregistrées (${fmtMoney(ctx.budget.consumed, cur)}) dépassent le budget prévu ` +
+        `(${fmtMoney(ctx.budget.planned, cur)}) de ${fmtMoney(ctx.budget.consumed - ctx.budget.planned, cur)}. ` +
+        `Consultez l'analyse détaillée avant toute décision.`,
+      actionLabel: "Analyser le budget",
+      target: "project",
+    });
+  }
+  if (ctx.cost && ctx.cost.scenarios.length > 0 && ctx.cost.costPerSquareMeter != null) {
+    const max = Math.max(
+      ...ctx.cost.scenarios
+        .map((s) => s.costPerSquareMeter)
+        .filter((v): v is number => v != null && v > 0),
+    );
+    if (Number.isFinite(max) && max > 0 && ctx.cost.costPerSquareMeter > max) {
+      out.push({
+        id: "high-cost-per-m2",
+        emoji: "💰",
+        message:
+          `Le coût au m² enregistré (${fmtMoney(ctx.cost.costPerSquareMeter, cur)}) est supérieur au scénario ` +
+          `le plus élevé disponible pour ce projet (${fmtMoney(max, cur)}). Vérifiez les postes de finition avant de valider.`,
+        actionLabel: "Voir les postes de dépenses",
+        target: "project",
+      });
+    }
+  }
+  if (
+    ctx.professionals.quotes === 0 &&
+    ctx.professionals.appointments === 0 &&
+    ctx.professionals.recommendedProviders === 0
+  ) {
+    out.push({
+      id: "no-professionals",
+      emoji: "👷",
+      message:
+        "Aucun professionnel (devis, rendez-vous ou fournisseur recommandé) n'est encore lié à ce projet.",
+      actionLabel: "Voir les fournisseurs",
+      target: "consult",
+    });
+  }
+  if (ctx.planning?.late) {
+    out.push({
+      id: "planning-late",
+      emoji: "🕒",
+      message:
+        "La date de fin prévue au planning est dépassée et toutes les tâches ne sont pas terminées : un retard est enregistré.",
+      actionLabel: "Voir mon planning",
+      target: "project",
+    });
+  }
+
+  return out;
+}
+
+// ── Bibliothèque de questions prédéfinies (conditions déterministes) ────────
+//
+// Chaque question porte sa condition métier : la liste proposée s'adapte donc
+// automatiquement aux données réellement présentes dans le projet, sans que
+// les composants React n'aient à coder ces conditions.
+
+export type CopilotQuestionCategory = "Projet" | "Budget" | "Matériaux" | "DQE" | "Plans" | "Planning";
+
+export type CopilotQuestion = {
+  id: string;
+  category: CopilotQuestionCategory;
+  emoji: string;
+  label: string;
+  mode: CopilotMode;
+  available: (ctx: CopilotProjectContext) => boolean;
+  /** Navigation directe éventuelle (ex. « Ouvrir la vue 3D »). */
+  target?: CopilotActionTarget;
+};
+
+const always = () => true;
+
+export const COPILOT_QUESTIONS: CopilotQuestion[] = [
+  // Projet
+  { id: "project_status", category: "Projet", emoji: "📍", label: "Où en est mon projet ?", mode: "summary", available: always },
+  { id: "project_next", category: "Projet", emoji: "➡️", label: "Quelle est la prochaine étape ?", mode: "journey", available: always },
+  { id: "project_missing", category: "Projet", emoji: "🧭", label: "Qu'est-ce qui manque dans mon projet ?", mode: "preparation", available: always },
+
+  // Budget
+  { id: "budget_analysis", category: "Budget", emoji: "💰", label: "Analyser mon budget", mode: "budget", available: (ctx) => !!ctx.cost || !!ctx.budget },
+  { id: "budget_per_m2", category: "Budget", emoji: "📊", label: "Calculer mon coût/m²", mode: "budget", available: (ctx) => ctx.cost?.costPerSquareMeter != null },
+  { id: "budget_top", category: "Budget", emoji: "🥇", label: "Voir les principaux postes de dépenses", mode: "budget", available: (ctx) => !!ctx.cost && ctx.cost.breakdown.length > 0 },
+  { id: "budget_overrun", category: "Budget", emoji: "⚠️", label: "Identifier les dépassements", mode: "budget", available: (ctx) => !!ctx.budget },
+
+  // Matériaux
+  { id: "materials_analysis", category: "Matériaux", emoji: "🧱", label: "Analyser mes matériaux", mode: "materials", available: always },
+  { id: "materials_costly", category: "Matériaux", emoji: "💎", label: "Voir les matériaux les plus coûteux", mode: "materials", available: (ctx) => !!ctx.materials },
+  { id: "materials_missing", category: "Matériaux", emoji: "❓", label: "Identifier les matériaux manquants", mode: "materials", available: (ctx) => !!ctx.materials },
+  { id: "materials_alternatives", category: "Matériaux", emoji: "🔄", label: "Voir les alternatives disponibles", mode: "optimize", available: (ctx) => !!ctx.materials },
+
+  // DQE
+  { id: "dqe_analysis", category: "DQE", emoji: "📋", label: "Analyser mon DQE", mode: "dqe", available: (ctx) => !!ctx.dqe },
+  { id: "dqe_items", category: "DQE", emoji: "📑", label: "Voir les articles principaux", mode: "dqe", available: (ctx) => !!ctx.dqe },
+  { id: "dqe_missing", category: "DQE", emoji: "❓", label: "Identifier les données manquantes", mode: "dqe", available: (ctx) => !!ctx.dqe },
+
+  // Plans
+  { id: "plans_analysis", category: "Plans", emoji: "📐", label: "Analyser mon plan", mode: "plans", available: always },
+  { id: "plans_surfaces", category: "Plans", emoji: "📏", label: "Voir les surfaces", mode: "plans", available: always },
+  { id: "plans_info", category: "Plans", emoji: "🔎", label: "Vérifier les informations disponibles", mode: "plans", available: always },
+  { id: "plans_open_2d", category: "Plans", emoji: "🗺️", label: "Ouvrir le plan 2D", mode: "plans", available: (ctx) => ctx.plans.has2D, target: "plans" },
+  { id: "plans_open_3d", category: "Plans", emoji: "🧊", label: "Ouvrir la vue 3D", mode: "plans", available: (ctx) => ctx.plans.has3D, target: "plans" },
+
+  // Planning
+  { id: "planning_view", category: "Planning", emoji: "📅", label: "Voir mon planning", mode: "journey", available: (ctx) => (ctx.planning?.total ?? 0) > 0 || (ctx.roadmap?.steps.length ?? 0) > 0 },
+  { id: "planning_next", category: "Planning", emoji: "➡️", label: "Voir les prochaines étapes", mode: "journey", available: always },
+  { id: "planning_late", category: "Planning", emoji: "🕒", label: "Identifier les retards", mode: "journey", available: (ctx) => (ctx.planning?.total ?? 0) > 0 },
+];
+
+/** Questions réellement proposables pour CE projet (conditions satisfaites). */
+export function catalogQuestions(ctx: CopilotProjectContext): CopilotQuestion[] {
+  return COPILOT_QUESTIONS.filter((q) => q.available(ctx));
+}
+
+/** Catalogue regroupé par catégorie — pratique pour l'affichage. */
+export function catalogByCategory(
+  ctx: CopilotProjectContext,
+): { category: CopilotQuestionCategory; questions: CopilotQuestion[] }[] {
+  const order: CopilotQuestionCategory[] = ["Projet", "Budget", "Matériaux", "DQE", "Plans", "Planning"];
+  const available = catalogQuestions(ctx);
+  return order
+    .map((category) => ({ category, questions: available.filter((q) => q.category === category) }))
+    .filter((g) => g.questions.length > 0);
+}
+
 // ── Routage des questions + préférences mémoire ─────────────────────────────
 
 /** Détecte une préférence explicite à mémoriser (validation utilisateur requise). */
@@ -880,6 +1345,7 @@ export function detectPreference(question: string): string | null {
 export function routeQuestion(question: string): CopilotMode {
   const q = norm(question);
   if (/optimis/.test(q)) return "optimize";
+  if (/preparation|indice|score|score de preparation/.test(q)) return "preparation";
   if (/\bbudget\b|cout|coute|cher|econom|marge|depasse|prix m|au m2|financ/.test(q)) return "budget";
   if (/\bdqe\b|quantitatif/.test(q)) return "dqe";
   if (/materia/.test(q)) return "materials";

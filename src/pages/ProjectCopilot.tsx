@@ -49,7 +49,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useSelectedProject, projectDisplayLabel } from "@/hooks/use-selected-project";
-import { quickSuggestions, type CopilotMode } from "@/convex/aiCopilotEngine";
+import {
+  quickSuggestions,
+  catalogByCategory,
+  computePreparationScore,
+  type CopilotMode,
+  type CopilotQuestion,
+} from "@/convex/aiCopilotEngine";
 
 type FactView = { label: string; value: string; kind: string };
 type ActionView = { id: string; label: string; kind: string; target?: string; note?: string };
@@ -68,7 +74,7 @@ const FACT_BADGES: Record<string, { label: string; cls: string }> = {
   data: { label: "Donnée du projet", cls: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
   calculation: { label: "Calcul", cls: "bg-sky-500/10 text-sky-600 border-sky-500/20" },
   estimate: { label: "Estimation", cls: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-  recommendation: { label: "Recommandation AI", cls: "bg-violet-500/10 text-violet-600 border-violet-500/20" },
+  recommendation: { label: "Recommandation", cls: "bg-violet-500/10 text-violet-600 border-violet-500/20" },
 };
 
 export default function ProjectCopilot() {
@@ -96,11 +102,17 @@ export default function ProjectCopilot() {
   const [confirmAction, setConfirmAction] = useState<ActionView | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
+  const [showQuestions, setShowQuestions] = useState(false);
   const [listening, setListening] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const recRef = useRef<any>(null);
 
   const suggestions = useMemo(() => (context ? quickSuggestions(context) : []), [context]);
+  const questionGroups = useMemo(() => (context ? catalogByCategory(context) : []), [context]);
+  const preparation = useMemo(
+    () => (context ? computePreparationScore(context) : null),
+    [context],
+  );
   const voiceSupported = useMemo(
     () =>
       typeof window !== "undefined" &&
@@ -128,6 +140,15 @@ export default function ProjectCopilot() {
     } finally {
       setBusy(false);
     }
+  };
+
+  /** Question prédéfinie : navigation directe si cible, sinon analyse locale. */
+  const runQuestion = (q: CopilotQuestion) => {
+    if (q.target) {
+      runAction({ id: q.id, label: q.label, kind: "navigate", target: q.target });
+      return;
+    }
+    void send(q.label, q.mode);
   };
 
   const runAction = (action: ActionView) => {
@@ -216,6 +237,7 @@ export default function ProjectCopilot() {
           selectedId={null}
           onSelect={selectProject}
           projectName={null}
+          preparation={null}
         />
         <Card className="mt-4 border border-border/40 bg-background/50">
           <CardContent className="py-10 text-center">
@@ -246,6 +268,7 @@ export default function ProjectCopilot() {
         selectedId={selectedId}
         onSelect={selectProject}
         projectName={projectDisplayLabel(selectedProject)}
+        preparation={preparation}
       />
 
       {/* Mémoire du projet (liée à CE projet uniquement) */}
@@ -304,6 +327,47 @@ export default function ProjectCopilot() {
               </button>
             ))}
           </div>
+
+          {/* Questions prédéfinies, filtrées par les conditions du projet */}
+          {questionGroups.length > 0 && (
+            <div className="pb-2">
+              <button
+                type="button"
+                onClick={() => setShowQuestions((v) => !v)}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronDown
+                  className={`h-3 w-3 transition-transform ${showQuestions ? "rotate-180" : ""}`}
+                />
+                Toutes les questions ({questionGroups.reduce((n, g) => n + g.questions.length, 0)})
+              </button>
+              {showQuestions && (
+                <div className="mt-1.5 space-y-2 rounded-lg border border-border/40 p-2">
+                  {questionGroups.map((g) => (
+                    <div key={g.category}>
+                      <p className="mb-1 text-[9px] uppercase tracking-wide text-muted-foreground">
+                        {g.category}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {g.questions.map((q) => (
+                          <button
+                            key={q.id}
+                            type="button"
+                            disabled={busy}
+                            onClick={() => runQuestion(q)}
+                            className="rounded-full border border-border/50 bg-muted/40 px-2.5 py-1 text-[10px] sm:text-xs hover:bg-violet-500/[0.08] hover:border-violet-400/40 transition-colors disabled:opacity-50"
+                          >
+                            <span className="mr-1">{q.emoji}</span>
+                            {q.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-2 space-y-3 max-h-[55vh] overflow-y-auto pr-1">
             {messages.length === 0 && (
@@ -438,9 +502,10 @@ export default function ProjectCopilot() {
             </Button>
           </div>
 
-          <div className="mt-2 flex items-center justify-between">
+          <div className="mt-2 flex items-center justify-between gap-2">
             <p className="text-[9px] text-muted-foreground">
-              Historique et mémoire propres à ce projet.
+              Analyse déterministe locale (calculs et règles métier — aucune IA externe). Historique
+              et mémoire propres à ce projet.
             </p>
             {messages.length > 0 && (
               <button
@@ -507,11 +572,13 @@ function CopilotHeader({
   selectedId,
   onSelect,
   projectName,
+  preparation,
 }: {
   projects: { _id: Id<"projects">; name: string }[];
   selectedId: Id<"projects"> | null;
   onSelect: (id: Id<"projects">) => void;
   projectName: string | null;
+  preparation: { total: number; max: number; missing: string[] } | null;
 }) {
   return (
     <CardHeader className="p-3 sm:p-4">
@@ -547,9 +614,26 @@ function CopilotHeader({
         </div>
       </div>
       {projectName && (
-        <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground truncate">
-          Projet sélectionné : <span className="font-medium text-foreground">{projectName}</span>
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="text-[11px] sm:text-xs text-muted-foreground truncate">
+            Projet sélectionné : <span className="font-medium text-foreground">{projectName}</span>
+          </p>
+          {preparation && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground"
+              title={
+                preparation.missing.length > 0
+                  ? `Éléments manquants : ${preparation.missing.join(", ")}`
+                  : "Tous les éléments du barème sont renseignés"
+              }
+            >
+              🧭 Indice de préparation :
+              <span className="font-medium text-foreground">
+                {preparation.total}/{preparation.max}
+              </span>
+            </span>
+          )}
+        </div>
       )}
     </CardHeader>
   );

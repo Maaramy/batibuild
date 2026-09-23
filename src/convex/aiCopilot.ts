@@ -103,10 +103,32 @@ export const getProjectContext = query({
 
     // ── DQE (vue dérivée — le DQE original n'est pas modifié) ──
     let dqe: CopilotProjectContext["dqe"] = null;
+    let dqeArticles: CopilotProjectContext["dqeArticles"] = null;
     const dqeLots = arr(p.dqe?.lots ?? p.dqe);
     if (dqeLots.length > 0) {
+      let articles = 0;
+      let withoutPrice = 0;
+      let withoutQuantity = 0;
+      let topItem: string | null = null;
+      let topItemCost: number | null = null;
       const lots: DqeLot[] = dqeLots.map((lot: any) => {
         const lines = arr(lot?.lines ?? lot?.items);
+        articles += lines.length;
+        for (const l of lines) {
+          const qte = num(l?.quantite) ?? num(l?.quantity) ?? null;
+          const pu = num(l?.prixUnitaire) ?? num(l?.unitPrice) ?? num(l?.prix) ?? null;
+          if (pu == null) withoutPrice += 1;
+          if (qte == null) withoutQuantity += 1;
+          const cost =
+            num(l?.soustotal) ??
+            num(l?.total) ??
+            num(l?.subtotal) ??
+            (qte != null && pu != null ? qte * pu : null);
+          if (cost != null && (topItemCost == null || cost > topItemCost)) {
+            topItemCost = cost;
+            topItem = String(l?.designation ?? l?.name ?? l?.label ?? l?.description ?? "Article");
+          }
+        }
         const subtotal =
           num(lot?.soustotal) ??
           num(lot?.subtotal) ??
@@ -127,6 +149,7 @@ export const getProjectContext = query({
         grandTotal: lots.reduce((s, l) => s + l.subtotal, 0),
         lots,
       };
+      dqeArticles = { total: articles, withoutPrice, withoutQuantity, topItem, topItemCost };
     }
 
     // ── Matériaux (dernière analyse Matériaux AI liée au projet) ──
@@ -139,17 +162,18 @@ export const getProjectContext = query({
       .first();
 
     let materials: CopilotProjectContext["materials"] = null;
+    let materialIssues: CopilotProjectContext["materialIssues"] = null;
     if (lastAnalysis) {
       const results = lastAnalysis.results ?? {};
+      const solCost = (s: any): number | null =>
+        num(s?.materialCost) ??
+        num(s?.estimatedCost) ??
+        num(s?.totalCost) ??
+        (num(s?.material?.materialCost) != null
+          ? (num(s?.material?.materialCost) ?? 0) + (num(s?.material?.poseCost) ?? 0)
+          : null);
       const categories: MaterialCategoryState[] = arr(results.categories).map((c: any) => {
         const solutions = arr(c?.solutions);
-        const solCost = (s: any): number | null =>
-          num(s?.materialCost) ??
-          num(s?.estimatedCost) ??
-          num(s?.totalCost) ??
-          (num(s?.material?.materialCost) != null
-            ? (num(s?.material?.materialCost) ?? 0) + (num(s?.material?.poseCost) ?? 0)
-            : null);
         const chosen =
           solutions.find((s: any) => s?.profile === "equilibre") ?? solutions[0] ?? null;
         const priced = solutions
@@ -178,6 +202,30 @@ export const getProjectContext = query({
         missingData: arr(results.missingData).map(String),
         categories,
       };
+
+      // Signalements structurés : prix / fournisseur / disponibilité.
+      let withoutPrice = 0;
+      let withoutSupplier = 0;
+      let unavailable = 0;
+      for (const c of arr(results.categories)) {
+        const solutions = arr(c?.solutions);
+        const chosen =
+          solutions.find((s: any) => s?.profile === "equilibre") ?? solutions[0] ?? null;
+        if (!chosen) {
+          withoutPrice += 1;
+          continue;
+        }
+        if (solCost(chosen) == null) withoutPrice += 1;
+        if (arr(chosen?.suppliers).length === 0) withoutSupplier += 1;
+        const avail = String(chosen?.material?.availability ?? "").toLowerCase();
+        if (avail.includes("rupture") || avail.includes("indisponible")) unavailable += 1;
+      }
+      materialIssues = {
+        selected: categories.length,
+        withoutPrice,
+        withoutSupplier,
+        unavailable,
+      };
     }
 
     // ── Roadmap d'exécution ──
@@ -198,6 +246,57 @@ export const getProjectContext = query({
           })),
         }
       : null;
+
+    // ── Suivi budgétaire réel (dépenses enregistrées vs budget prévu) ──
+    const roadmapResults: any = roadmapDoc?.results ?? null;
+    const roadmapSummary: any = roadmapResults?.summary ?? null;
+    const budget =
+      roadmapSummary != null
+        ? {
+            planned:
+              num(roadmapSummary.plannedBudget) ?? num(roadmapResults?.budget?.totalCost) ?? 0,
+            consumed: num(roadmapSummary.budgetConsumed) ?? 0,
+            gap: num(roadmapSummary.budgetGap) ?? 0,
+          }
+        : roadmapResults?.budget != null
+          ? { planned: num(roadmapResults.budget.totalCost) ?? 0, consumed: 0, gap: 0 }
+          : null;
+
+    // ── Planning d'exécution (compteurs, prochaine tâche, retard) ──
+    const planningArr = arr(roadmapResults?.planning);
+    const nextTaskId: any = roadmapSummary?.nextTaskId ?? null;
+    const nextTaskDoc =
+      (nextTaskId != null ? planningArr.find((t: any) => t?.id === nextTaskId) : null) ??
+      planningArr.find((t: any) => String(t?.status ?? "todo") !== "done") ??
+      null;
+    const tasksDone = planningArr.filter((t: any) => String(t?.status) === "done").length;
+    const plannedEnd = num(roadmapSummary?.endDate);
+    const planning =
+      planningArr.length > 0
+        ? {
+            total: planningArr.length,
+            done: tasksDone,
+            inProgress: planningArr.filter((t: any) => String(t?.status) === "in_progress").length,
+            late: plannedEnd != null && Date.now() > plannedEnd && tasksDone < planningArr.length,
+            nextTask: nextTaskDoc
+              ? String(nextTaskDoc.title ?? nextTaskDoc.label ?? "Tâche")
+              : null,
+          }
+        : null;
+
+    // ── Éléments structurés du plan (détectés dans l'analyse, jamais devinés) ──
+    const features = arr(p.aiAnalysis?.features);
+    const featureQty = (names: string[]): number | null => {
+      const f = features.find((x: any) =>
+        names.some((n) => String(x?.type ?? "").toLowerCase().includes(n)),
+      );
+      if (!f || f.detected === false) return null;
+      return num(f.quantity);
+    };
+    const planDetail = {
+      doors: featureQty(["porte", "door"]),
+      windows: featureQty(["fenetre", "fenêtre", "window", "baie"]),
+    };
 
     // ── Professionnels : demandes, rendez-vous, recommandations ──
     const myQuotes = await ctx.db
@@ -272,6 +371,13 @@ export const getProjectContext = query({
       optimizationTips: arr(p.optimizationTips).map(String),
       technicalRecommendations: arr(p.technicalRecommendations).map(String),
       memory: memoryDocs.map((m) => ({ note: m.note, kind: m.kind })),
+      surfaceTotale: num(p.surfaceTotale),
+      budget,
+      planning,
+      documents: arr(p.files).length,
+      dqeArticles,
+      materialIssues,
+      planDetail,
     };
   },
 });
