@@ -34,6 +34,7 @@ import {
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { profileCardClass, VerifiedBadge } from "@/components/ProfileCardBits";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
+import { directorySwitchHref } from "@/lib/directorySearchParams";
 import { PROJECT_TYPE_LABELS } from "@/convex/projectTypes";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
@@ -79,24 +80,32 @@ export default function ProfessionalsDirectory() {
     projectIdParam ? { projectId: projectIdParam as any } : "skip",
   );
 
-  const [search, setSearch] = useState("");
+  // Critères initialisés depuis l'URL : ils sont conservés lors d'une bascule
+  // « Type : Experts / Fournisseurs » (le contexte du projet — donc la barre
+  // Projet Journey — est transmis dans les deux sens).
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [selectedProfession, setSelectedProfession] = useState("");
-  const [selectedRegion, setSelectedRegion] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState(() => searchParams.get("region") ?? "");
   // ProMarket : filtres disponibilité / urgences + dialogues de demande
-  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>(() => {
+    const fromUrl = searchParams.get("availability");
+    return AVAILABILITY_FILTERS.some((f) => f.value === fromUrl)
+      ? (fromUrl as AvailabilityFilter)
+      : "all";
+  });
   const [appointmentExpert, setAppointmentExpert] = useState<any>(null);
   const [urgentExpert, setUrgentExpert] = useState<any>(null);
 
   const openAppointment = (expert: any) => {
     if (!user) {
-      navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+      navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
     setAppointmentExpert(expert);
   };
   const openUrgent = (expert: any) => {
     if (!user) {
-      navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+      navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
     setUrgentExpert(expert);
@@ -186,8 +195,15 @@ export default function ProfessionalsDirectory() {
    * navigue donc vers l'annuaire correspondant en conservant le contexte.
    */
   const goToSuppliers = () => {
-    const qs = selectedRegion ? `?region=${encodeURIComponent(selectedRegion)}` : "";
-    navigate(`/dashboard/suppliers-directory${qs}`);
+    // Le projet (`project`) est TOUJOURS transmis : la barre Projet Journey
+    // reste affichée après la bascule, avec la recherche et la région.
+    navigate(
+      directorySwitchHref("suppliers", {
+        project: projectIdParam ?? "",
+        q: search,
+        region: selectedRegion,
+      }),
+    );
   };
 
   /** Critères proposés dans le panneau de recherche. */
@@ -265,8 +281,9 @@ export default function ProfessionalsDirectory() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-border/20 bg-background/90 backdrop-blur-md">
+      {/* Header — barre unique sticky : titre + Projet Journey. Elle reste
+          toujours au-dessus de la recherche et de ses options (z-40). */}
+      <header className="sticky top-0 z-40 border-b border-border/20 bg-background/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-12 sm:h-14">
           <div className="flex items-center gap-2 min-w-0">
             <button onClick={() => navigate(-1)}
@@ -293,11 +310,18 @@ export default function ProfessionalsDirectory() {
           category={project?.category}
           flags={journeyFlags}
           maxWidthClassName="max-w-7xl"
+          // Fond opaque : la barre du parcours ne laisse jamais apparaître la
+          // recherche ou ses options en dessous pendant le défilement.
+          className="bg-background"
         />
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-4">
-        {/* Recherche unique : une seule barre + panneau de critères */}
+      {/* Contenu : espace réservé sous la barre sticky (scroll-mt) pour que la
+          recherche et son panneau ne passent jamais sous Projet Journey. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-4 scroll-mt-28">
+        {/* Recherche unique : une seule barre + panneau de critères (toujours
+            SOUS la barre sticky : la hiérarchie Projet Journey → recherche →
+            options → résultats est garantie par le flux normal du document). */}
         <DirectorySearchBar
           query={search}
           onQueryChange={setSearch}
@@ -467,7 +491,7 @@ export default function ProfessionalsDirectory() {
                       <button
                         onClick={() => {
                           if (!user) {
-                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
                             return;
                           }
                           setDevisExpert(e);
@@ -494,7 +518,7 @@ export default function ProfessionalsDirectory() {
                       <button
                         onClick={() => {
                           if (!user) {
-                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
                             return;
                           }
                           setRatingExpert(e);

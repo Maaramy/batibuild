@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
 import { profileCardClass, VerifiedBadge } from "@/components/ProfileCardBits";
+import { directorySwitchHref } from "@/lib/directorySearchParams";
 
 // ── Region labels ────────────────────────────────────────────────────────────
 
@@ -74,7 +75,9 @@ export default function SuppliersDirectory() {
   // ouvert depuis un projet (?project=…), comme sur les autres étapes.
   const projectIdParam = searchParams.get("project") ?? null;
 
-  const [search, setSearch] = useState("");
+  // Texte recherché : état local, initialisé depuis l'URL (il est transmis
+  // explicitement lors d'une bascule « Type », avec le contexte du projet).
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [ratingSupplier, setRatingSupplier] = useState<any>(null);
   const [myRating, setMyRating] = useState(0);
   const [sendingRating, setSendingRating] = useState(false);
@@ -138,6 +141,9 @@ export default function SuppliersDirectory() {
       next.delete("from");
       if (patch.from) next.set("from", patch.from);
     }
+    // Le texte recherché reste un état local : il ne traîne pas dans l'URL (il
+    // est transmis explicitement lors d'une bascule de type d'annuaire).
+    next.delete("q");
     // Dès qu'il ne reste plus de filtre issu de l'analyse, on retire la mention.
     if (!next.get("specialty") && !next.get("region")) next.delete("from");
     setSearchParams(next, { replace: true });
@@ -181,8 +187,15 @@ export default function SuppliersDirectory() {
    * navigue donc vers l'annuaire correspondant en conservant la région.
    */
   const goToExperts = () => {
-    const qs = selectedRegion ? `?region=${encodeURIComponent(selectedRegion)}` : "";
-    navigate(`/dashboard/professionals-directory${qs}`);
+    // Le projet (`project`) est TOUJOURS transmis : la barre Projet Journey
+    // reste affichée après la bascule, avec la recherche et la région.
+    navigate(
+      directorySwitchHref("experts", {
+        project: projectIdParam ?? "",
+        q: search,
+        region: selectedRegion,
+      }),
+    );
   };
 
   /** Critères proposés dans le panneau de recherche. */
@@ -247,7 +260,7 @@ export default function SuppliersDirectory() {
 
   const openQuoteDialog = (s: any) => {
     if (!user) {
-      navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+      navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
     setDevisMessage("");
@@ -280,8 +293,9 @@ export default function SuppliersDirectory() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-border/20 bg-background/90 backdrop-blur-md">
+      {/* Header — barre unique sticky : titre + Projet Journey. Elle reste
+          toujours au-dessus de la recherche et de ses options (z-40). */}
+      <header className="sticky top-0 z-40 border-b border-border/20 bg-background/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
@@ -311,11 +325,18 @@ export default function SuppliersDirectory() {
           projectId={projectIdParam}
           flags={journeyFlags}
           maxWidthClassName="max-w-7xl"
+          // Fond opaque : la barre du parcours ne laisse jamais apparaître la
+          // recherche ou ses options en dessous pendant le défilement.
+          className="bg-background"
         />
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-4">
-        {/* Recherche unique : une seule barre + panneau de critères */}
+      {/* Contenu : espace réservé sous la barre sticky (scroll-mt) pour que la
+          recherche et son panneau ne passent jamais sous Projet Journey. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-4 scroll-mt-28">
+        {/* Recherche unique : une seule barre + panneau de critères (toujours
+            SOUS la barre sticky : la hiérarchie Projet Journey → recherche →
+            options → résultats est garantie par le flux normal du document). */}
         <DirectorySearchBar
           query={search}
           onQueryChange={setSearch}
@@ -496,7 +517,7 @@ export default function SuppliersDirectory() {
                       <button
                         onClick={() => {
                           if (!user) {
-                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname)}`);
+                            navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
                             return;
                           }
                           setRatingSupplier(s);

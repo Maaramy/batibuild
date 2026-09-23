@@ -72,7 +72,10 @@ export function DirectorySearchBar({
   const activeCount = chips.length;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border/40 bg-card shadow-soft">
+    // `scroll-mt-28` : lors du défilement automatique (focus d'un champ,
+    // ouverture du panneau), la barre reste sous la barre sticky du parcours du
+    // projet — jamais cachée derrière elle.
+    <div className="scroll-mt-28 overflow-hidden rounded-2xl border border-border/40 bg-card shadow-soft">
       {/* ── Barre de recherche unique ─────────────────────────────────────── */}
       {/* Toucher / cliquer la barre ouvre la zone des critères. */}
       <div className="flex items-center gap-1.5 px-2.5 py-2" onClick={() => setOpen(true)}>
