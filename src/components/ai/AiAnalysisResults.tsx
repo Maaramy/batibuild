@@ -8,7 +8,7 @@ import {
   PiggyBank, Zap, Check, Info, Layers,
   TrendingDown, TrendingUp, Minus, Wand2, Gauge, CalendarDays,
   BadgeCheck, Crown, CircleDollarSign,
-  CircleDot, Store, Trophy, FileDown, SlidersHorizontal, ArrowRight,
+  CircleDot, Store, Trophy, FileDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -80,11 +80,9 @@ export function AiAnalysisResults({
   const { user } = useAuth();
   const optimizeCopilotBudget = useAction(api.aiMaterialsActions.optimizeCopilotBudget);
   const improveCopilotPerformance = useAction(api.aiMaterialsActions.improveCopilotPerformance);
-  const optimizeChoiceCopilot = useAction(api.aiMaterialsActions.optimizeChoiceCopilot);
 
   const [optimization, setOptimization] = useState<any>(null);
   const [performance, setPerformance] = useState<any>(null);
-  const [choice, setChoice] = useState<any>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   // Budget par défaut (85 % du total estimé)
   const [budgetInput, setBudgetInput] = useState(() =>
@@ -102,19 +100,6 @@ export function AiAnalysisResults({
       toast.error(err.message || "Erreur");
     }
     setBusy((b) => ({ ...b, optimize: false }));
-  };
-
-  const runChoice = async () => {
-    if (!result) return;
-    setBusy((b) => ({ ...b, choice: true }));
-    try {
-      const res = await optimizeChoiceCopilot({ result });
-      setChoice(res);
-      toast.success(res.alternatives.length ? `${res.alternatives.length} piste(s) d'optimisation détectée(s)` : "Votre sélection est déjà optimale — aucune alternative dominante.");
-    } catch (err: any) {
-      toast.error(err.message || "Erreur");
-    }
-    setBusy((b) => ({ ...b, choice: false }));
   };
 
   const runPerformance = async () => {
@@ -412,99 +397,6 @@ export function AiAnalysisResults({
           );
         })}
       </div>
-
-      {/* Optimiser mon choix (évaluation 9 axes + alternatives) */}
-      <Card className="border border-border/40 overflow-hidden rounded-xl">
-        <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-5 py-3 sm:py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-            </div>
-            <div>
-              <CardTitle className="text-sm font-semibold">Optimiser mon choix</CardTitle>
-              <CardDescription className="text-[10px]">
-                Évalue votre sélection sur 9 axes (prix, qualité, durabilité, isolation…) et propose des alternatives concrètes du marché tunisien
-              </CardDescription>
-            </div>
-            <Button
-              size="sm"
-              className="h-8 gap-1.5 text-xs ml-auto shrink-0"
-              disabled={busy.choice}
-              onClick={runChoice}
-            >
-              {busy.choice ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-              Analyser mon choix
-            </Button>
-          </div>
-        </CardHeader>
-        {choice && (
-          <CardContent className="p-4 sm:p-5 space-y-3">
-            {/* Verdict global */}
-            <div className={cn(
-              "rounded-xl border p-3 flex flex-wrap items-center gap-3",
-              choice.verdict === "optimal" ? "border-emerald-500/30 bg-emerald-500/5"
-                : choice.verdict === "suboptimal" ? "border-rose-500/30 bg-rose-500/5"
-                : "border-amber-500/30 bg-amber-500/5",
-            )}>
-              <div className="flex items-center gap-2">
-                <Gauge className={cn("h-4 w-4", choice.verdict === "optimal" ? "text-emerald-600" : choice.verdict === "suboptimal" ? "text-rose-600" : "text-amber-600")} />
-                <span className="text-2xl font-black tabular-nums">{choice.overallScore}<span className="text-xs text-muted-foreground">/100</span></span>
-              </div>
-              <p className="text-xs text-muted-foreground flex-1 min-w-[200px]">{choice.headline}</p>
-            </div>
-
-            {/* Grille des 9 axes */}
-            <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-1.5">
-              {choice.axes.map((ax: any) => (
-                <div key={ax.key} className="rounded-lg border border-border/30 bg-muted/10 px-2 py-1.5 text-center" title={ax.comment}>
-                  <p className="text-[8px] text-muted-foreground truncate">{ax.label}</p>
-                  <p className={cn("text-xs font-bold", scoreColor(ax.score))}>{ax.score}</p>
-                  <p className={cn(
-                    "text-[8px] font-medium",
-                    ax.verdict === "fort" ? "text-emerald-600" : ax.verdict === "correct" ? "text-blue-600" : "text-amber-600",
-                  )}>
-                    {ax.verdict === "fort" ? "Fort" : ax.verdict === "correct" ? "Correct" : "Faible"}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Alternatives */}
-            {choice.alternatives.length > 0 ? (
-              <ul className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-                {choice.alternatives.map((alt: any, i: number) => (
-                  <li key={`${alt.categoryId}-${alt.axis}-${i}`} className="rounded-lg border border-border/30 bg-background px-3 py-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge variant="outline" className="text-[9px] h-4">{alt.categoryLabel}</Badge>
-                      <span className="text-[10px] text-muted-foreground">{alt.currentName}</span>
-                      <ArrowRight className="h-3 w-3 text-primary shrink-0" />
-                      <span className="text-[10px] font-semibold">{alt.alternativeName}</span>
-                      <Badge className="ml-auto text-[8px] gap-1 bg-emerald-500/10 text-emerald-700 border-emerald-500/30">
-                        {alt.axisLabel} +{alt.gain} pts
-                      </Badge>
-                      <Badge variant="outline" className={cn("text-[8px] h-4", alt.extraCost > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400 border-emerald-500/30")}>
-                        {alt.extraCost > 0 ? `+${fmtTnd(alt.extraCost)}` : alt.extraCost < 0 ? `−${fmtTnd(Math.abs(alt.extraCost))}` : "Coût identique"}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-[9px] text-muted-foreground/80 italic">{alt.rationale}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-[10px] text-muted-foreground">Aucune alternative ne domine votre sélection sur un axe précis — votre choix est déjà bien équilibré.</p>
-            )}
-            {choice.summary && <p className="text-[10px] text-muted-foreground italic">{choice.summary}</p>}
-            <ul className="space-y-0.5">
-              {choice.assumptions.map((a: string, i: number) => (
-                <li key={i} className="flex items-start gap-1 text-[9px] text-muted-foreground/80 italic">
-                  <Info className="h-2.5 w-2.5 mt-0.5 shrink-0" /> {a}
-                </li>
-              ))}
-            </ul>
-            <p className="text-[9px] text-amber-700 dark:text-amber-400/80 italic">{choice.note}</p>
-          </CardContent>
-        )}
-      </Card>
 
       {/* Outils IA */}
       <div className="grid lg:grid-cols-2 gap-4">

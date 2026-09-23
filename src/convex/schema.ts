@@ -555,51 +555,6 @@ const schema = defineSchema(
       // Budget optimization suggestions
       optimizationTips: v.optional(v.array(v.string())),
       technicalRecommendations: v.optional(v.array(v.string())),
-      
-      // Predictive intelligence (Pro/Expert) — AI price forecasts & buying advice
-      predictiveInsights: v.optional(
-        v.object({
-          summary: v.string(),
-          pricePredictions: v.array(
-            v.object({
-              material: v.string(),
-              category: v.string(),
-              predictedChangePct: v.number(),
-              trend: v.union(
-                v.literal("hausse"),
-                v.literal("baisse"),
-                v.literal("stable")
-              ),
-              horizon: v.string(),
-              reasoning: v.string(),
-            })
-          ),
-          bestBuyingPeriods: v.array(
-            v.object({
-              material: v.string(),
-              period: v.string(),
-              reason: v.string(),
-              savingPct: v.number(),
-            })
-          ),
-          budgetOptimizations: v.array(
-            v.object({
-              title: v.string(),
-              description: v.string(),
-              potentialSaving: v.number(),
-            })
-          ),
-          lossReductions: v.array(
-            v.object({
-              title: v.string(),
-              description: v.string(),
-              estimatedSavingPct: v.number(),
-            })
-          ),
-          overallSavingsPct: v.number(),
-          generatedAt: v.number(),
-        })
-      ),
 
       // DQE — Quantitatif détaillé par lots (modèle Google Sheets)
       dqe: v.optional(v.any()),
@@ -1577,29 +1532,6 @@ const schema = defineSchema(
       .index("by_type", ["type"])
       .index("by_created", ["createdAt"])
       .index("by_order", ["displayOrder"]),
-
-    // ── COUCHE D'EXTENSION « INTELLIGENCE » (Batibuild) ─────────────────
-    // Table additive dédiée aux nouvelles fonctionnalités (copilote IA,
-    // suivi financier, variantes, achats, planning, devis, dossier, alertes).
-    // PRINCIPE : EXTEND, DON'T REPLACE — cette table ne remplace ni ne modifie
-    // aucune table existante ; elle stocke uniquement des données DÉRIVÉES et
-    // des préférences utilisateur, sous forme de payloads JSON (`v.any()`,
-    // même convention que `dqe`). Le projet original reste la source de vérité :
-    // toute « application » de variante/copilote passe par les mutations
-    // EXISTANTES des modules d'origine, après confirmation explicite.
-    projectIntelligence: defineTable({
-      userId: v.id("users"),
-      projectId: v.id("projects"),
-      /** Payload segmenté : { finance?, purchases?, guide?, planning?,
-       *  variants?, quotes?, copilot?, dismissedAlerts? } — chaque segment est
-       *  indépendant et optionnel (patch partiel). */
-      data: v.any(),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    })
-      .index("by_project", ["projectId"])
-      .index("by_user", ["userId"])
-      .index("by_user_project", ["userId", "projectId"]),
 
     // ── Connection logs (real-time analytics) ──────────────────────
     connectionLogs: defineTable({
