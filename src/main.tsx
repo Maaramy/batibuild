@@ -36,7 +36,6 @@ const MaterialsPage = lazy(() => import("./pages/MaterialsPage.tsx"));
 const AiMaterials = lazy(() => import("./pages/AiMaterials.tsx"));
 const AiMaterialsResult = lazy(() => import("./pages/AiMaterialsResult.tsx"));
 const PlanGenerator = lazy(() => import("./pages/PlanGenerator.tsx"));
-const ProjectCopilot = lazy(() => import("./pages/ProjectCopilot.tsx"));
 const ProjectGuide = lazy(() => import("./pages/ProjectGuide.tsx"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage.tsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
@@ -283,17 +282,6 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
-                <Route
-                  path="/dashboard/copilot"
-                  element={
-                    <RequireAuth>
-                      <FeatureGate flag="dashboard_ai_copilot">
-                        <ProjectCopilot />
-                      </FeatureGate>
-                    </RequireAuth>
-                  }
-                />
-
                 <Route
                   path="/dashboard/guide"
                   element={

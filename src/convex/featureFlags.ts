@@ -52,13 +52,6 @@ export const FEATURE_FLAGS_CATALOG = [
       "Vue 3D haute netteté (HD, ombres adaptatives, arêtes architecturales, modes Architectural/Réaliste). Bêta = activé pour tests, ON = déployé.",
     progressive: true,
   },
-  {
-    key: "dashboard_ai_copilot",
-    name: "Copilote AI du Dashboard",
-    description:
-      "Assistant IA contextuel du projet sélectionné : analyses, recommandations, alertes et actions guidées. Bêta = activé pour tests, ON = déployé.",
-    progressive: true,
-  },
 ] as const;
 
 export type FeatureFlagKey = (typeof FEATURE_FLAGS_CATALOG)[number]["key"];
