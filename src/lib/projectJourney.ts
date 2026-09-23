@@ -159,7 +159,7 @@ export function buildProjectJourney(
       cost,
       {
         key: "plans",
-        label: "Plans",
+        label: "Plan IA",
         path: `/dashboard/plans/${pid}`,
         href: `/dashboard/plans/${pid}`,
       },
@@ -172,7 +172,7 @@ export function buildProjectJourney(
       consult,
       {
         key: "execution",
-        label: "Exécution",
+        label: "Exécution & suivi",
         path: "/dashboard/guide",
         href: `/dashboard/guide?project=${pid}`,
       },

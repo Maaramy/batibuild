@@ -11,10 +11,10 @@ import {
 
 const GROUP_A_LABELS = [
   "Coût estimatif",
-  "Plans",
+  "Plan IA",
   "Choix matériaux",
   "Consultation",
-  "Exécution",
+  "Exécution & suivi",
   "Investissement",
 ];
 
