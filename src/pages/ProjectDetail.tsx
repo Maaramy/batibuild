@@ -232,15 +232,27 @@ export default function ProjectDetail() {
 
   // ── PDF Export ────────────────────────────────────────────────────────
 
-  const handleDownloadClick = () => {
-    if (exporting) return;
-    // Quotas removed — always open scenario picker
-    // Le scénario « Personnalisé » est exporté à partir de son scénario de
-    // référence : le PDF conserve les 3 scénarios budgétaires d'origine.
+  // Sélecteur des scénarios budgétaires d'origine (Économique / Standard /
+  // Premium) : comportement inchangé.
+  const openScenarioPicker = () => {
     setPdfPickerScenario(
       selectedScenario === PERSONALIZED_SCENARIO_KEY ? baseScenarioKey : selectedScenario,
     );
     setShowPdfPicker(true);
+  };
+
+  const handleDownloadClick = () => {
+    if (exporting) return;
+    // Le scénario « Personnalisé » est repris automatiquement dans le devis
+    // téléchargé dès qu'il existe (articles modifiés du Quantitatif détaillé) :
+    // le PDF est généré directement, sans étape de choix intermédiaire.
+    // Les scénarios Économique / Standard / Premium restent exportables via
+    // « Autres scénarios » et ne sont jamais altérés.
+    if (hasCustomization && personalized) {
+      generatePDF(PERSONALIZED_SCENARIO_KEY);
+      return;
+    }
+    openScenarioPicker();
   };
 
   const confirmPdfDownload = () => {
@@ -270,6 +282,9 @@ export default function ProjectDetail() {
       scenario,
       dqe: dqeData,
       dqeScaleFactor: sf,
+      // Scénario « Personnalisé » : `null` s'il n'y a aucune modification — le
+      // devis n'en fait alors aucune mention.
+      personalized: personalized ?? null,
       onStart: () => {
         setExporting(true);
       },
@@ -277,6 +292,11 @@ export default function ProjectDetail() {
       onSuccess: () => {
         setShowSuccess(true);
         setExportLabel("Devis prêt !");
+        if (scenario === PERSONALIZED_SCENARIO_KEY) {
+          toast.success(
+            `Devis « ${PERSONALIZED_SCENARIO_LABEL} » généré — ${personalized?.modifiedCount ?? customizationEntries.length} article${(personalized?.modifiedCount ?? customizationEntries.length) > 1 ? "s" : ""} modifié${(personalized?.modifiedCount ?? customizationEntries.length) > 1 ? "s" : ""}`,
+          );
+        }
       },
       onFinish: () => {
         setExporting(false);
@@ -904,6 +924,22 @@ export default function ProjectDetail() {
                       )}
                       Télécharger le devis
                     </button>
+                    {hasCustomization && (
+                      <button
+                        onClick={openScenarioPicker}
+                        disabled={exporting}
+                        title="Exporter l'un des scénarios Économique / Standard / Premium"
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-all border",
+                          exporting
+                            ? "opacity-50 cursor-not-allowed bg-white/10 border-white/15"
+                            : "bg-white/10 text-white border-white/20 hover:bg-white/20 active:scale-95",
+                        )}
+                      >
+                        <Layers className="h-3 w-3" />
+                        Autres scénarios
+                      </button>
+                    )}
                     {showRoiButton && (
                       <button
                         onClick={() => {
@@ -1048,6 +1084,7 @@ export default function ProjectDetail() {
                         <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                           <Badge className="bg-amber-500 text-white text-[9px] h-4.5 px-2 shadow whitespace-nowrap">
                             {customizationEntries.length} article{customizationEntries.length > 1 ? "s" : ""} modifié{customizationEntries.length > 1 ? "s" : ""}
+
                           </Badge>
                         </div>
                         <div className="flex items-center gap-2 mb-2">

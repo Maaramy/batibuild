@@ -2,6 +2,10 @@ import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 import { toast } from "sonner";
 import { drawBatiLogo } from "./pdfLogo";
+import {
+  resolvePdfScenarioValues,
+  type PersonalizedScenarioData,
+} from "./projectPdfScenario";
 
 applyAutotablePlugin(jsPDF);
 
@@ -37,6 +41,12 @@ export interface ProjectPdfOptions {
   scenario: string;
   dqe?: any;           // DQE hiérarchique (lots → natures → lignes)
   dqeScaleFactor?: number; // Facteur d'échelle pour le scénario sélectionné
+  /**
+   * Scénario « Personnalisé » (articles modifiés du Quantitatif détaillé).
+   * `null` / absent ⇒ aucune modification : le devis reste inchangé et ne
+   * mentionne jamais « Personnalisé ».
+   */
+  personalized?: PersonalizedScenarioData | null;
   onStart: () => void;
   onProgress: (step: number) => void;
   onSuccess: () => void;
@@ -57,6 +67,7 @@ export async function generateProjectPdf({
   scenario,
   dqe,
   dqeScaleFactor = 1,
+  personalized = null,
   onStart,
   onProgress,
   onSuccess,
@@ -71,33 +82,21 @@ export async function generateProjectPdf({
     onProgress(1);
     await new Promise((r) => setTimeout(r, 300));
 
-    const scenarioData = scenarios?.[scenario];
-    const totalCost = scenarioData?.totalCost || ce.totalCost;
-    const costPerM2 = scenarioData?.costPerM2 || ce.costPerSquareMeter || 0;
-    const scenarioLabel =
-      scenario === "economique"
-        ? "Économique"
-        : scenario === "premium"
-          ? "Premium"
-          : "Standard";
-
-    // Build breakdown for the selected scenario
-    const isStandardScenario = scenario === "standard";
-    const sf =
-      isStandardScenario || !scenarios?.standard
-        ? 1
-        : (scenarioData?.totalCost || 0) / (scenarios.standard.totalCost || 1);
-    const breakdown =
-      sf === 1
-        ? ce.breakdown
-        : ce.breakdown.map((cat: any) => ({
-            ...cat,
-            estimatedCost: Math.round(cat.estimatedCost * sf),
-            items: cat.items?.map((item: any) => ({
-              ...item,
-              totalPrice: Math.round(item.totalPrice * sf),
-            })),
-          }));
+    // ── Valeurs du scénario exporté ──────────────────────────────────────
+    // Économique / Standard / Premium : quantitatif du moteur mis à l'échelle
+    // du scénario. « Personnalisé » : quantitatif du scénario de référence
+    // auquel sont superposées les modifications d'articles de l'utilisateur —
+    // le total du devis est alors celui du scénario personnalisé.
+    const values = resolvePdfScenarioValues({
+      scenario,
+      scenarios,
+      ce,
+      dqe,
+      dqeScaleFactor,
+      personalized,
+    });
+    const { totalCost, costPerM2, scenarioLabel, breakdown } = values;
+    const isPersonalizedDevis = values.isPersonalized;
 
     onProgress(2);
     await new Promise((r) => setTimeout(r, 400));
@@ -256,6 +255,36 @@ export async function generateProjectPdf({
 
     y += 31;
 
+    // ═══ BANDEAU « SCENARIO : PERSONNALISE » ══════════════════════════
+    // Affiché uniquement lorsqu'un scénario « Personnalisé » (articles
+    // modifiés) alimente le devis : aucune mention sinon.
+    if (isPersonalizedDevis) {
+      addPageIfNeeded(9);
+
+      doc.setFillColor(254, 243, 199);
+      doc.setDrawColor(217, 119, 6);
+      doc.setLineWidth(0.3);
+      doc.rect(ml, y, cw, 7, "F");
+      doc.rect(ml, y, cw, 7, "S");
+
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(180, 83, 9);
+      doc.text("Scénario : Personnalisé", ml + 3, y + 4.8);
+
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(146, 64, 14);
+      doc.text(
+        `${values.modifiedCount} article${values.modifiedCount > 1 ? "s" : ""} modifié${values.modifiedCount > 1 ? "s" : ""}`,
+        ml + cw - 3,
+        y + 4.8,
+        { align: "right" },
+      );
+
+      y += 11;
+    }
+
     // ═══ CONFIDENCE BAR ════════════════════════════════════════════
     addPageIfNeeded(12);
 
@@ -362,7 +391,10 @@ export async function generateProjectPdf({
         [59, 130, 246],
         [139, 92, 246],
       ];
-      const scColW = cw / 3;
+      // 3 colonnes pour les scénarios d'origine ; une 4ᵉ colonne
+      // « Personnalisé » n'est ajoutée que si ce scénario existe.
+      const scColCount = isPersonalizedDevis ? 4 : 3;
+      const scColW = cw / scColCount;
 
       scKeys.forEach((key, i) => {
         const s = scenarios[key as keyof typeof scenarios];
@@ -407,6 +439,29 @@ export async function generateProjectPdf({
         doc.text(`${fmtPdf(s.costPerM2)} /m²`, x + 2, y + 15);
       });
 
+      // ── Colonne « Personnalisé » (articles modifiés) ──
+      if (isPersonalizedDevis) {
+        const x = ml + 3 * scColW;
+
+        doc.setFillColor(254, 243, 199);
+        doc.setDrawColor(217, 119, 6);
+        doc.rect(x, y, scColW - 2, 18, "F");
+        doc.rect(x, y, scColW - 2, 18, "S");
+
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(180, 83, 9);
+        doc.text("Personnalisé", x + 2, y + 4);
+
+        doc.setFontSize(9);
+        doc.text(fmtPdf(totalCost), x + 2, y + 10);
+
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(146, 64, 14);
+        doc.text(`${fmtPdf(costPerM2)} /m²`, x + 2, y + 15);
+      }
+
       y += 24;
     }
 
@@ -429,18 +484,9 @@ export async function generateProjectPdf({
     };
     const NATURE_ORDER = ["materiaux", "main_oeuvre", "equipements", "transport", "etudes"];
 
-    // ── DQE data: scale all lots/lines for the selected scenario ──
-    const dqeLots: any[] = dqe?.lots
-      ? dqe.lots.map((lot: any) => ({
-          ...lot,
-          subtotal: Math.round(lot.subtotal * dqeScaleFactor),
-          lines: (lot.lines || []).map((line: any) => ({
-            ...line,
-            total: Math.round(line.total * dqeScaleFactor),
-            unitPrice: Math.round((line.total * dqeScaleFactor) / Math.max(1, line.quantity) * 100) / 100,
-          })),
-        }))
-      : [];
+    // ── DQE data: lots déjà résolus pour le scénario exporté ──
+    // (mis à l'échelle du scénario, ou articles personnalisés superposés)
+    const dqeLots: any[] = values.dqeLots;
 
     const hasDqeLots = dqeLots.length > 0;
     const hasFlatItems = breakdown.some((b: any) => b.items?.length > 0);
@@ -454,17 +500,8 @@ export async function generateProjectPdf({
       doc.text(`Quantitatif détaillé — Scénario ${scenarioLabel}`, ml, y);
       y += 2;
 
-      // Ventilation par nature (DQE totals)
-      const dqeTotals = dqe?.totals
-        ? {
-            materiaux: Math.round(dqe.totals.materiaux * dqeScaleFactor),
-            mainOeuvre: Math.round(dqe.totals.mainOeuvre * dqeScaleFactor),
-            equipements: Math.round(dqe.totals.equipements * dqeScaleFactor),
-            transport: Math.round(dqe.totals.transport * dqeScaleFactor),
-            etudes: Math.round(dqe.totals.etudes * dqeScaleFactor),
-            total: Math.round(dqe.totals.total * dqeScaleFactor),
-          }
-        : null;
+      // Ventilation par nature (totaux DQE du scénario exporté)
+      const dqeTotals = values.dqeTotals;
 
       if (dqeTotals) {
         doc.setFontSize(6);
