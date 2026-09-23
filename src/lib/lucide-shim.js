@@ -165,6 +165,7 @@ export { default as Mail } from "../../node_modules/lucide-react/dist/esm/icons/
 export { default as MailCheck } from "../../node_modules/lucide-react/dist/esm/icons/mail-check.js";
 export { default as MailX } from "../../node_modules/lucide-react/dist/esm/icons/mail-x.js";
 export { default as Megaphone } from "../../node_modules/lucide-react/dist/esm/icons/megaphone.js";
+export { default as Mic } from "../../node_modules/lucide-react/dist/esm/icons/mic.js";
 export { default as Map } from "../../node_modules/lucide-react/dist/esm/icons/map.js";
 export { default as MapPin } from "../../node_modules/lucide-react/dist/esm/icons/map-pin.js";
 export { default as MapPinned } from "../../node_modules/lucide-react/dist/esm/icons/map-pinned.js";

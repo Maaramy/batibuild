@@ -19,6 +19,7 @@ import { MySubscriptionCard } from "@/components/MySubscriptionCard";
 import { AnnouncementCarousel } from "@/components/announcements/AnnouncementCarousel";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import CopilotCard from "@/components/copilot/CopilotCard";
 import { useQuery, useMutation } from "convex/react";
 import {
   LayoutDashboard,
@@ -1025,6 +1026,9 @@ export default function Dashboard() {
               </Card>
             </motion.div>
           )}
+
+          {/* ── Copilote AI (module indépendant piloté par feature flag) ── */}
+          {isFeatureEnabled("dashboard_ai_copilot") && <CopilotCard />}
 
           {/* Projects section */}
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm shadow-none">

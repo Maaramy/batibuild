@@ -1179,6 +1179,55 @@ const schema = defineSchema(
       .index("by_project", ["projectId"])
       .index("by_user_project", ["userId", "projectId"]),
 
+    // ── Copilote AI du Dashboard (dashboard_ai_copilot) ───────────────────────
+    // Conversations strictement séparées par projet : l'historique du projet A
+    // n'est jamais mélangé avec celui du projet B.
+    aiCopilotMessages: defineTable({
+      userId: v.id("users"),
+      projectId: v.id("projects"),
+      role: v.union(v.literal("user"), v.literal("assistant")),
+      content: v.string(),
+      /** Explication IA optionnelle, distincte des faits déterministes. */
+      narrative: v.optional(v.string()),
+      /** Faits sourcés : "data" | "calculation" | "estimate" | "recommendation". */
+      facts: v.optional(
+        v.array(
+          v.object({
+            label: v.string(),
+            value: v.string(),
+            kind: v.string(),
+          }),
+        ),
+      ),
+      /** Actions contextualisées : navigation ou confirmation explicite. */
+      actions: v.optional(
+        v.array(
+          v.object({
+            id: v.string(),
+            label: v.string(),
+            kind: v.string(),
+            target: v.optional(v.string()),
+            note: v.optional(v.string()),
+          }),
+        ),
+      ),
+      /** Informations absentes du projet (jamais inventées). */
+      missing: v.optional(v.array(v.string())),
+      createdAt: v.number(),
+    })
+      .index("by_user_project", ["userId", "projectId", "createdAt"])
+      .index("by_project", ["projectId"]),
+
+    // Mémoire persistante du Copilote — STRICTEMENT liée au projet concerné
+    // (préférences, décisions validées après confirmation de l'utilisateur).
+    aiCopilotMemory: defineTable({
+      userId: v.id("users"),
+      projectId: v.id("projects"),
+      note: v.string(),
+      kind: v.union(v.literal("preference"), v.literal("decision")),
+      createdAt: v.number(),
+    }).index("by_user_project", ["userId", "projectId", "createdAt"]),
+
     // Prestataires recommandés par l'IA pour un projet — association unique
     // (projectId + providerId + type) : un même fournisseur/expert ne peut
     // jamais être recommandé deux fois pour le même projet. Voir
