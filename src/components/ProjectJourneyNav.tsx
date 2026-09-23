@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { isHeaderNavItemActive } from "@/components/HeaderNav";
@@ -29,7 +29,13 @@ import { cn } from "@/lib/utils";
  *     déduite de la route affichée (libellé noir) tandis que les autres restent
  *     en gris ; le numéro de chaque étape est vert clair et les numéros sont
  *     reliés entre eux par un tiret gris ;
- *   - rangée scrollable horizontalement (mobile / tablette / desktop).
+ *   - ESPACEMENT COMPACT ET ADAPTATIF (habillage uniquement) : les étapes sont
+ *     dimensionnées sur leur contenu et reliées par une courte ligne élastique
+ *     bornée, qui absorbe l'espace disponible et se redistribue seule selon le
+ *     nombre d'étapes visibles (moins d'étapes → espace réparti entre les
+ *     restantes). Sur très grand écran la rangée se recentre au lieu de
+ *     s'étirer ; sur mobile elle reste compacte — jamais de retour à la ligne
+ *     (libellés insécables) ni de chevauchement, la rangée défile au besoin ;
  *
  * Le composant ne contient aucune logique métier : les liens et les libellés
  * viennent de `@/lib/projectJourney`.
@@ -92,20 +98,24 @@ export function ProjectJourneyNav({
       aria-label="Étapes du projet"
       className={cn("border-t border-border/25", className)}
     >
-      <div className={cn("mx-auto px-2 sm:px-3 lg:px-4", maxWidthClassName)}>
+      <div className={cn("mx-auto px-1.5 sm:px-3 lg:px-4", maxWidthClassName)}>
         {/* Rangée scrollable : un seul axe, aucune étape coupée. */}
         <div className="overflow-x-auto overscroll-x-contain scrollbar-none py-1.5">
-          <div className="flex items-center">
+          {/* w-max + min-w-full : la rangée épouse son contenu (compact) tout
+              en occupant la largeur disponible (desktop) ; quand tout tient,
+              la ligne élastique se borne et la rangée se recentre. */}
+          <div className="flex w-max min-w-full items-center justify-center">
             {steps.map((step, i) => {
               const active = isHeaderNavItemActive({ path: step.path }, pathname);
               return (
-                <div key={step.key} className="flex flex-1 items-center last:flex-none">
+                <Fragment key={step.key}>
+                  {/* Étape dimensionnée sur son contenu (aucun étirement). */}
                   <button
                     type="button"
                     onClick={() => navigate(step.href)}
                     aria-current={active ? "step" : undefined}
                     title={step.label}
-                    className="group flex flex-1 flex-col items-center gap-1 px-1 active:scale-[0.97] transition-transform"
+                    className="group flex shrink-0 flex-col items-center gap-0.5 px-0.5 active:scale-[0.97] transition-transform sm:gap-1 sm:px-1"
                   >
                     <span
                       className={cn(
@@ -128,11 +138,13 @@ export function ProjectJourneyNav({
                       {step.label}
                     </span>
                   </button>
-                  {/* Tiré gris reliant les chiffres entre eux. */}
+                  {/* Tiré gris reliant les chiffres entre eux : courte ligne
+                      élastique bornée → espacement compact et uniforme qui se
+                      redistribue seul entre les étapes restantes. */}
                   {i < steps.length - 1 && (
-                    <div className="mb-4 h-px flex-1 bg-border" />
+                    <div className="mb-4 h-px min-w-[6px] max-w-[5rem] flex-1 bg-border sm:max-w-[7rem]" />
                   )}
-                </div>
+                </Fragment>
               );
             })}
           </div>
