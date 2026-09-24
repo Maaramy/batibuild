@@ -208,7 +208,7 @@ export default function Dashboard() {
       : viewMode === "supplier" && hasSupplierProfile
         ? "/dashboard/supplier/quotes"
         : "/dashboard/messages";
-  const handleSignOut = async () => { await signOut(); navigate("/"); };
+  const handleSignOut = async () => { await signOut(); navigate("/auth"); };
 
   const costSeries = useMemo(() => {
     const byMonth = new Map<string, { label: string; total: number }>();

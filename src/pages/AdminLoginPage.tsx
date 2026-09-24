@@ -67,7 +67,8 @@ export default function AdminLoginPage() {
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
       if (user.role === "admin" || user.role === "moderator") {
-        navigate("/dashboard/admin");
+        // Règle centralisée : un utilisateur déjà authentifié va au Dashboard.
+        navigate("/dashboard");
       } else if (setupMode === "login") {
         setError("Votre compte n'a pas les droits d'administration.");
       }
@@ -154,7 +155,8 @@ export default function AdminLoginPage() {
       }
 
       setTimeout(() => {
-        navigate("/dashboard/admin");
+        // Règle centralisée : après connexion, toujours le Dashboard.
+        navigate("/dashboard");
       }, 500);
     } catch (err: any) {
       setError(
@@ -186,7 +188,8 @@ export default function AdminLoginPage() {
         await finalizeAdminRegister();
       } else {
         setTimeout(() => {
-          navigate("/dashboard/admin");
+          // Règle centralisée : après connexion, toujours le Dashboard.
+          navigate("/dashboard");
         }, 500);
       }
     } catch {

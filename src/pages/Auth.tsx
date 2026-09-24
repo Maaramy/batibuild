@@ -41,8 +41,16 @@ interface AuthProps {
   redirectAfterAuth?: string;
 }
 
-function getRedirect(returnTo: string | null, fallback = "/dashboard") {
-  return returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : fallback;
+/**
+ * Destination unique après authentification : le Dashboard.
+ * Règle de routage centralisée — quel que soit le profil (Client, Client Pro,
+ * Expert, Fournisseur, Administrateur…) et quelle que soit l'URL d'origine
+ * (`returnTo`), un utilisateur authentifié atterrit toujours sur /dashboard.
+ */
+const POST_AUTH_REDIRECT = "/dashboard";
+
+function getRedirect(_returnTo: string | null, _fallback = POST_AUTH_REDIRECT) {
+  return POST_AUTH_REDIRECT;
 }
 
 // Récupère le message d'erreur réel renvoyé par le serveur (AuthError de
@@ -355,17 +363,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   }, [isAuthenticated, updateProfile, setUserRole]);
 
-  // After auth, get user profile to determine role-based redirect
+  // Un utilisateur déjà authentifié qui ouvre la page de connexion est
+  // immédiatement renvoyé vers le Dashboard — sans repasser par le formulaire
+  // et sans redirection liée au rôle.
   const currentUser = useQuery(api.users.currentUser);
   useEffect(() => {
     if (!authLoading && isAuthenticated && currentUser !== undefined) {
-      // If user just registered (pendingProfileRef was set), role redirect handled in submit handlers
+      // If user just registered (pendingProfileRef was set), redirect handled in submit handlers
       if (pendingProfileRef.current) return;
-      // For existing users, redirect by their stored role
-      const role = currentUser?.userRole;
-      if (role === "supplier") navigate("/dashboard/supplier");
-      else if (role === "expert") navigate("/dashboard/expert");
-      else navigate(redirect);
+      navigate(redirect);
     }
   }, [authLoading, isAuthenticated, currentUser, navigate, redirect]);
 
@@ -410,9 +416,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         // Quick email-OTP sign in
         await signIn("email-otp", fd);
       }
-      // If role was saved during registration, redirect accordingly
-      const roleRedirect = userRole === "supplier" ? "/dashboard/supplier" : userRole === "expert" ? "/dashboard/expert" : redirect;
-      navigate(roleRedirect);
+      // Règle centralisée : après authentification, toujours le Dashboard
+      navigate(redirect);
     } catch (e) { setError(authErrorMessage(e, "Le code est incorrect.")); setOtp(""); }
     setIsLoading(false);
   };
@@ -452,7 +457,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         setIsLoading(false);
         return;
       }
-      // Redirect will be handled by the useEffect watching currentUser
+      // Règle centralisée : après connexion, toujours le Dashboard
       navigate(redirect);
     } catch (e) { setError(authErrorMessage(e, "Email ou mot de passe incorrect.")); }
     setIsLoading(false);
@@ -488,9 +493,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         setIsLoading(false);
         return;
       }
-      // Redirect based on selected role
-      const roleRedirect = userRole === "supplier" ? "/dashboard/supplier" : userRole === "expert" ? "/dashboard/expert" : redirect;
-      navigate(roleRedirect);
+      // Règle centralisée : après inscription, toujours le Dashboard
+      navigate(redirect);
     }
     catch (e) { setError(authErrorMessage(e, "Erreur lors de l'inscription.")); }
     setIsLoading(false);

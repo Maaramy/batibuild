@@ -6,11 +6,11 @@ import { SEO } from "@/components/SEO";
 import { MessagingBadgeSync } from "@/components/MessagingBadgeSync";
 import { useSessionTracking } from "@/hooks/use-session-tracking";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { ConvexReactClient } from "convex/react";
+import { ConvexReactClient, useConvexAuth } from "convex/react";
 import { ThemeProvider } from "next-themes";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import "./index.css";
 
 // i18n
@@ -136,6 +136,18 @@ function SessionTracker() {
   return null;
 }
 
+/**
+ * Accueil public. Règle de routage centralisée : un utilisateur déjà authentifié
+ * (tous profils confondus — Client, Client Pro, Expert, Fournisseur,
+ * Administrateur…) est renvoyé directement vers le Dashboard, la page d'accueil
+ * authentifiée par défaut, sans repasser par la landing page ni par le login.
+ */
+function HomeRoute() {
+  const { isAuthenticated } = useConvexAuth();
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  return <Landing />;
+}
+
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 
@@ -189,7 +201,7 @@ createRoot(document.getElementById("root")!).render(
             <RouteSyncer />
             <SEO />
             <Suspense fallback={<RouteLoading />}>              <Routes>
-                <Route path="/" element={<Landing />} />
+                <Route path="/" element={<HomeRoute />} />
 
                 <Route
                   path="/auth"

@@ -139,7 +139,8 @@ export default function SettingsPage() {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/");
+    // Déconnexion → page de connexion (reconnexion → Dashboard).
+    navigate("/auth");
   };
 
   const handleToggleNotification = async (key: keyof typeof notifications) => {
