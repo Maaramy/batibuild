@@ -1,0 +1,194 @@
+/**
+ * REGISTRE CENTRAL DES RAPPORTS PDF
+ *
+ * Source unique décrivant chaque module de batibuild capable de produire un
+ * rapport PDF : nom, icône, feature flag de l'administration, types de projets
+ * compatibles, route du module et état d'exécution. La page « Rapports PDF »
+ * est entièrement générée à partir de ce registre : ajouter un module ici
+ * l'intègre automatiquement à la page, sans dupliquer de logique dans les
+ * cartes projet.
+ *
+ * Aucune donnée n'est inventée : l'état de chaque rapport est déduit des
+ * données réellement enregistrées sur le projet (`costEstimate`, `dqe`) et des
+ * artefacts persistés côté serveur (`aiMaterialAnalyses`, `projectRoadmaps`,
+ * `investmentAnalyses`). Voir `src/convex/reportCenter.ts`.
+ */
+
+import {
+  Calculator,
+  HardHat,
+  ListChecks,
+  Ruler,
+  Sparkles,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
+import { INVESTMENT_ELIGIBLE_TYPES, resolveProjectType } from "@/convex/projectTypes";
+
+/** Identifiant d'un module du registre. */
+export type ReportModuleKey =
+  | "cost"
+  | "quantitatif"
+  | "plans"
+  | "materials"
+  | "predictive"
+  | "execution";
+
+/**
+ * État d'exécution d'un rapport — toujours dérivé de données réelles.
+ * `generating` et `error` sont des états transitoires d'interface (téléchargement).
+ */
+export type ReportStatus = "available" | "not_executed" | "generating" | "error";
+
+export interface ReportModuleDef {
+  key: ReportModuleKey;
+  /** Nom affiché de la fonctionnalité. */
+  label: string;
+  /** Courte description affichée sous le nom (facultative à l'usage). */
+  description: string;
+  /** Icône (famille lucide, comme le reste de la plateforme). */
+  icon: LucideIcon;
+  /** Clé de feature flag pilotée par l'administration. */
+  flag: string;
+  /** Route du module, contexte du projet inclus (aucun identifiant perdu). */
+  buildHref: (projectId: string) => string;
+  /** Disponibilité selon le type de projet (tous les types par défaut). */
+  appliesTo?: (category: string | null | undefined) => boolean;
+}
+
+const projectId = (id: string) => encodeURIComponent(id);
+
+/** Un type de projet fait-il partie du parcours « immobilier neuf » (groupe A) ? */
+export function isInvestmentEligible(category: string | null | undefined): boolean {
+  const resolved = resolveProjectType((category ?? "").trim());
+  return resolved !== null && INVESTMENT_ELIGIBLE_TYPES.includes(resolved);
+}
+
+/**
+ * Registre des modules. L'ordre du tableau est l'ordre d'affichage dans la page.
+ * Pour ajouter un module : ajouter une entrée ici (+ son rapport disponible).
+ */
+export const REPORT_MODULES: readonly ReportModuleDef[] = [
+  {
+    key: "cost",
+    label: "Coût estimatif",
+    description: "Devis estimatif complet — matériaux, main-d'œuvre, récapitulatif.",
+    icon: Calculator,
+    flag: "construction_cost_estimation",
+    buildHref: (id) => `/dashboard/project/${projectId(id)}`,
+  },
+  {
+    key: "quantitatif",
+    label: "Quantitatif détaillé",
+    description: "Détail par lots et par articles — quantités et prix unitaires.",
+    icon: ListChecks,
+    flag: "construction_cost_estimation",
+    buildHref: (id) => `/dashboard/project/${projectId(id)}`,
+  },
+  {
+    key: "plans",
+    label: "Plan IA",
+    description: "Plan d'architecte 2D / 3D généré pour le projet.",
+    icon: Ruler,
+    flag: "architectural_plans",
+    buildHref: (id) => `/dashboard/plans/${projectId(id)}`,
+  },
+  {
+    key: "materials",
+    label: "Matériaux AI",
+    description: "Recommandations de matériaux, optimisation budgétaire et performance.",
+    icon: Sparkles,
+    flag: "ai_materials",
+    buildHref: (id) => `/dashboard/ai-materials?project=${projectId(id)}`,
+  },
+  {
+    key: "predictive",
+    label: "Intelligence prédictive",
+    description: "Analyse de rentabilité et prévisions (Return on Investment).",
+    icon: TrendingUp,
+    flag: "investment_project",
+    buildHref: (id) => `/dashboard/investments?project=${projectId(id)}`,
+    appliesTo: isInvestmentEligible,
+  },
+  {
+    key: "execution",
+    label: "Exécution & suivi",
+    description: "Guide construction A-Z — planning prévisionnel et suivi du chantier.",
+    icon: HardHat,
+    flag: "construction_guide",
+    buildHref: (id) => `/dashboard/guide?project=${projectId(id)}`,
+  },
+] as const;
+
+/** Champs du projet utilisés pour déduire l'état des rapports. */
+export interface ProjectReportInput {
+  _id: string;
+  category?: string | null;
+  surface?: number | null;
+  dqe?: unknown;
+  costEstimate?: unknown;
+}
+
+/** Artefacts persistés côté serveur (`reportCenter.getMyReportArtifacts`). */
+export interface ProjectReportArtifacts {
+  materialsAnalysisId?: string | null;
+  roadmapId?: string | null;
+  investmentAnalysisId?: string | null;
+}
+
+/** État de chaque rapport d'un projet, déduit uniquement de données réelles. */
+export function reportStatuses(
+  project: ProjectReportInput,
+  artifacts: ProjectReportArtifacts | undefined,
+): Record<ReportModuleKey, ReportStatus> {
+  const estimate = project.costEstimate as { dqe?: unknown } | null | undefined;
+  const hasQuantitatif = Boolean(project.dqe ?? estimate?.dqe);
+  const hasDimensions = typeof project.surface === "number" && project.surface > 0;
+  return {
+    cost: project.costEstimate ? "available" : "not_executed",
+    quantitatif: hasQuantitatif ? "available" : "not_executed",
+    // Le plan IA est composé de façon déterministe à partir des dimensions du
+    // projet : il est disponible dès que le projet porte une surface.
+    plans: hasDimensions ? "available" : "not_executed",
+    materials: artifacts?.materialsAnalysisId ? "available" : "not_executed",
+    predictive: artifacts?.investmentAnalysisId ? "available" : "not_executed",
+    execution: artifacts?.roadmapId ? "available" : "not_executed",
+  };
+}
+
+/**
+ * Modules réellement affichables pour un projet :
+ *   - masqués si leur feature flag est désactivé par l'administration ;
+ *   - masqués s'ils ne s'appliquent pas au type de projet.
+ */
+export function visibleReportModules(
+  isFeatureEnabled: (flag: string) => boolean,
+  category: string | null | undefined,
+): ReportModuleDef[] {
+  return REPORT_MODULES.filter(
+    (module) =>
+      isFeatureEnabled(module.flag) &&
+      (!module.appliesTo || module.appliesTo(category)),
+  );
+}
+
+/** Nombre de rapports réellement disponibles pour un projet. */
+export function countAvailableReports(
+  modules: readonly ReportModuleDef[],
+  statuses: Record<ReportModuleKey, ReportStatus>,
+): number {
+  return modules.filter((module) => statuses[module.key] === "available").length;
+}
+
+/** Libellé lisible d'un état de rapport. */
+export const REPORT_STATUS_LABEL: Record<ReportStatus, string> = {
+  available: "Disponible",
+  not_executed: "Non exécuté",
+  generating: "Génération…",
+  error: "Erreur",
+};
+
+/** Message affiché lorsqu'un rapport n'est pas encore disponible. */
+export function reportUnavailableMessage(label: string): string {
+  return `Ce rapport n'est pas encore disponible. Veuillez d'abord exécuter le module ${label}.`;
+}

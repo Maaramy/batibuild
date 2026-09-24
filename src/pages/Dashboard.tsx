@@ -59,6 +59,7 @@ import {
   Link,
   Eye,
   MousePointerClick,
+  FileDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -343,6 +344,7 @@ export default function Dashboard() {
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
+            { icon: FileDown, label: "Rapports PDF", onClick: () => { navigate("/dashboard/reports"); setMobileSidebarOpen(false); } },
             { icon: MessageSquare, label: "Messagerie", badge: messagingUnread ?? 0, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
             { icon: Headset, label: "Support", badge: supportUnread, onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },

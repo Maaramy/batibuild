@@ -29,6 +29,7 @@ const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const MyProjects = lazy(() => import("./pages/MyProjects.tsx"));
+const ReportCenter = lazy(() => import("./pages/ReportCenter.tsx"));
 const NewProject = lazy(() => import("./pages/NewProject.tsx"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail.tsx"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel.tsx"));
@@ -222,6 +223,16 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <MyProjects />
+                    </RequireAuth>
+                  }
+                />
+                {/* Centre de rapports PDF — accessible depuis le menu principal,
+                    liste les projets de l'utilisateur et leurs rapports réels. */}
+                <Route
+                  path="/dashboard/reports"
+                  element={
+                    <RequireAuth>
+                      <ReportCenter />
                     </RequireAuth>
                   }
                 />

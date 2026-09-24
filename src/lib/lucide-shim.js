@@ -202,6 +202,7 @@ export { default as Phone } from "../../node_modules/lucide-react/dist/esm/icons
 export { default as PhoneCall } from "../../node_modules/lucide-react/dist/esm/icons/phone-call.js";
 export { default as PieChart } from "../../node_modules/lucide-react/dist/esm/icons/pie-chart.js";
 export { default as PiggyBank } from "../../node_modules/lucide-react/dist/esm/icons/piggy-bank.js";
+export { default as Play } from "../../node_modules/lucide-react/dist/esm/icons/play.js";
 export { default as Plug } from "../../node_modules/lucide-react/dist/esm/icons/plug.js";
 export { default as Plus } from "../../node_modules/lucide-react/dist/esm/icons/plus.js";
 export { default as Power } from "../../node_modules/lucide-react/dist/esm/icons/power.js";
