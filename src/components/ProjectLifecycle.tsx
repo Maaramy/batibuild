@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Calculator,
   Check,
@@ -161,6 +161,9 @@ function pad(n: number): string {
  */
 export function ProjectLifecycle({ className }: { className?: string }) {
   const { isEnabled } = useFeatureFlags();
+  // Respecte « réduire les animations » du système : aucun mouvement lourd,
+  // le parcours s'affiche alors directement à l'état terminé.
+  const reduceMotion = useReducedMotion();
 
   // Étapes réellement disponibles (flags admin) — l'ordre officiel est conservé.
   const steps = useMemo(
@@ -198,19 +201,25 @@ export function ProjectLifecycle({ className }: { className?: string }) {
 
   // Progression : initialisation → étape 1 → … → étape n → terminé.
   useEffect(() => {
+    if (reduceMotion) return;
     if (!started || completed >= total) return;
     const delay = completed === 0 ? START_DELAY_MS : STEP_DURATION_MS;
     const timer = window.setTimeout(() => {
       setCompleted((c) => Math.min(c + 1, total));
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [started, completed, total]);
+  }, [started, completed, total, reduceMotion]);
 
   // Un flag désactivé pendant l'animation rétrécit le parcours : on recale la
   // progression pour ne jamais laisser d'étape vide ni de trou.
   useEffect(() => {
     setCompleted((c) => Math.min(c, total));
   }, [total]);
+
+  // Animations réduites : parcours immédiatement complet, aucun minuteur.
+  useEffect(() => {
+    if (reduceMotion) setCompleted(total);
+  }, [reduceMotion, total]);
 
   const pct = total > 0 ? Math.round((Math.min(completed, total) / total) * 100) : 0;
   const finished = total > 0 && completed >= total;
@@ -266,13 +275,16 @@ export function ProjectLifecycle({ className }: { className?: string }) {
 
       {/* ── Mobile : timeline verticale compacte, aucun débordement ── */}
       <div className="relative md:hidden">
-        <div className="absolute bottom-2 left-5 top-2 w-0.5 -translate-x-1/2 rounded-full bg-border/60" />
-        <motion.div
-          className="absolute left-5 top-2 w-0.5 -translate-x-1/2 rounded-full bg-gradient-to-b from-emerald-500 via-sky-500 to-indigo-500"
-          initial={{ height: 0 }}
-          animate={{ height: `${pct}%` }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-        />
+        {/* Rail borné (top/bottom) + remplissage interne : la ligne ne déborde
+            jamais du parcours, même lorsque toutes les étapes sont terminées. */}
+        <div className="absolute bottom-2 left-5 top-2 w-0.5 -translate-x-1/2 overflow-hidden rounded-full bg-border/60">
+          <motion.div
+            className="w-full rounded-full bg-gradient-to-b from-emerald-500 via-sky-500 to-indigo-500"
+            initial={{ height: 0 }}
+            animate={{ height: `${pct}%` }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          />
+        </div>
         <ul className="relative space-y-5">
           {steps.map((step, i) => (
             <MobileStep
