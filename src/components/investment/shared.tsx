@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
+import { drawReportFooters, drawReportHeader } from "@/lib/pdfBranding";
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import {
@@ -405,39 +406,20 @@ export function generatePdf(run: AnalysisRun) {
     doc.setFontSize(fontSize);
     doc.text(lines, ml, y + 3);
     y += lines.length * 4 + 5;
-  };
-
-  // ═══ HEADER ═══
-  doc.setFillColor(30, 64, 175);
-  doc.rect(0, 0, pw, 2.5, "F");
-  doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
-  doc.rect(0, 2.5, pw, 20, "F");
-
-  const lx = ml, ly = 5;
-  doc.setFillColor(255, 255, 255);
-  doc.triangle(lx + 6, ly, lx, ly + 6, lx + 12, ly + 6, "F");
-  doc.rect(lx + 1, ly + 6, 10, 9, "F");
-  doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
-  doc.rect(lx + 4, ly + 10, 4, 5, "F");
-  doc.rect(lx + 2.5, ly + 7.5, 2, 2, "F");
-  doc.rect(lx + 7.5, ly + 7.5, 2, 2, "F");
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text("batibuild App", ml + 17, 10);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.text("Rapport d'analyse de rentabilite immobiliere — Marche tunisien 2026", ml + 17, 15.5);
-
-  doc.setFontSize(6.5);
-  doc.setFont("helvetica", "bold");
-  doc.text(`RAP-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`, pw - mr, 9, { align: "right" });
-  doc.setFont("helvetica", "normal");
-  doc.text(`Genere le ${dateStr}`, pw - mr, 13, { align: "right" });
-  doc.text(`Analyse : ${safeName}`, pw - mr, 17, { align: "right" });
-
-  y = 32;
+  };  // ═══ EN-TÊTE COMMUN (fond blanc pur + logo officiel) ═══
+  y = drawReportHeader(doc, {
+    title: "Rapport d'analyse de rentabilité immobilière",
+    subtitle: "Marché tunisien 2026",
+    margin: ml,
+    info: [
+      `Analyse : ${input.name || "Non nommée"} · ${typeLabel}`,
+      `Zone : ${results.zone.name}${input.city || input.quartier ? ` · ${[input.city, input.quartier].filter(Boolean).join(" / ")}` : ""}`,
+    ],
+    meta: [
+      `RAP-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`,
+      `Généré le ${dateStr}`,
+    ],
+  });
 
   // ═══ SYNTHÈSE ═══
   h("Synthèse de l'investissement");
@@ -574,11 +556,18 @@ export function generatePdf(run: AnalysisRun) {
   doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
   doc.setFont("helvetica", "italic");
   doc.text(
-    "Rapport genere par le moteur d'intelligence artificielle batibuild App. Les estimations reposent sur les prix du marche tunisien 2026 et des hypotheses saisies par l'utilisateur. Document indicatif : ne constitue pas un conseil financier ou juridique.",
+    "Rapport genere par le moteur d'intelligence artificielle batibuild. Les estimations reposent sur les prix du marche tunisien 2026 et des hypotheses saisies par l'utilisateur. Document indicatif : ne constitue pas un conseil financier ou juridique.",
     ml, y, { maxWidth: cw },
   );
   doc.setFont("helvetica", "normal");
-  doc.text("batibuild App — Analyse de rentabilite immobiliere par IA", ml, y + 6);
+  doc.text("batibuild — Analyse de rentabilite immobiliere par IA", ml, y + 6);
+
+  // Pied de page sur toutes les pages (identité + pagination)
+  drawReportFooters(doc, {
+    left: "Analyse de rentabilité immobilière par IA",
+    right: "Estimation indicative · Tunisie 2026",
+    margin: ml,
+  });
 
   doc.save(`rapport_investissement_${safeName}.pdf`);
 }

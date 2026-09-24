@@ -29,7 +29,7 @@ const SPLASH_MAX_MS = CHANGE_MAX_MS;
  *        ↓
  *   7 guides (premier lancement uniquement, ou depuis « Voir le guide »)
  *        ↓
- *   WebView Batibuild (login si aucune session, dashboard sinon)
+ *   WebView batibuild (login si aucune session, dashboard sinon)
  *
  * La WebView démarre directement sur `/dashboard` : session valide → tableau de
  * bord, sinon redirection vers `/auth`. La page d'accueil publique ne fait

@@ -125,7 +125,7 @@ export default function ProjectGuide() {
   const selectedProject = projects.find((p) => p._id === projectId) ?? null;
 
   usePageSEO({
-    title: "Guide construction A-Z - batibuild App",
+    title: "Guide construction A-Z - batibuild",
     description: "Feuille de route complète et personnalisée de votre projet de construction : phases, démarches, budget, planning, contrôle et IA prédictive.",
   });
 

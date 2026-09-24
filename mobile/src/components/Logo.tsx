@@ -2,7 +2,7 @@ import React from "react";
 import { Image, StyleSheet, View } from "react-native";
 
 /**
- * Logo OFFICIEL de la plateforme BatiBuild.
+ * Logo OFFICIEL de la plateforme batibuild.
  *
  * C'est exactement le même dessin que sur le Web (`src/components/Logo.tsx` et
  * `public/logo.svg`) : un casque de chantier blanc dans une tuile émeraude

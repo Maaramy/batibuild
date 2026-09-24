@@ -302,7 +302,7 @@ export default function EmailSettings() {
           </CardHeader>
           <CardContent className="space-y-3">
             <Field label="Nom de l'expéditeur">
-              <Input value={form.senderName} onChange={(e) => set("senderName", e.target.value)} placeholder="batibuild App" className={inputCls} />
+              <Input value={form.senderName} onChange={(e) => set("senderName", e.target.value)} placeholder="batibuild" className={inputCls} />
             </Field>
             <Field label="Adresse e-mail de l'expéditeur" hint="Doit correspondre à un domaine autorisé sur votre serveur SMTP">
               <Input value={form.senderEmail} onChange={(e) => set("senderEmail", e.target.value)} placeholder="contact@batibuild.app" className={inputCls} />
@@ -581,7 +581,7 @@ export default function EmailSettings() {
                 <Textarea
                   value={form.signature}
                   onChange={(e) => set("signature", e.target.value)}
-                  placeholder={"L'équipe batibuild App\ncontact@batibuild.app\nwww.batibuild.app"}
+                  placeholder={"L'équipe batibuild\ncontact@batibuild.app\nwww.batibuild.app"}
                   className={inputCls + " pl-9 min-h-[80px] resize-y"}
                 />
               </div>

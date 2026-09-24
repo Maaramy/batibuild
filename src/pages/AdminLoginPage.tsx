@@ -272,7 +272,7 @@ export default function AdminLoginPage() {
             <Shield className="h-12 w-12 text-emerald-400" />
           </motion.div>
 
-          <h1 className="text-3xl font-bold text-white mb-3">batibuild App</h1>
+          <h1 className="text-3xl font-bold text-white mb-3">batibuild</h1>
           <p className="text-lg text-slate-400 mb-6">Panneau d'administration</p>                  {isFirstSetup && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
@@ -353,7 +353,7 @@ export default function AdminLoginPage() {
                     <Shield className="h-5 w-5 text-emerald-400" />
                   </div>
                   <div className="text-left">
-                    <span className="font-bold text-white text-sm">batibuild App</span>
+                    <span className="font-bold text-white text-sm">batibuild</span>
                     <p className="text-[9px] text-slate-500">Administration</p>
                   </div>
                 </div>
@@ -718,7 +718,7 @@ export default function AdminLoginPage() {
           </Card>
 
           <p className="text-center text-xs text-slate-600 mt-6">
-            batibuild App &copy; {new Date().getFullYear()} — Administration
+            batibuild &copy; {new Date().getFullYear()} — Administration
           </p>
         </motion.div>
       </div>

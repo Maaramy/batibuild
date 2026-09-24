@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Logo } from "./Logo";
 import { SETTINGS_ICON, STROKE, SUPPORT_ICON } from "./icons";
 import { COLORS, SHAPE } from "../theme";
+import { BRAND_NAME } from "../config";
 
 type Props = {
   /** Ouvre la section Support de la plateforme. */
@@ -24,7 +25,7 @@ type Props = {
  *
  *   - fond BLANC (#FFFFFF), même en thème sombre : c'est le chrome natif de
  *     l'application, indépendant du thème de la plateforme Web ;
- *   - à gauche : logo officiel Batibuild + nom de la plateforme ;
+ *   - à gauche : logo officiel batibuild + nom de la plateforme ;
  *   - à droite : icônes Support et Paramètres (aucun menu burger) ;
  *   - appui long sur la marque → réglages natifs de l'application.
  *
@@ -57,14 +58,14 @@ export default function TopNav({
           onLongPress={onOpenNativeSettings}
           delayLongPress={500}
           accessibilityRole="button"
-          accessibilityLabel="batibuild App"
+          accessibilityLabel={BRAND_NAME}
           accessibilityHint="Appui long : réglages de l'application"
           style={styles.brand}
         >
           <Logo size={30} radiusRatio={0.28} />
           {/* Wordmark officiel de la plateforme (`src/components/Logo.tsx`). */}
           <Text style={styles.brandName} numberOfLines={1}>
-            batibuild App
+            {BRAND_NAME}
           </Text>
         </Pressable>
 

@@ -238,7 +238,7 @@ export default function MyProjects() {
   const canCreateProject = isEnabled("construction_cost_estimation");
 
   usePageSEO({
-    title: "Mes projets - batibuild App",
+    title: "Mes projets - batibuild",
     description:
       "Retrouvez tous vos projets de construction : en cours, terminés, réalisés et archivés, avec surface, région, progression et coût estimatif.",
   });

@@ -48,7 +48,7 @@ export default defineConfig({
       "lucide-react": path.resolve(__dirname, "./src/lib/lucide-shim.js"),
       // jsPDF's optional peer dependencies (`html2canvas`, `canvg`,
       // `dompurify`) are ONLY loaded from `doc.html()` via dynamic import().
-      // Batibuild never calls `doc.html()` — every PDF is built
+      // batibuild never calls `doc.html()` — every PDF is built
       // programmatically (text, jspdf-autotable tables, addImage PNG). Rollup
       // still follows those dynamic imports, so `canvg` dragged ~206 core-js
       // modules (+ html2canvas, dompurify, rgbcolor, stackblur-canvas,

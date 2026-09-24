@@ -7,10 +7,10 @@ import { getCurrentUser } from "./users";
 // ============================================================================
 
 export const DEFAULT_SEO_CONFIG = {
-  siteName: "batibuild App - Estimation Construction Tunisie",
+  siteName: "batibuild - Estimation Construction Tunisie",
   siteDescription: "Estimation de coûts de construction par IA pour la Tunisie. Devis, matériaux, main-d'œuvre aux prix tunisiens 2026.",
-  keywords: "estimation construction Tunisie, devis bâtiment Tunisie, coût construction Tunisie, prix matériaux construction Tunisie 2026, BIM Tunisie, batibuild App, devis maison Tunisie",
-  ogTitle: "batibuild App - Estimation Construction par IA en Tunisie",
+  keywords: "estimation construction Tunisie, devis bâtiment Tunisie, coût construction Tunisie, prix matériaux construction Tunisie 2026, BIM Tunisie, batibuild, devis maison Tunisie",
+  ogTitle: "batibuild - Estimation Construction par IA en Tunisie",
   ogDescription: "Obtenez une estimation instantanée de vos projets de construction en Tunisie. Analyse IA, devis détaillé, prix tunisiens 2026.",
   twitterCard: "summary_large_image",
 } as const;
@@ -47,7 +47,7 @@ export const getSeoConfigOrDefault = query({
       robotsTxt: "",
       additionalMetaTags: "",
       googleSiteVerification: "",
-      blogTitle: "Blog batibuild App — Construction & Rénovation en Tunisie",
+      blogTitle: "Blog batibuild — Construction & Rénovation en Tunisie",
       blogDescription: "Conseils, guides et actualités sur la construction et la rénovation en Tunisie : prix des matériaux, étapes de chantier, financement et astuces d'experts.",
       blogOgImage: "",
     };

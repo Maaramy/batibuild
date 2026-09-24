@@ -33,7 +33,7 @@ export function useScreenshotProtection<T extends HTMLElement>() {
         el.classList.add("bb-protected-blur");
         // Also modify the page title as a deterrent
         const originalTitle = document.title;
-        document.title = "batibuild App - Estimation prot\u00e9g\u00e9e";
+        document.title = "batibuild - Estimation prot\u00e9g\u00e9e";
         setTimeout(() => { document.title = originalTitle; }, 3000);
       } else {
         el.classList.remove("bb-protected-blur");
@@ -198,7 +198,7 @@ export function injectScreenshotProtectionStyles() {
 
     /* ── Watermark repeating pattern on the report background ── */
     .bb-protected-watermark::after {
-      content: "batibuild App - Devis estimatif - Tunisie 2026";
+      content: "batibuild - Devis estimatif - Tunisie 2026";
       position: absolute;
       inset: 0;
       display: flex;

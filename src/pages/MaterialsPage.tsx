@@ -68,7 +68,7 @@ const fmtInt = (n: number) => new Intl.NumberFormat("fr-TN", { maximumFractionDi
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 export default function MaterialsPage() {
-  usePageSEO({ title: "Prix des matériaux 2026 - batibuild App", description: "Base de données des matériaux de construction en Tunisie 2026 : références consolidées, prix observés en ligne, publications 2026 et estimations indicatives." });
+  usePageSEO({ title: "Prix des matériaux 2026 - batibuild", description: "Base de données des matériaux de construction en Tunisie 2026 : références consolidées, prix observés en ligne, publications 2026 et estimations indicatives." });
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");

@@ -87,7 +87,7 @@ import {
 // ============================================================================
 
 export default function Dashboard() {
-  usePageSEO({ title: "Tableau de bord - batibuild App", description: "Gérez vos projets de construction et suivez vos estimations sur batibuild App." });
+  usePageSEO({ title: "Tableau de bord - batibuild", description: "Gérez vos projets de construction et suivez vos estimations sur batibuild." });
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -272,7 +272,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-2">
           <LogoMark className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg" />
           <div>
-            <span className="text-sm sm:text-base font-semibold">batibuild App</span>
+            <span className="text-sm sm:text-base font-semibold">batibuild</span>
             <p className="text-[9px] sm:text-[10px] text-muted-foreground">Tableau de bord</p>
           </div>
         </div>
@@ -613,7 +613,7 @@ export default function Dashboard() {
             </>
           )}
 
-          {/* ══════ COMMUNICATIONS (équipe BatiBuild) ══════ */}
+          {/* ══════ COMMUNICATIONS (équipe batibuild) ══════ */}
           <AnnouncementCarousel
             announcements={announcements}
             title="Communications"

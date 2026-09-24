@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
-import { drawBatiLogo } from "./pdfLogo";
+import { drawReportFooters, drawReportHeader } from "./pdfBranding";
 
 applyAutotablePlugin(jsPDF);
 
@@ -111,34 +111,21 @@ export function generateMaterialReportPdf(input: {
   const built = Math.round((ctx.surface || 0) * Math.max(1, ctx.floors || 1));
   const safeName = (ctx.projectName || "Analyse-matériaux").replace(/[^a-zA-Z0-9-_]/g, "_");
 
-  // ═══ HEADER ════════════════════════════════════════════════
-  doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
-  doc.rect(0, 0, pw, 24, "F");
-  // Accent line
-  doc.setFillColor(16, 185, 129);
-  doc.rect(0, 24, pw, 2, "F");
-
-  // Logo officiel (casque blanc, carré vert)
-  drawBatiLogo(doc, ml + 1, 5.5, 13);
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
-  doc.setFont("helvetica", "bold");
-  doc.text("batibuild App", ml + 16, 10);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.text("Rapport Assistant Matériaux IA — Tunisie 2026", ml + 16, 15.5);
-  doc.setFontSize(6);
-  doc.text("Choix des matériaux · Recommandation comparative · Prix indicatifs", ml + 16, 19.5);
-
-  doc.setFontSize(6);
-  doc.setFont("helvetica", "bold");
-  doc.text(`N° ${new Date().getFullYear()}-MAT-${String(Math.floor(10000 + Math.random() * 90000))}`, pw - mr, 8, { align: "right" });
-  doc.setFont("helvetica", "normal");
-  doc.text(`Généré le ${dateStr}`, pw - mr, 13, { align: "right" });
-  doc.text("Document non contractuel", pw - mr, 17, { align: "right" });
-
-  y = 32;
+  // ═══ EN-TÊTE COMMUN (fond blanc pur + logo officiel) ════════
+  y = drawReportHeader(doc, {
+    title: "Rapport Assistant Matériaux IA",
+    subtitle: "Tunisie 2026",
+    margin: ml,
+    info: [
+      `Projet : ${ctx.projectName || "Non renseigné"}${ctx.projectCategory ? ` — ${ctx.projectCategory}` : ""}`,
+      `Localisation : ${[ctx.region, ctx.city, ctx.quarter].filter(Boolean).join(" · ") || "Non précisée"}`,
+    ],
+    meta: [
+      `N° ${new Date().getFullYear()}-MAT-${String(Math.floor(10000 + Math.random() * 90000))}`,
+      `Généré le ${dateStr}`,
+      "Document non contractuel",
+    ],
+  });
 
   // ═══ 1. INFORMATIONS DU PROJET ═════════════════════════════
   sectionTitle("1. Informations du projet");
@@ -506,16 +493,12 @@ export function generateMaterialReportPdf(input: {
   const discLines = doc.splitTextToSize(disclaimer, cw);
   doc.text(discLines, ml, y);
 
-  // Footer on all pages
-  const pages = doc.getNumberOfPages();
-  for (let i = 1; i <= pages; i++) {
-    doc.setPage(i);
-    doc.setFontSize(5.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(C.textLight[0], C.textLight[1], C.textLight[2]);
-    doc.text(`batibuild App — Assistant Matériaux IA — Page ${i}/${pages}`, ml, ph - 4);
-    doc.text("Prix indicatifs TND · Tunisie 2026", pw - mr, ph - 4, { align: "right" });
-  }
+  // Pied de page sur toutes les pages (identité + pagination)
+  drawReportFooters(doc, {
+    left: "Assistant Matériaux IA",
+    right: "Prix indicatifs TND · Tunisie 2026",
+    margin: ml,
+  });
 
   const filename = `Rapport-Materiaux-${safeName}.pdf`;
   doc.save(filename);

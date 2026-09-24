@@ -22,7 +22,7 @@ const VARS: Record<string, string> = {
   detailsDemande: "+216 98 123 456 · ahmed@test.com",
   message: "Disponible en matinée",
   lienConnexion: "https://batibuild.app/login",
-  nomPlateforme: "batibuild App",
+  nomPlateforme: "batibuild",
 };
 
 const template = (key: string) => {

@@ -203,7 +203,7 @@ export const askInvestorAssistant = action({
     if (args.message.trim().length < 2) throw new Error("Message trop court");
 
     const baseSystemPrompt =
-      "Tu es un assistant expert en investissement immobilier en Tunisie (conseiller financier et immobilier), intégré à l'outil batibuild App. " +
+      "Tu es un assistant expert en investissement immobilier en Tunisie (conseiller financier et immobilier), intégré à l'outil batibuild. " +
       "Réponds en français, de façon concise (4-8 lignes), structurée avec des puces si utile, avec des ordres de grandeur réalistes en TND. " +
       "Tu couvres : rentabilité, Return on Investment, flux de trésorerie, récupération du capital, prévisions à 1/3/5/10 ans, scénarios, zones d'investissement, risque, financement, fiscalité tunisienne, comparaison entre types de biens.";
 

@@ -69,7 +69,7 @@ import type { NavId } from "../config";
  *
  * Correspondance EXACTE avec les icônes du tableau de bord de la plateforme :
  *   User            → « Profile »
- *   HardHat         → « Mes projets » (construction / logo Batibuild)
+ *   HardHat         → « Mes projets » (construction / logo batibuild)
  *   LayoutDashboard → « Home » (accueil de l'espace connecté)
  *   TrendingUp      → « ROI » — MÊME icône que l'action « Return on Investment »
  *                     de la page Résultats coût de construction

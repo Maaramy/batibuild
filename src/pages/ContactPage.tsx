@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { usePageSEO } from "@/hooks/use-page-seo";
 
 export default function ContactPage() {
-  usePageSEO({ title: "Contact - batibuild App", description: "Contactez l'équipe batibuild App pour vos projets de construction en Tunisie." });
+  usePageSEO({ title: "Contact - batibuild", description: "Contactez l'équipe batibuild pour vos projets de construction en Tunisie." });
   const navigate = useNavigate();
 
   return (

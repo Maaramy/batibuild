@@ -1,6 +1,6 @@
 // ============================================================================
 // CATALOGUE OFFICIEL 2026 — Base de données des matériaux de construction,
-// Tunisie (référentiel Batibuild — version du 26 août 2026). 26 catégories.
+// Tunisie (référentiel batibuild — version du 26 août 2026). 26 catégories.
 // Prix en TND TTC issus du barème officiel « Matériaux de construction –
 // Prix Tunisie 2026 » ; chaque référence synchronisée porte son SKU officiel
 // (MAT-xxxx) permettant les mises à jour globales via l'import Excel admin.
@@ -15,7 +15,7 @@ export type CatalogItem = {
   quality?: "observé_en_ligne" | "publication_2026" | "estimation_indicative";
   confidence?: number;
   subcategory?: string;
-  /** Référence officielle du barème Batibuild Tunisie 2026 (MAT-xxxx). */
+  /** Référence officielle du barème batibuild Tunisie 2026 (MAT-xxxx). */
   sku?: string;
 };
 

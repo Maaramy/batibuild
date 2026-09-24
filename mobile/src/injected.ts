@@ -1,5 +1,5 @@
 /**
- * Scripts injectés dans la WebView BatiBuild.
+ * Scripts injectés dans la WebView batibuild.
  *
  * Ils tournent AVANT le contenu (injectedJavaScriptBeforeContentLoaded) ou
  * juste après le chargement. Aucun ne modifie la logique métier de la

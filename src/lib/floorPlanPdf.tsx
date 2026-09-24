@@ -12,7 +12,7 @@ import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 import { FloorPlan2D } from "@/components/floorplan/FloorPlan2D";
 import { summarizeSurfaces } from "@/lib/floorPlanEngine";
 import type { FloorPlan } from "@/lib/floorPlanEngine";
-import { drawBatiLogo } from "./pdfLogo";
+import { drawReportFooters, drawReportHeader } from "./pdfBranding";
 
 applyAutotablePlugin(jsPDF);
 
@@ -111,31 +111,17 @@ export async function downloadFloorPlanPdf({
     border: [229, 231, 235] as [number, number, number],
   };
 
-  // ── Entête ──
-  doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
-  doc.rect(0, 0, pw, 18, "F");
-  drawBatiLogo(doc, ml, 3.5, 12);
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
-  doc.setFont("helvetica", "bold");
-  doc.text("Plan d'architecte — batibuild App", ml + 16, 9);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.text(
-    `${stripEmojis(projectName)} · ${variantName} · ${floorLabel}`,
-    ml + 16,
-    15,
-  );
-  doc.setFontSize(6);
-  doc.text(
-    new Date().toLocaleDateString("fr-FR"),
-    pw - mr,
-    8,
-    { align: "right" } as any,
-  );
-  doc.text("Échelle indicative — document non contractuel", pw - mr, 15, { align: "right" } as any);
-
-  let y = 22;
+  // ── En-tête commun (fond blanc pur + logo officiel) ──
+  let y = drawReportHeader(doc, {
+    title: "Plan d'architecte",
+    subtitle: floorLabel,
+    margin: ml,
+    info: [
+      `${stripEmojis(projectName)} · ${variantName} · ${floorLabel}`,
+      "Échelle indicative — document non contractuel",
+    ],
+    meta: [`Généré le ${new Date().toLocaleDateString("fr-FR")}`],
+  });
 
   // ── Plan image (ajusté à la page) ──
   const availW = cw;
@@ -181,13 +167,14 @@ export async function downloadFloorPlanPdf({
 
   // ── Pied de page ──
   doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
-  doc.line(ml, ph - 14, pw - mr, ph - 14);
+  doc.line(ml, ph - 16, pw - mr, ph - 16);
   doc.setFontSize(6);
   doc.setFont("helvetica", "italic");
   doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
   const note =
     "Plan généré algorithmiquement à titre indicatif. Validation par un architecte inscrit à l'Ordre requise avant dépôt du permis de bâtir. Hauteur sous plafond de référence : 2,70 m.";
-  doc.text(doc.splitTextToSize(note, cw), ml, ph - 9);
+  doc.text(doc.splitTextToSize(note, cw), ml, ph - 11);
+  drawReportFooters(doc, { left: "Plan d'architecte", right: floorLabel, margin: ml });
 
   const safeName = `${projectName.replace(/[^a-zA-Z0-9-_]/g, "_")}_${floorLabel.replace(/\s+/g, "_")}`;
   doc.save(filename || `Plan-${safeName}.pdf`);

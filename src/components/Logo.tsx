@@ -1,14 +1,16 @@
-import { HardHat } from "lucide-react";
+import { BRAND_LOGO_SRC, BRAND_NAME } from "@/lib/branding";
 import { cn } from "@/lib/utils";
 
-// Logo officiel de la plateforme (identique à celui de la landing page) :
-// un casque de chantier blanc dans un carré arrondi vert (bg-primary) + wordmark.
-// Utilisé partout : landing, dashboard, auth, dropdowns.
+// Logo officiel de la plateforme : la tuile verte au casque blanc, l'asset réel
+// partagé par toute la plateforme (`src/assets/logo.png`, source unique dans
+// `@/lib/branding`). Aucune icône Lucide, aucun logo générique, aucun
+// placeholder n'est utilisé comme logo.
+// Utilisé partout : landing, dashboard, auth, dropdowns, mobile.
 
 const SIZES = {
-  sm: { box: "h-7 w-7 rounded-lg", icon: "h-4 w-4", wordmark: "text-sm" },
-  md: { box: "h-8 w-8 rounded-lg", icon: "h-4 w-4", wordmark: "text-lg" },
-  lg: { box: "h-11 w-11 rounded-xl", icon: "h-5 w-5", wordmark: "text-xl" },
+  sm: { box: "h-7 w-7 rounded-lg", wordmark: "text-sm" },
+  md: { box: "h-8 w-8 rounded-lg", wordmark: "text-lg" },
+  lg: { box: "h-11 w-11 rounded-xl", wordmark: "text-xl" },
 } as const;
 
 export function LogoMark({
@@ -20,15 +22,12 @@ export function LogoMark({
 }) {
   const s = SIZES[size];
   return (
-    <div
-      className={cn(
-        "flex shrink-0 items-center justify-center bg-primary text-primary-foreground",
-        s.box,
-        className,
-      )}
-    >
-      <HardHat className={s.icon} />
-    </div>
+    <img
+      src={BRAND_LOGO_SRC}
+      alt={`Logo ${BRAND_NAME}`}
+      draggable={false}
+      className={cn("shrink-0 select-none object-contain", s.box, className)}
+    />
   );
 }
 
@@ -46,7 +45,7 @@ export function Logo({
     <div className={cn("flex items-center gap-2", className)}>
       <LogoMark size={size} />
       <span className={cn("font-semibold tracking-tight", s.wordmark, wordmarkClassName)}>
-        batibuild App
+        {BRAND_NAME}
       </span>
     </div>
   );

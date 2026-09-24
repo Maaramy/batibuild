@@ -61,7 +61,7 @@ const LOADING_STEPS = [
 
 export default function PlanGenerator() {
   usePageSEO({
-    title: "Plans d'architecte IA - batibuild App",
+    title: "Plans d'architecte IA - batibuild",
     description:
       "10 variantes de plans d'architecte 2D et 3D générées par IA pour votre projet de construction en Tunisie.",
   });

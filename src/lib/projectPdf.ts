@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 import { toast } from "sonner";
-import { drawBatiLogo } from "./pdfLogo";
+import { drawReportFooters, drawReportHeader } from "./pdfBranding";
 import {
   resolvePdfScenarioValues,
   type PersonalizedScenarioData,
@@ -55,7 +55,7 @@ export interface ProjectPdfOptions {
 }
 
 /**
- * Generates the full batibuild App estimate PDF (A4, programmatic jsPDF — no
+ * Generates the full batibuild estimate PDF (A4, programmatic jsPDF — no
  * html2canvas, no oklch). All page-level side effects are routed through the
  * `on*` callbacks so this module stays a pure, testable utility.
  */
@@ -146,39 +146,22 @@ export async function generateProjectPdf({
     const dateStr = new Date().toLocaleDateString("fr-FR");
     const safeName = project.name.replace(/[^a-zA-Z0-9-_]/g, "_");
 
-    // ═══ HEADER BAR ════════════════════════════════════════════════
-    // Top accent line
-    doc.setFillColor(4, 120, 87);
-    doc.rect(0, 0, pw, 2.5, "F");
-    // Main header background
-    doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
-    doc.rect(0, 2.5, pw, 20, "F");
-
-    // ── Draw batibuild App logo (casque blanc, carré vert) ──
-    const logoX = ml;
-    const logoY = 5;
-    drawBatiLogo(doc, logoX, logoY, 13);
-
-    // ── Title next to logo ──
-    const titleX = ml + 17;
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("batibuild App", titleX, 10);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    doc.text("Devis estimatif — Prix Tunisie 2026", titleX, 16);
-
-    // ── Right side info ──
+    // ═══ EN-TÊTE COMMUN (fond blanc pur + logo officiel) ══════════
     const devisNum = `DEV-${new Date().getFullYear()}-${String(Math.floor(10000 + Math.random() * 90000))}`;
-    doc.setFontSize(6);
-    doc.setFont("helvetica", "bold");
-    doc.text(`N° ${devisNum}`, pw - mr, 8, { align: "right" });
-    doc.setFont("helvetica", "normal");
-    doc.text(`${dateStr} · ${scenarioLabel}`, pw - mr, 14, { align: "right" });
-    doc.text("Document non contractuel", pw - mr, 18, { align: "right" });
-
-    y = 26;
+    y = drawReportHeader(doc, {
+      title: "Devis estimatif",
+      subtitle: "Prix Tunisie 2026",
+      margin: ml,
+      info: [
+        `Projet : ${project.name}`,
+        `Région : ${regionName}${project.surface ? ` · Surface : ${project.surface} m²` : ""}`,
+      ],
+      meta: [
+        `N° ${devisNum}`,
+        `Généré le ${dateStr} · ${scenarioLabel}`,
+        "Document non contractuel",
+      ],
+    });
 
     // ═══ PROJECT INFO BOX ══════════════════════════════════════════
     // Composition du bien (pièces) si renseignée
@@ -728,7 +711,7 @@ export async function generateProjectPdf({
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(C.text[0], C.text[1], C.text[2]);
-    doc.text("Devis créé par les experts de batibuild App", stampX + stampW / 2, stampY + 20, { align: "center" });
+    doc.text("Devis créé par les experts de batibuild", stampX + stampW / 2, stampY + 20, { align: "center" });
 
     // Separator bar
     doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
@@ -759,12 +742,19 @@ export async function generateProjectPdf({
     doc.setFont("helvetica", "italic");
     doc.setTextColor(C.textLight[0], C.textLight[1], C.textLight[2]);
     const disclaimer =
-      "Ce document est un devis estimatif généré automatiquement par batibuild App. " +
+      "Ce document est un devis estimatif généré automatiquement par batibuild. " +
       "Les prix indiqués sont basés sur les moyennes du marché tunisien 2026 et sont " +
       "donnés à titre indicatif. Ils ne constituent pas un engagement contractuel. " +
       "Pour un devis précis, veuillez consulter un professionnel du bâtiment.";
     const discLines = doc.splitTextToSize(disclaimer, cw);
     doc.text(discLines, ml, y + 3);
+
+    // Pied de page sur toutes les pages (identité + pagination)
+    drawReportFooters(doc, {
+      left: `Devis estimatif · ${scenarioLabel}`,
+      right: `${regionName} · ${dateStr}`,
+      margin: ml,
+    });
 
     // ═══ SAVE PDF ══════════════════════════════════════════════════
     onProgress(3);

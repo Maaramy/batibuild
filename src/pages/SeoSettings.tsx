@@ -100,7 +100,7 @@ export default function SeoSettings() {
   useEffect(() => {
     if (seoConfig) {
       setForm({
-        siteName: seoConfig.siteName || "batibuild App - Estimation Construction Tunisie",
+        siteName: seoConfig.siteName || "batibuild - Estimation Construction Tunisie",
         siteDescription: seoConfig.siteDescription || "",
         keywords: seoConfig.keywords || "",
         ogTitle: seoConfig.ogTitle || "",
@@ -138,7 +138,7 @@ export default function SeoSettings() {
           <div>
             <CardTitle className="text-sm sm:text-base">Paramètres SEO</CardTitle>
             <CardDescription className="text-xs">
-              Optimisez le référencement de batibuild App sur les moteurs de recherche.
+              Optimisez le référencement de batibuild sur les moteurs de recherche.
             </CardDescription>
           </div>
         </div>
@@ -157,7 +157,7 @@ export default function SeoSettings() {
               form={form}
               setForm={setForm}
               opts={{
-                placeholder: "batibuild App - Estimation Construction Tunisie",
+                placeholder: "batibuild - Estimation Construction Tunisie",
                 hint: "Apparaît dans l'onglet et les résultats de recherche",
               }}
             />
@@ -215,7 +215,7 @@ export default function SeoSettings() {
               form={form}
               setForm={setForm}
               opts={{
-                placeholder: "batibuild App - Estimation Construction",
+                placeholder: "batibuild - Estimation Construction",
                 hint: "Pour Facebook, LinkedIn...",
               }}
             />
@@ -272,7 +272,7 @@ export default function SeoSettings() {
               form={form}
               setForm={setForm}
               opts={{
-                placeholder: "Blog batibuild App — Construction & Rénovation",
+                placeholder: "Blog batibuild — Construction & Rénovation",
                 hint: "Apparaît sur la page /blog et dans les résultats de recherche",
               }}
             />
@@ -367,7 +367,7 @@ export default function SeoSettings() {
           </p>
           <div className="bg-white dark:bg-background rounded-lg p-3 border border-border/20">
             <p className="text-[#1a0dab] dark:text-[#8ab4f8] text-sm font-medium truncate">
-              {form.siteName || "batibuild App"}
+              {form.siteName || "batibuild"}
             </p>
             <p className="text-[#006621] dark:text-[#bdc1c6] text-xs truncate">
               {form.canonicalUrl || "https://batibuild.app"}

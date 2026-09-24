@@ -159,7 +159,7 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const project = useQuery(api.projects.getProject, { projectId: id as any });
   usePageSEO({
-    title: project ? `Devis ${project.name} - batibuild App` : "Détail du projet - batibuild App",
+    title: project ? `Devis ${project.name} - batibuild` : "Détail du projet - batibuild",
     description: project ? `Devis estimatif pour ${project.name}. Coût total, matériaux et analyse IA.` : "Consultez le détail de votre projet de construction.",
   });
   const allProjects = useQuery(api.projects.getUserProjects, {});

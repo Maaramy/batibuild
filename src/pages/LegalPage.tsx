@@ -67,7 +67,7 @@ function TermsContent() {
       icon: ScrollText,
       title: "1. Objet du service",
       paragraphs: [
-        "batibuild App est une plateforme SaaS tunisienne qui utilise l'intelligence artificielle pour estimer les coûts de projets de construction, d'aménagement ou de rénovation en Tunisie.",
+        "batibuild est une plateforme SaaS tunisienne qui utilise l'intelligence artificielle pour estimer les coûts de projets de construction, d'aménagement ou de rénovation en Tunisie.",
         "À partir d'une photo de terrain ou de chantier, d'une image satellite, d'un plan architectural (PDF, JPG, PNG, aperçu DWG), d'un croquis dessiné à la main ou de dimensions saisies manuellement, la plateforme identifie le type de projet, estime les dimensions réelles, calcule les surfaces construites, détermine les matériaux nécessaires et produit une estimation du coût selon les prix du marché tunisien.",
       ],
     },
@@ -222,10 +222,10 @@ function PrivacyContent() {
 export default function LegalPage({ kind = "terms" }: { kind?: LegalKind }) {
   const isTerms = kind === "terms";
   usePageSEO({
-    title: `${isTerms ? "Conditions d'utilisation" : "Données personnelles"} - batibuild App`,
+    title: `${isTerms ? "Conditions d'utilisation" : "Données personnelles"} - batibuild`,
     description: isTerms
-      ? "Conditions d'utilisation de la plateforme batibuild App d'estimation des coûts de construction en Tunisie."
-      : "Politique de confidentialité et protection des données personnelles sur batibuild App.",
+      ? "Conditions d'utilisation de la plateforme batibuild d'estimation des coûts de construction en Tunisie."
+      : "Politique de confidentialité et protection des données personnelles sur batibuild.",
   });
 
   return (
@@ -242,7 +242,7 @@ export default function LegalPage({ kind = "terms" }: { kind?: LegalKind }) {
           <Link to="/">
             <div className="flex items-center gap-2">
               <LogoMark className="h-9 w-9 rounded-lg" />
-              <span className="font-bold text-base" style={{ color: "var(--foreground)" }}>batibuild App</span>
+              <span className="font-bold text-base" style={{ color: "var(--foreground)" }}>batibuild</span>
             </div>
           </Link>
           <Link
@@ -265,8 +265,8 @@ export default function LegalPage({ kind = "terms" }: { kind?: LegalKind }) {
           </h1>
           <p className="text-sm max-w-xl mx-auto" style={{ color: "var(--foreground)", opacity: 0.6 }}>
             {isTerms
-              ? "Les conditions qui régissent votre utilisation de la plateforme batibuild App d'estimation des coûts de construction."
-              : "Comment batibuild App collecte, utilise et protège vos données personnelles, conformément à la loi tunisienne n° 2004-63."}
+              ? "Les conditions qui régissent votre utilisation de la plateforme batibuild d'estimation des coûts de construction."
+              : "Comment batibuild collecte, utilise et protège vos données personnelles, conformément à la loi tunisienne n° 2004-63."}
           </p>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs mt-4"
             style={{ background: "color-mix(in srgb, var(--auth-gold) 16%, transparent)", color: "var(--auth-gold)" }}>

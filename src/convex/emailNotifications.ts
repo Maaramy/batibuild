@@ -155,7 +155,7 @@ export function renderTokens(text: string, vars: Record<string, string>): string
       Montant: vars.montant || "",
       NuméroFacture: vars.numeroFacture || "",
       LienConnexion: vars.lienConnexion || "#",
-      NomPlateforme: vars.nomPlateforme || "batibuild App",
+      NomPlateforme: vars.nomPlateforme || "batibuild",
       NomProjet: vars.nomProjet || "",
       TypeProjet: vars.typeProjet || "",
       Entreprise: vars.entreprise || "",
@@ -321,7 +321,7 @@ export const processEmailEvent = internalMutation({
 
     // 4. Resolve vars
     const seo = await ctx.db.query("seoConfig").order("desc").first();
-    const platformName = vars.nomPlateforme || seo?.siteName || config.senderName || "batibuild App";
+    const platformName = vars.nomPlateforme || seo?.siteName || config.senderName || "batibuild";
     const loginLink = vars.lienConnexion || config.loginLink || seo?.canonicalUrl || "https://batibuild.app";
 
     const resolvedVars: Record<string, string> = {
@@ -393,7 +393,7 @@ export const processEmailEvent = internalMutation({
       to: args.to,
       subject,
       html: bodyHtml,
-      senderName: config.senderName || "batibuild App",
+      senderName: config.senderName || "batibuild",
       senderEmail: config.senderEmail,
       replyTo: config.replyTo || undefined,
       cc: adminCc,

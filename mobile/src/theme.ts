@@ -1,10 +1,10 @@
 /**
- * Thème natif de l'application mobile BatiBuild — Material Design 3.
+ * Thème natif de l'application mobile batibuild — Material Design 3.
  *
  * PÉRIMÈTRE : mobile uniquement. La plateforme Web garde son propre thème
  * (`src/index.css`) ; rien de ce fichier n'est partagé avec elle.
  *
- * La palette Material 3 est dérivée des couleurs BatiBuild DÉJÀ définies dans
+ * La palette Material 3 est dérivée des couleurs batibuild DÉJÀ définies dans
  * l'application (émeraude) : aucune nouvelle identité graphique n'est créée.
  */
 

@@ -60,7 +60,7 @@ const PHASE_STYLES: Record<Phase, { label: string; className: string }> = {
 
 export default function SubscriptionAdminPage() {
   usePageSEO({
-    title: "Essais & abonnements - Administration batibuild App",
+    title: "Essais & abonnements - Administration batibuild",
     description: "Suivi des périodes d'essai gratuites et des abonnements mensuels.",
   });
 

@@ -64,7 +64,7 @@ const PROFESSION_LABELS: Record<string, string> = {
 
 export default function ProfessionalsDirectory() {
   usePageSEO({
-    title: "Trouvez un expert près de chez vous - batibuild App",
+    title: "Trouvez un expert près de chez vous - batibuild",
     description: "Trouvez architectes, ingénieurs et bureaux d'études en Tunisie. Filtrez par spécialité et région.",
   });
 

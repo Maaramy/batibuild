@@ -85,7 +85,7 @@ const HISTORY_FILTERS: Array<{ value: AiMaterialsHistoryStatus | "all"; label: s
 // ═══════════════════════════════════════════════════════════════════════════
 export default function AiMaterials() {
   usePageSEO({
-    title: "Assistant Matériaux IA - batibuild App",
+    title: "Assistant Matériaux IA - batibuild",
     description: "Assistant intelligent de choix des matériaux de construction par IA : recommandation comparative, prix du marché tunisien 2026, fournisseurs, optimisation du budget.",
   });
   const navigate = useNavigate();
@@ -295,7 +295,7 @@ export default function AiMaterials() {
             <div className="flex items-center gap-2 mb-2">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
               <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">
-                AI Materials Copilot · Batibuild
+                AI Materials Copilot · batibuild
               </span>
             </div>
             <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight">Quel est le meilleur matériau pour mon projet ?</h2>

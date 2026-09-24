@@ -1,6 +1,7 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useEffect } from "react";
+import { BRAND_NAME } from "@/lib/branding";
 
 type PageSEOParams = {
   title?: string;
@@ -17,8 +18,8 @@ type PageSEOParams = {
  * @example
  * ```tsx
  * usePageSEO({
- *   title: "Mes Projets - batibuild App",
- *   description: "Gérez vos projets de construction sur batibuild App"
+ *   title: "Mes Projets - batibuild",
+ *   description: "Gérez vos projets de construction sur batibuild"
  * });
  * ```
  */
@@ -44,9 +45,9 @@ export function usePageSEO(params: PageSEOParams | null) {
       el.setAttribute("content", content);
     };
 
-    const title = params.title || seoConfig.siteName || "batibuild App";
+    const title = params.title || seoConfig.siteName || BRAND_NAME;
     const description = params.description || seoConfig.siteDescription || "";
-    const ogTitle = params.ogTitle || params.title || seoConfig.ogTitle || seoConfig.siteName || "batibuild App";
+    const ogTitle = params.ogTitle || params.title || seoConfig.ogTitle || seoConfig.siteName || BRAND_NAME;
     const ogDescription = params.ogDescription || params.description || seoConfig.ogDescription || seoConfig.siteDescription || "";
     const keywords = params.keywords || seoConfig.keywords || "";
 

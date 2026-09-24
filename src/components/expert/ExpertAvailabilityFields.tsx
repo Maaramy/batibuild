@@ -11,7 +11,7 @@ import {
 } from "@/lib/expertAvailability";
 
 // ============================================================================
-// PRIX INDICATIFS & DISPONIBILITÉ — profil expert (BatiBuild ↔ ProMarket)
+// PRIX INDICATIFS & DISPONIBILITÉ — profil expert (batibuild ↔ ProMarket)
 //
 // Bloc partagé par le formulaire de modification et celui de création. Les
 // valeurs saisies ici sont exactement celles affichées dans ProMarket : une

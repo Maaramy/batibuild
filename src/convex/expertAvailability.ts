@@ -16,9 +16,9 @@ import {
 // ============================================================================
 // DEMANDES DE RENDEZ-VOUS & DEMANDES URGENTES — experts (ProMarket)
 //
-// Le profil expert BatiBuild est la seule source de vérité : aucune duplication
+// Le profil expert batibuild est la seule source de vérité : aucune duplication
 // de compte ou de profil. Les demandes sont rattachées à l'`expertProfiles._id`
-// existant, et le client est l'utilisateur BatiBuild connecté.
+// existant, et le client est l'utilisateur batibuild connecté.
 //
 // Statuts (jamais de confirmation implicite) :
 //   rendez-vous : pending → approved | declined | cancelled | completed

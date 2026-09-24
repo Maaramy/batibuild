@@ -5,7 +5,7 @@
 import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 import type { Roadmap } from "@/convex/roadmapEngine";
-import { drawBatiLogo } from "./pdfLogo";
+import { drawReportFooters, drawReportHeader } from "./pdfBranding";
 
 applyAutotablePlugin(jsPDF);
 
@@ -34,37 +34,18 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   const emerald: [number, number, number] = [5, 150, 105];
   const slate: [number, number, number] = [51, 65, 85];
 
-  doc.setFillColor(...emerald);
-  doc.rect(0, 0, pageWidth, 6, "F");
-
-  // Logo officiel + wordmark
-  drawBatiLogo(doc, margin, 9, 14);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(15);
-  doc.setTextColor(...slate);
-  doc.text("batibuild App", margin + 18, 16);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(120, 130, 140);
-  doc.text("Guide construction A-Z · Tunisie 2026", margin + 18, 21);
-
-  let y = 30;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.setTextColor(...slate);
-  doc.text(stripEmojis(roadmap.project.name || "Projet de construction"), margin, y);
-  y += 7;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(120, 130, 140);
-  doc.text(
-    `Guide construction A-Z · ${roadmap.project.categoryLabel} · ${roadmap.project.regionLabel ?? "Tunisie"} · ${fmtDate(roadmap.generatedAt)}`,
+  // ═══ EN-TÊTE COMMUN (fond blanc pur + logo officiel) ═══
+  let y = drawReportHeader(doc, {
+    title: "Guide construction A-Z",
+    subtitle: "Tunisie 2026",
     margin,
-    y,
-  );
-  y += 6;
-  doc.text(`Progression globale : ${roadmap.progress}% · Budget prévu : ${fmtTnd(roadmap.summary.plannedBudget)}`, margin, y);
-  y += 10;
+    info: [
+      `Projet : ${stripEmojis(roadmap.project.name || "Projet de construction")} · ${roadmap.project.categoryLabel}`,
+      `Région : ${roadmap.project.regionLabel ?? "Tunisie"} · Progression globale : ${roadmap.progress}% · Budget prévu : ${fmtTnd(roadmap.summary.plannedBudget)}`,
+      `Généré le ${fmtDate(roadmap.generatedAt)}`,
+    ],
+  });
+  y += 4;
 
   // ── Synthèse ──
   doc.setFont("helvetica", "bold");
@@ -291,6 +272,13 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   doc.setTextColor(130, 140, 150);
   const disclaimers = doc.splitTextToSize(stripEmojis(roadmap.disclaimer), pageWidth - margin * 2);
   doc.text(disclaimers, margin, Math.min(y, doc.internal.pageSize.getHeight() - 20));
+
+  // Pied de page sur toutes les pages (identité + pagination)
+  drawReportFooters(doc, {
+    left: "Guide construction A-Z",
+    right: `Progression ${roadmap.progress}% · Budget prévu ${fmtTnd(roadmap.summary.plannedBudget)}`,
+    margin,
+  });
 
   const safeName = (roadmap.project.name || "projet").replace(/[^\w\d-]+/g, "_").slice(0, 40);
   doc.save(`batibuild_guide_${safeName}.pdf`);

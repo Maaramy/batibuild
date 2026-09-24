@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "BatiBuild",
+    "name": "batibuild",
     "slug": "batibuild",
     "version": "1.3.0",
     "orientation": "default",
@@ -12,10 +12,10 @@
       "bundleIdentifier": "com.batibuild.app",
       "buildNumber": "2",
       "infoPlist": {
-        "NSCameraUsageDescription": "BatiBuild utilise la caméra pour prendre des photos de votre terrain, chantier ou plan.",
-        "NSPhotoLibraryUsageDescription": "BatiBuild accède à vos photos pour les importer (photos, plans architecturaux, croquis).",
-        "NSPhotoLibraryAddUsageDescription": "BatiBuild enregistre vos documents et estimations téléchargés sur votre appareil.",
-        "NSLocationWhenInUseUsageDescription": "BatiBuild utilise votre position pour adapter l'estimation des coûts à votre région en Tunisie."
+        "NSCameraUsageDescription": "batibuild utilise la caméra pour prendre des photos de votre terrain, chantier ou plan.",
+        "NSPhotoLibraryUsageDescription": "batibuild accède à vos photos pour les importer (photos, plans architecturaux, croquis).",
+        "NSPhotoLibraryAddUsageDescription": "batibuild enregistre vos documents et estimations téléchargés sur votre appareil.",
+        "NSLocationWhenInUseUsageDescription": "batibuild utilise votre position pour adapter l'estimation des coûts à votre région en Tunisie."
       }
     },
     "android": {

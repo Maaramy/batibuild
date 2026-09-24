@@ -670,7 +670,7 @@ const schema = defineSchema(
         ),
       ),
       confidenceIndex: v.optional(v.number()),
-      /** Référence officielle du barème Batibuild Tunisie 2026 (MAT-xxxx). */
+      /** Référence officielle du barème batibuild Tunisie 2026 (MAT-xxxx). */
       sku: v.optional(v.string()),
     })
       .index("by_category", ["category"])

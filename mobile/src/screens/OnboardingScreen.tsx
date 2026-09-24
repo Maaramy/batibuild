@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Logo } from "../components/Logo";
+import { BRAND_NAME } from "../config";
 import {
   GUIDE_ILLUSTRATIONS,
   type IllusProps,
@@ -132,11 +133,11 @@ export default function OnboardingScreen({ onDone }: Props) {
         { backgroundColor: theme.surface, paddingTop: insets.top },
       ]}
     >
-      {/* En-tête discret : identité Batibuild + position dans le parcours. */}
+      {/* En-tête discret : identité batibuild + position dans le parcours. */}
       <View style={styles.topBar}>
         <View style={styles.brandWrap}>
           <Logo size={26} radiusRatio={0.28} />
-          <Text style={[styles.brandName, { color: theme.onSurface }]}>BatiBuild</Text>
+          <Text style={[styles.brandName, { color: theme.onSurface }]}>{BRAND_NAME}</Text>
         </View>
         <View
           style={[

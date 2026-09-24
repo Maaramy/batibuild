@@ -387,7 +387,7 @@ export default function SupportPage() {
                 Support &amp; Messagerie
               </h1>
               <p className="text-xs text-muted-foreground hidden sm:block">
-                Contactez l'équipe BatiBuild — réponses suivies en temps réel
+                Contactez l'équipe batibuild — réponses suivies en temps réel
               </p>
             </div>
           </div>
@@ -430,7 +430,7 @@ export default function SupportPage() {
                   <h3 className="font-semibold">Comment pouvons-nous vous aider ?</h3>
                   <p className="text-xs text-muted-foreground max-w-sm">
                     Sélectionnez une demande dans la liste ou créez une nouvelle demande
-                    pour contacter l'équipe support BatiBuild.
+                    pour contacter l'équipe support batibuild.
                   </p>
                   <Button onClick={() => setNewOpen(true)} className="gap-2 mt-1">
                     <MessageSquarePlus className="h-4 w-4" />

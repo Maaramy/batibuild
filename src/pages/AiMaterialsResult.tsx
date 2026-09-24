@@ -18,7 +18,7 @@ const LOADING_DURATION_MS = 3000;
 
 export default function AiMaterialsResult() {
   usePageSEO({
-    title: "Résultat de l'analyse IA - batibuild App",
+    title: "Résultat de l'analyse IA - batibuild",
     description: "Résultats de votre analyse de matériaux par IA : recommandation, coût estimatif et fournisseurs.",
   });
   const { id } = useParams<{ id: string }>();

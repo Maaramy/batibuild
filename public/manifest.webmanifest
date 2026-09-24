@@ -1,5 +1,5 @@
 {
-  "name": "batibuild App",
+  "name": "batibuild",
   "short_name": "batibuild",
   "description": "Estimation de construction par IA pour la Tunisie",
   "start_url": "/",
@@ -8,9 +8,9 @@
   "theme_color": "#8B4513",
   "icons": [
     {
-      "src": "/logo.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/batibuild-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

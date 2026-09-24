@@ -1,5 +1,5 @@
 /**
- * Configuration centralisée de l'application mobile BatiBuild.
+ * Configuration centralisée de l'application mobile batibuild.
  *
  * SOURCE UNIQUE DE VÉRITÉ pour l'URL de la plateforme web chargée dans la
  * WebView. Ne jamais dupliquer cette URL ailleurs (app.json, composants, …).
@@ -8,6 +8,9 @@
  * d'environnement EXPO_PUBLIC_WEB_APP_URL — aucune autre modification de code
  * n'est nécessaire.
  */
+
+/** Nom officiel de la plateforme (identique au Web — `src/lib/branding.ts`). */
+export const BRAND_NAME = "batibuild";
 
 const DEFAULT_WEB_APP_URL = "https://budgetbati.freebuff.app/";
 
@@ -81,7 +84,7 @@ const INTERNAL_HOST_SUFFIXES = [
 ];
 
 /**
- * Une URL fait-elle partie de l'application BatiBuild (reste dans la WebView) ?
+ * Une URL fait-elle partie de l'application batibuild (reste dans la WebView) ?
  * Même hôte, n'importe quel déploiement `*.freebuff.app` (aliases dev/preview/
  * prod) ou un domaine technique Convex.
  */

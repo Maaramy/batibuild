@@ -219,7 +219,7 @@ describe("seedMaterialPrices", () => {
 
     const updated = await t.run(async (ctx) => ctx.db.get(legacyId as any));
     expect(updated.category).toBe("liants_ciments_mortiers");
-    expect(updated.unitPrice).toBe(14.7); // barème Batibuild 2026 (MAT-0001)
+    expect(updated.unitPrice).toBe(14.7); // barème batibuild 2026 (MAT-0001)
     expect(updated.priceQuality).toBe("publication_2026");
     expect((updated as any).sku).toBe("MAT-0001");
   });

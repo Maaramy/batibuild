@@ -617,7 +617,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               </div>
               <div className="min-w-0">
                 <h1 className="text-sm font-semibold truncate">Administration</h1>
-                <p className="text-[10px] text-muted-foreground/60 hidden sm:block">Panneau de gestion batibuild App (v2)</p>
+                <p className="text-[10px] text-muted-foreground/60 hidden sm:block">Panneau de gestion batibuild (v2)</p>
               </div>
             </div>
           </div>

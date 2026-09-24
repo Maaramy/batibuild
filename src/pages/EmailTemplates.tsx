@@ -117,7 +117,7 @@ const SAMPLE_VARS: Record<string, string> = {
   "{{Montant}}": "120 TND",
   "{{NuméroFacture}}": "INV-123456",
   "{{LienConnexion}}": "https://batibuild.app/login",
-  "{{NomPlateforme}}": "batibuild App",
+  "{{NomPlateforme}}": "batibuild",
   "{{NomProjet}}": "Villa moderne à Hammamet",
   "{{TypeProjet}}": "Villa",
   "{{Entreprise}}": "BTP Tunisie SARL",
@@ -342,7 +342,7 @@ export default function EmailTemplates() {
                   className="mx-auto max-w-[420px] overflow-hidden rounded-lg border border-black/5 bg-white shadow-sm"
                 >
                   <div className="flex items-center justify-between bg-gradient-to-r from-[#7c3aed] to-[#0ea5e9] px-4 py-3">
-                    <span className="text-sm font-extrabold text-white">batibuild App</span>
+                    <span className="text-sm font-extrabold text-white">batibuild</span>
                     <span className="text-[9px] tracking-wider text-white/80">NOTIFICATION</span>
                   </div>
                   <div

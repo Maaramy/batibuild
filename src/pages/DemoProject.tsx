@@ -39,8 +39,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function DemoProject() {
   usePageSEO({
-    title: "Exemple d'estimation de construction - batibuild App",
-    description: "Découvrez un exemple complet d'estimation de coût de construction en Tunisie : coût total, prix au m², répartition détaillée, scénarios de budget et recommandations IA — calculés par le moteur batibuild App.",
+    title: "Exemple d'estimation de construction - batibuild",
+    description: "Découvrez un exemple complet d'estimation de coût de construction en Tunisie : coût total, prix au m², répartition détaillée, scénarios de budget et recommandations IA — calculés par le moteur batibuild.",
   });
   const navigate = useNavigate();
 
@@ -69,7 +69,7 @@ export default function DemoProject() {
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white">
               <Landmark className="h-4 w-4" />
             </span>
-            <span className="truncate">batibuild App</span>
+            <span className="truncate">batibuild</span>
           </button>
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <Badge variant="outline" className="hidden sm:inline-flex gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px]">
@@ -98,7 +98,7 @@ export default function DemoProject() {
               Maison R+0 — 150 m² · Tunis · Finition standard
             </h1>
             <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-              Exemple de rapport d'estimation — calculé par le vrai moteur d'intelligence artificielle batibuild App
+              Exemple de rapport d'estimation — calculé par le vrai moteur d'intelligence artificielle batibuild
             </p>
           </div>
         </div>
@@ -108,7 +108,7 @@ export default function DemoProject() {
             <FlaskConical className="h-3.5 w-3.5" />
             Estimation de démonstration
           </span>
-          Ces chiffres sont générés automatiquement par le moteur batibuild App à partir des prix du marché tunisien 2026
+          Ces chiffres sont générés automatiquement par le moteur batibuild à partir des prix du marché tunisien 2026
           (ciment, sable, gravier, acier, main-d'œuvre…). Lancez votre propre estimation pour des résultats personnalisés.
         </div>
 

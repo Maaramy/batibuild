@@ -122,7 +122,7 @@ function PaymentField({
 }
 
 export default function PricingPage() {
-  usePageSEO({ title: "Abonnements - batibuild App", description: "Choisissez votre abonnement mensuel batibuild App : Client, Fournisseur ou Expert — accès illimité, renouvellement mensuel." });
+  usePageSEO({ title: "Abonnements - batibuild", description: "Choisissez votre abonnement mensuel batibuild : Client, Fournisseur ou Expert — accès illimité, renouvellement mensuel." });
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const currentSubscription = useQuery(api.subscriptions.getMySubscription);

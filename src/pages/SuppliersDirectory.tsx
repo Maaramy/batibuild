@@ -58,7 +58,7 @@ const REGION_LABELS: Record<string, string> = {
 
 export default function SuppliersDirectory() {
   usePageSEO({
-    title: "Trouvez un fournisseur près de chez vous - batibuild App",
+    title: "Trouvez un fournisseur près de chez vous - batibuild",
     description:
       "Trouvez les meilleurs fournisseurs de matériaux de construction en Tunisie. Filtrez par spécialité, catégorie et région.",
   });

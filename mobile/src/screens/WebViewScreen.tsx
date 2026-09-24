@@ -25,6 +25,7 @@ import {
   CHANGE_MAX_MS,
   DASHBOARD_PATH,
   ENTRY_URL,
+  BRAND_NAME,
   isAppUrl,
   isAuthRoute,
   isDashboardRoute,
@@ -134,7 +135,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
   }, []);
 
   const confirmExit = useCallback(() => {
-    Alert.alert("Quitter BatiBuild ?", "Voulez-vous quitter l'application ?", [
+    Alert.alert(`Quitter ${BRAND_NAME} ?`, "Voulez-vous quitter l'application ?", [
       { text: "Annuler", style: "cancel" },
       { text: "Quitter", style: "destructive", onPress: () => BackHandler.exitApp() },
     ]);
@@ -312,11 +313,11 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     setError(
       offline
         ? {
-            title: "Impossible de charger BatiBuild",
+            title: `Impossible de charger ${BRAND_NAME}`,
             message: "Vérifiez votre connexion Internet puis réessayez.",
           }
         : {
-            title: "Impossible de charger BatiBuild",
+            title: `Impossible de charger ${BRAND_NAME}`,
             message: "Une erreur est survenue. Réessayez dans quelques instants.",
           },
     );
@@ -327,7 +328,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
       errorRef.current = true;
       setLoading(false);
       setError({
-        title: "BatiBuild est momentanément indisponible",
+        title: `${BRAND_NAME} est momentanément indisponible`,
         message: "Le service rencontre un problème. Réessayez dans quelques instants.",
       });
     }
@@ -337,7 +338,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     errorRef.current = true;
     setLoading(false);
     setError({
-      title: "Impossible de charger BatiBuild",
+      title: `Impossible de charger ${BRAND_NAME}`,
       message: "Une erreur est survenue. Réessayez.",
     });
   }, []);
@@ -364,7 +365,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
       if (msg.type === "share") {
         const parts = [msg.text, msg.url].filter(Boolean);
         Share.share({
-          title: msg.title || "BatiBuild",
+          title: msg.title || BRAND_NAME,
           message: parts.join("\n"),
           ...(msg.url ? { url: msg.url } : {}),
         }).catch(() => {});
@@ -546,7 +547,7 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
           >
             <View style={styles.modalHeader}>
               <Logo size={52} />
-              <Text style={[styles.modalTitle, { color: theme.onSurface }]}>BatiBuild</Text>
+              <Text style={[styles.modalTitle, { color: theme.onSurface }]}>{BRAND_NAME}</Text>
               <Text style={[styles.modalVersion, { color: theme.onSurfaceVariant }]}>
                 Version {Constants.expoConfig?.version ?? "1.0.0"}
               </Text>

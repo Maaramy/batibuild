@@ -73,7 +73,7 @@ export function AnnouncementModal({ announcement: a, onClose }: Props) {
 
           <div className="flex items-center gap-2 rounded-xl border border-border/30 bg-muted/30 px-3 py-2.5 text-[11px] text-muted-foreground">
             <Megaphone className="h-3.5 w-3.5 shrink-0 text-primary" />
-            Communication officielle de la plateforme batibuild App.
+            Communication officielle de la plateforme batibuild.
           </div>
         </div>
       </DialogContent>

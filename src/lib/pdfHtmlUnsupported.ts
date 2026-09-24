@@ -3,7 +3,7 @@
 // `dompurify`.
 //
 // Ces trois paquets ne sont importés par jsPDF que depuis `doc.html()`
-// (conversion HTML → PDF). Batibuild n'appelle JAMAIS `doc.html()` : tous les
+// (conversion HTML → PDF). batibuild n'appelle JAMAIS `doc.html()` : tous les
 // rapports PDF sont construits programmatiquement — texte, tableaux
 // (`jspdf-autotable`), images PNG (`addImage`) — comme le documente
 // `src/lib/projectPdf.ts` (« no html2canvas »).
@@ -23,7 +23,7 @@
 // ============================================================================
 
 const MESSAGE =
-  "Le rendu HTML → PDF (jsPDF `doc.html()`) n'est pas embarqué dans Batibuild. " +
+  "Le rendu HTML → PDF (jsPDF `doc.html()`) n'est pas embarqué dans batibuild. " +
   "Utilisez les helpers PDF programmatiques (src/lib/*Pdf.ts) ou retirez les " +
   "alias html2canvas/canvg/dompurify de vite.config.ts.";
 

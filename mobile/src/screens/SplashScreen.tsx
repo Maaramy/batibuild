@@ -7,9 +7,9 @@ import { LOADING_MESSAGE } from "../config";
 import { COLORS } from "../theme";
 
 /**
- * Splash MINIMAL de l'application mobile BatiBuild.
+ * Splash MINIMAL de l'application mobile batibuild.
  *
- * Volontairement réduit au strict nécessaire : le logo OFFICIEL Batibuild sur
+ * Volontairement réduit au strict nécessaire : le logo OFFICIEL batibuild sur
  * fond blanc, un indicateur discret et un seul texte — « Chargement.... ».
  * Aucun slogan, aucun écran de présentation, aucune ancienne image : les
  * anciens splash et écrans d'introduction ont été supprimés.

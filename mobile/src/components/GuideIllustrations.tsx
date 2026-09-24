@@ -21,7 +21,7 @@ import type { AppTheme } from "../theme";
  * construction / architecture / immobilier / IA, composition pensée pour un
  * écran de téléphone.
  *
- * Ce sont des illustrations VECTORIELLES dessinées pour Batibuild (aucune image
+ * Ce sont des illustrations VECTORIELLES dessinées pour batibuild (aucune image
  * générique, aucun placeholder, aucune icône seule) :
  *   1. Détection automatique sur le plan       → « Évitez les surcoûts »
  *   2. Import (photo, PDF, satellite, croquis) → « Devis clé en main »

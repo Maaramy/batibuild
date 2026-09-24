@@ -3,7 +3,7 @@
  *
  * Modèle unique des étapes affichées dans la barre du parcours : il ne contient
  * AUCUN calcul, aucune donnée de projet et aucune règle métier — uniquement les
- * liens vers les modules déjà existants de BatiBuild.
+ * liens vers les modules déjà existants de batibuild.
  *
  * Le groupe est déterminé automatiquement à partir du type de projet enregistré
  * (`resolveProjectType` gère aussi les anciens slugs et les libellés libres) :

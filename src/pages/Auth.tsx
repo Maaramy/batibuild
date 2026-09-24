@@ -254,7 +254,7 @@ function LeftPanel() {
           </motion.div>
         </Link>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <h1 className="text-4xl font-bold mb-3 text-white">batibuild App</h1>
+          <h1 className="text-4xl font-bold mb-3 text-white">batibuild</h1>
           <p className="text-lg mb-4" style={{ color: "color-mix(in srgb, white 70%, transparent)" }}>Estimation de coÃ»ts de construction</p>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium"
             style={{ background: "color-mix(in srgb, var(--auth-gold) 20%, transparent)", color: "var(--auth-gold)", backdropFilter: "blur(4px)" }}>
@@ -288,7 +288,7 @@ function MobileLogo() {
       <Link to="/">
         <div className="flex items-center gap-2">
           <LogoMark className="h-9 w-9 rounded-lg" />
-          <span className="font-bold text-lg" style={{ color: "var(--foreground)" }}>batibuild App</span>
+          <span className="font-bold text-lg" style={{ color: "var(--foreground)" }}>batibuild</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "color-mix(in srgb, var(--auth-accent) 12%, transparent)", color: "var(--auth-accent)" }}>Tunisie</span>
         </div>
       </Link>
@@ -682,7 +682,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <motion.div key="register-pw" variants={stagger} initial="hidden" animate="visible" exit={{ opacity: 0, y: -8 }}>
                   <div className="mb-5">
                     <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>Créer un compte</h2>
-                    <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Rejoignez batibuild App et estimez vos projets</p>
+                    <p className="text-sm mt-1" style={{ color: "var(--foreground)", opacity: 0.6 }}>Rejoignez batibuild et estimez vos projets</p>
                   </div>
                   <form onSubmit={handlePasswordRegister} className="space-y-4">
                     {/* Profile Type Selector */}
@@ -812,7 +812,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
 // ===================== EXPORT =====================
 export default function AuthPage(props: AuthProps) {
-  usePageSEO({ title: "Connexion - batibuild App", description: "Connectez-vous ou créez un compte batibuild App pour estimer vos projets de construction." });
+  usePageSEO({ title: "Connexion - batibuild", description: "Connectez-vous ou créez un compte batibuild pour estimer vos projets de construction." });
   return (
     <Suspense>
       <Auth {...props} />

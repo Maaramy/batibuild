@@ -161,7 +161,7 @@ const TESTIMONIALS = [
     name: "Ahmed Ben Salah",
     role: "Architecte, Tunis",
     content:
-      "Avant, mes devis prenaient 2 à 3 jours. Avec BatiBuild, je les livre en 30 minutes — et mes clients me font plus confiance grâce aux détails IA.",
+      "Avant, mes devis prenaient 2 à 3 jours. Avec batibuild, je les livre en 30 minutes — et mes clients me font plus confiance grâce aux détails IA.",
     avatar: "AB",
     rating: 5,
     metric: "Devis en 30 min au lieu de 3 jours",
@@ -1227,7 +1227,7 @@ function TestimonialsSection() {
             Des résultats concrets, pas des promesses
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Architectes, promoteurs et ingénieurs en Tunisie utilisent BatiBuild au quotidien.
+            Architectes, promoteurs et ingénieurs en Tunisie utilisent batibuild au quotidien.
           </p>
         </div>
 

@@ -43,11 +43,11 @@ export default function ShareInvestment() {
 
   usePageSEO({
     title: run
-      ? `Analyse partagée : ${run.input?.name || TYPE_META[run.input.investmentType as InvestmentType]?.label} - batibuild App`
-      : "Analyse immobilière partagée - batibuild App",
+      ? `Analyse partagée : ${run.input?.name || TYPE_META[run.input.investmentType as InvestmentType]?.label} - batibuild`
+      : "Analyse immobilière partagée - batibuild",
     description: run
       ? `Analyse de rentabilité immobilière partagée : score IA ${run.results.score.total}/100, rentabilité nette ${run.results.indicators.netYieldPct}%, Return on Investment 10 ans ${run.results.indicators.roi10yPct}%.`
-      : "Consultez une analyse de rentabilité immobilière partagée par son auteur sur batibuild App.",
+      : "Consultez une analyse de rentabilité immobilière partagée par son auteur sur batibuild.",
   });
 
   return (
@@ -62,7 +62,7 @@ export default function ShareInvestment() {
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white">
               <Landmark className="h-4 w-4" />
             </span>
-            batibuild App
+            batibuild
           </button>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px]">

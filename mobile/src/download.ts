@@ -3,7 +3,7 @@ import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
 /**
- * Téléchargements natifs de l'application mobile BatiBuild.
+ * Téléchargements natifs de l'application mobile batibuild.
  *
  * DEUX SOURCES DE FICHIERS
  * ------------------------

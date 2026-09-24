@@ -85,7 +85,7 @@ export default function BlogPostPage() {
   usePageSEO(
     post
       ? {
-          title: post.seoTitle || `${post.title} — Blog batibuild App`,
+          title: post.seoTitle || `${post.title} — Blog batibuild`,
           description: post.seoDescription || post.excerpt,
           ogTitle: post.seoTitle || post.title,
           ogDescription: post.seoDescription || post.excerpt,
@@ -226,7 +226,7 @@ export default function BlogPostPage() {
               <User className="h-3.5 w-3.5 opacity-50" /> {post.authorName}
             </p>
             <p className="mt-1 text-xs opacity-60">
-              Rédigé par l'équipe batibuild App — spécialistes de l'estimation de construction en Tunisie.
+              Rédigé par l'équipe batibuild — spécialistes de l'estimation de construction en Tunisie.
             </p>
           </div>
         </div>
