@@ -147,6 +147,8 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
 const STEP_DURATION_MS = 950;
 /** Délai avant le démarrage effectif de la séquence (ms). */
 const START_DELAY_MS = 350;
+/** Pause sur l'état « terminé » avant de rejouer la boucle (ms). */
+const HOLD_COMPLETE_MS = 2400;
 
 type StepState = "done" | "active" | "pending";
 
@@ -156,8 +158,10 @@ function pad(n: number): string {
 
 /**
  * Séquence animée du cycle de vie. La progression avance d'une étape à
- * l'autre puis reste sur l'état « terminé » (aucune boucle visible). Le
- * composant ne bloque jamais le rendu de la page : il s'anime en parallèle.
+ * l'autre, marque une courte pause sur l'état « terminé », puis rejoue la
+ * boucle : le parcours reste vivant en continu sans jamais bloquer le rendu
+ * de la page. La boucle se met en pause hors écran et reste entièrement
+ * désactivée lorsque l'utilisateur réduit les animations.
  */
 export function ProjectLifecycle({ className }: { className?: string }) {
   const { isEnabled } = useFeatureFlags();
@@ -175,40 +179,43 @@ export function ProjectLifecycle({ className }: { className?: string }) {
 
   const total = steps.length;
   const [completed, setCompleted] = useState(0);
-  const [started, setStarted] = useState(false);
+  const [inView, setInView] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // Démarre l'animation uniquement lorsque le parcours devient visible.
+  // Suit la visibilité du parcours : l'animation démarre à l'entrée dans
+  // l'écran et se met en pause lorsqu'il en sort (aucun travail inutile).
   useEffect(() => {
     const node = rootRef.current;
-    if (!node || started) return;
+    if (!node) return;
     if (typeof IntersectionObserver === "undefined") {
-      setStarted(true);
+      setInView(true);
       return;
     }
     const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setStarted(true);
-          observer.disconnect();
-        }
-      },
+      (entries) => setInView(entries.some((e) => e.isIntersecting)),
       { threshold: 0.25 },
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [started]);
+  }, []);
 
-  // Progression : initialisation → étape 1 → … → étape n → terminé.
+  // Progression en boucle : initialisation → étape 1 → … → étape n →
+  // pause « terminé » → reprise depuis le début, tant que la section est
+  // visible. Ce cycle discret garde le parcours vivant en continu.
   useEffect(() => {
-    if (reduceMotion) return;
-    if (!started || completed >= total) return;
+    if (reduceMotion || !inView || total === 0) return;
+
+    if (completed >= total) {
+      const hold = window.setTimeout(() => setCompleted(0), HOLD_COMPLETE_MS);
+      return () => window.clearTimeout(hold);
+    }
+
     const delay = completed === 0 ? START_DELAY_MS : STEP_DURATION_MS;
     const timer = window.setTimeout(() => {
       setCompleted((c) => Math.min(c + 1, total));
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [started, completed, total, reduceMotion]);
+  }, [inView, completed, total, reduceMotion]);
 
   // Un flag désactivé pendant l'animation rétrécit le parcours : on recale la
   // progression pour ne jamais laisser d'étape vide ni de trou.
@@ -234,13 +241,29 @@ export function ProjectLifecycle({ className }: { className?: string }) {
     <div ref={rootRef} className={className}>
       {/* Barre de progression globale + statut */}
       <div className="mx-auto mb-8 flex max-w-md flex-col items-center gap-2">
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-border/50">
+        <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-border/50">
           <motion.div
             className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-sky-500 to-indigo-500"
             initial={{ width: 0 }}
             animate={{ width: `${pct}%` }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           />
+          {/* Reflet qui balaie la barre en continu : mouvement discret qui
+              persiste même pendant la pause sur l'état « terminé ». */}
+          {!reduceMotion && inView && (
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/60 to-transparent dark:via-white/30"
+              initial={{ x: "-120%" }}
+              animate={{ x: "300%" }}
+              transition={{
+                duration: 2.6,
+                repeat: Infinity,
+                ease: "easeInOut",
+                repeatDelay: 0.6,
+              }}
+            />
+          )}
         </div>
         <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
           {finished
