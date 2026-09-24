@@ -1411,7 +1411,7 @@ export function fallbackChatAnswer(question: string, context: { projectName?: st
       "Astuce : regroupez les lots (gros œuvre + second œuvre chez le même artisan) pour négocier 5-10% et mieux coordonner le planning.";
   }
   if (has(["bonjour", "salut", "hello", "merci", "bonsoir"])) {
-    return "Bonjour ! Je suis votre Assistant Matériaux IA de batibuild App. Posez-moi vos questions sur les matériaux, les prix, l'isolation, les fournisseurs ou le budget de votre projet en Tunisie. Par exemple : « Quel isolant pour une villa à Tunis ? »";
+    return "Bonjour ! Je suis votre Assistant Matériaux IA de batibuild. Posez-moi vos questions sur les matériaux, les prix, l'isolation, les fournisseurs ou le budget de votre projet en Tunisie. Par exemple : « Quel isolant pour une villa à Tunis ? »";
   }
   return "Je peux vous aider sur :\n" +
     "• Le choix d'un matériau (isolation, briques, carrelage, menuiseries, sanitaires…)\n" +

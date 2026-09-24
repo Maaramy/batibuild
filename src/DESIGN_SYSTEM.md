@@ -1,6 +1,6 @@
-# BatiBuild Design System — Complete Extraction
+# batibuild Design System — Complete Extraction
 
-> **Source of Truth:** BatiBuild Platform (budgetbati)
+> **Source of Truth:** batibuild Platform (budgetbati)
 > **Stack:** React + Tailwind CSS v4 + shadcn/ui (Radix primitives) + Framer Motion + Lucide Icons
 > **Color Space:** OKLCH (all CSS variables use OKLCH color notation)
 > **Dark Mode:** Class-based (`.dark` class on root)
@@ -914,5 +914,5 @@ To transfer this design system to a new project, copy these CSS variables into y
 
 ---
 
-*Document generated from BatiBuild platform source code analysis.*
+*Document generated from batibuild platform source code analysis.*
 *All values are extracted from actual implementation — no invented or estimated values.*

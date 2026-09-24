@@ -1372,7 +1372,7 @@ function Footer() {
 
 export default function Landing() {
   usePageSEO({
-    title: "batibuild App - Votre copilote IA pour construire, rénover et investir",
+    title: "batibuild - Votre copilote IA pour construire, rénover et investir",
     description: "Estimez. Optimisez. Construisez. Investissez. Estimation de construction par IA, assistant de choix des matériaux, guide de construction A-Z, analyse d'investissement immobilier et fournisseurs — prix actualisés du marché tunisien 2026.",
   });
   return (

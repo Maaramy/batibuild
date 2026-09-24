@@ -1,4 +1,4 @@
-# BatiBuild Mobile — Build Android 100 % autonome sur GitHub Actions
+# batibuild Mobile — Build Android 100 % autonome sur GitHub Actions
 #
 # Flux : git push origin main → runner ubuntu-latest → Node 22 + Bun + JDK 17
 #        → setup-android@v4 (SDK + licences) → npm/bun install → prebuild
@@ -640,7 +640,7 @@ jobs:
           CODE=$(node -p "require('./app.json').expo.android.versionCode")
           echo "## ✅ Build Android terminé" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "**BatiBuild ${VERSION} — versionCode ${CODE}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "**batibuild ${VERSION} — versionCode ${CODE}**" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Fichier | Taille |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"

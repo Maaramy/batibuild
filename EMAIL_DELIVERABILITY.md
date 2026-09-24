@@ -1,4 +1,4 @@
-# Délivrabilité e-mail — BatiBuild
+# Délivrabilité e-mail — batibuild
 
 Guide pour que les e-mails envoyés par le serveur SMTP arrivent dans la
 **boîte de réception** (et non dans le courrier indésirable / Spam).
@@ -24,7 +24,7 @@ SMTP_PORT=587
 SMTP_USER=noreply@votredomaine.tn
 SMTP_PASSWORD=********
 SMTP_FROM=noreply@votredomaine.tn
-SMTP_FROM_NAME=BatiBuild
+SMTP_FROM_NAME=batibuild
 SMTP_SECURE=false
 SMTP_TLS_VERIFY=true
 ```
@@ -34,7 +34,7 @@ SMTP_TLS_VERIFY=true
 | `SMTP_HOST` / `SMTP_PORT` | Serveur SMTP (587 + STARTTLS, ou 465 + SSL direct) |
 | `SMTP_USER` / `SMTP_PASSWORD` | Compte d'authentification SMTP |
 | `SMTP_FROM` | Adresse **From + Reply-To**. **Doit être sur votre propre domaine**, pas un compte Gmail/Outlook/Yahoo/… |
-| `SMTP_FROM_NAME` | Nom affiché (ex. BatiBuild) |
+| `SMTP_FROM_NAME` | Nom affiché (ex. batibuild) |
 | `SMTP_SECURE` | `true` / `465` → SSL direct (port 465) ; `false` / `587` → STARTTLS |
 | `SMTP_TLS_VERIFY` | `true` (défaut) : vérifie les certificats TLS. Mettre `false` uniquement pour un serveur auto-signé en interne |
 | `SMTP_DKIM_DOMAIN` | Domaine signé DKIM (voir ci-dessous) |

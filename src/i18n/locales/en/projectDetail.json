@@ -1,5 +1,5 @@
 {
-  "pageTitle": "Project detail - batibuild App",
+  "pageTitle": "Project detail - batibuild",
   "back": "Back",
   "status": {
     "draft": "Draft",
@@ -124,7 +124,7 @@
     "totalHT": "Total HT",
     "tva": "VAT (19%)",
     "totalTTC": "Total TTC",
-    "generatedBy": "Quote created by batibuild App experts",
+    "generatedBy": "Quote created by batibuild experts",
     "company": "GALISKON PROJECT",
     "stampText": "Stamp & Signature"
   }

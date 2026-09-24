@@ -1,5 +1,5 @@
 {
-  "pageTitle": "Détail du projet - batibuild App",
+  "pageTitle": "Détail du projet - batibuild",
   "back": "Retour",
   "status": {
     "draft": "Brouillon",
@@ -124,7 +124,7 @@
     "totalHT": "Total HT",
     "tva": "TVA (19%)",
     "totalTTC": "Total TTC",
-    "generatedBy": "Devis créé par les experts de batibuild App",
+    "generatedBy": "Devis créé par les experts de batibuild",
     "company": "GALISKON PROJECT",
     "stampText": "Cachet & Signature"
   }

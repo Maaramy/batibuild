@@ -1,14 +1,14 @@
-# BatiBuild — Application Mobile (Android + iOS)
+# batibuild — Application Mobile (Android + iOS)
 
 Application mobile **native** (React Native / Expo SDK 57) qui embarque la plateforme
-[BatiBuild](https://budgetbati.freebuff.app/) dans une **WebView optimisée**, avec un
+[batibuild](https://budgetbati.freebuff.app/) dans une **WebView optimisée**, avec un
 **Splash Screen** (≤ 1 s), un **en-tête natif** (marque, Support, Paramètres — aucun menu),
 une **barre de navigation inférieure FIXE** et un **Guide d'onboarding** natifs au premier
 lancement.
 
 ```
-Première installation :  Splash (≤ 1 s)  →  7 guides (Suivant / Passer)  →  WebView BatiBuild
-Lancements suivants :    Splash (≤ 1 s)  →  WebView BatiBuild
+Première installation :  Splash (≤ 1 s)  →  7 guides (Suivant / Passer)  →  WebView batibuild
+Lancements suivants :    Splash (≤ 1 s)  →  WebView batibuild
 ```
 
 ### Coque native (Material Design 3)
@@ -28,10 +28,10 @@ Android Native Shell
 │      4. Ne perdez plus une seule étape
 │
 ├── Header natif  (fond blanc — AUCUN menu de navigation)
-│      Ligne unique : Logo + « batibuild App »   Support   Paramètres
+│      Ligne unique : Logo + « batibuild »   Support   Paramètres
 │      (aucun burger, aucune rangée d'onglets)
 │
-├── WebView  →  plateforme Batibuild (inchangée)
+├── WebView  →  plateforme batibuild (inchangée)
 │      Occupe exactement la hauteur restante : jamais recouverte par la barre.
 │
 └── Bottom Nav — BARRE DE NAVIGATION INFÉRIEURE (fond blanc, fixe)
@@ -132,7 +132,7 @@ mobile/
 │   ├── screens/
 │   │   ├── SplashScreen.tsx       # Splash minimal : logo officiel + « Chargement.... »
 │   │   ├── OnboardingScreen.tsx   # Parcours de 7 guides (image + titre + texte) + Passer
-│   │   └── WebViewScreen.tsx      # WebView BatiBuild (toutes les options)
+│   │   └── WebViewScreen.tsx      # WebView batibuild (toutes les options)
 │   ├── components/
 │   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : en-tête, guides, erreurs
 │   │   ├── Logo.tsx               # Logo officiel de la plateforme (tuile émeraude + casque blanc)
@@ -141,7 +141,7 @@ mobile/
 │   │   └── GuideIllustrations.tsx # 7 illustrations dédiées (scènes vectorielles SVG)
 │   ├── download.ts                # Téléchargements natifs : URL http(s) ET PDF « blob: »
 │   ├── storage.ts                 # onboardingCompleted (AsyncStorage)
-│   ├── theme.ts                   # Jetons Material 3 (clair / sombre) issus de la charte BatiBuild
+│   ├── theme.ts                   # Jetons Material 3 (clair / sombre) issus de la charte batibuild
 ├── android/                       # Projet natif Android — COMMITÉ (build Gradle local direct)
 ├── ios/                           # Projet natif iOS (CNG : généré par `expo prebuild`, macOS)
 ├── build/                         # APK/AAB générés localement (ignoré par Git)
@@ -161,9 +161,9 @@ mobile/
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
 | **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
 | **Barre de navigation inférieure** | **Barre FIXE en bas de l'écran** (`BottomNav.tsx`) : 5 sections (Profile · **Mes projets** · Home · ROI · Message), icône **lucide 19 pt** + libellé **10,5 pt**, onglets de **largeur égale** (`flex: 1`) donc aucun débordement sur petit ou grand écran. Élément **actif** : icône et libellé en teinte de marque (`brand700`), libellé en gras, **indicateur émeraude** au-dessus de l'icône (emplacement réservé sur tous les onglets → aucun décalage) ; inactifs en gris ; état pressé = légère atténuation. Fond **blanc**, safe area basse gérée (`useSafeAreaInsets`, minimum 6 pt). Rendue **après** la WebView (jamais en position absolue) : elle ne recouvre jamais le contenu. Visible dans tout l'espace connecté — voir `shouldShowBottomNav()` dans `src/config.ts`. |
-| **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild App ») à gauche, icônes **Support** et **Paramètres** à droite. **Aucun menu de navigation** (et aucun burger : celui de l'en-tête web est masqué dans l'application). **Appui long sur la marque** (ou sur la barre du bas) → réglages natifs. |
+| **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild ») à gauche, icônes **Support** et **Paramètres** à droite. **Aucun menu de navigation** (et aucun burger : celui de l'en-tête web est masqué dans l'application). **Appui long sur la marque** (ou sur la barre du bas) → réglages natifs. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
-| **Guides de démarrage** | **7 guides**, un seul parcours (les anciens écrans d'introduction ont été supprimés) : **Évitez les surcoûts · Devis clé en main · Choisissez les meilleurs matériaux · Ne perdez plus une seule étape · Investissez sans risque · Suivez l'évolution des prix · Trouvez les bons prestataires**. Chaque guide = **illustration dédiée** + **titre** + **texte descriptif** + indicateur **« n / 7 »** (pastilles) + bouton **Suivant** (puis **Commencer** au 7ᵉ) + bouton **Passer**. Les illustrations sont des **scènes vectorielles dessinées pour BatiBuild** (`GuideIllustrations.tsx`, voir la note ci-dessous). Mémorisé via `onboardingCompleted` (AsyncStorage). |
+| **Guides de démarrage** | **7 guides**, un seul parcours (les anciens écrans d'introduction ont été supprimés) : **Évitez les surcoûts · Devis clé en main · Choisissez les meilleurs matériaux · Ne perdez plus une seule étape · Investissez sans risque · Suivez l'évolution des prix · Trouvez les bons prestataires**. Chaque guide = **illustration dédiée** + **titre** + **texte descriptif** + indicateur **« n / 7 »** (pastilles) + bouton **Suivant** (puis **Commencer** au 7ᵉ) + bouton **Passer**. Les illustrations sont des **scènes vectorielles dessinées pour batibuild** (`GuideIllustrations.tsx`, voir la note ci-dessous). Mémorisé via `onboardingCompleted` (AsyncStorage). |
 | **Illustrations des guides** | Aucune image générique, aucun placeholder, aucune icône seule : chaque guide affiche une **scène SVG dédiée** (détection IA sur le plan, convergence import → IA → devis, comparaison Économique / Équilibré / Premium, 10 phases de chantier, ROI 1/5/10 ans + score IA + scénarios, 500+ matériaux et courbe des prix, annuaire vérifié + carte des régions). Elles sont **vectorielles donc nettes sur tous les écrans**, suivent le **thème clair / sombre / système** et n'entraînent **aucun téléchargement**. |
 | **Réinstallation** | Le stockage local est effacé → les guides réapparaissent (comportement attendu). |
 | **Mise à jour** | `onboardingCompleted` est conservé → pas de guides à chaque mise à jour. |
@@ -174,9 +174,9 @@ mobile/
 | **Navigation des 5 sections** | Depuis la **barre inférieure**, routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard/projects`, `/dashboard`, `/dashboard/investments`, `/dashboard/messages`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. « Mes projets » ouvre la **page dédiée `/dashboard/projects`** (tous les projets de l'utilisateur : en cours, terminés, réalisés, archivés) ; l'onglet reste actif pendant la consultation d'un projet ouvert depuis cette liste. « Home » reste l'accueil connecté (`/dashboard`). « ROI » ouvre `/dashboard/investments` (analyse du retour sur investissement) et porte l'icône `TrendingUp`, la même que l'action « Return on Investment » de la page Résultats coût de construction. |
 | **Pastille de la Messagerie** | Pastille **rouge** (composant réutilisable `NavBadge.tsx`) posée en haut à droite de l'icône « Message » : texte blanc, cerclage blanc (lisible en mode clair comme sombre), **jamais de déplacement des autres icônes** (positionnement absolu), plafond **« 99+ »** et **rien du tout à 0**. Le compteur vient du **serveur** : la plateforme Web, chargée dans la WebView, publie en **temps réel** le nombre de messages non lus de l'utilisateur connecté (`api.messaging.unreadCount` → `src/lib/nativeBridge.ts` → `postMessage`, lue par `WebViewScreen`) — donc **sans rechargement** et sans pastille « 0 » fantôme au démarrage. En cas d'erreur de synchronisation, le dernier compteur fiable reste affiché. Ouvrir la messagerie marque les messages comme lus : la pastille disparaît dès que tout est lu. |
 | **Support / Paramètres** | Barre supérieure → `/dashboard/support` et `/dashboard/settings` (mêmes routes web, aucun écran dupliqué). |
-| **Retour Android** | Historique WebView → page précédente ; sinon confirmation « Voulez-vous quitter BatiBuild ? » (Annuler / Quitter). |
+| **Retour Android** | Historique WebView → page précédente ; sinon confirmation « Voulez-vous quitter batibuild ? » (Annuler / Quitter). |
 | **Chargement** | Écran de chargement natif (logo officiel + « Chargement.... » + barre de progression), **borné à 1 s** — jamais de page blanche ni de loader bloqué. |
-| **Hors ligne / erreurs** | Écran natif « Connexion Internet indisponible » / « Impossible de charger BatiBuild » + bouton **Réessayer** (codes `ERR_*` mappés en messages lisibles). |
+| **Hors ligne / erreurs** | Écran natif « Connexion Internet indisponible » / « Impossible de charger batibuild » + bouton **Réessayer** (codes `ERR_*` mappés en messages lisibles). |
 | **Upload** | `<input type="file">` natif : galerie, photo (caméra), fichiers (permissions CAMERA / READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE). |
 | **Téléchargements** | PDF et documents : écrits dans le cache puis remis à la feuille de partage native (`expo-file-system` + `expo-sharing`) — l'utilisateur enregistre (Fichiers, Drive…) ou envoie le fichier. Deux sources : une URL `http(s)://` (`onFileDownload`) **et** les fichiers fabriqués dans le navigateur (PDF jsPDF, exports CSV/texte), qui utilisent une URL `blob:` — voir la note ci-dessous. |
 | **PDF « blob: » (Android)** | Les PDF de l'estimation du coût de construction et de l'analyse des matériaux IA sont générés **dans la page** (jsPDF) puis « téléchargés » par une URL `blob:`, que la WebView Android ne sait pas écrire sur le disque (le clic ne produisait donc aucun fichier). Un pont injecté (`DOWNLOAD_BRIDGE_SCRIPT` dans `src/injected.ts`) capture le Blob au clic et l'envoie en **base64 par morceaux de 256 Ko** au code natif (`src/download.ts`), qui reconstitue le fichier, l'écrit dans le cache et ouvre la feuille de partage Android. Mémoire bornée (~32 Mo max, morceaux hors limite rejetés) et transferts interrompus oubliés au bout d'une minute. Aucun fichier Web ni backend n'est modifié. |
@@ -275,7 +275,7 @@ Aucun service cloud de compilation n'est utilisé.
 
 | | Valeur |
 |---|---|
-| Nom de l'application | BatiBuild |
+| Nom de l'application | batibuild |
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
 | Version | **1.3.0** — `versionCode 10` (Android), `buildNumber 2` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |

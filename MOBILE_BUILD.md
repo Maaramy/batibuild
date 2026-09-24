@@ -1,4 +1,4 @@
-# BatiBuild Mobile — Obtention des APK (GitHub Actions ⭐ ou local)
+# batibuild Mobile — Obtention des APK (GitHub Actions ⭐ ou local)
 
 Deux façons d'obtenir `Batibuild-release.apk`, **sans EAS, sans compte Expo et
 sans `EXPO_TOKEN`** :
@@ -17,13 +17,13 @@ git push origin main → GitHub Actions (ubuntu-latest) → Batibuild-release.ap
 ## 0. Architecture (rappel)
 
 ```
-BATIBUILD MOBILE
+batibuild MOBILE
    ├── Splash natif          (expo-splash-screen + écran React Native)
    ├── Onboarding            (4 écrans, 1ʳᵉ installation — « Passer » / « Commencer »)
    └── WebView               → https://budgetbati.freebuff.app/
 ```
 
-L'application est une **enveloppe WebView** : la plateforme Web BatiBuild reste la
+L'application est une **enveloppe WebView** : la plateforme Web batibuild reste la
 seule source de l'interface, des calculs et des données. Toute mise à jour du site
 est immédiatement visible dans l'application, **sans nouvelle APK**.
 
@@ -483,7 +483,7 @@ Toutes les autres vérifications de `expo-doctor` restent actives (20/20 ✅).
 | **CI** : `:app:validateSigningDebug` échoue | Le workflow lance `node scripts/ensure-debug-keystore.mjs` avant les builds : si l'échec persiste, vérifiez que `keytool` est bien disponible (étape *Setup JDK 17*) et que `android/app/debug.keystore` est présent dans le dépôt |
 | **CI** : `:app:signingReport` échoue juste après les diagnostics | Une configuration de signature pointe vers un fichier absent — c'est volontaire : l'échec survient en quelques secondes au lieu d'après 15 min de compilation. Regardez la section « What went wrong » du log `signing` |
 | APK installé mais « Application non installée » | Signature release avec clé debug sur un appareil exigeant une signature, ou APK corrompu : régénérez via `npm run android:apk` |
-| Écran blanc / « Impossible de charger BatiBuild » **dans l'app** | Problème réseau côté téléphone — l'écran natif propose **Réessayer** |
+| Écran blanc / « Impossible de charger batibuild » **dans l'app** | Problème réseau côté téléphone — l'écran natif propose **Réessayer** |
 | Le guide réapparaît à chaque lancement | Stockage local effacé (désinstallation/réinstallation) — comportement attendu |
 | `Cannot find module 'react-native/package.json'` au build Gradle | `npm install` non lancé dans `mobile/` → §6 |
 | `gradlew: Permission denied` (macOS/Linux) | `chmod +x mobile/android/gradlew` |

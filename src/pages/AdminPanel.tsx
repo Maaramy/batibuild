@@ -4711,7 +4711,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
         {/* Footer */}
         <div className="mt-10 pt-6 border-t border-border/5 text-center">
           <p className="text-[10px] text-muted-foreground/40">
-            batibuild App &copy; {new Date().getFullYear()} &mdash; Panneau d'administration v2.0
+            batibuild &copy; {new Date().getFullYear()} &mdash; Panneau d'administration v2.0
           </p>
         </div>
     </main>

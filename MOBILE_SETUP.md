@@ -1,6 +1,6 @@
-# MOBILE_SETUP — BatiBuild Mobile (Expo + Gradle local, sans EAS)
+# MOBILE_SETUP — batibuild Mobile (Expo + Gradle local, sans EAS)
 
-Mise en place de l'application mobile BatiBuild : enveloppe **WebView** native
+Mise en place de l'application mobile batibuild : enveloppe **WebView** native
 (Splash + onboarding) autour de <https://budgetbati.freebuff.app/>.
 
 > ⚠️ **Aucun service cloud n'est utilisé.** EAS Build a été retiré du projet :
