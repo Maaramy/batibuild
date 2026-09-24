@@ -53,6 +53,7 @@ import {
   MockInvestProcessPanel,
   MockInvestmentScreen,
 } from "@/components/LandingMockScreens";
+import { ProjectLifecycleSection } from "@/components/ProjectLifecycle";
 
 // ============================================================================
 // Constants
@@ -1383,6 +1384,7 @@ export default function Landing() {
     >
       <Navbar />
       <HeroSection />
+      <ProjectLifecycleSection />
       <BenefitsSection />
       <HowItWorksSection />
       <FeaturesSection />
