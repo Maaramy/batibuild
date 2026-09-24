@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import SiteDiagnostic from "@/components/SiteDiagnostic";
 import BudgetAllocation from "@/components/BudgetAllocation";
+import { CostEvolutionCard } from "@/components/CostEvolutionCard";
+import { Gantt, PhaseIcon, PhaseList, RoadmapOverview } from "@/components/ProjectGuideSections";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
@@ -21,27 +23,20 @@ import {
   ArrowLeft,
   ArrowRight,
   AlertTriangle,
-  Building2,
   CalendarRange,
   Camera,
   CheckCircle2,
   CheckSquare,
-  Circle,
-  ClipboardCheck,
   Clock,
   Download,
-  DraftingCompass,
   FileCheck,
   FileText,
   Gauge,
   HardHat,
-  KeyRound,
   Loader2,
-  Map,
   MapPin,
   Plus,
   Rocket,
-  Search,
   Sparkles,
   Target,
   Trash2,
@@ -51,26 +46,10 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
-import type { Roadmap, RoadmapProjectInput, PhaseItem } from "@/convex/roadmapEngine";
+import type { Roadmap, RoadmapProjectInput } from "@/convex/roadmapEngine";
 import { exportRoadmapPdf } from "@/lib/roadmapReportPdf";
-
-const fmtTnd = (n: number) =>
-  new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(n);
-
-const fmtDate = (ts: number) => new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
-
-const PHASE_ICONS: Record<string, LucideIcon> = {
-  Map,
-  Search,
-  DraftingCompass,
-  FileCheck,
-  Wallet,
-  Building2,
-  CalendarRange,
-  HardHat,
-  Camera,
-  KeyRound,
-};
+import { fmtDate, fmtTnd } from "@/lib/projectGuideFormat";
+import { buildDocumentContent, downloadText } from "@/lib/projectGuideDocuments";
 
 const SCENARIO_STYLES: Record<string, { active: string; badge: string; dot: string }> = {
   economique: {
@@ -104,206 +83,6 @@ const JOURNEY = [
   { label: "Contrôle", phase: "phase_09" },
   { label: "Réception", phase: "phase_10" },
 ];
-
-
-
-// ─── Contenu générable des documents ────────────────────────────────────────
-
-function buildDocumentContent(roadmap: Roadmap, input: RoadmapProjectInput, docId: string): string {
-  const L: string[] = [];
-  const h = (t: string) => L.push(`\n## ${t}\n`);
-  const meta = `${roadmap.project.name} · ${roadmap.project.categoryLabel}${roadmap.project.regionLabel ? ` · ${roadmap.project.regionLabel}` : ""} · ${fmtDate(Date.now())}\n`;
-
-  switch (docId) {
-    case "cahier_des_charges":
-      h("Cahier des charges");
-      L.push(meta);
-      L.push(`Surface construite : ${roadmap.project.surface ?? "—"} m² · ${roadmap.project.floors ?? 1} niveau(x).`);
-      L.push(`Budget de référence : ${fmtTnd(roadmap.budget.totalCost)}.`);
-      h("Étapes de construction");
-      roadmap.construction.forEach((c) => {
-        L.push(`• ${c.title} (${c.dureeJours} j, ${fmtTnd(c.budgetEstime)})`);
-        L.push(`  Travaux : ${c.travaux.join(" ; ")}`);
-        L.push(`  Contrôles : ${c.controles.join(" ; ")}`);
-      });
-      break;
-    case "checklist_chantier":
-      h("Checklist chantier");
-      L.push(meta);
-      roadmap.construction.forEach((c) => L.push(`[ ] ${c.title} — ${c.controles.join(" ; ")}`));
-      h("Démarches administratives");
-      roadmap.adminSteps.forEach((a) => L.push(`[ ] ${a.title} (${a.organisme})`));
-      break;
-    case "planning":
-      h("Planning des travaux");
-      L.push(meta);
-      roadmap.planning.forEach((t) =>
-        L.push(`• ${t.title} — ${t.durationDays} j (J+${t.startDay} → J+${t.endDay}) · ${t.responsible} · ${fmtTnd(t.cost)}`),
-      );
-      break;
-    case "budget_previsionnel":
-      h("Budget prévisionnel");
-      L.push(meta);
-      roadmap.budget.scenarios.forEach((s) => {
-        L.push(`\nScénario ${s.label} — ${fmtTnd(s.totalCost)} (${fmtTnd(s.costPerM2)}/m²)`);
-        s.rows.forEach((r) => L.push(`  ${r.label} : ${r.pct} % — ${fmtTnd(r.amount)}`));
-      });
-      break;
-    case "rapport_avancement":
-      h("Rapport d'avancement");
-      L.push(meta);
-      L.push(`Progression globale : ${roadmap.progress} %.`);
-      L.push(`Tâches : ${roadmap.summary.tasksDone}/${roadmap.summary.tasksTotal} terminées.`);
-      roadmap.phases.forEach((p) => L.push(`Phase ${p.number} — ${p.title} : ${p.progress} %`));
-      break;
-    case "rapport_controle":
-      h("Rapport de contrôle");
-      L.push(meta);
-      L.push(`Dépenses consommées : ${fmtTnd(roadmap.summary.budgetConsumed)} sur ${fmtTnd(roadmap.summary.plannedBudget)}.`);
-      roadmap.control.issues.forEach((i) => L.push(`[${i.severity.toUpperCase()}] ${i.title} — ${i.status}`));
-      roadmap.control.observations.forEach((o) => L.push(`• ${o.text} (${fmtDate(o.createdAt)})`));
-      break;
-    case "liste_materiaux":
-      h("Liste des matériaux");
-      L.push(meta);
-      const breakdown = input.costEstimate?.breakdown ?? [];
-      if (!breakdown.length) {
-        L.push("Aucun quantitatif disponible — lancez l'estimation du projet pour obtenir la liste détaillée.");
-      }
-      breakdown.forEach((b) => {
-        L.push(`\n${b.label} — ${fmtTnd(b.estimatedCost)}`);
-        (b.items ?? []).forEach((it) => L.push(`  ${it.name} : ${it.quantity} ${it.unit} × ${it.unitPrice} = ${fmtTnd(it.totalPrice)}`));
-      });
-      break;
-    case "demande_devis":
-      h("Demande de devis");
-      L.push(meta);
-      L.push("Objet : consultation pour les lots suivants — veuillez fournir prix unitaires et délais.");
-      roadmap.construction.forEach((c) => L.push(`• Lot ${c.order} : ${c.title} (${c.materiaux.join(", ")})`));
-      L.push("\nCritères de sélection :");
-      roadmap.companyCriteria.forEach((c) => L.push(`  ${c.label} : ${c.detail}`));
-      break;
-    case "comparatif_devis":
-      h("Comparatif des devis");
-      L.push(meta);
-      L.push(`Tableau à remplir par lot :\n${roadmap.companyCriteria.map((c) => `| ${c.label}`).join("")}`);
-      roadmap.companyCriteria.forEach((c) => L.push(`- ${c.label} : ${c.detail}`));
-      break;
-    case "pv_reception":
-      h("Procès-verbal de réception");
-      L.push(meta);
-      L.push("Le soussigné, maître d'ouvrage, et l'entrepreneur, déclarent procéder à la réception des travaux.");
-      L.push("Réserves éventuelles : ..........");
-      L.push("Délai de levée des réserves : ..........");
-      L.push("Signatures : ..........");
-      break;
-    case "liste_reserves":
-      h("Liste des réserves");
-      L.push(meta);
-      L.push("[ ] Réserve — localisation : .......... / délai de levée : ..........");
-      roadmap.construction.forEach((c) => L.push(`[ ] Vérifier : ${c.controles.join(" ; ")}`));
-      break;
-    case "rapport_final":
-      h("Rapport final du projet");
-      L.push(meta);
-      L.push(`Progression finale : ${roadmap.progress} % · Budget : ${fmtTnd(roadmap.summary.plannedBudget)} · Durée : ${roadmap.summary.plannedDurationDays} jours.`);
-      L.push(`Coût final probable (IA) : ${fmtTnd(roadmap.predictions.finalCost.estimate)} (confiance ${roadmap.predictions.finalCost.confidence} %).`);
-      roadmap.phases.forEach((p) => L.push(`Phase ${p.number} — ${p.title} : ${p.progress} %`));
-      break;
-    default:
-      h("Document");
-      L.push(meta);
-      L.push("Document généré depuis la feuille de route du projet.");
-  }
-  return L.join("\n");
-}
-
-function downloadText(filename: string, content: string) {
-  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-// ─── Sous-composants ─────────────────────────────────────────────────────────
-
-function PhaseIcon({ name, className }: { name: string; className?: string }) {
-  const Icon = PHASE_ICONS[name] ?? Circle;
-  return <Icon className={className} />;
-}
-
-function PhaseList({ items, phaseId: _phaseId, onToggle }: { items: PhaseItem[]; phaseId: string; onToggle: (itemId: string) => void }) {
-  if (!items.length) return <p className="text-xs text-muted-foreground/70 py-2">Aucun élément.</p>;
-  return (
-    <div className="space-y-1">
-      {items.map((item) => (
-        <label
-          key={item.id}
-          className="flex items-start gap-2.5 rounded-lg border border-border/30 bg-muted/10 px-2.5 py-2 transition-colors hover:bg-muted/25 cursor-pointer"
-        >
-          <Checkbox
-            checked={item.status === "done"}
-            onCheckedChange={() => onToggle(item.id)}
-            className="mt-0.5 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-          />
-          <div className="min-w-0 flex-1">
-            <p className={`text-xs font-medium leading-snug ${item.status === "done" ? "text-muted-foreground line-through" : "text-foreground"}`}>
-              {item.label}
-              {item.auto && (
-                <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full border border-primary/25 bg-primary/5 px-1.5 py-px text-[9px] font-semibold text-primary">
-                  <Sparkles className="h-2 w-2" /> auto
-                </span>
-              )}
-              {item.warning && (
-                <span className="ml-1.5 text-[9px] font-medium text-amber-600 dark:text-amber-400" title="À vérifier par un professionnel / autorité">
-                  ⚠ à vérifier
-                </span>
-              )}
-            </p>
-            <p className="text-[10px] text-muted-foreground/70 leading-snug mt-0.5">{item.detail}</p>
-          </div>
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function Gantt({ roadmap }: { roadmap: Roadmap }) {
-  const maxDays = Math.max(1, ...roadmap.planning.map((t) => t.endDay));
-  return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[560px] space-y-1">
-        {roadmap.planning.map((task) => (
-          <div key={task.id} className="flex items-center gap-2">
-            <div className="w-44 shrink-0 truncate text-[11px] font-medium text-foreground/80" title={task.title}>
-              {task.title}
-            </div>
-            <div className="relative h-5 flex-1 rounded-md bg-muted/40 overflow-hidden">
-              <div
-                className={`absolute top-0 h-full rounded-md ${
-                  task.status === "done" ? "bg-emerald-500/80" : task.status === "in_progress" ? "bg-amber-500/80" : "bg-blue-500/70"
-                }`}
-                style={{ left: `${(task.startDay / maxDays) * 100}%`, width: `${Math.max(2, (task.durationDays / maxDays) * 100)}%` }}
-                title={`${task.title} : J+${task.startDay} → J+${task.endDay} · ${task.responsible}`}
-              />
-            </div>
-            <div className="w-16 shrink-0 text-right text-[10px] text-muted-foreground tabular-nums">
-              J+{task.endDay}
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="mt-2 text-[10px] text-muted-foreground/60">
-        Jours ouvrés estimés (J+0 = démarrage). Dépendances enchaînées dans l'ordre logique — J+{maxDays} au total.
-      </p>
-    </div>
-  );
-}
 
 // ─── Page principale ─────────────────────────────────────────────────────────
 
@@ -642,86 +421,7 @@ export default function ProjectGuide() {
           </div>
         </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-          <Card className="border-border/40 bg-background/50">
-            <CardContent className="p-3 sm:p-4">
-              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Gauge className="h-3 w-3" /> Progression globale
-              </p>
-              <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">{roadmap.progress}%</p>
-              <Progress value={roadmap.progress} className="mt-2 h-1.5 [&>div]:bg-gradient-to-r [&>div]:from-cyan-500 [&>div]:to-emerald-500" />
-            </CardContent>
-          </Card>
-          <Card className="border-border/40 bg-background/50">
-            <CardContent className="p-3 sm:p-4">
-              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Wallet className="h-3 w-3" /> Budget prévu
-              </p>
-              <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">{fmtTnd(roadmap.summary.plannedBudget)}</p>
-              <p className="mt-1 text-[10px] text-muted-foreground">{fmtTnd(activeScenario.costPerM2)}/m² · scénario {activeScenario.label}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/40 bg-background/50">
-            <CardContent className="p-3 sm:p-4">
-              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" /> Consommé / écart
-              </p>
-              <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">{fmtTnd(roadmap.summary.budgetConsumed)}</p>
-              <p className={`mt-1 text-[10px] font-medium ${roadmap.summary.budgetGap > 0 ? "text-red-600" : "text-emerald-600"}`}>
-                {roadmap.summary.budgetGap > 0 ? `+${fmtTnd(roadmap.summary.budgetGap)} consommé` : `${fmtTnd(Math.abs(roadmap.summary.budgetGap))} de marge`}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/40 bg-background/50">
-            <CardContent className="p-3 sm:p-4">
-              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <ClipboardCheck className="h-3 w-3" /> Tâches
-              </p>
-              <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">
-                {roadmap.summary.tasksDone}
-                <span className="text-sm text-muted-foreground font-medium">/{roadmap.summary.tasksTotal}</span>
-              </p>
-              <p className="mt-1 text-[10px] text-muted-foreground truncate">
-                {nextTask ? `Prochaine : ${nextTask.title}` : "Toutes les tâches sont terminées"}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Alertes */}
-        {roadmap.summary.alerts.length > 0 && (
-          <div className="space-y-1.5">
-            {roadmap.summary.alerts.map((a, i) => (
-              <div
-                key={i}
-                className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-[11px] ${
-                  a.severity === "critical" ? "border-red-500/30 bg-red-500/5 text-red-700 dark:text-red-400" : a.severity === "warning" ? "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400" : "border-blue-500/30 bg-blue-500/5 text-blue-700 dark:text-blue-400"
-                }`}
-              >
-                {a.severity === "critical" ? <XCircle className="h-3.5 w-3.5 shrink-0 mt-px" /> : a.severity === "warning" ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" /> : <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-px" />}
-                <span>{a.message}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Prochaines étapes */}
-        <Card className="border-border/40 bg-background/50">
-          <CardHeader className="p-3 sm:p-4 pb-1">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Target className="h-4 w-4 text-cyan-600" /> Que dois-je faire maintenant ?
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 pt-2 space-y-1">
-            {roadmap.nextSteps.map((s, i) => (
-              <p key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-cyan-500/10 text-[9px] font-bold text-cyan-600">{i + 1}</span>
-                {s}
-              </p>
-            ))}
-          </CardContent>
-        </Card>
+        <RoadmapOverview roadmap={roadmap} activeScenario={activeScenario} nextTask={nextTask} />
 
         {/* Onglets */}
         <Tabs value={tab} onValueChange={setTab} className="space-y-3">
@@ -1162,15 +862,7 @@ export default function ProjectGuide() {
               <PredictionCard icon={TrendingUp} title={roadmap.predictions.budgetOverrun.label} value={roadmap.predictions.budgetOverrun.value} confidence={roadmap.predictions.budgetOverrun.confidence} explanation={roadmap.predictions.budgetOverrun.explanation} tone="amber" />
               <PredictionCard icon={Clock} title={roadmap.predictions.delay.label} value={roadmap.predictions.delay.value} confidence={roadmap.predictions.delay.confidence} explanation={roadmap.predictions.delay.explanation} tone="red" />
             </div>
-            <Card className="border-border/40 bg-background/50">
-              <CardHeader className="p-3 sm:p-4 pb-2">
-                <CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="h-4 w-4 text-cyan-600" /> Évolution probable des coûts (24 mois)</CardTitle>
-                <CardDescription className="text-[10px]">Base : scénario standard · inflation ≈ 6 %/an · saisonnalité du marché tunisien.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-4">
-                <CostEvolution points={roadmap.predictions.costEvolution} />
-              </CardContent>
-            </Card>
+            <CostEvolutionCard points={roadmap.predictions.costEvolution} />
             <Card className="border-border/40 bg-background/50">
               <CardHeader className="p-3 sm:p-4 pb-2">
                 <CardTitle className="text-sm flex items-center gap-2"><Gauge className="h-4 w-4 text-violet-600" /> Coût final probable</CardTitle>
@@ -1264,29 +956,5 @@ function PredictionCard({ icon: Icon, title, value, confidence, explanation, ton
         <p className="text-[11px] text-muted-foreground leading-snug">{explanation}</p>
       </CardContent>
     </Card>
-  );
-}
-
-function CostEvolution({ points }: { points: { label: string; cost: number }[] }) {
-  const shown = useMemo(() => {
-    const step = Math.max(1, Math.ceil(points.length / 13));
-    return points.filter((_, i) => i % step === 0 || i === points.length - 1);
-  }, [points]);
-  const min = Math.min(...shown.map((p) => p.cost));
-  const max = Math.max(...shown.map((p) => p.cost));
-  const range = Math.max(1, max - min);
-  return (
-    <div className="flex items-end gap-1 h-28">
-      {shown.map((p, i) => (
-        <div key={i} className="flex flex-1 flex-col items-center gap-1 group" title={`${p.label} : ${fmtTnd(p.cost)}`}>
-          <span className="text-[9px] font-semibold tabular-nums text-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity">{fmtTnd(p.cost)}</span>
-          <div
-            className="w-full rounded-t bg-gradient-to-t from-cyan-500/70 to-blue-500/70 transition-all group-hover:from-cyan-500 group-hover:to-blue-500"
-            style={{ height: `${Math.max(8, ((p.cost - min) / range) * 100)}%` }}
-          />
-          <span className="text-[8px] text-muted-foreground/60 whitespace-nowrap">{p.label}</span>
-        </div>
-      ))}
-    </div>
   );
 }
