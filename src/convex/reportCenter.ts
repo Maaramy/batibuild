@@ -9,10 +9,10 @@ import { getCurrentUser } from "./users";
 // argument, donc aucun projet d'un autre utilisateur ne peut être demandé).
 //
 // Le statut de chaque rapport est déduit des DONNÉES RÉELLEMENT ENREGISTRÉES :
-//   • Coût estimatif / Quantitatif détaillé → `costEstimate` / `dqe` du projet ;
-//   • Matériaux AI      → une analyse `aiMaterialAnalyses` du couple
-//                         (utilisateur, projet) ;
-//   • Intelligence prédictive → une analyse `investmentAnalyses` du projet ;
+//   • Coût estimatif  → `costEstimate` du projet ;
+//   • Matériaux AI    → une analyse `aiMaterialAnalyses` du couple
+//                       (utilisateur, projet) ;
+//   • Investissement immobilier → une analyse `investmentAnalyses` du projet ;
 //   • Exécution & suivi → une feuille de route `projectRoadmaps` du projet.
 //
 // Aucun rapport n'est inventé : la page ne peut donc jamais afficher « PDF

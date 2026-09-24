@@ -32,7 +32,7 @@ import {
   downloadExecutionReport,
   downloadMaterialsReport,
   downloadPlansReport,
-  downloadPredictiveReport,
+  downloadInvestmentReport,
 } from "@/lib/reportDownloads";
 import {
   ArrowLeft,
@@ -79,7 +79,6 @@ type ProjectCardData = {
   thumbnailName?: string | null;
   aiAnalysis?: { estimatedDuration?: string } | null;
   costEstimate?: unknown;
-  dqe?: unknown;
 };
 
 type ArtifactRow = {
@@ -100,7 +99,7 @@ export default function ReportCenter() {
   usePageSEO({
     title: "Rapports PDF - batibuild",
     description:
-      "Consultez et téléchargez les rapports PDF de vos projets : devis estimatif, quantitatif détaillé, plan IA, matériaux AI, intelligence prédictive et guide construction A-Z.",
+      "Consultez et téléchargez les rapports PDF de vos projets : devis estimatif, plan IA, matériaux AI, investissement immobilier et guide construction A-Z.",
   });
 
   // Projets de l'utilisateur connecté (lecture strictement privée, côté serveur).
@@ -138,7 +137,6 @@ export default function ReportCenter() {
     try {
       switch (moduleKey) {
         case "cost":
-        case "quantitatif":
           await downloadCostReport({
             convex,
             project,
@@ -153,9 +151,9 @@ export default function ReportCenter() {
           if (!artifact?.materialsAnalysisId) throw new Error("report-unavailable");
           await downloadMaterialsReport(convex, artifact.materialsAnalysisId);
           break;
-        case "predictive":
+        case "investment":
           if (!artifact?.investmentAnalysisId) throw new Error("report-unavailable");
-          await downloadPredictiveReport(convex, artifact.investmentAnalysisId);
+          await downloadInvestmentReport(convex, artifact.investmentAnalysisId);
           break;
         case "execution":
           await downloadExecutionReport(convex, project._id);

@@ -9,15 +9,14 @@
  * cartes projet.
  *
  * Aucune donnée n'est inventée : l'état de chaque rapport est déduit des
- * données réellement enregistrées sur le projet (`costEstimate`, `dqe`) et des
- * artefacts persistés côté serveur (`aiMaterialAnalyses`, `projectRoadmaps`,
- * `investmentAnalyses`). Voir `src/convex/reportCenter.ts`.
+ * données réellement enregistrées sur le projet (`costEstimate`, `surface`) et
+ * des artefacts persistés côté serveur (`aiMaterialAnalyses`,
+ * `projectRoadmaps`, `investmentAnalyses`). Voir `src/convex/reportCenter.ts`.
  */
 
 import {
   Calculator,
   HardHat,
-  ListChecks,
   Ruler,
   Sparkles,
   TrendingUp,
@@ -28,10 +27,9 @@ import { INVESTMENT_ELIGIBLE_TYPES, resolveProjectType } from "@/convex/projectT
 /** Identifiant d'un module du registre. */
 export type ReportModuleKey =
   | "cost"
-  | "quantitatif"
   | "plans"
   | "materials"
-  | "predictive"
+  | "investment"
   | "execution";
 
 /**
@@ -78,14 +76,6 @@ export const REPORT_MODULES: readonly ReportModuleDef[] = [
     buildHref: (id) => `/dashboard/project/${projectId(id)}`,
   },
   {
-    key: "quantitatif",
-    label: "Quantitatif détaillé",
-    description: "Détail par lots et par articles — quantités et prix unitaires.",
-    icon: ListChecks,
-    flag: "construction_cost_estimation",
-    buildHref: (id) => `/dashboard/project/${projectId(id)}`,
-  },
-  {
     key: "plans",
     label: "Plan IA",
     description: "Plan d'architecte 2D / 3D généré pour le projet.",
@@ -102,9 +92,10 @@ export const REPORT_MODULES: readonly ReportModuleDef[] = [
     buildHref: (id) => `/dashboard/ai-materials?project=${projectId(id)}`,
   },
   {
-    key: "predictive",
-    label: "Intelligence prédictive",
-    description: "Analyse de rentabilité et prévisions (Return on Investment).",
+    key: "investment",
+    label: "Investissement immobilier",
+    description:
+      "Analyse de rentabilité, cash-flow et retour sur investissement (ROI) du projet.",
     icon: TrendingUp,
     flag: "investment_project",
     buildHref: (id) => `/dashboard/investments?project=${projectId(id)}`,
@@ -125,7 +116,6 @@ export interface ProjectReportInput {
   _id: string;
   category?: string | null;
   surface?: number | null;
-  dqe?: unknown;
   costEstimate?: unknown;
 }
 
@@ -141,17 +131,14 @@ export function reportStatuses(
   project: ProjectReportInput,
   artifacts: ProjectReportArtifacts | undefined,
 ): Record<ReportModuleKey, ReportStatus> {
-  const estimate = project.costEstimate as { dqe?: unknown } | null | undefined;
-  const hasQuantitatif = Boolean(project.dqe ?? estimate?.dqe);
   const hasDimensions = typeof project.surface === "number" && project.surface > 0;
   return {
     cost: project.costEstimate ? "available" : "not_executed",
-    quantitatif: hasQuantitatif ? "available" : "not_executed",
     // Le plan IA est composé de façon déterministe à partir des dimensions du
     // projet : il est disponible dès que le projet porte une surface.
     plans: hasDimensions ? "available" : "not_executed",
     materials: artifacts?.materialsAnalysisId ? "available" : "not_executed",
-    predictive: artifacts?.investmentAnalysisId ? "available" : "not_executed",
+    investment: artifacts?.investmentAnalysisId ? "available" : "not_executed",
     execution: artifacts?.roadmapId ? "available" : "not_executed",
   };
 }

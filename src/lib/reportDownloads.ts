@@ -2,15 +2,16 @@
  * TÉLÉCHARGEMENTS DES RAPPORTS PDF
  *
  * Chaque fonction réutilise EXACTEMENT le générateur du module concerné
- * (devis estimatif, plan IA, rapport Matériaux AI, analyse prédictive, guide
- * construction A-Z) : le PDF téléchargé depuis « Rapports PDF » est donc le
- * rapport réellement généré pour ce projet, avec le branding centralisé
- * (`src/lib/pdfBranding.ts` — nom batibuild, logo officiel, en-tête blanc).
+ * (devis estimatif, plan IA, rapport Matériaux AI, analyse d'investissement
+ * immobilier, guide construction A-Z) : le PDF téléchargé depuis « Rapports
+ * PDF » est donc le rapport réellement généré pour ce projet, avec le branding
+ * centralisé (`src/lib/pdfBranding.ts` — nom batibuild, logo officiel, en-tête
+ * blanc).
  *
- * Les données proviennent soit du projet lui-même (coût, quantitatif, plan),
- * soit des artefacts persistés côté serveur, rechargés via des requêtes Convex
- * qui vérifient l'utilisateur et l'appartenance du rapport (matériaux,
- * prédictif, exécution).
+ * Les données proviennent soit du projet lui-même (coût, plan), soit des
+ * artefacts persistés côté serveur, rechargés via des requêtes Convex qui
+ * vérifient l'utilisateur et l'appartenance du rapport (matériaux,
+ * investissement, exécution).
  */
 
 import type { ConvexReactClient } from "convex/react";
@@ -71,9 +72,9 @@ export interface CostReportParams {
 }
 
 /**
- * Devis estimatif (et quantitatif détaillé, qui en fait partie). Rejoue le
- * scénario « Standard » enrichi du quantitatif enregistré et, s'il existe, du
- * scénario « Personnalisé » (articles modifiés du Quantitatif détaillé).
+ * Devis estimatif. Rejoue le scénario « Standard » enrichi du quantitatif
+ * enregistré et, s'il existe, du scénario « Personnalisé » (articles modifiés
+ * du Quantitatif détaillé).
  */
 export async function downloadCostReport({
   convex,
@@ -191,8 +192,8 @@ export async function downloadMaterialsReport(
   generateMaterialReportPdf({ result });
 }
 
-/** Intelligence prédictive — rapport d'analyse de rentabilité (analyse enregistrée). */
-export async function downloadPredictiveReport(
+/** Investissement immobilier — rapport d'analyse de rentabilité (analyse enregistrée). */
+export async function downloadInvestmentReport(
   convex: ConvexReactClient,
   analysisId: string,
 ): Promise<void> {
