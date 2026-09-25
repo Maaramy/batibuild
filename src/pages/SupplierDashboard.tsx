@@ -470,13 +470,13 @@ export default function SupplierDashboard() {
             </button>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Statistique avancé — même niveau visuel que « Vue Client » */}
+            {/* Statistiques avancées — même niveau visuel que « Vue Client » */}
             <button
               onClick={() => navigate("/dashboard/supplier/stats")}
-              className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+              className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 transition-all"
             >
               <BarChart3 className="h-3.5 w-3.5" />
-              Statistique avancé
+              Statistiques avancées
             </button>
             <button
               onClick={() => navigate("/dashboard")}
