@@ -526,9 +526,11 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
 
       {/* Barre de navigation INFÉRIEURE — fixe en bas de l'écran, dans la
           colonne racine (jamais en position absolue) : elle ne recouvre donc
-          jamais le contenu de la page. Mêmes sections et mêmes routes que
-          l'ancienne barre (Profile · Mes projets · Home · ROI · Message). La
-          pastille rouge éventuelle vient du serveur (voir `NavBadge`). */}
+          jamais le contenu de la page. Sections et routes de la barre :
+          Profile · Mes projets · Home · Rapport · Message. « Rapport » ouvre la
+          page Rapports PDF (`/dashboard/reports`) — l'ancien onglet « ROI »
+          n'existe plus. La pastille rouge éventuelle de « Message » vient du
+          serveur (voir `NavBadge`). */}
       {showBottomNav && (
         <BottomNav
           active={active}

@@ -2,7 +2,7 @@
   "expo": {
     "name": "batibuild",
     "slug": "batibuild",
-    "version": "1.3.0",
+    "version": "1.3.1",
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "scheme": "batibuild",
@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.batibuild.app",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "NSCameraUsageDescription": "batibuild utilise la caméra pour prendre des photos de votre terrain, chantier ou plan.",
         "NSPhotoLibraryUsageDescription": "batibuild accède à vos photos pour les importer (photos, plans architecturaux, croquis).",
@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "com.batibuild.app",
-      "versionCode": 10,
+      "versionCode": 11,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#059669"

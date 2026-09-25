@@ -51,7 +51,7 @@ GitHub Actions (ubuntu-latest)
         ↓
 Batibuild-debug.apk · Batibuild-release.apk · Batibuild-release.aab
         ↓
-Artifacts du run (téléchargeables)
+Artifacts du run (téléchargeables — chacun VÉRIFIÉ : taille, ZIP, entrées, signature)
 ```
 
 **Déclencher le build :**
@@ -130,6 +130,8 @@ fichier absent.
 | `npm run android:aab` | **AAB Release** → `mobile/build/Batibuild-release.aab` |
 | `npm run android:install` | Installe l'APK sur l'appareil branché en USB (`adb install`) |
 | `npm run android:clean` | `gradlew clean` (vide les sorties de build) |
+| `npm run android:preflight` | **Pré-vérifications seules** (dépendances, config Android, routes de la plateforme, assets, icônes, contrat WebView ↔ natif, TypeScript) — aucune compilation |
+| `npm run android:verify` | **Vérifie l'artefact** déjà généré (`build/Batibuild-release.apk`) : taille, structure ZIP, entrées obligatoires, signature |
 | `npm run android:prebuild` | Resynchronise `android/` depuis `app.json` |
 | `npm run signing:apply` | Réapplique la signature Release après un prebuild |
 | `npm run keystore:generate` | Crée un keystore Release local + `keystore.properties` |
@@ -299,7 +301,9 @@ npm run android:apk
 Sortie :
 
 ```
-mobile/build/Batibuild-release.apk        ← à transférer / installer
+mobile/build/Batibuild-release.apk        ← à transférer / installer (vérifié)
+mobile/build/BUILD-INFO.txt               ← version, versionCode, taille, SHA-256
+mobile/build/logs/gradle-apk.log          ← journal complet du build
 ```
 
 - Si un keystore Release est configuré (§11) → APK **signé avec votre clé**.
@@ -321,6 +325,66 @@ set ARCHS=arm64-v8a,armeabi-v7a && npm run android:apk   # Windows cmd
 ```
 
 Pour forcer la resynchronisation du projet natif dans la même commande : `PREBUILD=1 npm run android:apk`.
+
+## 8-bis. Vérifications automatiques — une APK incomplète ne peut plus être publiée
+
+Chaque `npm run android:apk|debug|aab` exécute maintenant une chaîne de contrôle
+complète, et **s'arrête net** dès qu'un problème est détecté (jamais d'APK
+partielle, jamais de fichier tronqué publié).
+
+### Avant le build — `scripts/preflight-android.mjs`
+
+| Contrôle | Détail |
+|---|---|
+| **Nettoyage** | supprime les fichiers temporaires/partiels (`*.tmp`, `*.part`, `*.partial`) des dossiers de sortie |
+| **Dépendances** | chaque dépendance de `package.json` est présente dans `node_modules` + 12 modules critiques de la coque + catalogue React Native (`libs.versions.toml`) |
+| **Configuration Android** | `app.json` (nom, version, `android.package`, `versionCode`, icônes), projet natif complet (Gradle, manifest, `MainActivity.kt`), permission `INTERNET`, clé `android/app/debug.keystore` |
+| **Routes de la plateforme** | `/auth`, `/dashboard`, `/dashboard/profile`, `/dashboard/projects`, `/dashboard/reports`, `/dashboard/messages`, `/dashboard/support`, `/dashboard/settings` doivent exister dans `src/main.tsx` (sinon le menu mobile pointerait dans le vide) |
+| **Contrat WebView ↔ natif** | le type `batibuild:unread` est identique des deux côtés, `MessagingBadgeSync` est monté dans `src/main.tsx`, `api.messaging.unreadCount` existe, l'onglet « Message » est présent, **aucun libellé « ROI »** ne subsiste, « Rapport » et « Mes projets » sont bien déclarés |
+| **Assets / icônes** | fichiers de `mobile/assets/` non vides, assets référencés par `app.json` présents, composant `Logo` natif présent |
+| **Icônes lucide** | `FileDown`, `User`, `HardHat`, `LayoutDashboard`, `MessageSquare`, `Headset`, `Settings`, `CloudOff` réellement exportées par la version installée |
+| **TypeScript** | `tsc --noEmit` du projet mobile (`SKIP_TYPECHECK=1` pour l'ignorer) |
+
+### Corrections automatiques (avant d'échouer)
+
+- projet natif `android/` absent ou incomplet → `expo prebuild` puis réapplication de la signature ;
+- clé de signature **debug** manquante → régénération ;
+- signature Release effacée par un prebuild → `apply-signing` ;
+- bit exécutable de `gradlew` perdu (clone Windows → Linux) → `chmod +x` ;
+- échec Gradle d'origine réparable (`validateSigning`, `Keystore file …`) → correction puis **une seule** nouvelle tentative.
+
+### Après le build — `scripts/verify-artifact.mjs`
+
+| Contrôle | Détail |
+|---|---|
+| Existence / taille | fichier présent, ≥ 1 Mo et < 600 Mo (détecte un build interrompu) |
+| Structure ZIP | en-tête `PK\x03\x04`, End Of Central Directory présent et cohérent avec la taille réelle (détecte une APK **tronquée**) |
+| Entrées obligatoires | APK : `AndroidManifest.xml`, `classes.dex`, `resources.arsc` · AAB : `BundleConfig.pb`, `base/manifest/AndroidManifest.xml` |
+| Signature | bloc **APK Signing Block v2/v3** ou `META-INF/*.RSA` — sinon Android refuserait l'installation |
+| Empreinte | SHA-256 affiché dans les logs et dans `mobile/build/BUILD-INFO.txt` |
+
+### Logs et conservation des fichiers
+
+```
+mobile/build/Batibuild-release.apk   ← artefact vérifié (jamais supprimé par un autre mode)
+mobile/build/Batibuild-debug.apk     ← conservé si déjà généré
+mobile/build/Batibuild-release.aab   ← conservé si déjà généré
+mobile/build/BUILD-INFO.txt          ← version, versionCode, taille, SHA-256, ABI, source, log
+mobile/build/logs/gradle-<mode>.log  ← sortie Gradle complète
+```
+
+Chaque exécution se termine par un bandeau explicite :
+
+```
+════════════════════════════════════════════════════════════
+ BUILD SUCCESS
+════════════════════════════════════════════════════════════
+```
+
+ou, en cas d'échec, par le **BUILD FAILED** accompagné de la cause exacte
+(section « What went wrong » de Gradle, tâches en échec, signatures connues :
+`OutOfMemoryError`, disque plein, `ninja: build stopped`, `Keystore file … not found`…)
+— l'artefact invalide est supprimé au lieu d'être distribué.
 
 ## 9. Génération de l'AAB (Google Play)
 

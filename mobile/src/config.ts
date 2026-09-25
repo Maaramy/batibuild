@@ -35,6 +35,16 @@ export const DASHBOARD_PATH = "/dashboard";
 export const PROJECTS_PATH = "/dashboard/projects";
 
 /**
+ * Page dédiée « Rapports PDF » de la plateforme (`src/main.tsx`) : elle liste
+ * les rapports PDF de l'utilisateur connecté et permet de les consulter ou de
+ * les télécharger (groupe A complet / groupe B « Coût estimatif »).
+ *
+ * C'est l'onglet « Rapport » de la barre de navigation inférieure : la coque
+ * native n'embarque AUCUNE génération PDF, elle affiche la page existante.
+ */
+export const REPORTS_PATH = "/dashboard/reports";
+
+/**
  * Message de chargement unique (Splash natif et voile de chargement WebView).
  * Aucun autre texte ne doit être affiché sous ce message.
  */
@@ -130,7 +140,7 @@ export type NavId =
   | "profile"
   | "projects"
   | "dashboard"
-  | "investments"
+  | "reports"
   | "messages";
 
 export type NavDestination = {
@@ -143,26 +153,30 @@ export type NavDestination = {
 
 /**
  * Les 5 sections de la barre de navigation inférieure, dans l'ordre imposé :
- * Profile · Mes projets · Home · ROI · Message.
+ * Profile · Mes projets · Home · Rapport · Message.
  *
  * Les routes sont celles qui existent déjà dans le routeur de la plateforme
  * (`src/main.tsx`) : la navigation ne crée aucune page et ne duplique rien.
  *
  * « Mes projets » ouvre la page DÉDIÉE `/dashboard/projects` (liste complète
- * des projets de l'utilisateur) ; « Home » reste l'accueil connecté
- * (`/dashboard`), qui conserve ses raccourcis et statistiques.
+ * des projets de l'utilisateur connecté : en cours, terminés, réalisés,
+ * archivés — uniquement ses propres projets, la page interroge la session
+ * courante) ; « Home » reste l'accueil connecté (`/dashboard`), qui conserve
+ * ses raccourcis et statistiques.
  *
- * « ROI » ouvre l'analyse immobilière (`/dashboard/investments`) : c'est la
- * page qui calcule le retour sur investissement, le rendement, les scénarios et
- * le score IA. Son icône (`TrendingUp`) est EXACTEMENT celle de l'action
- * « Return on Investment » affichée sur la page Résultats coût de construction
- * (voir `icons.ts`).
+ * « Rapport » (ancien « ROI ») ouvre la page existante **Rapports PDF**
+ * (`/dashboard/reports`) : l'utilisateur consulte et télécharge les rapports
+ * PDF de ses projets. Son icône (`FileDown`, document + téléchargement) est
+ * EXACTEMENT celle de l'entrée « Rapports PDF » du menu de la plateforme
+ * (voir `icons.ts`). L'ancien libellé « ROI » n'existe plus dans le menu
+ * mobile ; l'analyse de rentabilité reste accessible depuis la plateforme
+ * (projet → Return on Investment), sans entrée dédiée dans la barre.
  */
 export const NAV_DESTINATIONS: readonly NavDestination[] = [
   { id: "profile", label: "Profile", path: "/dashboard/profile" },
   { id: "projects", label: "Mes projets", path: PROJECTS_PATH },
   { id: "dashboard", label: "Home", path: DASHBOARD_PATH },
-  { id: "investments", label: "ROI", path: "/dashboard/investments" },
+  { id: "reports", label: "Rapport", path: REPORTS_PATH },
   { id: "messages", label: "Message", path: "/dashboard/messages" },
 ] as const;
 
@@ -192,11 +206,17 @@ function inSection(path: string, base: string): boolean {
  * accessible depuis les icônes de l'en-tête) : aucune entrée n'est active sur
  * cette page.
  * Renvoie `null` hors de l'espace connecté (écran de connexion).
+ *
+ * Aucune entrée n'est active sur les pages qui n'ont plus d'onglet dédié
+ * (analyse de rentabilité « ROI », support) : elles s'ouvrent depuis la
+ * plateforme, la barre du bas reste simplement neutre — jamais de doublon de
+ * libellé.
  */
 export function activeNavId(path: string): NavId | null {
   const route = routeKey(path);
   if (inSection(route, "/dashboard/profile")) return "profile";
-  if (inSection(route, "/dashboard/investments")) return "investments";
+  // « Rapport » : la page Rapports PDF et ses éventuelles sous-pages.
+  if (inSection(route, REPORTS_PATH)) return "reports";
   if (inSection(route, "/dashboard/messages")) return "messages";
   if (inSection(route, "/dashboard/support")) return null;
   // « Mes projets » : la page dédiée ET chaque projet ouvert depuis celle-ci

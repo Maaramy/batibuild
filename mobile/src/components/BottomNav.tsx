@@ -11,9 +11,14 @@ import { COLORS, SHAPE } from "../theme";
  * BARRE DE NAVIGATION INFÉRIEURE (application Android).
  *
  * Elle remplace le menu horizontal qui avait été placé dans l'en-tête : mêmes
- * sections (Profile · Mes projets · Home · ROI · Message), mêmes routes, mêmes
- * icônes — mais dans une **barre fixe en bas de l'écran**, comme dans les
+ * sections (Profile · Mes projets · Home · Rapport · Message), mêmes routes,
+ * mêmes icônes — mais dans une **barre fixe en bas de l'écran**, comme dans les
  * versions précédentes de l'application.
+ *
+ * « Rapport » remplace l'ancien onglet « ROI » : il ouvre la page existante
+ * **Rapports PDF** (`/dashboard/reports`) avec l'icône document/téléchargement
+ * (`FileDown`), identique à l'entrée « Rapports PDF » de la plateforme. Aucun
+ * libellé « ROI » n'est plus affiché dans le menu mobile.
  *
  *   - **fixe en bas de l'écran** : elle est rendue APRÈS la WebView dans la
  *     colonne racine (et non en position absolue). Elle ne recouvre donc

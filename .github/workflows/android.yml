@@ -304,6 +304,24 @@ jobs:
           node scripts/ensure-debug-keystore.mjs
           ls -la android/app/debug.keystore
 
+      # ══════════════════════════════════════════════════════════════════════
+      # PRÉ-VÉRIFICATIONS MOBILES (avant le build lourd)
+      #
+      # Échoue en quelques secondes — donc AVANT 15 min de compilation — si :
+      #   · une dépendance attendue par la coque native manque ;
+      #   · la configuration Android (app.json, manifest, clé debug) est cassée ;
+      #   · une route utilisée par la barre de navigation n'existe plus dans le
+      #     routeur de la plateforme (/dashboard/reports, /dashboard/projects…) ;
+      #   · le contrat WebView ↔ natif de la pastille de la Messagerie est
+      #     désynchronisé, ou l'ancien libellé « ROI » est revenu ;
+      #   · un asset/icône référencé est absent ou vide ;
+      #   · une icône lucide n'est plus exportée par la version installée.
+      # Le typecheck est déjà exécuté par l'étape « Typecheck » ci-dessus.
+      - name: Pré-vérifications mobiles (routes, config, assets, contrat natif)
+        env:
+          SKIP_TYPECHECK: "1"
+        run: node scripts/preflight-android.mjs --repair
+
       # ── COMPOSANTS ANDROID SDK RÉELLEMENT NÉCESSAIRES AU PROJET ────────────
       # Versions AUTO-DÉTECTÉES dans le catalogue du projet
       # (`node_modules/react-native/gradle/libs.versions.toml`, avec repli sur
@@ -550,6 +568,11 @@ jobs:
           APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
           "$APKSIGNER" verify --print-certs "$DEBUG_APK" | head -6
 
+      # Vérification de l'artefact : un APK vide, tronqué, incomplet ou non
+      # signé fait ÉCHOUER le job au lieu d'être publié comme artefact.
+      - name: Vérifier l'APK debug (taille, ZIP, entrées, signature)
+        run: node scripts/verify-artifact.mjs /tmp/dist/Batibuild-debug.apk
+
       - name: Upload — Batibuild-debug.apk
         uses: actions/upload-artifact@v4
         with:
@@ -577,6 +600,9 @@ jobs:
           APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
           "$APKSIGNER" verify --print-certs "$RELEASE_APK" | head -6
 
+      - name: Vérifier l'APK release (taille, ZIP, entrées, signature)
+        run: node scripts/verify-artifact.mjs /tmp/dist/Batibuild-release.apk
+
       - name: Upload — Batibuild-release.apk
         uses: actions/upload-artifact@v4
         with:
@@ -601,6 +627,9 @@ jobs:
           fi
           cp "$RELEASE_AAB" /tmp/dist/Batibuild-release.aab
           ls -lh /tmp/dist/Batibuild-release.aab
+
+      - name: Vérifier l'AAB release (taille, ZIP, entrées)
+        run: node scripts/verify-artifact.mjs /tmp/dist/Batibuild-release.aab --kind aab
 
       - name: Upload — Batibuild-release.aab
         uses: actions/upload-artifact@v4
@@ -632,13 +661,24 @@ jobs:
           echo "── Ressources au moment de l'échec ──"
           free -m | head -2
           df -h / | tail -1
+          echo ""
+          echo "BUILD FAILED"
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              echo "## ❌ BUILD FAILED"
+              echo ""
+              echo "Aucun artefact valide n'a été publié : la cause exacte est ci-dessus."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Résumé du build
         run: |
           # Version réellement compilée : permet d'identifier l'APK téléchargé.
           VERSION=$(node -p "require('./app.json').expo.version")
           CODE=$(node -p "require('./app.json').expo.android.versionCode")
-          echo "## ✅ Build Android terminé" >> "$GITHUB_STEP_SUMMARY"
+          echo "## ✅ BUILD SUCCESS — Build Android terminé" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tous les artefacts ci-dessous ont été vérifiés (taille, structure ZIP, entrées obligatoires, signature)." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "**batibuild ${VERSION} — versionCode ${CODE}**" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
