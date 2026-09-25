@@ -361,3 +361,99 @@ describe("quoteResponses.unreadCount / markAllRead", () => {
     expect(count).toBe(0);
   });
 });
+
+// ============================================================================
+// Nature de la réponse — devis / refus / demande de précisions
+// ============================================================================
+
+describe("quoteResponses — nature du message & notification du client", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  async function seed() {
+    const supplierUserId = await createTestUser(t, {
+      name: "Supplier",
+      email: "supplier@test.com",
+    });
+    const supplierId = await createTestSupplierProfile(t, supplierUserId);
+    const buyerId = await createTestUser(t, { email: "buyer@test.com" });
+    const quoteId = await createTestQuote(t, buyerId, supplierId as string);
+    return { supplierUserId, buyerId, quoteId };
+  }
+
+  it("un devis notifie le client et passe la demande en « devis envoyé »", async () => {
+    const { supplierUserId, buyerId, quoteId } = await seed();
+    const supplierT = asUser(t, supplierUserId);
+
+    await supplierT.mutation(api.quoteResponses.sendResponse, {
+      quoteRequestId: quoteId,
+      message: "Voici mon devis",
+      kind: "quote",
+      totalAmount: 5000,
+    });
+
+    const quote = await t.run(async (ctx) => ctx.db.get(quoteId));
+    expect(quote!.status).toBe("responded");
+
+    const notifications = await t.run(async (ctx) =>
+      ctx.db.query("notifications").collect(),
+    );
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].userId).toBe(buyerId);
+    expect(notifications[0].type).toBe("quote_update");
+    expect(notifications[0].link).toContain("tab=quotes");
+  });
+
+  it("un refus passe la demande en « refusée » et n'expose pas de montant", async () => {
+    const { supplierUserId, quoteId } = await seed();
+    const supplierT = asUser(t, supplierUserId);
+
+    await supplierT.mutation(api.quoteResponses.sendResponse, {
+      quoteRequestId: quoteId,
+      message: "Nous ne pouvons pas donner suite",
+      kind: "refusal",
+      totalAmount: 9999,
+    });
+
+    const quote = await t.run(async (ctx) => ctx.db.get(quoteId));
+    expect(quote!.status).toBe("refused");
+
+    const responses = await t.run(async (ctx) =>
+      ctx.db.query("quoteResponses").collect(),
+    );
+    expect(responses[0].kind).toBe("refusal");
+    expect(responses[0].totalAmount).toBeUndefined();
+  });
+
+  it("une demande de précisions passe la demande en « en cours »", async () => {
+    const { supplierUserId, quoteId } = await seed();
+    const supplierT = asUser(t, supplierUserId);
+
+    await supplierT.mutation(api.quoteResponses.sendResponse, {
+      quoteRequestId: quoteId,
+      message: "Pouvez-vous préciser la surface ?",
+      kind: "clarification",
+    });
+
+    const quote = await t.run(async (ctx) => ctx.db.get(quoteId));
+    expect(quote!.status).toBe("in_progress");
+  });
+
+  it("getBySupplier renvoie les réponses du fournisseur courant", async () => {
+    const { supplierUserId, quoteId } = await seed();
+    const supplierT = asUser(t, supplierUserId);
+
+    await supplierT.mutation(api.quoteResponses.sendResponse, {
+      quoteRequestId: quoteId,
+      message: "Devis",
+      kind: "quote",
+    });
+
+    const list = await supplierT.query(api.quoteResponses.getBySupplier, {});
+    expect(list).toHaveLength(1);
+    expect(list[0].quoteRequestId).toBe(quoteId);
+  });
+});

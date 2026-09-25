@@ -1,7 +1,71 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
+
+// ============================================================================
+// DEMANDES DE DEVIS FOURNISSEUR — source unique
+//
+// Depuis la refonte, la MESSAGERIE est l'unique point d'entrée et de gestion des
+// demandes de devis fournisseur. Le modèle de données ne change pas : une
+// demande (`quoteRequests`) est une conversation, ses réponses
+// (`quoteResponses`) en sont les messages. Aucune donnée n'est migrée et
+// l'historique existant reste accessible — les anciennes demandes s'affichent
+// simplement dans la messagerie du fournisseur (onglet « Demandes de devis »).
+//
+// Notifications : à chaque étape, la partie concernée — jamais l'auteur de
+// l'action — reçoit une notification du centre de notifications, avec un lien
+// profond vers la conversation exacte.
+// ============================================================================
+
+/** Lien vers la messagerie, onglet adapté au destinataire. */
+export const SUPPLIER_QUOTE_LINK = "/dashboard/messages?tab=requests";
+export const CLIENT_QUOTE_LINK = "/dashboard/messages?tab=quotes";
+
+/** Lien profond vers une demande précise (`?request=<id>`). */
+export function quoteMessagingLink(base: string, requestId?: string): string {
+  return requestId ? `${base}&request=${requestId}` : base;
+}
+
+/** Statuts possibles d'une demande (identique au schéma). */
+export type QuoteRequestStatus =
+  | "pending"
+  | "in_progress"
+  | "responded"
+  | "accepted"
+  | "refused"
+  | "closed"
+  | "expired";
+
+/**
+ * Notification insérée dans le système existant (table `notifications`).
+ * Best-effort : l'échec d'une notification ne bloque jamais la demande.
+ */
+export async function notifyQuoteParty(
+  ctx: any,
+  args: {
+    userId: Id<"users">;
+    type: "quote_request" | "quote_update";
+    title: string;
+    message: string;
+    link?: string;
+  },
+) {
+  try {
+    await ctx.db.insert("notifications", {
+      userId: args.userId,
+      type: args.type,
+      title: args.title,
+      message: args.message,
+      read: false,
+      link: args.link,
+      createdAt: Date.now(),
+    });
+  } catch {
+    /* la notification ne doit jamais bloquer le flux */
+  }
+}
 
 // ============================================================================
 // Mutations
@@ -66,18 +130,42 @@ export const create = mutation({
       });
     } catch (e) { /* optional */ }
 
+    // Notifie le fournisseur : la demande apparaît immédiatement dans sa
+    // messagerie (onglet « Demandes de devis ») avec un lien profond.
+    const label = args.projectName || args.category;
+    await notifyQuoteParty(ctx, {
+      userId: supplier.userId,
+      type: "quote_request",
+      title: "Nouvelle demande de devis",
+      message: `${user.name || "Un client"} vous a envoyé une demande de devis${
+        args.projectName ? ` pour « ${args.projectName} »` : ""
+      }.`,
+      link: quoteMessagingLink(SUPPLIER_QUOTE_LINK, quoteId),
+    });
+
     return quoteId;
   },
 });
 
-/** Mark a quote request as read/responded by the supplier */
+/**
+ * Change le statut d'une demande de devis.
+ *
+ * Les deux parties peuvent faire évoluer le statut : le fournisseur (En cours /
+ * Devis envoyé / Refusée / Expirée) et le client (Acceptée / Refusée /
+ * Clôturée). La partie qui n'a pas agi est notifiée. Les administrateurs
+ * peuvent intervenir pour débloquer une demande.
+ */
 export const updateStatus = mutation({
   args: {
     quoteRequestId: v.id("quoteRequests"),
     status: v.union(
       v.literal("pending"),
+      v.literal("in_progress"),
       v.literal("responded"),
-      v.literal("closed")
+      v.literal("accepted"),
+      v.literal("refused"),
+      v.literal("closed"),
+      v.literal("expired")
     ),
   },
   handler: async (ctx, args) => {
@@ -93,7 +181,7 @@ export const updateStatus = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .first();
 
-    const isSupplierOwner = profile && quote.supplierId === profile._id;
+    const isSupplierOwner = !!profile && quote.supplierId === profile._id;
     const isUserOwner = quote.userId === user._id;
     const isAdmin = user.role === "admin" || user.role === "moderator";
 
@@ -101,10 +189,56 @@ export const updateStatus = mutation({
       throw new Error("Non autorisé");
     }
 
+    if (quote.status === args.status) return;
+
     await ctx.db.patch(args.quoteRequestId, {
       status: args.status,
       updatedAt: Date.now(),
     });
+
+    const label = quote.projectName || quote.category;
+
+    // Notifie la partie qui n'a pas agi.
+    if (isUserOwner && !isSupplierOwner) {
+      const supplier = await ctx.db.get(quote.supplierId);
+      if (supplier) {
+        await notifyQuoteParty(ctx, {
+          userId: supplier.userId,
+          type: "quote_update",
+          title:
+            args.status === "accepted"
+              ? "Devis accepté"
+              : args.status === "refused"
+                ? "Devis refusé"
+                : "Demande de devis mise à jour",
+          message:
+            args.status === "accepted"
+              ? `Le client a accepté votre devis pour « ${label} ».`
+              : args.status === "refused"
+                ? `Le client a refusé votre devis pour « ${label} ».`
+                : `La demande « ${label} » a changé de statut.`,
+          link: quoteMessagingLink(SUPPLIER_QUOTE_LINK, quote._id),
+        });
+      }
+    } else if (isSupplierOwner) {
+      await notifyQuoteParty(ctx, {
+        userId: quote.userId,
+        type: "quote_update",
+        title:
+          args.status === "refused"
+            ? "Demande refusée"
+            : args.status === "responded"
+              ? "Devis reçu"
+              : "Demande de devis mise à jour",
+        message:
+          args.status === "refused"
+            ? `Votre demande « ${label} » a été refusée par le fournisseur.`
+            : args.status === "responded"
+              ? `Vous avez reçu un devis pour « ${label} ».`
+              : `Le statut de votre demande « ${label} » a changé.`,
+        link: quoteMessagingLink(CLIENT_QUOTE_LINK, quote._id),
+      });
+    }
   },
 });
 

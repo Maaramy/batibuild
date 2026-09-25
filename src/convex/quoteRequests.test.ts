@@ -473,3 +473,97 @@ describe("quoteRequests.unreadCount / markAllRead", () => {
     expect(count).toBe(0);
   });
 });
+
+// ============================================================================
+// Notifications & statuts — la messagerie est l'unique point de gestion
+// ============================================================================
+
+describe("quoteRequests — notifications de la messagerie", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  async function seed() {
+    const supplierUserId = await createTestUser(t, {
+      name: "Supplier",
+      email: "supplier@test.com",
+    });
+    const supplierId = await createTestSupplierProfile(t, supplierUserId);
+    const buyerId = await createTestUser(t, { name: "Buyer", email: "buyer@test.com" });
+    const buyerT = asUser(t, buyerId);
+    const supplierT = asUser(t, supplierUserId);
+    return { supplierUserId, supplierId, buyerId, buyerT, supplierT };
+  }
+
+  it("notifie le fournisseur dès la création d'une demande (lien messagerie)", async () => {
+    const { supplierUserId, supplierId, buyerT } = await seed();
+
+    await buyerT.mutation(api.quoteRequests.create, {
+      supplierId: supplierId as any,
+      projectName: "Villa Sousse",
+      category: "ciment",
+      materials: [{ name: "Ciment", quantity: 10, unit: "sac" }],
+    });
+
+    const notifications = await t.run(async (ctx) =>
+      ctx.db.query("notifications").collect(),
+    );
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].userId).toBe(supplierUserId);
+    expect(notifications[0].type).toBe("quote_request");
+    expect(notifications[0].read).toBe(false);
+    expect(notifications[0].link).toContain("tab=requests");
+  });
+
+  it("le fournisseur peut refuser une demande et le client est notifié", async () => {
+    const { supplierId, buyerId, buyerT, supplierT } = await seed();
+    const quoteId = await buyerT.mutation(api.quoteRequests.create, {
+      supplierId: supplierId as any,
+      category: "ciment",
+      materials: [{ name: "Ciment", quantity: 1, unit: "sac" }],
+    });
+
+    await supplierT.mutation(api.quoteRequests.updateStatus, {
+      quoteRequestId: quoteId,
+      status: "refused",
+    });
+
+    const quote = await t.run(async (ctx) => ctx.db.get(quoteId));
+    expect(quote!.status).toBe("refused");
+
+    const notifications = await t.run(async (ctx) =>
+      ctx.db.query("notifications").collect(),
+    );
+    const clientNotifications = notifications.filter((n) => n.userId === buyerId);
+    expect(clientNotifications).toHaveLength(1);
+    expect(clientNotifications[0].type).toBe("quote_update");
+    expect(clientNotifications[0].link).toContain("tab=quotes");
+  });
+
+  it("le client peut accepter un devis et le fournisseur est notifié", async () => {
+    const { supplierUserId, supplierId, buyerT } = await seed();
+    const quoteId = await buyerT.mutation(api.quoteRequests.create, {
+      supplierId: supplierId as any,
+      category: "ciment",
+      materials: [{ name: "Ciment", quantity: 1, unit: "sac" }],
+    });
+    // Le fournisseur a déjà répondu (statut « Devis envoyé »).
+    await t.run(async (ctx) => ctx.db.patch(quoteId, { status: "responded" }));
+
+    await buyerT.mutation(api.quoteRequests.updateStatus, {
+      quoteRequestId: quoteId,
+      status: "accepted",
+    });
+
+    const notifications = await t.run(async (ctx) =>
+      ctx.db.query("notifications").collect(),
+    );
+    const supplierNotifications = notifications.filter(
+      (n) => n.userId === supplierUserId && n.type === "quote_update",
+    );
+    expect(supplierNotifications).toHaveLength(1);
+    expect(supplierNotifications[0].title).toBe("Devis accepté");
+  });
+});

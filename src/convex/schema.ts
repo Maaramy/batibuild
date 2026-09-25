@@ -765,6 +765,8 @@ const schema = defineSchema(
         v.literal("support_ticket_resolved"),
         v.literal("expert_appointment"),
         v.literal("expert_urgent"),
+        v.literal("quote_request"),
+        v.literal("quote_update"),
       ),
       title: v.string(),
       message: v.string(),
@@ -1316,10 +1318,17 @@ const schema = defineSchema(
       userEmail: v.string(),
       userName: v.string(),
       message: v.optional(v.string()),
+      // Statuts historiques (`pending` / `responded` / `closed`) conservés tels
+      // quels — aucune donnée n'est migrée — et enrichis des statuts de gestion
+      // en messagerie (En cours / Acceptée / Refusée / Expirée).
       status: v.union(
         v.literal("pending"),
+        v.literal("in_progress"),
         v.literal("responded"),
+        v.literal("accepted"),
+        v.literal("refused"),
         v.literal("closed"),
+        v.literal("expired"),
       ),
       readAt: v.optional(v.number()),
       createdAt: v.number(),
@@ -1334,6 +1343,15 @@ const schema = defineSchema(
       quoteRequestId: v.id("quoteRequests"),
       supplierId: v.id("supplierProfiles"),
       userId: v.id("users"),
+      // Nature du message du fournisseur dans la conversation. Absent sur les
+      // anciennes réponses = un devis classique (compatibilité totale).
+      kind: v.optional(
+        v.union(
+          v.literal("quote"),
+          v.literal("refusal"),
+          v.literal("clarification"),
+        ),
+      ),
       message: v.string(),
       totalAmount: v.optional(v.number()),
       attachmentUrl: v.optional(v.string()),

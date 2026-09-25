@@ -6,8 +6,10 @@
 // notification, du menu ou d'un ancien lien). Elles sont donc testées ici
 // plutôt que dupliquées dans le composant.
 //
-// L'ancien onglet « Rendez-vous » a été fusionné dans « Services experts » :
-// `?tab=appointments` est transparentement redirigé vers « services ».
+// Depuis la refonte, la messagerie est l'unique point d'entrée des demandes de
+// devis fournisseur : un compte fournisseur voit l'onglet « Demandes de devis »
+// (demandes reçues) et non plus un onglet « Devis fournisseurs » (demandes
+// envoyées). L'ancien onglet « Rendez-vous » reste redirigé vers « services ».
 // ============================================================================
 import { describe, expect, it } from "vitest";
 
@@ -30,19 +32,24 @@ describe("messagerie — onglets visibles selon le rôle", () => {
     expect(EXPERT.isExpertAccount).toBe(true);
     expect(EXPERT.visibleTabs).toEqual(["received", "services"]);
     expect(EXPERT.showSupplierQuotes).toBe(false);
+    expect(EXPERT.showSupplierRequests).toBe(false);
   });
 
-  it("un compte fournisseur ne voit pas les services experts (ni les demandes reçues)", () => {
-    expect(SUPPLIER.visibleTabs).toEqual(["quotes"]);
+  it("un compte fournisseur voit la gestion des demandes de devis reçues", () => {
+    expect(SUPPLIER.visibleTabs).toEqual(["requests"]);
     expect(SUPPLIER.showExpertServices).toBe(false);
+    expect(SUPPLIER.showSupplierRequests).toBe(true);
+    // Un professionnel pur ne voit pas l'onglet « demandes envoyées » (client).
+    expect(SUPPLIER.showSupplierQuotes).toBe(false);
   });
 
-  it("un compte double rôle conserve les services et les devis", () => {
-    expect(DOUBLE_ROLE.visibleTabs).toEqual(["received", "services", "quotes"]);
+  it("un compte double rôle conserve les services, les demandes reçues et les devis envoyés", () => {
+    expect(DOUBLE_ROLE.visibleTabs).toEqual(["received", "services", "requests", "quotes"]);
   });
 
-  it("un client voit les services experts et les devis fournisseurs", () => {
+  it("un client voit les services experts et ses devis envoyés", () => {
     expect(CLIENT.visibleTabs).toEqual(["services", "quotes"]);
+    expect(CLIENT.showSupplierRequests).toBe(false);
   });
 
   it("tant que les profils chargent, aucun masquage à l'aveugle", () => {
@@ -55,6 +62,7 @@ describe("messagerie — onglet demandé par l'URL", () => {
   it("lit l'onglet de l'URL et retombe sur « services » si absent ou inconnu", () => {
     expect(tabFromSearch("received")).toBe("received");
     expect(tabFromSearch("quotes")).toBe("quotes");
+    expect(tabFromSearch("requests")).toBe("requests");
     expect(tabFromSearch(null)).toBe("services");
     expect(tabFromSearch("nope")).toBe("services");
   });
@@ -72,15 +80,17 @@ describe("messagerie — onglet demandé par l'URL", () => {
   it("un ancien lien `?tab=appointments` ouvre les services pour n'importe quel rôle", () => {
     expect(resolveMessagesTab(tabFromSearch("appointments"), EXPERT)).toBe("services");
     expect(resolveMessagesTab(tabFromSearch("appointments"), CLIENT)).toBe("services");
-    expect(resolveMessagesTab(tabFromSearch("appointments"), SUPPLIER)).toBe("quotes");
+    expect(resolveMessagesTab(tabFromSearch("appointments"), SUPPLIER)).toBe("requests");
   });
 
   it("les autres onglets masqués retombent sur un onglet visible", () => {
     // Un client qui suit un lien de demande reçue.
     expect(resolveMessagesTab("received", CLIENT)).toBe("services");
-    // Un fournisseur qui suit un lien de services experts.
-    expect(resolveMessagesTab("services", SUPPLIER)).toBe("quotes");
-    // Un expert qui suit un lien de devis fournisseurs.
+    // Un fournisseur qui suit un lien de services experts → ses demandes de devis.
+    expect(resolveMessagesTab("services", SUPPLIER)).toBe("requests");
+    // Un expert qui suit un lien de devis fournisseurs (masqué).
     expect(resolveMessagesTab("quotes", EXPERT)).toBe("services");
+    // Un fournisseur qui suit un lien de devis envoyés (masqué).
+    expect(resolveMessagesTab("quotes", SUPPLIER)).toBe("requests");
   });
 });

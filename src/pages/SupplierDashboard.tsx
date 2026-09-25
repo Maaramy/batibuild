@@ -27,7 +27,7 @@ import {
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard, Lock,
   Store, ShieldCheck, Trash2, AlertTriangle,
   Banknote, Smartphone, Landmark, UserRound, Clock3, Upload, Image as ImageIcon, X,
-  Wallet, BarChart3, FileText,
+  Wallet, BarChart3,
 } from "lucide-react";
 
 // ============================================================================
@@ -186,7 +186,6 @@ export default function SupplierDashboard() {
   const navigate = useNavigate();
   const profile = useQuery(api.supplierProfiles.getMyProfile);
   const hasProfile = useQuery(api.supplierProfiles.hasSupplierProfile);
-  const unreadCount = useQuery(api.quoteRequests.unreadCount);
   const paymentConfig = useQuery(api.payments.getPublicPricing);
   const createProfile = useMutation(api.supplierProfiles.createProfile);
   const updateProfile = useMutation(api.supplierProfiles.updateProfile);
@@ -474,20 +473,6 @@ export default function SupplierDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {effStatus === "active" && (
-              <button
-                onClick={() => navigate("/dashboard/supplier/quotes")}
-                className="relative flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                Devis reçus
-                {(unreadCount ?? 0) > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white shadow-sm">
-                    {unreadCount! > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </button>
-            )}
             {effStatus === "active" && (
               <button
                 onClick={() => navigate("/dashboard/supplier/stats")}

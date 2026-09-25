@@ -26,6 +26,8 @@ import {
   tabFromSearch,
   type MessagesTab,
 } from "@/lib/messagesTabs";
+import { SupplierQuoteConversations } from "@/components/quotes/SupplierQuoteConversations";
+import { canClientDecide, quoteStatusMeta } from "@/lib/quoteStatus";
 import {
   PROJECT_TYPE_LABELS,
   resolveProjectType,
@@ -90,6 +92,11 @@ function ResponseCard({ response, kind }: { response: any; kind: "expert" | "sup
             <span className="text-xs font-semibold truncate">{name}</span>
             {companyName && (
               <span className="text-[9px] text-muted-foreground truncate">{companyName}</span>
+            )}
+            {response.kind && response.kind !== "quote" && (
+              <Badge className={`text-[9px] border ml-auto ${accent.badge}`}>
+                {response.kind === "refusal" ? "Refus" : "Précision demandée"}
+              </Badge>
             )}
             {response.totalAmount && (
               <Badge className={`text-[9px] border ml-auto ${accent.badge}`}>
@@ -170,10 +177,25 @@ export default function UserMessages() {
   const hasExpertProfile = useQuery(api.expertProfiles.hasExpertProfile);
   const hasSupplierProfile = useQuery(api.supplierProfiles.hasSupplierProfile);
 
-  // Demandes & réponses fournisseurs (devis)
+  // Demandes & réponses fournisseurs (devis) — côté CLIENT (demandes envoyées)
   const quotes = useQuery(api.quoteRequests.getMyRequests);
   const allResponses = useQuery(api.quoteResponses.getMyResponses);
   const markSupplierResponsesRead = useMutation(api.quoteResponses.markAllRead);
+
+  // Demandes de devis REÇUES par le fournisseur — l'UNIQUE point d'entrée et de
+  // gestion des demandes de devis (l'ancien espace « Devis reçus » a été
+  // supprimé). Le chargement est conditionné au profil fournisseur pour ne rien
+  // exposer aux autres rôles.
+  const supplierRequests = useQuery(
+    api.quoteRequests.getBySupplier,
+    hasSupplierProfile === true ? {} : "skip",
+  );
+  const supplierQuoteResponses = useQuery(
+    api.quoteResponses.getBySupplier,
+    hasSupplierProfile === true ? {} : "skip",
+  );
+  const markSupplierRequestsRead = useMutation(api.quoteRequests.markAllRead);
+  const setQuoteStatus = useMutation(api.quoteRequests.updateStatus);
 
   // Demandes & réponses experts (services)
   const expertRequests = useQuery(api.expertServiceRequests.getMyRequests);
@@ -194,7 +216,9 @@ export default function UserMessages() {
   const tabLayout = messagesTabLayout(hasExpertProfile, hasSupplierProfile);
   const {
     isExpertAccount,
+    isSupplierAccount,
     showExpertServices,
+    showSupplierRequests,
     showSupplierQuotes,
   } = tabLayout;
 
@@ -265,6 +289,24 @@ export default function UserMessages() {
     }
   };
 
+  // ── Décision du CLIENT sur un devis reçu (accepter / refuser) ──
+  const [decidingQuoteId, setDecidingQuoteId] = useState<string | null>(null);
+
+  const handleQuoteDecision = async (
+    quoteRequestId: string,
+    status: "accepted" | "refused",
+  ) => {
+    setDecidingQuoteId(quoteRequestId);
+    try {
+      await setQuoteStatus({ quoteRequestId: quoteRequestId as any, status });
+      toast.success(status === "accepted" ? "Devis accepté" : "Devis refusé");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erreur");
+    } finally {
+      setDecidingQuoteId(null);
+    }
+  };
+
   // ── Décision du professionnel sur une demande reçue ──
   const [decidingId, setDecidingId] = useState<string | null>(null);
 
@@ -294,6 +336,9 @@ export default function UserMessages() {
 
   const unreadSupplierCount = allResponses?.filter((r) => r.readAt === undefined).length ?? 0;
   const unreadExpertCount = expertResponses?.filter((r) => r.readAt === undefined).length ?? 0;
+  // Demandes de devis reçues non encore consultées (badge rouge du fournisseur).
+  const supplierRequestsUnread =
+    (supplierRequests ?? []).filter((r) => r.readAt === undefined).length;
 
   // Demandes reçues (rendez-vous / urgences) : compteurs du badge et de l'onglet.
   const receivedPendingCount =
@@ -304,7 +349,8 @@ export default function UserMessages() {
   const receivedUrgentUnread =
     (receivedUrgent ?? []).filter((u) => u.readAt === undefined).length;
   const receivedUnreadCount = receivedAppointmentsUnread + receivedUrgentUnread;
-  const totalUnread = unreadSupplierCount + unreadExpertCount + receivedUnreadCount;
+  const totalUnread =
+    unreadSupplierCount + unreadExpertCount + receivedUnreadCount + supplierRequestsUnread;
 
   // L'onglet réellement affiché : celui de l'URL s'il est visible pour le rôle,
   // sinon le repli calculé par `resolveMessagesTab`.
@@ -317,6 +363,13 @@ export default function UserMessages() {
     if (receivedUnreadCount > 0) markReceivedRead();
   }, [activeTab, isExpertAccount, receivedUnreadCount, markReceivedRead]);
 
+  // Les demandes de devis reçues sont marquées comme consultées dès l'ouverture
+  // de l'onglet « Demandes de devis » : le badge rouge de la messagerie se vide.
+  useEffect(() => {
+    if (activeTab !== "requests" || !isSupplierAccount) return;
+    if (supplierRequestsUnread > 0) markSupplierRequestsRead();
+  }, [activeTab, isSupplierAccount, supplierRequestsUnread, markSupplierRequestsRead]);
+
   // ── Lien profond depuis le centre de notifications ──
   // `?tab=received&request=<id>` : on amène l'utilisateur directement sur la
   // demande concernée — défilement puis halo lumineux qui s'estompe. La mise en
@@ -325,7 +378,10 @@ export default function UserMessages() {
   const focusedRequestRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (activeTab !== "received" || !isExpertAccount || !focusRequestId) return;
+    if (!focusRequestId) return;
+    if (activeTab !== "received" && activeTab !== "requests") return;
+    if (activeTab === "received" && !isExpertAccount) return;
+    if (activeTab === "requests" && !isSupplierAccount) return;
     // Une seule fois par demande ciblée (les listes se rafraîchissent en direct).
     if (focusedRequestRef.current === focusRequestId) return;
     const node = document.getElementById(`request-${focusRequestId}`);
@@ -345,9 +401,11 @@ export default function UserMessages() {
   }, [
     activeTab,
     isExpertAccount,
+    isSupplierAccount,
     focusRequestId,
     receivedAppointments,
     receivedUrgent,
+    supplierRequests,
   ]);
 
   return (
@@ -366,7 +424,9 @@ export default function UserMessages() {
             <p className="text-xs text-muted-foreground">
               {activeTab === "received"
                 ? "Demandes de rendez-vous et urgences reçues — à confirmer ou refuser"
-                : activeTab === "services"
+                : activeTab === "requests"
+                  ? "Demandes de devis reçues — traitez-les directement depuis la conversation"
+                  : activeTab === "services"
                   ? showSupplierQuotes
                     ? "Vos demandes de services experts & de devis fournisseurs, vos rendez-vous et les réponses reçues"
                     : "Vos demandes de services experts, vos rendez-vous et les réponses reçues"
@@ -418,6 +478,24 @@ export default function UserMessages() {
               {pendingAppointmentsCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
                   {pendingAppointmentsCount}
+                </span>
+              )}
+            </button>
+          )}
+          {showSupplierRequests && (
+            <button
+              onClick={() => selectTab("requests")}
+              className={`flex-1 basis-auto min-w-[8rem] whitespace-nowrap flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all cursor-pointer relative ${
+                activeTab === "requests"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Inbox className="h-3.5 w-3.5" />
+              Demandes de devis
+              {supplierRequestsUnread > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                  {supplierRequestsUnread}
                 </span>
               )}
             </button>
@@ -847,6 +925,14 @@ export default function UserMessages() {
           </>
         )}
 
+        {/* ══════════ ONGLET DEMANDES DE DEVIS (fournisseur) ══════════ */}
+        {activeTab === "requests" && isSupplierAccount && (
+          <SupplierQuoteConversations
+            requests={supplierRequests}
+            responses={supplierQuoteResponses}
+          />
+        )}
+
         {/* ══════════ ONGLET DEVIS (fournisseurs) ══════════ */}
         {activeTab === "quotes" && (
           <>
@@ -926,9 +1012,9 @@ export default function UserMessages() {
             ) : (
               <div className="space-y-3">
                 {quotes.map((quote) => {
-                  const cfg = STATUS_CONFIG[quote.status];
-                  const StatusIcon = cfg.icon;
+                  const cfg = quoteStatusMeta(quote.status);
                   const responses = responsesByQuote.get(quote._id) ?? [];
+
 
                   return (
                     <motion.div
@@ -957,8 +1043,8 @@ export default function UserMessages() {
                                   <p className="text-sm font-semibold">
                                     {quote.projectName || quote.category}
                                   </p>
-                                  <Badge className={`text-[9px] border ${cfg.color}`}>
-                                    <StatusIcon className="h-2.5 w-2.5 mr-1" />
+                                  <Badge className={`text-[9px] border ${cfg.chip}`}>
+                                    <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
                                     {cfg.label}
                                   </Badge>
                                   {responses.length > 0 && (
@@ -1050,6 +1136,39 @@ export default function UserMessages() {
                                 <p className="text-xs text-muted-foreground/60 text-center py-2">
                                   Aucune réponse pour l'instant. Le fournisseur examinera votre demande prochainement.
                                 </p>
+                              )}
+
+                              {/* Décision du client sur le devis reçu */}
+                              {canClientDecide(quote.status) && (
+                                <div className="flex gap-1.5 border-t border-border/10 pt-3">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={decidingQuoteId === quote._id}
+                                    className="h-8 flex-1 gap-1.5 text-xs border-red-500/30 text-red-600 hover:bg-red-500/5"
+                                    onClick={() => handleQuoteDecision(quote._id, "refused")}
+                                  >
+                                    {decidingQuoteId === quote._id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <ThumbsDown className="h-3 w-3" />
+                                    )}
+                                    Refuser le devis
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    disabled={decidingQuoteId === quote._id}
+                                    className="h-8 flex-1 gap-1.5 text-xs bg-teal-600 text-white hover:bg-teal-700"
+                                    onClick={() => handleQuoteDecision(quote._id, "accepted")}
+                                  >
+                                    {decidingQuoteId === quote._id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <ThumbsUp className="h-3 w-3" />
+                                    )}
+                                    Accepter le devis
+                                  </Button>
+                                </div>
                               )}
                             </motion.div>
                           )}

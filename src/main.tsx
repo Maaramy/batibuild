@@ -53,7 +53,6 @@ const SupplierProfile = lazy(() => import("./pages/SupplierProfile.tsx"));
 const ExpertProfile = lazy(() => import("./pages/ExpertProfile.tsx"));
 const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
 const SupplierStats = lazy(() => import("./pages/SupplierStats.tsx"));
-const SupplierQuotes = lazy(() => import("./pages/SupplierQuotes.tsx"));
 const UserMessages = lazy(() => import("./pages/UserMessages.tsx"));
 const SupportPage = lazy(() => import("./pages/SupportPage.tsx"));
 const ExpertDashboard = lazy(() => import("./pages/ExpertDashboard.tsx"));
@@ -394,13 +393,12 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
+                {/* Ancien espace « Devis reçus » : supprimé au profit de la
+                    messagerie. Le lien reste un simple renvoi (jamais de page
+                    morte) vers l'onglet « Demandes de devis ». */}
                 <Route
                   path="/dashboard/supplier/quotes"
-                  element={
-                    <RequireAuth>
-                      <SupplierQuotes />
-                    </RequireAuth>
-                  }
+                  element={<Navigate to="/dashboard/messages?tab=requests" replace />}
                 />
                 <Route
                   path="/dashboard/messages"

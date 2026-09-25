@@ -44,6 +44,8 @@ interface NotificationCenterProps {
 const TYPE_ICONS: Record<string, typeof Bell> = {
   expert_appointment: CalendarClock,
   expert_urgent: Zap,
+  quote_request: FileText,
+  quote_update: FileText,
   subscription: CreditCard,
   price_update: TrendingUp,
   report_ready: FileText,
@@ -57,6 +59,8 @@ const TYPE_ICONS: Record<string, typeof Bell> = {
 const TYPE_STYLES: Record<string, string> = {
   expert_appointment: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
   expert_urgent: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  quote_request: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  quote_update: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
   subscription: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
   support_ticket_created: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
   support_reply: "bg-rose-500/10 text-rose-600 dark:text-rose-400",

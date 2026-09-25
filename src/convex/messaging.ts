@@ -13,14 +13,16 @@ import { getCurrentUser } from "./users";
 // moins. Ouvrir la messagerie suffit donc à faire disparaître la pastille :
 //
 //   • onglet « Devis fournisseurs »    → `quoteResponses` (réponses reçues)
+//   • onglet « Demandes de devis »     → `quoteRequests` reçues (fournisseur),
+//     c'est-à-dire les demandes non consultées de SON profil fournisseur ;
 //   • onglet « Services experts »      → `expertServiceResponses` (réponses)
 //   • onglet « Demandes reçues » (pro) → `expertAppointments` (rendez-vous)
 //                                        + `expertUrgentRequests` (urgences)
 //
 // Ne sont PAS comptés ici :
-//   • l'ESPACE PROFESSIONNEL (`quoteRequests` / `expertServiceRequests` reçus),
-//     affiché et vidé par les pages « Devis reçus » (fournisseur / expert),
-//     avec leurs propres compteurs — deux systèmes distincts, comme demandé ;
+//   • les demandes de SERVICE reçues par un expert (`expertServiceRequests`),
+//     consultées dans l'onglet « Demandes reçues » et comptées par
+//     `expertServiceRequests.unreadCount` ;
 //   • le CENTRE DE NOTIFICATIONS (`notifications`) : les événements système
 //     (annonces, alertes, changements de statut) restent gérés par
 //     `NotificationCenter` / `notifications.ts`. Une notification qui pointe
@@ -67,6 +69,21 @@ export const unreadCount = query({
         .withIndex("by_user", (q) => q.eq("userId", user._id))
         .collect(),
     );
+
+    // ── Côté fournisseur : demandes de devis reçues (onglet « Demandes de
+    //    devis » de la messagerie) ─────────────────────────────────────────────
+    const supplierProfile = await ctx.db
+      .query("supplierProfiles")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+    if (supplierProfile) {
+      total += countUnread(
+        await ctx.db
+          .query("quoteRequests")
+          .withIndex("by_supplier", (q) => q.eq("supplierId", supplierProfile._id))
+          .collect(),
+      );
+    }
 
     // ── Côté professionnel : rendez-vous et urgences reçus (onglet
     //    « Demandes reçues » de la messagerie) ────────────────────────────────

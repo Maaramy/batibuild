@@ -8,8 +8,14 @@
 // Règles de visibilité :
 //   - « Demandes reçues » : uniquement pour un compte expert (demandes que le
 //     professionnel reçoit) ;
-//   - « Services experts » combine désormais les demandes de service ET les
-//     rendez-vous / urgences envoyés par le client (un seul onglet) ;
+//   - « Demandes de devis » : uniquement pour un compte fournisseur — c'est
+//     désormais l'UNIQUE point d'entrée des demandes de devis fournisseur
+//     (l'ancien espace « Devis reçus » a été supprimé) ;
+//   - « Services experts » combine les demandes de service ET les rendez-vous /
+//     urgences envoyés par le client ;
+//   - « Devis fournisseurs » liste les demandes ENVOYÉES par l'utilisateur en
+//     tant que client : un compte purement professionnel (fournisseur ou expert)
+//     ne le voit pas ;
 //   - un compte fournisseur (sans profil expert) ne voit pas les services
 //     experts, et inversement ; un compte double rôle voit les deux.
 //
@@ -17,9 +23,14 @@
 // d'écran vide, ni de lien mort venu d'une notification ou d'un ancien lien.
 // ============================================================================
 
-export type MessagesTab = "quotes" | "services" | "received";
+export type MessagesTab = "quotes" | "services" | "received" | "requests";
 
-export const MESSAGES_TABS: MessagesTab[] = ["quotes", "services", "received"];
+export const MESSAGES_TABS: MessagesTab[] = [
+  "received",
+  "services",
+  "requests",
+  "quotes",
+];
 
 /** Onglet « par défaut » quand l'URL n'en demande pas (ou en demande un inconnu). */
 export const DEFAULT_MESSAGES_TAB: MessagesTab = "services";
@@ -28,8 +39,8 @@ export const DEFAULT_MESSAGES_TAB: MessagesTab = "services";
 export const APPOINTMENTS_TAB_ALIAS: MessagesTab = "services";
 
 /**
- * Rend un onglet demandé (venu d'une URL) : l'ancien onglet « appointments »
- * est transparentement renvoyé vers « services » — aucun lien ne meurt.
+ * Rend un onglet demandé (venu d'une URL) : l'ancien onglet « appointments » est
+ * transparentement renvoyé vers « services » — aucun lien ne meurt.
  */
 export function normalizeMessagesTab(value: string | null | undefined): MessagesTab {
   if (value === "appointments") return APPOINTMENTS_TAB_ALIAS;
@@ -45,7 +56,9 @@ export interface MessagesTabLayout {
   isSupplierAccount: boolean;
   /** Onglet « Services experts » affiché (demandes de service + rendez-vous). */
   showExpertServices: boolean;
-  /** Onglet « Devis fournisseurs » affiché. */
+  /** Onglet « Demandes de devis » affiché — demandes reçues par le fournisseur. */
+  showSupplierRequests: boolean;
+  /** Onglet « Devis fournisseurs » affiché — demandes envoyées par le client. */
   showSupplierQuotes: boolean;
   /** Onglets affichés, dans l'ordre de la barre. */
   visibleTabs: MessagesTab[];
@@ -61,16 +74,23 @@ export function messagesTabLayout(
 ): MessagesTabLayout {
   const isExpertAccount = hasExpertProfile === true;
   const isSupplierAccount = hasSupplierProfile === true;
-  const showExpertServices = !(isSupplierAccount && !isExpertAccount);
-  const showSupplierQuotes = !(isExpertAccount && !isSupplierAccount);
+  const isSupplierOnly = isSupplierAccount && !isExpertAccount;
+  const showExpertServices = !isSupplierOnly;
+  const showSupplierRequests = isSupplierAccount;
+  // Demandes envoyées (côté client) : visibles quand le compte a un rôle client
+  // — soit un client pur, soit un compte double rôle.
+  const showSupplierQuotes = isExpertAccount === isSupplierAccount;
+
   return {
     isExpertAccount,
     isSupplierAccount,
     showExpertServices,
+    showSupplierRequests,
     showSupplierQuotes,
     visibleTabs: [
       ...(isExpertAccount ? (["received"] as MessagesTab[]) : []),
       ...(showExpertServices ? (["services"] as MessagesTab[]) : []),
+      ...(showSupplierRequests ? (["requests"] as MessagesTab[]) : []),
       ...(showSupplierQuotes ? (["quotes"] as MessagesTab[]) : []),
     ],
   };

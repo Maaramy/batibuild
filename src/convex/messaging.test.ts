@@ -200,9 +200,11 @@ describe("messaging.unreadCount", () => {
     expect(await asUser(t, otherId).query(api.messaging.unreadCount, {})).toBe(0);
   });
 
-  it("keeps the professional workspace requests out of the messagerie badge", async () => {
-    // « Devis reçus » (espace fournisseur / expert) a ses propres compteurs :
-    // rien n'est mélangé avec la pastille de la Messagerie.
+  it("counts a supplier's new quote requests (managed in the messagerie)", async () => {
+    // Depuis la refonte, les demandes de devis reçues par un fournisseur sont
+    // gérées DANS la messagerie : elles alimentent donc la pastille rouge.
+    // Les demandes de SERVICE reçues par un expert, elles, gardent leur propre
+    // compteur (`expertServiceRequests.unreadCount`).
     const supplierUserId = await createTestUser(t);
     const supplierId = await createSupplierProfile(t, supplierUserId);
     const expertUserId = await createTestUser(t);
@@ -237,8 +239,37 @@ describe("messaging.unreadCount", () => {
       });
     });
 
-    expect(await asUser(t, supplierUserId).query(api.messaging.unreadCount, {})).toBe(0);
+    expect(await asUser(t, supplierUserId).query(api.messaging.unreadCount, {})).toBe(1);
     expect(await asUser(t, expertUserId).query(api.messaging.unreadCount, {})).toBe(0);
+  });
+
+  it("clears the supplier badge once the received requests tab has been consulted", async () => {
+    const supplierUserId = await createTestUser(t);
+    const supplierId = await createSupplierProfile(t, supplierUserId);
+    const buyerId = await createTestUser(t);
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("quoteRequests", {
+        userId: buyerId as any,
+        supplierId: supplierId as any,
+        category: "ciment",
+        materials: [{ name: "Ciment", quantity: 10, unit: "sac" }],
+        userPhone: "+216 99 000 000",
+        userEmail: "buyer@test.com",
+        userName: "Buyer",
+        status: "pending",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    });
+
+    const supplierT = asUser(t, supplierUserId);
+    expect(await supplierT.query(api.messaging.unreadCount, {})).toBe(1);
+
+    // Même mutation que celle exécutée à l'ouverture de l'onglet « Demandes de devis ».
+    await supplierT.mutation(api.quoteRequests.markAllRead, {});
+
+    expect(await supplierT.query(api.messaging.unreadCount, {})).toBe(0);
   });
 
   it("counts received appointments and urgent requests for an expert", async () => {

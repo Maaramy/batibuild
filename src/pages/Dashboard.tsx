@@ -182,10 +182,6 @@ export default function Dashboard() {
     api.expertServiceRequests.unreadCount,
     isExpert ? {} : "skip",
   );
-  const supplierUnread = useQuery(
-    api.quoteRequests.unreadCount,
-    isSupplier ? {} : "skip",
-  );
   // ── Badges côté client : réponses fournisseurs / experts non consultées ──
   const supplierResponsesUnread = useQuery(api.quoteResponses.unreadCount);
   const expertResponsesUnread = useQuery(
@@ -199,7 +195,7 @@ export default function Dashboard() {
   const messagingUnread = useQuery(api.messaging.unreadCount);
   // Demandes non consultées qui ne passent pas par le centre de notifications
   // (les rendez-vous et urgences, eux, y sont déjà notifiés : pas de double compte).
-  const totalUnread = (supplierUnread ?? 0) + (expertUnread ?? 0) + clientUnread;
+  const totalUnread = (expertUnread ?? 0) + clientUnread;
   // ── Badge Support : messages de support non lus (badge rouge du menu) ──
   const supportUnread = useQuery(api.support.myUnreadTotal) ?? 0;
   // Lien de repli du centre de notifications : la messagerie du rôle affiché.
@@ -207,7 +203,7 @@ export default function Dashboard() {
     viewMode === "expert"
       ? "/dashboard/messages?tab=received"
       : viewMode === "supplier" && hasSupplierProfile
-        ? "/dashboard/supplier/quotes"
+        ? "/dashboard/messages?tab=requests"
         : "/dashboard/messages";
   const handleSignOut = async () => { await signOut(); navigate("/auth"); };
 
@@ -327,14 +323,13 @@ export default function Dashboard() {
             ] : []),
             // Professional features — parent + submenu
             ...(viewMode === "supplier" ? [
-              { icon: Store, label: "Espace fournisseur", isExpandable: true, badge: supplierUnread ?? 0, onClick: () => { setProMenuOpen(!proMenuOpen); } },
+              { icon: Store, label: "Espace fournisseur", isExpandable: true, onClick: () => { setProMenuOpen(!proMenuOpen); } },
             ] : []),
             ...(viewMode === "expert" ? [
               { icon: Briefcase, label: "Espace expert", isExpandable: true, badge: expertUnread ?? 0, onClick: () => { setProMenuOpen(!proMenuOpen); } },
             ] : []),
             // Sub-menu items (shown when expanded)
             ...(viewMode === "supplier" && proMenuOpen ? [
-              { icon: FileText, label: "Devis reçus", isSubItem: true, badge: supplierUnread ?? 0, onClick: () => { navigate("/dashboard/supplier/quotes"); setMobileSidebarOpen(false); } },
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/supplier/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil fournisseur", isSubItem: true, onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
             ] : []),
@@ -714,13 +709,6 @@ export default function Dashboard() {
                       </div>
                       {/* Action buttons row */}
                       <div className="flex items-center gap-1.5 mt-3">
-                        <button
-                          onClick={() => navigate("/dashboard/supplier/quotes")}
-                          className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-                        >
-                          <FileText className="h-3 w-3" />
-                          Devis
-                        </button>
                         <button
                           onClick={() => setViewMode("client")}
                           className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
