@@ -50,6 +50,50 @@
 # la liste des tâches en échec et les signatures connues (OOM, disque plein,
 # ninja/CMake, erreur compilateur), et la publie dans le résumé du run.
 # `--stacktrace` reste actif pour ne rien masquer.
+#
+# ── STOCKAGE DES ARTEFACTS (quota GitHub Actions) ───────────────────────────
+# Erreur corrigée ici :
+#   Failed to CreateArtifact: Artifact storage quota has been hit.
+#   Unable to upload any new artifacts. Usage is recalculated every 6-12 hours.
+# Cette erreur ne vient NI du code Android NI de Gradle : elle vient du stockage
+# des artefacts du dépôt, saturé par les anciennes générations d'APK/AAB. Les
+# trois causes ont donc été traitées dans le workflow lui-même :
+#
+#   1. QUANTITÉ — les 3 fichiers (APK debug, APK release, AAB release) sont
+#      publiés dans UN SEUL artefact, au lieu de trois uploads séparés. Aucune
+#      copie n'est créée, et rien d'autre n'est envoyé : jamais node_modules,
+#      les caches Gradle, les sorties intermédiaires ni les logs.
+#   2. DURÉE — `retention-days` (5 jours par défaut, modifiable au lancement
+#      manuel) remplace la rétention par défaut du dépôt (souvent 90 jours).
+#      Le nom de l'artefact contient version + versionCode + numéro de run :
+#      chaque build est identifiable et n'écrase jamais le précédent.
+#   3. ANCIENNES GÉNÉRATIONS — un job « cleanup-artifacts » s'exécute AVANT le
+#      build et supprime, via l'API GitHub (`actions: write`, moindre privilège),
+#      les artefacts expirés, ceux plus vieux que la rétention, et toutes les
+#      anciennes générations batibuild sauf la plus récente (le build précédent
+#      reste téléchargeable pendant sa rétention). Il ne touche JAMAIS aux
+#      sources, au code, à l'historique Git, aux releases GitHub, ni aux
+#      artefacts du run en cours. Si le jeton ne peut pas supprimer, le job
+#      avertit dans le résumé sans jamais bloquer le build.
+#
+# Après le build, une vérification interroge l'API GitHub pour confirmer que
+# l'artefact a réellement été publié et n'est pas vide (échec franc sinon), et
+# affiche l'état du stockage du dépôt.
+#
+# ── ACTIONS (runtime Node 24) ───────────────────────────────────────────────
+# Node.js 20 a été retiré des runners GitHub le 16/09/2026 : toutes les actions
+# utilisées tournent désormais sur Node 24 (checkout v5, setup-node v5,
+# setup-java v5, cache v6, upload-artifact v7, setup-android v4, setup-bun v2),
+# ce qui supprime les avertissements « Node.js 20 actions are deprecated ».
+# `actions/upload-artifact@v7` conserve exactement les entrées utilisées ici
+# (`name`, `path`, `if-no-files-found`, `retention-days`, `compression-level`,
+# `overwrite`) tout en corrigeant le runtime : v4 et v5 tournent encore sur
+# Node 20, la version avertie puis supprimée par GitHub.
+#
+# Si le quota est DÉJÀ saturé avant ce run, les trois fichiers ne peuvent pas
+# être publiés : supprimez alors les anciens artefacts depuis
+# « Actions → run → Artifacts » sur GitHub. La suppression libère immédiatement
+# l'espace de stockage courant, et les runs suivants s'en occupent tout seuls.
 
 name: Android — APK & AAB
 
@@ -70,11 +114,22 @@ on:
         type: boolean
         required: false
         default: false
+      retention_days:
+        description: "Conservation de l'artefact publié (1 à 90 jours, 5 par défaut)"
+        required: false
+        default: "5"
+      cleanup_scope:
+        description: "Nettoyage : « all » (tout le dépôt) ou « workflow » (batibuild uniquement)"
+        required: false
+        default: "all"
 
 concurrency:
   group: android-apk-${{ github.ref }}
   cancel-in-progress: true
 
+# Permissions par défaut : LECTURE seule. La permission `actions: write`
+# (nécessaire pour supprimer les anciens artefacts) n'est accordée qu'au job
+# « cleanup-artifacts » — moindre privilège.
 permissions:
   contents: read
 
@@ -92,19 +147,83 @@ env:
   # traduit par un échec Gradle tardif et illisible. 2 = marge de sécurité.
   CMAKE_BUILD_PARALLEL_LEVEL: "2"
 
+  # ── STOCKAGE DES ARTEFACTS (quota GitHub Actions) ──────────────────────────
+  # ARTIFACT_RETENTION_DAYS : durée de conservation demandée à l'upload.
+  # ARTIFACT_CLEANUP_SCOPE  : `all` = tous les artefacts du dépôt (seuls les
+  #                           temporaires périmés sont supprimés) ;
+  #                           `workflow` = uniquement les artefacts batibuild.
+  # ARTIFACT_KEEP_LATEST    : nombre de builds batibuild conservés (1).
+  ARTIFACT_RETENTION_DAYS: ${{ inputs.retention_days || '5' }}
+  ARTIFACT_CLEANUP_SCOPE: ${{ inputs.cleanup_scope || 'all' }}
+  ARTIFACT_KEEP_LATEST: "1"
+
 jobs:
-  build-android:
-    name: APK debug + APK release + AAB release
+  # ══════════════════════════════════════════════════════════════════════════
+  # JOB 1 — NETTOYAGE DES ANCIENS ARTEFACTS (exécuté AVANT le build)
+  #
+  # C'est la correction de fond du quota saturé : le stockage d'artefacts est
+  # partagé par TOUS les runs, donc les anciens APK/AAB empêchent la publication
+  # du nouveau. Ce job supprime via l'API GitHub :
+  #   · les artefacts expirés ;
+  #   · les artefacts du dépôt plus vieux que ARTIFACT_RETENTION_DAYS ;
+  #   · les anciennes générations batibuild, en conservant la plus récente — le
+  #     build précédent reste donc téléchargeable pendant sa rétention.
+  # JAMAIS supprimés : sources, code, historique Git, releases GitHub, artefacts
+  # du run en cours (identifiés par GITHUB_RUN_ID).
+  #
+  # `continue-on-error: true` : si le jeton ne peut pas supprimer (politique du
+  # dépôt, permission bloquée), le nettoyage écrit la cause exacte et la marche à
+  # suivre dans le résumé, mais ne bloque jamais la compilation.
+  # ══════════════════════════════════════════════════════════════════════════
+  cleanup-artifacts:
+    name: Nettoyage des artefacts (quota)
     runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      actions: write
+      contents: read
     defaults:
       run:
         working-directory: mobile
     steps:
+      - name: Checkout (script de nettoyage uniquement)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Supprimer les anciens artefacts temporaires (API GitHub)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/artifact-storage.mjs cleanup
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # JOB 2 — BUILD ANDROID : APK debug + APK release + AAB release
+  # ══════════════════════════════════════════════════════════════════════════
+  build-android:
+    name: APK debug + APK release + AAB release
+    runs-on: ubuntu-latest
+    needs: [cleanup-artifacts]
+    # Le nettoyage ne doit JAMAIS empêcher le build de tourner.
+    if: ${{ !cancelled() }}
+    permissions:
+      contents: read
+      # Lecture seule : nécessaire pour confirmer la publication de l'artefact
+      # via l'API GitHub après l'upload.
+      actions: read
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      # Actions en runtime Node 24 (Node 20 a été retiré des runners GitHub le
+      # 16/09/2026) : plus d'avertissement « Node.js 20 actions are deprecated ».
+      # checkout v5, setup-node v5, setup-java v5, cache v6, upload-artifact v7,
+      # setup-android v4 (node24) et setup-bun v2 (node24) : mêmes entrées
+      # qu'avant, seul le runtime change.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js 22 (LTS)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
 
@@ -114,7 +233,7 @@ jobs:
           bun-version: latest
 
       - name: Setup JDK 17 (Temurin)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -436,7 +555,7 @@ jobs:
           df -h / | tail -1
 
       - name: Cache Gradle
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -546,6 +665,28 @@ jobs:
       - name: Vérification de la signature (signingReport)
         run: bash scripts/ci-gradle.sh :app:signingReport signing
 
+      # ── NOM DU BUILD (artefact unique et identifiable) ─────────────────────
+      # Un seul artefact par build, nommé d'après la version RÉELLEMENT compilée
+      # et le numéro de run : deux builds ne peuvent pas se confondre, et le
+      # fichier téléchargé s'identifie sans ambiguïté (batibuild 1.3.2,
+      # versionCode 12, run 123).
+      - name: Identifier le build (nom + rétention)
+        id: dist
+        run: |
+          VERSION=$(node -p "require('./app.json').expo.version")
+          CODE=$(node -p "require('./app.json').expo.android.versionCode")
+          LABEL="batibuild-v${VERSION}-code${CODE}-run${GITHUB_RUN_NUMBER}"
+          # Rétention validée ici : une valeur non numérique ou hors 1–90 ferait
+          # échouer l'upload avec un message obscur.
+          DAYS="${ARTIFACT_RETENTION_DAYS:-5}"
+          case "$DAYS" in ''|*[!0-9]*) DAYS=5 ;; esac
+          if [ "$DAYS" -lt 1 ] || [ "$DAYS" -gt 90 ]; then DAYS=5; fi
+          echo "label=${LABEL}" >> "$GITHUB_OUTPUT"
+          echo "retention=${DAYS}" >> "$GITHUB_OUTPUT"
+          echo "Artefact de ce build : ${LABEL}"
+          echo "Rétention            : ${DAYS} jour(s)"
+          echo "Nettoyage            : portée ${ARTIFACT_CLEANUP_SCOPE}, ${ARTIFACT_KEEP_LATEST} build(s) conservé(s)"
+
       # ── APK DEBUG ──────────────────────────────────────────────────────────
       # ci-gradle.sh affiche, en cas d'échec, la CAUSE RÉELLE du plantage.
       - name: Build — APK debug
@@ -573,12 +714,8 @@ jobs:
       - name: Vérifier l'APK debug (taille, ZIP, entrées, signature)
         run: node scripts/verify-artifact.mjs /tmp/dist/Batibuild-debug.apk
 
-      - name: Upload — Batibuild-debug.apk
-        uses: actions/upload-artifact@v4
-        with:
-          name: Batibuild-debug-apk
-          path: /tmp/dist/Batibuild-debug.apk
-          if-no-files-found: error
+      # (Pas d'upload ici : les 3 fichiers sont publiés ensemble, une seule fois,
+      # à la fin du job — voir « PUBLICATION DES ARTEFACTS » ci-dessous.)
 
       # ── APK RELEASE ────────────────────────────────────────────────────────
       - name: Build — APK release
@@ -603,12 +740,7 @@ jobs:
       - name: Vérifier l'APK release (taille, ZIP, entrées, signature)
         run: node scripts/verify-artifact.mjs /tmp/dist/Batibuild-release.apk
 
-      - name: Upload — Batibuild-release.apk
-        uses: actions/upload-artifact@v4
-        with:
-          name: Batibuild-release-apk
-          path: /tmp/dist/Batibuild-release.apk
-          if-no-files-found: error
+      # (Pas d'upload ici : publication groupée en fin de job.)
 
       # ── AAB RELEASE (Google Play) ──────────────────────────────────────────
       - name: Build — AAB release
@@ -631,18 +763,81 @@ jobs:
       - name: Vérifier l'AAB release (taille, ZIP, entrées)
         run: node scripts/verify-artifact.mjs /tmp/dist/Batibuild-release.aab --kind aab
 
-      - name: Upload — Batibuild-release.aab
-        uses: actions/upload-artifact@v4
+      # ══════════════════════════════════════════════════════════════════════
+      # PUBLICATION DES ARTEFACTS — UN SEUL UPLOAD, RÉTENTION COURTE
+      #
+      # Correction directe de :
+      #   Failed to CreateArtifact: Artifact storage quota has been hit.
+      #   · les 3 fichiers partent dans UN SEUL artefact (au lieu de 3 uploads
+      #     séparés) : moins d'entrées dans le stockage, aucune copie, un seul
+      #     téléchargement pour récupérer les 3 fichiers ;
+      #   · `retention-days` limite la conservation (5 jours par défaut) au lieu
+      #     de la rétention du dépôt ;
+      #   · seuls les APK/AAB de /tmp/dist sont envoyés — jamais node_modules,
+      #     les caches Gradle, les sorties intermédiaires, les symboles ni les
+      #     logs : c'est explicitement contrôlé juste avant l'upload ;
+      #   · `overwrite: false` + nom unique (version, versionCode, run).
+      # Le nettoyage des générations précédentes est fait AVANT le build par le
+      # job « cleanup-artifacts ».
+      # ══════════════════════════════════════════════════════════════════════
+      - name: Contrôler les fichiers à publier (aucun fichier parasite)
+        run: |
+          set -euo pipefail
+          for file in Batibuild-debug.apk Batibuild-release.apk Batibuild-release.aab; do
+            test -s "/tmp/dist/$file" || { echo "❌ /tmp/dist/$file manquant ou vide"; exit 1; }
+          done
+          UNEXPECTED=$(find /tmp/dist -maxdepth 1 -type f \
+            ! -name 'Batibuild-debug.apk' \
+            ! -name 'Batibuild-release.apk' \
+            ! -name 'Batibuild-release.aab' -print)
+          if [ -n "$UNEXPECTED" ]; then
+            echo "❌ Fichiers inattendus dans /tmp/dist (ils ne doivent PAS être publiés) :"
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+          echo "✅ Exactement 3 fichiers à publier, aucun fichier parasite :"
+          ls -lh /tmp/dist
+
+      - name: Upload — batibuild (APK debug + APK release + AAB release)
+        id: upload
+        uses: actions/upload-artifact@v7
         with:
-          name: Batibuild-release-aab
-          path: /tmp/dist/Batibuild-release.aab
+          name: ${{ steps.dist.outputs.label }}
+          path: |
+            /tmp/dist/Batibuild-debug.apk
+            /tmp/dist/Batibuild-release.apk
+            /tmp/dist/Batibuild-release.aab
           if-no-files-found: error
+          retention-days: ${{ steps.dist.outputs.retention }}
+          # APK/AAB déjà compressés (ZIP/JAR) : recompresser ne gagne rien et
+          # coûte du temps d'upload — 0 = stockage tel quel.
+          compression-level: 0
+          # Le nom contient version + versionCode + run : jamais d'écrasement.
+          overwrite: false
+
+      # Confirmation réelle de la publication (sinon le run doit échouer
+      # clairement au lieu de laisser croire que l'APK est téléchargeable).
+      - name: Vérifier la publication de l'artefact (API GitHub)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ARTIFACT_NAME: ${{ steps.dist.outputs.label }}
+        run: |
+          test -n "${{ steps.upload.outputs.artifact-id }}" || {
+            echo "❌ upload-artifact n'a retourné aucun artifact-id : rien n'a été publié."
+            exit 1
+          }
+          echo "artifact-id : ${{ steps.upload.outputs.artifact-id }}"
+          node scripts/artifact-storage.mjs verify
 
       # ── DIAGNOSTIC VISIBLE EN CAS D'ÉCHEC ──────────────────────────────────
       # Ne masque rien : le job reste rouge. Affiche simplement la cause réelle
       # dans une étape dédiée, lisible même depuis le téléphone.
-      - name: 🔍 Cause de l'échec (extrait des logs Gradle)
+      - name: 🔍 Cause de l'échec (extrait des logs Gradle / publication)
         if: failure()
+        # `steps.upload.outcome` distingue un échec de PUBLICATION (quota de
+        # stockage d'artefacts) d'un échec de COMPILATION Android.
+        env:
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
         run: |
           FOUND=0
           for log in /tmp/gradle-*.log; do
@@ -658,6 +853,23 @@ jobs:
           if [ "$FOUND" -eq 0 ]; then
             echo "Aucun log Gradle disponible : l'échec est survenu avant la compilation."
           fi
+
+          if [ "${UPLOAD_OUTCOME:-}" = "failure" ]; then
+            echo ""
+            echo "════════ ARTEFACTS : QUOTA DE STOCKAGE GITHUB ATTEINT ════════"
+            echo "L'erreur « Failed to CreateArtifact: Artifact storage quota has"
+            echo "been hit. » vient du STOCKAGE DES ARTEFACTS GitHub Actions, pas du"
+            echo "code Android ni de Gradle : la compilation ci-dessus a réussi."
+            echo ""
+            echo "À faire une seule fois, puis relancer :"
+            echo "  1. ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions"
+            echo "  2. supprimer les anciens artefacts (run → « Artifacts » → corbeille)"
+            echo "  3. relancer ce workflow : il publie UN SEUL artefact par build,"
+            echo "     conservé 5 jour(s) par défaut, et nettoie"
+            echo "     automatiquement les plus anciens au run suivant."
+            echo "══════════════════════════════════════════════════════════════"
+          fi
+
           echo "── Ressources au moment de l'échec ──"
           free -m | head -2
           df -h / | tail -1
@@ -690,5 +902,11 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "ABI compilées : \`$ARCHITECTURES\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Artefact unique** : \`${{ steps.dist.outputs.label }}\` — APK debug + APK release + AAB release, conservé **${{ steps.dist.outputs.retention }} jour(s)** (rétention limitée, anciennes générations nettoyées automatiquement)." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Téléchargement : [${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) → section « Artifacts »." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Téléphone branché en USB : \`adb install -r Batibuild-release.apk\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Si GitHub refuse la publication avec « Artifact storage quota has been hit », supprimez les anciens artefacts dans [${{ github.server_url }}/${{ github.repository }}/actions](${{ github.server_url }}/${{ github.repository }}/actions) puis relancez le workflow." >> "$GITHUB_STEP_SUMMARY"
           ls -lh /tmp/dist

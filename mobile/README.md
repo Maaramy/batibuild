@@ -318,12 +318,21 @@ Install deps → prebuild (si android/ absent) → Android SDK du projet
       ↓
 clé debug (assurée) → signingReport → assembleDebug · assembleRelease · bundleRelease
       ↓
-Artifacts : Batibuild-debug.apk · Batibuild-release.apk · Batibuild-release.aab
+Artifact : batibuild-v<version>-code<versionCode>-run<N>
+           (APK debug + APK release + AAB release — conservé 5 jours)
 ```
 
 Le **résumé du run** affiche la version réellement compilée (`1.3.2 — versionCode 12`),
-la taille de chaque fichier, les ABI compilées et la commande d'installation
-(`adb install -r Batibuild-release.apk`).
+le nom de l'artefact publié, la taille de chaque fichier, les ABI compilées et la
+commande d'installation (`adb install -r Batibuild-release.apk`).
+
+> **Quota d'artefacts** — l'erreur
+> `Failed to CreateArtifact: Artifact storage quota has been hit` vient du
+> stockage GitHub Actions, pas du code : les 3 fichiers sont publiés dans **un
+> seul artefact**, conservé **5 jours**, et un job **`cleanup-artifacts`**
+> supprime avant chaque build les anciens artefacts temporaires (jamais les
+> sources, le code ni les releases). Si le quota est déjà saturé, supprimez les
+> anciens artefacts dans *Actions → run → Artifacts* puis relancez le workflow.
 
 ### Déclencher
 
@@ -334,7 +343,13 @@ la taille de chaque fichier, les ABI compilées et la commande d'installation
 ### Récupérer l'APK
 
 Ouvrez le run ✅ → section **Artifacts** en bas de page → téléchargez
+`batibuild-v…-code…-run…` (archive contenant `Batibuild-debug.apk`,
+`Batibuild-release.apk` et `Batibuild-release.aab`) → extrayez
 `Batibuild-release.apk` → copiez-le sur le téléphone et installez-le.
+
+L'artefact reste téléchargeable **5 jours** (rétention configurable au lancement
+manuel via l'entrée `retention_days`) ; le build précédent est conservé jusqu'au
+suivant, les plus anciens sont nettoyés automatiquement avant chaque build.
 
 ### Ce que le workflow installe lui-même
 
@@ -375,6 +390,14 @@ n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
   limite la compilation C++ à 2 processus parallèles
   (`CMAKE_BUILD_PARALLEL_LEVEL=2`) : sans cela, les 2 ABI compilées en parallèle
   saturent la RAM et le noyau tue les compilateurs (`Killed`).
+- **Artefacts** : un seul artefact par build (nom unique : version, versionCode,
+  numéro de run), `retention-days` explicite, publication confirmée via l'API
+  GitHub, et nettoyage automatique des anciennes générations avant le build
+  (`mobile/scripts/artifact-storage.mjs`) — le quota de stockage d'artefacts ne
+  peut plus bloquer la publication d'un APK.
+- **Actions Node 24** : `checkout@v5`, `setup-node@v5`, `setup-java@v5`,
+  `cache@v6`, `upload-artifact@v7` (Node 20 a été retiré des runners GitHub) —
+  plus d'avertissement « Node.js 20 actions are deprecated ».
 - **Si un run échoue**, la cause réelle est extraite automatiquement par
   `mobile/scripts/ci-gradle.sh` (section `* What went wrong:`, tâches en échec,
   signatures OOM/disque/CMake) et publiée dans l'étape

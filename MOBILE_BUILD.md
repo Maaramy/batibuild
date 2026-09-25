@@ -51,7 +51,8 @@ GitHub Actions (ubuntu-latest)
         ↓
 Batibuild-debug.apk · Batibuild-release.apk · Batibuild-release.aab
         ↓
-Artifacts du run (téléchargeables — chacun VÉRIFIÉ : taille, ZIP, entrées, signature)
+UN artefact par run : batibuild-v<version>-code<versionCode>-run<N>
+(les 3 fichiers, chacun VÉRIFIÉ : taille, ZIP, entrées, signature — conservé 5 jours)
 ```
 
 **Déclencher le build :**
@@ -60,8 +61,9 @@ Artifacts du run (téléchargeables — chacun VÉRIFIÉ : taille, ZIP, entrées
 de `mobile/` change).
 2. Ou manuellement : **GitHub → onglet Actions → « Android — APK & AAB » →
    Run workflow** (choix des ABI et option « forcer prebuild »).
-3. Quand le run est vert (✅), ouvrez-le et téléchargez les 3 fichiers dans la
-   section **Artifacts** en bas de page.
+3. Quand le run est vert (✅), ouvrez-le et téléchargez l'artefact
+   `batibuild-v…-code…-run…` dans la section **Artifacts** en bas de page : il
+   contient les 3 fichiers (APK debug, APK release, AAB release).
 
 Installation sur le téléphone : copiez `Batibuild-release.apk` et ouvrez-le
 (aucun câble, aucun SDK requis).
@@ -87,6 +89,49 @@ platform 36 / build-tools 36.0.0 / NDK 27.1.12297006 / CMake 3.22.1, Gradle
 Wrapper 9.3.1, 2 ABI (`arm64-v8a,armeabi-v7a`) et compilation C++ limitée à
 2 processus parallèles (`CMAKE_BUILD_PARALLEL_LEVEL=2`) pour tenir dans la RAM
 du runner.
+
+### Quota d'artefacts GitHub — « Artifact storage quota has been hit »
+
+```
+Failed to CreateArtifact: Artifact storage quota has been hit.
+Unable to upload any new artifacts. Usage is recalculated every 6-12 hours.
+```
+
+Cette erreur ne vient **ni du code Android ni de Gradle** : elle vient du
+**stockage des artefacts GitHub Actions**, partagé par tous les runs du dépôt.
+Quand il est saturé, le build réussit mais les APK/AAB ne peuvent plus être
+publiés. Le workflow la traite à la source, sur trois plans :
+
+| Cause | Correction dans `.github/workflows/android.yml` |
+|---|---|
+| Trois uploads séparés par build | **UN seul artefact** contient l'APK debug, l'APK release et l'AAB release — aucune copie, un seul téléchargement |
+| Conservation jusqu'à 90 jours | `retention-days` (**5 jours** par défaut, réglable 1–90 au lancement manuel du workflow) |
+| Anciennes générations accumulées | Job **`cleanup-artifacts`** exécuté *avant* le build : supprime via l'API GitHub les artefacts expirés, ceux plus vieux que la rétention, et les anciennes générations `batibuild` — en conservant toujours **la plus récente** |
+
+Jamais supprimés par ce nettoyage : sources, code, historique Git, releases
+GitHub, artefacts du run en cours. Jamais publiés non plus : `node_modules`,
+caches Gradle, sorties intermédiaires ou logs — l'upload est précédé d'un
+contrôle qui n'accepte que les 3 fichiers attendus.
+
+> **Si le quota est DÉJÀ saturé**, les fichiers ne peuvent pas être publiés :
+> supprimez les anciens artefacts dans **GitHub → Actions → run → section
+> « Artifacts »** (corbeille), puis relancez le workflow. La suppression libère
+> l'espace de stockage courant ; les runs suivants s'en occupent ensuite tout
+> seuls. Le résumé du run affiche explicitement cette marche à suivre quand la
+> publication échoue pour cette raison.
+
+Après l'upload, le workflow **confirme la publication** en interrogeant l'API
+GitHub (artefact présent, taille > 0) et affiche l'état du stockage du dépôt :
+un artefact manquant fait échouer le run au lieu de laisser croire que l'APK est
+récupérable.
+
+Utilitaires locaux :
+
+```bash
+npm run android:artifacts:test      # vérifie la politique de nettoyage (hors ligne)
+npm run android:artifacts:cleanup   # supprime les anciens artefacts (GITHUB_TOKEN requis)
+npm run android:artifacts:verify    # confirme la publication de l'artefact du run
+```
 
 ### Clé de signature debug (à ne pas confondre avec le keystore Release)
 
@@ -130,8 +175,11 @@ fichier absent.
 | `npm run android:aab` | **AAB Release** → `mobile/build/Batibuild-release.aab` |
 | `npm run android:install` | Installe l'APK sur l'appareil branché en USB (`adb install`) |
 | `npm run android:clean` | `gradlew clean` (vide les sorties de build) |
-| `npm run android:preflight` | **Pré-vérifications seules** (dépendances, config Android, routes de la plateforme, assets, icônes, contrat WebView ↔ natif, TypeScript) — aucune compilation |
+| `npm run android:preflight` | **Pré-vérifications seules** (dépendances, config Android, routes de la plateforme, assets, icônes, contrat WebView ↔ natif, workflow CI / artefacts, TypeScript) — aucune compilation |
 | `npm run android:verify` | **Vérifie l'artefact** déjà généré (`build/Batibuild-release.apk`) : taille, structure ZIP, entrées obligatoires, signature |
+| `npm run android:artifacts:test` | **Politique de nettoyage des artefacts** (hors ligne, sans réseau) |
+| `npm run android:artifacts:cleanup` | Supprime les **anciens artefacts GitHub Actions** (quota) — nécessite `GITHUB_TOKEN` et `GITHUB_REPOSITORY` |
+| `npm run android:artifacts:verify` | Confirme que l'artefact du run a bien été **publié et n'est pas vide** |
 | `npm run android:prebuild` | Resynchronise `android/` depuis `app.json` |
 | `npm run signing:apply` | Réapplique la signature Release après un prebuild |
 | `npm run keystore:generate` | Crée un keystore Release local + `keystore.properties` |
@@ -343,6 +391,7 @@ partielle, jamais de fichier tronqué publié).
 | **Contrat WebView ↔ natif** | le type `batibuild:unread` est identique des deux côtés, `MessagingBadgeSync` est monté dans `src/main.tsx`, `api.messaging.unreadCount` existe, l'onglet « Message » est présent, **aucun libellé « ROI »** ne subsiste, « Rapport » et « Mes projets » sont bien déclarés |
 | **Assets / icônes** | fichiers de `mobile/assets/` non vides, assets référencés par `app.json` présents, composant `Logo` natif présent |
 | **Icônes lucide** | `FileDown`, `User`, `HardHat`, `LayoutDashboard`, `MessageSquare`, `Headset`, `Settings`, `CloudOff` réellement exportées par la version installée |
+| **Workflow CI** | `.github/workflows/android.yml` : **un seul** upload d'artefact par build, `retention-days` présent, nettoyage automatique des anciens artefacts (`artifact-storage.mjs cleanup`), aucun chemin d'upload trop large, actions en **runtime Node 24** |
 | **TypeScript** | `tsc --noEmit` du projet mobile (`SKIP_TYPECHECK=1` pour l'ignorer) |
 
 ### Corrections automatiques (avant d'échouer)

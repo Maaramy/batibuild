@@ -19,7 +19,9 @@
  *   5. contrat WebView ↔ natif (pastille de la Messagerie, compteur Convex) ;
  *   6. assets, icônes et fichiers statiques référencés ;
  *   7. icônes lucide réellement exportées par la version installée ;
- *   8. build TypeScript (tsc --noEmit) du projet mobile.
+ *   8. workflow CI : un seul artefact par build, rétention limitée, nettoyage
+ *      automatique des anciens artefacts, actions en runtime Node 24 ;
+ *   9. build TypeScript (tsc --noEmit) du projet mobile.
  *
  * Aucune écriture hors de `mobile/` : le script ne fait que lire, nettoyer des
  * fichiers temporaires et lancer `tsc`.
@@ -458,10 +460,100 @@ function checkIcons() {
   }
 }
 
-/* ── 8. Build TypeScript ─────────────────────────────────────────────────── */
+/* ── 8. Workflow CI — publication des artefacts ─────────────────────────── */
+
+/**
+ * Actions dont la version minimale tourne sur Node 24. Node.js 20 a été retiré
+ * des runners GitHub le 16/09/2026 : une version antérieure déclenche
+ * « Node.js 20 actions are deprecated » puis ne démarre plus du tout.
+ */
+const NODE24_MINIMUM = {
+  checkout: 5,
+  "setup-node": 5,
+  "setup-java": 5,
+  cache: 5,
+  "upload-artifact": 6,
+  "setup-android": 4,
+  "setup-bun": 2,
+};
+
+/**
+ * Vérifie la politique de publication du workflow Android. C'est ce contrôle qui
+ * empêche de revenir à la configuration qui saturait le quota d'artefacts :
+ * trois uploads séparés, sans rétention, sans nettoyage.
+ */
+function checkCiWorkflow() {
+  console.log("\n8. Workflow CI — publication des artefacts (quota GitHub)");
+  const workflow = join(repoRoot, ".github", "workflows", "android.yml");
+  const content = read(workflow);
+  if (!content) {
+    fail(".github/workflows/android.yml", "introuvable ou illisible");
+    return;
+  }
+
+  const uploads = content.match(/uses: actions\/upload-artifact@v\d+/g) ?? [];
+  if (uploads.length === 0) {
+    fail(
+      "workflow android",
+      "aucun « actions/upload-artifact » : les APK/AAB ne seraient pas téléchargeables",
+    );
+  } else if (uploads.length > 1) {
+    fail(
+      "workflow android",
+      `${uploads.length} uploads séparés : les APK/AAB doivent partir dans UN SEUL artefact par build`,
+    );
+  } else {
+    ok("un seul artefact publié par build (APK debug + APK release + AAB release)");
+  }
+
+  if (!/retention-days:/.test(content)) {
+    fail(
+      "workflow android",
+      "aucune « retention-days » : les artefacts s'accumuleraient jusqu'à la rétention du dépôt",
+    );
+  } else {
+    ok("rétention d'artefact explicitement limitée (pas de conservation indéfinie)");
+  }
+
+  if (!/artifact-storage\.mjs cleanup/.test(content)) {
+    fail(
+      "workflow android",
+      "nettoyage des anciens artefacts absent (script artifact-storage.mjs cleanup)",
+    );
+  } else {
+    ok("nettoyage automatique des anciens artefacts avant le build");
+  }
+
+  if (/path:\s*(\*\*|node_modules)|path:\s*\|\s*\n\s*\*\*/.test(content)) {
+    fail(
+      "workflow android",
+      "chemin d'upload trop large : node_modules, caches ou sorties intermédiaires seraient publiés",
+    );
+  } else {
+    ok("seuls les APK/AAB sont publiés (aucun fichier inutile)");
+  }
+
+  const outdated = [];
+  for (const match of content.matchAll(/uses:\s*([^@\s]+)@v(\d+)/g)) {
+    const [, action, version] = match;
+    const short = action.replace(/^.*\//, "");
+    const minimum = NODE24_MINIMUM[short];
+    if (minimum === undefined) continue;
+    if (Number(version) < minimum) {
+      outdated.push(`${action}@v${version} (minimum v${minimum} pour Node 24)`);
+    }
+  }
+  if (outdated.length) {
+    fail("actions Node 20", outdated.join(", "));
+  } else {
+    ok("toutes les actions tournent sur Node 24 (aucun avertissement « Node.js 20 »)");
+  }
+}
+
+/* ── 9. Build TypeScript ─────────────────────────────────────────────────── */
 
 function checkTypeScript() {
-  console.log("\n8. Build TypeScript (tsc --noEmit)");
+  console.log("\n9. Build TypeScript (tsc --noEmit)");
   if (process.env.SKIP_TYPECHECK === "1") {
     warn("contrôle ignoré (SKIP_TYPECHECK=1)");
     return;
@@ -503,6 +595,7 @@ export function runPreflight({ repair = false } = {}) {
   checkNativeBridge();
   checkAssets();
   checkIcons();
+  checkCiWorkflow();
   checkTypeScript();
 
   console.log("\n════════════════════════════════════════════════════════════");

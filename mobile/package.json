@@ -17,6 +17,9 @@
     "android:clean": "node scripts/build-android.mjs clean",
     "android:preflight": "node scripts/preflight-android.mjs --repair",
     "android:verify": "node scripts/verify-artifact.mjs build/Batibuild-release.apk",
+    "android:artifacts:cleanup": "node scripts/artifact-storage.mjs cleanup",
+    "android:artifacts:verify": "node scripts/artifact-storage.mjs verify",
+    "android:artifacts:test": "node scripts/artifact-storage.mjs --self-test",
     "keystore:generate": "node scripts/generate-keystore.mjs",
     "keystore:debug": "node scripts/ensure-debug-keystore.mjs",
     "signing:apply": "node scripts/apply-signing.mjs"
