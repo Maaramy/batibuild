@@ -6,7 +6,12 @@ import { SEO } from "@/components/SEO";
 import { MessagingBadgeSync } from "@/components/MessagingBadgeSync";
 import { useSessionTracking } from "@/hooks/use-session-tracking";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { ConvexReactClient, useConvexAuth } from "convex/react";
+import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import {
+  DEFAULT_DASHBOARD,
+  dashboardPathForRole,
+} from "@/lib/profileDashboard";
 import { ThemeProvider } from "next-themes";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
@@ -137,15 +142,25 @@ function SessionTracker() {
 }
 
 /**
- * Accueil public. Règle de routage centralisée : un utilisateur déjà authentifié
- * (tous profils confondus — Client, Client Pro, Expert, Fournisseur,
- * Administrateur…) est renvoyé directement vers le Dashboard, la page d'accueil
- * authentifiée par défaut, sans repasser par la landing page ni par le login.
+ * Accueil public. Un utilisateur déjà authentifié est renvoyé directement vers le
+ * dashboard de SON type de profil (Fournisseur → /dashboard/supplier, Expert →
+ * /dashboard/expert, Client Pro → /dashboard), sans repasser par la landing page
+ * ni par le login.
  */
 function HomeRoute() {
   const { isAuthenticated } = useConvexAuth();
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
-  return <Landing />;
+  // `skip` pour les visiteurs anonymes : la landing page reste entièrement
+  // publique et ne déclenche aucune souscription inutile.
+  const user = useQuery(api.users.currentUser, isAuthenticated ? {} : "skip");
+  if (!isAuthenticated) return <Landing />;
+  // Le temps que le type de profil arrive, on ne redirige pas trop tôt.
+  if (user === undefined) return <RouteLoading />;
+  return (
+    <Navigate
+      to={dashboardPathForRole(user?.userRole) ?? DEFAULT_DASHBOARD}
+      replace
+    />
+  );
 }
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);

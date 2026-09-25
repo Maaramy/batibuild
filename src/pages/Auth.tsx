@@ -30,28 +30,34 @@ import {
   Store,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Suspense, useEffect, useState, useRef } from "react";
+import { Suspense, useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import {
+  resolvePostAuthDestination,
+  type UserRole,
+} from "@/lib/profileDashboard";
 import { toast } from "sonner";
 
 interface AuthProps {
   redirectAfterAuth?: string;
 }
 
-/**
- * Destination unique après authentification : le Dashboard.
- * Règle de routage centralisée — quel que soit le profil (Client, Client Pro,
- * Expert, Fournisseur, Administrateur…) et quelle que soit l'URL d'origine
- * (`returnTo`), un utilisateur authentifié atterrit toujours sur /dashboard.
- */
-const POST_AUTH_REDIRECT = "/dashboard";
-
-function getRedirect(_returnTo: string | null, _fallback = POST_AUTH_REDIRECT) {
-  return POST_AUTH_REDIRECT;
-}
+// ============================================================================
+// Destination après inscription / connexion
+//
+// Règle de routage centralisée (source unique : `@/lib/profileDashboard`) :
+//   Fournisseur → /dashboard/supplier
+//   Expert      → /dashboard/expert
+//   Client Pro  → /dashboard
+//
+// Une page protégée précise demandée avant l'authentification
+// (`/auth?returnTo=/dashboard/messages`) reste prioritaire ; un `returnTo` qui
+// vise un dashboard générique est ignoré au profit du type de profil, afin que
+// le dashboard affiché corresponde TOUJOURS au profil du compte.
+// ============================================================================
 
 // Récupère le message d'erreur réel renvoyé par le serveur (AuthError de
 // Convex Auth, qui propage le message de l'action d'envoi de code) au lieu
@@ -309,7 +315,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirect = getRedirect(searchParams.get("returnTo"), redirectAfterAuth);
+  // Chemin demandé avant l'authentification (posé par `RequireAuth`).
+  const returnTo = searchParams.get("returnTo");
 
   const [tab, setTab] = useState<"login" | "register">("login");
   const [step, setStep] = useState<"email" | { email: string }>("email");
@@ -335,45 +342,84 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const updateProfile = useMutation(api.users.updateProfile);
   const setUserRole = useMutation(api.users.setUserRole);
   const resetPasswordMutation = useMutation(api.users.resetPassword);
-  const pendingProfileRef = useRef<{name: string; phone: string; userRole: string} | null>(null);
+  const pendingProfileRef = useRef<{ name: string; phone: string; userRole: UserRole } | null>(null);
   const profileSavingRef = useRef(false);
+  // Une seule redirection par authentification (évite tout va-et-vient).
+  const postAuthRedirectedRef = useRef(false);
   // Keeps the password sign-in params while the user validates their e-mail by OTP
   const pendingPasswordRef = useRef<FormData | null>(null);
 
-  // Save profile after auth is confirmed (avoids race condition with signIn)
+  // ── Après inscription / connexion ──
+  // Une seule règle, appliquée dès que la session est confirmée :
+  //   1. inscription → le type de profil choisi est ENREGISTRÉ sur le compte
+  //      (`users.userRole`) AVANT toute redirection ;
+  //   2. redirection → dashboard du type de profil, ou page protégée demandée
+  //      via `returnTo`.
+  // La sauvegarde du profil a lieu ici (et non dans les gestionnaires de
+  // formulaire) : `isAuthenticated` est alors garanti, ce qui supprime toute
+  // course avec `signIn`.
+  const currentUser = useQuery(api.users.currentUser);
+
+  const goToDashboard = useCallback(
+    (role: unknown) => {
+      if (postAuthRedirectedRef.current) return;
+      postAuthRedirectedRef.current = true;
+      navigate(
+        resolvePostAuthDestination({
+          returnTo,
+          role,
+          fallback: redirectAfterAuth,
+        }),
+        { replace: true },
+      );
+    },
+    [navigate, returnTo, redirectAfterAuth],
+  );
+
   useEffect(() => {
-    if (isAuthenticated && pendingProfileRef.current && !profileSavingRef.current) {
-      const data = pendingProfileRef.current;
+    // `currentUser` indéfini = chargement ; `null` = session pas encore visible
+    // côté serveur : dans les deux cas on attend, l'effet se rejoue ensuite.
+    if (authLoading || !isAuthenticated || !currentUser) return;
+    // Enregistrement d'inscription en cours : il redirige lui-même.
+    if (profileSavingRef.current) return;
+
+    const pending = pendingProfileRef.current;
+    if (pending) {
       pendingProfileRef.current = null;
       profileSavingRef.current = true;
 
-      (async () => {
+      void (async () => {
         try {
-          await updateProfile({ name: data.name || undefined, phone: data.phone || undefined });
-          // Always persist the userRole so admin panel shows the registration choice
-          await setUserRole({ userRole: data.userRole as any });
+          await updateProfile({
+            name: pending.name || undefined,
+            phone: pending.phone || undefined,
+          });
+          // Le type de profil est toujours persisté : l'administration
+          // l'affiche et la redirection s'appuie sur la valeur enregistrée.
+          await setUserRole({ userRole: pending.userRole });
+          goToDashboard(pending.userRole);
         } catch (e) {
-          // Re-store pending data so the user can retry on next navigation
-          pendingProfileRef.current = data;
+          // Données conservées : nouvelle tentative à la prochaine navigation.
+          pendingProfileRef.current = pending;
           toast.error("Erreur lors de la sauvegarde du profil. Veuillez réessayer.");
         } finally {
           profileSavingRef.current = false;
         }
       })();
+      return;
     }
-  }, [isAuthenticated, updateProfile, setUserRole]);
 
-  // Un utilisateur déjà authentifié qui ouvre la page de connexion est
-  // immédiatement renvoyé vers le Dashboard — sans repasser par le formulaire
-  // et sans redirection liée au rôle.
-  const currentUser = useQuery(api.users.currentUser);
-  useEffect(() => {
-    if (!authLoading && isAuthenticated && currentUser !== undefined) {
-      // If user just registered (pendingProfileRef was set), redirect handled in submit handlers
-      if (pendingProfileRef.current) return;
-      navigate(redirect);
-    }
-  }, [authLoading, isAuthenticated, currentUser, navigate, redirect]);
+    // Connexion (ou utilisateur déjà authentifié qui ouvre /auth) : le type de
+    // profil enregistré côté serveur détermine le dashboard.
+    goToDashboard(currentUser.userRole);
+  }, [
+    authLoading,
+    isAuthenticated,
+    currentUser,
+    goToDashboard,
+    updateProfile,
+    setUserRole,
+  ]);
 
   const resetError = () => setError(null);
 
@@ -416,8 +462,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         // Quick email-OTP sign in
         await signIn("email-otp", fd);
       }
-      // Règle centralisée : après authentification, toujours le Dashboard
-      navigate(redirect);
+      // Redirection gérée par l'effet d'authentification : il attend que le
+      // type de profil (choix d'inscription) soit enregistré.
     } catch (e) { setError(authErrorMessage(e, "Le code est incorrect.")); setOtp(""); }
     setIsLoading(false);
   };
@@ -457,8 +503,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         setIsLoading(false);
         return;
       }
-      // Règle centralisée : après connexion, toujours le Dashboard
-      navigate(redirect);
+      // Redirection gérée par l'effet d'authentification, une fois le type de
+      // profil enregistré côté serveur disponible.
     } catch (e) { setError(authErrorMessage(e, "Email ou mot de passe incorrect.")); }
     setIsLoading(false);
   };
@@ -493,8 +539,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         setIsLoading(false);
         return;
       }
-      // Règle centralisée : après inscription, toujours le Dashboard
-      navigate(redirect);
+      // Le type de profil choisi est enregistré puis la redirection vers le
+      // dashboard correspondant est déclenchée par l'effet d'authentification.
     }
     catch (e) { setError(authErrorMessage(e, "Erreur lors de l'inscription.")); }
     setIsLoading(false);
