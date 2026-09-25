@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { api } from "./_generated/api.js";
@@ -455,5 +455,98 @@ describe("quoteResponses — nature du message & notification du client", () => 
     const list = await supplierT.query(api.quoteResponses.getBySupplier, {});
     expect(list).toHaveLength(1);
     expect(list[0].quoteRequestId).toBe(quoteId);
+  });
+});
+
+// ============================================================================
+// E-mail automatique au client (modèle « Devis reçu »)
+// ============================================================================
+
+/** Envois d'e-mails enregistrés par le moteur (config SMTP absente en test). */
+async function emailHistoryRows(t: ReturnType<typeof convexTest>) {
+  return t.run(async (ctx) => ctx.db.query("emailHistory").collect());
+}
+
+describe("quoteResponses — e-mail automatique au client", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    // Les notifications e-mail passent par le scheduler Convex : les tests les
+    // exécutent explicitement avec des minuteries simulées.
+    vi.useFakeTimers();
+    t = convexTest(schema, modules);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const flushEmails = () => t.finishAllScheduledFunctions(vi.runAllTimers);
+
+  async function seed() {
+    const supplierUserId = await createTestUser(t, {
+      name: "Supplier",
+      email: "supplier@test.com",
+    });
+    const supplierId = await createTestSupplierProfile(t, supplierUserId);
+    const buyerId = await createTestUser(t, {
+      name: "Ahmed Ben Salah",
+      email: "buyer@test.com",
+    });
+    const quoteId = await createTestQuote(t, buyerId, supplierId as string);
+    return { supplierUserId, supplierId, buyerId, quoteId };
+  }
+
+  it("envoie le modèle « Devis reçu » au client pour un devis chiffré", async () => {
+    const { supplierUserId, quoteId } = await seed();
+
+    const responseId = await asUser(t, supplierUserId).mutation(
+      api.quoteResponses.sendResponse,
+      {
+        quoteRequestId: quoteId,
+        message: "Voici mon devis",
+        kind: "quote",
+        totalAmount: 12500,
+      },
+    );
+
+    await flushEmails();
+
+    const history = await emailHistoryRows(t);
+    expect(history).toHaveLength(1);
+    // L'adresse de contact saisie avec la demande prime sur celle du compte.
+    expect(history[0].to).toBe("user@test.com");
+    expect(history[0].templateKey).toBe("quote_received");
+    expect(history[0].dedupeKey).toBe(`quote_received:${responseId}`);
+
+    // Variables transmises au modèle personnalisable (Espace admin → E-mails).
+    const vars = JSON.parse(history[0].payloadJson!).vars;
+    expect(vars.entreprise).toBe("Test Supplier");
+    expect(vars.nomProjet).toBe("ciment");
+    expect(vars.montantDevis).toMatch(/12\s500\sTND/);
+    expect(vars.message).toBe("Voici mon devis");
+    expect(vars.lienConnexion).toBe(
+      `/dashboard/messages?tab=quotes&request=${quoteId}`,
+    );
+  });
+
+  it("n'envoie aucun e-mail pour un refus ou une demande de précisions", async () => {
+    const { supplierUserId, quoteId } = await seed();
+    const supplierT = asUser(t, supplierUserId);
+
+    await supplierT.mutation(api.quoteResponses.sendResponse, {
+      quoteRequestId: quoteId,
+      message: "Nous ne pouvons pas donner suite",
+      kind: "refusal",
+    });
+    await supplierT.mutation(api.quoteResponses.sendResponse, {
+      quoteRequestId: quoteId,
+      message: "Pouvez-vous préciser la surface ?",
+      kind: "clarification",
+    });
+
+    await flushEmails();
+
+    expect(await emailHistoryRows(t)).toHaveLength(0);
   });
 });

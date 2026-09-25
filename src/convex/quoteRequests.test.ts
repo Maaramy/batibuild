@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { api } from "./_generated/api.js";
@@ -580,5 +580,99 @@ describe("quoteRequests — notifications de la messagerie", () => {
     );
     expect(supplierNotifications).toHaveLength(1);
     expect(supplierNotifications[0].title).toBe("Devis accepté");
+  });
+});
+
+// ============================================================================
+// E-mail automatique au fournisseur (modèle « Demande de devis »)
+// ============================================================================
+
+/** Envois d'e-mails enregistrés par le moteur (config SMTP absente en test). */
+async function emailHistoryRows(t: ReturnType<typeof convexTest>) {
+  return t.run(async (ctx) => ctx.db.query("emailHistory").collect());
+}
+
+describe("quoteRequests — e-mail automatique au fournisseur", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    // Les notifications e-mail passent par le scheduler Convex : les tests les
+    // exécutent explicitement avec des minuteries simulées.
+    vi.useFakeTimers();
+    t = convexTest(schema, modules);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const flushEmails = () => t.finishAllScheduledFunctions(vi.runAllTimers);
+
+  async function seed() {
+    const supplierUserId = await createTestUser(t, {
+      name: "Supplier",
+      email: "supplier-user@test.com",
+    });
+    const supplierId = await createTestSupplierProfile(t, supplierUserId);
+    const buyerId = await createTestUser(t, {
+      name: "Ahmed Ben Salah",
+      email: "ahmed@test.com",
+      phone: "+216 98 123 456",
+    });
+    return { supplierUserId, supplierId, buyerId };
+  }
+
+  it("envoie le modèle « Demande de devis » au fournisseur dès la création", async () => {
+    const { supplierId, buyerId } = await seed();
+
+    const quoteId = await asUser(t, buyerId).mutation(api.quoteRequests.create, {
+      supplierId: supplierId as any,
+      motif: "comparaison_prix",
+      projectName: "Villa Sousse",
+      category: "ciment",
+      materials: [{ name: "Ciment", quantity: 10, unit: "sac" }],
+    });
+
+    await flushEmails();
+
+    const history = await emailHistoryRows(t);
+    expect(history).toHaveLength(1);
+    // L'e-mail part vers l'adresse du profil fournisseur.
+    expect(history[0].to).toBe("supplier@test.com");
+    expect(history[0].templateKey).toBe("quote_request_sent");
+    expect(history[0].dedupeKey).toBe(`quote_request_sent:${quoteId}`);
+
+    // Variables transmises au modèle personnalisable (Espace admin → E-mails).
+    const vars = JSON.parse(history[0].payloadJson!).vars;
+    expect(vars.prenom).toBe("Ahmed");
+    expect(vars.nom).toBe("Ben Salah");
+    expect(vars.entreprise).toBe("Test Supplier");
+    expect(vars.nomProjet).toBe("Villa Sousse");
+    expect(vars.typeProjet).toBe("ciment");
+    expect(vars.detailsDemande).toContain("Comparaison des prix");
+    expect(vars.detailsDemande).toContain("Ciment × 10 sac");
+    expect(vars.detailsDemande).toContain("+216 98 123 456");
+    // Le lien pointe directement sur la conversation, pas sur l'accueil.
+    expect(vars.lienConnexion).toBe(
+      `/dashboard/messages?tab=requests&request=${quoteId}`,
+    );
+  });
+
+  it("respecte le refus de notifications e-mail du fournisseur", async () => {
+    const { supplierUserId, supplierId, buyerId } = await seed();
+    await t.run(async (ctx) =>
+      ctx.db.patch(supplierUserId as any, { emailNotifications: false }),
+    );
+
+    await asUser(t, buyerId).mutation(api.quoteRequests.create, {
+      supplierId: supplierId as any,
+      motif: "comparaison_prix",
+      category: "ciment",
+      materials: [{ name: "Ciment", quantity: 1, unit: "sac" }],
+    });
+
+    await flushEmails();
+
+    expect(await emailHistoryRows(t)).toHaveLength(0);
   });
 });

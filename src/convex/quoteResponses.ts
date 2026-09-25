@@ -6,6 +6,7 @@ import {
   quoteMessagingLink,
   notifyQuoteParty,
 } from "./quoteRequests";
+import { scheduleEmailEvent, splitName } from "./emailNotifications";
 
 // ============================================================================
 // RÉPONSES AUX DEMANDES DE DEVIS — messages de la conversation
@@ -19,6 +20,10 @@ import {
 //
 // Les réponses historiques (sans `kind`) sont considérées comme des devis :
 // aucune donnée n'est modifiée ni supprimée.
+//
+// Un devis chiffré déclenche en plus un e-mail automatique au client (modèle
+// « Devis reçu ») : il est prévenu même sans être connecté. Le refus et la
+// demande de précisions restent couverts par la notification de la messagerie.
 // ============================================================================
 
 export type QuoteResponseKind = "quote" | "refusal" | "clarification";
@@ -113,6 +118,38 @@ export const sendResponse = mutation({
             : `${profile.companyName} a répondu à votre demande « ${label} ».`,
       link: quoteMessagingLink(CLIENT_QUOTE_LINK, args.quoteRequestId),
     });
+
+    // E-mail automatique au client pour un devis chiffré (modèle personnalisable
+    // dans l'espace admin → E-mails).
+    if (kind === "quote") {
+      const clientUser = await ctx.db.get(quote.userId);
+      const to = quote.userEmail || clientUser?.email;
+      if (to && clientUser?.emailNotifications !== false) {
+        const { nom, prenom } = splitName(clientUser?.name || quote.userName);
+        await scheduleEmailEvent(ctx, {
+          to,
+          recipientName: clientUser?.name || quote.userName,
+          templateKey: "quote_received",
+          vars: {
+            nom,
+            prenom,
+            entreprise: profile.companyName,
+            nomProjet: quote.projectName || quote.category,
+            typeProjet: quote.category,
+            montantDevis:
+              typeof args.totalAmount === "number"
+                ? `${args.totalAmount.toLocaleString("fr-FR")} TND`
+                : "—",
+            message: args.message,
+            lienConnexion: quoteMessagingLink(
+              CLIENT_QUOTE_LINK,
+              args.quoteRequestId,
+            ),
+          },
+          dedupeKey: `quote_received:${responseId}`,
+        });
+      }
+    }
 
     return responseId;
   },

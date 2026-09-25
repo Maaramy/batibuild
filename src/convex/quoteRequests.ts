@@ -4,7 +4,8 @@ import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 import { validateQuoteAttachment } from "../lib/quoteAttachments";
-import { QUOTE_MOTIF_OTHER } from "../lib/quoteMotifs";
+import { QUOTE_MOTIF_OTHER, resolveQuoteMotif } from "../lib/quoteMotifs";
+import { scheduleEmailEvent, splitName } from "./emailNotifications";
 
 // ============================================================================
 // DEMANDES DE DEVIS FOURNISSEUR — source unique
@@ -19,6 +20,9 @@ import { QUOTE_MOTIF_OTHER } from "../lib/quoteMotifs";
 // Notifications : à chaque étape, la partie concernée — jamais l'auteur de
 // l'action — reçoit une notification du centre de notifications, avec un lien
 // profond vers la conversation exacte.
+//
+// Le fournisseur reçoit en plus un e-mail automatique (modèle « Demande de
+// devis ») : il est prévenu même lorsqu'il n'est pas connecté à la plateforme.
 // ============================================================================
 
 /** Lien vers la messagerie, onglet adapté au destinataire. */
@@ -28,6 +32,31 @@ export const CLIENT_QUOTE_LINK = "/dashboard/messages?tab=quotes";
 /** Lien profond vers une demande précise (`?request=<id>`). */
 export function quoteMessagingLink(base: string, requestId?: string): string {
   return requestId ? `${base}&request=${requestId}` : base;
+}
+
+/** Coordonnées du client, regroupées pour les modèles d'e-mail. */
+function clientContact(phone?: string, email?: string): string {
+  return [phone, email].filter(Boolean).join(" · ") || "—";
+}
+
+/**
+ * Résumé lisible d'une demande (motif + matériaux) : alimente la variable
+ * `{{DétailsDemande}}` du modèle d'e-mail envoyé au fournisseur.
+ */
+export function quoteRequestSummary(request: {
+  motif?: string;
+  motifOther?: string;
+  materials: { name: string; quantity: number; unit: string }[];
+}): string {
+  const parts: string[] = [];
+  const motif = resolveQuoteMotif(request.motif, request.motifOther);
+  if (motif) parts.push(motif);
+  if (request.materials.length > 0) {
+    parts.push(
+      request.materials.map((m) => `${m.name} × ${m.quantity} ${m.unit}`).join(", "),
+    );
+  }
+  return parts.join(" · ") || "—";
 }
 
 /** Statuts possibles d'une demande (identique au schéma). */
@@ -193,7 +222,7 @@ export const create = mutation({
 
     // Notifie le fournisseur : la demande apparaît immédiatement dans sa
     // messagerie (onglet « Demandes de devis ») avec un lien profond.
-    const label = args.projectName || args.category;
+    const messagingLink = quoteMessagingLink(SUPPLIER_QUOTE_LINK, quoteId);
     await notifyQuoteParty(ctx, {
       userId: supplier.userId,
       type: "quote_request",
@@ -201,8 +230,32 @@ export const create = mutation({
       message: `${user.name || "Un client"} vous a envoyé une demande de devis${
         args.projectName ? ` pour « ${args.projectName} »` : ""
       }.`,
-      link: quoteMessagingLink(SUPPLIER_QUOTE_LINK, quoteId),
+      link: messagingLink,
     });
+
+    // E-mail automatique au fournisseur (modèle personnalisable dans l'espace
+    // admin → E-mails). Le lien pointe directement sur la conversation.
+    const supplierUser = await ctx.db.get(supplier.userId);
+    const to = supplier.email || supplierUser?.email;
+    if (to && supplierUser?.emailNotifications !== false) {
+      const { nom, prenom } = splitName(user.name);
+      await scheduleEmailEvent(ctx, {
+        to,
+        recipientName: supplier.companyName,
+        templateKey: "quote_request_sent",
+        vars: {
+          nom,
+          prenom,
+          nomEntreprise: supplier.companyName,
+          entreprise: supplier.companyName,
+          nomProjet: args.projectName || args.category,
+          typeProjet: args.category,
+          detailsDemande: `${quoteRequestSummary(args)} · ${clientContact(user.phone, user.email)}`,
+          lienConnexion: messagingLink,
+        },
+        dedupeKey: `quote_request_sent:${quoteId}`,
+      });
+    }
 
     return quoteId;
   },
