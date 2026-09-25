@@ -280,7 +280,8 @@ Aucun service cloud de compilation n'est utilisé.
 | Nom de l'application | batibuild |
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
-| Version | **1.3.1** — `versionCode 11` (Android), `buildNumber 3` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Version | **1.3.2** — `versionCode 12` (Android), `buildNumber 3` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Contenu de la 1.3.2 | **Régénération complète de l'application Android** : le projet natif `android/` est reconstruit depuis `app.json` (`expo prebuild`) — `versionCode 12`, `versionName 1.3.2`, manifest et icônes resynchronisés — puis la clé debug est assurée et la signature Release réappliquée. Une seule commande régénère tout de bout en bout : `PREBUILD=1 npm run android:apk` (projet natif → signature → pré-vérifications → Gradle → vérification de l'artefact). |
 | Contenu de la 1.3.1 | **Menu mobile** : l'onglet « ROI » est remplacé par « **Rapport** » (icône `FileDown`, page existante **Rapports PDF** `/dashboard/reports`) ; « Projets » devient « **Mes projets** » (`/dashboard/projects`, uniquement les projets de l'utilisateur connecté) ; la pastille rouge de « Message » reste alimentée par le serveur (temps réel, « 99+ »). **Build Android renforcé** : pré-vérifications obligatoires (`npm run android:preflight`) et vérification de l'artefact (`npm run android:verify`) — aucune APK vide, tronquée, incomplète ou non signée ne peut plus être publiée (bandeaux `BUILD SUCCESS` / `BUILD FAILED`). |
 | Contenu de la 1.3.0 | **Retour de la barre de navigation inférieure** : le menu horizontal de l'en-tête est supprimé et remplacé par une **barre de navigation fixe en bas de l'écran** (`BottomNav.tsx`) — Profile · Projets · Home · ROI · Message, mêmes routes et mêmes icônes, élément actif clairement identifié (teinte de marque + indicateur émeraude), safe area basse gérée, onglets de largeur égale (aucun débordement). L'en-tête natif est réduit au nécessaire (marque, Support, Paramètres) et la barre ne recouvre jamais le contenu de la page. |
 | Contenu de la 1.2.0 | *(remplacé en 1.3.0)* Menu de navigation horizontal scrollable dans l'en-tête, en remplacement de la barre du bas. |
@@ -320,7 +321,7 @@ clé debug (assurée) → signingReport → assembleDebug · assembleRelease · 
 Artifacts : Batibuild-debug.apk · Batibuild-release.apk · Batibuild-release.aab
 ```
 
-Le **résumé du run** affiche la version réellement compilée (`1.3.0 — versionCode 10`),
+Le **résumé du run** affiche la version réellement compilée (`1.3.2 — versionCode 12`),
 la taille de chaque fichier, les ABI compilées et la commande d'installation
 (`adb install -r Batibuild-release.apk`).
 

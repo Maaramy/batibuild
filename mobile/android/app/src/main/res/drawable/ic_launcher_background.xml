@@ -1,5 +1,6 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-  <!-- Fond de l'icône du lanceur : vert de marque (inchangé). On ne référence
-       plus @color/splashscreen_background, qui est désormais blanc. -->
-  <item android:drawable="@color/iconBackground"/>
+  <item android:drawable="@color/splashscreen_background"/>
+  <item>
+    <bitmap android:gravity="center" android:src="@drawable/splashscreen_logo"/>
+  </item>
 </layer-list>

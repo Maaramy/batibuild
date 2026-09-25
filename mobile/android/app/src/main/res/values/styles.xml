@@ -4,9 +4,6 @@
     <item name="colorPrimary">@color/colorPrimary</item>
     <item name="android:statusBarColor">@android:color/transparent</item>
     <item name="android:navigationBarColor">@android:color/transparent</item>
-    <!-- Fond de fenêtre BLANC : aucun flash sombre entre le démarrage natif et
-         l'écran de chargement de l'application. -->
-    <item name="android:windowBackground">@color/splashscreen_background</item>
   </style>
   <style name="Theme.App.SplashScreen" parent="Theme.SplashScreen">
     <item name="windowSplashScreenBackground">@color/splashscreen_background</item>

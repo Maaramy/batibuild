@@ -119,6 +119,14 @@ npm run android:prebuild   # resynchronise android/
 npm run signing:apply      # réapplique la signature Release (idempotent)
 ```
 
+Pour **régénérer l'application Android de bout en bout** en une seule commande
+(projet natif → clé debug → signature Release → pré-vérifications → Gradle →
+vérification de l'artefact) :
+
+```bash
+PREBUILD=1 npm run android:apk   # → mobile/build/Batibuild-release.apk
+```
+
 ## 7. Environnement d'exécution
 
 L'URL de la plateforme est définie **une seule fois** dans
