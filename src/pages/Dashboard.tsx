@@ -19,6 +19,11 @@ import { MySubscriptionCard } from "@/components/MySubscriptionCard";
 import { AnnouncementCarousel } from "@/components/announcements/AnnouncementCarousel";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import {
+  MessagingIconWithBadge,
+  UnreadBadge,
+  useMessagingUnread,
+} from "@/components/MessagingBadge";
 import { useQuery, useMutation } from "convex/react";
 import {
   LayoutDashboard,
@@ -189,10 +194,11 @@ export default function Dashboard() {
   );
   const clientUnread = (supplierResponsesUnread ?? 0) + (expertResponsesUnread ?? 0);
   // ── Badge « Messagerie » : SOURCE UNIQUE (même requête que la pastille de
-  // l'application Android). Elle agrège les réponses reçues côté client et les
-  // demandes / rendez-vous / urgences reçus côté professionnel, à partir des
-  // données du serveur — aucune logique dupliquée entre le web et le mobile. ──
-  const messagingUnread = useQuery(api.messaging.unreadCount);
+  // l'application Android, via `useMessagingUnread`). Elle agrège les réponses
+  // reçues côté client et les demandes / rendez-vous / urgences reçus côté
+  // professionnel, à partir des données du serveur — aucune logique dupliquée
+  // entre le web, le mobile et les en-têtes des espaces professionnels. ──
+  const messagingUnread = useMessagingUnread();
   // Demandes non consultées qui ne passent pas par le centre de notifications
   // (les rendez-vous et urgences, eux, y sont déjà notifiés : pas de double compte).
   const totalUnread = (expertUnread ?? 0) + clientUnread;
@@ -340,7 +346,9 @@ export default function Dashboard() {
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
             { icon: FileDown, label: "Rapports PDF", onClick: () => { navigate("/dashboard/reports"); setMobileSidebarOpen(false); } },
-            { icon: MessageSquare, label: "Messagerie", badge: messagingUnread ?? 0, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
+            // Sa pastille est posée sur l'icône (entrée `messaging`) : un seul
+            // badge par entrée, jamais de doublon en fin de ligne.
+            { icon: MessageSquare, label: "Messagerie", messaging: true, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
             { icon: Headset, label: "Support", badge: supportUnread, onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
@@ -354,16 +362,19 @@ export default function Dashboard() {
                 : 'isSubItem' in item && item.isSubItem ? "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}>
-              {/* Un seul badge par entrée : la pastille posée sur l'icône faisait
-                  doublon avec le compteur de fin de ligne (visible sur « Messagerie »). */}
+              {/* Un seul badge par entrée : « Messagerie » porte sa pastille rouge
+                  directement sur l'icône (source centralisée), les autres compteurs
+                  restent en fin de ligne — même forme, même plafond « 99+ ». */}
               <div className="shrink-0">
-                {'icon' in item && <item.icon className="h-4 w-4" />}
+                {'messaging' in item && item.messaging ? (
+                  <MessagingIconWithBadge unread={messagingUnread} className="h-4 w-4" />
+                ) : (
+                  'icon' in item && <item.icon className="h-4 w-4" />
+                )}
               </div>
               <span className="flex-1 text-left truncate">{item.label}</span>
               {'badge' in item && typeof item.badge === 'number' && item.badge > 0 && (
-                <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-                  {item.badge > 9 ? '9+' : item.badge}
-                </span>
+                <UnreadBadge count={item.badge} className="h-5 min-w-5 shrink-0" />
               )}
               {'isExpandable' in item && item.isExpandable && (
                 <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${proMenuOpen ? 'rotate-180' : ''}`} />

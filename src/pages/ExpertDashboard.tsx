@@ -13,6 +13,11 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
+import {
+  MessagingIconWithBadge,
+  UnreadBadge,
+  useMessagingUnread,
+} from "@/components/MessagingBadge";
 import { AvailabilityFields } from "@/components/expert/ExpertAvailabilityFields";
 import {
   EXPERT_PROFESSIONS,
@@ -134,6 +139,9 @@ export default function ExpertDashboard() {
   const uploadExpertPaymentProof = useMutation(api.expertProfiles.uploadExpertPaymentProof);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const deleteProfile = useMutation(api.expertProfiles.deleteProfile);
+  // Pastille rouge de la Messagerie (source unique, temps réel) : affichée sur
+  // l'icône de l'en-tête, y compris sur mobile.
+  const messagingUnread = useMessagingUnread();
 
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -431,6 +439,15 @@ export default function ExpertDashboard() {
               {profile ? "Profil et abonnement" : "Créez votre profil"}
             </p>
           </div>
+          {/* Messagerie : pastille rouge sur l'icône (même source que le menu) */}
+          <button
+            onClick={() => navigate("/dashboard/messages")}
+            title="Messagerie"
+            aria-label="Messagerie"
+            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all"
+          >
+            <MessagingIconWithBadge unread={messagingUnread} className="h-4 w-4" />
+          </button>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -505,11 +522,10 @@ export default function ExpertDashboard() {
                       >
                         <FileText className="h-3 w-3" />
                         Devis
-                        {(unreadCount ?? 0) > 0 && (
-                          <span className="absolute -top-1.5 -right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-0.5 text-[7px] font-bold text-white shadow-sm">
-                            {unreadCount! > 9 ? "9+" : unreadCount}
-                          </span>
-                        )}
+                        <UnreadBadge
+                          count={unreadCount}
+                          className="absolute -top-1.5 -right-1.5 h-3.5 min-w-3.5 px-0.5 text-[7px]"
+                        />
                       </button>
                       <button
                         onClick={() => navigate("/dashboard")}

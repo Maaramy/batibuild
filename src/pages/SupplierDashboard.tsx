@@ -14,6 +14,10 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
+import {
+  MessagingIconWithBadge,
+  useMessagingUnread,
+} from "@/components/MessagingBadge";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useQuery, useMutation } from "convex/react";
@@ -171,6 +175,9 @@ export default function SupplierDashboard() {
   const uploadSupplierPaymentProof = useMutation(api.supplierProfiles.uploadSupplierPaymentProof);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const deleteProfile = useMutation(api.supplierProfiles.deleteProfile);
+  // Pastille rouge de la Messagerie (source unique, temps réel) : affichée sur
+  // l'icône de l'en-tête, y compris sur mobile.
+  const messagingUnread = useMessagingUnread();
 
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -449,6 +456,18 @@ export default function SupplierDashboard() {
                 {profile ? "Profil et abonnement" : "Créez votre profil"}
               </p>
             </div>
+            {/* Messagerie : pastille rouge sur l'icône (même source que le menu) */}
+            <button
+              onClick={() => navigate("/dashboard/messages")}
+              title="Messagerie"
+              aria-label="Messagerie"
+              className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all"
+            >
+              <MessagingIconWithBadge
+                unread={messagingUnread}
+                className="h-4 w-4"
+              />
+            </button>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Statistique avancé — même niveau visuel que « Vue Client » */}
