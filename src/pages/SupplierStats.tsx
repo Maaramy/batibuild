@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
@@ -33,7 +33,6 @@ import {
   TrendingUp,
   ArrowLeft,
   BarChart3,
-  RefreshCw,
   Lock,
   Crown,
   BarChart,
@@ -56,7 +55,13 @@ import {
 } from "recharts";
 
 // ============================================================================
-// Constants
+// Statistiques fournisseur — données RÉELLES uniquement
+//
+// Aucune donnée, carte ou graphique de démonstration : tous les chiffres
+// proviennent des events d'analytics, des demandes de devis et des réponses
+// du fournisseur connecté (voir `src/convex/supplierStats.ts`). Quand la
+// période ne contient aucune donnée réelle, l'état vide ci-dessous remplace
+// les KPI et les graphiques (jamais de valeur inventée).
 // ============================================================================
 
 const PERIODS = [
@@ -141,23 +146,32 @@ function UpgradeScreen({ onBack }: { onBack: () => void }) {
 }
 
 // ============================================================================
-// Empty State
+// Empty State — aucune donnée réelle sur la période
 // ============================================================================
 
 function EmptyState() {
   return (
-    <div className="flex min-h-[30vh] flex-col items-center justify-center text-center">
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50">
-        <BarChart3 className="h-5 w-5 text-muted-foreground" />
-      </div>
-      <h3 className="text-sm font-semibold text-foreground">
-        Aucune donnée pour cette période
-      </h3>
-      <p className="mt-0.5 max-w-xs text-xs text-muted-foreground">
-        Les statistiques apparaîtront dès que des visiteurs consulteront votre
-        profil ou vos produits.
-      </p>
-    </div>
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+      <Card className="border-dashed border-border/60 bg-muted/[0.12]">
+        <CardContent className="flex flex-col items-center justify-center px-6 py-14 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+            <BarChart3 className="h-6 w-6 text-primary" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">
+            Aucune statistique disponible
+          </h3>
+          <p className="mt-1.5 max-w-md text-xs leading-relaxed text-muted-foreground">
+            Vous n'avez pas encore de données réelles sur cette période. Vos
+            statistiques se remplissent automatiquement dès qu'un visiteur
+            consulte votre profil, s'intéresse à vos produits ou vous envoie une
+            demande de devis.
+          </p>
+          <p className="mt-3 text-[11px] font-medium text-muted-foreground/70">
+            Aucun chiffre de démonstration n'est affiché.
+          </p>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
 
@@ -220,11 +234,9 @@ function KpiCard({
 export default function SupplierStats() {
   const navigate = useNavigate();
   const profile = useQuery(api.supplierProfiles.getMyProfile);
-  const seedDemo = useMutation(api.supplierStats.seedDemoAnalytics);
 
   const [period, setPeriod] = useState<string>("30d");
   const [customStart, setCustomStart] = useState<string>("");
-  const [seeding, setSeeding] = useState(false);
 
   const queryArgs = useMemo(
     () => ({
@@ -237,35 +249,25 @@ export default function SupplierStats() {
     [period, customStart],
   );
 
+  // Les requêtes de détail exigent un profil fournisseur : on les met en pause
+  // tant qu'il n'est pas chargé (sinon elles lèvent une erreur côté serveur).
+  const chartArgs = profile ? queryArgs : ("skip" as const);
+
   const kpis = useQuery(api.supplierStats.getSupplierKPIs, queryArgs);
-  const viewsOverTime = useQuery(api.supplierStats.getViewsOverTime, queryArgs);
+  const viewsOverTime = useQuery(api.supplierStats.getViewsOverTime, chartArgs);
   const clicksByProduct = useQuery(
     api.supplierStats.getClicksByProduct,
-    queryArgs,
+    chartArgs,
   );
-  const trafficSources = useQuery(api.supplierStats.getTrafficSources, queryArgs);
-  const topProducts = useQuery(api.supplierStats.getTopProducts, queryArgs);
-  const detailedTable = useQuery(api.supplierStats.getDetailedTable, queryArgs);
+  const trafficSources = useQuery(api.supplierStats.getTrafficSources, chartArgs);
+  const topProducts = useQuery(api.supplierStats.getTopProducts, chartArgs);
+  const detailedTable = useQuery(api.supplierStats.getDetailedTable, chartArgs);
 
   const isLoading = profile === undefined;
 
   const hasAccess =
     profile &&
     (profile.plan === "monthly" || profile.effectiveStatus === "active");
-
-  const hasData = viewsOverTime && viewsOverTime.length > 0;
-
-  const handleSeed = async () => {
-    try {
-      setSeeding(true);
-      await seedDemo();
-      window.location.reload();
-    } catch (e) {
-      console.error("Seed failed:", e);
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   const areaChartConfig = {
     views: { label: "Vues", color: "#3b82f6" },
@@ -292,11 +294,19 @@ export default function SupplierStats() {
     );
   }
 
-  const totalViews = kpis?.views ?? 0;
-  const totalRequests = kpis?.requestsReceived ?? 0;
-  const totalResponses = kpis?.responsesSent ?? 0;
-  const allEmpty =
-    kpis && !hasData && totalViews === 0 && totalRequests === 0 && totalResponses === 0;
+  // ── Données réelles uniquement ──
+  // `kpis` est indéfini pendant le chargement ; une fois chargé, l'absence de
+  // toute donnée réelle (vues, clics, contacts, demandes, réponses) déclenche
+  // l'état vide au lieu de KPI et de graphiques à zéro.
+  const loadingKpis = kpis === undefined;
+  const hasRealData =
+    !!kpis &&
+    (kpis.views > 0 ||
+      kpis.clicks > 0 ||
+      kpis.contacts > 0 ||
+      kpis.requestsReceived > 0 ||
+      kpis.responsesSent > 0);
+  const showEmptyState = !loadingKpis && !hasRealData;
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 px-3 py-4 sm:px-5">
@@ -322,691 +332,379 @@ export default function SupplierStats() {
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSeed}
-          disabled={seeding}
-          className="h-7 gap-1 text-[11px]"
-        >
-          {seeding ? (
-            <RefreshCw className="h-3 w-3 animate-spin" />
-          ) : (
-            <RefreshCw className="h-3 w-3" />
-          )}
-          Démo
-        </Button>
       </motion.div>
 
-      {/* ── Period Filter (pill-style, matching ExpertStats) ── */}
-      <div className="flex gap-1.5 bg-muted/30 rounded-xl p-1">
-        {PERIODS.map((p) => (
-          <button
-            key={p.key}
-            onClick={() => setPeriod(p.key)}
-            className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              period === p.key
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+      {showEmptyState ? (
+        <EmptyState />
+      ) : (
+        <>
+          {/* ── Period Filter (pill-style, matching ExpertStats) ── */}
+          <div className="flex gap-1.5 bg-muted/30 rounded-xl p-1">
+            {PERIODS.map((p) => (
+              <button
+                key={p.key}
+                onClick={() => setPeriod(p.key)}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  period === p.key
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
 
-      {/* ── Custom Date Range ── */}
-      {period === "custom" && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="flex items-center gap-2"
-        >
-          <label className="text-[11px] font-medium text-muted-foreground">
-            Début
-          </label>
-          <input
-            type="date"
-            value={customStart}
-            onChange={(e) => setCustomStart(e.target.value)}
-            className="rounded-lg border border-border bg-background px-2.5 py-1 text-[11px]"
-          />
-        </motion.div>
-      )}
+          {/* ── Custom Date Range ── */}
+          {period === "custom" && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="flex items-center gap-2"
+            >
+              <label className="text-[11px] font-medium text-muted-foreground">
+                Début
+              </label>
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="rounded-lg border border-border bg-background px-2.5 py-1 text-[11px]"
+              />
+            </motion.div>
+          )}
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <KpiCard
-          label="Vues du profil"
-          value={kpis?.views ?? 0}
-          icon={Eye}
-          color="#3b82f6"
-          loading={!kpis}
-        />
-        <KpiCard
-          label="Demandes reçues"
-          value={kpis?.requestsReceived ?? 0}
-          icon={Inbox}
-          color="#10b981"
-          loading={!kpis}
-        />
-        <KpiCard
-          label="Réponses envoyées"
-          value={kpis?.responsesSent ?? 0}
-          icon={Send}
-          color="#8b5cf6"
-          loading={!kpis}
-        />
-        <KpiCard
-          label="Taux de réponse"
-          value={kpis?.responseRate ?? 0}
-          icon={Percent}
-          suffix="%"
-          color="#f59e0b"
-          loading={!kpis}
-        />
-      </div>
+          {/* ── KPI Cards ── */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <KpiCard
+              label="Vues du profil"
+              value={kpis?.views ?? 0}
+              icon={Eye}
+              color="#3b82f6"
+              loading={!kpis}
+            />
+            <KpiCard
+              label="Demandes reçues"
+              value={kpis?.requestsReceived ?? 0}
+              icon={Inbox}
+              color="#10b981"
+              loading={!kpis}
+            />
+            <KpiCard
+              label="Réponses envoyées"
+              value={kpis?.responsesSent ?? 0}
+              icon={Send}
+              color="#8b5cf6"
+              loading={!kpis}
+            />
+            <KpiCard
+              label="Taux de réponse"
+              value={kpis?.responseRate ?? 0}
+              icon={Percent}
+              suffix="%"
+              color="#f59e0b"
+              loading={!kpis}
+            />
+          </div>
 
-      {/* ── Empty State ── */}
-      {allEmpty && <EmptyState />}
+          {/* ── Charts Row 1: Area + Pie ── */}
+          {viewsOverTime && viewsOverTime.length > 0 && (
+            <div className="grid gap-3 md:grid-cols-2">
+              <Card>
+                <CardHeader className="p-3 pb-1">
+                  <CardTitle className="flex items-center gap-1.5 text-xs">
+                    <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
+                    Évolution vues & clics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0">
+                  <ChartContainer config={areaChartConfig} className="h-48">
+                    <AreaChart data={viewsOverTime}>
+                      <defs>
+                        <linearGradient id="fillViews" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="fillClicks" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
+                      <XAxis
+                        dataKey="date"
+                        tickFormatter={(d) => {
+                          const dt = new Date(d);
+                          return `${dt.getDate()}/${dt.getMonth() + 1}`;
+                        }}
+                        tick={{ fontSize: 9 }}
+                        stroke="hsl(var(--muted-foreground))"
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 9 }}
+                        stroke="hsl(var(--muted-foreground))"
+                        tickLine={false}
+                        axisLine={false}
+                        width={30}
+                      />
+                      <Tooltip content={<ChartTooltipContent />} />
+                      <Area
+                        type="monotone"
+                        dataKey="views"
+                        stroke="#3b82f6"
+                        fill="url(#fillViews)"
+                        strokeWidth={1.5}
+                        name="Vues"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="clicks"
+                        stroke="#10b981"
+                        fill="url(#fillClicks)"
+                        strokeWidth={1.5}
+                        name="Clics"
+                      />
+                    </AreaChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
 
-      {/* ── Charts Row 1: Area + Pie ── */}
-      {viewsOverTime && viewsOverTime.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2">
-          <Card>
-            <CardHeader className="p-3 pb-1">
-              <CardTitle className="flex items-center gap-1.5 text-xs">
-                <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
-                Évolution vues & clics
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 pt-0">
-              <ChartContainer config={areaChartConfig} className="h-48">
-                <AreaChart data={viewsOverTime}>
-                  <defs>
-                    <linearGradient id="fillViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="fillClicks" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                  <XAxis
-                    dataKey="date"
-                    tickFormatter={(d) => {
-                      const dt = new Date(d);
-                      return `${dt.getDate()}/${dt.getMonth() + 1}`;
-                    }}
-                    tick={{ fontSize: 9 }}
-                    stroke="hsl(var(--muted-foreground))"
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 9 }}
-                    stroke="hsl(var(--muted-foreground))"
-                    tickLine={false}
-                    axisLine={false}
-                    width={30}
-                  />
-                  <Tooltip content={<ChartTooltipContent />} />
-                  <Area
-                    type="monotone"
-                    dataKey="views"
-                    stroke="#3b82f6"
-                    fill="url(#fillViews)"
-                    strokeWidth={1.5}
-                    name="Vues"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="clicks"
-                    stroke="#10b981"
-                    fill="url(#fillClicks)"
-                    strokeWidth={1.5}
-                    name="Clics"
-                  />
-                </AreaChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-
-          {trafficSources && trafficSources.length > 0 ? (
-            <Card>
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="flex items-center gap-1.5 text-xs">
-                  <PieChartIcon className="h-3.5 w-3.5 text-emerald-500" />
-                  Sources de trafic
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <div className="flex items-center gap-4">
-                  <div className="h-44 w-44 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={trafficSources}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={40}
-                          outerRadius={65}
-                          paddingAngle={3}
-                          dataKey="value"
-                          nameKey="name"
-                        >
-                          {trafficSources.map((_, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={PIE_COLORS[index % PIE_COLORS.length]}
+              {trafficSources && trafficSources.length > 0 ? (
+                <Card>
+                  <CardHeader className="p-3 pb-1">
+                    <CardTitle className="flex items-center gap-1.5 text-xs">
+                      <PieChartIcon className="h-3.5 w-3.5 text-emerald-500" />
+                      Sources de trafic
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <div className="flex items-center gap-4">
+                      <div className="h-44 w-44 shrink-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={trafficSources}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={40}
+                              outerRadius={65}
+                              paddingAngle={3}
+                              dataKey="value"
+                              nameKey="name"
+                            >
+                              {trafficSources.map((_, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={PIE_COLORS[index % PIE_COLORS.length]}
+                                />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(value: number) => [
+                                value.toLocaleString("fr-FR"),
+                                "",
+                              ]}
                             />
-                          ))}
-                        </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="space-y-1.5">
+                        {trafficSources.map((src, i) => (
+                          <div key={src.name} className="flex items-center gap-1.5">
+                            <div
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{
+                                backgroundColor: PIE_COLORS[i % PIE_COLORS.length],
+                              }}
+                            />
+                            <span className="text-[10px] text-muted-foreground">
+                              {src.name === "direct"
+                                ? "Direct"
+                                : src.name === "search"
+                                  ? "Recherche"
+                                  : src.name === "social"
+                                    ? "Réseau social"
+                                    : "Autre"}
+                            </span>
+                            <span className="ml-auto text-[10px] font-semibold tabular-nums text-foreground">
+                              {src.value.toLocaleString("fr-FR")}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader className="p-3 pb-1">
+                    <CardTitle className="flex items-center gap-1.5 text-xs">
+                      <PieChartIcon className="h-3.5 w-3.5 text-emerald-500" />
+                      Sources de trafic
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex h-44 items-center justify-center">
+                    <p className="text-xs text-muted-foreground">Aucune donnée</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* ── Charts Row 2: Bar + Horizontal Bar ── */}
+          {(clicksByProduct && clicksByProduct.length > 0) ||
+          (topProducts && topProducts.length > 0) ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {clicksByProduct && clicksByProduct.length > 0 && (
+                <Card>
+                  <CardHeader className="p-3 pb-1">
+                    <CardTitle className="flex items-center gap-1.5 text-xs">
+                      <BarChart className="h-3.5 w-3.5 text-violet-500" />
+                      Clics par produit
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <ChartContainer config={barChartConfig} className="h-48">
+                      <RechartsBarChart
+                        data={clicksByProduct}
+                        layout="vertical"
+                        margin={{ left: 0, right: 8 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
+                        <XAxis
+                          type="number"
+                          tick={{ fontSize: 9 }}
+                          stroke="hsl(var(--muted-foreground))"
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="product"
+                          tick={{ fontSize: 9 }}
+                          width={100}
+                          stroke="hsl(var(--muted-foreground))"
+                          tickLine={false}
+                          axisLine={false}
+                        />
                         <Tooltip
                           formatter={(value: number) => [
                             value.toLocaleString("fr-FR"),
-                            "",
+                            "clics",
                           ]}
                         />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="space-y-1.5">
-                    {trafficSources.map((src, i) => (
-                      <div key={src.name} className="flex items-center gap-1.5">
-                        <div
-                          className="h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{
-                            backgroundColor: PIE_COLORS[i % PIE_COLORS.length],
-                          }}
+                        <Bar dataKey="clicks" fill="#8b5cf6" radius={[0, 3, 3, 0]} />
+                      </RechartsBarChart>
+                    </ChartContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {topProducts && topProducts.length > 0 && (
+                <Card>
+                  <CardHeader className="p-3 pb-1">
+                    <CardTitle className="flex items-center gap-1.5 text-xs">
+                      <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
+                      Top 5 produits
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <ChartContainer config={barChartConfig} className="h-48">
+                      <RechartsBarChart data={topProducts}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
+                        <XAxis
+                          dataKey="product"
+                          tick={{ fontSize: 9 }}
+                          stroke="hsl(var(--muted-foreground))"
+                          tickLine={false}
+                          axisLine={false}
                         />
-                        <span className="text-[10px] text-muted-foreground">
-                          {src.name === "direct"
-                            ? "Direct"
-                            : src.name === "search"
-                              ? "Recherche"
-                              : src.name === "social"
-                                ? "Réseau social"
-                                : "Autre"}
-                        </span>
-                        <span className="ml-auto text-[10px] font-semibold tabular-nums text-foreground">
-                          {src.value.toLocaleString("fr-FR")}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                        <YAxis
+                          tick={{ fontSize: 9 }}
+                          stroke="hsl(var(--muted-foreground))"
+                          tickLine={false}
+                          axisLine={false}
+                          width={28}
+                        />
+                        <Tooltip />
+                        <Legend wrapperStyle={{ fontSize: 10 }} />
+                        <Bar
+                          dataKey="views"
+                          fill="#3b82f6"
+                          radius={[3, 3, 0, 0]}
+                          name="Vues"
+                        />
+                        <Bar
+                          dataKey="clicks"
+                          fill="#10b981"
+                          radius={[3, 3, 0, 0]}
+                          name="Clics"
+                        />
+                      </RechartsBarChart>
+                    </ChartContainer>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : null}
+
+          {/* ── Detailed Table ── */}
+          {detailedTable && detailedTable.length > 0 && (
+            <Card>
+              <CardHeader className="p-3 pb-1">
+                <CardTitle className="flex items-center gap-1.5 text-xs">
+                  <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
+                  Détail par produit/service
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="h-8">
+                        <TableHead className="min-w-[160px] py-1 text-[10px]">
+                          Produit / Service
+                        </TableHead>
+                        <TableHead className="py-1 text-right text-[10px]">Vues</TableHead>
+                        <TableHead className="py-1 text-right text-[10px]">Clics</TableHead>
+                        <TableHead className="py-1 text-right text-[10px]">Contacts</TableHead>
+                        <TableHead className="py-1 text-right text-[10px]">CTR</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detailedTable.map((row) => (
+                        <TableRow key={row.product} className="h-9">
+                          <TableCell className="py-1.5 text-xs font-medium">
+                            {row.product}
+                          </TableCell>
+                          <TableCell className="py-1.5 text-right text-xs tabular-nums">
+                            {row.views.toLocaleString("fr-FR")}
+                          </TableCell>
+                          <TableCell className="py-1.5 text-right text-xs tabular-nums">
+                            {row.clicks.toLocaleString("fr-FR")}
+                          </TableCell>
+                          <TableCell className="py-1.5 text-right text-xs tabular-nums">
+                            {row.contacts.toLocaleString("fr-FR")}
+                          </TableCell>
+                          <TableCell className="py-1.5 text-right">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] tabular-nums"
+                            >
+                              {row.ctr}%
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>
-          ) : (
-            <Card>
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="flex items-center gap-1.5 text-xs">
-                  <PieChartIcon className="h-3.5 w-3.5 text-emerald-500" />
-                  Sources de trafic
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex h-44 items-center justify-center">
-                <p className="text-xs text-muted-foreground">Aucune donnée</p>
-              </CardContent>
-            </Card>
           )}
-        </div>
-      )}
-
-      {/* ── Charts Row 2: Bar + Horizontal Bar ── */}
-      {(clicksByProduct && clicksByProduct.length > 0) ||
-      (topProducts && topProducts.length > 0) ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          {clicksByProduct && clicksByProduct.length > 0 && (
-            <Card>
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="flex items-center gap-1.5 text-xs">
-                  <BarChart className="h-3.5 w-3.5 text-violet-500" />
-                  Clics par produit
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <ChartContainer config={barChartConfig} className="h-48">
-                  <RechartsBarChart
-                    data={clicksByProduct}
-                    layout="vertical"
-                    margin={{ left: 0, right: 8 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                    <XAxis
-                      type="number"
-                      tick={{ fontSize: 9 }}
-                      stroke="hsl(var(--muted-foreground))"
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="product"
-                      tick={{ fontSize: 9 }}
-                      width={100}
-                      stroke="hsl(var(--muted-foreground))"
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip
-                      formatter={(value: number) => [
-                        value.toLocaleString("fr-FR"),
-                        "clics",
-                      ]}
-                    />
-                    <Bar dataKey="clicks" fill="#8b5cf6" radius={[0, 3, 3, 0]} />
-                  </RechartsBarChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          )}
-
-          {topProducts && topProducts.length > 0 && (
-            <Card>
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="flex items-center gap-1.5 text-xs">
-                  <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
-                  Top 5 produits
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <ChartContainer config={barChartConfig} className="h-48">
-                  <RechartsBarChart data={topProducts}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                    <XAxis
-                      dataKey="product"
-                      tick={{ fontSize: 9 }}
-                      stroke="hsl(var(--muted-foreground))"
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 9 }}
-                      stroke="hsl(var(--muted-foreground))"
-                      tickLine={false}
-                      axisLine={false}
-                      width={28}
-                    />
-                    <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar
-                      dataKey="views"
-                      fill="#3b82f6"
-                      radius={[3, 3, 0, 0]}
-                      name="Vues"
-                    />
-                    <Bar
-                      dataKey="clicks"
-                      fill="#10b981"
-                      radius={[3, 3, 0, 0]}
-                      name="Clics"
-                    />
-                  </RechartsBarChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      ) : null}
-
-      {/* ── Detailed Table ── */}
-      {detailedTable && detailedTable.length > 0 && (
-        <Card>
-          <CardHeader className="p-3 pb-1">
-            <CardTitle className="flex items-center gap-1.5 text-xs">
-              <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
-              Détail par produit/service
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="h-8">
-                    <TableHead className="min-w-[160px] py-1 text-[10px]">
-                      Produit / Service
-                    </TableHead>
-                    <TableHead className="py-1 text-right text-[10px]">Vues</TableHead>
-                    <TableHead className="py-1 text-right text-[10px]">Clics</TableHead>
-                    <TableHead className="py-1 text-right text-[10px]">Contacts</TableHead>
-                    <TableHead className="py-1 text-right text-[10px]">CTR</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailedTable.map((row) => (
-                    <TableRow key={row.product} className="h-9">
-                      <TableCell className="py-1.5 text-xs font-medium">
-                        {row.product}
-                      </TableCell>
-                      <TableCell className="py-1.5 text-right text-xs tabular-nums">
-                        {row.views.toLocaleString("fr-FR")}
-                      </TableCell>
-                      <TableCell className="py-1.5 text-right text-xs tabular-nums">
-                        {row.clicks.toLocaleString("fr-FR")}
-                      </TableCell>
-                      <TableCell className="py-1.5 text-right text-xs tabular-nums">
-                        {row.contacts.toLocaleString("fr-FR")}
-                      </TableCell>
-                      <TableCell className="py-1.5 text-right">
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] tabular-nums"
-                        >
-                          {row.ctr}%
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-// ============================================================================
-// Inline Version (for Dashboard embed)
-// ============================================================================
-
-export function SupplierStatsInline() {
-  const profile = useQuery(api.supplierProfiles.getMyProfile);
-  const [period, setPeriod] = useState<string>("30d");
-  const [customStart, setCustomStart] = useState<string>("");
-
-  const queryArgs = useMemo(
-    () => ({
-      period,
-      customStart:
-        period === "custom" && customStart
-          ? new Date(customStart).getTime()
-          : undefined,
-    }),
-    [period, customStart],
-  );
-
-  const kpis = useQuery(api.supplierStats.getSupplierKPIs, queryArgs);
-  const viewsOverTime = useQuery(api.supplierStats.getViewsOverTime, queryArgs);
-  const clicksByProduct = useQuery(api.supplierStats.getClicksByProduct, queryArgs);
-  const trafficSources = useQuery(api.supplierStats.getTrafficSources, queryArgs);
-  const topProducts = useQuery(api.supplierStats.getTopProducts, queryArgs);
-  const detailedTable = useQuery(api.supplierStats.getDetailedTable, queryArgs);
-
-  const isLoading = profile === undefined;
-  const hasAccess =
-    profile &&
-    (profile.plan === "monthly" || profile.effectiveStatus === "active");
-  const hasData = viewsOverTime && viewsOverTime.length > 0;
-
-  const areaChartConfig = {
-    views: { label: "Vues", color: "#3b82f6" },
-    clicks: { label: "Clics", color: "#10b981" },
-  } satisfies ChartConfig;
-
-  const barChartConfig = {
-    clicks: { label: "Clics", color: "#3b82f6" },
-  } satisfies ChartConfig;
-
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        <StatsSkeleton />
-      </div>
-    );
-  }
-
-  if (!hasAccess) {
-    return (
-      <Card className="border-amber-200 bg-amber-50/50">
-        <CardContent className="p-4 text-center">
-          <Lock className="mx-auto mb-2 h-5 w-5 text-amber-600" />
-          <p className="text-xs font-medium text-amber-700">
-            Statistiques réservées aux fournisseurs abonnés
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const totalViews = kpis?.views ?? 0;
-  const totalRequests = kpis?.requestsReceived ?? 0;
-  const totalResponses = kpis?.responsesSent ?? 0;
-  const allEmpty =
-    kpis && !hasData && totalViews === 0 && totalRequests === 0 && totalResponses === 0;
-
-  return (
-    <div className="space-y-3">
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2">
-        <BarChart3 className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-bold text-foreground">Statistiques</h3>
-      </div>
-
-      {/* ── Period Filter (pill-style, matching ExpertStats) ── */}
-      <div className="flex gap-1.5 bg-muted/30 rounded-xl p-1">
-        {PERIODS.map((p) => (
-          <button
-            key={p.key}
-            onClick={() => setPeriod(p.key)}
-            className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              period === p.key
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Custom Date Range ── */}
-      {period === "custom" && (
-        <div className="flex items-center gap-2">
-          <label className="text-[11px] font-medium text-muted-foreground">
-            Début
-          </label>
-          <input
-            type="date"
-            value={customStart}
-            onChange={(e) => setCustomStart(e.target.value)}
-            className="rounded-lg border border-border bg-background px-2.5 py-1 text-[11px]"
-          />
-        </div>
-      )}
-
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <KpiCard label="Vues du profil" value={kpis?.views ?? 0} icon={Eye} color="#3b82f6" loading={!kpis} />
-        <KpiCard label="Demandes reçues" value={kpis?.requestsReceived ?? 0} icon={Inbox} color="#10b981" loading={!kpis} />
-        <KpiCard label="Réponses envoyées" value={kpis?.responsesSent ?? 0} icon={Send} color="#8b5cf6" loading={!kpis} />
-        <KpiCard label="Taux de réponse" value={kpis?.responseRate ?? 0} icon={Percent} suffix="%" color="#f59e0b" loading={!kpis} />
-      </div>
-
-      {/* ── Empty State ── */}
-      {allEmpty && <EmptyState />}
-
-      {/* ── Charts Row 1 ── */}
-      {viewsOverTime && viewsOverTime.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2">
-          <Card>
-            <CardHeader className="p-3 pb-1">
-              <CardTitle className="flex items-center gap-1.5 text-xs">
-                <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
-                Évolution vues & clics
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 pt-0">
-              <ChartContainer config={areaChartConfig} className="h-48">
-                <AreaChart data={viewsOverTime}>
-                  <defs>
-                    <linearGradient id="fillViewsInline" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="fillClicksInline" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                  <XAxis dataKey="date" tickFormatter={(d) => { const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth() + 1}`; }} tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} width={30} />
-                  <Tooltip content={<ChartTooltipContent />} />
-                  <Area type="monotone" dataKey="views" stroke="#3b82f6" fill="url(#fillViewsInline)" strokeWidth={1.5} name="Vues" />
-                  <Area type="monotone" dataKey="clicks" stroke="#10b981" fill="url(#fillClicksInline)" strokeWidth={1.5} name="Clics" />
-                </AreaChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-
-          {trafficSources && trafficSources.length > 0 ? (
-            <Card>
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="flex items-center gap-1.5 text-xs">
-                  <PieChartIcon className="h-3.5 w-3.5 text-emerald-500" />
-                  Sources de trafic
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <div className="flex items-center gap-4">
-                  <div className="h-44 w-44 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={trafficSources} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value" nameKey="name">
-                          {trafficSources.map((_, index) => (
-                            <Cell key={`cell-inline-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value: number) => [value.toLocaleString("fr-FR"), ""]} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="space-y-1.5">
-                    {trafficSources.map((src, i) => (
-                      <div key={src.name} className="flex items-center gap-1.5">
-                        <div className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                        <span className="text-[10px] text-muted-foreground">
-                          {src.name === "direct" ? "Direct" : src.name === "search" ? "Recherche" : src.name === "social" ? "Réseau social" : "Autre"}
-                        </span>
-                        <span className="ml-auto text-[10px] font-semibold tabular-nums text-foreground">
-                          {src.value.toLocaleString("fr-FR")}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="flex items-center gap-1.5 text-xs">
-                  <PieChartIcon className="h-3.5 w-3.5 text-emerald-500" />
-                  Sources de trafic
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex h-44 items-center justify-center">
-                <p className="text-xs text-muted-foreground">Aucune donnée</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
-
-      {/* ── Charts Row 2 ── */}
-      {(clicksByProduct && clicksByProduct.length > 0) || (topProducts && topProducts.length > 0) ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          {clicksByProduct && clicksByProduct.length > 0 && (
-            <Card>
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="flex items-center gap-1.5 text-xs">
-                  <BarChart className="h-3.5 w-3.5 text-violet-500" />
-                  Clics par produit
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <ChartContainer config={barChartConfig} className="h-48">
-                  <RechartsBarChart data={clicksByProduct} layout="vertical" margin={{ left: 0, right: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                    <XAxis type="number" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
-                    <YAxis type="category" dataKey="product" tick={{ fontSize: 9 }} width={100} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
-                    <Tooltip formatter={(value: number) => [value.toLocaleString("fr-FR"), "clics"]} />
-                    <Bar dataKey="clicks" fill="#8b5cf6" radius={[0, 3, 3, 0]} />
-                  </RechartsBarChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          )}
-          {topProducts && topProducts.length > 0 && (
-            <Card>
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="flex items-center gap-1.5 text-xs">
-                  <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
-                  Top 5 produits
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <ChartContainer config={barChartConfig} className="h-48">
-                  <RechartsBarChart data={topProducts}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                    <XAxis dataKey="product" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} width={28} />
-                    <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="views" fill="#3b82f6" radius={[3, 3, 0, 0]} name="Vues" />
-                    <Bar dataKey="clicks" fill="#10b981" radius={[3, 3, 0, 0]} name="Clics" />
-                  </RechartsBarChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      ) : null}
-
-      {/* ── Detailed Table ── */}
-      {detailedTable && detailedTable.length > 0 && (
-        <Card>
-          <CardHeader className="p-3 pb-1">
-            <CardTitle className="flex items-center gap-1.5 text-xs">
-              <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
-              Détail par produit/service
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="h-8">
-                    <TableHead className="min-w-[160px] py-1 text-[10px]">Produit / Service</TableHead>
-                    <TableHead className="py-1 text-right text-[10px]">Vues</TableHead>
-                    <TableHead className="py-1 text-right text-[10px]">Clics</TableHead>
-                    <TableHead className="py-1 text-right text-[10px]">Contacts</TableHead>
-                    <TableHead className="py-1 text-right text-[10px]">CTR</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailedTable.map((row) => (
-                    <TableRow key={row.product} className="h-9">
-                      <TableCell className="py-1.5 text-xs font-medium">{row.product}</TableCell>
-                      <TableCell className="py-1.5 text-right text-xs tabular-nums">{row.views.toLocaleString("fr-FR")}</TableCell>
-                      <TableCell className="py-1.5 text-right text-xs tabular-nums">{row.clicks.toLocaleString("fr-FR")}</TableCell>
-                      <TableCell className="py-1.5 text-right text-xs tabular-nums">{row.contacts.toLocaleString("fr-FR")}</TableCell>
-                      <TableCell className="py-1.5 text-right">
-                        <Badge variant="outline" className="text-[10px] tabular-nums">{row.ctr}%</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        </>
       )}
     </div>
   );

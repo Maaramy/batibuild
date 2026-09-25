@@ -4,6 +4,7 @@ import { getCurrentUser } from "./users";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubscription";
 import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
+import { keepSupplierSpecialties } from "../lib/supplierSpecialties";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 import { assertPaymentMethodEnabled } from "./paymentMethodStates";
 
@@ -99,10 +100,16 @@ export const getMyProfile = query({
       );
     }
 
+    // Spécialités « métier » retirées de l'espace Fournisseur (architecte,
+    // bureau d'études, ingénieur, géomètre, promoteur) : jamais renvoyées au
+    // formulaire, même si un ancien profil les a encore en base.
+    const specialties = keepSupplierSpecialties(profile.specialties);
+
     return {
       ...profile,
       logo: await repairLogoUrl(ctx, profile.logo),
-      specialtiesLabels: profile.specialties.map(
+      specialties,
+      specialtiesLabels: specialties.map(
         (s) => SUPPLIER_SPECIALTIES_LABELS[s] || s
       ),
       effectiveStatus,
@@ -149,7 +156,7 @@ export const getActiveSuppliers = query({
         website: s.website,
         description: s.description,
         logo: await repairLogoUrl(ctx, s.logo),
-        specialties: s.specialties,
+        specialties: keepSupplierSpecialties(s.specialties),
         regions: s.regions,
         plan: s.plan,
       });
@@ -191,7 +198,8 @@ export const getAllSupplierProfiles = query({
           logo: await repairLogoUrl(ctx, profile.logo),
           subscriptionStatus:
             profile.subscriptionStatus === "trial" ? "inactive" : profile.subscriptionStatus,
-          specialtiesLabels: profile.specialties.map(
+          specialties: keepSupplierSpecialties(profile.specialties),
+          specialtiesLabels: keepSupplierSpecialties(profile.specialties).map(
             (s) => SUPPLIER_SPECIALTIES_LABELS[s] || s
           ),
           user: user
@@ -234,9 +242,9 @@ export const getSupplierById = query({
       // Logo de l'entreprise : indispensable à la fiche publique, et réparé à
       // la lecture pour les anciennes URL `/api/storage/<id>`.
       logo: await repairLogoUrl(ctx, profile.logo),
-      specialties: profile.specialties,
+      specialties: keepSupplierSpecialties(profile.specialties),
       regions: profile.regions ?? [],
-      specialtiesLabels: profile.specialties.map(
+      specialtiesLabels: keepSupplierSpecialties(profile.specialties).map(
         (s) => SUPPLIER_SPECIALTIES_LABELS[s] || s
       ),
     };

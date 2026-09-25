@@ -26,12 +26,21 @@ import { query, mutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus } from "./access";
 import { SPECIALTY_TO_PROVIDER_TYPE } from "./schema";
-import { SUPPLIER_SPECIALTIES_LABELS } from "../lib/supplierSpecialties";
+import {
+  SUPPLIER_SPECIALTIES_LABELS,
+  keepSupplierSpecialties,
+} from "../lib/supplierSpecialties";
 import { resolveProjectType } from "./projectTypes";
 
 // ============================================================================
 // 1. BIBLIOTHÈQUE DE BESOINS — type de projet → spécialités fournisseurs
 //    (clés = SUPPLIER_SPECIALTIES, donc compatibles avec les profils réels)
+//
+//    ⚠️ Deux besoins historiques (« architecte », « bureau_etudes ») ne sont
+//    plus des spécialités fournisseur : ils restent dans ces listes car ils
+//    servent aussi à faire correspondre les EXPERTS (professions officielles).
+//    Ils ne sont plus jamais affichés côté fournisseur — voir
+//    `keepSupplierSpecialties` et son usage dans le payload de recommandation.
 // ============================================================================
 
 export const PROJECT_TYPE_SPECIALTIES: Record<string, string[]> = {
@@ -764,12 +773,24 @@ async function readProjectRecommendations(
     if (!profile) continue;
     const rank = (a.regionRank ?? 2) as 0 | 1 | 2;
     const matched: string[] = a.matchedSpecialties ?? [];
+    // Les spécialités « métier » retirées de l'espace Fournisseur (architecte,
+    // bureau d'études, ingénieur, géomètre, promoteur) ne sont plus affichées
+    // sur une carte fournisseur — pour un expert, elles restent valides (ce
+    // sont ses professions officielles).
+    const isSupplier = a.type === "supplier";
     const base = {
       associationId: a._id as string,
       profileId: a.providerId as string,
       regionRank: rank,
-      matchedNeeds: matched.map(specialtyLabel),
-      specialties: (profile.specialties ?? []).slice(0, 4).map(specialtyLabel),
+      matchedNeeds: (isSupplier ? keepSupplierSpecialties(matched) : matched).map(
+        specialtyLabel,
+      ),
+      specialties: (isSupplier
+        ? keepSupplierSpecialties(profile.specialties)
+        : (profile.specialties ?? [])
+      )
+        .slice(0, 4)
+        .map(specialtyLabel),
     };
     if (a.type === "supplier") {
       suppliers.push({
@@ -841,7 +862,9 @@ export const getForProject = query({
     return {
       ...payload,
       needs: {
-        specialties: needs.specialties.map(specialtyLabel),
+        // Besoins affichés = spécialités fournisseur uniquement ; les métiers
+        // (architecte, bureau d'études…) restent visibles via `trades`.
+        specialties: keepSupplierSpecialties(needs.specialties).map(specialtyLabel),
         trades: needs.trades.map((t) => PROVIDER_TYPE_LABELS[t] ?? t),
       },
       regionLabel: project.region ? regionLabelFor(project.region) : "",
@@ -985,7 +1008,9 @@ export const refresh = mutation({
     return {
       ...payload,
       needs: {
-        specialties: plan.needs.specialties.map(specialtyLabel),
+        // Idem `getForProject` : jamais de spécialité retirée dans les besoins
+        // affichés côté fournisseur (les métiers restent dans `trades`).
+        specialties: keepSupplierSpecialties(plan.needs.specialties).map(specialtyLabel),
         trades: plan.needs.trades.map((t) => PROVIDER_TYPE_LABELS[t] ?? t),
       },
       regionLabel: project.region ? regionLabelFor(project.region) : "",

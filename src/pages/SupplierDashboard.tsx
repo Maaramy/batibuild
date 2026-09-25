@@ -23,6 +23,10 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { availablePaymentMethods } from "@/lib/paymentMethods";
 import {
+  SUPPLIER_SPECIALTIES as SPECIALTIES,
+  SUPPLIER_SPECIALTIES_LABELS as SPECIALTY_LABELS,
+} from "@/lib/supplierSpecialties";
+import {
   Building2, Phone, Mail, MapPin, Globe, CheckCircle2,
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard, Lock,
   Store, ShieldCheck, Trash2, AlertTriangle,
@@ -34,36 +38,10 @@ import {
 // Constants
 // ============================================================================
 
-const SPECIALTIES = [
-  "construction_maisons", "villas", "immeubles", "piscines", "jardins",
-  "terrassement", "fondations", "gros_oeuvre", "second_oeuvre", "macconnerie",
-  "beton", "ferraillage", "coffrage", "charpente", "toiture", "etancheite",
-  "isolation", "carrelage", "marbre", "peinture", "electricite", "plomberie",
-  "climatisation", "cuisine", "salle_de_bain", "aluminium", "menuserie_bois",
-  "pvc", "portes", "fenetres", "energie_solaire", "domotique", "voirie",
-  "demolition", "transport_materiaux", "location_engins", "architecte",
-  "bureau_etudes", "ingenieur", "geometre", "promoteur_immobilier",
-];
-
-const SPECIALTY_LABELS: Record<string, string> = {
-  construction_maisons: "Construction de maisons",
-  villas: "Villas", immeubles: "Immeubles", piscines: "Piscines",
-  jardins: "Jardins", terrassement: "Terrassement", fondations: "Fondations",
-  gros_oeuvre: "Gros œuvre", second_oeuvre: "Second œuvre",
-  macconnerie: "Maçonnerie", beton: "Béton", ferraillage: "Ferraillage",
-  coffrage: "Coffrage", charpente: "Charpente", toiture: "Toiture",
-  etancheite: "Étanchéité", isolation: "Isolation", carrelage: "Carrelage",
-  marbre: "Marbre", peinture: "Peinture", electricite: "Électricité",
-  plomberie: "Plomberie", climatisation: "Climatisation", cuisine: "Cuisine",
-  salle_de_bain: "Salle de bain", aluminium: "Aluminium",
-  menuserie_bois: "Menuiserie bois", pvc: "PVC", portes: "Portes",
-  fenetres: "Fenêtres", energie_solaire: "Énergie solaire",
-  domotique: "Domotique", voirie: "Voirie", demolition: "Démolition",
-  transport_materiaux: "Transport de matériaux",
-  location_engins: "Location d'engins", architecte: "Architecte",
-  bureau_etudes: "Bureau d'études", ingenieur: "Ingénieur",
-  geometre: "Géomètre", promoteur_immobilier: "Promoteur immobilier",
-};
+// Spécialités et libellés : source unique partagée client/serveur
+// (`src/lib/supplierSpecialties.ts`, réexportée par le schéma Convex).
+// Les métiers de maîtrise d'œuvre (architecte, bureau d'études, ingénieur,
+// géomètre, promoteur immobilier) n'en font pas partie : espace Expert uniquement.
 
 const TUNISIA_REGIONS = [
   { value: "tunis", label: "Tunis" }, { value: "ariana", label: "Ariana" },
@@ -473,15 +451,14 @@ export default function SupplierDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {effStatus === "active" && (
-              <button
-                onClick={() => navigate("/dashboard/supplier/stats")}
-                className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
-              >
-                <BarChart3 className="h-3.5 w-3.5" />
-                Stats
-              </button>
-            )}
+            {/* Statistique avancé — même niveau visuel que « Vue Client » */}
+            <button
+              onClick={() => navigate("/dashboard/supplier/stats")}
+              className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              Statistique avancé
+            </button>
             <button
               onClick={() => navigate("/dashboard")}
               className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"

@@ -13,6 +13,11 @@
 // `src/convex/schema.ts` les réexporte pour ne rien casser côté backend.
 // ============================================================================
 
+// ⚠️ Spécialités réservées aux fournisseurs de matériaux/services. Les métiers
+// de la maîtrise d'œuvre et de la promotion (architecte, bureau d'études,
+// ingénieur, géomètre, promoteur immobilier) n'en font plus partie : ils sont
+// proposés uniquement dans l'espace Expert (`src/components/expert/
+// expertProfileOptions.ts`) et ne doivent jamais réapparaître côté fournisseur.
 export const SUPPLIER_SPECIALTIES = [
   "construction_maisons",
   "villas",
@@ -50,11 +55,6 @@ export const SUPPLIER_SPECIALTIES = [
   "demolition",
   "transport_materiaux",
   "location_engins",
-  "architecte",
-  "bureau_etudes",
-  "ingenieur",
-  "geometre",
-  "promoteur_immobilier",
 ] as const;
 
 export const SUPPLIER_SPECIALTIES_LABELS: Record<string, string> = {
@@ -94,9 +94,32 @@ export const SUPPLIER_SPECIALTIES_LABELS: Record<string, string> = {
   demolition: "Démolition",
   transport_materiaux: "Transport de matériaux",
   location_engins: "Location d'engins",
-  architecte: "Architecte",
-  bureau_etudes: "Bureau d'études",
-  ingenieur: "Ingénieur",
-  geometre: "Géomètre",
-  promoteur_immobilier: "Promoteur immobilier",
 };
+
+/**
+ * Anciennes spécialités « métier » retirées de l'espace Fournisseur : elles
+ * appartiennent à la maîtrise d'œuvre / promotion et vivent désormais
+ * uniquement dans l'espace Expert. Conservées ici pour pouvoir écarter les
+ * valeurs historiques encore stockées dans d'anciens profils fournisseurs —
+ * aucune donnée n'est supprimée en base, elles ne sont simplement plus
+ * proposées ni affichées.
+ */
+export const REMOVED_SUPPLIER_SPECIALTIES = [
+  "architecte",
+  "bureau_etudes",
+  "ingenieur",
+  "geometre",
+  "promoteur_immobilier",
+] as const;
+
+const REMOVED_SET = new Set<string>(REMOVED_SUPPLIER_SPECIALTIES);
+
+/**
+ * Écarte les spécialités retirées d'une liste (valeur stockée sur un profil
+ * historique). Les autres valeurs sont laissées intactes.
+ */
+export function keepSupplierSpecialties(
+  values: readonly string[] | undefined | null,
+): string[] {
+  return (values ?? []).filter((v) => !REMOVED_SET.has(v));
+}

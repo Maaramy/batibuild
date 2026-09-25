@@ -313,60 +313,7 @@ export const recordEvent = mutation({
   },
 });
 
-/** Seed demo data for a supplier (admin or self) */
-export const seedDemoAnalytics = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Non authentifié");
-    const profile = await ctx.db
-      .query("supplierProfiles")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .first();
-    if (!profile) throw new Error("Profil fournisseur introuvable");
-
-    const now = Date.now();
-    const DAY = 24 * 60 * 60 * 1000;
-    const products = [
-      "Carrelage grès cérame", "Peinture acrylique", "Béton prêt à l'emploi",
-      "Porte d'entrée aluminium", "Panneau photovoltaïque",
-      "Ciment CPJ 42.5", "Plancher alvéolé", "Fenêtre PVC",
-    ];
-    const sources: Array<"direct" | "search" | "social" | "other"> = [
-      "direct", "search", "search", "social", "other",
-    ];
-    const types: Array<"view" | "click" | "contact"> = [
-      "view", "view", "view", "click", "click", "contact",
-    ];
-
-    // Generate 90 days of random data
-    let count = 0;
-    for (let d = 0; d < 90; d++) {
-      const dayTs = now - d * DAY;
-      const eventsPerDay = 3 + Math.floor(Math.random() * 10);
-      for (let i = 0; i < eventsPerDay; i++) {
-        const hourOffset = Math.floor(Math.random() * 24) * 60 * 60 * 1000;
-        await ctx.db.insert("supplierAnalytics", {
-          supplierId: profile._id,
-          date: dayTs - hourOffset,
-          eventType: types[Math.floor(Math.random() * types.length)],
-          productId: products[Math.floor(Math.random() * products.length)],
-          source: sources[Math.floor(Math.random() * sources.length)],
-        });
-        count++;
-      }
-    }
-
-    // Seed some ratings
-    for (let i = 0; i < 12; i++) {
-      await ctx.db.insert("supplierRatings", {
-        supplierId: profile._id,
-        userId: user._id,
-        rating: 3 + Math.floor(Math.random() * 3), // 3-5
-        createdAt: now - Math.floor(Math.random() * 90) * DAY,
-      });
-    }
-
-    return { eventsCreated: count, ratingsCreated: 12 };
-  },
-});
+// La mutation `seedDemoAnalytics` (90 jours d'événements aléatoires + fausses
+// notes) a été supprimée : la page Statistiques fournisseur n'affiche plus que
+// les données réelles du fournisseur connecté. Aucune donnée de démonstration
+// ne peut donc plus être créée.
