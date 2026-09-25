@@ -15,7 +15,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import {
   MessagingIconWithBadge,
-  UnreadBadge,
   useMessagingUnread,
 } from "@/components/MessagingBadge";
 import { AvailabilityFields } from "@/components/expert/ExpertAvailabilityFields";
@@ -39,7 +38,7 @@ import {
   Eye, EyeOff, Loader2, Plus, Check, ArrowLeft, CreditCard,
   ShieldCheck, Trash2, AlertTriangle, Clock3, Lock,
   Banknote, Smartphone, Landmark, UserRound, Upload,
-  Wallet, FileText, Briefcase, Ruler, HardHat, Store,
+  Wallet, BarChart3, Briefcase, Ruler, HardHat, Store,
   Wrench, Zap, ImageIcon,
 } from "lucide-react";
 
@@ -131,7 +130,6 @@ export default function ExpertDashboard() {
   const navigate = useNavigate();
   const profile = useQuery(api.expertProfiles.getMyProfile);
   const hasProfile = useQuery(api.expertProfiles.hasExpertProfile);
-  const unreadCount = useQuery(api.expertServiceRequests.unreadCount);
   const paymentConfig = useQuery(api.payments.getPublicPricing);
   const createProfile = useMutation(api.expertProfiles.createProfile);
   const updateProfile = useMutation(api.expertProfiles.updateProfile);
@@ -517,15 +515,11 @@ export default function ExpertDashboard() {
                   {effStatus === "active" && (
                     <div className="flex items-center gap-1.5 mt-3 flex-wrap">
                       <button
-                        onClick={() => navigate("/dashboard/expert/services")}
-                        className="relative flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                        onClick={() => navigate("/dashboard/expert/stats")}
+                        className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-[10px] font-semibold text-violet-700 transition-all hover:bg-violet-100"
                       >
-                        <FileText className="h-3 w-3" />
-                        Devis
-                        <UnreadBadge
-                          count={unreadCount}
-                          className="absolute -top-1.5 -right-1.5 h-3.5 min-w-3.5 px-0.5 text-[7px]"
-                        />
+                        <BarChart3 className="h-3 w-3" />
+                        Statistiques avancées
                       </button>
                       <button
                         onClick={() => navigate("/dashboard")}

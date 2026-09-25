@@ -34,7 +34,6 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
-  FileText,
   Star,
   Heart,
   BarChart3,
@@ -820,13 +819,13 @@ export default function Dashboard() {
                         </div>
                       </div>
                       {/* Action buttons row */}
-                      <div className="flex items-center gap-1.5 mt-3">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-3">
                         <button
-                          onClick={() => navigate("/dashboard/expert/services")}
-                          className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+                          onClick={() => navigate("/dashboard/expert/stats")}
+                          className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-[10px] font-semibold text-violet-700 transition-all hover:bg-violet-100"
                         >
-                          <FileText className="h-3 w-3" />
-                          Devis
+                          <BarChart3 className="h-3 w-3" />
+                          Statistiques avancées
                         </button>
                         <button
                           onClick={() => setViewMode("client")}
