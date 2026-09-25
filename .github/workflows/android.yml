@@ -4,7 +4,8 @@
 #        → setup-android@v4 (SDK + licences) → npm/bun install → prebuild
 #        (si android/ absent) → composants SDK du projet → Gradle
 #        → Batibuild-debug.apk + Batibuild-release.apk + Batibuild-release.aab
-#        → Artifacts du run.
+#        → Artifacts du run (rétention courte, 5 j — 1 j si Release)
+#        → + GitHub Release si le run vient d'un tag `v*` (copie durable).
 #
 # AUCUN outil Android n'est requis sur votre PC : ni JDK, ni Android SDK,
 # ni Android Studio, ni Gradle. Tout est installé par le runner.
@@ -51,44 +52,38 @@
 # ninja/CMake, erreur compilateur), et la publie dans le résumé du run.
 # `--stacktrace` reste actif pour ne rien masquer.
 #
-# ── STOCKAGE DES ARTEFACTS (quota GitHub Actions) ───────────────────────────
-# Erreur corrigée ici :
+# ── STOCKAGE DES ARTEFACTS + PUBLICATION (détail : MOBILE_BUILD.md) ─────────
+# Quatre règles traitent à la source l'erreur qu'on venait chercher ici :
 #   Failed to CreateArtifact: Artifact storage quota has been hit.
-#   Unable to upload any new artifacts. Usage is recalculated every 6-12 hours.
-# Cette erreur ne vient NI du code Android NI de Gradle : elle vient du stockage
-# des artefacts du dépôt, saturé par les anciennes générations d'APK/AAB. Les
-# trois causes ont donc été traitées dans le workflow lui-même :
+# (stockage d'artefacts saturé — jamais une erreur Android ni Gradle) :
 #
-#   1. QUANTITÉ — les 3 fichiers (APK debug, APK release, AAB release) sont
-#      publiés dans UN SEUL artefact, au lieu de trois uploads séparés. Aucune
-#      copie n'est créée, et rien d'autre n'est envoyé : jamais node_modules,
-#      les caches Gradle, les sorties intermédiaires ni les logs.
-#   2. DURÉE — `retention-days` (5 jours par défaut, modifiable au lancement
-#      manuel) remplace la rétention par défaut du dépôt (souvent 90 jours).
-#      Le nom de l'artefact contient version + versionCode + numéro de run :
-#      chaque build est identifiable et n'écrase jamais le précédent.
-#   3. ANCIENNES GÉNÉRATIONS — un job « cleanup-artifacts » s'exécute AVANT le
-#      build et supprime, via l'API GitHub (`actions: write`, moindre privilège),
-#      les artefacts expirés, ceux plus vieux que la rétention, et toutes les
-#      anciennes générations batibuild sauf la plus récente (le build précédent
-#      reste téléchargeable pendant sa rétention). Il ne touche JAMAIS aux
-#      sources, au code, à l'historique Git, aux releases GitHub, ni aux
-#      artefacts du run en cours. Si le jeton ne peut pas supprimer, le job
-#      avertit dans le résumé sans jamais bloquer le build.
+#   1. UN SEUL artefact par build (APK debug + APK release + AAB release), au
+#      lieu de trois uploads séparés. Jamais node_modules, caches Gradle,
+#      sorties intermédiaires ni logs.
+#   2. `retention-days` explicite (5 jours — ou 1 jour quand une Release est
+#      publiée) au lieu de la rétention du dépôt (souvent 90 jours).
+#   3. Job « cleanup-artifacts » AVANT le build : supprime via l'API GitHub
+#      (`actions: write`, moindre privilège) les artefacts expirés ou trop
+#      anciens — jamais les sources, le code, l'historique Git ni les Releases.
+#   4. PUBLICATION EN GITHUB RELEASE (stockage distinct, hors quota) : les
+#      APK/AAB y sont attachés pour être conservés durablement. Elle a lieu si
+#      le run vient d'un tag `v*` (les filtres `paths` ne s'appliquent pas aux
+#      tags), ou en lancement manuel avec `publish_release: true` (tag
+#      `v<version>-build<run>`). Elle est publiée même si l'upload d'artefact a
+#      échoué (`if: always()`) : un APK reste récupérable même quota plein. Un
+#      tag qui ne correspond pas à `mobile/app.json` est refusé, pour qu'aucune
+#      Release trompeuse n'existe.
+#   5. Après l'upload, l'API GitHub est interrogée pour confirmer que l'artefact
+#      a bien été publié et n'est pas vide (échec franc sinon).
 #
-# Après le build, une vérification interroge l'API GitHub pour confirmer que
-# l'artefact a réellement été publié et n'est pas vide (échec franc sinon), et
-# affiche l'état du stockage du dépôt.
+# Scripts : `mobile/scripts/publish-release.sh` (Release) et
+# `mobile/scripts/artifact-storage.mjs` (nettoyage / vérification).
 #
 # ── ACTIONS (runtime Node 24) ───────────────────────────────────────────────
 # Node.js 20 a été retiré des runners GitHub le 16/09/2026 : toutes les actions
-# utilisées tournent désormais sur Node 24 (checkout v5, setup-node v5,
-# setup-java v5, cache v6, upload-artifact v7, setup-android v4, setup-bun v2),
-# ce qui supprime les avertissements « Node.js 20 actions are deprecated ».
-# `actions/upload-artifact@v7` conserve exactement les entrées utilisées ici
-# (`name`, `path`, `if-no-files-found`, `retention-days`, `compression-level`,
-# `overwrite`) tout en corrigeant le runtime : v4 et v5 tournent encore sur
-# Node 20, la version avertie puis supprimée par GitHub.
+# tournent désormais sur Node 24 (checkout v5, setup-node v5, setup-java v5,
+# cache v6, upload-artifact v7, setup-android v4, setup-bun v2) — plus
+# d'avertissement « Node.js 20 actions are deprecated ».
 #
 # Si le quota est DÉJÀ saturé avant ce run, les trois fichiers ne peuvent pas
 # être publiés : supprimez alors les anciens artefacts depuis
@@ -98,8 +93,14 @@
 name: Android — APK & AAB
 
 on:
+  # `branches` + `paths` : build automatique dès qu'un fichier de mobile/ change
+  # sur main.
+  # `tags: ["v*"]` : publication d'une Release versionnée. Les filtres `paths` ne
+  # sont PAS évalués pour les poussées de tags (documentation GitHub) : un tag
+  # `v*` déclenche donc toujours le build, même s'il ne touche pas mobile/.
   push:
     branches: ["main"]
+    tags: ["v*"]
     paths:
       - "mobile/**"
       - ".github/workflows/android.yml"
@@ -115,9 +116,14 @@ on:
         required: false
         default: false
       retention_days:
-        description: "Conservation de l'artefact publié (1 à 90 jours, 5 par défaut)"
+        description: "Artefact : conservation en jours (1 à 90). Vide = 5 j, ou 1 j si une Release est publiée"
         required: false
-        default: "5"
+        default: ""
+      publish_release:
+        description: "Publier une GitHub Release (APK + AAB attachés) — crée le tag v<version>-build<run>"
+        type: boolean
+        required: false
+        default: false
       cleanup_scope:
         description: "Nettoyage : « all » (tout le dépôt) ou « workflow » (batibuild uniquement)"
         required: false
@@ -149,11 +155,18 @@ env:
 
   # ── STOCKAGE DES ARTEFACTS (quota GitHub Actions) ──────────────────────────
   # ARTIFACT_RETENTION_DAYS : durée de conservation demandée à l'upload.
+  #                           Vide = calcul automatique (étape « Identifier le
+  #                           build ») : 5 jours, ou 1 seul jour dès qu'une
+  #                           GitHub Release est publiée — la Release est la
+  #                           copie durable, inutile de stocker deux fois.
   # ARTIFACT_CLEANUP_SCOPE  : `all` = tous les artefacts du dépôt (seuls les
   #                           temporaires périmés sont supprimés) ;
   #                           `workflow` = uniquement les artefacts batibuild.
   # ARTIFACT_KEEP_LATEST    : nombre de builds batibuild conservés (1).
-  ARTIFACT_RETENTION_DAYS: ${{ inputs.retention_days || '5' }}
+  ARTIFACT_RETENTION_DAYS: ${{ inputs.retention_days }}
+  # PUBLISH_RELEASE : `true` (lancement manuel) → publier une Release même sans
+  # tag. Vide sur un push : la publication dépend alors du tag uniquement.
+  PUBLISH_RELEASE: ${{ inputs.publish_release }}
   ARTIFACT_CLEANUP_SCOPE: ${{ inputs.cleanup_scope || 'all' }}
   ARTIFACT_KEEP_LATEST: "1"
 
@@ -206,7 +219,13 @@ jobs:
     # Le nettoyage ne doit JAMAIS empêcher le build de tourner.
     if: ${{ !cancelled() }}
     permissions:
-      contents: read
+      # `contents: write` : nécessaire UNIQUEMENT pour publier la GitHub Release
+      # (attacher les APK/AAB, et créer le tag lors d'un lancement manuel). Les
+      # permissions GitHub Actions sont déclarées PAR JOB et non par étape : ce
+      # job porte donc la permission, mais aucune étape ne l'exerce avant la
+      # publication — et la Release n'est publiée que sur un tag `v*` ou sur
+      # demande explicite, jamais sur un simple push de branche.
+      contents: write
       # Lecture seule : nécessaire pour confirmer la publication de l'artefact
       # via l'API GitHub après l'upload.
       actions: read
@@ -214,11 +233,6 @@ jobs:
       run:
         working-directory: mobile
     steps:
-      # Actions en runtime Node 24 (Node 20 a été retiré des runners GitHub le
-      # 16/09/2026) : plus d'avertissement « Node.js 20 actions are deprecated ».
-      # checkout v5, setup-node v5, setup-java v5, cache v6, upload-artifact v7,
-      # setup-android v4 (node24) et setup-bun v2 (node24) : mêmes entrées
-      # qu'avant, seul le runtime change.
       - name: Checkout
         uses: actions/checkout@v5
 
@@ -238,26 +252,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # ══════════════════════════════════════════════════════════════════════
-      # CONFIGURATION DU SDK ANDROID — MÉTHODE UNIQUE
-      #
-      # CAUSE DE L'ÉCHEC CORRIGÉE ICI : l'image du runner embarque un SDK
-      # préinstallé dont les cmdline-tools 12.0 (`cmdline-tools/latest`) étaient
-      # résolus AVANT ceux de l'action. setup-android détectait alors
-      # « Wrong version in preinstalled sdkmanager », téléchargeait une autre
-      # version, puis l'acceptation des licences / « Fetch remote repository »
-      # échouait — et le `sdkmanager --licenses` manuel du workflow utilisait ce
-      # même ancien binaire.
-      #
-      # Le SDK est donc maintenant configuré en TROIS temps, sans aucune
-      # installation manuelle de cmdline-tools et sans aucune commande
-      # `sdkmanager --licenses` :
-      #   1. l'emplacement du SDK est fixé (et l'ancien sdkmanager supprimé) ;
-      #   2. setup-android@v4 installe ses propres cmdline-tools, accepte LES
-      #      licences lui-même et installe platform-tools ;
-      #   3. PATH et variables d'environnement sont normalisés : un SEUL
-      #      sdkmanager reste résoluble, et il appartient au SDK configuré.
-      # ══════════════════════════════════════════════════════════════════════
+      # ── SDK ANDROID — MÉTHODE UNIQUE (`MOBILE_BUILD.md` § Dépannage) ───────
+      # L'ancien sdkmanager préinstallé est supprimé AVANT setup-android@v4,
+      # sinon « Wrong version in preinstalled sdkmanager » puis échec des
+      # licences. Aucun cmdline-tools n'est installé à la main et aucune commande
+      # `sdkmanager --licenses` n'est exécutée : l'action s'en charge.
 
       - name: Préparer l'emplacement du SDK Android (supprimer l'ancien sdkmanager)
         shell: bash
@@ -423,19 +422,10 @@ jobs:
           node scripts/ensure-debug-keystore.mjs
           ls -la android/app/debug.keystore
 
-      # ══════════════════════════════════════════════════════════════════════
-      # PRÉ-VÉRIFICATIONS MOBILES (avant le build lourd)
-      #
-      # Échoue en quelques secondes — donc AVANT 15 min de compilation — si :
-      #   · une dépendance attendue par la coque native manque ;
-      #   · la configuration Android (app.json, manifest, clé debug) est cassée ;
-      #   · une route utilisée par la barre de navigation n'existe plus dans le
-      #     routeur de la plateforme (/dashboard/reports, /dashboard/projects…) ;
-      #   · le contrat WebView ↔ natif de la pastille de la Messagerie est
-      #     désynchronisé, ou l'ancien libellé « ROI » est revenu ;
-      #   · un asset/icône référencé est absent ou vide ;
-      #   · une icône lucide n'est plus exportée par la version installée.
-      # Le typecheck est déjà exécuté par l'étape « Typecheck » ci-dessus.
+      # ── PRÉ-VÉRIFICATIONS MOBILES (avant le build lourd) ──────────────────
+      # Dépendances, config Android, routes de la plateforme, contrat
+      # WebView ↔ natif, assets/icônes, workflow CI : tout échoue en quelques
+      # secondes au lieu d'après 15 min de compilation.
       - name: Pré-vérifications mobiles (routes, config, assets, contrat natif)
         env:
           SKIP_TYPECHECK: "1"
@@ -665,26 +655,74 @@ jobs:
       - name: Vérification de la signature (signingReport)
         run: bash scripts/ci-gradle.sh :app:signingReport signing
 
-      # ── NOM DU BUILD (artefact unique et identifiable) ─────────────────────
+      # ── NOM DU BUILD, RÉTENTION ET PUBLICATION (Release GitHub) ────────────
       # Un seul artefact par build, nommé d'après la version RÉELLEMENT compilée
       # et le numéro de run : deux builds ne peuvent pas se confondre, et le
       # fichier téléchargé s'identifie sans ambiguïté (batibuild 1.3.2,
       # versionCode 12, run 123).
-      - name: Identifier le build (nom + rétention)
+      #
+      # C'est ici qu'est décidée la publication en GitHub Release :
+      #   · push d'un tag `v*`                        → Release portant ce tag ;
+      #   · lancement manuel + `publish_release: true` → Release pré-versionnée
+      #     `v<version>-build<run>` (le tag est créé sur le commit lancé) ;
+      #   · tout le reste (push sur main)              → aucune Release.
+      - name: Identifier le build (nom, rétention, publication)
         id: dist
         run: |
           VERSION=$(node -p "require('./app.json').expo.version")
           CODE=$(node -p "require('./app.json').expo.android.versionCode")
           LABEL="batibuild-v${VERSION}-code${CODE}-run${GITHUB_RUN_NUMBER}"
-          # Rétention validée ici : une valeur non numérique ou hors 1–90 ferait
-          # échouer l'upload avec un message obscur.
-          DAYS="${ARTIFACT_RETENTION_DAYS:-5}"
-          case "$DAYS" in ''|*[!0-9]*) DAYS=5 ;; esac
-          if [ "$DAYS" -lt 1 ] || [ "$DAYS" -gt 90 ]; then DAYS=5; fi
-          echo "label=${LABEL}" >> "$GITHUB_OUTPUT"
-          echo "retention=${DAYS}" >> "$GITHUB_OUTPUT"
+
+          # ── Faut-il publier une Release ? ──────────────────────────────────
+          PUBLISH="false"
+          TAG=""
+          PRERELEASE="false"
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+            PUBLISH="true"
+            # v1.4.0-rc1, v1.4.0-beta.2… : jamais proposée comme « dernière
+            # version » tant que le tag porte un suffixe de pré-version.
+            case "$TAG" in
+              *-*) PRERELEASE="true" ;;
+            esac
+          fi
+          if [ "${PUBLISH_RELEASE:-false}" = "true" ]; then
+            PUBLISH="true"
+            PRERELEASE="true"
+            if [ -z "$TAG" ]; then TAG="v${VERSION}-build${GITHUB_RUN_NUMBER}"; fi
+          fi
+
+          # ── Rétention de l'artefact ────────────────────────────────────────
+          # Une valeur non numérique ou hors 1–90 ferait échouer l'upload avec un
+          # message obscur : elle est validée (et vidée) ici.
+          DAYS="${ARTIFACT_RETENTION_DAYS:-}"
+          case "$DAYS" in ''|*[!0-9]*) DAYS="" ;; esac
+          if [ -n "$DAYS" ]; then
+            if [ "$DAYS" -lt 1 ] || [ "$DAYS" -gt 90 ]; then DAYS=""; fi
+          fi
+          if [ -z "$DAYS" ]; then
+            # Aucune durée demandée : 5 jours — ou 1 seul jour dès qu'une Release
+            # est publiée, puisque la Release porte déjà la copie durable.
+            if [ "$PUBLISH" = "true" ]; then DAYS=1; else DAYS=5; fi
+          fi
+
+          {
+            echo "version=${VERSION}"
+            echo "code=${CODE}"
+            echo "label=${LABEL}"
+            echo "retention=${DAYS}"
+            echo "release=${PUBLISH}"
+            echo "tag=${TAG}"
+            echo "prerelease=${PRERELEASE}"
+          } >> "$GITHUB_OUTPUT"
+
           echo "Artefact de ce build : ${LABEL}"
           echo "Rétention            : ${DAYS} jour(s)"
+          if [ "$PUBLISH" = "true" ]; then
+            echo "Release GitHub       : ${TAG} (pré-version : ${PRERELEASE})"
+          else
+            echo "Release GitHub       : aucune — posez un tag « v* » ou cochez « publish_release » pour conserver ce build hors du quota d'artefacts"
+          fi
           echo "Nettoyage            : portée ${ARTIFACT_CLEANUP_SCOPE}, ${ARTIFACT_KEEP_LATEST} build(s) conservé(s)"
 
       # ── APK DEBUG ──────────────────────────────────────────────────────────
@@ -829,6 +867,36 @@ jobs:
           echo "artifact-id : ${{ steps.upload.outputs.artifact-id }}"
           node scripts/artifact-storage.mjs verify
 
+      # ══════════════════════════════════════════════════════════════════════
+      # PUBLICATION EN GITHUB RELEASE — COPIE DURABLE, HORS QUOTA D'ARTEFACTS
+      #
+      # Les APK/AAB sont également attachés à une GitHub Release, dont le
+      # stockage est distinct et bien plus large que celui des artefacts : les
+      # builds versionnés y restent disponibles sans limite de 90 jours, sans
+      # consommer le quota saturé.
+      #
+      # Pourquoi DANS ce job et pas dans un job séparé : les trois fichiers sont
+      # déjà dans /tmp/dist sur ce runner ; un job séparé devrait les
+      # retélécharger via le stockage d'artefacts — la ressource dont le quota
+      # est justement plein. `always()` fait que la Release est publiée MÊME si
+      # l'upload d'artefact a échoué : l'APK reste récupérable malgré le quota.
+      #
+      # Déclenchement : tag `v*`, ou lancement manuel avec `publish_release`.
+      # Toute la logique (validation du tag, notes de version avec empreintes
+      # SHA-256, attachement des 3 fichiers, idempotence, lien dans le résumé du
+      # run) vit dans `mobile/scripts/publish-release.sh`.
+      # ══════════════════════════════════════════════════════════════════════
+      - name: Publier la Release GitHub (APK + AAB attachés au tag)
+        id: release
+        if: ${{ always() && steps.dist.outputs.release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.dist.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.dist.outputs.version }}
+          RELEASE_CODE: ${{ steps.dist.outputs.code }}
+          RELEASE_PRERELEASE: ${{ steps.dist.outputs.prerelease }}
+        run: bash scripts/publish-release.sh
+
       # ── DIAGNOSTIC VISIBLE EN CAS D'ÉCHEC ──────────────────────────────────
       # Ne masque rien : le job reste rouge. Affiche simplement la cause réelle
       # dans une étape dédiée, lisible même depuis le téléphone.
@@ -864,9 +932,12 @@ jobs:
             echo "À faire une seule fois, puis relancer :"
             echo "  1. ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions"
             echo "  2. supprimer les anciens artefacts (run → « Artifacts » → corbeille)"
-            echo "  3. relancer ce workflow : il publie UN SEUL artefact par build,"
-            echo "     conservé 5 jour(s) par défaut, et nettoie"
-            echo "     automatiquement les plus anciens au run suivant."
+            echo "  3. relancer ce workflow : il publie UN SEUL artefact par build et"
+            echo "     nettoie automatiquement les plus anciens au run suivant."
+            echo ""
+            echo "Autre voie, indépendante de ce quota : posez un tag « v* » (ou relancez"
+            echo "avec publish_release = true). Les APK/AAB sont alors attachés à une"
+            echo "GitHub Release, conservée durablement dans un stockage distinct."
             echo "══════════════════════════════════════════════════════════════"
           fi
 
@@ -905,6 +976,10 @@ jobs:
           echo "**Artefact unique** : \`${{ steps.dist.outputs.label }}\` — APK debug + APK release + AAB release, conservé **${{ steps.dist.outputs.retention }} jour(s)** (rétention limitée, anciennes générations nettoyées automatiquement)." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Téléchargement : [${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) → section « Artifacts »." >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "${{ steps.release.outputs.url }}" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "> **Conservation durable sans quota d'artefacts** : posez un tag \`v${VERSION}\` et poussez-le (ou relancez le workflow avec \`publish_release\` = true) → les APK/AAB seront attachés à une GitHub Release." >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Téléphone branché en USB : \`adb install -r Batibuild-release.apk\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"

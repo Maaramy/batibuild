@@ -20,7 +20,8 @@
  *   6. assets, icônes et fichiers statiques référencés ;
  *   7. icônes lucide réellement exportées par la version installée ;
  *   8. workflow CI : un seul artefact par build, rétention limitée, nettoyage
- *      automatique des anciens artefacts, actions en runtime Node 24 ;
+ *      automatique des anciens artefacts, publication en GitHub Release (hors
+ *      quota), actions en runtime Node 24 ;
  *   9. build TypeScript (tsc --noEmit) du projet mobile.
  *
  * Aucune écriture hors de `mobile/` : le script ne fait que lire, nettoyer des
@@ -483,7 +484,7 @@ const NODE24_MINIMUM = {
  * trois uploads séparés, sans rétention, sans nettoyage.
  */
 function checkCiWorkflow() {
-  console.log("\n8. Workflow CI — publication des artefacts (quota GitHub)");
+  console.log("\n8. Workflow CI — artefacts (quota) + publication de la Release");
   const workflow = join(repoRoot, ".github", "workflows", "android.yml");
   const content = read(workflow);
   if (!content) {
@@ -522,6 +523,46 @@ function checkCiWorkflow() {
     );
   } else {
     ok("nettoyage automatique des anciens artefacts avant le build");
+  }
+
+  // Publication en GitHub Release : c'est la copie durable qui permet de
+  // conserver un build par version sans dépendre du quota d'artefacts.
+  if (!/bash scripts\/publish-release\.sh/.test(content)) {
+    fail(
+      "workflow android",
+      "publication en GitHub Release absente : les builds disparaîtraient avec l'artefact",
+    );
+  } else if (!existsSync(join(repoRoot, "mobile", "scripts", "publish-release.sh"))) {
+    fail("scripts/publish-release.sh", "script de publication introuvable");
+  } else {
+    ok("publication en GitHub Release (APK + AAB attachés au tag, hors quota)");
+  }
+
+  if (!/tags:\s*\["?v\*"?\]/.test(content)) {
+    fail(
+      "workflow android",
+      "déclencheur sur les tags `v*` absent : aucune Release versionnée ne serait publiée",
+    );
+  } else {
+    ok("déclenchement sur tag `v*` en plus du push sur main");
+  }
+
+  if (!/contents:\s*write/.test(content)) {
+    fail(
+      "workflow android",
+      "« contents: write » absent : la publication de la Release échouerait (403)",
+    );
+  } else {
+    ok("permission « contents: write » présente pour publier la Release");
+  }
+
+  if (!/always\(\)\s*&&\s*steps\.dist\.outputs\.release\s*==\s*'true'/.test(content)) {
+    fail(
+      "workflow android",
+      "la Release n'est pas conditionnée à un tag : elle serait publiée à chaque push de branche",
+    );
+  } else {
+    ok("Release publiée uniquement sur tag `v*` ou demande explicite (même si le quota est plein)");
   }
 
   if (/path:\s*(\*\*|node_modules)|path:\s*\|\s*\n\s*\*\*/.test(content)) {

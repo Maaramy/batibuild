@@ -107,6 +107,7 @@ publiés. Le workflow la traite à la source, sur trois plans :
 | Trois uploads séparés par build | **UN seul artefact** contient l'APK debug, l'APK release et l'AAB release — aucune copie, un seul téléchargement |
 | Conservation jusqu'à 90 jours | `retention-days` (**5 jours** par défaut, réglable 1–90 au lancement manuel du workflow) |
 | Anciennes générations accumulées | Job **`cleanup-artifacts`** exécuté *avant* le build : supprime via l'API GitHub les artefacts expirés, ceux plus vieux que la rétention, et les anciennes générations `batibuild` — en conservant toujours **la plus récente** |
+| Besoin de garder un build longtemps | **GitHub Release** : les APK/AAB y sont attachés (stockage distinct, hors quota) — voir la section suivante |
 
 Jamais supprimés par ce nettoyage : sources, code, historique Git, releases
 GitHub, artefacts du run en cours. Jamais publiés non plus : `node_modules`,
@@ -131,6 +132,47 @@ Utilitaires locaux :
 npm run android:artifacts:test      # vérifie la politique de nettoyage (hors ligne)
 npm run android:artifacts:cleanup   # supprime les anciens artefacts (GITHUB_TOKEN requis)
 npm run android:artifacts:verify    # confirme la publication de l'artefact du run
+```
+
+### Publication en GitHub Release — conserver un build durablement (hors quota)
+
+Le quota d'artefacts est limité et partagé par tout le dépôt : il ne peut pas
+servir d'archive. Les APK/AAB sont donc **aussi attachés à une GitHub Release**,
+dont le stockage est distinct et bien plus large (pas de limite de 90 jours).
+
+| Déclencheur | Résultat |
+|---|---|
+| `git push origin v1.3.2` (tag **`v*`**) | Build complet puis Release **`v1.3.2`** contenant `Batibuild-release.apk`, `Batibuild-release.aab` et `Batibuild-debug.apk` |
+| *Actions → Run workflow* + **`publish_release`** = true | Release **`v<version>-build<numéro de run>`** marquée *pré-version*, créée sur le commit lancé |
+| `push` sur `main` | Aucune Release — l'artefact du run reste disponible quelques jours |
+
+```bash
+git tag v1.3.2 && git push origin v1.3.2     # build + Release
+```
+
+Points importants :
+
+- **Le tag doit correspondre à `mobile/app.json`** (`expo.version`). Un tag
+  `v1.4.0` qui produirait l'APK `1.3.2` est **refusé** : aucune Release
+  trompeuse ne peut exister. Mettez à jour `expo.version` /
+  `expo.android.versionCode`, committez, puis créez le tag.
+- Un tag avec suffixe (`v1.3.3-rc1`, `-beta.2`…) produit une **pré-version**,
+  jamais proposée comme « dernière version ».
+- La Release est publiée **même si l'upload d'artefact a échoué** (quota plein) :
+  l'artefact n'est alors conservé qu'**1 jour** au lieu de 5, puisque la Release
+  est la copie durable.
+- **Idempotent** : relancer le workflow sur le même tag met à jour les fichiers
+  joints au lieu d'échouer (`release already exists`).
+- Les notes de version contiennent la version, le `versionCode`, les ABI
+  compilées, la commande `adb install` et les **empreintes SHA-256** des trois
+  fichiers ; le **résumé du run** affiche le lien de la Release.
+- Les `paths` du workflow ne s'appliquent pas aux tags : un tag `v*` déclenche
+  donc toujours le build.
+
+Vérification hors ligne (aucune publication) :
+
+```bash
+cd mobile && bash scripts/publish-release.sh --dry-run
 ```
 
 ### Clé de signature debug (à ne pas confondre avec le keystore Release)
