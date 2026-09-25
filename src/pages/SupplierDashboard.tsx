@@ -825,6 +825,10 @@ export default function SupplierDashboard() {
                       {isEditing ? "Annuler" : "Modifier"}
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Pour modifier les informations, cliquez sur{" "}
+                    <span className="font-semibold text-foreground">(Modifier)</span>.
+                  </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-1.5">
