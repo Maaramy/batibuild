@@ -96,6 +96,13 @@ const PIE_COLORS = [
   "#06b6d4",
 ];
 
+/** Tronque un libellé d'axe ou de légende pour éviter que deux libellés se
+ *  chevauchent ou débordent de la zone de graphique sur mobile. */
+const truncateLabel = (value: unknown, max = 16) => {
+  const text = String(value ?? "");
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+};
+
 /** Icône et teinte de chaque nature de demande (les libellés viennent de
  *  `src/lib/expertStatsLabels.ts`, partagés et testés). */
 const KIND_META: Record<
@@ -141,9 +148,9 @@ function StatsSkeleton() {
         <Skeleton className="h-5 w-52" />
       </div>
       <Skeleton className="h-9 w-full rounded-xl" />
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 rounded-xl" />
+          <Skeleton key={i} className="h-24 rounded-xl" />
         ))}
       </div>
       <Skeleton className="h-40 rounded-xl" />
@@ -151,7 +158,16 @@ function StatsSkeleton() {
         <Skeleton className="h-52 rounded-xl" />
         <Skeleton className="h-52 rounded-xl" />
       </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Skeleton className="h-52 rounded-xl" />
+        <Skeleton className="h-52 rounded-xl" />
+      </div>
       <Skeleton className="h-48 rounded-xl" />
+      <Skeleton className="h-40 rounded-xl" />
+      <div className="grid gap-3 md:grid-cols-2">
+        <Skeleton className="h-48 rounded-xl" />
+        <Skeleton className="h-48 rounded-xl" />
+      </div>
     </div>
   );
 }
@@ -173,39 +189,47 @@ function KpiCard({
   hint?: string;
   loading?: boolean;
 }) {
+  const display =
+    typeof value === "number" ? value.toLocaleString("fr-FR") : value;
+
   return (
-    <Card className="overflow-hidden border-border/40">
-      <CardContent className="p-3">
-        <div className="flex items-center gap-2.5">
+    // `py-0` : la tuile n'utilise pas le rembourrage vertical par défaut des
+    // cartes (24px en haut et en bas) qui la rendait inutilement haute.
+    <Card className="overflow-hidden border-border/40 py-0">
+      <CardContent className="flex h-full flex-col justify-center p-3 sm:p-4">
+        {/* Icône + chiffre sur la même ligne, alignés verticalement */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
           <div
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-            style={{ backgroundColor: `${color}18` }}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10"
+            style={{ backgroundColor: `${color}15` }}
           >
             <span style={{ color }}>
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
             </span>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-medium leading-tight text-muted-foreground">
-              {label}
+          {loading ? (
+            <Skeleton className="h-7 w-14" />
+          ) : (
+            <p className="min-w-0 text-xl font-bold leading-none tabular-nums text-foreground sm:text-2xl">
+              <span className="break-words">{display}</span>
+              {suffix && (
+                <span className="ml-0.5 text-xs font-medium text-muted-foreground sm:text-sm">
+                  {suffix}
+                </span>
+              )}
             </p>
-            {loading ? (
-              <Skeleton className="mt-1 h-5 w-12" />
-            ) : (
-              <p className="text-base font-bold leading-tight tabular-nums text-foreground">
-                {typeof value === "number" ? value.toLocaleString("fr-FR") : value}
-                {suffix && (
-                  <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">
-                    {suffix}
-                  </span>
-                )}
-              </p>
-            )}
-            {hint && !loading && (
-              <p className="truncate text-[9px] text-muted-foreground/70">{hint}</p>
-            )}
-          </div>
+          )}
         </div>
+        {/* Libellé puis précision, sur toute la largeur de la tuile : plus de
+            texte coupé, même sur un écran de 320px. */}
+        <p className="mt-1.5 text-[10px] font-medium leading-tight text-muted-foreground sm:mt-2 sm:text-xs">
+          {label}
+        </p>
+        {hint && !loading && (
+          <p className="mt-0.5 text-[9px] leading-tight text-muted-foreground/70 sm:text-[10px]">
+            {hint}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -226,7 +250,7 @@ function FunnelStep({
   rate?: number;
 }) {
   return (
-    <div className="min-w-0 flex-1 space-y-1">
+    <div className="min-w-0 space-y-1">
       <div className="flex items-baseline justify-between gap-1">
         <span className="truncate text-[10px] font-medium text-muted-foreground">
           {label}
@@ -337,7 +361,7 @@ export default function ExpertStats() {
 
   if (profile === undefined) {
     return (
-      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-5">
+      <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-5">
         <StatsSkeleton />
       </div>
     );
@@ -345,15 +369,18 @@ export default function ExpertStats() {
 
   if (!hasAccess) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 px-3 py-4 sm:px-5">
-        <div className="flex items-center gap-3">
+      <div className="mx-auto w-full max-w-3xl space-y-4 px-3 py-4 sm:px-5">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           <button
             onClick={() => navigate("/dashboard/expert")}
-            className="flex h-9 w-9 items-center justify-center rounded-lg transition-all hover:bg-muted/50 active:scale-95"
+            aria-label="Retour à l'espace expert"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/50 transition-colors hover:bg-muted active:scale-95"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <h1 className="text-lg font-bold">Statistiques</h1>
+          <h1 className="truncate text-base font-bold text-foreground sm:text-lg">
+            Statistiques
+          </h1>
         </div>
         <UpgradeScreen onBack={() => navigate("/dashboard/expert")} />
       </div>
@@ -392,34 +419,38 @@ export default function ExpertStats() {
   const visibleDemandRows = (demandTable ?? []).filter((r) => r.requests > 0);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 px-3 py-4 sm:px-5">
+    <div className="mx-auto w-full max-w-6xl space-y-3 px-3 py-4 sm:space-y-4 sm:px-5">
       {/* ── En-tête ── */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-3"
+        className="flex items-center gap-2.5 sm:gap-3"
       >
         <button
           onClick={() => navigate("/dashboard/expert")}
-          className="flex h-9 w-9 items-center justify-center rounded-lg transition-all hover:bg-muted/50 active:scale-95"
+          aria-label="Retour à l'espace expert"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/50 transition-colors hover:bg-muted active:scale-95"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-bold">Statistiques Expert</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="truncate text-base font-bold text-foreground sm:text-lg">
+            Statistiques Expert
+          </h1>
+          <p className="truncate text-[11px] text-muted-foreground sm:text-xs">
             Suivez vos performances et votre visibilité
           </p>
         </div>
       </motion.div>
 
-      {/* ── Sélecteur de période ── */}
-      <div className="flex gap-1.5 rounded-xl bg-muted/30 p-1">
+      {/* ── Sélecteur de période (occupe toute la largeur, 320px inclus) ── */}
+      <div className="grid grid-cols-5 gap-1 rounded-xl bg-muted/30 p-1">
         {PERIODS.map((p) => (
           <button
             key={p.key}
             onClick={() => setPeriod(p.key)}
-            className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-all ${
+            aria-pressed={period === p.key}
+            className={`min-w-0 truncate rounded-lg px-1 py-2 text-[11px] font-medium transition-all sm:px-2 sm:py-1.5 sm:text-xs ${
               period === p.key
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -436,15 +467,15 @@ export default function ExpertStats() {
           animate={{ opacity: 1, height: "auto" }}
           className="flex flex-wrap items-center gap-2"
         >
-          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+          <Filter className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <label className="text-[11px] font-medium text-muted-foreground">
-            Depuis le
+            Début
           </label>
           <input
             type="date"
             value={customStart}
             onChange={(e) => setCustomStart(e.target.value)}
-            className="rounded-lg border border-border bg-background px-2.5 py-1 text-[11px]"
+            className="w-full min-w-0 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[11px] sm:w-auto sm:py-1"
           />
           <span className="text-[10px] text-muted-foreground/70">
             jusqu'à aujourd'hui
@@ -452,8 +483,8 @@ export default function ExpertStats() {
         </motion.div>
       )}
 
-      {/* ── Cartes KPI ── */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {/* ── Cartes KPI : 2 colonnes à tous les formats ── */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <KpiCard
           label="Vues du profil"
           value={views}
@@ -542,12 +573,12 @@ export default function ExpertStats() {
         <Card className="border-border/40">
           <CardHeader className="p-3 pb-1">
             <CardTitle className="flex items-center gap-1.5 text-xs">
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+              <TrendingUp className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
               De la visite à la demande
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 p-3 pt-2">
-            <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
               <FunnelStep label="Vues du profil" value={views} total={views} color="#3b82f6" />
               <FunnelStep
                 label="Clics (annuaire)"
@@ -586,13 +617,13 @@ export default function ExpertStats() {
           <Card className="border-border/40">
             <CardHeader className="p-3 pb-1">
               <CardTitle className="flex items-center gap-1.5 text-xs">
-                <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
+                <BarChart3 className="h-3.5 w-3.5 shrink-0 text-blue-500" />
                 Vues et contacts par jour
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-3 pt-0">
-              <ChartContainer config={areaConfig} className="h-48 w-full">
-                <AreaChart data={trendData}>
+            <CardContent className="p-2 pt-0 sm:px-3 sm:pb-3">
+              <ChartContainer config={areaConfig} className="h-44 w-full sm:h-52">
+                <AreaChart data={trendData} margin={{ left: 0, right: 6, top: 4 }}>
                   <defs>
                     <linearGradient id="expertFillViews" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -614,6 +645,9 @@ export default function ExpertStats() {
                     stroke="hsl(var(--muted-foreground))"
                     tickLine={false}
                     axisLine={false}
+                    minTickGap={18}
+                    interval="preserveStartEnd"
+                    tickMargin={4}
                   />
                   <YAxis
                     tick={{ fontSize: 9 }}
@@ -648,14 +682,14 @@ export default function ExpertStats() {
           <Card className="border-border/40">
             <CardHeader className="p-3 pb-1">
               <CardTitle className="flex items-center gap-1.5 text-xs">
-                <PieChartIcon className="h-3.5 w-3.5 text-emerald-500" />
+                <PieChartIcon className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                 Sources de trafic
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-3 pt-0">
+            <CardContent className="p-2 pt-0 sm:px-3 sm:pb-3">
               {trafficSources && trafficSources.length > 0 ? (
                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-                  <div className="h-40 w-40 shrink-0">
+                  <div className="h-40 w-40 shrink-0 sm:h-44 sm:w-44">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -684,7 +718,7 @@ export default function ExpertStats() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="w-full space-y-1.5">
+                  <div className="w-full min-w-0 space-y-1.5 sm:flex-1">
                     {trafficSources.map((src, i) => (
                       <div key={src.name} className="flex items-center gap-1.5">
                         <div
@@ -696,7 +730,7 @@ export default function ExpertStats() {
                         <span className="truncate text-[10px] text-muted-foreground">
                           {sourceLabel(src.name)}
                         </span>
-                        <span className="ml-auto text-[10px] font-semibold tabular-nums text-foreground">
+                        <span className="ml-auto pl-2 text-[10px] font-semibold tabular-nums text-foreground">
                           {src.value.toLocaleString("fr-FR")}
                         </span>
                       </div>
@@ -704,9 +738,11 @@ export default function ExpertStats() {
                   </div>
                 </div>
               ) : (
-                <p className="py-10 text-center text-xs text-muted-foreground">
-                  Les sources apparaîtront avec vos premières visites.
-                </p>
+                <div className="flex h-40 items-center justify-center px-2 text-center sm:h-44">
+                  <p className="text-xs text-muted-foreground">
+                    Les sources apparaîtront avec vos premières visites.
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -719,21 +755,27 @@ export default function ExpertStats() {
           <Card className="border-border/40">
             <CardHeader className="p-3 pb-1">
               <CardTitle className="flex items-center gap-1.5 text-xs">
-                <MessageSquare className="h-3.5 w-3.5 text-violet-500" />
+                <MessageSquare className="h-3.5 w-3.5 shrink-0 text-violet-500" />
                 Demandes par nature
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-3 pt-0">
+            <CardContent className="p-2 pt-0 sm:px-3 sm:pb-3">
               {(demandBreakdown ?? []).some((d) => d.value > 0) ? (
-                <ChartContainer config={demandConfig} className="h-44 w-full">
-                  <RechartsBarChart data={demandBreakdown ?? []}>
+                <ChartContainer config={demandConfig} className="h-44 w-full sm:h-52">
+                  <RechartsBarChart
+                    data={demandBreakdown ?? []}
+                    margin={{ left: 0, right: 6, top: 4 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
                     <XAxis
                       dataKey="name"
                       tick={{ fontSize: 9 }}
+                      tickFormatter={(v) => truncateLabel(v, 9)}
                       stroke="hsl(var(--muted-foreground))"
                       tickLine={false}
                       axisLine={false}
+                      minTickGap={6}
+                      tickMargin={4}
                     />
                     <YAxis
                       tick={{ fontSize: 9 }}
@@ -748,9 +790,11 @@ export default function ExpertStats() {
                   </RechartsBarChart>
                 </ChartContainer>
               ) : (
-                <p className="py-10 text-center text-xs text-muted-foreground">
-                  Aucune demande reçue sur cette période.
-                </p>
+                <div className="flex h-44 items-center justify-center px-2 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    Aucune demande reçue sur cette période.
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -758,14 +802,18 @@ export default function ExpertStats() {
           <Card className="border-border/40">
             <CardHeader className="p-3 pb-1">
               <CardTitle className="flex items-center gap-1.5 text-xs">
-                <MapPin className="h-3.5 w-3.5 text-amber-500" />
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                 Régions d'où viennent les demandes
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-3 pt-0">
+            <CardContent className="p-2 pt-0 sm:px-3 sm:pb-3">
               {regionData.length > 0 ? (
-                <ChartContainer config={regionConfig} className="h-44 w-full">
-                  <RechartsBarChart data={regionData} layout="vertical">
+                <ChartContainer config={regionConfig} className="h-44 w-full sm:h-52">
+                  <RechartsBarChart
+                    data={regionData}
+                    layout="vertical"
+                    margin={{ left: 0, right: 8, top: 4 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
                     <XAxis
                       type="number"
@@ -779,19 +827,23 @@ export default function ExpertStats() {
                       type="category"
                       dataKey="label"
                       tick={{ fontSize: 9 }}
+                      tickFormatter={(v) => truncateLabel(v, 13)}
                       stroke="hsl(var(--muted-foreground))"
                       tickLine={false}
                       axisLine={false}
-                      width={72}
+                      width={80}
                     />
                     <Tooltip content={<ChartTooltipContent />} />
                     <Bar dataKey="value" fill="#f59e0b" radius={[0, 4, 4, 0]} name="Demandes" />
                   </RechartsBarChart>
                 </ChartContainer>
               ) : (
-                <p className="py-10 text-center text-xs text-muted-foreground">
-                  Les régions s'affichent dès que des demandes précisent une zone.
-                </p>
+                <div className="flex h-44 items-center justify-center px-2 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    Les régions s'affichent dès que des demandes précisent une
+                    zone.
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -800,20 +852,20 @@ export default function ExpertStats() {
 
       {/* ── Tableau de détail ── */}
       {hasAnyData && (
-        <Card className="border-border/40">
+        <Card className="overflow-hidden border-border/40">
           <CardHeader className="p-3 pb-1">
             <CardTitle className="flex items-center gap-1.5 text-xs">
-              <FileText className="h-3.5 w-3.5 text-emerald-500" />
+              <FileText className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
               Détail par type de demande
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {visibleDemandRows.length > 0 ? (
-              <div className="overflow-x-auto">
+              <div className="min-w-0 overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="h-8 text-[10px]">Type</TableHead>
+                      <TableHead className="h-8 min-w-[120px] text-[10px]">Type</TableHead>
                       <TableHead className="h-8 text-right text-[10px]">Demandes</TableHead>
                       <TableHead className="h-8 text-right text-[10px]">Réponses</TableHead>
                       <TableHead className="h-8 text-right text-[10px]">Taux</TableHead>
@@ -829,7 +881,7 @@ export default function ExpertStats() {
                         <TableRow key={row.key}>
                           <TableCell className="py-2">
                             <span className="flex items-center gap-1.5 text-[11px] font-medium">
-                              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                              <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                               {row.name}
                             </span>
                           </TableCell>
@@ -868,7 +920,7 @@ export default function ExpertStats() {
         <Card className="border-border/40">
           <CardHeader className="p-3 pb-1">
             <CardTitle className="flex items-center gap-1.5 text-xs">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
               Activité récente
             </CardTitle>
           </CardHeader>
@@ -926,7 +978,7 @@ export default function ExpertStats() {
         <Card className="border-border/40">
           <CardHeader className="p-3 pb-1">
             <CardTitle className="flex items-center gap-1.5 text-xs">
-              <TrendingUp className="h-3.5 w-3.5 text-cyan-500" />
+              <TrendingUp className="h-3.5 w-3.5 shrink-0 text-cyan-500" />
               Visibilité dans l'annuaire
             </CardTitle>
           </CardHeader>
@@ -948,8 +1000,8 @@ export default function ExpertStats() {
                   variant="outline"
                   className={
                     visibility.isVisible
-                      ? "border-emerald-200/40 bg-emerald-500/10 text-[10px] text-emerald-700"
-                      : "border-amber-200/40 bg-amber-500/10 text-[10px] text-amber-700"
+                      ? "h-auto max-w-full whitespace-normal border-emerald-200/40 bg-emerald-500/10 text-left text-[10px] text-emerald-700"
+                      : "h-auto max-w-full whitespace-normal border-amber-200/40 bg-amber-500/10 text-left text-[10px] text-amber-700"
                   }
                 >
                   {visibility.isVisible ? (
@@ -983,7 +1035,7 @@ export default function ExpertStats() {
         <Card className="border-border/40">
           <CardHeader className="p-3 pb-1">
             <CardTitle className="flex items-center gap-1.5 text-xs">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
               Complétude du profil
             </CardTitle>
           </CardHeader>

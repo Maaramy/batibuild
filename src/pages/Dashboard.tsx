@@ -32,7 +32,6 @@ import {
   HardHat,
   LogOut,
   TrendingUp,
-  CalendarClock,
   Clock,
   CheckCircle2,
   FileText,
@@ -339,9 +338,10 @@ export default function Dashboard() {
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/supplier/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil fournisseur", isSubItem: true, onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
             ] : []),
+            // Sous-menu expert : uniquement les entrées propres à l'espace
+            // expert (les demandes et devis reçus vivent dans la Messagerie,
+            // qui porte déjà sa propre pastille).
             ...(viewMode === "expert" && proMenuOpen ? [
-              { icon: FileText, label: "Devis reçus", isSubItem: true, badge: expertUnread ?? 0, onClick: () => { navigate("/dashboard/expert/services"); setMobileSidebarOpen(false); } },
-              { icon: CalendarClock, label: "Demandes reçues", isSubItem: true, onClick: () => { navigate("/dashboard/messages?tab=received"); setMobileSidebarOpen(false); } },
               { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
               { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
