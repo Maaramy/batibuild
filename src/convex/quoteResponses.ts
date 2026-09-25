@@ -119,36 +119,45 @@ export const sendResponse = mutation({
       link: quoteMessagingLink(CLIENT_QUOTE_LINK, args.quoteRequestId),
     });
 
-    // E-mail automatique au client pour un devis chiffré (modèle personnalisable
-    // dans l'espace admin → E-mails).
-    if (kind === "quote") {
-      const clientUser = await ctx.db.get(quote.userId);
-      const to = quote.userEmail || clientUser?.email;
-      if (to && clientUser?.emailNotifications !== false) {
-        const { nom, prenom } = splitName(clientUser?.name || quote.userName);
-        await scheduleEmailEvent(ctx, {
-          to,
-          recipientName: clientUser?.name || quote.userName,
-          templateKey: "quote_received",
-          vars: {
-            nom,
-            prenom,
-            entreprise: profile.companyName,
-            nomProjet: quote.projectName || quote.category,
-            typeProjet: quote.category,
-            montantDevis:
-              typeof args.totalAmount === "number"
-                ? `${args.totalAmount.toLocaleString("fr-FR")} TND`
-                : "—",
-            message: args.message,
-            lienConnexion: quoteMessagingLink(
-              CLIENT_QUOTE_LINK,
-              args.quoteRequestId,
-            ),
-          },
-          dedupeKey: `quote_received:${responseId}`,
-        });
-      }
+    // E-mail automatique au client : réponse ou changement de statut (modèle
+    // personnalisable dans l'espace admin → E-mails). Un seul envoi par
+    // réponse — le `dedupeKey` s'appuie sur l'identifiant de la réponse.
+    const statutLabel =
+      kind === "refusal"
+        ? "Refusé"
+        : kind === "clarification"
+          ? "Précisions demandées"
+          : "Devis reçu";
+    const clientUser = await ctx.db.get(quote.userId);
+    const to = quote.userEmail || clientUser?.email;
+    if (to && clientUser?.emailNotifications !== false) {
+      const { nom, prenom } = splitName(clientUser?.name || quote.userName);
+      await scheduleEmailEvent(ctx, {
+        to,
+        recipientName: clientUser?.name || quote.userName,
+        templateKey: "quote_received",
+        vars: {
+          nom,
+          prenom,
+          expediteur: profile.companyName,
+          entreprise: profile.companyName,
+          typeDemande: "Demande de devis",
+          statut: statutLabel,
+          nomProjet: quote.projectName || quote.category,
+          typeProjet: quote.category,
+          motif: quote.motif || "—",
+          montantDevis:
+            typeof args.totalAmount === "number"
+              ? `${args.totalAmount.toLocaleString("fr-FR")} TND`
+              : "—",
+          message: args.message,
+          lienConnexion: quoteMessagingLink(
+            CLIENT_QUOTE_LINK,
+            args.quoteRequestId,
+          ),
+        },
+        dedupeKey: `quote_received:${responseId}`,
+      });
     }
 
     return responseId;

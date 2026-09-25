@@ -16,14 +16,39 @@ const VARS: Record<string, string> = {
   nomEntreprise: "GALISKON PROJECT",
   entreprise: "Sami Plombier",
   nomProjet: "Villa Béja",
+  typeProjet: "Villa",
   creneau: "22 septembre 2026 à 10:00",
+  date: "22 septembre 2026",
+  heure: "10:00",
   motif: "Visite du chantier",
   region: "Béja",
   detailsDemande: "+216 98 123 456 · ahmed@test.com",
+  montantDevis: "48 500 TND",
   message: "Disponible en matinée",
+  expediteur: "Ahmed Ben Salah",
+  typeDemande: "Demande de rendez-vous",
+  statut: "Confirmé",
+  surfaceProjet: "120 m²",
   lienConnexion: "https://batibuild.app/login",
   nomPlateforme: "batibuild",
 };
+
+/** Les 5 types de demandes puis les 5 réponses / changements de statut. */
+const REQUEST_EVENTS = [
+  "quote_request_sent",
+  "service_request_sent",
+  "expert_quote_request",
+  "expert_appointment_request",
+  "expert_urgent_request",
+] as const;
+
+const RESPONSE_EVENTS = [
+  "quote_received",
+  "service_received",
+  "expert_quote_received",
+  "expert_appointment_response",
+  "expert_urgent_response",
+] as const;
 
 const template = (key: string) => {
   const found = DEFAULT_TEMPLATES.find((t) => t.key === key);
@@ -32,12 +57,37 @@ const template = (key: string) => {
 };
 
 describe("modèles ProMarket — demandes reçues", () => {
-  it("déclare les deux événements dans la liste de l'espace admin", () => {
+  it("déclare un seul modèle par type de demande et par scénario d'envoi", () => {
     const keys = DEFAULT_TEMPLATES.map((t) => t.key);
-    expect(keys).toContain("expert_appointment_request");
-    expect(keys).toContain("expert_urgent_request");
-    expect(EMAIL_EVENT_LABELS.expert_appointment_request).toBe("Demande de rendez-vous expert");
-    expect(EMAIL_EVENT_LABELS.expert_urgent_request).toBe("Demande urgente expert");
+    // Aucun doublon : un événement = un seul modèle (jamais deux envois).
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const key of [...REQUEST_EVENTS, ...RESPONSE_EVENTS]) {
+      expect(keys.filter((k) => k === key)).toHaveLength(1);
+    }
+    expect(EMAIL_EVENT_LABELS.quote_request_sent).toBe("Demande de devis Fournisseur");
+    expect(EMAIL_EVENT_LABELS.service_request_sent).toBe("Demande de service Expert");
+    expect(EMAIL_EVENT_LABELS.expert_quote_request).toBe("Demande de devis Expert");
+    expect(EMAIL_EVENT_LABELS.expert_appointment_request).toBe("Demande de rendez-vous Expert");
+    expect(EMAIL_EVENT_LABELS.expert_urgent_request).toBe("Demande urgente Expert");
+  });
+
+  it("ne laisse aucun jeton brut dans les modèles de demande et de réponse", () => {
+    for (const key of [...REQUEST_EVENTS, ...RESPONSE_EVENTS]) {
+      const rendered = renderTokens(template(key).bodyHtml, VARS);
+      expect(rendered).not.toContain("{{");
+      expect(rendered).not.toContain("}}");
+    }
+  });
+
+  it("expose les variables dynamiques de la demande (expéditeur, type, statut, date, heure)", () => {
+    for (const key of [...REQUEST_EVENTS, ...RESPONSE_EVENTS]) {
+      const renderedBody = renderTokens(template(key).bodyHtml, VARS);
+      // Le nom de l'expéditeur et le type de demande sont disponibles partout.
+      expect(renderedBody).toContain("Ahmed Ben Salah");
+    }
+    expect(renderTokens("{{Expéditeur}}|{{TypeDemande}}|{{Statut}}|{{Date}}|{{Heure}}", VARS)).toBe(
+      "Ahmed Ben Salah|Demande de rendez-vous|Confirmé|22 septembre 2026|10:00",
+    );
   });
 
   it("titre chaque e-mail avec le client concerné, jamais avec un jeton brut", () => {
@@ -63,11 +113,19 @@ describe("modèles ProMarket — demandes reçues", () => {
     expect(appointment).toContain("{{Créneau}}");
     expect(appointment).toContain("{{Motif}}");
     expect(appointment).toContain("{{DétailsDemande}}");
+    expect(appointment).toContain("{{Date}}");
+    expect(appointment).toContain("{{Heure}}");
 
     const urgent = template("expert_urgent_request").bodyHtml;
     expect(urgent).toContain("{{Région}}");
     expect(urgent).toContain("{{Motif}}");
     expect(urgent).toContain("{{DétailsDemande}}");
+
+    // Chaque réponse porte le statut et l'auteur de la réponse.
+    for (const key of RESPONSE_EVENTS) {
+      expect(template(key).bodyHtml).toContain("{{Statut}}");
+      expect(template(key).bodyHtml).toContain("{{Expéditeur}}");
+    }
   });
 
   it("remplace chaque variable de demande, y compris en français accentué", () => {

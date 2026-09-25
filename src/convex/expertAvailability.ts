@@ -4,7 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
 import { PROJECT_TYPE_LABELS } from "./projectTypes";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
-import { scheduleEmailEvent, splitName } from "./emailNotifications";
+import { scheduleEmailEvent, splitName, formatDateFr } from "./emailNotifications";
 import type { EmailVars } from "./emailNotifications";
 import {
   formatSlotLabel,
@@ -76,33 +76,73 @@ async function notify(
 }
 
 /**
- * E-mail automatique à l'administrateur, rendu avec le modèle personnalisable
- * de l'espace admin et toutes les variables de la demande. Tous les comptes
- * administrateurs reçoivent une copie. Best-effort : l'échec d'un envoi ne
- * bloque jamais l'enregistrement de la demande.
+ * E-mail automatique au professionnel concerné par une demande, rendu avec le
+ * modèle personnalisable de l'espace admin et toutes les variables de la
+ * demande. Les comptes administrateurs restent en copie (`sendToAdmins`) pour
+ * conserver la visibilité existante, sans second envoi. Best-effort : l'échec
+ * d'un envoi ne bloque jamais l'enregistrement de la demande.
  */
-async function emailAdminsAboutRequest(
+async function emailProfessionalAboutRequest(
   ctx: any,
   params: {
     templateKey: "expert_appointment_request" | "expert_urgent_request";
     dedupeKey: string;
     vars: EmailVars;
+    expert: any;
   },
 ) {
   try {
-    const admins = await ctx.db
-      .query("users")
-      .filter((q: any) => q.eq(q.field("role"), "admin"))
-      .collect();
-    const to = admins.map((a: any) => a.email || "").filter(Boolean)[0];
+    const expertUser = params.expert?.userId
+      ? await ctx.db.get(params.expert.userId)
+      : null;
+    if (expertUser?.emailNotifications === false) return;
+    const to = params.expert?.email || expertUser?.email;
     if (!to) return;
 
     await scheduleEmailEvent(ctx, {
       to,
+      recipientName:
+        params.expert?.companyName || params.expert?.displayName || undefined,
       templateKey: params.templateKey,
       vars: params.vars,
       dedupeKey: params.dedupeKey,
       sendToAdmins: true,
+    });
+  } catch {
+    /* la notification e-mail ne doit jamais bloquer la demande */
+  }
+}
+
+/**
+ * E-mail automatique à l'utilisateur à l'origine d'une demande, quand le
+ * professionnel répond ou quand le statut change. Le `dedupeKey` inclut le
+ * nouveau statut : un seul e-mail par changement réel, jamais deux pour le
+ * même événement.
+ */
+async function emailRequesterAboutStatus(
+  ctx: any,
+  params: {
+    templateKey: "expert_appointment_response" | "expert_urgent_response";
+    userId: Id<"users">;
+    fallbackEmail?: string | null;
+    fallbackName?: string | null;
+    dedupeKey: string;
+    vars: Omit<EmailVars, "nom" | "prenom">;
+  },
+) {
+  try {
+    const client = await ctx.db.get(params.userId);
+    if (client?.emailNotifications === false) return;
+    const to = client?.email || params.fallbackEmail;
+    if (!to) return;
+
+    const fullName = client?.name || params.fallbackName || "";
+    await scheduleEmailEvent(ctx, {
+      to,
+      recipientName: fullName || undefined,
+      templateKey: params.templateKey,
+      vars: { ...splitName(fullName), ...params.vars },
+      dedupeKey: params.dedupeKey,
     });
   } catch {
     /* la notification e-mail ne doit jamais bloquer la demande */
@@ -385,14 +425,21 @@ export const requestAppointment = mutation({
       link: expertMessagingLink(appointmentId),
     });
 
-    // E-mail automatique à l'administrateur (modèle personnalisable).
+    // E-mail automatique à l'expert concerné (modèle personnalisable dans
+    // l'espace admin → E-mails). Un seul envoi par demande.
     const { nom, prenom } = splitName(clientName);
-    await emailAdminsAboutRequest(ctx, {
+    await emailProfessionalAboutRequest(ctx, {
+      expert,
       templateKey: "expert_appointment_request",
       dedupeKey: `expert_appointment_request:${appointmentId}`,
       vars: {
         nom,
         prenom,
+        expediteur: clientName || "—",
+        typeDemande: "Demande de rendez-vous",
+        statut: "En attente de confirmation",
+        date: formatDateFr(args.preferredDate),
+        heure: args.preferredTime,
         nomEntreprise: expert.companyName || expert.displayName,
         entreprise: expert.displayName,
         nomProjet: args.projectName || "—",
@@ -463,6 +510,28 @@ export const cancelAppointment = mutation({
         message: `Votre rendez-vous du ${slot} a été annulé.`,
         link: CLIENT_MESSAGING_LINK,
       });
+
+      // Changement de statut : le client est prévenu par e-mail (un seul envoi).
+      await emailRequesterAboutStatus(ctx, {
+        templateKey: "expert_appointment_response",
+        userId: appointment.userId,
+        fallbackEmail: appointment.userEmail,
+        fallbackName: appointment.userName,
+        dedupeKey: `expert_appointment_response:${args.appointmentId}:cancelled`,
+        vars: {
+          entreprise: expert?.displayName || "—",
+          expediteur: expert?.displayName || "—",
+          typeDemande: "Demande de rendez-vous",
+          statut: "Annulé",
+          nomProjet: appointment.projectName || "—",
+          date: formatDateFr(appointment.preferredDate),
+          heure: appointment.preferredTime,
+          creneau: slot,
+          motif: args.reason?.trim() || appointment.reason || "—",
+          message: args.reason?.trim() || "Rendez-vous annulé",
+          lienConnexion: CLIENT_MESSAGING_LINK,
+        },
+      });
     }
 
     return { success: true };
@@ -490,6 +559,32 @@ export const completeAppointment = mutation({
       status: "completed",
       updatedAt: Date.now(),
     });
+
+    // Statut modifié par l'expert : le client est prévenu par e-mail.
+    if (expert?.userId === user._id) {
+      const slot = formatSlotLabel(appointment.preferredDate, appointment.preferredTime);
+      await emailRequesterAboutStatus(ctx, {
+        templateKey: "expert_appointment_response",
+        userId: appointment.userId,
+        fallbackEmail: appointment.userEmail,
+        fallbackName: appointment.userName,
+        dedupeKey: `expert_appointment_response:${args.appointmentId}:completed`,
+        vars: {
+          entreprise: expert.displayName,
+          expediteur: expert.displayName,
+          typeDemande: "Demande de rendez-vous",
+          statut: "Terminé",
+          nomProjet: appointment.projectName || "—",
+          date: formatDateFr(appointment.preferredDate),
+          heure: appointment.preferredTime,
+          creneau: slot,
+          motif: appointment.reason || "—",
+          message: "Rendez-vous honoré",
+          lienConnexion: CLIENT_MESSAGING_LINK,
+        },
+      });
+    }
+
     return { success: true };
   },
 });
@@ -519,6 +614,8 @@ export const respondAppointment = mutation({
 
     const now = Date.now();
     const slot = formatSlotLabel(appointment.preferredDate, appointment.preferredTime);
+    const status = args.approve ? "approved" : "declined";
+    const statutLabel = args.approve ? "Confirmé" : "Refusé";
 
     await ctx.db.patch(args.appointmentId, {
       status: args.approve ? "approved" : "declined",
@@ -537,7 +634,29 @@ export const respondAppointment = mutation({
       link: CLIENT_MESSAGING_LINK,
     });
 
-    return { success: true, status: args.approve ? "approved" : "declined" };
+    // E-mail au client : réponse / changement de statut (un seul envoi).
+    await emailRequesterAboutStatus(ctx, {
+      templateKey: "expert_appointment_response",
+      userId: appointment.userId,
+      fallbackEmail: appointment.userEmail,
+      fallbackName: appointment.userName,
+      dedupeKey: `expert_appointment_response:${args.appointmentId}:${status}`,
+      vars: {
+        entreprise: profile.displayName,
+        expediteur: profile.displayName,
+        typeDemande: "Demande de rendez-vous",
+        statut: statutLabel,
+        nomProjet: appointment.projectName || "—",
+        date: formatDateFr(appointment.preferredDate),
+        heure: appointment.preferredTime,
+        creneau: slot,
+        motif: appointment.reason || "—",
+        message: args.message?.trim() || statutLabel,
+        lienConnexion: CLIENT_MESSAGING_LINK,
+      },
+    });
+
+    return { success: true, status };
   },
 });
 
@@ -609,14 +728,19 @@ export const requestUrgent = mutation({
       link: expertMessagingLink(urgentId),
     });
 
-    // E-mail automatique à l'administrateur (modèle personnalisable).
+    // E-mail automatique à l'expert concerné (modèle personnalisable dans
+    // l'espace admin → E-mails). Un seul envoi par demande.
     const { nom, prenom } = splitName(args.userName || user.name);
-    await emailAdminsAboutRequest(ctx, {
+    await emailProfessionalAboutRequest(ctx, {
+      expert,
       templateKey: "expert_urgent_request",
       dedupeKey: `expert_urgent_request:${urgentId}`,
       vars: {
         nom,
         prenom,
+        expediteur: args.userName || user.name || "—",
+        typeDemande: "Intervention urgente",
+        statut: "En attente de réponse",
         nomEntreprise: expert.companyName || expert.displayName,
         entreprise: expert.displayName,
         nomProjet: args.projectName || "—",
@@ -670,7 +794,28 @@ export const respondUrgent = mutation({
       link: CLIENT_MESSAGING_LINK,
     });
 
-    return { success: true, status: args.accept ? "accepted" : "declined" };
+    // E-mail au client : réponse / changement de statut (un seul envoi).
+    const status = args.accept ? "accepted" : "declined";
+    await emailRequesterAboutStatus(ctx, {
+      templateKey: "expert_urgent_response",
+      userId: urgent.userId,
+      fallbackEmail: urgent.userEmail,
+      fallbackName: urgent.userName,
+      dedupeKey: `expert_urgent_response:${args.urgentId}:${status}`,
+      vars: {
+        entreprise: profile.displayName,
+        expediteur: profile.displayName,
+        typeDemande: "Intervention urgente",
+        statut: args.accept ? "Acceptée" : "Refusée",
+        nomProjet: urgent.projectName || "—",
+        region: urgent.region || "—",
+        motif: urgent.description || "—",
+        message: args.message?.trim() || (args.accept ? "Acceptée" : "Refusée"),
+        lienConnexion: CLIENT_MESSAGING_LINK,
+      },
+    });
+
+    return { success: true, status };
   },
 });
 

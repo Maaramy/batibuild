@@ -1,6 +1,17 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { scheduleEmailEvent, splitName } from "./emailNotifications";
+
+// Liens profonds : le professionnel ouvre la demande reçue, l'utilisateur
+// retrouve la réponse dans sa messagerie (onglet par défaut).
+const EXPERT_REQUESTS_LINK = "/dashboard/messages?tab=received";
+const CLIENT_MESSAGES_LINK = "/dashboard/messages";
+
+/** Libellés partagés par les modèles d'e-mail (un seul modèle par événement). */
+function requestTypeLabel(requestType: "devis" | "service"): string {
+  return requestType === "devis" ? "Demande de devis d'expertise" : "Demande de service";
+}
 
 // ============================================================================
 // Mutations
@@ -63,6 +74,49 @@ export const create = mutation({
       /* optional */
     }
 
+    // E-mail automatique à l'expert concerné (modèle personnalisable dans
+    // l'espace admin → E-mails). Un seul envoi par demande : le `dedupeKey`
+    // s'appuie sur l'identifiant de la demande.
+    const expertUser = await ctx.db.get(expert.userId);
+    const to = expert.email || expertUser?.email;
+    if (to && expertUser?.emailNotifications !== false) {
+      const { nom, prenom } = splitName(args.userName);
+      const typeDemande = requestTypeLabel(args.requestType);
+      const details = [
+        args.serviceType,
+        args.description,
+        args.surface ? `${args.surface} m²` : null,
+        [args.userPhone, args.userEmail].filter(Boolean).join(" · ") || null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
+      await scheduleEmailEvent(ctx, {
+        to,
+        recipientName: expert.displayName,
+        templateKey:
+          args.requestType === "devis" ? "expert_quote_request" : "service_request_sent",
+        vars: {
+          nom,
+          prenom,
+          expediteur: args.userName || "—",
+          typeDemande,
+          statut: "En attente de votre réponse",
+          entreprise: expert.displayName,
+          nomEntreprise: expert.companyName || expert.displayName,
+          nomProjet: args.projectName || "—",
+          typeProjet: args.projectType || "—",
+          motif: args.description,
+          region: args.region || "—",
+          detailsDemande: details || "—",
+          lienConnexion: EXPERT_REQUESTS_LINK,
+        },
+        dedupeKey: `${
+          args.requestType === "devis" ? "expert_quote_request" : "service_request_sent"
+        }:${requestId}`,
+      });
+    }
+
     return { success: true, requestId };
   },
 });
@@ -90,7 +144,7 @@ export const respond = mutation({
 
     const now = Date.now();
 
-    await ctx.db.insert("expertServiceResponses", {
+    const responseId = await ctx.db.insert("expertServiceResponses", {
       serviceRequestId: args.serviceRequestId,
       expertId: profile._id,
       userId: request.userId,
@@ -103,6 +157,44 @@ export const respond = mutation({
       status: "responded",
       updatedAt: now,
     });
+
+    // E-mail automatique à l'utilisateur : réponse / changement de statut
+    // (modèle personnalisable dans l'espace admin → E-mails). Un seul envoi
+    // par réponse grâce au `dedupeKey`.
+    const clientUser = await ctx.db.get(request.userId);
+    const to = request.userEmail || clientUser?.email;
+    if (to && clientUser?.emailNotifications !== false) {
+      const { nom, prenom } = splitName(clientUser?.name || request.userName);
+      const typeDemande = requestTypeLabel(request.requestType);
+
+      await scheduleEmailEvent(ctx, {
+        to,
+        recipientName: clientUser?.name || request.userName,
+        templateKey:
+          request.requestType === "devis" ? "expert_quote_received" : "service_received",
+        vars: {
+          nom,
+          prenom,
+          expediteur: profile.displayName,
+          entreprise: profile.displayName,
+          typeDemande,
+          statut: "Réponse reçue",
+          nomProjet: request.projectName || "—",
+          typeProjet: request.serviceType || "—",
+          motif: request.description,
+          region: request.region || "—",
+          montantDevis:
+            typeof args.totalAmount === "number"
+              ? `${args.totalAmount.toLocaleString("fr-FR")} TND`
+              : "—",
+          message: args.message || "—",
+          lienConnexion: CLIENT_MESSAGES_LINK,
+        },
+        dedupeKey: `${
+          request.requestType === "devis" ? "expert_quote_received" : "service_received"
+        }:${responseId}`,
+      });
+    }
 
     return { success: true };
   },

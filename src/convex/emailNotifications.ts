@@ -36,6 +36,12 @@ export type EmailVars = {
   region?: string;
   // Informations du projet attaché à une demande (rendez-vous / urgent)
   surfaceProjet?: string;
+  // Contexte de la demande / de la réponse (utilisé par les modèles admin)
+  expediteur?: string;
+  typeDemande?: string;
+  statut?: string;
+  date?: string;
+  heure?: string;
 };
 
 export const emailEventValidator = v.union(
@@ -48,12 +54,16 @@ export const emailEventValidator = v.union(
   v.literal("subscription_canceled"),
   v.literal("quote_request_sent"),
   v.literal("service_request_sent"),
-  v.literal("quote_received"),
-  v.literal("service_received"),
-  v.literal("support_ticket_created"),
-  v.literal("support_reply"),
+  v.literal("expert_quote_request"),
   v.literal("expert_appointment_request"),
   v.literal("expert_urgent_request"),
+  v.literal("quote_received"),
+  v.literal("service_received"),
+  v.literal("expert_quote_received"),
+  v.literal("expert_appointment_response"),
+  v.literal("expert_urgent_response"),
+  v.literal("support_ticket_created"),
+  v.literal("support_reply"),
 );
 
 // ----------------------------------------------------------------------------
@@ -112,12 +122,16 @@ export async function scheduleEmailEvent(
       | "subscription_canceled"
       | "quote_request_sent"
       | "service_request_sent"
+      | "expert_quote_request"
+      | "expert_appointment_request"
+      | "expert_urgent_request"
       | "quote_received"
       | "service_received"
+      | "expert_quote_received"
+      | "expert_appointment_response"
+      | "expert_urgent_response"
       | "support_ticket_created"
-      | "support_reply"
-      | "expert_appointment_request"
-      | "expert_urgent_request";
+      | "support_reply";
     vars: EmailVars;
     dedupeKey?: string;
     sendToAdmins?: boolean;
@@ -166,6 +180,11 @@ export function renderTokens(text: string, vars: Record<string, string>): string
       Motif: vars.motif || "",
       Région: vars.region || "",
       SurfaceProjet: vars.surfaceProjet || "",
+      Expéditeur: vars.expediteur || "",
+      TypeDemande: vars.typeDemande || "",
+      Statut: vars.statut || "",
+      Date: vars.date || "",
+      Heure: vars.heure || "",
     };
     return lookup[key] !== undefined ? lookup[key] : m;
   });
@@ -237,6 +256,11 @@ export const processEmailEvent = internalMutation({
         motif: v.optional(v.string()),
         region: v.optional(v.string()),
         surfaceProjet: v.optional(v.string()),
+        expediteur: v.optional(v.string()),
+        typeDemande: v.optional(v.string()),
+        statut: v.optional(v.string()),
+        date: v.optional(v.string()),
+        heure: v.optional(v.string()),
       }),
     ),
     dedupeKey: v.optional(v.string()),
@@ -344,6 +368,11 @@ export const processEmailEvent = internalMutation({
       creneau: vars.creneau || "",
       motif: vars.motif || "",
       region: vars.region || "",
+      expediteur: vars.expediteur || "",
+      typeDemande: vars.typeDemande || "",
+      statut: vars.statut || "",
+      date: vars.date || "",
+      heure: vars.heure || "",
     };
 
     const subject = renderTokens(template.subject, resolvedVars);

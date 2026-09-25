@@ -246,6 +246,9 @@ export const create = mutation({
         vars: {
           nom,
           prenom,
+          expediteur: user.name || "—",
+          typeDemande: "Demande de devis",
+          statut: "En attente de votre réponse",
           nomEntreprise: supplier.companyName,
           entreprise: supplier.companyName,
           nomProjet: args.projectName || args.category,

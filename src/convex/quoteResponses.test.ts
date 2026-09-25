@@ -530,16 +530,16 @@ describe("quoteResponses — e-mail automatique au client", () => {
     );
   });
 
-  it("n'envoie aucun e-mail pour un refus ou une demande de précisions", async () => {
+  it("envoie un seul e-mail par réponse, refus et demande de précisions inclus", async () => {
     const { supplierUserId, quoteId } = await seed();
     const supplierT = asUser(t, supplierUserId);
 
-    await supplierT.mutation(api.quoteResponses.sendResponse, {
+    const refusalId = await supplierT.mutation(api.quoteResponses.sendResponse, {
       quoteRequestId: quoteId,
       message: "Nous ne pouvons pas donner suite",
       kind: "refusal",
     });
-    await supplierT.mutation(api.quoteResponses.sendResponse, {
+    const clarificationId = await supplierT.mutation(api.quoteResponses.sendResponse, {
       quoteRequestId: quoteId,
       message: "Pouvez-vous préciser la surface ?",
       kind: "clarification",
@@ -547,6 +547,20 @@ describe("quoteResponses — e-mail automatique au client", () => {
 
     await flushEmails();
 
-    expect(await emailHistoryRows(t)).toHaveLength(0);
+    // Toujours le même modèle par événement : la nature de la réponse est
+    // portée par la variable {{Statut}} au lieu d'un modèle supplémentaire.
+    const history = await emailHistoryRows(t);
+    expect(history).toHaveLength(2);
+    for (const row of history) {
+      expect(row.templateKey).toBe("quote_received");
+    }
+    expect(history.map((r) => r.dedupeKey)).toEqual([
+      `quote_received:${refusalId}`,
+      `quote_received:${clarificationId}`,
+    ]);
+    expect(JSON.parse(history[0].payloadJson!).vars.statut).toBe("Refusé");
+    expect(JSON.parse(history[1].payloadJson!).vars.statut).toBe(
+      "Précisions demandées",
+    );
   });
 });

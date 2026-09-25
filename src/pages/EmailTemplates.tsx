@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
-import { Save, Loader2, Wand2, FileCode2, RotateCcw } from "lucide-react";
+import { Save, Loader2, Wand2, FileCode2, RotateCcw, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const inputCls =
@@ -30,6 +30,11 @@ const EMAIL_VARIABLES = [
   { token: "{{DétailsDemande}}", label: "Détails de la demande" },
   { token: "{{MontantDevis}}", label: "Montant du devis" },
   { token: "{{Message}}", label: "Message de la réponse" },
+  { token: "{{Expéditeur}}", label: "Nom de l'expéditeur de la demande / réponse" },
+  { token: "{{TypeDemande}}", label: "Type de demande (devis, service, rendez-vous…)" },
+  { token: "{{Statut}}", label: "Statut de la demande (en attente, confirmé, refusé…)" },
+  { token: "{{Date}}", label: "Date souhaitée / de la demande" },
+  { token: "{{Heure}}", label: "Heure souhaitée / de la demande" },
   { token: "{{Créneau}}", label: "Créneau souhaité (rendez-vous)" },
   { token: "{{Motif}}", label: "Motif de la demande / besoin" },
   { token: "{{Région}}", label: "Région / zone du projet" },
@@ -51,19 +56,31 @@ const EVENT_GROUPS = [
     ],
   },
   {
-    label: "Flux sortant · Demandes envoyées",
-    hint: "Sollicitations envoyées aux fournisseurs et experts",
-    keys: ["quote_request_sent", "service_request_sent"],
+    label: "Demandes · utilisateur → professionnel",
+    hint: "Un seul modèle par type de demande, envoyé au professionnel concerné (copie administrateur)",
+    keys: [
+      "quote_request_sent",
+      "service_request_sent",
+      "expert_quote_request",
+      "expert_appointment_request",
+      "expert_urgent_request",
+    ],
   },
   {
-    label: "Flux entrant · Réponses reçues",
-    hint: "Propositions reçues des fournisseurs et experts",
-    keys: ["quote_received", "service_received"],
+    label: "Réponses & statuts · professionnel → utilisateur",
+    hint: "Envoyé à l'utilisateur à l'origine de la demande, à chaque réponse ou changement de statut",
+    keys: [
+      "quote_received",
+      "service_received",
+      "expert_quote_received",
+      "expert_appointment_response",
+      "expert_urgent_response",
+    ],
   },
   {
-    label: "ProMarket · Demandes reçues par un professionnel",
-    hint: "Envoyé automatiquement à l'administrateur (copie à tous les comptes admin)",
-    keys: ["expert_appointment_request", "expert_urgent_request"],
+    label: "Support & Messagerie",
+    hint: "Échanges avec l'équipe batibuild",
+    keys: ["support_ticket_created", "support_reply"],
   },
 ] as const;
 
@@ -77,15 +94,21 @@ const EVENT_LABELS: Record<string, string> = {
   payment_rejected: "Paiement refusé",
   subscription_suspended: "Abonnement suspendu",
   subscription_canceled: "Abonnement annulé",
-  // Flux sortant — demandes envoyées
-  quote_request_sent: "Demande de devis",
-  service_request_sent: "Demande de service",
-  // Flux entrant — réponses reçues
-  quote_received: "Devis reçu",
-  service_received: "Service reçu",
-  // ProMarket — demandes reçues par un professionnel
-  expert_appointment_request: "Demande de rendez-vous expert",
-  expert_urgent_request: "Demande urgente expert",
+  // Demandes — utilisateur → professionnel
+  quote_request_sent: "Demande de devis Fournisseur",
+  service_request_sent: "Demande de service Expert",
+  expert_quote_request: "Demande de devis Expert",
+  expert_appointment_request: "Demande de rendez-vous Expert",
+  expert_urgent_request: "Demande urgente Expert",
+  // Réponses & changements de statut — professionnel → utilisateur
+  quote_received: "Réponse du Fournisseur (devis)",
+  service_received: "Réponse de l'Expert (service)",
+  expert_quote_received: "Réponse de l'Expert (devis)",
+  expert_appointment_response: "Rendez-vous Expert — réponse / statut",
+  expert_urgent_response: "Demande urgente Expert — réponse / statut",
+  // Support & Messagerie
+  support_ticket_created: "Nouvelle demande de support",
+  support_reply: "Réponse du support",
 };
 
 const EVENT_DESCRIPTIONS: Record<string, string> = {
@@ -96,15 +119,21 @@ const EVENT_DESCRIPTIONS: Record<string, string> = {
   payment_rejected: "Envoyé quand un paiement / reçu est refusé",
   subscription_suspended: "Envoyé quand un compte / abonnement est suspendu",
   subscription_canceled: "Envoyé quand un abonnement est annulé",
-  // Flux sortant — demandes envoyées
+  // Demandes — utilisateur → professionnel
   quote_request_sent: "Envoyé au fournisseur quand un client demande un devis",
   service_request_sent: "Envoyé à l'expert quand un client demande un service",
-  // Flux entrant — réponses reçues
-  quote_received: "Envoyé au client quand le fournisseur renvoie son devis",
-  service_received: "Envoyé au client quand l'expert renvoie sa proposition",
-  // ProMarket — demandes reçues par un professionnel
-  expert_appointment_request: "Envoyé à l'administrateur quand un client demande un rendez-vous à un expert",
-  expert_urgent_request: "Envoyé à l'administrateur quand un client envoie une demande urgente à un expert",
+  expert_quote_request: "Envoyé à l'expert quand un client demande un devis d'expertise",
+  expert_appointment_request: "Envoyé à l'expert quand un client demande un rendez-vous",
+  expert_urgent_request: "Envoyé immédiatement à l'expert quand un client signale une urgence",
+  // Réponses & changements de statut — professionnel → utilisateur
+  quote_received: "Envoyé au client quand le fournisseur répond à sa demande de devis",
+  service_received: "Envoyé au client quand l'expert répond à sa demande de service",
+  expert_quote_received: "Envoyé au client quand l'expert transmet son devis d'expertise",
+  expert_appointment_response: "Envoyé au client quand l'expert confirme, refuse, annule ou clôture le rendez-vous",
+  expert_urgent_response: "Envoyé au client quand l'expert accepte ou refuse sa demande urgente",
+  // Support & Messagerie
+  support_ticket_created: "Envoyé à l'équipe batibuild quand un utilisateur ouvre une demande de support",
+  support_reply: "Envoyé à l'utilisateur quand l'équipe support lui répond",
 };
 
 const SAMPLE_VARS: Record<string, string> = {
@@ -127,11 +156,18 @@ const SAMPLE_VARS: Record<string, string> = {
   "{{Créneau}}": "22 septembre 2026 à 09:00",
   "{{Motif}}": "Visite du chantier avant devis",
   "{{Région}}": "Béja",
+  "{{Expéditeur}}": "Ahmed Ben Salah",
+  "{{TypeDemande}}": "Demande de devis",
+  "{{Statut}}": "En attente de votre réponse",
+  "{{Date}}": "22 septembre 2026",
+  "{{Heure}}": "09:00",
 };
 
 export default function EmailTemplates() {
   const templates = useQuery(api.emailTemplates.getEmailTemplates) || [];
   const saveTemplate = useMutation(api.emailTemplates.adminSaveEmailTemplate);
+  const cleanupTemplates = useMutation(api.emailTemplates.adminCleanupEmailTemplates);
+  const [cleaning, setCleaning] = useState(false);
 
   const [selectedKey, setSelectedKey] = useState<string>("subscription_activated");
   const [subject, setSubject] = useState("");
@@ -177,6 +213,24 @@ export default function EmailTemplates() {
     setSaving(false);
   };
 
+  /**
+   * Supprime les doublons / anciennes variantes stockés puis réapplique la
+   * version normalisée de chaque modèle (un seul modèle actif par événement).
+   * L'historique des e-mails envoyés n'est jamais touché.
+   */
+  const handleCleanup = async () => {
+    setCleaning(true);
+    try {
+      const res = await cleanupTemplates({});
+      toast.success(
+        `✅ Configuration nettoyée — ${res.removedDuplicates} doublon(s) supprimé(s), ${res.resetToDefault} modèle(s) normalisé(s) sur ${res.total}`,
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors du nettoyage");
+    }
+    setCleaning(false);
+  };
+
   const renderPreview = () => {
     let html = subject
       ? `<p style="font-size:11px;color:#9ca3af;margin:0 0 8px;"><b>Objet :</b> ${subject}</p>`
@@ -215,6 +269,27 @@ export default function EmailTemplates() {
                 {v.token}
               </button>
             ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/40 bg-muted/10 px-3 py-2.5">
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Un seul modèle actif par type de demande et par scénario d'envoi. Le
+              nettoyage supprime les anciennes variantes et réapplique la version
+              normalisée, sans toucher à l'historique des envois.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCleanup}
+              disabled={cleaning}
+              className="shrink-0 gap-1.5"
+            >
+              {cleaning ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+              {cleaning ? "Nettoyage…" : "Supprimer les doublons & normaliser"}
+            </Button>
           </div>
         </CardContent>
       </Card>

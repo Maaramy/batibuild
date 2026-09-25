@@ -39,15 +39,18 @@ const EVENT_LABELS: Record<string, string> = {
   payment_rejected: "Paiement refusé",
   subscription_suspended: "Abonnement suspendu",
   subscription_canceled: "Abonnement annulé",
-  // Flux sortant — demandes envoyées
-  quote_request_sent: "Demande de devis",
-  service_request_sent: "Demande de service",
-  // Flux entrant — réponses reçues
-  quote_received: "Devis reçu",
-  service_received: "Service reçu",
-  // ProMarket — demandes reçues par un professionnel (copie administrateur)
-  expert_appointment_request: "Demande de rendez-vous expert",
-  expert_urgent_request: "Demande urgente expert",
+  // Demandes — utilisateur → professionnel
+  quote_request_sent: "Demande de devis Fournisseur",
+  service_request_sent: "Demande de service Expert",
+  expert_quote_request: "Demande de devis Expert",
+  expert_appointment_request: "Demande de rendez-vous Expert",
+  expert_urgent_request: "Demande urgente Expert",
+  // Réponses & changements de statut — professionnel → utilisateur
+  quote_received: "Réponse du Fournisseur (devis)",
+  service_received: "Réponse de l'Expert (service)",
+  expert_quote_received: "Réponse de l'Expert (devis)",
+  expert_appointment_response: "Rendez-vous Expert — réponse / statut",
+  expert_urgent_response: "Demande urgente Expert — réponse / statut",
 };
 
 const STATUS_META: Record<string, { label: string; cls: string; dot: string }> = {

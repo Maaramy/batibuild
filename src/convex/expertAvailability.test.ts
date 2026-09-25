@@ -556,7 +556,7 @@ describe("expertAvailability — messagerie expert & e-mail administrateur", () 
     expect(notifications[0].read).toBe(false);
   });
 
-  it("envoie automatiquement l'e-mail administrateur (modèle rendez-vous)", async () => {
+  it("envoie automatiquement l'e-mail à l'expert concerné (modèle rendez-vous)", async () => {
     const body = baseRequest(expertId, {
       projectName: "Villa Béja",
       projectCategory: "villa",
@@ -574,7 +574,8 @@ describe("expertAvailability — messagerie expert & e-mail administrateur", () 
 
     const history = await emailHistoryRows(t);
     expect(history).toHaveLength(1);
-    expect(history[0].to).toBe("admin@test.com");
+    // Destinataire = l'expert concerné (les comptes admin restent en copie).
+    expect(history[0].to).toBe("sami@test.com");
     expect(history[0].templateKey).toBe("expert_appointment_request");
     expect(history[0].sentToAdmins).toBe(true);
     expect(history[0].dedupeKey).toBe(
@@ -595,7 +596,7 @@ describe("expertAvailability — messagerie expert & e-mail administrateur", () 
     expect(vars.message).toBe("Disponible en matinée");
   });
 
-  it("envoie automatiquement l'e-mail administrateur (modèle urgence)", async () => {
+  it("envoie automatiquement l'e-mail à l'expert concerné (modèle urgence)", async () => {
     const res = await asUser(t, clientId).mutation(api.expertAvailability.requestUrgent, {
       expertId: expertId as any,
       description: "Fuite d'eau importante",
@@ -608,7 +609,7 @@ describe("expertAvailability — messagerie expert & e-mail administrateur", () 
     const history = await emailHistoryRows(t);
     expect(history).toHaveLength(1);
     expect(history[0].templateKey).toBe("expert_urgent_request");
-    expect(history[0].to).toBe("admin@test.com");
+    expect(history[0].to).toBe("sami@test.com");
     expect(history[0].sentToAdmins).toBe(true);
 
     const vars = JSON.parse(history[0].payloadJson!).vars;
