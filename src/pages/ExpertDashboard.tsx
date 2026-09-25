@@ -21,6 +21,7 @@ import {
   TUNISIA_REGIONS,
 } from "@/components/expert/expertProfileOptions";
 import type { ExpertAvailability } from "@/lib/expertAvailability";
+import { availablePaymentMethods } from "@/lib/paymentMethods";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useQuery, useMutation } from "convex/react";
@@ -138,7 +139,7 @@ export default function ExpertDashboard() {
   const [activating, setActivating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [expertPaymentMethod, setExpertPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
+  const [expertPaymentMethod, setExpertPaymentMethod] = useState<string>("bank_transfer");
   const [showPaymentChoice, setShowPaymentChoice] = useState(false);
   const [showPaymentInfo, setShowPaymentInfo] = useState(false);
   const [_uploading, setUploading] = useState(false);
@@ -260,10 +261,33 @@ export default function ExpertDashboard() {
     }
   };
 
+  // ── Méthodes de paiement activées par l'administrateur ──
+  const expertPaymentMethods = availablePaymentMethods(
+    (paymentConfig as any)?.paymentMethods,
+  );
+  const expertPaymentMethodsSignature = expertPaymentMethods
+    .map((m) => m.slug)
+    .join("|");
+  useEffect(() => {
+    if (expertPaymentMethods.length === 0) return;
+    if (!expertPaymentMethods.some((m) => m.slug === expertPaymentMethod)) {
+      setExpertPaymentMethod(expertPaymentMethods[0].slug);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expertPaymentMethodsSignature]);
+
   const handleRequestSubscription = async () => {
+    if (expertPaymentMethods.length === 0) {
+      toast.error(
+        "Aucune méthode de paiement n'est disponible. Contactez le support batibuild.",
+      );
+      return;
+    }
     setActivating(true);
     try {
-      await requestSub({ paymentMethod: expertPaymentMethod });
+      await requestSub({
+        paymentMethod: expertPaymentMethod as "bank_transfer" | "d17",
+      });
       toast.success("Demande d'abonnement envoyée !");
       setShowPaymentChoice(false);
     } catch (err: any) {
@@ -572,26 +596,38 @@ export default function ExpertDashboard() {
                     </p>
                     {effStatus !== "pending" && (
                       <>
-                        <div className="grid grid-cols-2 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
-                          <button onClick={() => setExpertPaymentMethod("bank_transfer")}
-                            className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-                              expertPaymentMethod === "bank_transfer"
-                                ? "border-border/40 bg-background text-violet-600 shadow-sm"
-                                : "border-transparent text-muted-foreground hover:text-foreground"
-                            }`}>
-                            <Banknote className="h-3.5 w-3.5" />
-                            Virement bancaire
-                          </button>
-                          <button onClick={() => setExpertPaymentMethod("d17")}
-                            className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-                              expertPaymentMethod === "d17"
-                                ? "border-border/40 bg-background text-amber-600 shadow-sm"
-                                : "border-transparent text-muted-foreground hover:text-foreground"
-                            }`}>
-                            <Smartphone className="h-3.5 w-3.5" />
-                            D17
-                          </button>
+                        {expertPaymentMethods.length === 0 ? (
+                          <div className="rounded-xl border border-amber-200/50 bg-amber-50/60 px-4 py-3">
+                            <p className="text-xs font-semibold text-amber-700">
+                              Aucune méthode de paiement n'est disponible actuellement.
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-amber-600/80">
+                              Contactez le support batibuild pour activer votre abonnement.
+                            </p>
+                          </div>
+                        ) : (
+                        <div className="flex gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
+                          {expertPaymentMethods.map((method) => {
+                            const MethodIcon =
+                              method.icon === "smartphone" ? Smartphone : method.icon === "card" ? CreditCard : Banknote;
+                            const active = expertPaymentMethod === method.slug;
+                            return (
+                              <button
+                                key={method.slug}
+                                onClick={() => setExpertPaymentMethod(method.slug)}
+                                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-all ${
+                                  active
+                                    ? `border-border/40 bg-background shadow-sm ${method.slug === "d17" ? "text-amber-600" : "text-violet-600"}`
+                                    : "border-transparent text-muted-foreground hover:text-foreground"
+                                }`}
+                              >
+                                <MethodIcon className="h-3.5 w-3.5 shrink-0" />
+                                <span className="truncate">{method.shortLabel}</span>
+                              </button>
+                            );
+                          })}
                         </div>
+                        )}
                         {expertPaymentMethod === "bank_transfer" ? (
                           <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
                             <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-muted/10 px-4 py-3">

@@ -4,12 +4,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { useNavigate, useSearchParams } from "react-router";
-import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Banknote, Copy, CheckCheck, Smartphone, Wallet, Landmark, UserRound, Upload, Image, X, Sparkles, RefreshCcw } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Banknote, Copy, CheckCheck, Smartphone, Wallet, Landmark, UserRound, Upload, Image, X, Sparkles, RefreshCcw, CreditCard } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { MySubscriptionCard } from "@/components/MySubscriptionCard";
+import { availablePaymentMethods } from "@/lib/paymentMethods";
 
 // Default payment config (fallback if not set in DB)
 const DEFAULT_PAYMENT = {
@@ -128,9 +129,22 @@ export default function PricingPage() {
   const currentSubscription = useQuery(api.subscriptions.getMySubscription);
   const createSubscription = useMutation(api.subscriptions.createSubscription);
   const [copying, setCopying] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"bank_transfer" | "d17">("bank_transfer");
+  const [paymentMethod, setPaymentMethod] = useState<string>("bank_transfer");
   const paymentSectionRef = useRef<HTMLDivElement>(null);
   const paymentConfig = useQuery(api.payments.getPublicPricing);
+
+  // ── Méthodes de paiement disponibles (activées par l'administrateur) ──
+  const paymentMethods = availablePaymentMethods(
+    (paymentConfig as any)?.paymentMethods,
+  );
+  const paymentMethodsSignature = paymentMethods.map((m) => m.slug).join("|");
+  useEffect(() => {
+    if (paymentMethods.length === 0) return;
+    if (!paymentMethods.some((m) => m.slug === paymentMethod)) {
+      setPaymentMethod(paymentMethods[0].slug);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentMethodsSignature]);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const uploadPaymentProof = useMutation(api.subscriptions.uploadPaymentProof);
   // ── Règle profil ↔ abonnement : n'afficher QUE les offres du profil actif ──
@@ -224,6 +238,14 @@ export default function PricingPage() {
 
     const planAmount = priceFor(planId);
     const free = isFreePlan(planId);
+
+    // Aucune méthode active côté serveur → impossible de régler un forfait payant.
+    if (!free && paymentMethods.length === 0) {
+      toast.error(
+        "Aucune méthode de paiement n'est disponible. Contactez le support batibuild.",
+      );
+      return;
+    }
 
     // Forfait mensuel — activation immédiate si gratuit, sinon paiement (virement/D17)
     await createSubscription({
@@ -528,31 +550,42 @@ export default function PricingPage() {
 
           {currentPrice > 0 ? (
           <>
-          {/* Payment method selector — compact segmented control */}
-          <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
-            <button
-              onClick={() => setPaymentMethod("bank_transfer")}
-              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-                paymentMethod === "bank_transfer"
-                  ? "border-border/40 bg-background text-primary shadow-sm"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Banknote className="h-3.5 w-3.5" />
-              Virement bancaire
-            </button>
-            <button
-              onClick={() => setPaymentMethod("d17")}
-              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-                paymentMethod === "d17"
-                  ? "border-border/40 bg-background text-amber-600 shadow-sm"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Smartphone className="h-3.5 w-3.5" />
-              D17
-            </button>
+          {/* Payment method selector — méthodes activées par l'administrateur */}
+          {paymentMethods.length === 0 ? (
+            <div className="mb-4 rounded-xl border border-amber-200/50 bg-amber-50/60 px-4 py-3">
+              <p className="text-xs font-semibold text-amber-700">
+                Aucune méthode de paiement n'est disponible actuellement.
+              </p>
+              <p className="mt-0.5 text-[10px] text-amber-600/80">
+                Merci de contacter le support batibuild pour finaliser votre abonnement.
+              </p>
+            </div>
+          ) : (
+          <div
+            className="mb-4 flex gap-1 rounded-xl border border-border/40 bg-muted/20 p-1"
+          >
+            {paymentMethods.map((method) => {
+              const MethodIcon =
+                method.icon === "smartphone" ? Smartphone : method.icon === "card" ? CreditCard : Banknote;
+              const active = paymentMethod === method.slug;
+              const activeColor = method.slug === "d17" ? "text-amber-600" : "text-primary";
+              return (
+                <button
+                  key={method.slug}
+                  onClick={() => setPaymentMethod(method.slug)}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-all ${
+                    active
+                      ? `border-border/40 bg-background shadow-sm ${activeColor}`
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <MethodIcon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{method.shortLabel}</span>
+                </button>
+              );
+            })}
           </div>
+          )}
 
           {paymentMethod === "bank_transfer" ? (
             <>

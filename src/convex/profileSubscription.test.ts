@@ -110,7 +110,7 @@ describe("createSubscription — compatibilité profil ↔ forfait", () => {
     await expect(
       asUser(t, userId).mutation(api.subscriptions.createSubscription, {
         plan: "pro",
-        paymentMethod: "card",
+        paymentMethod: "d17",
         amount: 80,
         currency: "TND",
       }),
@@ -132,7 +132,7 @@ describe("createSubscription — compatibilité profil ↔ forfait", () => {
     await expect(
       asUser(t, userId).mutation(api.subscriptions.createSubscription, {
         plan: "pro",
-        paymentMethod: "card",
+        paymentMethod: "d17",
         amount: 80,
         currency: "TND",
       }),
@@ -143,7 +143,7 @@ describe("createSubscription — compatibilité profil ↔ forfait", () => {
     const userId = await createUser(t, { email: "ok-expert@test.com", userRole: "expert" });
     await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
       plan: "expert",
-      paymentMethod: "card",
+      paymentMethod: "d17",
       amount: 120,
       currency: "TND",
     });
@@ -156,7 +156,7 @@ describe("createSubscription — compatibilité profil ↔ forfait", () => {
     const userId = await createUser(t, { email: "legacy@test.com" });
     await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
       plan: "pro",
-      paymentMethod: "card",
+      paymentMethod: "d17",
       amount: 80,
       currency: "TND",
     });

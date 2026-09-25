@@ -11,6 +11,7 @@ import {
   expectedPlanForProfile,
   resolveProfileRole,
 } from "./profileSubscription";
+import { assertPaymentMethodEnabled } from "./paymentMethodStates";
 
 // ============================================================================
 // Queries
@@ -203,6 +204,13 @@ export const createSubscription = mutation({
 
     // Forfait gratuit (montant null ou 0) : activation immédiate, sans paiement.
     const isFreePlan = args.amount === null || args.amount === 0 || args.amount === undefined;
+
+    // ── Contrôle serveur : une méthode désactivée par l'admin est refusée,
+    // même si le frontend tente de la forcer. ──
+    if (!isFreePlan) {
+      await assertPaymentMethodEnabled(ctx, args.paymentMethod);
+    }
+
     const status =
       isFreePlan ? "active" : args.paymentMethod === "bank_transfer" ? "pending" : "active";
 

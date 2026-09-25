@@ -21,6 +21,7 @@ import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import SupportAdmin from "@/components/admin/SupportAdmin";
 import { AnnouncementList } from "@/components/admin/announcements/AnnouncementList";
 import { FeatureFlagsAdmin } from "@/components/admin/FeatureFlagsAdmin";
+import { PaymentMethodsAdmin } from "@/components/admin/PaymentMethodsAdmin";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -801,6 +802,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
             <TabsContent value="support">
               <SupportAdmin />
             </TabsContent>
+          )}
+
+          {/* ── Méthodes de paiement (onglet « Paiement ») ──
+              Rendues ici, juste après la barre d'onglets, pour apparaître
+              au-dessus de la configuration bancaire et D17 du même onglet. */}
+          {canSee("paiement") && activeTab === "paiement" && (
+            <PaymentMethodsAdmin />
           )}
 
           {/* ── Gestion des fonctionnalités (feature flags) ── */}

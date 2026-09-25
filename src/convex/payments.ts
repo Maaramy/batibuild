@@ -1,6 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import {
+  PAYMENT_METHOD_CATALOG,
+  defaultPaymentMethodStates,
+  mergePaymentMethodStates,
+  paymentMethodDefinition,
+} from "../lib/paymentMethods";
+import { getEnabledPaymentMethodSlugs, getPaymentMethodStates } from "./paymentMethodStates";
 // ============================================================================
 // Payment Configuration
 // ============================================================================
@@ -133,7 +140,11 @@ export const getPublicPricing = query({
       .order("desc")
       .first();
 
-    if (!config) return DEFAULT_PLAN_PRICING;
+    // `paymentMethods` est toujours présent : les interfaces de règlement s'en
+    // servent pour n'afficher que les méthodes activées par l'administrateur.
+    const enabledMethods = await getEnabledPaymentMethodSlugs(ctx);
+
+    if (!config) return { ...DEFAULT_PLAN_PRICING, paymentMethods: enabledMethods };
 
     return {
       startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
@@ -160,7 +171,93 @@ export const getPublicPricing = query({
       d17Phone: config.d17Phone,
       d17Email: config.d17Email,
       d17Notice: config.d17Notice,
+      // Méthodes de paiement réellement utilisables (activées par l'admin).
+      paymentMethods: enabledMethods,
     };
+  },
+});
+
+// ============================================================================
+// Méthodes de paiement — configuration administrable (source de vérité serveur)
+// ============================================================================
+
+/** Catalogue complet + état activé/désactivé (admin uniquement). */
+export const getPaymentMethodsAdmin = query({
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) {
+      return null;
+    }
+
+    const states = await getPaymentMethodStates(ctx);
+    const byslug = new Map(states.map((s) => [s.slug, s.enabled]));
+
+    return {
+      methods: PAYMENT_METHOD_CATALOG.map((method) => ({
+        ...method,
+        enabled: byslug.get(method.slug) ?? false,
+      })),
+    };
+  },
+});
+
+/**
+ * Active/désactive une méthode de paiement.
+ *
+ * Effet immédiat : la méthode disparaît (ou réapparaît) dans toutes les
+ * interfaces de règlement, et les transactions la concernant sont refusées
+ * côté serveur. Aucune donnée historique n'est supprimée.
+ */
+export const updatePaymentMethodState = mutation({
+  args: {
+    slug: v.string(),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const method = paymentMethodDefinition(args.slug);
+    if (!method) {
+      throw new Error(`Méthode de paiement inconnue : « ${args.slug} »`);
+    }
+    if (!method.implemented) {
+      throw new Error(
+        `Le module de paiement « ${method.label} » n'est pas encore connecté et ne peut pas être activé.`,
+      );
+    }
+
+    const existingConfig = await ctx.db
+      .query("paymentConfig")
+      .order("desc")
+      .first();
+
+    // La liste complète est toujours réécrite depuis le catalogue : le schéma
+    // reste valide même si de nouvelles méthodes apparaissent plus tard.
+    const previous = mergePaymentMethodStates(existingConfig?.paymentMethodStates);
+    const next = previous.map((state) =>
+      state.slug === args.slug ? { ...state, enabled: args.enabled } : state,
+    );
+
+    if (existingConfig) {
+      await ctx.db.patch(existingConfig._id, {
+        paymentMethodStates: next,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("paymentConfig", {
+        ...DEFAULT_PLAN_PRICING,
+        paymentMethodStates: next.length
+          ? next
+          : defaultPaymentMethodStates(),
+        updatedAt: Date.now(),
+        createdAt: Date.now(),
+      } as any);
+    }
+
+    return { success: true, slug: args.slug, enabled: args.enabled };
   },
 });
 

@@ -5,6 +5,7 @@ import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubscription";
 import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
+import { assertPaymentMethodEnabled } from "./paymentMethodStates";
 
 // ============================================================================
 // Constants
@@ -375,6 +376,8 @@ export const requestSubscription = mutation({
 
     // ── Réservé au profil Fournisseur ──
     await requireProfileRole(ctx, user, "supplier");
+    // Méthode désactivée par l'admin → nouvelle demande refusée côté serveur.
+    await assertPaymentMethodEnabled(ctx, args.paymentMethod);
     const profile = await ctx.db
       .query("supplierProfiles")
       .withIndex("by_user", (q) => q.eq("userId", user._id))

@@ -6,6 +6,7 @@ import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubs
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 import { normalizeIndicativePrice } from "../lib/expertAvailability";
 import { stripCjk, sanitizeStringList } from "../lib/sanitizeText";
+import { assertPaymentMethodEnabled } from "./paymentMethodStates";
 
 // ============================================================================
 // Constants
@@ -448,6 +449,8 @@ export const requestSubscription = mutation({
     if (!user) throw new Error("Non authentifié");
     // ── Réservé au profil Expert ──
     await requireProfileRole(ctx, user, "expert");
+    // Méthode désactivée par l'admin → nouvelle demande refusée côté serveur.
+    await assertPaymentMethodEnabled(ctx, args.paymentMethod);
     const profile = await ctx.db
       .query("expertProfiles")
       .withIndex("by_user", (q) => q.eq("userId", user._id))

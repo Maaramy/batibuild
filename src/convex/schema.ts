@@ -1038,6 +1038,17 @@ const schema = defineSchema(
       expertDownloadLimit: v.optional(v.number()),
       trialEnabled: v.optional(v.boolean()),
       trialDurationDays: v.optional(v.number()),
+      // Méthodes de paiement activées/désactivées par l'administrateur.
+      // Le catalogue et l'ordre proviennent de `lib/paymentMethods.ts` ;
+      // la base ne stocke que l'état de chaque méthode.
+      paymentMethodStates: v.optional(
+        v.array(
+          v.object({
+            slug: v.string(),
+            enabled: v.boolean(),
+          }),
+        ),
+      ),
       updatedAt: v.number(),
       updatedBy: v.id("users"),
     }).index("by_updated", ["updatedAt"]),

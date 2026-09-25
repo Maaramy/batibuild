@@ -409,10 +409,10 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
     const now = Date.now();
     const userId = await createUser(t, { email: "renew@test.com" });
 
-    // Abonnement payé par carte, encore valable 10 jours.
+    // Abonnement payé (D17), encore valable 10 jours.
     await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
       plan: "pro",
-      paymentMethod: "card",
+      paymentMethod: "d17",
       amount: 80,
       currency: "TND",
     });
@@ -468,7 +468,7 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
 
     await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
       plan: "pro",
-      paymentMethod: "card",
+      paymentMethod: "d17",
       amount: 80,
       currency: "TND",
     });
