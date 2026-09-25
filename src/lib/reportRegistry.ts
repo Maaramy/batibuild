@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { INVESTMENT_ELIGIBLE_TYPES, resolveProjectType } from "@/convex/projectTypes";
+import { projectJourneyGroup, type ProjectJourneyGroup } from "./projectJourney";
 
 /** Identifiant d'un module du registre. */
 export type ReportModuleKey =
@@ -144,7 +145,40 @@ export function reportStatuses(
 }
 
 /**
+ * RÈGLE D'AFFICHAGE DU RAPPORT PDF SELON LE GROUPE DU PROJET
+ *
+ * Le groupe est déduit automatiquement du type de projet enregistré
+ * (`projectJourneyGroup`) : aucune sélection manuelle de l'utilisateur n'est
+ * requise.
+ *
+ *   • **Groupe A** — rapport PDF complet : toutes les fonctionnalités du
+ *     parcours réellement activées et compatibles avec le type de projet
+ *     (Coût estimatif, Plan IA, Matériaux AI, Investissement, Exécution).
+ *   • **Groupe B** — rapport d'estimation uniquement : seule la section
+ *     « Coût estimatif » est présente. Les autres étapes du parcours (Plan IA,
+ *     Choix matériaux, Consultation / Trouver un expert, Exécution & suivi,
+ *     Investissement) sont totalement absentes du rapport — aucune section
+ *     vide ni place-holder n'est laissé.
+ *
+ * L'ordre du tableau suit celui du registre : le filtre retire les sections,
+ * il n'en crée jamais.
+ */
+export const REPORT_MODULE_KEYS_BY_GROUP: Record<ProjectJourneyGroup, readonly ReportModuleKey[]> = {
+  A: ["cost", "plans", "materials", "investment", "execution"],
+  B: ["cost"],
+};
+
+/** Clés des sections du rapport PDF autorisées pour un groupe de projet. */
+export function reportModuleKeysForGroup(
+  group: ProjectJourneyGroup,
+): readonly ReportModuleKey[] {
+  return REPORT_MODULE_KEYS_BY_GROUP[group];
+}
+
+/**
  * Modules réellement affichables pour un projet :
+ *   - masqués si leur section n'est pas autorisée pour le groupe du projet
+ *     (Groupe B → Coût estimatif uniquement) ;
  *   - masqués si leur feature flag est désactivé par l'administration ;
  *   - masqués s'ils ne s'appliquent pas au type de projet.
  */
@@ -152,8 +186,10 @@ export function visibleReportModules(
   isFeatureEnabled: (flag: string) => boolean,
   category: string | null | undefined,
 ): ReportModuleDef[] {
+  const allowedKeys = reportModuleKeysForGroup(projectJourneyGroup(category));
   return REPORT_MODULES.filter(
     (module) =>
+      allowedKeys.includes(module.key) &&
       isFeatureEnabled(module.flag) &&
       (!module.appliesTo || module.appliesTo(category)),
   );
