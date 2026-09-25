@@ -191,9 +191,15 @@ function EmptyState() {
 // ============================================================================
 // KPI Card — tuile 2 colonnes à tous les formats
 //
-// Empilée (icône / valeur / libellé) sur mobile et tablette pour rester lisible
-// dans une demi-largeur d'écran, puis horizontale sur grand écran où la tuile
-// est plus large que haute.
+// Disposition identique sur tous les écrans :
+//
+//   [Icône]  125
+//   Demandes reçues
+//
+// L'icône et le chiffre partagent la même ligne, centrés verticalement et
+// serrés l'un contre l'autre ; le libellé reste en dessous, sur toute la
+// largeur de la tuile. Chiffre suffisamment grand et tuile compacte, sans
+// débordement horizontal même sur smartphone étroit.
 // ============================================================================
 
 function KpiCard({
@@ -217,7 +223,8 @@ function KpiCard({
   return (
     <Card className="overflow-hidden py-0">
       <CardContent className="flex h-full flex-col justify-center p-3 sm:p-4">
-        <div className="flex flex-col gap-2 sm:gap-2.5 lg:flex-row lg:items-center lg:gap-4">
+        {/* Icône + chiffre sur la même ligne, alignement vertical parfait */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
           <div
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10"
             style={{ backgroundColor: `${color}15` }}
@@ -226,24 +233,23 @@ function KpiCard({
               <Icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
             </span>
           </div>
-          <div className="min-w-0 flex-1">
-            {loading ? (
-              <Skeleton className="h-7 w-16" />
-            ) : (
-              <p className="text-xl font-bold leading-none tabular-nums text-foreground sm:text-2xl">
-                <span className="break-words">{display}</span>
-                {suffix && (
-                  <span className="ml-0.5 text-xs font-medium text-muted-foreground sm:text-sm">
-                    {suffix}
-                  </span>
-                )}
-              </p>
-            )}
-            <p className="mt-1.5 text-[10px] font-medium leading-tight text-muted-foreground sm:text-xs">
-              {label}
+          {loading ? (
+            <Skeleton className="h-7 w-16" />
+          ) : (
+            <p className="min-w-0 text-xl font-bold leading-none tabular-nums text-foreground sm:text-2xl">
+              <span className="break-words">{display}</span>
+              {suffix && (
+                <span className="ml-0.5 text-xs font-medium text-muted-foreground sm:text-sm">
+                  {suffix}
+                </span>
+              )}
             </p>
-          </div>
+          )}
         </div>
+        {/* Libellé sous la ligne icône + chiffre */}
+        <p className="mt-1.5 text-[10px] font-medium leading-tight text-muted-foreground sm:mt-2 sm:text-xs">
+          {label}
+        </p>
       </CardContent>
     </Card>
   );
