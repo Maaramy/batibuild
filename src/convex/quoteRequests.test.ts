@@ -87,6 +87,7 @@ describe("quoteRequests.create", () => {
     await expect(
       t.mutation(api.quoteRequests.create, {
         supplierId: supplierId as any,
+        motif: "comparaison_prix",
         category: "ciment",
         materials: [{ name: "Ciment", quantity: 10, unit: "sac" }],
       }),
@@ -105,6 +106,7 @@ describe("quoteRequests.create", () => {
     await expect(
       userT.mutation(api.quoteRequests.create, {
         supplierId: supplierId as any,
+        motif: "comparaison_prix",
         category: "ciment",
         materials: [{ name: "Ciment", quantity: 10, unit: "sac" }],
       }),
@@ -125,6 +127,7 @@ describe("quoteRequests.create", () => {
     await expect(
       buyerT.mutation(api.quoteRequests.create, {
         supplierId: supplierId as any,
+        motif: "comparaison_prix",
         category: "ciment",
         materials: [{ name: "Ciment", quantity: 10, unit: "sac" }],
       }),
@@ -146,12 +149,12 @@ describe("quoteRequests.create", () => {
 
     const quoteId = await buyerT.mutation(api.quoteRequests.create, {
       supplierId: supplierId as any,
+      motif: "comparaison_prix",
       category: "ciment",
       materials: [
         { name: "Ciment gris", quantity: 20, unit: "sac" },
         { name: "Sable", quantity: 5, unit: "m3" },
       ],
-      message: "Bonjour, je souhaite un devis.",
     });
 
     expect(quoteId).toBeTruthy();
@@ -162,6 +165,7 @@ describe("quoteRequests.create", () => {
     expect(quote!.supplierId).toBe(supplierId);
     expect(quote!.category).toBe("ciment");
     expect(quote!.materials).toHaveLength(2);
+    expect(quote!.motif).toBe("comparaison_prix");
     expect(quote!.status).toBe("pending");
     expect(quote!.userEmail).toBe("buyer@test.com");
   });
@@ -183,6 +187,7 @@ describe("quoteRequests.create", () => {
 
     const quoteId = await buyerT.mutation(api.quoteRequests.create, {
       supplierId: supplierId as any,
+      motif: "comparaison_prix",
       category: "bois",
       materials: [{ name: "Planche", quantity: 10, unit: "piece" }],
     });
@@ -210,6 +215,7 @@ describe("quoteRequests.updateStatus", () => {
 
     const quoteId = await buyerT.mutation(api.quoteRequests.create, {
       supplierId: supplierId as any,
+      motif: "comparaison_prix",
       category: "ciment",
       materials: [{ name: "Ciment", quantity: 10, unit: "sac" }],
     });
@@ -234,6 +240,7 @@ describe("quoteRequests.updateStatus", () => {
 
     const quoteId = await buyerT.mutation(api.quoteRequests.create, {
       supplierId: supplierId as any,
+      motif: "comparaison_prix",
       category: "ciment",
       materials: [{ name: "Ciment", quantity: 10, unit: "sac" }],
     });
@@ -258,6 +265,7 @@ describe("quoteRequests.updateStatus", () => {
 
     const quoteId = await buyerT.mutation(api.quoteRequests.create, {
       supplierId: supplierId as any,
+      motif: "comparaison_prix",
       category: "ciment",
       materials: [{ name: "Ciment", quantity: 10, unit: "sac" }],
     });
@@ -309,6 +317,7 @@ describe("quoteRequests.getBySupplier", () => {
 
     await buyerT.mutation(api.quoteRequests.create, {
       supplierId: supplierId as any,
+      motif: "comparaison_prix",
       category: "ciment",
       materials: [{ name: "Ciment", quantity: 10, unit: "sac" }],
     });
@@ -350,6 +359,7 @@ describe("quoteRequests.getMyRequests", () => {
 
     await buyerT.mutation(api.quoteRequests.create, {
       supplierId: supplierId as any,
+      motif: "comparaison_prix",
       category: "bois",
       materials: [{ name: "Bois", quantity: 5, unit: "planche" }],
     });
@@ -386,6 +396,7 @@ describe("quoteRequests.pendingCount", () => {
     for (let i = 0; i < 3; i++) {
       await buyerT.mutation(api.quoteRequests.create, {
         supplierId: supplierId as any,
+        motif: "comparaison_prix",
         category: "ciment",
         materials: [{ name: "Item", quantity: 1, unit: "kg" }],
       });
@@ -425,6 +436,7 @@ describe("quoteRequests.unreadCount / markAllRead", () => {
     for (let i = 0; i < count; i++) {
       await buyerT.mutation(api.quoteRequests.create, {
         supplierId: supplierId as any,
+        motif: "comparaison_prix",
         category: "ciment",
         materials: [{ name: "Item", quantity: 1, unit: "kg" }],
       });
@@ -502,6 +514,7 @@ describe("quoteRequests — notifications de la messagerie", () => {
 
     await buyerT.mutation(api.quoteRequests.create, {
       supplierId: supplierId as any,
+      motif: "comparaison_prix",
       projectName: "Villa Sousse",
       category: "ciment",
       materials: [{ name: "Ciment", quantity: 10, unit: "sac" }],
@@ -521,6 +534,7 @@ describe("quoteRequests — notifications de la messagerie", () => {
     const { supplierId, buyerId, buyerT, supplierT } = await seed();
     const quoteId = await buyerT.mutation(api.quoteRequests.create, {
       supplierId: supplierId as any,
+      motif: "comparaison_prix",
       category: "ciment",
       materials: [{ name: "Ciment", quantity: 1, unit: "sac" }],
     });
@@ -546,6 +560,7 @@ describe("quoteRequests — notifications de la messagerie", () => {
     const { supplierUserId, supplierId, buyerT } = await seed();
     const quoteId = await buyerT.mutation(api.quoteRequests.create, {
       supplierId: supplierId as any,
+      motif: "comparaison_prix",
       category: "ciment",
       materials: [{ name: "Ciment", quantity: 1, unit: "sac" }],
     });

@@ -10,15 +10,19 @@ import {
   quoteStatusMeta,
 } from "@/lib/quoteStatus";
 import {
+  Download,
   FileText,
   Mail,
   MessageCircleQuestion,
   Package,
+  Paperclip,
   Phone,
   Send,
+  Tag,
   ThumbsDown,
   User,
 } from "lucide-react";
+import { resolveQuoteMotif } from "@/lib/quoteMotifs";
 import {
   QuoteResponseDialog,
   type QuoteResponseKind,
@@ -240,7 +244,50 @@ export function SupplierQuoteConversations({
                     </div>
                   )}
 
-                  {/* Informations complémentaires */}
+                  {/* Motif de la demande */}
+                  {quote.motif && (
+                    <div className="rounded-lg bg-amber-50/60 border border-amber-200/50 p-2.5">
+                      <p className="text-[9px] font-semibold text-amber-700 mb-0.5 flex items-center gap-1">
+                        <Tag className="h-2.5 w-2.5" /> Motif de la demande
+                      </p>
+                      <p className="text-xs text-foreground">
+                        {resolveQuoteMotif(quote.motif, quote.motifOther)}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Pièces jointes de la demande */}
+                  {quote.attachments && quote.attachments.length > 0 && (
+                    <div className="rounded-lg border border-border/20 bg-muted/10 p-2.5">
+                      <p className="text-[9px] font-semibold text-muted-foreground flex items-center gap-1 mb-1.5">
+                        <Paperclip className="h-2.5 w-2.5" /> Pièces jointes ({quote.attachments.length})
+                      </p>
+                      <ul className="space-y-1">
+                        {quote.attachments.map((a: any, i: number) => (
+                          <li key={`${a.storageId}-${i}`}>
+                            {a.url ? (
+                              <a
+                                href={a.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download={a.name}
+                                className="inline-flex items-center gap-1.5 text-[11px] text-primary hover:underline"
+                              >
+                                <FileText className="h-3 w-3" /> {a.name}
+                                <Download className="h-3 w-3 opacity-70" />
+                              </a>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                <FileText className="h-3 w-3" /> {a.name}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Informations complémentaires (demandes historiques) */}
                   {quote.message && (
                     <div className="rounded-lg bg-primary/[0.03] border border-primary/10 p-2.5">
                       <p className="text-[9px] font-semibold text-primary/70 mb-0.5 flex items-center gap-1">

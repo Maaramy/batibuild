@@ -3,6 +3,8 @@ import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
+import { validateQuoteAttachment } from "../lib/quoteAttachments";
+import { QUOTE_MOTIF_OTHER } from "../lib/quoteMotifs";
 
 // ============================================================================
 // DEMANDES DE DEVIS FOURNISSEUR — source unique
@@ -72,6 +74,36 @@ export async function notifyQuoteParty(
 // ============================================================================
 
 /** Create a quote request from a user to a supplier */
+/** Pièce jointe telle que stockée avec la demande. */
+export interface QuoteAttachment {
+  storageId: Id<"_storage">;
+  name: string;
+  type: string;
+  size: number;
+}
+
+/**
+ * Enrichit les demandes avec l'URL de consultation/téléchargement de chaque
+ * pièce jointe, résolue côté serveur depuis Convex Storage.
+ */
+async function withAttachmentUrls<T extends { attachments?: QuoteAttachment[] }>(
+  ctx: any,
+  request: T,
+): Promise<T & { attachments?: { storageId: string; name: string; type: string; size: number; url?: string }[] }> {
+  if (!request.attachments || request.attachments.length === 0) return request;
+  const attachments = await Promise.all(
+    request.attachments.map(async (a) => ({
+      storageId: a.storageId as string,
+      name: a.name,
+      type: a.type,
+      size: a.size,
+      url: (await ctx.storage.getUrl(a.storageId)) ?? undefined,
+    })),
+  );
+  return { ...request, attachments };
+}
+
+/** Create a quote request from a user to a supplier */
 export const create = mutation({
   args: {
     supplierId: v.id("supplierProfiles"),
@@ -85,11 +117,38 @@ export const create = mutation({
         unit: v.string(),
       })
     ),
-    message: v.optional(v.string()),
+    // Motif obligatoire : sans lui, la demande n'est pas envoyée.
+    motif: v.string(),
+    motifOther: v.optional(v.string()),
+    // Pièces jointes facultatives (déjà téléversées dans Convex Storage).
+    attachments: v.optional(
+      v.array(
+        v.object({
+          storageId: v.id("_storage"),
+          name: v.string(),
+          type: v.string(),
+          size: v.number(),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Utilisateur non connecté");
+
+    // Le motif est obligatoire ; « Autre » exige une précision écrite.
+    const motif = args.motif?.trim();
+    if (!motif) throw new Error("Le motif de la demande est obligatoire");
+    const motifOther = args.motifOther?.trim();
+    if (motif === QUOTE_MOTIF_OTHER && !motifOther) {
+      throw new Error("Précisez le motif de votre demande");
+    }
+
+    // Dernier rempart : les pièces jointes doivent respecter formats et tailles.
+    for (const a of args.attachments ?? []) {
+      const error = validateQuoteAttachment(a);
+      if (error) throw new Error(error);
+    }
 
     // Verify supplier exists and is active
     const supplier = await ctx.db.get(args.supplierId);
@@ -114,7 +173,9 @@ export const create = mutation({
       userPhone: user.phone ?? "",
       userEmail: user.email ?? "",
       userName: user.name ?? "",
-      message: args.message,
+      motif,
+      motifOther: motif === QUOTE_MOTIF_OTHER ? motifOther : undefined,
+      attachments: args.attachments,
       status: "pending",
       createdAt: now,
       updatedAt: now,
@@ -267,7 +328,7 @@ export const getBySupplier = query({
       .order("desc")
       .collect();
 
-    return requests;
+    return await Promise.all(requests.map((r) => withAttachmentUrls(ctx, r)));
   },
 });
 
@@ -284,7 +345,7 @@ export const getMyRequests = query({
       .order("desc")
       .collect();
 
-    return requests;
+    return await Promise.all(requests.map((r) => withAttachmentUrls(ctx, r)));
   },
 });
 
@@ -312,7 +373,7 @@ export const getById = query({
       return null;
     }
 
-    return quote;
+    return await withAttachmentUrls(ctx, quote);
   },
 });
 

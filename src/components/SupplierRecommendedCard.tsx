@@ -13,7 +13,9 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { QuoteRequestFields } from "@/components/quotes/QuoteRequestFields";
+import { uploadQuoteAttachment } from "@/lib/quoteAttachments";
+import { QUOTE_MOTIF_OTHER } from "@/lib/quoteMotifs";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,7 +64,9 @@ export function SupplierRecommendedCard({
   currentUserId,
 }: SupplierRecommendedCardProps) {
   const [showQuoteDialog, setShowQuoteDialog] = useState(false);
-  const [quoteMessage, setQuoteMessage] = useState("");
+  const [motif, setMotif] = useState("");
+  const [motifOther, setMotifOther] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   // Editable materials state — (re)initialized when the quote dialog opens
   const [editableMaterials, setEditableMaterials] = useState<MaterialQty[]>(materials);
@@ -75,6 +79,9 @@ export function SupplierRecommendedCard({
     // Always start from the current analysis quantities (pre-calculated, editable)
     setEditableMaterials(materials);
     setSelectedMaterials(materials.map(() => true));
+    setMotif("");
+    setMotifOther("");
+    setFiles([]);
     setShowQuoteDialog(true);
   };
 
@@ -85,6 +92,7 @@ export function SupplierRecommendedCard({
   );
 
   const createQuoteRequest = useMutation(api.quoteRequests.create);
+  const generateUploadUrl = useMutation(api.users.generateUploadUrl);
 
   if (!supplier || supplier.length === 0) return null;
 
@@ -104,19 +112,34 @@ export function SupplierRecommendedCard({
       toast.error("Sélectionnez au moins un matériau pour la demande de devis.");
       return;
     }
+    if (!motif) {
+      toast.error("Sélectionnez le motif de votre demande.");
+      return;
+    }
+    if (motif === QUOTE_MOTIF_OTHER && !motifOther.trim()) {
+      toast.error("Précisez le motif de votre demande.");
+      return;
+    }
     try {
       setSending(true);
+      const uploaded = await Promise.all(
+        files.map((f) => uploadQuoteAttachment(f, () => generateUploadUrl())),
+      );
       await createQuoteRequest({
         supplierId: s._id as any,
         projectId: projectId as any,
         projectName,
         category: categoryLabel,
         materials: selected,
-        message: quoteMessage || undefined,
+        motif,
+        motifOther: motif === QUOTE_MOTIF_OTHER ? motifOther.trim() : undefined,
+        attachments: uploaded as any,
       });
       toast.success("Demande de devis envoyée avec succès !");
       setShowQuoteDialog(false);
-      setQuoteMessage("");
+      setMotif("");
+      setMotifOther("");
+      setFiles([]);
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'envoi");
     } finally {
@@ -298,18 +321,15 @@ export function SupplierRecommendedCard({
               </div>
             </div>
 
-            {/* Message */}
-            <div>
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                Message optionnel
-              </label>
-              <Textarea
-                value={quoteMessage}
-                onChange={(e) => setQuoteMessage(e.target.value)}
-                placeholder="Décrivez vos besoins spécifiques..."
-                className="text-xs min-h-[80px] rounded-xl"
-              />
-            </div>
+            {/* Motif obligatoire + pièces jointes */}
+            <QuoteRequestFields
+              motif={motif}
+              onMotifChange={setMotif}
+              motifOther={motifOther}
+              onMotifOtherChange={setMotifOther}
+              files={files}
+              onFilesChange={setFiles}
+            />
 
             {/* Actions */}
             <div className="flex gap-2 justify-end">

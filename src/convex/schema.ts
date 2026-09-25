@@ -1317,7 +1317,24 @@ const schema = defineSchema(
       userPhone: v.string(),
       userEmail: v.string(),
       userName: v.string(),
+      // Champ historique conservé pour les demandes déjà enregistrées ; le
+      // formulaire ne le propose plus (remplacé par le motif obligatoire).
       message: v.optional(v.string()),
+      // Motif obligatoire (clé de `src/lib/quoteMotifs.ts`) et précision libre
+      // lorsque le motif choisi est « Autre ».
+      motif: v.optional(v.string()),
+      motifOther: v.optional(v.string()),
+      // Pièces jointes : référence de stockage Convex + métadonnées d'affichage.
+      attachments: v.optional(
+        v.array(
+          v.object({
+            storageId: v.id("_storage"),
+            name: v.string(),
+            type: v.string(),
+            size: v.number(),
+          }),
+        ),
+      ),
       // Statuts historiques (`pending` / `responded` / `closed`) conservés tels
       // quels — aucune donnée n'est migrée — et enrichis des statuts de gestion
       // en messagerie (En cours / Acceptée / Refusée / Expirée).

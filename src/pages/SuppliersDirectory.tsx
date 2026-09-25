@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { QuoteRequestFields } from "@/components/quotes/QuoteRequestFields";
+import { uploadQuoteAttachment } from "@/lib/quoteAttachments";
+import { QUOTE_MOTIF_OTHER } from "@/lib/quoteMotifs";
 import { StarRating } from "@/components/StarRating";
 import {
   ArrowLeft, Store, MapPin, Phone, Mail, Briefcase, Star,
@@ -82,10 +84,13 @@ export default function SuppliersDirectory() {
   const [myRating, setMyRating] = useState(0);
   const [sendingRating, setSendingRating] = useState(false);
   const [devisSupplier, setDevisSupplier] = useState<any>(null);
-  const [devisMessage, setDevisMessage] = useState("");
+  const [motif, setMotif] = useState("");
+  const [motifOther, setMotifOther] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [sendingDevis, setSendingDevis] = useState(false);
   const rateSupplier = useMutation(api.ratings.rateSupplier);
   const createQuoteRequest = useMutation(api.quoteRequests.create);
+  const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const { user } = useAuth();
 
   // Build unique specialties & regions from data
@@ -263,7 +268,9 @@ export default function SuppliersDirectory() {
       navigate(`/auth?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
-    setDevisMessage("");
+    setMotif("");
+    setMotifOther("");
+    setFiles([]);
     setDevisSupplier(s);
   };
 
@@ -273,17 +280,32 @@ export default function SuppliersDirectory() {
       toast.error("Vous ne pouvez pas vous envoyer un devis à vous-même.");
       return;
     }
+    if (!motif) {
+      toast.error("Sélectionnez le motif de votre demande.");
+      return;
+    }
+    if (motif === QUOTE_MOTIF_OTHER && !motifOther.trim()) {
+      toast.error("Précisez le motif de votre demande.");
+      return;
+    }
     setSendingDevis(true);
     try {
+      const uploaded = await Promise.all(
+        files.map((f) => uploadQuoteAttachment(f, () => generateUploadUrl())),
+      );
       await createQuoteRequest({
         supplierId: devisSupplier._id as any,
         category: devisSupplier.specialties?.[0] ?? "général",
         materials: [],
-        message: devisMessage || undefined,
+        motif,
+        motifOther: motif === QUOTE_MOTIF_OTHER ? motifOther.trim() : undefined,
+        attachments: uploaded as any,
       });
       toast.success("Demande de devis envoyée avec succès !");
       setDevisSupplier(null);
-      setDevisMessage("");
+      setMotif("");
+      setMotifOther("");
+      setFiles([]);
     } catch (err: any) {
       toast.error(err?.message ?? "Erreur lors de l'envoi");
     } finally {
@@ -577,18 +599,15 @@ export default function SuppliersDirectory() {
               </div>
             </div>
 
-            {/* Message */}
-            <div>
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                Message optionnel
-              </label>
-              <Textarea
-                value={devisMessage}
-                onChange={(e) => setDevisMessage(e.target.value)}
-                placeholder="Décrivez vos besoins spécifiques..."
-                className="text-xs min-h-[80px] rounded-xl"
-              />
-            </div>
+            {/* Motif obligatoire + pièces jointes */}
+            <QuoteRequestFields
+              motif={motif}
+              onMotifChange={setMotif}
+              motifOther={motifOther}
+              onMotifOtherChange={setMotifOther}
+              files={files}
+              onFilesChange={setFiles}
+            />
 
             {/* Actions */}
             <div className="flex gap-2 justify-end">
