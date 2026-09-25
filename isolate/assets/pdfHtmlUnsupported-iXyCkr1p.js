@@ -1,0 +1,1 @@
+const e="Le rendu HTML → PDF (jsPDF `doc.html()`) n'est pas embarqué dans batibuild. Utilisez les helpers PDF programmatiques (src/lib/*Pdf.ts) ou retirez les alias html2canvas/canvg/dompurify de vite.config.ts.";function t(){throw new Error(e)}t.default=t;t.sanitize=t;t.fromString=t;const s=t,a=t;export{s as Canvg,t as default,a as sanitize};
