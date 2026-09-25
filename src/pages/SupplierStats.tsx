@@ -101,9 +101,9 @@ function StatsSkeleton() {
         <Skeleton className="h-5 w-40 sm:w-48" />
       </div>
       <Skeleton className="h-10 w-full rounded-xl" />
-      <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 rounded-xl" />
+          <Skeleton key={i} className="h-24 rounded-xl sm:h-20" />
         ))}
       </div>
       <div className="grid gap-3 md:grid-cols-2">
@@ -189,7 +189,11 @@ function EmptyState() {
 }
 
 // ============================================================================
-// KPI Card (compact, s'adapte de la 1-colonne mobile à la 4-colonnes desktop)
+// KPI Card — tuile 2 colonnes à tous les formats
+//
+// Empilée (icône / valeur / libellé) sur mobile et tablette pour rester lisible
+// dans une demi-largeur d'écran, puis horizontale sur grand écran où la tuile
+// est plus large que haute.
 // ============================================================================
 
 function KpiCard({
@@ -211,31 +215,33 @@ function KpiCard({
     typeof value === "number" ? value.toLocaleString("fr-FR") : value;
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-3 sm:p-3.5">
-        <div className="flex items-center gap-2.5 sm:gap-3">
+    <Card className="overflow-hidden py-0">
+      <CardContent className="flex h-full flex-col justify-center p-3 sm:p-4">
+        <div className="flex flex-col gap-2 sm:gap-2.5 lg:flex-row lg:items-center lg:gap-4">
           <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-8 sm:w-8"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10"
             style={{ backgroundColor: `${color}15` }}
           >
-            <span style={{ color }}><Icon className="h-4 w-4" /></span>
+            <span style={{ color }}>
+              <Icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+            </span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-medium leading-tight text-muted-foreground sm:text-[11px]">
-              {label}
-            </p>
             {loading ? (
-              <Skeleton className="mt-1 h-5 w-12" />
+              <Skeleton className="h-7 w-16" />
             ) : (
-              <p className="text-lg font-bold leading-tight tabular-nums text-foreground sm:text-base">
+              <p className="text-xl font-bold leading-none tabular-nums text-foreground sm:text-2xl">
                 <span className="break-words">{display}</span>
                 {suffix && (
-                  <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">
+                  <span className="ml-0.5 text-xs font-medium text-muted-foreground sm:text-sm">
                     {suffix}
                   </span>
                 )}
               </p>
             )}
+            <p className="mt-1.5 text-[10px] font-medium leading-tight text-muted-foreground sm:text-xs">
+              {label}
+            </p>
           </div>
         </div>
       </CardContent>
@@ -390,8 +396,8 @@ export default function SupplierStats() {
             </motion.div>
           )}
 
-          {/* ── Cartes KPI : 1 colonne sur smartphone étroit ── */}
-          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-4">
+          {/* ── Cartes KPI : 2 colonnes sur tous les formats ── */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <KpiCard
               label="Vues du profil"
               value={kpis?.views ?? 0}
