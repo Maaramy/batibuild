@@ -3,9 +3,9 @@
 # Flux : git push origin main → runner ubuntu-latest → Node 22 + Bun + JDK 17
 #        → setup-android@v4 (SDK + licences) → npm/bun install → prebuild
 #        (si android/ absent) → composants SDK du projet → Gradle
-#        → Batibuild-debug.apk + Batibuild-release.apk + Batibuild-release.aab
-#        → Artifacts du run (rétention courte, 5 j — 1 j si Release)
-#        → + GitHub Release si le run vient d'un tag `v*` (copie durable).
+#        → Batibuild-release.apk + Batibuild-release.aab (APK release, AAB release)
+#        → GitHub Release si le run vient d'un tag `v*` (copie durable, hors quota)
+#        → sinon UN artefact Actions « batibuild-release », rétention **1 jour**.
 #
 # AUCUN outil Android n'est requis sur votre PC : ni JDK, ni Android SDK,
 # ni Android Studio, ni Gradle. Tout est installé par le runner.
@@ -53,28 +53,32 @@
 # `--stacktrace` reste actif pour ne rien masquer.
 #
 # ── STOCKAGE DES ARTEFACTS + PUBLICATION (détail : MOBILE_BUILD.md) ─────────
-# Quatre règles traitent à la source l'erreur qu'on venait chercher ici :
+# Cinq règles traitent à la source l'erreur qu'on venait chercher ici :
 #   Failed to CreateArtifact: Artifact storage quota has been hit.
 # (stockage d'artefacts saturé — jamais une erreur Android ni Gradle) :
 #
-#   1. UN SEUL artefact par build (APK debug + APK release + AAB release), au
-#      lieu de trois uploads séparés. Jamais node_modules, caches Gradle,
-#      sorties intermédiaires ni logs.
-#   2. `retention-days` explicite (5 jours — ou 1 jour quand une Release est
-#      publiée) au lieu de la rétention du dépôt (souvent 90 jours).
-#   3. Job « cleanup-artifacts » AVANT le build : supprime via l'API GitHub
-#      (`actions: write`, moindre privilège) les artefacts expirés ou trop
-#      anciens — jamais les sources, le code, l'historique Git ni les Releases.
-#   4. PUBLICATION EN GITHUB RELEASE (stockage distinct, hors quota) : les
-#      APK/AAB y sont attachés pour être conservés durablement. Elle a lieu si
-#      le run vient d'un tag `v*` (les filtres `paths` ne s'appliquent pas aux
-#      tags), ou en lancement manuel avec `publish_release: true` (tag
-#      `v<version>-build<run>`). Elle est publiée même si l'upload d'artefact a
-#      échoué (`if: always()`) : un APK reste récupérable même quota plein. Un
-#      tag qui ne correspond pas à `mobile/app.json` est refusé, pour qu'aucune
-#      Release trompeuse n'existe.
-#   5. Après l'upload, l'API GitHub est interrogée pour confirmer que l'artefact
-#      a bien été publié et n'est pas vide (échec franc sinon).
+#   1. SEULS l'APK release et l'AAB release sont publiés — JAMAIS l'APK debug
+#      (inutile en production et premier consommateur d'espace). Le workflow ne
+#      génère plus l'APK debug du tout.
+#   2. UN SEUL artefact par build, nommé « batibuild-release », au lieu de trois
+#      uploads séparés. Jamais node_modules, caches Gradle, sorties
+#      intermédiaires ni logs. `overwrite: true` fait qu'un artefact portant
+#      déjà ce nom (relance du même run) est remplacé, sans conflit.
+#   3. `retention-days: 1` (un seul jour) au lieu de la rétention du dépôt
+#      (souvent 90 jours) : l'ancien artefact disparaît de lui-même.
+#   4. Job « cleanup-artifacts » AVANT le build : supprime via l'API GitHub
+#      (`actions: write`, moindre privilège) les artefacts expirés, trop anciens
+#      ou déjà remplacés — jamais les sources, le code, l'historique Git ni les
+#      Releases.
+#   5. PUBLICATION EN GITHUB RELEASE (stockage distinct, hors quota) : les
+#      APK/AAB y sont attachés pour être conservés durablement. Quand une
+#      Release est publiée (tag `v*`, ou `publish_release: true`), AUCUN artefact
+#      Actions n'est créé : la Release EST la copie durable, on ne duplique pas.
+#      Elle est publiée même si le build échoue (`if: always()`) : un APK reste
+#      récupérable même quota plein. Un tag qui ne correspond pas à
+#      `mobile/app.json` est refusé, pour qu'aucune Release trompeuse n'existe.
+#      Hors Release, l'API GitHub confirme que l'artefact « batibuild-release »
+#      (rétention 1 j) a bien été publié et n'est pas vide (échec franc sinon).
 #
 # Scripts : `mobile/scripts/publish-release.sh` (Release) et
 # `mobile/scripts/artifact-storage.mjs` (nettoyage / vérification).
@@ -85,10 +89,12 @@
 # cache v6, upload-artifact v7, setup-android v4, setup-bun v2) — plus
 # d'avertissement « Node.js 20 actions are deprecated ».
 #
-# Si le quota est DÉJÀ saturé avant ce run, les trois fichiers ne peuvent pas
-# être publiés : supprimez alors les anciens artefacts depuis
-# « Actions → run → Artifacts » sur GitHub. La suppression libère immédiatement
-# l'espace de stockage courant, et les runs suivants s'en occupent tout seuls.
+# Si le quota est DÉJÀ saturé avant ce run, l'artefact (APK release + AAB
+# release) ne peut pas être publié : supprimez alors les anciens artefacts
+# depuis « Actions → run → Artifacts » sur GitHub. La suppression libère
+# immédiatement l'espace de stockage courant, et les runs suivants s'en
+# occupent tout seuls. Poser un tag `v*` reste la voie qui ne dépend pas de ce
+# quota (publication en GitHub Release).
 
 name: Android — APK & AAB
 
@@ -116,7 +122,7 @@ on:
         required: false
         default: false
       retention_days:
-        description: "Artefact : conservation en jours (1 à 90). Vide = 5 j, ou 1 j si une Release est publiée"
+        description: "Artefact Actions : conservation en jours (1 à 90). Vide = 1 j (défaut réduit pour le quota)"
         required: false
         default: ""
       publish_release:
@@ -155,10 +161,9 @@ env:
 
   # ── STOCKAGE DES ARTEFACTS (quota GitHub Actions) ──────────────────────────
   # ARTIFACT_RETENTION_DAYS : durée de conservation demandée à l'upload.
-  #                           Vide = calcul automatique (étape « Identifier le
-  #                           build ») : 5 jours, ou 1 seul jour dès qu'une
-  #                           GitHub Release est publiée — la Release est la
-  #                           copie durable, inutile de stocker deux fois.
+  #                           Vide = 1 jour (défaut). Une GitHub Release étant
+  #                           la copie durable, l'artefact Actions n'est même
+  #                           pas créé lorsque ce run publie une Release.
   # ARTIFACT_CLEANUP_SCOPE  : `all` = tous les artefacts du dépôt (seuls les
   #                           temporaires périmés sont supprimés) ;
   #                           `workflow` = uniquement les artefacts batibuild.
@@ -210,10 +215,10 @@ jobs:
         run: node scripts/artifact-storage.mjs cleanup
 
   # ══════════════════════════════════════════════════════════════════════════
-  # JOB 2 — BUILD ANDROID : APK debug + APK release + AAB release
+  # JOB 2 — BUILD ANDROID : APK release + AAB release (jamais l'APK debug)
   # ══════════════════════════════════════════════════════════════════════════
   build-android:
-    name: APK debug + APK release + AAB release
+    name: APK release + AAB release
     runs-on: ubuntu-latest
     needs: [cleanup-artifacts]
     # Le nettoyage ne doit JAMAIS empêcher le build de tourner.
@@ -655,11 +660,10 @@ jobs:
       - name: Vérification de la signature (signingReport)
         run: bash scripts/ci-gradle.sh :app:signingReport signing
 
-      # ── NOM DU BUILD, RÉTENTION ET PUBLICATION (Release GitHub) ────────────
-      # Un seul artefact par build, nommé d'après la version RÉELLEMENT compilée
-      # et le numéro de run : deux builds ne peuvent pas se confondre, et le
-      # fichier téléchargé s'identifie sans ambiguïté (batibuild 1.3.2,
-      # versionCode 12, run 123).
+      # ── IDENTIFICATION, RÉTENTION ET PUBLICATION (Release GitHub) ────────────
+      # Le libellé ci-dessous (batibuild 1.3.2, versionCode 12, run 123) ne sert
+      # qu'aux logs et au résumé : l'artefact lui-même porte le nom fixe et propre
+      # « batibuild-release » (APK release + AAB release).
       #
       # C'est ici qu'est décidée la publication en GitHub Release :
       #   · push d'un tag `v*`                        → Release portant ce tag ;
@@ -701,9 +705,10 @@ jobs:
             if [ "$DAYS" -lt 1 ] || [ "$DAYS" -gt 90 ]; then DAYS=""; fi
           fi
           if [ -z "$DAYS" ]; then
-            # Aucune durée demandée : 5 jours — ou 1 seul jour dès qu'une Release
-            # est publiée, puisque la Release porte déjà la copie durable.
-            if [ "$PUBLISH" = "true" ]; then DAYS=1; else DAYS=5; fi
+            # Aucune durée demandée : 1 SEUL jour. La copie durable d'un build
+            # de production est la GitHub Release (hors quota d'artefacts) ; un
+            # build de branche n'a pas besoin de survivre plus d'un jour.
+            DAYS=1
           fi
 
           {
@@ -716,8 +721,13 @@ jobs:
             echo "prerelease=${PRERELEASE}"
           } >> "$GITHUB_OUTPUT"
 
-          echo "Artefact de ce build : ${LABEL}"
+          echo "Build                : ${LABEL}"
           echo "Rétention            : ${DAYS} jour(s)"
+          if [ "$PUBLISH" = "true" ]; then
+            echo "Artefact Actions     : aucun — la Release (ci-dessous) porte les APK/AAB"
+          else
+            echo "Artefact Actions     : batibuild-release (APK release + AAB release)"
+          fi
           if [ "$PUBLISH" = "true" ]; then
             echo "Release GitHub       : ${TAG} (pré-version : ${PRERELEASE})"
           else
@@ -725,35 +735,11 @@ jobs:
           fi
           echo "Nettoyage            : portée ${ARTIFACT_CLEANUP_SCOPE}, ${ARTIFACT_KEEP_LATEST} build(s) conservé(s)"
 
-      # ── APK DEBUG ──────────────────────────────────────────────────────────
-      # ci-gradle.sh affiche, en cas d'échec, la CAUSE RÉELLE du plantage.
-      - name: Build — APK debug
-        run: bash scripts/ci-gradle.sh :app:assembleDebug debug
-
-      - name: Préparer l'APK debug
-        run: |
-          mkdir -p /tmp/dist
-          DEBUG_APK=""
-          if [ -d android/app/build/outputs/apk/debug ]; then
-            DEBUG_APK=$(find android/app/build/outputs/apk/debug -type f -name "*.apk" | head -1)
-          fi
-          if [ -z "$DEBUG_APK" ]; then
-            echo "❌ Aucun APK trouvé dans android/app/build/outputs/apk/debug/"
-            exit 1
-          fi
-          cp "$DEBUG_APK" /tmp/dist/Batibuild-debug.apk
-          ls -lh /tmp/dist/Batibuild-debug.apk
-          # Preuve que l'APK est bien signé (aucun secret n'est affiché).
-          APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
-          "$APKSIGNER" verify --print-certs "$DEBUG_APK" | head -6
-
-      # Vérification de l'artefact : un APK vide, tronqué, incomplet ou non
-      # signé fait ÉCHOUER le job au lieu d'être publié comme artefact.
-      - name: Vérifier l'APK debug (taille, ZIP, entrées, signature)
-        run: node scripts/verify-artifact.mjs /tmp/dist/Batibuild-debug.apk
-
-      # (Pas d'upload ici : les 3 fichiers sont publiés ensemble, une seule fois,
-      # à la fin du job — voir « PUBLICATION DES ARTEFACTS » ci-dessous.)
+      # ── APK DEBUG : VOLONTAIREMENT NON PRODUIT ─────────────────────────────
+      # L'APK debug n'est ni nécessaire à la production ni publié : il ne ferait
+      # que gonfler le stockage d'artefacts. Seuls l'APK release et l'AAB release
+      # sont compilés, vérifiés et publiés ci-dessous (le build release reste
+      # signé par la clé debug quand aucun secret keystore n'est fourni).
 
       # ── APK RELEASE ────────────────────────────────────────────────────────
       - name: Build — APK release
@@ -802,30 +788,33 @@ jobs:
         run: node scripts/verify-artifact.mjs /tmp/dist/Batibuild-release.aab --kind aab
 
       # ══════════════════════════════════════════════════════════════════════
-      # PUBLICATION DES ARTEFACTS — UN SEUL UPLOAD, RÉTENTION COURTE
+      # PUBLICATION DES ARTEFACTS — AU PLUS UN UPLOAD, UNE SEULE FOIS
       #
       # Correction directe de :
       #   Failed to CreateArtifact: Artifact storage quota has been hit.
-      #   · les 3 fichiers partent dans UN SEUL artefact (au lieu de 3 uploads
-      #     séparés) : moins d'entrées dans le stockage, aucune copie, un seul
-      #     téléchargement pour récupérer les 3 fichiers ;
-      #   · `retention-days` limite la conservation (5 jours par défaut) au lieu
-      #     de la rétention du dépôt ;
+      #   · APK release + AAB release seulement — l'APK debug n'est plus produit
+      #     ni uploadé ;
+      #   · les 2 fichiers partent dans UN SEUL artefact nommé
+      #     « batibuild-release » (au lieu de 3 uploads séparés) ;
+      #   · `retention-days: 1` limite la conservation à un seul jour au lieu de
+      #     la rétention du dépôt ;
       #   · seuls les APK/AAB de /tmp/dist sont envoyés — jamais node_modules,
       #     les caches Gradle, les sorties intermédiaires, les symboles ni les
       #     logs : c'est explicitement contrôlé juste avant l'upload ;
-      #   · `overwrite: false` + nom unique (version, versionCode, run).
+      #   · `overwrite: true` + nom fixe : un artefact portant déjà ce nom (relance
+      #     du run) est remplacé sans conflit.
+      #   · AUCUN artefact n'est uploadé quand ce run publie une GitHub Release :
+      #     la Release est la copie durable, on ne crée pas de doublon.
       # Le nettoyage des générations précédentes est fait AVANT le build par le
       # job « cleanup-artifacts ».
       # ══════════════════════════════════════════════════════════════════════
       - name: Contrôler les fichiers à publier (aucun fichier parasite)
         run: |
           set -euo pipefail
-          for file in Batibuild-debug.apk Batibuild-release.apk Batibuild-release.aab; do
+          for file in Batibuild-release.apk Batibuild-release.aab; do
             test -s "/tmp/dist/$file" || { echo "❌ /tmp/dist/$file manquant ou vide"; exit 1; }
           done
           UNEXPECTED=$(find /tmp/dist -maxdepth 1 -type f \
-            ! -name 'Batibuild-debug.apk' \
             ! -name 'Batibuild-release.apk' \
             ! -name 'Batibuild-release.aab' -print)
           if [ -n "$UNEXPECTED" ]; then
@@ -833,16 +822,17 @@ jobs:
             echo "$UNEXPECTED"
             exit 1
           fi
-          echo "✅ Exactement 3 fichiers à publier, aucun fichier parasite :"
+          echo "✅ Exactement 2 fichiers à publier (APK release + AAB release), aucun fichier parasite :"
           ls -lh /tmp/dist
 
-      - name: Upload — batibuild (APK debug + APK release + AAB release)
+      # Uniquement hors Release (la Release publie déjà les mêmes fichiers).
+      - name: Upload — batibuild-release (APK release + AAB release)
         id: upload
+        if: ${{ success() && steps.dist.outputs.release != 'true' }}
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.dist.outputs.label }}
+          name: batibuild-release
           path: |
-            /tmp/dist/Batibuild-debug.apk
             /tmp/dist/Batibuild-release.apk
             /tmp/dist/Batibuild-release.aab
           if-no-files-found: error
@@ -850,15 +840,17 @@ jobs:
           # APK/AAB déjà compressés (ZIP/JAR) : recompresser ne gagne rien et
           # coûte du temps d'upload — 0 = stockage tel quel.
           compression-level: 0
-          # Le nom contient version + versionCode + run : jamais d'écrasement.
-          overwrite: false
+          # Nom fixe « batibuild-release » : un artefact de même nom (relance du
+          # même run) est remplacé, jamais de conflit ni de doublon.
+          overwrite: true
 
       # Confirmation réelle de la publication (sinon le run doit échouer
       # clairement au lieu de laisser croire que l'APK est téléchargeable).
       - name: Vérifier la publication de l'artefact (API GitHub)
+        if: ${{ success() && steps.dist.outputs.release != 'true' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          ARTIFACT_NAME: ${{ steps.dist.outputs.label }}
+          ARTIFACT_NAME: batibuild-release
         run: |
           test -n "${{ steps.upload.outputs.artifact-id }}" || {
             echo "❌ upload-artifact n'a retourné aucun artifact-id : rien n'a été publié."
@@ -875,15 +867,16 @@ jobs:
       # builds versionnés y restent disponibles sans limite de 90 jours, sans
       # consommer le quota saturé.
       #
-      # Pourquoi DANS ce job et pas dans un job séparé : les trois fichiers sont
+      # Pourquoi DANS ce job et pas dans un job séparé : les deux fichiers sont
       # déjà dans /tmp/dist sur ce runner ; un job séparé devrait les
       # retélécharger via le stockage d'artefacts — la ressource dont le quota
       # est justement plein. `always()` fait que la Release est publiée MÊME si
-      # l'upload d'artefact a échoué : l'APK reste récupérable malgré le quota.
+      # le build a échoué : l'APK reste récupérable malgré le quota. Et comme
+      # aucun artefact Actions n'est créé dans ce cas, il n'y a jamais de doublon.
       #
       # Déclenchement : tag `v*`, ou lancement manuel avec `publish_release`.
       # Toute la logique (validation du tag, notes de version avec empreintes
-      # SHA-256, attachement des 3 fichiers, idempotence, lien dans le résumé du
+      # SHA-256, attachement des 2 fichiers, idempotence, lien dans le résumé du
       # run) vit dans `mobile/scripts/publish-release.sh`.
       # ══════════════════════════════════════════════════════════════════════
       - name: Publier la Release GitHub (APK + AAB attachés au tag)
@@ -961,7 +954,7 @@ jobs:
           CODE=$(node -p "require('./app.json').expo.android.versionCode")
           echo "## ✅ BUILD SUCCESS — Build Android terminé" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Tous les artefacts ci-dessous ont été vérifiés (taille, structure ZIP, entrées obligatoires, signature)." >> "$GITHUB_STEP_SUMMARY"
+          echo "Les fichiers ci-dessous ont été vérifiés (taille, structure ZIP, entrées obligatoires, signature)." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "**batibuild ${VERSION} — versionCode ${CODE}**" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -973,12 +966,14 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "ABI compilées : \`$ARCHITECTURES\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Artefact unique** : \`${{ steps.dist.outputs.label }}\` — APK debug + APK release + AAB release, conservé **${{ steps.dist.outputs.retention }} jour(s)** (rétention limitée, anciennes générations nettoyées automatiquement)." >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Téléchargement : [${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) → section « Artifacts »." >> "$GITHUB_STEP_SUMMARY"
-          if [ -z "${{ steps.release.outputs.url }}" ]; then
+          if [ -n "${{ steps.release.outputs.url }}" ]; then
+            echo "**Publication** : GitHub Release \`${{ steps.dist.outputs.tag }}\` — APK release + AAB release attachés (conservation durable, hors quota). Aucun artefact Actions créé." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**Artefact** : \`batibuild-release\` — APK release + AAB release, conservé **${{ steps.dist.outputs.retention }} jour(s)** (rétention 1 j, aucune copie, anciennes générations nettoyées automatiquement)." >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "> **Conservation durable sans quota d'artefacts** : posez un tag \`v${VERSION}\` et poussez-le (ou relancez le workflow avec \`publish_release\` = true) → les APK/AAB seront attachés à une GitHub Release." >> "$GITHUB_STEP_SUMMARY"
+            echo "Téléchargement : [${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) → section « Artifacts »." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "> **Conservation durable sans quota d'artefacts** : posez un tag \`v${VERSION}\` et poussez-le (ou relancez le workflow avec \`publish_release\` = true) → les APK/AAB seront attachés à une GitHub Release, sans artefact Actions." >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Téléphone branché en USB : \`adb install -r Batibuild-release.apk\`" >> "$GITHUB_STEP_SUMMARY"

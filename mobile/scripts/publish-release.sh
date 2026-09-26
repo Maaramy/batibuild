@@ -22,7 +22,7 @@
 #   RELEASE_TARGET_IS_TAG "true" → le tag existe déjà côté Git (ne pas passer --target)
 #   RELEASE_DRY_RUN      "1" → simulation (identique à --dry-run)
 #   DIST_DIR             répertoire des APK/AAB (défaut : /tmp/dist)
-#   RELEASE_ASSETS       fichiers à joindre (défaut : les 3 APK/AAB)
+#   RELEASE_ASSETS       fichiers à joindre (défaut : APK release + AAB release)
 #   GH_TOKEN / GITHUB_TOKEN  jeton avec la permission `contents: write`
 #   ARCHITECTURES        ABI compilées, recopiées dans les notes
 #   GITHUB_*             fournis automatiquement par GitHub Actions
@@ -86,10 +86,12 @@ TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 SERVER="${GITHUB_SERVER_URL:-https://github.com}"
 REPO="${GITHUB_REPOSITORY:-}"
 
+# APK release + AAB release uniquement : l'APK debug n'est ni produit ni publié
+# (il ne ferait que gonfler le stockage, et la clé debug suffit déjà à signer la
+# release quand aucun secret keystore n'est fourni).
 DEFAULT_ASSETS=(
   "${DIST_DIR}/Batibuild-release.apk"
   "${DIST_DIR}/Batibuild-release.aab"
-  "${DIST_DIR}/Batibuild-debug.apk"
 )
 if [ -n "${RELEASE_ASSETS:-}" ]; then
   # shellcheck disable=SC2206
@@ -172,7 +174,6 @@ RUN_URL="${SERVER}/${REPO}/actions/runs/${GITHUB_RUN_ID:-0}"
   echo "|---|---|---|"
   echo "| \`Batibuild-release.apk\` | APK signé, à installer sur un téléphone | $(human_size "${DIST_DIR}/Batibuild-release.apk") |"
   echo "| \`Batibuild-release.aab\` | App Bundle pour Google Play Console | $(human_size "${DIST_DIR}/Batibuild-release.aab") |"
-  echo "| \`Batibuild-debug.apk\` | APK de test (clé debug) | $(human_size "${DIST_DIR}/Batibuild-debug.apk") |"
   echo ""
   echo "ABI compilées : \`${ARCHITECTURES:-non précisées}\`"
   echo ""
@@ -222,7 +223,7 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     echo ""
     echo "## 📦 GitHub Release publiée"
     echo ""
-    echo "**${TAG}** — APK release, AAB release et APK debug attachés : [télécharger](${URL})"
+    echo "**${TAG}** — APK release et AAB release attachés : [télécharger](${URL})"
     echo ""
     echo "Cette copie est conservée **hors du quota d'artefacts** : elle reste"
     echo "disponible après l'expiration de l'artefact du run."

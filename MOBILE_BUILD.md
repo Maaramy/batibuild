@@ -49,10 +49,11 @@ git push origin main
         ↓
 GitHub Actions (ubuntu-latest)
         ↓
-Batibuild-debug.apk · Batibuild-release.apk · Batibuild-release.aab
+Batibuild-release.apk · Batibuild-release.aab
         ↓
-UN artefact par run : batibuild-v<version>-code<versionCode>-run<N>
-(les 3 fichiers, chacun VÉRIFIÉ : taille, ZIP, entrées, signature — conservé 5 jours)
+UN artefact par run : batibuild-release
+(APK release + AAB release, chacun VÉRIFIÉ : taille, ZIP, entrées, signature —
+ conservé 1 jour, et seulement si le run ne publie PAS de GitHub Release)
 ```
 
 **Déclencher le build :**
@@ -62,8 +63,9 @@ de `mobile/` change).
 2. Ou manuellement : **GitHub → onglet Actions → « Android — APK & AAB » →
    Run workflow** (choix des ABI et option « forcer prebuild »).
 3. Quand le run est vert (✅), ouvrez-le et téléchargez l'artefact
-   `batibuild-v…-code…-run…` dans la section **Artifacts** en bas de page : il
-   contient les 3 fichiers (APK debug, APK release, AAB release).
+   `batibuild-release` dans la section **Artifacts** en bas de page : il
+   contient l'APK release et l'AAB release. Si le run publie une **GitHub
+   Release**, rien n'est dupliqué côté Artifacts : téléchargez depuis la Release.
 
 Installation sur le téléphone : copiez `Batibuild-release.apk` et ouvrez-le
 (aucun câble, aucun SDK requis).
@@ -104,15 +106,16 @@ publiés. Le workflow la traite à la source, sur trois plans :
 
 | Cause | Correction dans `.github/workflows/android.yml` |
 |---|---|
-| Trois uploads séparés par build | **UN seul artefact** contient l'APK debug, l'APK release et l'AAB release — aucune copie, un seul téléchargement |
-| Conservation jusqu'à 90 jours | `retention-days` (**5 jours** par défaut, réglable 1–90 au lancement manuel du workflow) |
+| Trois uploads séparés par build | **UN seul artefact**, nommé `batibuild-release`, contient l'APK release et l'AAB release — l'APK debug n'est plus produit du tout, aucune copie, un seul téléchargement |
+| Conservation jusqu'à 90 jours | `retention-days` (**1 jour** par défaut, réglable 1–90 au lancement manuel du workflow) |
+| Doublon Release + artefact | Quand une **GitHub Release** est publiée, **aucun** artefact Actions n'est créé : la Release est la copie durable |
 | Anciennes générations accumulées | Job **`cleanup-artifacts`** exécuté *avant* le build : supprime via l'API GitHub les artefacts expirés, ceux plus vieux que la rétention, et les anciennes générations `batibuild` — en conservant toujours **la plus récente** |
 | Besoin de garder un build longtemps | **GitHub Release** : les APK/AAB y sont attachés (stockage distinct, hors quota) — voir la section suivante |
 
 Jamais supprimés par ce nettoyage : sources, code, historique Git, releases
 GitHub, artefacts du run en cours. Jamais publiés non plus : `node_modules`,
 caches Gradle, sorties intermédiaires ou logs — l'upload est précédé d'un
-contrôle qui n'accepte que les 3 fichiers attendus.
+contrôle qui n'accepte que les 2 fichiers attendus (APK release + AAB release).
 
 > **Si le quota est DÉJÀ saturé**, les fichiers ne peuvent pas être publiés :
 > supprimez les anciens artefacts dans **GitHub → Actions → run → section
@@ -142,7 +145,7 @@ dont le stockage est distinct et bien plus large (pas de limite de 90 jours).
 
 | Déclencheur | Résultat |
 |---|---|
-| `git push origin v1.3.2` (tag **`v*`**) | Build complet puis Release **`v1.3.2`** contenant `Batibuild-release.apk`, `Batibuild-release.aab` et `Batibuild-debug.apk` |
+| `git push origin v1.3.2` (tag **`v*`**) | Build complet puis Release **`v1.3.2`** contenant `Batibuild-release.apk` et `Batibuild-release.aab` |
 | *Actions → Run workflow* + **`publish_release`** = true | Release **`v<version>-build<numéro de run>`** marquée *pré-version*, créée sur le commit lancé |
 | `push` sur `main` | Aucune Release — l'artefact du run reste disponible quelques jours |
 
@@ -433,7 +436,7 @@ partielle, jamais de fichier tronqué publié).
 | **Contrat WebView ↔ natif** | le type `batibuild:unread` est identique des deux côtés, `MessagingBadgeSync` est monté dans `src/main.tsx`, `api.messaging.unreadCount` existe, l'onglet « Message » est présent, **aucun libellé « ROI »** ne subsiste, « Rapport » et « Mes projets » sont bien déclarés |
 | **Assets / icônes** | fichiers de `mobile/assets/` non vides, assets référencés par `app.json` présents, composant `Logo` natif présent |
 | **Icônes lucide** | `FileDown`, `User`, `HardHat`, `LayoutDashboard`, `MessageSquare`, `Headset`, `Settings`, `CloudOff` réellement exportées par la version installée |
-| **Workflow CI** | `.github/workflows/android.yml` : **un seul** upload d'artefact par build, `retention-days` présent, nettoyage automatique des anciens artefacts (`artifact-storage.mjs cleanup`), aucun chemin d'upload trop large, actions en **runtime Node 24** |
+| **Workflow CI** | `.github/workflows/android.yml` : **un seul** artefact par build (`batibuild-release` : APK release + AAB release, jamais l'APK debug), `retention-days: 1`, pas d'artefact dupliqué quand une Release est publiée, nettoyage automatique des anciens artefacts (`artifact-storage.mjs cleanup`), aucun chemin d'upload trop large, actions en **runtime Node 24** |
 | **TypeScript** | `tsc --noEmit` du projet mobile (`SKIP_TYPECHECK=1` pour l'ignorer) |
 
 ### Corrections automatiques (avant d'échouer)

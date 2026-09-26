@@ -504,7 +504,29 @@ function checkCiWorkflow() {
       `${uploads.length} uploads séparés : les APK/AAB doivent partir dans UN SEUL artefact par build`,
     );
   } else {
-    ok("un seul artefact publié par build (APK debug + APK release + AAB release)");
+    ok("un seul artefact publié par build (APK release + AAB release)");
+  }
+
+  // L'APK debug ne doit plus être produit ni publié : c'est le plus gros
+  // consommateur du quota et il est inutile pour la production.
+  if (/Batibuild-debug|assembleDebug/.test(content)) {
+    fail(
+      "workflow android",
+      "l'APK debug est encore généré/uploadé : seuls l'APK release et l'AAB release doivent être publiés",
+    );
+  } else {
+    ok("aucun APK debug produit ni publié (APK release + AAB release uniquement)");
+  }
+
+  // Nom d'artefact fixe et propre : jamais de nom unique qui laisserait
+  // s'accumuler une nouvelle entrée à chaque run.
+  if (!/name:\s*batibuild-release\b/.test(content)) {
+    fail(
+      "workflow android",
+      "l'artefact doit porter le nom fixe « batibuild-release »",
+    );
+  } else {
+    ok("artefact unique et propre : « batibuild-release »");
   }
 
   if (!/retention-days:/.test(content)) {
@@ -512,8 +534,13 @@ function checkCiWorkflow() {
       "workflow android",
       "aucune « retention-days » : les artefacts s'accumuleraient jusqu'à la rétention du dépôt",
     );
+  } else if (!/retention-days:\s*(\$\{\{\s*steps\.dist\.outputs\.retention\s*\}\}|1)\b/.test(content)) {
+    fail(
+      "workflow android",
+      "« retention-days » doit valoir 1 jour (ou la sortie validée à 1 j) pour limiter le quota",
+    );
   } else {
-    ok("rétention d'artefact explicitement limitée (pas de conservation indéfinie)");
+    ok("rétention d'artefact limitée à 1 jour (pas de conservation indéfinie)");
   }
 
   if (!/artifact-storage\.mjs cleanup/.test(content)) {
@@ -563,6 +590,17 @@ function checkCiWorkflow() {
     );
   } else {
     ok("Release publiée uniquement sur tag `v*` ou demande explicite (même si le quota est plein)");
+  }
+
+  // Quand une Release est publiée, l'artefact Actions doit être sauté : la
+  // Release est la copie durable, on ne crée pas de doublon dans le quota.
+  if (!/steps\.dist\.outputs\.release\s*!=\s*'true'/.test(content)) {
+    fail(
+      "workflow android",
+      "l'upload d'artefact n'est pas sauté quand une Release est publiée (doublon dans le quota)",
+    );
+  } else {
+    ok("aucun artefact Actions dupliqué quand une Release est publiée");
   }
 
   if (/path:\s*(\*\*|node_modules)|path:\s*\|\s*\n\s*\*\*/.test(content)) {

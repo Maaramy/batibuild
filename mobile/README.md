@@ -320,12 +320,13 @@ Actions → « Android — APK & AAB »
       ↓
 Install deps → prebuild (si android/ absent) → Android SDK du projet
       ↓
-clé debug (assurée) → signingReport → assembleDebug · assembleRelease · bundleRelease
+clé debug (assurée) → signingReport → assembleRelease · bundleRelease
       ↓
-Artifact : batibuild-v<version>-code<versionCode>-run<N>
-           (APK debug + APK release + AAB release — conservé 5 jours)
+Artifact Actions : batibuild-release
+           (APK release + AAB release — conservé 1 jour, et seulement
+            si le run ne publie PAS de Release)
       ↓  (si le run vient d'un tag `v*`)
-GitHub Release v<version> : APK release + AAB release + APK debug attachés
+GitHub Release v<version> : APK release + AAB release attachés
            (conservée durablement — hors quota d'artefacts)
 ```
 
@@ -335,11 +336,14 @@ commande d'installation (`adb install -r Batibuild-release.apk`).
 
 > **Quota d'artefacts** — l'erreur
 > `Failed to CreateArtifact: Artifact storage quota has been hit` vient du
-> stockage GitHub Actions, pas du code : les 3 fichiers sont publiés dans **un
-> seul artefact**, conservé **5 jours**, et un job **`cleanup-artifacts`**
-> supprime avant chaque build les anciens artefacts temporaires (jamais les
-> sources, le code ni les releases). Si le quota est déjà saturé, supprimez les
-> anciens artefacts dans *Actions → run → Artifacts* puis relancez le workflow.
+> stockage GitHub Actions, pas du code : l'APK release et l'AAB release sont
+> publiés dans **un seul artefact** nommé `batibuild-release` (l'APK debug n'est
+> plus produit), conservé **1 jour**, et un job **`cleanup-artifacts`** supprime
+> avant chaque build les anciens artefacts temporaires (jamais les sources, le
+> code ni les releases). Si une Release est publiée, **aucun** artefact Actions
+> n'est créé : téléchargez les fichiers depuis la Release. Si le quota est déjà
+> saturé, supprimez les anciens artefacts dans *Actions → run → Artifacts* puis
+> relancez le workflow.
 >
 > Pour **conserver un build durablement**, posez un tag `v*` : il est publié en
 > GitHub Release, en dehors de ce quota (voir « Publier une Release » plus bas).
@@ -356,13 +360,17 @@ commande d'installation (`adb install -r Batibuild-release.apk`).
 ### Récupérer l'APK
 
 Ouvrez le run ✅ → section **Artifacts** en bas de page → téléchargez
-`batibuild-v…-code…-run…` (archive contenant `Batibuild-debug.apk`,
-`Batibuild-release.apk` et `Batibuild-release.aab`) → extrayez
-`Batibuild-release.apk` → copiez-le sur le téléphone et installez-le.
+`batibuild-release` (archive contenant `Batibuild-release.apk` et
+`Batibuild-release.aab`) → extrayez `Batibuild-release.apk` → copiez-le sur le
+téléphone et installez-le.
 
-L'artefact reste téléchargeable **5 jours** (rétention configurable au lancement
-manuel via l'entrée `retention_days`) ; le build précédent est conservé jusqu'au
-suivant, les plus anciens sont nettoyés automatiquement avant chaque build.
+L'artefact reste téléchargeable **1 jour** (rétention configurable au lancement
+manuel via l'entrée `retention_days`) ; les plus anciens sont nettoyés
+automatiquement avant chaque build. Si le run publie une **GitHub Release**,
+aucun artefact Actions n'est créé : téléchargez les fichiers depuis la Release.
+
+> L'APK debug n'est plus généré par le workflow. Pour un build de test local,
+> utilisez `npm run android:debug` (voir la section « Commandes »).
 
 ### Publier une Release (conservation durable) ⭐
 
@@ -376,7 +384,7 @@ git tag v1.3.2 && git push origin v1.3.2
 
 | Déclencheur | Résultat |
 |---|---|
-| Tag **`v*`** poussé | Release **`v1.3.2`** (APK release, AAB release, APK debug) |
+| Tag **`v*`** poussé | Release **`v1.3.2`** (APK release + AAB release) |
 | *Run workflow* + **publish_release** | Release **`v<version>-build<run>`**, marquée pré-version, créée sur le commit lancé |
 | `push` sur `main` | Aucune Release |
 
@@ -387,7 +395,7 @@ git tag v1.3.2 && git push origin v1.3.2
   l'artefact du run — c'est justement là qu'elle est utile.
 - Relancer le workflow sur le même tag met à jour les fichiers (`--clobber`).
 - Le **résumé du run** affiche le lien de la Release ; les notes de version
-  contiennent les **empreintes SHA-256** des trois fichiers.
+  contiennent les **empreintes SHA-256** des deux fichiers.
 - Vérification hors ligne : `cd mobile && bash scripts/publish-release.sh --dry-run`.
 
 ### Ce que le workflow installe lui-même

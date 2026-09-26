@@ -4,8 +4,9 @@
  *
  * POURQUOI CE SCRIPT
  * ------------------
- * Les artefacts de workflow (APK debug, APK release, AAB release) consomment le
- * quota de stockage du dépôt. Quand ce quota est atteint, GitHub refuse TOUTE
+ * Les artefacts de workflow (APK release, AAB release — l'APK debug n'est plus
+ * publié) consomment le quota de stockage du dépôt. Quand ce quota est atteint,
+ * GitHub refuse TOUTE
  * nouvelle publication avec :
  *
  *   Failed to CreateArtifact: Artifact storage quota has been hit.
