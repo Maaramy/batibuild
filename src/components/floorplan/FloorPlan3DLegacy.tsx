@@ -90,6 +90,12 @@ export interface FloorPlan3DProps {
   /** Plein écran contrôlé par le parent (le conteneur occupe alors tout l'espace). */
   fullscreen?: boolean;
   className?: string;
+  /**
+   * Rendu COMPACT (vignette) : hauteur réduite et barre d'outils/aide masquées.
+   * Utilisé par les aperçus de la page d'accueil — la géométrie et les données
+   * restent strictement identiques.
+   */
+  compact?: boolean;
 }
 
 interface Interval {
@@ -117,6 +123,7 @@ export function FloorPlan3DLegacy({
   lite: liteProp,
   fullscreen = false,
   className,
+  compact = false,
 }: FloorPlan3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lite = liteProp ?? useMemo(detectLiteMode, []);
@@ -611,6 +618,10 @@ export function FloorPlan3DLegacy({
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
       for (const d of disposables) d.dispose();
+      // Libération immédiate du contexte GPU : indispensable quand la vue 3D est
+      // montée/démontée plusieurs fois (aperçus animés) — évite l'épuisement des
+      // contextes WebGL du navigateur.
+      renderer.forceContextLoss?.();
       renderer.dispose();
       if (renderer.domElement.parentElement === container) {
         container.removeChild(renderer.domElement);
@@ -653,10 +664,12 @@ export function FloorPlan3DLegacy({
         ref={containerRef}
         className={cn(
           "w-full rounded-lg overflow-hidden bg-gradient-to-b from-sky-100 via-sky-50 to-emerald-50 dark:from-slate-900 dark:via-slate-850 dark:to-slate-800",
-          isFullscreen ? "h-[70vh]" : "h-[320px] sm:h-[400px]",
+          isFullscreen ? "h-[70vh]" : compact ? "h-[165px] sm:h-[195px]" : "h-[320px] sm:h-[400px]",
         )}
       />
-      {/* Barre d'outils 3D */}
+      {/* Barre d'outils + aide (masquées en rendu compact) */}
+      {!compact && (
+      <>
       <div className="absolute top-2 left-2 right-2 flex flex-wrap items-start gap-1.5 pointer-events-none">
         <div className="flex flex-wrap gap-1.5 pointer-events-auto">
           <ToolBtn active={preset === "orbit"} onClick={() => applyPreset("orbit")} title="Vue perspective (orbite libre)">
@@ -701,6 +714,8 @@ export function FloorPlan3DLegacy({
         <MousePointerClick className="h-3 w-3" />
         Touchez une pièce pour la sélectionner · Pincez pour zoomer
       </div>
+      </>
+      )}
     </div>
   );
 }

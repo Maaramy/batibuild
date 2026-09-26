@@ -7,18 +7,22 @@
 // feuille de route et investissement + annuaires réels). Aucune valeur
 // fictive ni aléatoire n'est générée ici.
 //
-// L'étape « Plans AI » utilise le VRAI moteur de plans (`generateFloorPlans`)
-// et le composant `FloorPlan2D` : plan 2D généré (pièces, portes, fenêtres,
-// dimensions réelles). L'aperçu 3D est une projection isométrique légère
-// construite à partir de la géométrie réelle de ce plan (pas de WebGL, pour
-// garder la page d'accueil rapide). Aucun faux plan n'est présenté.
+// L'étape « Plans AI » utilise le VRAI moteur de plans (`generateFloorPlans`) :
+//   · phases 2D  → `FloorPlan2D` (pièces, portes, fenêtres, dimensions réelles) ;
+//   · phase 3D   → VUE 3D RÉELLE (`FloorPlan3D`, moteur Three.js) : maquette
+//                  navigable (rotation, zoom) construite à partir de la même
+//                  géométrie que le plan 2D. En cas d'échec de rendu (WebGL
+//                  indisponible), une projection isométrique SVG du plan réel
+//                  sert de repli — le panneau ne casse jamais.
 //
-// Apparition : fade + léger slide (framer-motion). Les nombres sont animés
-// progressivement (compteurs) ; « réduire les animations » les affiche
-// directement à leur valeur finale.
+// Compacité & lisibilité : le média est volontairement bas, et AUCUN texte
+// n'est tronqué (`truncate`/`line-clamp` proscrits) — les libellés passent sur
+// plusieurs lignes si nécessaire. Les nombres sont animés progressivement
+// (compteurs) ; « réduire les animations » les affiche directement à leur
+// valeur finale.
 // ============================================================================
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Banknote,
@@ -51,6 +55,7 @@ import {
   type FloorPlan,
 } from "@/lib/floorPlanEngine";
 import { FloorPlan2D } from "@/components/floorplan/FloorPlan2D";
+import { FloorPlan3D } from "@/components/floorplan/FloorPlan3D";
 import type { LifecycleShowcase } from "@/convex/lifecycleShowcase";
 
 // ============================================================================
@@ -105,7 +110,7 @@ function AnimatedNumber({
 }
 
 // ============================================================================
-// BRIQUES D'INTERFACE (compactes)
+// BRIQUES D'INTERFACE (compactes · textes jamais tronqués)
 // ============================================================================
 
 function Metric({
@@ -123,12 +128,14 @@ function Metric({
 }) {
   return (
     <div className="min-w-0 rounded-lg border border-border/50 bg-background/70 p-2.5">
-      <div className="flex items-center gap-1 text-[9.5px] font-medium uppercase tracking-wide text-muted-foreground">
-        <Icon className={cn("h-3 w-3 shrink-0", tone)} />
-        <span className="truncate">{label}</span>
+      <div className="flex items-start gap-1 text-[9.5px] font-medium uppercase leading-snug tracking-wide text-muted-foreground">
+        <Icon className={cn("mt-px h-3 w-3 shrink-0", tone)} />
+        <span className="min-w-0 break-words">{label}</span>
       </div>
-      <p className="mt-0.5 truncate text-[15px] font-bold leading-tight tabular-nums">{value}</p>
-      {sub && <p className="mt-0.5 truncate text-[9.5px] leading-snug text-muted-foreground">{sub}</p>}
+      <p className="mt-0.5 break-words text-[15px] font-bold leading-tight tabular-nums">{value}</p>
+      {sub && (
+        <p className="mt-0.5 break-words text-[9.5px] leading-snug text-muted-foreground">{sub}</p>
+      )}
     </div>
   );
 }
@@ -146,8 +153,8 @@ function Bar({
 }) {
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
-        <span className="truncate font-medium">{label}</span>
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-[10px]">
+        <span className="min-w-0 break-words font-medium leading-snug">{label}</span>
         <span className="shrink-0 text-muted-foreground tabular-nums">
           {formatTnd(cost)} · {Math.round(percentage)}%
         </span>
@@ -168,7 +175,7 @@ function Chip({ children, tone = "bg-muted/40 text-muted-foreground" }: { childr
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-border/40 px-2 py-0.5 text-[9.5px] font-medium",
+        "inline-flex max-w-full items-center gap-1 break-words rounded-full border border-border/40 px-2 py-0.5 text-[9.5px] font-medium leading-snug",
         tone,
       )}
     >
@@ -194,14 +201,14 @@ function ProfileMiniCard({
   tone: string;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-background/70 p-2">
+    <div className="flex items-start gap-2 rounded-lg border border-border/50 bg-background/70 p-2">
       <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-md", tone)}>
         <Icon className="h-3.5 w-3.5" />
       </div>
       <div className="min-w-0">
         <p className="text-[8.5px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-        <p className="truncate text-[11px] font-semibold leading-tight">{name}</p>
-        <p className="truncate text-[9.5px] text-muted-foreground">
+        <p className="break-words text-[11px] font-semibold leading-tight">{name}</p>
+        <p className="break-words text-[9.5px] leading-snug text-muted-foreground">
           {specialty ? `${specialty} · ` : ""}
           {region}
         </p>
@@ -235,7 +242,7 @@ export function ResultPlaceholder({
     >
       <div className="flex items-center gap-2">
         <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-        <p className="text-[11px] font-medium text-muted-foreground">
+        <p className="break-words text-[11px] font-medium text-muted-foreground">
           Résultat de « {stepLabel} » en cours de calcul…
         </p>
       </div>
@@ -249,7 +256,7 @@ export function ResultPlaceholder({
 }
 
 // ============================================================================
-// APERÇU 3D LÉGER — projection isométrique de la géométrie RÉELLE du plan
+// APERÇU 3D — VUE RÉELLE (Three.js) + repli isométrique SVG
 // ============================================================================
 
 /** Éclaircit/fonce une couleur hexadécimale (0 = noir, 1 = couleur). */
@@ -263,6 +270,10 @@ function shade(hex: string, factor: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
+/**
+ * Projection isométrique légère de la géométrie RÉELLE du plan — utilisée
+ * uniquement en repli si le rendu WebGL n'est pas disponible.
+ */
 function IsometricPlan({ plan }: { plan: FloorPlan }) {
   const H = 0.62; // hauteur de projection des murs (m) — rendu compact
   const iso = (x: number, y: number, z: number): [number, number] => [
@@ -327,6 +338,61 @@ function IsometricPlan({ plan }: { plan: FloorPlan }) {
   );
 }
 
+/** Boundary minimaliste : bascule sur le repli isométrique au premier échec. */
+class Plan3DErrorBoundary extends Component<
+  { fallback: ReactNode; onError?: () => void; children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch() {
+    this.props.onError?.();
+  }
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+/** Cadre du média de plan (hauteur compacte, contenu toujours contenu). */
+const STAGE_CLASS =
+  "relative h-[165px] w-full overflow-hidden rounded-lg border border-border/40 bg-[#fdfdfb] sm:h-[195px] [&>svg]:h-full [&>svg]:w-full";
+
+/**
+ * Vue 3D RÉELLE du plan généré (moteur Three.js, rendu compact). Le niveau de
+ * qualité est détecté automatiquement (ombres/arêtes sur appareil puissant,
+ * mode allégé sur mobile). En cas d'absence de WebGL, repli sur la projection
+ * isométrique du même plan — jamais d'écran vide, jamais de faux plan.
+ */
+function Plan3DView({ plan }: { plan: FloorPlan }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div className={cn(STAGE_CLASS, "bg-sky-50/70 dark:bg-slate-900/60")}>
+        <IsometricPlan plan={plan} />
+      </div>
+    );
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, ease: "easeOut" }}>
+      <Plan3DErrorBoundary
+        fallback={
+          <div className={cn(STAGE_CLASS, "bg-sky-50/70 dark:bg-slate-900/60")}>
+            <IsometricPlan plan={plan} />
+          </div>
+        }
+        onError={() => setFailed(true)}
+      >
+        <FloorPlan3D plan={plan} compact />
+      </Plan3DErrorBoundary>
+    </motion.div>
+  );
+}
+
 // ============================================================================
 // PANNEAU DE RÉSULTAT PAR ÉTAPE
 // ============================================================================
@@ -363,12 +429,12 @@ export function StepResultPanel({
       transition={{ duration: 0.4, ease: "easeOut" }}
       className={cn("min-w-0", className)}
     >
-      <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/70 shadow-sm backdrop-blur-sm">
-        <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
-          <div className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-primary">
+      <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border/50 px-3 py-2">
+          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Icon className="h-3 w-3" />
           </div>
-          <p className="truncate text-[11.5px] font-semibold">
+          <p className="min-w-0 break-words text-[11.5px] font-semibold">
             Résultat — <span className={tone.accent}>{stepLabel}</span>
           </p>
           <span className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-400">
@@ -449,9 +515,13 @@ const PLAN_PHASES = [
   { key: "3d", label: "Vue 3D" },
 ] as const;
 
+/** Durée de chaque phase (ms) — la vue 3D reste affichée plus longtemps. */
+const PLAN_PHASE_DURATIONS = [1800, 1600, 1600, 3400];
+
 function PlanResult({ data }: { data: LifecycleShowcase }) {
   const reduceMotion = useReducedMotion();
-  const [tick, setTick] = useState(0);
+  const [phaseIndex, setPhaseIndex] = useState(0);
+  const [cycle, setCycle] = useState(0);
 
   // Plans réellement générés à partir des données du projet (moteur Batibuild,
   // déterministe : mêmes entrées → mêmes plans).
@@ -479,23 +549,31 @@ function PlanResult({ data }: { data: LifecycleShowcase }) {
     ],
   );
 
-  const variant = variants[0];
-  const plan = variant?.floors[0];
-
   useEffect(() => {
     if (reduceMotion) return;
-    const id = window.setInterval(() => setTick((t) => t + 1), 1500);
-    return () => window.clearInterval(id);
-  }, [reduceMotion]);
+    const id = window.setTimeout(
+      () => setPhaseIndex((i) => (i + 1) % PLAN_PHASES.length),
+      PLAN_PHASE_DURATIONS[phaseIndex] ?? 1800,
+    );
+    return () => window.clearTimeout(id);
+  }, [phaseIndex, reduceMotion]);
+
+  // Un nouveau cycle de pièces à chaque retour à la phase « Plan 2D ».
+  useEffect(() => {
+    if (phaseIndex === 0) setCycle((c) => c + 1);
+  }, [phaseIndex]);
+
+  const variant = variants[0];
+  const plan = variant?.floors[0];
 
   if (!plan) {
     // Aucune donnée de plan : on n'invente rien.
     return <ResultPlaceholder stepLabel="Plan IA" />;
   }
 
-  const phase = reduceMotion ? 2 : tick % PLAN_PHASES.length;
+  const phase = reduceMotion ? 2 : phaseIndex;
   const rooms = plan.rooms;
-  const activeRoom = rooms.length ? rooms[Math.floor(tick / PLAN_PHASES.length) % rooms.length] : undefined;
+  const activeRoom = rooms.length ? rooms[(reduceMotion ? 0 : cycle) % rooms.length] : undefined;
 
   // Zoom vers la pièce affichée (phase « Pièces »).
   const originX = activeRoom ? ((activeRoom.x + activeRoom.w / 2) / plan.length) * 100 : 50;
@@ -504,6 +582,15 @@ function PlanResult({ data }: { data: LifecycleShowcase }) {
     phase === 1
       ? { transform: "scale(1.7)", transformOrigin: `${originX}% ${originY}%` }
       : { transform: "scale(1)", transformOrigin: "50% 50%" };
+
+  const caption =
+    phase === 1 && activeRoom
+      ? `Zoom — ${activeRoom.label} · ${activeRoom.area.toFixed(1)} m²`
+      : phase === 2
+        ? `Dimensions · emprise ${plan.length.toFixed(1)} × ${plan.width.toFixed(1)} m · ${rooms.length} pièces`
+        : phase === 3
+          ? "Vue 3D réelle du plan — faites glisser pour tourner, pincez pour zoomer"
+          : `Plan 2D généré · ${variant?.name ?? ""}`;
 
   return (
     <div className="space-y-3">
@@ -520,7 +607,7 @@ function PlanResult({ data }: { data: LifecycleShowcase }) {
         />
       </Grid>
 
-      {/* Animation compacte : plan 2D → pièces → dimensions → aperçu 3D */}
+      {/* Animation compacte : plan 2D → pièces → dimensions → vue 3D réelle */}
       <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-2.5">
         <div className="mb-2 flex flex-wrap items-center gap-1">
           {PLAN_PHASES.map((p, i) => (
@@ -536,47 +623,35 @@ function PlanResult({ data }: { data: LifecycleShowcase }) {
               {p.label}
             </span>
           ))}
-          <span className="ml-auto truncate text-[9px] text-muted-foreground tabular-nums">
+          <span className="ml-auto text-[9px] text-muted-foreground tabular-nums">
             {plan.length.toFixed(1)} × {plan.width.toFixed(1)} m
           </span>
         </div>
 
-        <div className="relative h-[180px] w-full overflow-hidden rounded-lg border border-border/40 bg-[#fdfdfb] sm:h-[220px]">
-          <motion.div
-            key={Math.floor(tick / PLAN_PHASES.length)}
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="h-full w-full transition-transform duration-700 ease-out [&>svg]:h-full [&>svg]:w-full"
-            style={phase === 3 ? undefined : zoomStyle}
-          >
-            {phase === 3 ? (
-              <IsometricPlan plan={plan} />
-            ) : (
-              <FloorPlan2D
-                plan={plan}
-                selectedRoomId={phase === 1 ? activeRoom?.id ?? null : null}
-              />
-            )}
-          </motion.div>
-        </div>
+        {phase === 3 ? (
+          <Plan3DView plan={plan} />
+        ) : (
+          <div className={STAGE_CLASS}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="h-full w-full transition-transform duration-700 ease-out [&>svg]:h-full [&>svg]:w-full"
+              style={zoomStyle}
+            >
+              <FloorPlan2D plan={plan} selectedRoomId={phase === 1 ? activeRoom?.id ?? null : null} />
+            </motion.div>
+          </div>
+        )}
 
-        <p className="mt-2 truncate text-[9.5px] text-muted-foreground">
-          {phase === 1 && activeRoom
-            ? `Zoom — ${activeRoom.label} · ${activeRoom.area.toFixed(1)} m²`
-            : phase === 2
-              ? `Dimensions · emprise ${plan.length.toFixed(1)} × ${plan.width.toFixed(1)} m · ${rooms.length} pièces`
-              : phase === 3
-                ? "Aperçu 3D (projection du plan réel)"
-                : `Plan 2D généré · ${variant?.name ?? ""}`}
-        </p>
+        <p className="mt-2 break-words text-[9.5px] leading-snug text-muted-foreground">{caption}</p>
       </div>
 
-      {/* Pièces réelles du plan (name + surface + dimensions) */}
+      {/* Pièces réelles du plan (nom + dimensions) */}
       <div className="flex flex-wrap gap-1.5">
         {rooms.slice(0, 8).map((r) => (
           <Chip key={r.id} tone="bg-sky-500/10 text-sky-700 dark:text-sky-400">
-            <span aria-hidden className="h-2 w-2 rounded-sm" style={{ background: PLAN_ROOM_COLORS[r.kind] ?? "#e5e7eb", outline: "1px solid rgba(0,0,0,.15)" }} />
+            <span aria-hidden className="h-2 w-2 shrink-0 rounded-sm" style={{ background: PLAN_ROOM_COLORS[r.kind] ?? "#e5e7eb", outline: "1px solid rgba(0,0,0,.15)" }} />
             {PLAN_ROOM_LABELS[r.kind] ?? r.label} · {r.w.toFixed(1)}×{r.h.toFixed(1)} m
           </Chip>
         ))}
@@ -612,8 +687,8 @@ function MaterialsResult({ data }: { data: LifecycleShowcase }) {
             </p>
             <ul className="space-y-1">
               {materials.unitPrices.map((m) => (
-                <li key={m.name} className="flex items-center justify-between gap-2 text-[10.5px]">
-                  <span className="truncate text-muted-foreground">{m.name}</span>
+                <li key={m.name} className="flex items-baseline justify-between gap-2 text-[10.5px]">
+                  <span className="min-w-0 break-words leading-snug text-muted-foreground">{m.name}</span>
                   <span className="shrink-0 font-semibold tabular-nums">
                     {m.unitPrice.toLocaleString("fr-FR")}{" "}
                     <span className="text-[9px] font-normal text-muted-foreground">
@@ -695,9 +770,9 @@ function ExecutionResult({ data }: { data: LifecycleShowcase }) {
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-border/50 bg-background/70 p-2.5">
-        <div className="flex items-center justify-between text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <span>Progression du projet</span>
-          <span className="tabular-nums text-teal-600">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="break-words">Progression du projet</span>
+          <span className="shrink-0 tabular-nums text-teal-600">
             <AnimatedNumber value={execution.progress} suffix=" %" />
           </span>
         </div>

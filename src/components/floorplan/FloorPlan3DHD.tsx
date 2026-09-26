@@ -107,6 +107,12 @@ interface FloorPlan3DProps {
   lite?: boolean;
   fullscreen?: boolean;
   className?: string;
+  /**
+   * Rendu COMPACT (vignette) : hauteur réduite et barre d'outils/aide masquées.
+   * Utilisé par les aperçus de la page d'accueil — la géométrie et les données
+   * restent strictement identiques.
+   */
+  compact?: boolean;
   /** Niveau de qualité forcé (sinon détection automatique). */
   quality?: QualityLevel;
 }
@@ -136,6 +142,7 @@ export function FloorPlan3DHD({
   lite,
   fullscreen = false,
   className,
+  compact = false,
   quality: qualityProp,
 }: FloorPlan3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -718,6 +725,9 @@ export function FloorPlan3DHD({
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
       for (const d of disposables) d.dispose();
+      // Libération immédiate du contexte GPU (aperçus montés/démontés) : évite
+      // d'épuiser les contextes WebGL du navigateur sur la page d'accueil.
+      renderer.forceContextLoss?.();
       renderer.dispose();
       if (renderer.domElement.parentElement === container) {
         container.removeChild(renderer.domElement);
@@ -778,16 +788,22 @@ export function FloorPlan3DHD({
         ref={containerRef}
         className={cn(
           "w-full rounded-lg overflow-hidden bg-gradient-to-b from-sky-100 via-sky-50 to-emerald-50 dark:from-slate-900 dark:via-slate-850 dark:to-slate-800 touch-none",
-          isFullscreen ? "h-[calc(100vh-0px)] sm:h-[calc(100vh-0px)]" : "h-[320px] sm:h-[400px]",
+          isFullscreen
+            ? "h-[calc(100vh-0px)] sm:h-[calc(100vh-0px)]"
+            : compact
+              ? "h-[165px] sm:h-[195px]"
+              : "h-[320px] sm:h-[400px]",
         )}
       />
       {/* Bandeau « Mode performance activé » (dégradation automatique, non bloquant) */}
-      {performanceMode && (
+      {performanceMode && !compact && (
         <div className="absolute top-11 left-2 rounded-md border border-amber-500/30 bg-amber-50/90 px-2 py-1 text-[9px] font-medium text-amber-700 pointer-events-none">
           Mode performance activé
         </div>
       )}
-      {/* Barre d'outils */}
+      {/* Barre d'outils + aide (masquées en rendu compact) */}
+      {!compact && (
+      <>
       <div className="absolute top-2 left-2 right-2 flex flex-wrap items-start gap-1.5 pointer-events-none">
         <div className="flex flex-wrap gap-1.5 pointer-events-auto">
           <ToolBtn active={preset === "orbit"} onClick={() => applyPreset("orbit")} title="Vue perspective (orbite libre)">
@@ -831,6 +847,8 @@ export function FloorPlan3DHD({
         <MousePointerClick className="h-3 w-3" />
         Touchez une pièce · Pincez pour zoomer · Qualité {quality === "high" ? "élevée" : quality === "medium" ? "moyenne" : "allégée"}
       </div>
+      </>
+      )}
     </div>
   );
 }
