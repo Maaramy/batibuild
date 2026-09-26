@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useQuery } from "convex/react";
 import {
   Calculator,
   Check,
@@ -12,8 +13,10 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { api } from "@/convex/_generated/api";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { JOURNEY_FLAG_KEYS } from "@/lib/projectJourney";
+import { StepResultPanel } from "@/components/LifecycleStepResults";
 
 /**
  * CYCLE DE VIE COMPLET D'UN PROJET — parcours animé de la page d'accueil.
@@ -165,6 +168,9 @@ function pad(n: number): string {
  */
 export function ProjectLifecycle({ className }: { className?: string }) {
   const { isEnabled } = useFeatureFlags();
+  // Résultats RÉELS par étape (moteurs BIM / feuille de route / investissement
+  // + annuaires actifs) : affichés sous l'étape dès qu'elle passe « Terminé ».
+  const showcase = useQuery(api.lifecycleShowcase.getShowcase);
   // Respecte « réduire les animations » du système : aucun mouvement lourd,
   // le parcours s'affiche alors directement à l'état terminé.
   const reduceMotion = useReducedMotion();
@@ -230,6 +236,9 @@ export function ProjectLifecycle({ className }: { className?: string }) {
 
   const pct = total > 0 ? Math.round((Math.min(completed, total) / total) * 100) : 0;
   const finished = total > 0 && completed >= total;
+  // Dernière étape terminée : son résultat s'affiche sous le parcours.
+  const resultIndex = Math.min(completed, total) - 1;
+  const resultStep = resultIndex >= 0 ? steps[resultIndex] : undefined;
 
   const stateOf = (index: number): StepState => {
     if (index < completed) return "done";
@@ -315,9 +324,34 @@ export function ProjectLifecycle({ className }: { className?: string }) {
               step={step}
               index={i}
               state={stateOf(i)}
+              // Résultat affiché DIRECTEMENT sous l'étape qui vient d'être
+              // terminée (une seule à la fois, sur mobile).
+              resultSlot={
+                showcase && resultStep && stateOf(i) === "done" && step.key === resultStep.key ? (
+                  <StepResultPanel
+                    stepKey={step.key}
+                    stepLabel={step.label}
+                    data={showcase}
+                  />
+                ) : null
+              }
             />
           ))}
         </ul>
+      </div>
+
+      {/* ── Desktop : résultat RÉEL affiché sous le parcours ── */}
+      <div className="hidden md:block">
+        {showcase && resultStep && (
+          <AnimatePresence mode="wait">
+            <StepResultPanel
+              key={resultStep.key}
+              stepKey={resultStep.key}
+              stepLabel={resultStep.label}
+              data={showcase}
+            />
+          </AnimatePresence>
+        )}
       </div>
     </div>
   );
@@ -447,10 +481,13 @@ function MobileStep({
   step,
   index,
   state,
+  resultSlot,
 }: {
   step: LifecycleStep;
   index: number;
   state: StepState;
+  /** Résultat animé de l'étape, affiché sous celle-ci quand elle est terminée. */
+  resultSlot?: React.ReactNode;
 }) {
   const dim = state === "pending";
   return (
@@ -482,6 +519,7 @@ function MobileStep({
         <div className="mt-1.5">
           <StepStatus step={step} state={state} compact />
         </div>
+        {resultSlot}
       </div>
     </motion.li>
   );
