@@ -109,6 +109,12 @@ export interface LifecycleShowcase {
     surface: number;
     floors: number;
     roomsTotal: number;
+    /** Répartition réelle des pièces — alimente le moteur de plans 2D. */
+    bedrooms: number;
+    bathrooms: number;
+    kitchens: number;
+    livingRooms: number;
+    wcs: number;
     variants: number;
     methods: string[];
     durationLabel: string;
@@ -315,6 +321,11 @@ export const getShowcase = query({
         surface: DEMO.surface,
         floors: DEMO.floors,
         roomsTotal,
+        bedrooms: DEMO.rooms.bedrooms,
+        bathrooms: DEMO.rooms.bathrooms,
+        kitchens: DEMO.rooms.kitchens,
+        livingRooms: DEMO.rooms.livingRooms,
+        wcs: DEMO.rooms.wcs,
         variants: Object.keys(ce.budgetScenarios ?? {}).length,
         methods: bim.aiAnalysis.constructionMethods ?? [],
         durationLabel: bim.aiAnalysis.estimatedDuration ?? "",

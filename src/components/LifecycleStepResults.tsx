@@ -7,12 +7,18 @@
 // feuille de route et investissement + annuaires réels). Aucune valeur
 // fictive ni aléatoire n'est générée ici.
 //
+// L'étape « Plans AI » utilise le VRAI moteur de plans (`generateFloorPlans`)
+// et le composant `FloorPlan2D` : plan 2D généré (pièces, portes, fenêtres,
+// dimensions réelles). L'aperçu 3D est une projection isométrique légère
+// construite à partir de la géométrie réelle de ce plan (pas de WebGL, pour
+// garder la page d'accueil rapide). Aucun faux plan n'est présenté.
+//
 // Apparition : fade + léger slide (framer-motion). Les nombres sont animés
 // progressivement (compteurs) ; « réduire les animations » les affiche
 // directement à leur valeur finale.
 // ============================================================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Banknote,
@@ -36,9 +42,15 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { formatTnd } from "@/lib/utils";
+import { formatTnd, cn } from "@/lib/utils";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
-import { cn } from "@/lib/utils";
+import {
+  generateFloorPlans,
+  PLAN_ROOM_COLORS,
+  PLAN_ROOM_LABELS,
+  type FloorPlan,
+} from "@/lib/floorPlanEngine";
+import { FloorPlan2D } from "@/components/floorplan/FloorPlan2D";
 import type { LifecycleShowcase } from "@/convex/lifecycleShowcase";
 
 // ============================================================================
@@ -83,9 +95,7 @@ function AnimatedNumber({
   suffix?: string;
 }) {
   const v = useCountUp(value);
-  const text = format
-    ? format(v)
-    : Math.round(v).toLocaleString("fr-FR");
+  const text = format ? format(v) : Math.round(v).toLocaleString("fr-FR");
   return (
     <>
       {text}
@@ -95,7 +105,7 @@ function AnimatedNumber({
 }
 
 // ============================================================================
-// BRIQUES D'INTERFACE
+// BRIQUES D'INTERFACE (compactes)
 // ============================================================================
 
 function Metric({
@@ -107,18 +117,18 @@ function Metric({
 }: {
   icon: LucideIcon;
   label: string;
-  value: React.ReactNode;
+  value: ReactNode;
   sub?: string;
   tone?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="min-w-0 rounded-lg border border-border/50 bg-background/70 p-2.5">
+      <div className="flex items-center gap-1 text-[9.5px] font-medium uppercase tracking-wide text-muted-foreground">
         <Icon className={cn("h-3 w-3 shrink-0", tone)} />
         <span className="truncate">{label}</span>
       </div>
-      <p className="mt-1 text-lg font-bold leading-tight tabular-nums">{value}</p>
-      {sub && <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{sub}</p>}
+      <p className="mt-0.5 truncate text-[15px] font-bold leading-tight tabular-nums">{value}</p>
+      {sub && <p className="mt-0.5 truncate text-[9.5px] leading-snug text-muted-foreground">{sub}</p>}
     </div>
   );
 }
@@ -136,7 +146,7 @@ function Bar({
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between text-[10.5px] mb-1">
+      <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
         <span className="truncate font-medium">{label}</span>
         <span className="shrink-0 text-muted-foreground tabular-nums">
           {formatTnd(cost)} · {Math.round(percentage)}%
@@ -154,9 +164,14 @@ function Bar({
   );
 }
 
-function Chip({ children, tone = "bg-muted/40 text-muted-foreground" }: { children: React.ReactNode; tone?: string }) {
+function Chip({ children, tone = "bg-muted/40 text-muted-foreground" }: { children: ReactNode; tone?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full border border-border/40 px-2 py-0.5 text-[10px] font-medium", tone)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border border-border/40 px-2 py-0.5 text-[9.5px] font-medium",
+        tone,
+      )}
+    >
       {children}
     </span>
   );
@@ -179,68 +194,136 @@ function ProfileMiniCard({
   tone: string;
 }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-border/50 bg-background/70 p-2.5">
-      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", tone)}>
-        <Icon className="h-4 w-4" />
+    <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-background/70 p-2">
+      <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-md", tone)}>
+        <Icon className="h-3.5 w-3.5" />
       </div>
       <div className="min-w-0">
-        <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-        <p className="truncate text-[12px] font-semibold leading-tight">{name}</p>
-        <p className="truncate text-[10px] text-muted-foreground">
-          {specialty ? `${specialty} · ` : ""}{region}
+        <p className="text-[8.5px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+        <p className="truncate text-[11px] font-semibold leading-tight">{name}</p>
+        <p className="truncate text-[9.5px] text-muted-foreground">
+          {specialty ? `${specialty} · ` : ""}
+          {region}
         </p>
       </div>
     </div>
   );
 }
 
-// ============================================================================
-// ANIMATIONS VISUELLES LÉGÈRES (plan 2D / vue 3D)
-// ============================================================================
+function Grid({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{children}</div>;
+}
 
-/** Plan 2D schématique animé — construit à partir des données réelles. */
-function PlanSketch({ rooms, floors }: { rooms: number; floors: number }) {
-  const cells = Math.max(2, Math.min(6, rooms));
+/**
+ * Attente d'un résultat : l'étape est déjà « Terminé » mais les données réelles
+ * ne sont pas encore chargées. On affiche une progression générique — jamais de
+ * chiffres inventés.
+ */
+export function ResultPlaceholder({
+  stepLabel,
+  className,
+}: {
+  stepLabel: string;
+  className?: string;
+}) {
   return (
-    <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-3">
-      <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400">
-        <Ruler className="h-3 w-3" /> Plan 2D généré
-      </p>
-      <div className="grid grid-cols-3 gap-1">
-        {Array.from({ length: cells }).map((_, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.08 * i, duration: 0.35, ease: "easeOut" }}
-            className="h-7 rounded-md border border-sky-500/30 bg-sky-500/10"
-          />
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className={cn("rounded-2xl border border-dashed border-border/60 bg-card/40 p-3.5", className)}
+    >
+      <div className="flex items-center gap-2">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+        <p className="text-[11px] font-medium text-muted-foreground">
+          Résultat de « {stepLabel} » en cours de calcul…
+        </p>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-11 animate-pulse rounded-lg bg-muted/40" />
         ))}
       </div>
-      <p className="mt-2 text-[10px] text-muted-foreground">
-        {floors} niveau{floors > 1 ? "x" : ""} · {rooms} pièce{rooms > 1 ? "s" : ""}
-      </p>
-    </div>
+    </motion.div>
   );
 }
 
-/** Vue 3D isométrique décorative (aucune donnée 3D inventée : proportions réelles). */
-function IsometricSketch() {
+// ============================================================================
+// APERÇU 3D LÉGER — projection isométrique de la géométrie RÉELLE du plan
+// ============================================================================
+
+/** Éclaircit/fonce une couleur hexadécimale (0 = noir, 1 = couleur). */
+function shade(hex: string, factor: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const r = Math.round(((n >> 16) & 255) * factor);
+  const g = Math.round(((n >> 8) & 255) * factor);
+  const b = Math.round((n & 255) * factor);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function IsometricPlan({ plan }: { plan: FloorPlan }) {
+  const H = 0.62; // hauteur de projection des murs (m) — rendu compact
+  const iso = (x: number, y: number, z: number): [number, number] => [
+    (x - y) * 0.866,
+    (x + y) * 0.5 - z,
+  ];
+
+  const projected: [number, number][] = [];
+  for (const r of plan.rooms) {
+    for (const [x, y] of [
+      [r.x, r.y],
+      [r.x + r.w, r.y],
+      [r.x + r.w, r.y + r.h],
+      [r.x, r.y + r.h],
+    ] as const) {
+      projected.push(iso(x, y, 0), iso(x, y, H));
+    }
+  }
+  const xs = projected.map((p) => p[0]);
+  const ys = projected.map((p) => p[1]);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const pad = 0.5;
+  const viewBox = `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`;
+
+  const poly = (arr: [number, number][]) => arr.map(([x, y]) => `${x},${y}`).join(" ");
+  const ordered = [...plan.rooms].sort((a, b) => a.x + a.y - (b.x + b.y));
+
   return (
-    <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-3">
-      <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400">
-        <Building2 className="h-3 w-3" /> Vue 3D
-      </p>
-      <div className="flex h-[70px] items-center justify-center [perspective:600px]">
-        <motion.div
-          initial={{ opacity: 0, rotateX: -30, rotateZ: 0, scale: 0.9 }}
-          animate={{ opacity: 1, rotateX: -18, rotateZ: -28, scale: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="relative h-8 w-14 rounded-md bg-gradient-to-br from-sky-500/70 to-cyan-500/50 shadow-lg"
-          style={{ transformStyle: "preserve-3d" }}
-        />
-      </div>
-    </div>
+    <svg viewBox={viewBox} preserveAspectRatio="xMidYMid meet" className="h-full w-full" role="img" aria-label="Aperçu 3D du plan">
+      {ordered.map((r) => {
+        const color = PLAN_ROOM_COLORS[r.kind] ?? "#e5e7eb";
+        const top: [number, number][] = [
+          iso(r.x, r.y, H),
+          iso(r.x + r.w, r.y, H),
+          iso(r.x + r.w, r.y + r.h, H),
+          iso(r.x, r.y + r.h, H),
+        ];
+        const wallSouth: [number, number][] = [
+          iso(r.x, r.y + r.h, 0),
+          iso(r.x + r.w, r.y + r.h, 0),
+          iso(r.x + r.w, r.y + r.h, H),
+          iso(r.x, r.y + r.h, H),
+        ];
+        const wallEast: [number, number][] = [
+          iso(r.x + r.w, r.y, 0),
+          iso(r.x + r.w, r.y + r.h, 0),
+          iso(r.x + r.w, r.y + r.h, H),
+          iso(r.x + r.w, r.y, H),
+        ];
+        return (
+          <g key={r.id}>
+            <polygon points={poly(wallSouth)} fill={shade(color, 0.72)} stroke="#1c1917" strokeWidth={0.035} />
+            <polygon points={poly(wallEast)} fill={shade(color, 0.58)} stroke="#1c1917" strokeWidth={0.035} />
+            <polygon points={poly(top)} fill={color} stroke="#1c1917" strokeWidth={0.04} />
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
@@ -278,22 +361,22 @@ export function StepResultPanel({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className={className}
+      className={cn("min-w-0", className)}
     >
       <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/70 shadow-sm backdrop-blur-sm">
-        <div className="flex items-center gap-2 border-b border-border/50 px-4 py-2.5">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <Icon className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
+          <div className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Icon className="h-3 w-3" />
           </div>
-          <p className="text-[12px] font-semibold">
+          <p className="truncate text-[11.5px] font-semibold">
             Résultat — <span className={tone.accent}>{stepLabel}</span>
           </p>
-          <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[9.5px] font-semibold text-emerald-700 dark:text-emerald-400">
+          <span className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-400">
             <CheckCircle2 className="h-2.5 w-2.5" /> Terminé
           </span>
         </div>
 
-        <div className="p-3.5 sm:p-4">
+        <div className="p-3">
           {stepKey === "cost" && <CostResult data={data} />}
           {stepKey === "plans" && <PlanResult data={data} />}
           {stepKey === "materials" && <MaterialsResult data={data} />}
@@ -306,50 +389,12 @@ export function StepResultPanel({
   );
 }
 
-function Grid({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">{children}</div>;
-}
-
-/**
- * Attente d'un résultat : l'étape est déjà « Terminé » mais les données réelles
- * ne sont pas encore chargées. On affiche une progression générique — jamais de
- * chiffres inventés.
- */
-export function ResultPlaceholder({
-  stepLabel,
-  className,
-}: {
-  stepLabel: string;
-  className?: string;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
-      className={cn("rounded-2xl border border-dashed border-border/60 bg-card/40 p-4", className)}
-    >
-      <div className="flex items-center gap-2">
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-        <p className="text-[11px] font-medium text-muted-foreground">
-          Résultat de « {stepLabel} » en cours de calcul…
-        </p>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-12 animate-pulse rounded-lg bg-muted/40" />
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
 // ── 1. Coût estimatif ───────────────────────────────────────────────────────
 
 function CostResult({ data }: { data: LifecycleShowcase }) {
   const { cost } = data;
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-3">
       <Grid>
         <Metric
           icon={Coins}
@@ -369,23 +414,23 @@ function CostResult({ data }: { data: LifecycleShowcase }) {
           icon={Gauge}
           label="Confiance IA"
           value={<AnimatedNumber value={cost.confidence} suffix=" %" />}
-          sub="Indice de fiabilité de l'estimation"
+          sub="Indice de fiabilité"
           tone="text-sky-600"
         />
         <Metric
           icon={Layers}
           label="Quantitatif"
           value={<AnimatedNumber value={cost.itemsCount} />}
-          sub={`${cost.itemsCount} postes · ${cost.quantitatifLots} lots`}
+          sub={`${cost.quantitatifLots} lots`}
           tone="text-violet-600"
         />
       </Grid>
 
-      <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="rounded-lg border border-border/50 bg-background/70 p-2.5">
+        <p className="mb-2 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
           Répartition du budget
         </p>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {cost.breakdown.map((b, i) => (
             <Bar key={b.label} label={b.label} percentage={b.percentage} cost={b.cost} delay={0.08 * i} />
           ))}
@@ -395,52 +440,147 @@ function CostResult({ data }: { data: LifecycleShowcase }) {
   );
 }
 
-// ── 2. Plan IA ──────────────────────────────────────────────────────────────
+// ── 2. Plan IA — plans RÉELS générés par le moteur Batibuild ────────────────
+
+const PLAN_PHASES = [
+  { key: "plan2d", label: "Plan 2D" },
+  { key: "rooms", label: "Pièces" },
+  { key: "dims", label: "Dimensions" },
+  { key: "3d", label: "Vue 3D" },
+] as const;
 
 function PlanResult({ data }: { data: LifecycleShowcase }) {
-  const { plan } = data;
+  const reduceMotion = useReducedMotion();
+  const [tick, setTick] = useState(0);
+
+  // Plans réellement générés à partir des données du projet (moteur Batibuild,
+  // déterministe : mêmes entrées → mêmes plans).
+  const variants = useMemo(
+    () =>
+      generateFloorPlans({
+        category: data.project.category,
+        surface: data.plan.surface,
+        floors: data.plan.floors,
+        bedrooms: data.plan.bedrooms,
+        bathrooms: data.plan.bathrooms,
+        kitchens: data.plan.kitchens,
+        livingRooms: data.plan.livingRooms,
+        wcs: data.plan.wcs,
+      }),
+    [
+      data.project.category,
+      data.plan.surface,
+      data.plan.floors,
+      data.plan.bedrooms,
+      data.plan.bathrooms,
+      data.plan.kitchens,
+      data.plan.livingRooms,
+      data.plan.wcs,
+    ],
+  );
+
+  const variant = variants[0];
+  const plan = variant?.floors[0];
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const id = window.setInterval(() => setTick((t) => t + 1), 1500);
+    return () => window.clearInterval(id);
+  }, [reduceMotion]);
+
+  if (!plan) {
+    // Aucune donnée de plan : on n'invente rien.
+    return <ResultPlaceholder stepLabel="Plan IA" />;
+  }
+
+  const phase = reduceMotion ? 2 : tick % PLAN_PHASES.length;
+  const rooms = plan.rooms;
+  const activeRoom = rooms.length ? rooms[Math.floor(tick / PLAN_PHASES.length) % rooms.length] : undefined;
+
+  // Zoom vers la pièce affichée (phase « Pièces »).
+  const originX = activeRoom ? ((activeRoom.x + activeRoom.w / 2) / plan.length) * 100 : 50;
+  const originY = activeRoom ? ((activeRoom.y + activeRoom.h / 2) / plan.width) * 100 : 50;
+  const zoomStyle =
+    phase === 1
+      ? { transform: "scale(1.7)", transformOrigin: `${originX}% ${originY}%` }
+      : { transform: "scale(1)", transformOrigin: "50% 50%" };
+
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-3">
       <Grid>
+        <Metric icon={Ruler} label="Surface" value={<AnimatedNumber value={data.plan.surface} suffix=" m²" />} tone="text-sky-600" />
+        <Metric icon={Layers} label="Pièces" value={<AnimatedNumber value={data.plan.roomsTotal} />} tone="text-sky-600" />
+        <Metric icon={Building2} label="Niveaux" value={<AnimatedNumber value={data.plan.floors} />} tone="text-sky-600" />
         <Metric
-          icon={Ruler}
-          label="Surface"
-          value={<AnimatedNumber value={plan.surface} suffix=" m²" />}
-          tone="text-sky-600"
-        />
-        <Metric
-          icon={Building2}
-          label="Niveaux"
-          value={<AnimatedNumber value={plan.floors} />}
-          tone="text-sky-600"
-        />
-        <Metric
-          icon={Layers}
-          label="Pièces"
-          value={<AnimatedNumber value={plan.roomsTotal} />}
-          tone="text-sky-600"
-        />
-        <Metric
-          icon={Wand2}
-          label="Variantes"
-          value={<AnimatedNumber value={plan.variants} />}
-          sub="scénarios de budget"
-          tone="text-indigo-600"
+          icon={CheckCircle2}
+          label="Conformité"
+          value={<AnimatedNumber value={variant?.validation.score ?? 0} suffix=" %" />}
+          sub={`${variants.length} variantes générées`}
+          tone="text-emerald-600"
         />
       </Grid>
 
-      <div className="grid gap-2.5 sm:grid-cols-2">
-        <PlanSketch rooms={plan.roomsTotal} floors={plan.floors} />
-        <IsometricSketch />
+      {/* Animation compacte : plan 2D → pièces → dimensions → aperçu 3D */}
+      <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-2.5">
+        <div className="mb-2 flex flex-wrap items-center gap-1">
+          {PLAN_PHASES.map((p, i) => (
+            <span
+              key={p.key}
+              className={cn(
+                "inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-medium transition-colors",
+                i === phase
+                  ? "border-sky-500/50 bg-sky-500/15 text-sky-700 dark:text-sky-300"
+                  : "border-border/40 bg-muted/30 text-muted-foreground",
+              )}
+            >
+              {p.label}
+            </span>
+          ))}
+          <span className="ml-auto truncate text-[9px] text-muted-foreground tabular-nums">
+            {plan.length.toFixed(1)} × {plan.width.toFixed(1)} m
+          </span>
+        </div>
+
+        <div className="relative h-[180px] w-full overflow-hidden rounded-lg border border-border/40 bg-[#fdfdfb] sm:h-[220px]">
+          <motion.div
+            key={Math.floor(tick / PLAN_PHASES.length)}
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="h-full w-full transition-transform duration-700 ease-out [&>svg]:h-full [&>svg]:w-full"
+            style={phase === 3 ? undefined : zoomStyle}
+          >
+            {phase === 3 ? (
+              <IsometricPlan plan={plan} />
+            ) : (
+              <FloorPlan2D
+                plan={plan}
+                selectedRoomId={phase === 1 ? activeRoom?.id ?? null : null}
+              />
+            )}
+          </motion.div>
+        </div>
+
+        <p className="mt-2 truncate text-[9.5px] text-muted-foreground">
+          {phase === 1 && activeRoom
+            ? `Zoom — ${activeRoom.label} · ${activeRoom.area.toFixed(1)} m²`
+            : phase === 2
+              ? `Dimensions · emprise ${plan.length.toFixed(1)} × ${plan.width.toFixed(1)} m · ${rooms.length} pièces`
+              : phase === 3
+                ? "Aperçu 3D (projection du plan réel)"
+                : `Plan 2D généré · ${variant?.name ?? ""}`}
+        </p>
       </div>
 
-      {plan.methods.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {plan.methods.slice(0, 6).map((m) => (
-            <Chip key={m} tone="bg-sky-500/10 text-sky-700 dark:text-sky-400">{m}</Chip>
-          ))}
-        </div>
-      )}
+      {/* Pièces réelles du plan (name + surface + dimensions) */}
+      <div className="flex flex-wrap gap-1.5">
+        {rooms.slice(0, 8).map((r) => (
+          <Chip key={r.id} tone="bg-sky-500/10 text-sky-700 dark:text-sky-400">
+            <span aria-hidden className="h-2 w-2 rounded-sm" style={{ background: PLAN_ROOM_COLORS[r.kind] ?? "#e5e7eb", outline: "1px solid rgba(0,0,0,.15)" }} />
+            {PLAN_ROOM_LABELS[r.kind] ?? r.label} · {r.w.toFixed(1)}×{r.h.toFixed(1)} m
+          </Chip>
+        ))}
+      </div>
     </div>
   );
 }
@@ -450,20 +590,10 @@ function PlanResult({ data }: { data: LifecycleShowcase }) {
 function MaterialsResult({ data }: { data: LifecycleShowcase }) {
   const { materials } = data;
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-3">
       <Grid>
-        <Metric
-          icon={Layers}
-          label="Matériaux analysés"
-          value={<AnimatedNumber value={materials.analyzed} />}
-          tone="text-violet-600"
-        />
-        <Metric
-          icon={CheckCircle2}
-          label="Sélectionnés"
-          value={<AnimatedNumber value={materials.selected} />}
-          tone="text-emerald-600"
-        />
+        <Metric icon={Layers} label="Matériaux analysés" value={<AnimatedNumber value={materials.analyzed} />} tone="text-violet-600" />
+        <Metric icon={CheckCircle2} label="Sélectionnés" value={<AnimatedNumber value={materials.selected} />} tone="text-emerald-600" />
         <Metric
           icon={Banknote}
           label="Économie possible"
@@ -471,27 +601,24 @@ function MaterialsResult({ data }: { data: LifecycleShowcase }) {
           sub="standard → économique"
           tone="text-emerald-600"
         />
-        <Metric
-          icon={Percent}
-          label="Prix unitaires"
-          value={<AnimatedNumber value={materials.unitPrices.length} />}
-          sub="matériaux clés suivis"
-          tone="text-violet-600"
-        />
+        <Metric icon={Percent} label="Prix unitaires" value={<AnimatedNumber value={materials.unitPrices.length} />} sub="matériaux suivis" tone="text-violet-600" />
       </Grid>
 
-      <div className="grid gap-2.5 sm:grid-cols-2">
+      <div className="grid gap-2 sm:grid-cols-2">
         {materials.unitPrices.length > 0 && (
-          <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="min-w-0 rounded-lg border border-border/50 bg-background/70 p-2.5">
+            <p className="mb-1.5 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
               Prix unitaires
             </p>
             <ul className="space-y-1">
               {materials.unitPrices.map((m) => (
-                <li key={m.name} className="flex items-center justify-between gap-2 text-[11px]">
+                <li key={m.name} className="flex items-center justify-between gap-2 text-[10.5px]">
                   <span className="truncate text-muted-foreground">{m.name}</span>
                   <span className="shrink-0 font-semibold tabular-nums">
-                    {m.unitPrice.toLocaleString("fr-FR")} <span className="text-[9px] font-normal text-muted-foreground">TND{m.unit ? `/${m.unit}` : ""}</span>
+                    {m.unitPrice.toLocaleString("fr-FR")}{" "}
+                    <span className="text-[9px] font-normal text-muted-foreground">
+                      TND{m.unit ? `/${m.unit}` : ""}
+                    </span>
                   </span>
                 </li>
               ))}
@@ -522,20 +649,10 @@ function MaterialsResult({ data }: { data: LifecycleShowcase }) {
 function ConsultResult({ data }: { data: LifecycleShowcase }) {
   const { consultations } = data;
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-3">
       <Grid>
-        <Metric
-          icon={Users}
-          label="Experts identifiés"
-          value={<AnimatedNumber value={consultations.expertsCount} />}
-          tone="text-amber-600"
-        />
-        <Metric
-          icon={Layers}
-          label="Catégories"
-          value={<AnimatedNumber value={consultations.categories.length} />}
-          tone="text-amber-600"
-        />
+        <Metric icon={Users} label="Experts identifiés" value={<AnimatedNumber value={consultations.expertsCount} />} tone="text-amber-600" />
+        <Metric icon={Layers} label="Catégories" value={<AnimatedNumber value={consultations.categories.length} />} tone="text-amber-600" />
         <Metric
           icon={MapPin}
           label="Régions couvertes"
@@ -543,13 +660,7 @@ function ConsultResult({ data }: { data: LifecycleShowcase }) {
           sub={consultations.topRegion ? `Plus active : ${consultations.topRegion}` : undefined}
           tone="text-emerald-600"
         />
-        <Metric
-          icon={Wand2}
-          label="Recommandations IA"
-          value={<span className="text-[13px]">Actives</span>}
-          sub="classées par besoin & région"
-          tone="text-indigo-600"
-        />
+        <Metric icon={Wand2} label="Recommandations IA" value={<span className="text-[12px]">Actives</span>} sub="classées par besoin & région" tone="text-indigo-600" />
       </Grid>
 
       {consultations.categories.length > 0 && (
@@ -582,9 +693,9 @@ function ConsultResult({ data }: { data: LifecycleShowcase }) {
 function ExecutionResult({ data }: { data: LifecycleShowcase }) {
   const { execution } = data;
   return (
-    <div className="space-y-3.5">
-      <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-        <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="space-y-3">
+      <div className="rounded-lg border border-border/50 bg-background/70 p-2.5">
+        <div className="flex items-center justify-between text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
           <span>Progression du projet</span>
           <span className="tabular-nums text-teal-600">
             <AnimatedNumber value={execution.progress} suffix=" %" />
@@ -601,31 +712,10 @@ function ExecutionResult({ data }: { data: LifecycleShowcase }) {
       </div>
 
       <Grid>
-        <Metric
-          icon={CheckCircle2}
-          label="Étapes réalisées"
-          value={<AnimatedNumber value={execution.tasksDone} />}
-          sub={`sur ${execution.tasksTotal} tâches`}
-          tone="text-teal-600"
-        />
-        <Metric
-          icon={Layers}
-          label="Phases"
-          value={<AnimatedNumber value={execution.phases} />}
-          tone="text-teal-600"
-        />
-        <Metric
-          icon={Wallet}
-          label="Coûts suivis"
-          value={<AnimatedNumber value={execution.plannedBudget} format={(n) => formatTnd(n)} />}
-          tone="text-emerald-600"
-        />
-        <Metric
-          icon={CalendarRange}
-          label="Durée planifiée"
-          value={<AnimatedNumber value={execution.plannedDurationDays} suffix=" j" />}
-          tone="text-sky-600"
-        />
+        <Metric icon={CheckCircle2} label="Étapes réalisées" value={<AnimatedNumber value={execution.tasksDone} />} sub={`sur ${execution.tasksTotal} tâches`} tone="text-teal-600" />
+        <Metric icon={Layers} label="Phases" value={<AnimatedNumber value={execution.phases} />} tone="text-teal-600" />
+        <Metric icon={Wallet} label="Coûts suivis" value={<AnimatedNumber value={execution.plannedBudget} format={(n) => formatTnd(n)} />} tone="text-emerald-600" />
+        <Metric icon={CalendarRange} label="Durée planifiée" value={<AnimatedNumber value={execution.plannedDurationDays} suffix=" j" />} tone="text-sky-600" />
       </Grid>
     </div>
   );
@@ -637,12 +727,7 @@ function InvestmentResult({ data }: { data: LifecycleShowcase }) {
   const { investment } = data;
   return (
     <Grid>
-      <Metric
-        icon={Wallet}
-        label="Montant d'investissement"
-        value={<AnimatedNumber value={investment.amount} format={(n) => formatTnd(n)} />}
-        tone="text-indigo-600"
-      />
+      <Metric icon={Wallet} label="Montant d'investissement" value={<AnimatedNumber value={investment.amount} format={(n) => formatTnd(n)} />} tone="text-indigo-600" />
       <Metric
         icon={Percent}
         label="Rendement estimatif"
@@ -657,13 +742,7 @@ function InvestmentResult({ data }: { data: LifecycleShowcase }) {
         sub={`Cash-flow ${Math.round(investment.monthlyCashflow).toLocaleString("fr-FR")} TND/mois`}
         tone="text-emerald-600"
       />
-      <Metric
-        icon={TrendingUp}
-        label="ROI 10 ans"
-        value={<AnimatedNumber value={investment.roi10yPct} suffix=" %" />}
-        sub="Return on Investment"
-        tone="text-violet-600"
-      />
+      <Metric icon={TrendingUp} label="ROI 10 ans" value={<AnimatedNumber value={investment.roi10yPct} suffix=" %" />} sub="Return on Investment" tone="text-violet-600" />
     </Grid>
   );
 }

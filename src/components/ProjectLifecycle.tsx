@@ -152,6 +152,12 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
  * aucune accélération liée au chargement des données.
  */
 const STEP_DURATION_MS = 4000;
+/**
+ * Courte pause, une fois les 6 étapes terminées, avant la reprise de la boucle
+ * (durée fixe elle aussi). À la fin, les 6 résultats restent affichés, puis la
+ * séquence repart en douceur de l'étape 1.
+ */
+const LOOP_HOLD_MS = 1500;
 
 type StepState = "done" | "active" | "pending";
 
@@ -160,12 +166,12 @@ function pad(n: number): string {
 }
 
 /**
- * Séquence animée du cycle de vie : une étape se termine exactement toutes
- * les 4 secondes (0–4 s étape 1 … 20–24 s étape 6). Dès qu'une étape passe à
- * « Terminé », son résultat réel s'affiche et reste visible ; à la fin des
- * 24 secondes, les 6 étapes restent terminées avec leurs résultats. Une fois
- * lancée, la séquence ne se met ni en pause ni en boucle — seul « réduire les
- * animations » court-circuite le parcours (tout affiché immédiatement).
+ * Séquence animée du cycle de vie, EN BOUCLE : une étape se termine exactement
+ * toutes les 4 secondes (0–4 s étape 1 … 20–24 s étape 6). Dès qu'une étape
+ * passe à « Terminé », son résultat réel s'affiche sous elle et reste visible.
+ * À la fin des 24 secondes, les 6 étapes et leurs résultats sont affichés, puis
+ * la boucle repart de l'étape 1 — sans rechargement, de façon fluide. Seul
+ * « réduire les animations » court-circuite le parcours (tout affiché d'emblée).
  */
 export function ProjectLifecycle({ className }: { className?: string }) {
   const { isEnabled } = useFeatureFlags();
@@ -215,13 +221,17 @@ export function ProjectLifecycle({ className }: { className?: string }) {
     if (inView) setStarted(true);
   }, [inView, reduceMotion, total]);
 
-  // Séquençage à durée fixe : une étape passe à « Terminé » toutes les 4 s
-  // exactement (0–4 s étape 1, 4–8 s étape 2, … 20–24 s étape 6). À la fin,
-  // la séquence s'arrête : les 6 étapes restent « Terminé » avec leurs
-  // résultats respectifs visibles. Aucun chevauchement entre deux étapes.
+  // Séquençage à durée fixe, EN BOUCLE : une étape passe à « Terminé » toutes
+  // les 4 s exactement (0–4 s étape 1, 4–8 s étape 2, … 20–24 s étape 6). Les
+  // 6 étapes tiennent alors toutes « Terminé » avec leurs résultats, puis la
+  // boucle repart de l'étape 1. Aucun chevauchement entre deux étapes.
   useEffect(() => {
     if (!started || total === 0) return;
-    if (completed >= total) return;
+    if (completed >= total) {
+      // Fin de cycle : tous les résultats visibles, puis reprise à zéro.
+      const hold = window.setTimeout(() => setCompleted(0), LOOP_HOLD_MS);
+      return () => window.clearTimeout(hold);
+    }
     const timer = window.setTimeout(() => {
       setCompleted((c) => Math.min(c + 1, total));
     }, STEP_DURATION_MS);
@@ -331,13 +341,14 @@ export function ProjectLifecycle({ className }: { className?: string }) {
               resultSlot={
                 stateOf(i) !== "done" ? null : showcase ? (
                   <StepResultPanel
+                    key={step.key}
                     stepKey={step.key}
                     stepLabel={step.label}
                     data={showcase}
                     className="mt-4"
                   />
                 ) : (
-                  <ResultPlaceholder stepLabel={step.label} className="mt-4" />
+                  <ResultPlaceholder key={step.key} stepLabel={step.label} className="mt-4" />
                 )
               }
             />
@@ -531,7 +542,8 @@ function MobileStep({
         <div className="mt-1.5">
           <StepStatus step={step} state={state} compact />
         </div>
-        {resultSlot}
+        {/* Apparition/disparition fluide (fade + slide) du résultat. */}
+        <AnimatePresence>{resultSlot}</AnimatePresence>
       </div>
     </motion.li>
   );
