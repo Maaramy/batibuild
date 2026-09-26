@@ -16,7 +16,7 @@ import type { LucideIcon } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { JOURNEY_FLAG_KEYS } from "@/lib/projectJourney";
-import { StepResultPanel } from "@/components/LifecycleStepResults";
+import { ResultPlaceholder, StepResultPanel } from "@/components/LifecycleStepResults";
 
 /**
  * CYCLE DE VIE COMPLET D'UN PROJET — parcours animé de la page d'accueil.
@@ -146,12 +146,12 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
   },
 ];
 
-/** Durée d'activation d'une étape (ms) — animation légère, jamais lourde. */
-const STEP_DURATION_MS = 950;
-/** Délai avant le démarrage effectif de la séquence (ms). */
-const START_DELAY_MS = 350;
-/** Pause sur l'état « terminé » avant de rejouer la boucle (ms). */
-const HOLD_COMPLETE_MS = 2400;
+/**
+ * Durée EXACTE d'une étape (ms) : 4 secondes fixes par étape, soit une
+ * séquence complète de 24 secondes pour les 6 étapes. Aucune durée aléatoire,
+ * aucune accélération liée au chargement des données.
+ */
+const STEP_DURATION_MS = 4000;
 
 type StepState = "done" | "active" | "pending";
 
@@ -160,11 +160,12 @@ function pad(n: number): string {
 }
 
 /**
- * Séquence animée du cycle de vie. La progression avance d'une étape à
- * l'autre, marque une courte pause sur l'état « terminé », puis rejoue la
- * boucle : le parcours reste vivant en continu sans jamais bloquer le rendu
- * de la page. La boucle se met en pause hors écran et reste entièrement
- * désactivée lorsque l'utilisateur réduit les animations.
+ * Séquence animée du cycle de vie : une étape se termine exactement toutes
+ * les 4 secondes (0–4 s étape 1 … 20–24 s étape 6). Dès qu'une étape passe à
+ * « Terminé », son résultat réel s'affiche et reste visible ; à la fin des
+ * 24 secondes, les 6 étapes restent terminées avec leurs résultats. Une fois
+ * lancée, la séquence ne se met ni en pause ni en boucle — seul « réduire les
+ * animations » court-circuite le parcours (tout affiché immédiatement).
  */
 export function ProjectLifecycle({ className }: { className?: string }) {
   const { isEnabled } = useFeatureFlags();
@@ -185,6 +186,9 @@ export function ProjectLifecycle({ className }: { className?: string }) {
 
   const total = steps.length;
   const [completed, setCompleted] = useState(0);
+  // `started` verrouille le démarrage : une fois la séquence lancée, elle va
+  // jusqu'au bout sans pause ni réinitialisation (durée fixe garantie).
+  const [started, setStarted] = useState(false);
   const [inView, setInView] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -205,23 +209,24 @@ export function ProjectLifecycle({ className }: { className?: string }) {
     return () => observer.disconnect();
   }, []);
 
-  // Progression en boucle : initialisation → étape 1 → … → étape n →
-  // pause « terminé » → reprise depuis le début, tant que la section est
-  // visible. Ce cycle discret garde le parcours vivant en continu.
+  // Démarrage unique, dès la première apparition du parcours à l'écran.
   useEffect(() => {
-    if (reduceMotion || !inView || total === 0) return;
+    if (reduceMotion || total === 0) return;
+    if (inView) setStarted(true);
+  }, [inView, reduceMotion, total]);
 
-    if (completed >= total) {
-      const hold = window.setTimeout(() => setCompleted(0), HOLD_COMPLETE_MS);
-      return () => window.clearTimeout(hold);
-    }
-
-    const delay = completed === 0 ? START_DELAY_MS : STEP_DURATION_MS;
+  // Séquençage à durée fixe : une étape passe à « Terminé » toutes les 4 s
+  // exactement (0–4 s étape 1, 4–8 s étape 2, … 20–24 s étape 6). À la fin,
+  // la séquence s'arrête : les 6 étapes restent « Terminé » avec leurs
+  // résultats respectifs visibles. Aucun chevauchement entre deux étapes.
+  useEffect(() => {
+    if (!started || total === 0) return;
+    if (completed >= total) return;
     const timer = window.setTimeout(() => {
       setCompleted((c) => Math.min(c + 1, total));
-    }, delay);
+    }, STEP_DURATION_MS);
     return () => window.clearTimeout(timer);
-  }, [inView, completed, total, reduceMotion]);
+  }, [started, completed, total]);
 
   // Un flag désactivé pendant l'animation rétrécit le parcours : on recale la
   // progression pour ne jamais laisser d'étape vide ni de trou.
@@ -236,9 +241,6 @@ export function ProjectLifecycle({ className }: { className?: string }) {
 
   const pct = total > 0 ? Math.round((Math.min(completed, total) / total) * 100) : 0;
   const finished = total > 0 && completed >= total;
-  // Dernière étape terminée : son résultat s'affiche sous le parcours.
-  const resultIndex = Math.min(completed, total) - 1;
-  const resultStep = resultIndex >= 0 ? steps[resultIndex] : undefined;
 
   const stateOf = (index: number): StepState => {
     if (index < completed) return "done";
@@ -257,8 +259,8 @@ export function ProjectLifecycle({ className }: { className?: string }) {
             animate={{ width: `${pct}%` }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           />
-          {/* Reflet qui balaie la barre en continu : mouvement discret qui
-              persiste même pendant la pause sur l'état « terminé ». */}
+          {/* Reflet qui balaie la barre : mouvement discret qui garde la
+              section vivante pendant la séquence. */}
           {!reduceMotion && inView && (
             <motion.div
               aria-hidden
@@ -324,35 +326,45 @@ export function ProjectLifecycle({ className }: { className?: string }) {
               step={step}
               index={i}
               state={stateOf(i)}
-              // Résultat affiché DIRECTEMENT sous l'étape qui vient d'être
-              // terminée (une seule à la fois, sur mobile).
+              // Résultat affiché DIRECTEMENT sous chaque étape terminée, et
+              // conservé une fois affiché (données réelles ou attente).
               resultSlot={
-                showcase && resultStep && stateOf(i) === "done" && step.key === resultStep.key ? (
+                stateOf(i) !== "done" ? null : showcase ? (
                   <StepResultPanel
                     stepKey={step.key}
                     stepLabel={step.label}
                     data={showcase}
+                    className="mt-4"
                   />
-                ) : null
+                ) : (
+                  <ResultPlaceholder stepLabel={step.label} className="mt-4" />
+                )
               }
             />
           ))}
         </ul>
       </div>
 
-      {/* ── Desktop : résultat RÉEL affiché sous le parcours ── */}
-      <div className="hidden md:block">
-        {showcase && resultStep && (
-          <AnimatePresence mode="wait">
-            <StepResultPanel
-              key={resultStep.key}
-              stepKey={resultStep.key}
-              stepLabel={resultStep.label}
-              data={showcase}
-            />
+      {/* ── Desktop : un résultat par étape terminée, empilés et persistants ── */}
+      {completed > 0 && (
+        <div className="mt-6 hidden gap-3 md:grid md:grid-cols-2 lg:grid-cols-3">
+          <AnimatePresence>
+            {steps.map((step, i) => {
+              if (stateOf(i) !== "done") return null;
+              return showcase ? (
+                <StepResultPanel
+                  key={step.key}
+                  stepKey={step.key}
+                  stepLabel={step.label}
+                  data={showcase}
+                />
+              ) : (
+                <ResultPlaceholder key={step.key} stepLabel={step.label} />
+              );
+            })}
           </AnimatePresence>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

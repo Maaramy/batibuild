@@ -23,6 +23,7 @@ import {
   Gauge,
   HardHat,
   Layers,
+  Loader2,
   MapPin,
   Percent,
   Ruler,
@@ -260,10 +261,13 @@ export function StepResultPanel({
   stepKey,
   stepLabel,
   data,
+  className,
 }: {
   stepKey: string;
   stepLabel: string;
   data: LifecycleShowcase;
+  /** Marge / positionnement imposés par l'appelant (mobile vs desktop). */
+  className?: string;
 }) {
   const tone = STEP_TONES[stepKey] ?? { accent: "text-primary", icon: Gauge };
   const Icon = tone.icon;
@@ -274,7 +278,7 @@ export function StepResultPanel({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="mt-6"
+      className={className}
     >
       <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/70 shadow-sm backdrop-blur-sm">
         <div className="flex items-center gap-2 border-b border-border/50 px-4 py-2.5">
@@ -304,6 +308,40 @@ export function StepResultPanel({
 
 function Grid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">{children}</div>;
+}
+
+/**
+ * Attente d'un résultat : l'étape est déjà « Terminé » mais les données réelles
+ * ne sont pas encore chargées. On affiche une progression générique — jamais de
+ * chiffres inventés.
+ */
+export function ResultPlaceholder({
+  stepLabel,
+  className,
+}: {
+  stepLabel: string;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className={cn("rounded-2xl border border-dashed border-border/60 bg-card/40 p-4", className)}
+    >
+      <div className="flex items-center gap-2">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+        <p className="text-[11px] font-medium text-muted-foreground">
+          Résultat de « {stepLabel} » en cours de calcul…
+        </p>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-12 animate-pulse rounded-lg bg-muted/40" />
+        ))}
+      </div>
+    </motion.div>
+  );
 }
 
 // ── 1. Coût estimatif ───────────────────────────────────────────────────────
