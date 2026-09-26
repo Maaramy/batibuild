@@ -18,7 +18,17 @@ import {
   pickLogoField,
   normalizeLogoValue,
   EXPERT_PROFESSION_LABELS,
+  EXPERT_CATEGORIES,
+  EXPERT_OTHER_CATEGORY,
+  expertCategoryOf,
+  expertProviderTypes,
+  complementaryTypes,
+  buildExpertRecommendations,
+  expertAvailabilityLabel,
+  isCompleteExpertProfile,
+  PROVIDER_TYPE_FAMILY,
   type RecommendationCandidate,
+  type ExpertCandidate,
 } from "./recommendedProviders";
 import { PROJECT_TYPES, resolveProjectType } from "./projectTypes";
 
@@ -336,5 +346,224 @@ describe("Plan de recommandations (mutation refresh)", () => {
     );
     expect(plan1.suppliers.map((p) => p.candidate.id)).not.toContain("sup1");
     expect(plan1.suppliers.map((p) => p.candidate.id)).toContain("sup2");
+  });
+});
+
+describe("Catégories d'experts — normalisation", () => {
+  it("expose les 7 catégories demandées, dans l'ordre d'affichage", () => {
+    const keys = [...EXPERT_CATEGORIES.map((c) => c.key), EXPERT_OTHER_CATEGORY.key];
+    expect(keys).toEqual([
+      "architectes",
+      "ingenieurs",
+      "bureaux_etudes",
+      "electricite",
+      "plomberie",
+      "promoteurs",
+      "autre_specialite",
+    ]);
+    for (const c of EXPERT_CATEGORIES) {
+      expect(c.icon.length).toBeGreaterThan(0);
+      expect(c.label.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("classe chaque profession officielle dans sa catégorie", () => {
+    expect(expertCategoryOf("architecte").key).toBe("architectes");
+    expect(expertCategoryOf("ingenieur").key).toBe("ingenieurs");
+    expect(expertCategoryOf("bureau_etudes").key).toBe("bureaux_etudes");
+    expect(expertCategoryOf("electricien").key).toBe("electricite");
+    expect(expertCategoryOf("plombier").key).toBe("plomberie");
+    expect(expertCategoryOf("promoteur_immobilier").key).toBe("promoteurs");
+  });
+
+  it("replie toute profession inconnue sur « Autre spécialité »", () => {
+    expect(expertCategoryOf("geometre").key).toBe("autre_specialite");
+    expect(expertCategoryOf("").key).toBe("autre_specialite");
+    expect(expertCategoryOf(null).key).toBe("autre_specialite");
+  });
+
+  it("déduit les métiers couverts par un expert (profession + spécialités)", () => {
+    expect(expertProviderTypes("electricien", [])).toContain("electricien");
+    expect(expertProviderTypes("ingenieur", [])).toContain("ingenieur_structure");
+    // Spécialité connue du mapping fournisseur → type de métier associé
+    expect(expertProviderTypes("plombier", ["etancheite"])).toContain("etancheite");
+  });
+});
+
+describe("Spécialités complémentaires — familles proches", () => {
+  it("plomberie et CVC appartiennent à la même famille (fluides)", () => {
+    expect(PROVIDER_TYPE_FAMILY.plombier).toBe(PROVIDER_TYPE_FAMILY.climatisation);
+    const close = complementaryTypes(["plombier"]);
+    expect(close.has("climatisation")).toBe(true);
+  });
+
+  it("les métiers d'études sont proches entre eux", () => {
+    const close = complementaryTypes(["ingenieur_structure"]);
+    expect(close.has("architecte")).toBe(true);
+    expect(close.has("bureau_etudes")).toBe(true);
+  });
+
+  it("électricité n'est pas complémentaire de la plomberie", () => {
+    const close = complementaryTypes(["electricien"]);
+    expect(close.has("plombier")).toBe(false);
+  });
+});
+
+describe("Recommandations d'experts — regroupement et priorisation", () => {
+  const expert = (
+    id: string,
+    profession: string,
+    specialties: string[],
+    regions: string[],
+    extra: Partial<ExpertCandidate> = {},
+  ): ExpertCandidate => ({
+    id,
+    profession,
+    specialties,
+    regions,
+    complete: true,
+    ...extra,
+  });
+
+  const candidates: ExpertCandidate[] = [
+    expert("a1", "architecte", [], ["tunis"]),
+    expert("a2", "architecte", [], ["sfax"], { complete: false }),
+    expert("e1", "electricien", [], ["tunis"], { availability: "immediate" }),
+    expert("e2", "electricien", [], ["tunis"], { availability: "appointment" }),
+    expert("p1", "plombier", [], ["tunis"], { availability: "immediate" }),
+    expert("i1", "ingenieur", [], ["tunis"]),
+    expert("pr1", "promoteur_immobilier", [], ["tunis"]),
+  ];
+
+  it("ne garde que les experts pertinents (jamais un profil hors besoin)", () => {
+    const groups = buildExpertRecommendations(candidates, {
+      exactTypes: ["plombier"],
+      compatibleTypes: ["plombier"],
+      projectRegion: "tunis",
+    });
+    const ids = groups.flatMap((g) => g.experts.map((e) => e.candidate.id));
+    expect(ids).toContain("p1");
+    expect(ids).not.toContain("a1");
+    expect(ids).not.toContain("i1");
+  });
+
+  it("regroupe par catégorie avec l'emoji d'en-tête", () => {
+    const groups = buildExpertRecommendations(candidates, {
+      exactTypes: ["electricien", "plombier", "architecte", "promoteur", "ingenieur_structure"],
+      compatibleTypes: ["electricien", "plombier", "architecte", "promoteur", "ingenieur_structure"],
+      projectRegion: "tunis",
+    });
+    const keys = groups.map((g) => g.key);
+    expect(keys).toContain("architectes");
+    expect(keys).toContain("electricite");
+    expect(keys).toContain("plomberie");
+    expect(groups.find((g) => g.key === "architectes")?.icon).toBe("🏗️");
+  });
+
+  it("évite les doublons d'un même expert", () => {
+    const dup: ExpertCandidate[] = [
+      expert("x", "plombier", [], ["tunis"]),
+      expert("x", "plombier", [], ["tunis"]),
+    ];
+    const groups = buildExpertRecommendations(dup, {
+      exactTypes: ["plombier"],
+      compatibleTypes: ["plombier"],
+      projectRegion: "tunis",
+    });
+    const ids = groups.flatMap((g) => g.experts.map((e) => e.candidate.id));
+    expect(ids).toEqual(["x"]);
+  });
+
+  it("priorise la région du projet", () => {
+    const groups = buildExpertRecommendations(
+      [
+        expert("near", "plombier", [], ["tunis"]),
+        expert("far", "plombier", [], ["sfax"]),
+      ],
+      { exactTypes: ["plombier"], compatibleTypes: ["plombier"], projectRegion: "tunis" },
+    );
+    expect(groups[0].experts[0].candidate.id).toBe("near");
+    expect(groups[0].experts[0].regionRank).toBe(0);
+  });
+
+  it("départage les ex æquo par la disponibilité", () => {
+    const groups = buildExpertRecommendations(
+      [
+        expert("late", "electricien", [], ["tunis"], { availability: "appointment" }),
+        expert("now", "electricien", [], ["tunis"], { availability: "immediate" }),
+      ],
+      { exactTypes: ["electricien"], compatibleTypes: ["electricien"], projectRegion: "tunis" },
+    );
+    expect(groups[0].experts[0].candidate.id).toBe("now");
+  });
+
+  it("affiche une spécialité complémentaire seulement sans correspondance exacte", () => {
+    // Besoin climatisation : le plombier est proche (famille fluides) → complémentaire.
+    const groups = buildExpertRecommendations(candidates, {
+      exactTypes: ["climatisation"],
+      compatibleTypes: ["climatisation"],
+      projectRegion: "tunis",
+    });
+    const plomberie = groups.find((g) => g.key === "plomberie");
+    expect(plomberie).toBeDefined();
+    expect(plomberie!.experts[0].candidate.id).toBe("p1");
+    expect(plomberie!.experts[0].complementary).toBe(true);
+  });
+
+  it("exclut les experts sans lien avec le besoin", () => {
+    const groups = buildExpertRecommendations(
+      [
+        expert("exact", "plombier", [], ["tunis"]),
+        expert("unrelated", "electricien", [], ["tunis"]),
+      ],
+      { exactTypes: ["plombier"], compatibleTypes: ["plombier"], projectRegion: "tunis" },
+    );
+    const ids = groups.flatMap((g) => g.experts.map((e) => e.candidate.id));
+    expect(ids).toContain("exact");
+    expect(ids).not.toContain("unrelated");
+  });
+
+  it("n'est jamais marqué complémentaire quand la correspondance est exacte", () => {
+    const groups = buildExpertRecommendations(
+      [expert("exact", "plombier", [], ["tunis"])],
+      { exactTypes: ["plombier"], compatibleTypes: ["plombier"], projectRegion: "tunis" },
+    );
+    expect(groups[0].experts[0].exact).toBe(true);
+    expect(groups[0].experts[0].complementary).toBe(false);
+  });
+
+  it("respecte la limite par catégorie", () => {
+    const many = Array.from({ length: 8 }, (_, i) => expert(`p${i}`, "plombier", [], ["tunis"]));
+    const groups = buildExpertRecommendations(many, {
+      exactTypes: ["plombier"],
+      compatibleTypes: ["plombier"],
+      projectRegion: "tunis",
+      limitPerCategory: 3,
+    });
+    expect(groups[0].experts.length).toBe(3);
+  });
+});
+
+describe("Champs affichés des experts", () => {
+  it("libellé de disponibilité (repli « Profil vérifié »)", () => {
+    expect(expertAvailabilityLabel("immediate")).toBe("Disponible immédiatement");
+    expect(expertAvailabilityLabel("this_week")).toBe("Disponible cette semaine");
+    expect(expertAvailabilityLabel("appointment")).toBe("Sur rendez-vous");
+    expect(expertAvailabilityLabel(undefined)).toBe("Profil vérifié");
+  });
+
+  it("un profil complet exige contact + spécialités + régions", () => {
+    expect(
+      isCompleteExpertProfile({
+        displayName: "A",
+        phone: "+216",
+        email: "a@b.tn",
+        specialties: ["plomberie"],
+        regions: ["tunis"],
+      }),
+    ).toBe(true);
+    expect(
+      isCompleteExpertProfile({ displayName: "A", phone: "+216", specialties: [], regions: [] }),
+    ).toBe(false);
   });
 });

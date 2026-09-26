@@ -24,7 +24,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { getFreePlanStatus } from "./access";
+import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 import { SPECIALTY_TO_PROVIDER_TYPE } from "./schema";
 import {
   SUPPLIER_SPECIALTIES_LABELS,
@@ -361,6 +361,118 @@ export function specialtiesToProviderTypes(specialties: string[]): string[] {
   return [...types];
 }
 
+/**
+ * Types de métiers qu'un EXPERT peut couvrir : sa profession officielle
+ * (inverse de `PROVIDER_TYPE_TO_EXPERT_PROFESSION`) + ses spécialités
+ * déclarées, quand elles correspondent à un type connu.
+ */
+export function expertProviderTypes(
+  profession: string | null | undefined,
+  specialties: string[] | null | undefined,
+): string[] {
+  const types = new Set<string>();
+  for (const [ptype, prof] of Object.entries(PROVIDER_TYPE_TO_EXPERT_PROFESSION)) {
+    if (prof === profession) types.add(ptype);
+  }
+  specialtiesToProviderTypes(specialties ?? []).forEach((t) => types.add(t));
+  return [...types];
+}
+
+// ============================================================================
+// 3bis. CATÉGORIES D'EXPERTS — regroupement affiché dans « Prestataires
+//       recommandés par l'IA » (7 catégories normalisées).
+//
+// Chaque expert est classé par sa profession réelle (données du profil,
+// jamais modifiées). « Autre spécialité » est le repli pour toute profession
+// hors des six catégories officielles : aucune fiche n'est inventée.
+// ============================================================================
+
+export interface ExpertCategoryDef {
+  key: string;
+  /** Emoji d'en-tête du groupe. */
+  icon: string;
+  label: string;
+  /** Professions officielles rattachées à la catégorie. */
+  professions: string[];
+}
+
+export const EXPERT_CATEGORIES: ExpertCategoryDef[] = [
+  { key: "architectes", icon: "🏗️", label: "Architectes", professions: ["architecte"] },
+  { key: "ingenieurs", icon: "🏢", label: "Ingénieurs", professions: ["ingenieur"] },
+  { key: "bureaux_etudes", icon: "📐", label: "Bureaux d'études", professions: ["bureau_etudes"] },
+  { key: "electricite", icon: "⚡", label: "Experts électricité", professions: ["electricien"] },
+  { key: "plomberie", icon: "💧", label: "Experts plomberie / CVC", professions: ["plombier"] },
+  { key: "promoteurs", icon: "🏠", label: "Promoteurs immobiliers", professions: ["promoteur_immobilier"] },
+];
+
+export const EXPERT_OTHER_CATEGORY: ExpertCategoryDef = {
+  key: "autre_specialite",
+  icon: "🧰",
+  label: "Autre spécialité",
+  professions: [],
+};
+
+/** Catégorie affichée d'un expert d'après sa profession réelle. */
+export function expertCategoryOf(
+  profession: string | null | undefined,
+): ExpertCategoryDef {
+  return (
+    EXPERT_CATEGORIES.find((c) => c.professions.includes(profession ?? "")) ??
+    EXPERT_OTHER_CATEGORY
+  );
+}
+
+// ============================================================================
+// 3ter. SPÉCIALITÉS COMPLÉMENTAIRES — familles de métiers proches, utilisées
+//       uniquement lorsqu'aucune correspondance exacte n'existe (« Spécialité
+//       complémentaire »). Ex. plomberie ↔ CVC, études structure ↔ architecture.
+// ============================================================================
+
+export const PROVIDER_TYPE_FAMILY: Record<string, string> = {
+  architecte: "etudes",
+  bureau_etudes: "etudes",
+  ingenieur_structure: "etudes",
+  macon: "gros_oeuvre",
+  coffreur: "gros_oeuvre",
+  ferrailleur: "gros_oeuvre",
+  beton_ready: "gros_oeuvre",
+  terrassement: "gros_oeuvre",
+  etancheite: "gros_oeuvre",
+  entreprise_generale: "general",
+  plombier: "fluides",
+  sanitaire: "fluides",
+  climatisation: "fluides",
+  cuisine: "fluides",
+  electricien: "electricite",
+  solaire: "electricite",
+  carreleur: "finitions",
+  peintre: "finitions",
+  platrier: "finitions",
+  marbrier: "finitions",
+  menuisier_bois: "finitions",
+  menuisier_aluminium: "finitions",
+  portes_fenetres: "finitions",
+  vitrier: "finitions",
+  pisciniste: "amenagement",
+  paysagiste: "amenagement",
+  demolition: "amenagement",
+  transporteur: "amenagement",
+  location_engins: "amenagement",
+  promoteur: "promotion",
+};
+
+/** Types de métiers appartenant à une même famille que `types`. */
+export function complementaryTypes(types: string[]): Set<string> {
+  const families = new Set(
+    types.map((t) => PROVIDER_TYPE_FAMILY[t]).filter((f): f is string => !!f),
+  );
+  const out = new Set<string>();
+  for (const [t, fam] of Object.entries(PROVIDER_TYPE_FAMILY)) {
+    if (families.has(fam)) out.add(t);
+  }
+  return out;
+}
+
 // ============================================================================
 // 4. RÉGIONS — priorité projet → voisines → toute la Tunisie
 // ============================================================================
@@ -504,6 +616,180 @@ export function pickRecommendations<T extends RecommendationCandidate>(
 }
 
 // ============================================================================
+// 5bis. SCORING DES EXPERTS — classement par pertinence (catégorie par
+//       catégorie), sans jamais modifier les données du profil :
+//
+//         1. spécialité exacte identifiée par l'IA (besoin détecté dans le
+//            DQE / travaux nécessaires)…… pondération la plus forte ;
+//         2. type de projet compatible ;
+//         3. région du projet (puis voisine, puis Tunisie) ;
+//         4. disponibilité (immédiate > cette semaine > rendez-vous) ;
+//         5. profil actif ET complet (téléphone, e-mail, spécialités, région).
+//
+//       Si aucune correspondance exacte n'existe dans une catégorie, seules
+//       les spécialités proches sont affichées, marquées « Spécialité
+//       complémentaire ». La déduplication par identifiant est stricte.
+// ============================================================================
+
+export interface ExpertCandidate extends RecommendationCandidate {
+  /** Profession officielle du profil (architecte, plombier…). */
+  profession: string;
+  /** Disponibilité déclarée : immediate | this_week | appointment. */
+  availability?: string;
+  /** Profil renseigné de façon complète (contact + spécialités + régions). */
+  complete: boolean;
+}
+
+export interface ScoredExpert<T extends ExpertCandidate> {
+  candidate: T;
+  categoryKey: string;
+  category: ExpertCategoryDef;
+  /** Besoins réellement couverts (libellés de métiers). */
+  matchedNeeds: string[];
+  /** Correspondance exacte avec un besoin identifié. */
+  exact: boolean;
+  /** Correspondance par spécialité proche (aucune exacte dans la catégorie). */
+  complementary: boolean;
+  regionRank: 0 | 1 | 2;
+  score: number;
+}
+
+export interface ExpertGroup<T extends ExpertCandidate> {
+  key: string;
+  icon: string;
+  label: string;
+  experts: ScoredExpert<T>[];
+}
+
+/** Bonus de classement lié à la disponibilité déclarée. */
+const AVAILABILITY_SCORE: Record<string, number> = {
+  immediate: 40,
+  this_week: 30,
+  appointment: 20,
+};
+
+/**
+ * Groupe et classe les experts éligibles par catégorie.
+ *
+ * `exactTypes`    = métiers issus du besoin identifié (DQE / travaux) ;
+ * `compatibleTypes` = métiers attendus pour le type de projet.
+ * Seuls les experts réellement pertinents sont renvoyés (jamais un profil
+ * désactivé : le filtrage d'éligibilité est fait en amont par l'appelant).
+ */
+export function buildExpertRecommendations<T extends ExpertCandidate>(
+  candidates: T[],
+  opts: {
+    exactTypes: string[];
+    compatibleTypes: string[];
+    projectRegion: string | null | undefined;
+    /** Nombre maximum d'experts renvoyés par catégorie. */
+    limitPerCategory?: number;
+  },
+): ExpertGroup<T>[] {
+  const exactSet = new Set(opts.exactTypes);
+  const compatSet = new Set(opts.compatibleTypes);
+  const closeSet = complementaryTypes([...exactSet, ...compatSet]);
+  const limit = Math.max(1, opts.limitPerCategory ?? 6);
+
+  const byCategory = new Map<string, ScoredExpert<T>[]>();
+  const seen = new Set<string>(); // déduplication stricte d'un même expert
+
+  for (const c of candidates) {
+    if (!c?.id || seen.has(c.id)) continue;
+    const types = expertProviderTypes(c.profession, c.specialties);
+    const matchedExact = types.filter((t) => exactSet.has(t));
+    const matchedCompat = types.filter((t) => compatSet.has(t));
+    const matchedClose = types.filter((t) => closeSet.has(t));
+    const exact = matchedExact.length > 0;
+    const compatible = matchedCompat.length > 0;
+    const complementary = !exact && !compatible && matchedClose.length > 0;
+    if (!exact && !compatible && !complementary) continue; // hors besoin réel
+    seen.add(c.id);
+
+    const rank = regionRankFor(c.regions ?? [], opts.projectRegion);
+    const matchedTypes = exact
+      ? matchedExact
+      : compatible
+        ? matchedCompat
+        : matchedClose;
+    const score =
+      (exact ? 1000 : 0) +
+      (compatible ? 300 : 0) +
+      (3 - rank) * 60 +
+      (AVAILABILITY_SCORE[c.availability ?? ""] ?? 0) +
+      (c.complete ? 10 : 0);
+
+    const category = expertCategoryOf(c.profession);
+    const list = byCategory.get(category.key) ?? [];
+    list.push({
+      candidate: c,
+      categoryKey: category.key,
+      category,
+      matchedNeeds: [...new Set(matchedTypes)].map(
+        (t) => PROVIDER_TYPE_LABELS[t] ?? t,
+      ),
+      exact,
+      complementary,
+      regionRank: rank,
+      score,
+    });
+    byCategory.set(category.key, list);
+  }
+
+  const groups: ExpertGroup<T>[] = [];
+  for (const def of [...EXPERT_CATEGORIES, EXPERT_OTHER_CATEGORY]) {
+    const list = byCategory.get(def.key);
+    if (!list || list.length === 0) continue;
+    // Priorité aux correspondances exactes ; à défaut, aux spécialités
+    // complémentaires (jamais les deux mélangées dans la même catégorie).
+    const hasExact = list.some((e) => e.exact);
+    const hasCompatible = list.some((e) => !e.complementary);
+    const visible = hasExact
+      ? list.filter((e) => !e.complementary)
+      : hasCompatible
+        ? list.filter((e) => !e.complementary)
+        : list.filter((e) => e.complementary);
+    visible.sort((a, b) => b.score - a.score || a.candidate.id.localeCompare(b.candidate.id));
+    groups.push({
+      key: def.key,
+      icon: def.icon,
+      label: def.label,
+      experts: visible.slice(0, limit),
+    });
+  }
+  return groups;
+}
+
+/** Un profil expert est « complet » quand les informations clés sont renseignées. */
+export function isCompleteExpertProfile(profile: {
+  displayName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  specialties?: string[];
+  regions?: string[];
+}): boolean {
+  return (
+    !!profile.displayName &&
+    !!profile.phone &&
+    (!!profile.email || !!profile.address) &&
+    (profile.specialties ?? []).length > 0 &&
+    (profile.regions ?? []).length > 0
+  );
+}
+
+const EXPERT_AVAILABILITY_LABELS: Record<string, string> = {
+  immediate: "Disponible immédiatement",
+  this_week: "Disponible cette semaine",
+  appointment: "Sur rendez-vous",
+};
+
+/** Libellé de disponibilité d'un expert (repli : « Profil vérifié »). */
+export function expertAvailabilityLabel(code: string | null | undefined): string {
+  return EXPERT_AVAILABILITY_LABELS[code ?? ""] ?? "Profil vérifié";
+}
+
+// ============================================================================
 // 6. FONCTIONS CONVEX — requête de lecture + génération idempotente
 // ============================================================================
 
@@ -528,13 +814,51 @@ export interface RecommendedProviderView {
   specialties: string[];
   profession?: string;
   availability: string;
+  // ── Champs experts (recommandations calculées en direct) ──────────────────
+  /** Catégorie de regroupement (architectes, plombiers…). */
+  categoryKey?: string;
+  categoryLabel?: string;
+  categoryIcon?: string;
+  /** Clés de spécialités brutes (réutilisées par les dialogues de demande). */
+  specialtyKeys?: string[];
+  /** Prix indicatif saisi par l'expert (texte libre). */
+  indicativePrice?: string;
+  /** Code de disponibilité déclaré : immediate | this_week | appointment. */
+  availabilityCode?: string;
+  /** Créneaux précisés par l'expert. */
+  availabilityDetails?: string;
+  /** L'expert accepte les interventions urgentes. */
+  acceptsUrgent?: boolean;
+  /** Correspondance exacte avec un besoin identifié. */
+  exact?: boolean;
+  /** Correspondance par spécialité proche (aucune exacte dans la catégorie). */
+  complementary?: boolean;
+  /** Description du profil (2 lignes max à l'affichage). */
+  description?: string;
+}
+
+/** Groupe d'experts affiché dans « Prestataires recommandés par l'IA ». */
+export interface ExpertCategoryGroup {
+  key: string;
+  icon: string;
+  label: string;
+  experts: RecommendedProviderView[];
 }
 
 export interface RecommendationsPayload {
   suppliers: RecommendedProviderView[];
   experts: RecommendedProviderView[];
+  /** Experts regroupés par catégorie (recalculés en direct selon le projet). */
+  expertsByCategory: ExpertCategoryGroup[];
   needs: { specialties: string[]; trades: string[] };
   regionLabel: string;
+  /** Contexte du projet transmis automatiquement aux demandes prestataires. */
+  projectContext: {
+    name: string;
+    region?: string;
+    category?: string;
+    surface?: number;
+  };
   generatedAt: number;
 }
 
@@ -703,6 +1027,8 @@ export function needsForProject(
 
 const SUPPLIER_LIMIT_DEFAULT = 6;
 const EXPERT_LIMIT_DEFAULT = 6;
+/** Nombre maximum d'experts affichés par catégorie dans la section IA. */
+const EXPERT_LIMIT_PER_CATEGORY = 6;
 
 /**
  * Génère les recommandations d'un projet — logique partagée par la mutation
@@ -836,11 +1162,109 @@ async function readProjectRecommendations(
   return {
     suppliers,
     experts,
+    // Les experts affichés sont recalculés en direct (voir `buildExpertGroups`),
+    // jamais figés à la date de génération : la catégorie, le besoin et la
+    // région du projet sont toujours reflétés.
+    expertsByCategory: [],
     needs: { specialties: [], trades: [] },
     regionLabel: "",
+    projectContext: { name: "" },
     // 0 = aucune association : la section n'a jamais été générée pour ce projet.
     generatedAt: associations.length > 0 ? Math.max(...associations.map((a: any) => a.createdAt)) : 0,
   };
+}
+
+/**
+ * Experts recommandés du projet, recalculés en direct et regroupés par
+ * catégorie d'après les données réelles des profils (aucune fiche inventée).
+ *
+ * Éligibilité : profil visible + abonnement actif (mêmes règles que annuaires
+ * et recommandations fournisseurs). Priorité : besoin identifié > type de
+ * projet > région > disponibilité > profil complet.
+ */
+async function buildExpertGroups(
+  ctx: any,
+  project: any,
+): Promise<ExpertCategoryGroup[]> {
+  const now = Date.now();
+  const free = await getFreePlanStatus(ctx);
+  const profiles = await ctx.db.query("expertProfiles").collect();
+  // Éligibilité strictement alignée sur l'annuaire ProMarket
+  // (`getActiveExperts`) : visible + abonnement payant actif (ou essai).
+  // Jamais un expert désactivé, non publié ou expiré.
+  const eligible: any[] = [];
+  for (const e of profiles) {
+    if (!e.isVisible) continue;
+    if (await isProfilePaymentActive(ctx, free.expertFree, e, now)) eligible.push(e);
+  }
+
+  const typeSpecialties = projectTypeSpecialties(project?.category);
+  const dqeSpecialties = detectSpecialtiesFromText(dqeTextOf(project));
+  const typeTrades = specialtiesToProviderTypes(typeSpecialties);
+  const dqeTrades = specialtiesToProviderTypes(dqeSpecialties);
+
+  const candidates: (ExpertCandidate & { profile: any })[] = eligible.map((e: any) => ({
+    id: e._id as string,
+    profession: e.profession,
+    specialties: e.specialties ?? [],
+    regions: e.regions ?? [],
+    availability: e.availability,
+    complete: isCompleteExpertProfile(e),
+    profile: e,
+  }));
+
+  const groups = buildExpertRecommendations(candidates, {
+    // Besoin identifié (DQE) prioritaire ; sinon le type de projet porte la
+    // correspondance (« type de projet compatible »).
+    exactTypes: dqeTrades,
+    compatibleTypes: typeTrades,
+    projectRegion: project?.region,
+    limitPerCategory: EXPERT_LIMIT_PER_CATEGORY,
+  });
+
+  const result: ExpertCategoryGroup[] = [];
+  for (const group of groups) {
+    const experts: RecommendedProviderView[] = [];
+    for (const scored of group.experts) {
+      const e = scored.candidate.profile;
+      // Photo : logo du profil, sinon image du compte — sources réelles.
+      const account = e.userId ? await ctx.db.get(e.userId) : null;
+      experts.push({
+        associationId: `live:${e._id}`,
+        type: "expert",
+        profileId: e._id as string,
+        name: e.displayName ?? "Expert",
+        logo:
+          (await resolveLogoUrl(ctx, pickLogoField(e))) ??
+          normalizeLogoValue(account?.image ?? undefined),
+        professionLabel: EXPERT_PROFESSION_LABELS[e.profession] ?? e.profession,
+        profession: e.profession,
+        categoryKey: scored.categoryKey,
+        categoryLabel: scored.category.label,
+        categoryIcon: scored.category.icon,
+        phone: e.phone,
+        email: e.email ?? undefined,
+        address: e.address ?? undefined,
+        website: e.website ?? undefined,
+        regionLabel:
+          (e.regions ?? []).map(regionLabelFor).slice(0, 3).join(", ") || "Tunisie",
+        regionRank: scored.regionRank,
+        matchedNeeds: scored.matchedNeeds,
+        specialties: (e.specialties ?? []).slice(0, 4).map(specialtyLabel),
+        specialtyKeys: e.specialties ?? [],
+        indicativePrice: e.indicativePrice,
+        availability: expertAvailabilityLabel(e.availability),
+        availabilityCode: e.availability,
+        availabilityDetails: e.availabilityDetails,
+        acceptsUrgent: e.acceptsUrgent === true,
+        exact: scored.exact,
+        complementary: scored.complementary,
+        description: e.description,
+      });
+    }
+    result.push({ key: group.key, icon: group.icon, label: group.label, experts });
+  }
+  return result;
 }
 
 /** Query — recommandations actuelles du projet (lecture seule). */
@@ -859,8 +1283,19 @@ export const getForProject = query({
       project.category,
       dqeTextOf(project),
     );
+    // Experts recalculés à chaque lecture : ils suivent automatiquement le type
+    // de projet, le besoin (DQE) et la région — aucune mise à jour manuelle.
+    const expertsByCategory = await buildExpertGroups(ctx, project);
     return {
       ...payload,
+      experts: expertsByCategory.flatMap((g) => g.experts),
+      expertsByCategory,
+      projectContext: {
+        name: project.name,
+        region: project.region ?? undefined,
+        category: project.category ?? undefined,
+        surface: project.surface ?? undefined,
+      },
       needs: {
         // Besoins affichés = spécialités fournisseur uniquement ; les métiers
         // (architecte, bureau d'études…) restent visibles via `trades`.
@@ -1003,10 +1438,20 @@ export const refresh = mutation({
       });
     }
 
-    // 4) Renvoie le payload complet (existants + nouveaux).
+    // 4) Renvoie le payload complet : fournisseurs persistés (existants +
+    //    nouveaux) et experts recalculés en direct par catégorie.
     const payload = await readProjectRecommendations(ctx, args.projectId);
+    const expertsByCategory = await buildExpertGroups(ctx, project);
     return {
       ...payload,
+      experts: expertsByCategory.flatMap((g) => g.experts),
+      expertsByCategory,
+      projectContext: {
+        name: project.name,
+        region: project.region ?? undefined,
+        category: project.category ?? undefined,
+        surface: project.surface ?? undefined,
+      },
       needs: {
         // Idem `getForProject` : jamais de spécialité retirée dans les besoins
         // affichés côté fournisseur (les métiers restent dans `trades`).

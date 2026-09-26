@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { CalendarClock, Check, ChevronDown, Clock, Loader2, Send, Zap, AlertTriangle } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, Clock, Loader2, Send, Wrench, Zap, AlertTriangle } from "lucide-react";
 import {
   CUSTOM_APPOINTMENT_REASON,
   appointmentReasonOptions,
@@ -590,6 +590,137 @@ export function RequestUrgentDialog({ expert, open, onOpenChange, project }: Com
             onClick={handleSubmit}
           >
             {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+            {sending ? "Envoi en cours…" : "Envoyer la demande"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Demande de service ──────────────────────────────────────────────────────
+
+/**
+ * « Demander un service » — même modèle que la demande de devis (table
+ * `expertServiceRequests`, `requestType: "service"`), accessible depuis les
+ * recommandations IA comme depuis l'annuaire. Le contexte du projet est
+ * repris automatiquement, jamais ressaisi.
+ */
+export function RequestServiceDialog({ expert, open, onOpenChange, project }: CommonProps) {
+  const ensureAuth = useAuthGuard();
+  const { user } = useAuth();
+  const createServiceRequest = useMutation(api.expertServiceRequests.create);
+  const [description, setDescription] = useState("");
+  const [phone, setPhone] = useState("");
+  const [region, setRegion] = useState("");
+  const [sending, setSending] = useState(false);
+
+  // Pré-remplissage depuis le compte et le projet à chaque ouverture.
+  useEffect(() => {
+    if (!open) return;
+    setDescription("");
+    setPhone(user?.phone ?? "");
+    setRegion(project?.region ?? "");
+  }, [open, user?.phone, project?.region]);
+
+  const handleSubmit = async () => {
+    if (!expert || !ensureAuth()) return;
+    if (!description.trim()) {
+      toast.error("Décrivez le service souhaité");
+      return;
+    }
+    if (!phone.trim()) {
+      toast.error("Indiquez un numéro de téléphone joignable");
+      return;
+    }
+    setSending(true);
+    try {
+      await createServiceRequest({
+        expertId: expert._id as any,
+        requestType: "service",
+        serviceType: "service",
+        description: description.trim(),
+        projectId: (project?._id as any) || undefined,
+        projectName: project?.name,
+        projectType: project?.category || undefined,
+        surface: project?.surface ?? undefined,
+        region: region || undefined,
+        userPhone: phone.trim(),
+        userEmail: user?.email ?? "",
+        userName: user?.name ?? "",
+      });
+      toast.success("Votre demande de service a été envoyée.", {
+        description: `${expert.displayName} vous répondra dans votre messagerie.`,
+      });
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erreur lors de l'envoi de la demande");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[88vh] overflow-y-auto rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Wrench className="h-4 w-4 text-emerald-600" />
+            Demander un service
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Décrivez la prestation attendue de <b>{expert?.displayName}</b>. Il vous
+            répondra directement dans votre messagerie.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 pt-2">
+          {project?.name && (
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                Projet concerné
+              </p>
+              <p className="text-[11px] font-semibold mt-0.5 truncate">{project.name}</p>
+            </div>
+          )}
+
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground">Service souhaité</label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ex : étude de structure, suivi de chantier, installation électrique…"
+              className="text-xs min-h-[90px] rounded-xl mt-1"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground">Téléphone</label>
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+216 XX XXX XXX"
+                className="h-9 text-xs mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground">Région</label>
+              <Input
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+                placeholder="Ex : Tunis"
+                className="h-9 text-xs mt-1"
+              />
+            </div>
+          </div>
+
+          <Button
+            className="w-full gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700"
+            disabled={sending}
+            onClick={handleSubmit}
+          >
+            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             {sending ? "Envoi en cours…" : "Envoyer la demande"}
           </Button>
         </div>
