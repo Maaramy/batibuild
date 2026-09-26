@@ -7,7 +7,6 @@ import {
   FileText,
   HardHat,
   Home,
-  Layers,
   Menu,
   Moon,
   Sun,
@@ -21,13 +20,7 @@ import {
   ClipboardList,
   Store,
   Table2,
-  ChevronDown,
-  Eye,
   Landmark,
-  Percent,
-  CalendarClock,
-  Gauge,
-  Bot,
 } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
@@ -37,21 +30,12 @@ import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
 import {
   MockImportScreen,
   MockAnalysisScreen,
   MockReportScreen,
   MockInvestProcessPanel,
-  MockInvestmentScreen,
 } from "@/components/LandingMockScreens";
 import { ProjectLifecycleSection } from "@/components/ProjectLifecycle";
 
@@ -192,52 +176,6 @@ const PROJECT_CATEGORIES_DISPLAY = [
   "Résidence touristique", "Local commercial", "Bureau", "Entrepôt", "Projet neuf",
 ];
 
-const INVESTMENT_POINTS = [
-  {
-    icon: Percent,
-    title: "Indicateurs financiers complets",
-    desc: "Rentabilité brute et nette, flux de trésorerie mensuel et annuel, Return on Investment à 1, 5 et 10 ans.",
-    gradient: "from-blue-500/20 to-sky-500/20",
-    iconColor: "text-blue-600 dark:text-blue-400",
-  },
-  {
-    icon: CalendarClock,
-    title: "Récupération du capital",
-    desc: "Nombre d'années et date estimée d'amortissement complet de votre investissement.",
-    gradient: "from-blue-500/20 to-cyan-500/20",
-    iconColor: "text-blue-600 dark:text-blue-400",
-  },
-  {
-    icon: TrendingUp,
-    title: "Prévisions par IA",
-    desc: "Revenus, valeur du bien et gains cumulés à 1, 3, 5 et 10 ans, en tenant compte de l'inflation.",
-    gradient: "from-emerald-500/20 to-teal-500/20",
-    iconColor: "text-emerald-600 dark:text-emerald-400",
-  },
-  {
-    icon: Layers,
-    title: "3 scénarios de simulation",
-    desc: "Optimiste, réaliste et prudent : anticipez chaque cas de figure avant d'investir.",
-    gradient: "from-sky-500/20 to-blue-500/20",
-    iconColor: "text-sky-600 dark:text-sky-400",
-  },
-  {
-    icon: Gauge,
-    title: "Score IA sur 100",
-    desc: "Note pondérée : rentabilité, emplacement, demande, risque, appréciation et liquidité.",
-    gradient: "from-amber-500/20 to-orange-500/20",
-    iconColor: "text-amber-600 dark:text-amber-400",
-  },
-  {
-    icon: Bot,
-    title: "Assistant IA investisseur",
-    desc: "Posez vos questions : rentabilité, meilleures zones d'investissement, risque, financement.",
-    gradient: "from-teal-500/20 to-emerald-500/20",
-    iconColor: "text-teal-600 dark:text-teal-400",
-  },
-];
-
-
 // ============================================================================
 // Components
 // ============================================================================
@@ -294,7 +232,6 @@ function Navbar() {
           {isFeatureEnabled("ai_materials") && <a href="/dashboard/ai-materials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Matériaux IA</a>}
           <a href="/dashboard/guide" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Guide A-Z</a>
           <a href="/dashboard/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Tarifs</a>
-          {isFeatureEnabled("investment_project") && <a href="#investments" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Investissement</a>}
           <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Avis</a>
           <a href="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</a>
         </nav>
@@ -339,7 +276,6 @@ function Navbar() {
             {isFeatureEnabled("ai_materials") && <a href="/dashboard/ai-materials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Assistant Matériaux IA</a>}
             <a href="/dashboard/guide" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Guide Construction A-Z</a>
             <a href="/dashboard/pricing" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Tarifs & abonnements</a>
-            {isFeatureEnabled("investment_project") && <a href="#investments" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Investissement</a>}
             <a href="#testimonials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Avis</a>
             <div className="flex gap-2 pt-2 border-t border-border/50">
               <Button variant="outline" size="sm" className="flex-1" onClick={() => { navigate("/auth"); setMobileOpen(false); }}>Connexion</Button>
@@ -438,60 +374,6 @@ function HeroSection() {
                 l'IA
               </span>.
             </p>
-          </motion.div>
-
-          {/* CTA — reduced to 2 clear actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, duration: 0.5 }}
-            className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3"
-          >
-            <Button
-              size="lg"
-              className="btn-gradient h-12 px-8 text-base gap-2 w-full sm:w-auto text-white border-0"
-              onClick={() => navigate("/auth")}
-            >
-              Commencer un devis gratuit
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-12 px-6 text-base w-full sm:w-auto gap-2"
-              onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
-            >
-              En savoir plus
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="lg" className="h-12 px-6 text-base w-full sm:w-auto gap-2">
-                  <Eye className="h-4 w-4" />
-                  Voir un exemple de résultats
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-72">
-                <DropdownMenuLabel>Exemples de résultats</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/construction/demo")} className="cursor-pointer gap-2">
-                  <HardHat className="h-4 w-4 text-emerald-600" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium">Projet de construction</p>
-                    <p className="text-[10px] text-muted-foreground">Devis détaillé & rapport IA</p>
-                  </div>
-                </DropdownMenuItem>
-                {isFeatureEnabled("investment_project") && (
-                <DropdownMenuItem onClick={() => navigate("/investments/demo")} className="cursor-pointer gap-2">
-                  <Landmark className="h-4 w-4 text-indigo-600" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium">Investissement immobilier</p>
-                    <p className="text-[10px] text-muted-foreground">Rentabilité, ROI & scénarios</p>
-                  </div>
-                </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </motion.div>
 
           {/* Signature hero card — modern glassmorphism dashboard preview */}
@@ -944,36 +826,6 @@ function HowItWorksSection() {
           </div>
         </div>
 
-        {/* CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-3"
-        >
-          <Button
-            size="lg"
-            className="h-12 px-8 text-base gap-2"
-            onClick={() => navigate(
-              mode === "construction" ? "/auth" : "/dashboard/investments"
-            )}
-          >
-            {mode === "construction" ? "Essayer gratuitement" : "Analyser un investissement"}
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            className="h-12 px-8 text-base gap-2"
-            onClick={() => navigate(
-              mode === "construction" ? "/construction/demo" : "/investments/demo"
-            )}
-          >
-            <Eye className="h-4 w-4" />
-            Voir un exemple de résultats
-          </Button>
-        </motion.div>
       </div>
     </section>
   );
@@ -1035,157 +887,6 @@ function FeaturesSection() {
             </motion.div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
-
-/* ── Investment Analysis section ── */
-
-function InvestmentsSection() {
-  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
-  if (!isFeatureEnabled("investment_project")) return null;
-  const navigate = useNavigate();
-  return (
-    <section id="investments" className="relative py-24 lg:py-32 overflow-hidden" data-flag={isFeatureEnabled("investment_project") ? "on" : "off"}>
-      {/* Background decorations */}
-      <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/3 via-transparent to-blue-500/3" />
-      <div className="absolute top-1/4 -right-40 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 -left-40 w-80 h-80 bg-blue-400/5 rounded-full blur-3xl" />
-
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="mx-auto max-w-2xl text-center mb-16"
-        >
-          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/5 px-3 py-1 text-xs font-medium">
-            <Landmark className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-            Module investissement
-            <span className="ml-1 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-blue-600 dark:text-blue-400">Nouveau</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-            Investissez{' '}
-            <span className="gradient-text">sans surprise</span> en Tunisie
-          </h2>
-          <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
-            Comparez 3 scénarios, visualisez votre ROI à 1/5/10 ans, et obtenez un score IA sur 100 avant d'engager votre capital.
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-          {/* Left: feature list */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {INVESTMENT_POINTS.map((point, index) => (
-              <motion.div
-                key={point.title}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: index * 0.07, duration: 0.45 }}
-                className="group flex items-start gap-3 rounded-xl border border-border/40 bg-background/50 backdrop-blur-sm p-4 transition-all duration-300 hover:border-indigo-500/25 hover:shadow-lg hover:shadow-indigo-500/5"
-              >
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${point.gradient} border border-border/30 ${point.iconColor}`}>
-                  <point.icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold mb-1">{point.title}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{point.desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Right: mock dashboard */}
-          <motion.div
-            initial={{ opacity: 0, x: 40, scale: 0.97 }}
-            whileInView={{ opacity: 1, x: 0, scale: 1 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={{ type: "spring", stiffness: 200, damping: 25 }}
-            className="relative"
-          >
-            <div className="absolute -inset-3 bg-gradient-to-br from-indigo-500/10 via-transparent to-blue-500/10 rounded-3xl blur-xl" />
-            <div className="relative overflow-hidden rounded-2xl border-2 border-indigo-200/50 dark:border-indigo-800/30 bg-gradient-to-br from-indigo-50/50 to-blue-50/50 dark:from-indigo-950/20 dark:to-blue-950/20 shadow-xl">
-              {/* Browser chrome */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-border/20 bg-background/80">
-                <div className="flex gap-1.5">
-                  <div className="h-3 w-3 rounded-full bg-red-400" />
-                  <div className="h-3 w-3 rounded-full bg-amber-400" />
-                  <div className="h-3 w-3 rounded-full bg-emerald-400" />
-                </div>
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-[10px] text-muted-foreground">
-                    <Landmark className="h-3 w-3" />
-                    <span>app.batibuild.app / analyse-investissement</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 sm:p-6">
-                <MockInvestmentScreen />
-              </div>
-
-              {/* CTA in mock */}
-              <div className="px-4 sm:px-6 pb-5">
-                <button
-                  onClick={() => navigate("/dashboard/investments")}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-600 px-4 py-2.5 text-xs font-medium text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:brightness-110 transition-all"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Analyser mon investissement
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => navigate("/investments/demo")}
-                  className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-border/30 bg-background/60 px-4 py-2 text-[11px] font-medium text-muted-foreground hover:text-indigo-600 hover:border-indigo-500/40 transition-all"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  Voir un exemple de résultats
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Bottom CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-3"
-        >
-          <Button
-            size="lg"
-            className="h-12 px-8 text-base gap-2 shadow-lg shadow-indigo-500/20 bg-indigo-600 hover:bg-indigo-700 text-white"
-            onClick={() => navigate("/dashboard/investments")}
-          >
-            <Landmark className="h-4 w-4" />
-            Analyser un investissement
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            className="h-12 px-8 text-base"
-            onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
-          >
-            Découvrir les fonctionnalités
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            className="h-12 px-8 text-base gap-2"
-            onClick={() => navigate("/investments/demo")}
-          >
-            <Eye className="h-4 w-4" />
-            Voir un exemple de résultats
-          </Button>
-        </motion.div>
       </div>
     </section>
   );
@@ -1303,14 +1004,7 @@ function CTASection() {
                 onClick={() => navigate("/auth")}
               >
                 <Upload className="h-4 w-4" />
-                Calculer mon devis gratuitement
-              </Button>
-              <Button
-                size="lg"
-                className="h-12 px-8 text-base bg-white/10 text-white hover:bg-white/20 border border-white/20 backdrop-blur-sm"
-                onClick={() => navigate("/construction/demo")}
-              >
-                Voir un exemple de résultat
+                Commencez maintenant
               </Button>
             </div>
           </div>
@@ -1388,7 +1082,6 @@ export default function Landing() {
       <BenefitsSection />
       <HowItWorksSection />
       <FeaturesSection />
-      <InvestmentsSection />
       <TestimonialsSection />
       <CTASection />
       <Footer />
