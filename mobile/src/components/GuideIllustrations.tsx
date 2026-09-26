@@ -38,11 +38,11 @@ import type { AppTheme } from "../theme";
  */
 
 /** Dimensions de conception : l'illustration est mise à l'échelle du téléphone. */
-const VIEW_W = 320;
-const VIEW_H = 240;
+export const VIEW_W = 320;
+export const VIEW_H = 240;
 
 /** Couleurs des illustrations (aucune teinte inventée : palette de la plateforme). */
-type IllusPalette = {
+export type IllusPalette = {
   bg1: string;
   bg2: string;
   panel: string;
@@ -68,7 +68,7 @@ type IllusPalette = {
   amberSoft: string;
 };
 
-const LIGHT: IllusPalette = {
+export const LIGHT: IllusPalette = {
   bg1: "#FFFFFF",
   bg2: "#EFF6F3",
   panel: "#FFFFFF",
@@ -94,7 +94,7 @@ const LIGHT: IllusPalette = {
   amberSoft: "#FDE68A",
 };
 
-const DARK: IllusPalette = {
+export const DARK: IllusPalette = {
   bg1: "#0B1220",
   bg2: "#101A2B",
   panel: "#111A2C",
@@ -130,7 +130,7 @@ export type IllusProps = {
 /* Briques de base                                                     */
 /* ------------------------------------------------------------------ */
 
-function Scene({
+export function Scene({
   width,
   id,
   p,
@@ -175,7 +175,7 @@ function Scene({
 }
 
 /** Boîte de placement d'un texte / d'une icône, en unités de conception. */
-function Box({
+export function Box({
   s,
   x,
   y,
@@ -216,7 +216,7 @@ function Box({
 }
 
 /** Texte des illustrations : taille et épaisseur mises à l'échelle. */
-function Lbl({
+export function Lbl({
   s,
   size = 9,
   color,
@@ -248,7 +248,7 @@ function Lbl({
   );
 }
 
-function Icon({
+export function Icon({
   s,
   size = 14,
   color,
@@ -1202,13 +1202,8 @@ export function IllusProviders({ width, theme }: IllusProps) {
 /* Sélection                                                           */
 /* ------------------------------------------------------------------ */
 
-/** Les 7 illustrations, dans l'ordre imposé du parcours. */
-export const GUIDE_ILLUSTRATIONS = [
-  IllusOvercosts,
-  IllusQuote,
-  IllusMaterials,
-  IllusPhases,
-  IllusInvestment,
-  IllusPrices,
-  IllusProviders,
-] as const;
+// L'ORDRE des illustrations n'est plus défini ici : le parcours de première
+// utilisation (« De l'idée à l'investissement », 6 étapes) assemble ses visuels
+// dans `OnboardingScreen.tsx`, en combinant ces scènes avec celles de
+// `GuidePlans.tsx` (aperçus RÉELS de plans 2D / cotés / 3D). Chaque illustration
+// reste exportée individuellement ci-dessus et réutilisable telle quelle.

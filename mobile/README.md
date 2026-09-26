@@ -7,7 +7,7 @@ une **barre de navigation inférieure FIXE** et un **Guide d'onboarding** natifs
 lancement.
 
 ```
-Première installation :  Splash (≤ 1 s)  →  7 guides (Suivant / Passer)  →  WebView batibuild
+Première installation :  Splash (≤ 1 s)  →  Guide « De l'idée à l'investissement » (6 étapes × 4 s, Passer)  →  WebView batibuild
 Lancements suivants :    Splash (≤ 1 s)  →  WebView batibuild
 ```
 
@@ -20,12 +20,13 @@ Android Native Shell
 │      L'écran de démarrage natif est BLANC et SANS image : le logo sur fond
 │      vert qui s'affichait avant le chargement a été supprimé.
 │
-├── 7 guides de démarrage  (1ʳᵉ installation uniquement)
-│      1. Évitez les surcoûts            5. Investissez sans risque
-│      2. Devis clé en main              6. Suivez l'évolution des prix
-│      3. Choisissez les meilleurs       7. Trouvez les bons prestataires
-│         matériaux
-│      4. Ne perdez plus une seule étape
+├── Guide « De l'idée à l'investissement »  (1ʳᵉ installation uniquement)
+│      1. Coût estimatif                    4. Consultations / Trouver un expert
+│      2. Plans AI  (aperçus réels 2D/3D)   5. Exécution & suivi
+│      3. Choix des matériaux               6. Investissement
+│      Chaque étape : 4 s, avancement automatique, indicateur « n / 6 »,
+│      barre de progression et bouton « Passer ».
+│      Parcours : Idée → Coût → Plans → Matériaux → Experts → Exécution → Investissement
 │
 ├── Header natif  (fond blanc — AUCUN menu de navigation)
 │      Ligne unique : Logo + « batibuild »   Support   Paramètres
@@ -133,14 +134,16 @@ mobile/
 ├── src/
 │   ├── screens/
 │   │   ├── SplashScreen.tsx       # Splash minimal : logo officiel + « Chargement.... »
-│   │   ├── OnboardingScreen.tsx   # Parcours de 7 guides (image + titre + texte) + Passer
+│   │   ├── OnboardingScreen.tsx   # Guide 6 étapes « De l'idée à l'investissement » (4 s/étape, auto + Passer)
 │   │   └── WebViewScreen.tsx      # WebView batibuild (toutes les options)
 │   ├── components/
 │   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : en-tête, guides, erreurs
 │   │   ├── Logo.tsx               # Logo officiel de la plateforme (tuile émeraude + casque blanc)
 │   │   ├── TopNav.tsx             # En-tête natif : logo + nom, Support, Paramètres (aucun menu)
 │   │   ├── BottomNav.tsx          # Barre de navigation inférieure fixe (5 sections)
-│   │   └── GuideIllustrations.tsx # 7 illustrations dédiées (scènes vectorielles SVG)
+│   │   ├── GuideIllustrations.tsx # Illustrations dédiées (scènes vectorielles SVG)
+│   │   ├── GuidePlans.tsx         # Aperçus RÉELS de plans (2D → coté → 3D) de l'étape « Plans AI »
+│   │   └── guidePlans.ts          # Générateur de plans (portage du moteur de la plateforme)
 │   ├── download.ts                # Téléchargements natifs : URL http(s) ET PDF « blob: »
 │   ├── storage.ts                 # onboardingCompleted (AsyncStorage)
 │   ├── theme.ts                   # Jetons Material 3 (clair / sombre) issus de la charte batibuild
@@ -165,8 +168,9 @@ mobile/
 | **Barre de navigation inférieure** | **Barre FIXE en bas de l'écran** (`BottomNav.tsx`) : 5 sections (Profile · **Mes projets** · Home · **Rapport** · Message), icône **lucide 19 pt** + libellé **10,5 pt**, onglets de **largeur égale** (`flex: 1`) donc aucun débordement sur petit ou grand écran. Élément **actif** : icône et libellé en teinte de marque (`brand700`), libellé en gras, **indicateur émeraude** au-dessus de l'icône (emplacement réservé sur tous les onglets → aucun décalage) ; inactifs en gris ; état pressé = légère atténuation. Fond **blanc**, safe area basse gérée (`useSafeAreaInsets`, minimum 6 pt). Rendue **après** la WebView (jamais en position absolue) : elle ne recouvre jamais le contenu. Visible dans tout l'espace connecté — voir `shouldShowBottomNav()` dans `src/config.ts`. |
 | **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild ») à gauche, icônes **Support** et **Paramètres** à droite. **Aucun menu de navigation** (et aucun burger : celui de l'en-tête web est masqué dans l'application). **Appui long sur la marque** (ou sur la barre du bas) → réglages natifs. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
-| **Guides de démarrage** | **7 guides**, un seul parcours (les anciens écrans d'introduction ont été supprimés) : **Évitez les surcoûts · Devis clé en main · Choisissez les meilleurs matériaux · Ne perdez plus une seule étape · Investissez sans risque · Suivez l'évolution des prix · Trouvez les bons prestataires**. Chaque guide = **illustration dédiée** + **titre** + **texte descriptif** + indicateur **« n / 7 »** (pastilles) + bouton **Suivant** (puis **Commencer** au 7ᵉ) + bouton **Passer**. Les illustrations sont des **scènes vectorielles dessinées pour batibuild** (`GuideIllustrations.tsx`, voir la note ci-dessous). Mémorisé via `onboardingCompleted` (AsyncStorage). |
-| **Illustrations des guides** | Aucune image générique, aucun placeholder, aucune icône seule : chaque guide affiche une **scène SVG dédiée** (détection IA sur le plan, convergence import → IA → devis, comparaison Économique / Équilibré / Premium, 10 phases de chantier, ROI 1/5/10 ans + score IA + scénarios, 500+ matériaux et courbe des prix, annuaire vérifié + carte des régions). Elles sont **vectorielles donc nettes sur tous les écrans**, suivent le **thème clair / sombre / système** et n'entraînent **aucun téléchargement**. |
+| **Guide de démarrage** | **6 étapes**, un seul parcours « **De l'idée à l'investissement** » (les anciens écrans d'introduction ont été supprimés) : **1. Coût estimatif · 2. Plans AI · 3. Choix des matériaux · 4. Consultations / Trouver un expert · 5. Exécution & suivi · 6. Investissement**. Chaque étape = **illustration dédiée** + **titre** + **texte descriptif**, reste affichée **4 secondes** puis la suivante apparaît avec un **fondu + glissement** (avancement **automatique**, sans intervention). Indicateur **« n / 6 »**, **barre de progression segmentée** (remplissage de l'étape en cours), **fil du parcours** (Idée → Coût → Plans → Matériaux → Experts → Exécution → Investissement) et bouton **Passer**. Après la 6ᵉ étape, le guide se termine et l'application s'ouvre normalement. Mémorisé via `onboardingCompleted` (AsyncStorage). |
+| **Illustrations des étapes** | Aucune image générique, aucun placeholder, aucune icône seule : chaque étape affiche une **scène SVG dédiée** (détection IA sur le plan, comparaison Économique / Équilibré / Premium, 10 phases de chantier, ROI 1/5/10 ans + score IA + scénarios, annuaire vérifié + carte des régions). Elles sont **vectorielles donc nettes sur tous les écrans**, suivent le **thème clair / sombre / système** et n'entraînent **aucun téléchargement**. |
+| **Aperçus réels de plans (étape « Plans AI »)** | L'étape affiche **le même plan réel**, généré par un **portage du moteur de plans de la plateforme** (`guidePlans.ts` : partition BSP, programme résidentiel R+0 de 150 m², portes, fenêtres — déterministe), sous **trois vues qui s'enchaînent toutes les 1,4 s** : **plan 2D**, **plan coté** (emprise + dimensions de chaque pièce), **vue 3D** (extrusion isométrique). Mise à l'échelle **uniforme** (aucune déformation, aucun débordement) et cadre à coins arrondis **qui coupe tout dépassement**. |
 | **Réinstallation** | Le stockage local est effacé → les guides réapparaissent (comportement attendu). |
 | **Mise à jour** | `onboardingCompleted` est conservé → pas de guides à chaque mise à jour. |
 | **Revoir le guide** | **Appui long** sur la marque de l'en-tête (ou sur la barre de navigation inférieure) → « Voir le guide » (ne supprime aucune donnée). Aucun bouton supplémentaire n'est ajouté à l'écran. |
@@ -288,7 +292,7 @@ Aucun service cloud de compilation n'est utilisé.
 | Contenu de la 1.1.3 | Barre du bas (supprimée en 1.2.0) : libellés **Profile · Projets · Home · ROI · Message** ; l'onglet **ROI** (analyse du retour sur investissement, `/dashboard/investments`) porte l'icône `TrendingUp`, identique à l'action « Return on Investment » de la page Résultats coût de construction. |
 | Contenu de la 1.1.2 | Retour de la barre du bas à sa **capsule flottante** (design précédent) — la refonte « barre plate » est annulée ; icônes 19 pt / libellés 10,5 pt conservés, onglet actif en émeraude de marque. |
 | Contenu de la 1.1.1 | Barre du bas **plus compacte** : icônes fines **19 pt** et libellés **10,5 pt**, hauteur d'onglet réduite (40 pt). |
-| Contenu de la 1.1.0 | Barre affichée **uniquement sur `/dashboard`** ; téléchargement des **PDF générés dans la page** (estimation du coût de construction, matériaux IA) via le pont natif ; guide d'accueil (7 étapes) libellé d'après les noms actuels de la plateforme. |
+| Contenu de la 1.1.0 | Barre affichée **uniquement sur `/dashboard`** ; téléchargement des **PDF générés dans la page** (estimation du coût de construction, matériaux IA) via le pont natif ; guide d'accueil libellé d'après les noms actuels de la plateforme. |
 
 ## 8. Permissions (déclarées)
 

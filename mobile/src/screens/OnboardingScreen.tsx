@@ -1,44 +1,55 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  FlatList,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Logo } from "../components/Logo";
 import { BRAND_NAME } from "../config";
 import {
-  GUIDE_ILLUSTRATIONS,
+  IllusInvestment,
+  IllusMaterials,
+  IllusOvercosts,
+  IllusPhases,
+  IllusProviders,
   type IllusProps,
 } from "../components/GuideIllustrations";
+import { IllusPlanPreview } from "../components/GuidePlans";
 import { COLORS, useAppTheme } from "../theme";
 
 /**
- * PARCOURS DE DÉMARRAGE — 7 GUIDES (application mobile Android uniquement).
+ * GUIDE DE PREMIÈRE UTILISATION — parcours « De l'idée à l'investissement ».
  *
- * Remplace TOUS les anciens écrans d'introduction, guides et présentations :
- * il ne reste qu'un seul parcours, affiché au premier lancement.
+ * Remplace TOUTES les anciennes présentations de démarrage : un seul parcours,
+ * affiché au premier lancement de l'installation (voir `storage.ts` —
+ * `onboardingCompleted`), jamais relancé ensuite.
  *
- * Chaque guide contient :
- *   - une illustration dédiée (voir `GuideIllustrations.tsx`) ;
- *   - un titre ;
- *   - un texte descriptif ;
- *   - l'indicateur de progression « n / 7 » + pastilles ;
- *   - un bouton « Suivant » (puis « Commencer » au 7ᵉ) ;
- *   - un bouton « Passer » toujours accessible.
+ * Les 6 étapes du parcours de la plateforme :
+ *   1. Coût estimatif
+ *   2. Plans AI            (aperçus RÉELS : plan 2D → coté → vue 3D)
+ *   3. Choix des matériaux
+ *   4. Consultations / Trouver un expert
+ *   5. Exécution & suivi
+ *   6. Investissement
  *
- * Aucun appel réseau, aucune image téléchargée : l'affichage est immédiat et
- * identique en mode clair, sombre ou système.
+ * Animation : chaque étape reste affichée 4 secondes, puis la suivante apparaît
+ * avec un fondu + léger glissement. Aucune intervention de l'utilisateur n'est
+ * nécessaire ; après la 6ᵉ étape, le guide se termine et l'application s'ouvre
+ * normalement. Un bouton « Passer » reste disponible à tout moment.
  *
- * PÉRIMÈTRE : mobile uniquement — la plateforme Web, le backend et Convex ne
- * sont pas concernés.
+ * Visuels : illustrations vectorielles de la plateforme (`GuideIllustrations`)
+ * et plans réellement générés (`GuidePlans` + `guidePlans`) — compacts, à
+ * l'échelle uniforme, sans déformation ni débordement sur tous les écrans
+ * Android, en mode clair comme en mode sombre.
+ *
+ * PÉRIMÈTRE : mobile uniquement — la plateforme Web et le backend ne sont pas
+ * concernés.
  */
 
 type Slide = {
@@ -48,50 +59,58 @@ type Slide = {
   Illustration: React.ComponentType<IllusProps>;
 };
 
-/** Les 7 guides, dans l'ordre imposé du parcours. */
+/** Durée d'affichage d'une étape (ms) — imposée par la spécification. */
+const STEP_MS = 4000;
+
+/** Les 6 étapes, dans l'ordre imposé du parcours. */
 const SLIDES: Slide[] = [
   {
-    key: "overcosts",
-    title: "Évitez les surcoûts",
-    text: "L'IA détecte automatiquement les surfaces, les matériaux et les quantités — plus d'oublis, plus de mauvaises surprises en chantier.",
-    Illustration: GUIDE_ILLUSTRATIONS[0],
+    key: "cost",
+    title: "Coût estimatif",
+    text: "Estimez le coût de votre projet.",
+    Illustration: IllusOvercosts,
   },
   {
-    key: "quote",
-    title: "Devis clé en main",
-    text: "Importez une photo, un plan PDF, une image satellite ou un croquis à la main — l'IA fait le reste en quelques minutes.",
-    Illustration: GUIDE_ILLUSTRATIONS[1],
+    key: "plans",
+    title: "Plans AI",
+    text: "Générez et visualisez vos plans architecturaux 2D/3D — des plans réels, produits à partir des données de votre projet.",
+    Illustration: IllusPlanPreview,
   },
   {
     key: "materials",
-    title: "Choisissez les meilleurs matériaux",
-    text: "Comparez 3 options (Économique, Équilibré, Premium) pour chaque poste — l'IA recommande le meilleur rapport qualité/prix.",
-    Illustration: GUIDE_ILLUSTRATIONS[2],
+    title: "Choix des matériaux",
+    text: "Analysez et choisissez les matériaux adaptés à votre projet.",
+    Illustration: IllusMaterials,
   },
   {
-    key: "phases",
-    title: "Ne perdez plus une seule étape",
-    text: "Guide complet de 10 phases : démarches, budget, planning, contrôle de chantier — rien n'est oublié.",
-    Illustration: GUIDE_ILLUSTRATIONS[3],
+    key: "experts",
+    title: "Consultations / Trouver un expert",
+    text: "Trouvez les experts et prestataires adaptés à votre besoin.",
+    Illustration: IllusProviders,
+  },
+  {
+    key: "execution",
+    title: "Exécution & suivi",
+    text: "Suivez les étapes de réalisation de votre projet.",
+    Illustration: IllusPhases,
   },
   {
     key: "investment",
-    title: "Investissez sans risque",
-    text: "Return on Investment à 1/5/10 ans, flux de trésorerie, score IA /100 et 3 scénarios — comparez avant d'engager votre capital.",
-    Illustration: GUIDE_ILLUSTRATIONS[4],
+    title: "Investissement",
+    text: "Analysez les opportunités et indicateurs d'investissement.",
+    Illustration: IllusInvestment,
   },
-  {
-    key: "prices",
-    title: "Suivez l'évolution des prix",
-    text: "Base de 500+ matériaux actualisée en temps réel — anticipez les hausses et optimisez votre timing d'achat.",
-    Illustration: GUIDE_ILLUSTRATIONS[5],
-  },
-  {
-    key: "providers",
-    title: "Trouvez les bons prestataires",
-    text: "Trouvez un expert et un fournisseur près de chez vous : annuaire vérifié d'architectes, ingénieurs et fournisseurs — spécialités, régions et recommandations ciblées.",
-    Illustration: GUIDE_ILLUSTRATIONS[6],
-  },
+];
+
+/** Fil du parcours, affiché en bas de chaque étape (origine + 6 étapes). */
+const JOURNEY: { key: string; label: string }[] = [
+  { key: "idea", label: "Idée" },
+  { key: "cost", label: "Coût" },
+  { key: "plans", label: "Plans" },
+  { key: "materials", label: "Matériaux" },
+  { key: "experts", label: "Experts" },
+  { key: "execution", label: "Exécution" },
+  { key: "investment", label: "Investissement" },
 ];
 
 type Props = {
@@ -103,103 +122,185 @@ export default function OnboardingScreen({ onDone }: Props) {
   const theme = useAppTheme();
   const { width, height } = useWindowDimensions();
   const [index, setIndex] = useState(0);
-  const listRef = useRef<FlatList<Slide>>(null);
 
+  const slide = SLIDES[index];
   const last = index === SLIDES.length - 1;
 
   // L'illustration occupe une part importante de l'écran sans jamais empêcher
-  // la lecture du texte : elle est bornée en hauteur puis ajustée en largeur
-  // (petits écrans, grands écrans, rotation).
-  const illusMaxH = Math.min(Math.max(height * 0.38, 150), 280);
+  // la lecture du texte : bornée en hauteur puis ajustée en largeur (petits et
+  // grands écrans, rotation, encoches).
+  const illusMaxH = Math.min(Math.max(height * 0.34, 138), 248);
   const illusW = Math.min(width - 48, (illusMaxH * 4) / 3);
 
-  const goNext = () => {
-    if (last) {
-      onDone();
-      return;
-    }
-    listRef.current?.scrollToIndex({ index: index + 1, animated: true });
-  };
+  // ── Animation d'entrée de chaque étape (fondu + glissement) ───────────────
+  const enter = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    enter.setValue(0);
+    const anim = Animated.timing(enter, { toValue: 1, duration: 420, useNativeDriver: true });
+    anim.start();
+    return () => anim.stop();
+  }, [index, enter]);
 
-  const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const i = Math.round(e.nativeEvent.contentOffset.x / width);
-    setIndex(Math.max(0, Math.min(SLIDES.length - 1, i)));
-  };
+  // ── Avancement AUTOMATIQUE : 4 s par étape, puis fin du guide ─────────────
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if (index >= SLIDES.length - 1) onDone();
+      else setIndex((i) => i + 1);
+    }, STEP_MS);
+    return () => clearTimeout(id);
+  }, [index, onDone]);
+
+  // Remplissage de la barre de progression de l'étape en cours (4 s).
+  const fill = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    fill.setValue(0);
+    const anim = Animated.timing(fill, {
+      toValue: 1,
+      duration: STEP_MS,
+      useNativeDriver: false,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [index, fill]);
+
+  const goNext = useCallback(() => {
+    if (index >= SLIDES.length - 1) onDone();
+    else setIndex((i) => i + 1);
+  }, [index, onDone]);
+
+  const Illustration = slide.Illustration;
 
   return (
-    <View
-      style={[
-        styles.root,
-        { backgroundColor: theme.surface, paddingTop: insets.top },
-      ]}
-    >
-      {/* En-tête discret : identité batibuild + position dans le parcours. */}
+    <View style={[styles.root, { backgroundColor: theme.surface, paddingTop: insets.top }]}>
+      {/* ── En-tête : identité batibuild + position dans le parcours ── */}
       <View style={styles.topBar}>
         <View style={styles.brandWrap}>
           <Logo size={26} radiusRatio={0.28} />
           <Text style={[styles.brandName, { color: theme.onSurface }]}>{BRAND_NAME}</Text>
         </View>
-        <View
-          style={[
-            styles.stepChip,
-            { backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
-          ]}
-        >
-          <Text style={[styles.stepChipText, { color: theme.primary }]}>
-            {index + 1} / {SLIDES.length}
-          </Text>
+
+        <View style={styles.topRight}>
+          <View
+            style={[
+              styles.stepChip,
+              { backgroundColor: theme.surfaceContainer, borderColor: theme.outlineVariant },
+            ]}
+          >
+            <Text style={[styles.stepChipText, { color: theme.primary }]}>
+              {index + 1} / {SLIDES.length}
+            </Text>
+          </View>
+          <Pressable
+            onPress={onDone}
+            accessibilityRole="button"
+            accessibilityLabel="Passer le guide et ouvrir l'application"
+            hitSlop={10}
+            style={({ pressed }) => [styles.skipTop, pressed && { opacity: 0.55 }]}
+          >
+            <Text style={[styles.skipTopText, { color: theme.onSurfaceVariant }]}>Passer</Text>
+          </Pressable>
         </View>
       </View>
 
-      <FlatList
-        ref={listRef}
-        data={SLIDES}
-        keyExtractor={(s) => s.key}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={onMomentumEnd}
-        initialNumToRender={2}
-        maxToRenderPerBatch={2}
-        windowSize={3}
-        getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-        renderItem={({ item }) => {
-          const Illustration = item.Illustration;
-          return (
-            <View style={{ width }}>
-              {/* Défilement vertical de secours : sur un très petit écran, le
-                  texte reste lisible dans son intégralité. */}
-              <ScrollView
-                contentContainerStyle={styles.slide}
-                showsVerticalScrollIndicator={false}
-              >
-                <View style={styles.illusSlot}>
-                  <Illustration width={illusW} theme={theme} />
-                </View>
-                <Text style={[styles.title, { color: theme.onSurface }]}>{item.title}</Text>
-                <Text style={[styles.text, { color: theme.onSurfaceVariant }]}>{item.text}</Text>
-              </ScrollView>
-            </View>
-          );
-        }}
-      />
-
-      <View
+      {/* ── Étape courante ── */}
+      <Animated.View
         style={[
-          styles.footer,
-          { paddingBottom: Math.max(insets.bottom, 14) },
+          styles.stage,
+          {
+            opacity: enter,
+            transform: [
+              {
+                translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }),
+              },
+            ],
+          },
         ]}
       >
-        <View style={styles.dots}>
+        <ScrollView
+          contentContainerStyle={styles.slide}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.illusSlot}>
+            <Illustration width={illusW} theme={theme} />
+          </View>
+
+          <Text style={[styles.kicker, { color: theme.primary }]}>
+            ÉTAPE {index + 1} SUR {SLIDES.length}
+          </Text>
+          <Text style={[styles.title, { color: theme.onSurface }]}>{slide.title}</Text>
+          <Text style={[styles.text, { color: theme.onSurfaceVariant }]}>{slide.text}</Text>
+        </ScrollView>
+      </Animated.View>
+
+      {/* ── Pied : fil du parcours + progression + actions ── */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+        {/* Fil du parcours : Idée → Coût → Plans → Matériaux → Experts →
+            Exécution → Investissement (l'étape courante est mise en avant). */}
+        <View style={styles.journey}>
+          {JOURNEY.map((step, i) => {
+            const active = step.key === slide.key;
+            // Flèche + pastille dans un même groupe insécable : le retour à la
+            // ligne ne peut jamais laisser une flèche orpheline en fin de ligne.
+            return (
+              <View key={step.key} style={styles.journeyGroup}>
+                {i > 0 && (
+                  <Text style={[styles.journeyArrow, { color: theme.outlineVariant }]}>›</Text>
+                )}
+                <View
+                  style={[
+                    styles.journeyChip,
+                    {
+                      backgroundColor: active ? theme.primaryContainer : theme.surfaceContainer,
+                      borderColor: active ? theme.primary : theme.outlineVariant,
+                    },
+                  ]}
+                >
+                  <Text
+                    numberOfLines={1}
+                    allowFontScaling={false}
+                    style={[
+                      styles.journeyText,
+                      { color: active ? theme.onPrimaryContainer : theme.onSurfaceVariant },
+                      active && styles.journeyTextActive,
+                    ]}
+                  >
+                    {step.label}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Progression : une barre par étape, l'étape courante se remplit en 4 s */}
+        <View style={styles.bars}>
           {SLIDES.map((s, i) => (
             <View
               key={s.key}
               style={[
-                styles.dot,
+                styles.barTrack,
                 { backgroundColor: theme.outlineVariant },
-                i === index && { width: 20, backgroundColor: theme.primary },
+                i === index && { backgroundColor: theme.surfaceContainerHigh },
               ]}
-            />
+            >
+              {i < index && (
+                <View style={[styles.barFill, { width: "100%", backgroundColor: theme.primary }]} />
+              )}
+              {i === index && (
+                <Animated.View
+                  style={[
+                    styles.barFill,
+                    {
+                      backgroundColor: theme.primary,
+                      width: fill.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ["0%", "100%"],
+                      }),
+                    },
+                  ]}
+                />
+              )}
+            </View>
           ))}
         </View>
 
@@ -217,7 +318,7 @@ export default function OnboardingScreen({ onDone }: Props) {
           <Pressable
             onPress={goNext}
             accessibilityRole="button"
-            accessibilityLabel={last ? "Commencer" : "Suivant"}
+            accessibilityLabel={last ? "Commencer" : "Étape suivante"}
             style={({ pressed }) => [
               styles.cta,
               { backgroundColor: theme.primary },
@@ -245,17 +346,24 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 4,
+    paddingBottom: 6,
+    gap: 10,
   },
   brandWrap: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexShrink: 1,
   },
   brandName: {
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 0.2,
+  },
+  topRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   stepChip: {
     paddingHorizontal: 12,
@@ -268,47 +376,98 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.3,
   },
+  skipTop: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  skipTopText: {
+    fontSize: 13.5,
+    fontWeight: "700",
+  },
+  stage: {
+    flex: 1,
+  },
   slide: {
     flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
-    paddingTop: 6,
-    paddingBottom: 8,
+    paddingTop: 4,
+    paddingBottom: 6,
   },
   illusSlot: {
     alignItems: "center",
     justifyContent: "center",
   },
+  kicker: {
+    marginTop: 14,
+    fontSize: 10.5,
+    fontWeight: "800",
+    letterSpacing: 1.1,
+  },
   title: {
-    marginTop: 18,
-    fontSize: 23,
+    marginTop: 6,
+    fontSize: 22,
     fontWeight: "800",
     textAlign: "center",
-    lineHeight: 30,
+    lineHeight: 28,
     letterSpacing: -0.2,
   },
   text: {
-    marginTop: 10,
-    fontSize: 14.5,
+    marginTop: 8,
+    fontSize: 14,
     textAlign: "center",
-    lineHeight: 21,
+    lineHeight: 20,
   },
   footer: {
-    paddingHorizontal: 24,
-    paddingTop: 14,
+    paddingHorizontal: 20,
+    paddingTop: 12,
   },
-  dots: {
+  journey: {
     flexDirection: "row",
-    justifyContent: "center",
+    flexWrap: "wrap",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 16,
+    justifyContent: "center",
+    gap: 4,
+    marginBottom: 12,
   },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  journeyGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  journeyChip: {
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  journeyText: {
+    fontSize: 9,
+    fontWeight: "600",
+    letterSpacing: 0.1,
+  },
+  journeyTextActive: {
+    fontWeight: "800",
+  },
+  journeyArrow: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  bars: {
+    flexDirection: "row",
+    gap: 5,
+    marginBottom: 14,
+  },
+  barTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  barFill: {
+    height: 4,
+    borderRadius: 2,
   },
   actions: {
     flexDirection: "row",
@@ -319,7 +478,7 @@ const styles = StyleSheet.create({
   skip: {
     minHeight: 48,
     justifyContent: "center",
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
   },
   skipText: {
     fontSize: 15,

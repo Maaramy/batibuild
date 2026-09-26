@@ -27,7 +27,8 @@ const SPLASH_MAX_MS = CHANGE_MAX_MS;
  *
  *   Splash (≤ 1 s, « Chargement.... »)
  *        ↓
- *   7 guides (premier lancement uniquement, ou depuis « Voir le guide »)
+ *   Guide « De l'idée à l'investissement » — 6 étapes de 4 s, automatiques
+ *   (premier lancement uniquement, ou depuis « Voir le guide »)
  *        ↓
  *   WebView batibuild (login si aucune session, dashboard sinon)
  *
@@ -67,8 +68,8 @@ export default function App() {
   }, []);
 
   const handleOnboardingDone = useCallback(() => {
-    // Persisté (`onboardingCompleted = true`) : les 7 guides ne réapparaissent
-    // plus aux lancements suivants.
+    // Persisté (`onboardingCompleted = true`) : le guide ne réapparaît plus aux
+    // lancements suivants (ni après une mise à jour de l'application).
     setOnboardingCompleted(true).then(() => setPhase("webview"));
   }, []);
 

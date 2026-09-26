@@ -3,9 +3,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 /**
  * Stockage local PERSISTANT de l'application mobile Android.
  *
- * `onboardingCompleted` mémorise que les 7 guides de démarrage ont été vus : ils
- * ne sont donc affichés qu'au premier lancement de l'installation. La valeur
- * survit aux mises à jour de l'application et est effacée à la réinstallation.
+ * `onboardingCompleted` mémorise que le guide de démarrage « De l'idée à
+ * l'investissement » (6 étapes) a été vu : il n'est donc affiché qu'au premier
+ * lancement de l'installation. La valeur survit aux mises à jour de
+ * l'application et est effacée à la réinstallation.
  *
  * Aucune donnée métier n'est stockée ici : uniquement l'état du guide.
  */
