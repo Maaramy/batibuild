@@ -376,6 +376,24 @@ function HeroSection() {
             </p>
           </motion.div>
 
+          {/* CTA principal — démarrer son affaire */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.38, duration: 0.5 }}
+            className="mt-7 flex flex-wrap items-center justify-center gap-3"
+          >
+            <Button
+              size="lg"
+              className="group h-12 gap-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-6 sm:px-8 text-sm sm:text-base font-semibold text-white shadow-lg shadow-emerald-600/25 transition-all duration-200 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-600/40 active:scale-[0.97]"
+              onClick={() => navigate("/auth")}
+            >
+              <Sparkles className="h-4 w-4" />
+              Commencez votre Affaire
+              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </Button>
+          </motion.div>
+
           {/* Signature hero card — modern glassmorphism dashboard preview */}
           <motion.div
             initial={{ opacity: 0, y: 30, scale: 0.97 }}
