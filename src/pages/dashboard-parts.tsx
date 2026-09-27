@@ -308,12 +308,12 @@ export function InvestmentCard({ analysis }: { analysis: any }) {
 
   return (
     <Card
-      className="group flex h-full cursor-pointer flex-col gap-0 rounded-xl border border-border/40 bg-card/60 p-3 transition-all duration-200 hover:border-indigo-400/40 hover:bg-card hover:shadow-sm active:scale-[0.98]"
+      className="group flex h-full cursor-pointer flex-col gap-0 rounded-xl border border-border/40 bg-card/60 p-3 transition-all duration-200 hover:border-emerald-400/40 hover:bg-card hover:shadow-sm active:scale-[0.98]"
       onClick={open}
     >
       {/* Icône du module + nom + date + menu ⋯ */}
       <div className="flex items-start gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500/15 to-blue-500/10 text-indigo-600 dark:text-indigo-400">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:text-emerald-400">
           <TrendingUp className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
@@ -374,7 +374,7 @@ export function InvestmentCard({ analysis }: { analysis: any }) {
         {entry.isFavorite && (
           <Heart className="h-2.5 w-2.5 shrink-0 fill-red-400 text-red-400" />
         )}
-        <span className="inline-flex items-center gap-1 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 py-0.5 text-[9px] font-medium text-indigo-600 dark:text-indigo-300">
+        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-300">
           {typeLabel}
         </span>
         {regionLabel && (
@@ -421,11 +421,11 @@ export function InvestmentCard({ analysis }: { analysis: any }) {
           <span className="shrink-0 text-[10px] text-muted-foreground">Score IA</span>
           <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-blue-500"
+              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500"
               style={{ width: `${Math.max(0, Math.min(100, entry.score))}%` }}
             />
           </div>
-          <span className="shrink-0 text-[10px] font-bold tabular-nums text-indigo-600 dark:text-indigo-400">
+          <span className="shrink-0 text-[10px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
             {entry.score}/100
           </span>
         </div>
@@ -435,7 +435,7 @@ export function InvestmentCard({ analysis }: { analysis: any }) {
       <div className="mt-auto pt-2.5">
         <Button
           size="sm"
-          className="h-9 w-full gap-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 text-xs text-white shadow-sm shadow-indigo-600/20 hover:from-indigo-500 hover:to-blue-500 active:scale-[0.98]"
+          className="h-9 w-full gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-xs text-white shadow-sm shadow-emerald-600/20 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98]"
           onClick={(e) => { e.stopPropagation(); open(); }}
         >
           <ArrowUpRight className="h-3.5 w-3.5" />
