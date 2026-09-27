@@ -51,9 +51,10 @@ GitHub Actions (ubuntu-latest)
         ↓
 Batibuild-release.apk · Batibuild-release.aab
         ↓
-UN artefact par run : batibuild-release
-(APK release + AAB release, chacun VÉRIFIÉ : taille, ZIP, entrées, signature —
- conservé 1 jour, et seulement si le run ne publie PAS de GitHub Release)
+Upload Nexus 3 (dépôt RAW) : Batibuild-release.apk + Batibuild-release.aab
+(chacun VÉRIFIÉ : taille, ZIP, entrées, signature — un seul upload, hors quota)
+        +
+GitHub Release (si tag `v*` ou `publish_release`) : les 2 mêmes fichiers
 ```
 
 **Déclencher le build :**
@@ -62,10 +63,10 @@ UN artefact par run : batibuild-release
 de `mobile/` change).
 2. Ou manuellement : **GitHub → onglet Actions → « Android — APK & AAB » →
    Run workflow** (choix des ABI et option « forcer prebuild »).
-3. Quand le run est vert (✅), ouvrez-le et téléchargez l'artefact
-   `batibuild-release` dans la section **Artifacts** en bas de page : il
-   contient l'APK release et l'AAB release. Si le run publie une **GitHub
-   Release**, rien n'est dupliqué côté Artifacts : téléchargez depuis la Release.
+3. Quand le run est vert (✅), récupérez les fichiers depuis le **Nexus 3**
+   (dépôt RAW `NEXUS_REPOSITORIES`, chemin `NEXUS_PATH`, par défaut
+   `/batibuild/`). Si le run publie une **GitHub Release**, les 2 mêmes fichiers
+   y sont **aussi** attachés : téléchargez-les depuis l'onglet **Releases**.
 
 Installation sur le téléphone : copiez `Batibuild-release.apk` et ouvrez-le
 (aucun câble, aucun SDK requis).
@@ -92,62 +93,60 @@ Wrapper 9.3.1, 2 ABI (`arm64-v8a,armeabi-v7a`) et compilation C++ limitée à
 2 processus parallèles (`CMAKE_BUILD_PARALLEL_LEVEL=2`) pour tenir dans la RAM
 du runner.
 
-### Quota d'artefacts GitHub — « Artifact storage quota has been hit »
+### Publication des APK/AAB — Nexus 3 (plus d'artefact GitHub)
+
+Historique : le stockage d'artefacts GitHub Actions renvoyait
 
 ```
 Failed to CreateArtifact: Artifact storage quota has been hit.
 Unable to upload any new artifacts. Usage is recalculated every 6-12 hours.
 ```
 
-Cette erreur ne vient **ni du code Android ni de Gradle** : elle vient du
+Cette erreur ne venait **ni du code Android ni de Gradle** : elle venait du
 **stockage des artefacts GitHub Actions**, partagé par tous les runs du dépôt.
-Quand il est saturé, le build réussit mais les APK/AAB ne peuvent plus être
-publiés. Le workflow la traite à la source, sur trois plans :
+Le workflow **n'utilise plus ce stockage du tout** : les APK/AAB sont poussés
+dans le **Nexus 3 Repository Manager** (dépôt RAW) via
+`astertom/nexus-upload-artifact@v1` — aucun quota GitHub n'est consommé.
 
-| Cause | Correction dans `.github/workflows/android.yml` |
+| Élément | Configuration |
 |---|---|
-| Trois uploads séparés par build | **UN seul artefact**, nommé `batibuild-release`, contient l'APK release et l'AAB release — l'APK debug n'est plus produit du tout, aucune copie, un seul téléchargement |
-| Conservation jusqu'à 90 jours | `retention-days` (**1 jour** par défaut, réglable 1–90 au lancement manuel du workflow) |
-| Doublon Release + artefact | Quand une **GitHub Release** est publiée, **aucun** artefact Actions n'est créé : la Release est la copie durable |
-| Anciennes générations accumulées | Job **`cleanup-artifacts`** exécuté *avant* le build : supprime via l'API GitHub les artefacts expirés, ceux plus vieux que la rétention, et les anciennes générations `batibuild` — en conservant toujours **la plus récente** |
-| Besoin de garder un build longtemps | **GitHub Release** : les APK/AAB y sont attachés (stockage distinct, hors quota) — voir la section suivante |
+| Dépôt(s) Nexus | `NEXUS_REPOSITORIES` (variable de dépôt, défaut `raw`) — liste séparée par des virgules |
+| Chemin dans le dépôt RAW | `NEXUS_PATH` (variable de dépôt, défaut `/batibuild/`) |
+| Identifiants | **secrets** `NEXUS_HOST_URL`, `NEXUS_USER`, `NEXUS_TOKEN` — jamais en clair |
+| Fichiers publiés | **`Batibuild-release.apk`** et **`Batibuild-release.aab`** uniquement (jamais l'APK debug, ni `node_modules`, caches Gradle ou logs) |
+| Garde-fou | si Nexus n'est pas configuré **et** qu'aucune GitHub Release n'est publiée, le run **échoue** (jamais de build silencieusement perdu) |
 
-Jamais supprimés par ce nettoyage : sources, code, historique Git, releases
-GitHub, artefacts du run en cours. Jamais publiés non plus : `node_modules`,
-caches Gradle, sorties intermédiaires ou logs — l'upload est précédé d'un
-contrôle qui n'accepte que les 2 fichiers attendus (APK release + AAB release).
+Les 2 fichiers sont d'abord recopiés dans `mobile/artifacts-release/` sur le
+runner — l'action Nexus cherche dans `GITHUB_WORKSPACE` (`directory` est relatif
+à la racine du dépôt) — puis envoyés en **un seul upload**.
 
-> **Si le quota est DÉJÀ saturé**, les fichiers ne peuvent pas être publiés :
-> supprimez les anciens artefacts dans **GitHub → Actions → run → section
-> « Artifacts »** (corbeille), puis relancez le workflow. La suppression libère
-> l'espace de stockage courant ; les runs suivants s'en occupent ensuite tout
-> seuls. Le résumé du run affiche explicitement cette marche à suivre quand la
-> publication échoue pour cette raison.
+> **Si les secrets `NEXUS_*` sont absents**, l'étape Nexus est simplement
+> ignorée. Le job échoue alors en fin de chaîne avec la marche à suivre, sauf
+> s'il publie une **GitHub Release** (voir la section suivante), qui reste une
+> copie durable valide.
 
-Après l'upload, le workflow **confirme la publication** en interrogeant l'API
-GitHub (artefact présent, taille > 0) et affiche l'état du stockage du dépôt :
-un artefact manquant fait échouer le run au lieu de laisser croire que l'APK est
-récupérable.
+Le nettoyage des artefacts GitHub est **conservé** : le job `cleanup-artifacts`
+purge à chaque run les artefacts résiduels laissés par les anciens runs
+(`continue-on-error: true` : il ne bloque jamais le build).
 
 Utilitaires locaux :
 
 ```bash
 npm run android:artifacts:test      # vérifie la politique de nettoyage (hors ligne)
-npm run android:artifacts:cleanup   # supprime les anciens artefacts (GITHUB_TOKEN requis)
-npm run android:artifacts:verify    # confirme la publication de l'artefact du run
+npm run android:artifacts:cleanup   # purge les artefacts GitHub résiduels (GITHUB_TOKEN requis)
 ```
 
-### Publication en GitHub Release — conserver un build durablement (hors quota)
+### Publication en GitHub Release — conserver un build durablement
 
-Le quota d'artefacts est limité et partagé par tout le dépôt : il ne peut pas
-servir d'archive. Les APK/AAB sont donc **aussi attachés à une GitHub Release**,
-dont le stockage est distinct et bien plus large (pas de limite de 90 jours).
+En complément du Nexus 3, les APK/AAB sont **aussi attachés à une GitHub
+Release** (stockage distinct, sans limite de 90 jours) : ce canal est conservé
+tel quel.
 
 | Déclencheur | Résultat |
 |---|---|
 | `git push origin v1.3.2` (tag **`v*`**) | Build complet puis Release **`v1.3.2`** contenant `Batibuild-release.apk` et `Batibuild-release.aab` |
 | *Actions → Run workflow* + **`publish_release`** = true | Release **`v<version>-build<numéro de run>`** marquée *pré-version*, créée sur le commit lancé |
-| `push` sur `main` | Aucune Release — l'artefact du run reste disponible quelques jours |
+| `push` sur `main` | Aucune Release — le build reste disponible dans le **Nexus 3** |
 
 ```bash
 git tag v1.3.2 && git push origin v1.3.2     # build + Release
@@ -161,13 +160,12 @@ Points importants :
   `expo.android.versionCode`, committez, puis créez le tag.
 - Un tag avec suffixe (`v1.3.3-rc1`, `-beta.2`…) produit une **pré-version**,
   jamais proposée comme « dernière version ».
-- La Release est publiée **même si l'upload d'artefact a échoué** (quota plein) :
-  l'artefact n'est alors conservé qu'**1 jour** au lieu de 5, puisque la Release
-  est la copie durable.
+- La Release est publiée **même si l'upload Nexus a échoué** : un APK reste
+  récupérable même si le Nexus est indisponible.
 - **Idempotent** : relancer le workflow sur le même tag met à jour les fichiers
   joints au lieu d'échouer (`release already exists`).
 - Les notes de version contiennent la version, le `versionCode`, les ABI
-  compilées, la commande `adb install` et les **empreintes SHA-256** des trois
+  compilées, la commande `adb install` et les **empreintes SHA-256** des deux
   fichiers ; le **résumé du run** affiche le lien de la Release.
 - Les `paths` du workflow ne s'appliquent pas aux tags : un tag `v*` déclenche
   donc toujours le build.
@@ -436,7 +434,7 @@ partielle, jamais de fichier tronqué publié).
 | **Contrat WebView ↔ natif** | le type `batibuild:unread` est identique des deux côtés, `MessagingBadgeSync` est monté dans `src/main.tsx`, `api.messaging.unreadCount` existe, l'onglet « Message » est présent, **aucun libellé « ROI »** ne subsiste, « Rapport » et « Mes projets » sont bien déclarés |
 | **Assets / icônes** | fichiers de `mobile/assets/` non vides, assets référencés par `app.json` présents, composant `Logo` natif présent |
 | **Icônes lucide** | `FileDown`, `User`, `HardHat`, `LayoutDashboard`, `MessageSquare`, `Headset`, `Settings`, `CloudOff` réellement exportées par la version installée |
-| **Workflow CI** | `.github/workflows/android.yml` : **un seul** artefact par build (`batibuild-release` : APK release + AAB release, jamais l'APK debug), `retention-days: 1`, pas d'artefact dupliqué quand une Release est publiée, nettoyage automatique des anciens artefacts (`artifact-storage.mjs cleanup`), aucun chemin d'upload trop large, actions en **runtime Node 24** |
+| **Workflow CI** | `.github/workflows/android.yml` : **un seul** upload Nexus 3 (`astertom/nexus-upload-artifact@v1` : APK release + AAB release, jamais l'APK debug), identifiants en secrets (`NEXUS_HOST_URL` / `NEXUS_USER` / `NEXUS_TOKEN`), garde-fou « copie durable » (Nexus ou Release), GitHub Release conservée, nettoyage des artefacts GitHub résiduels (`artifact-storage.mjs cleanup`), motif d'upload strict, actions en **runtime Node 24** |
 | **TypeScript** | `tsc --noEmit` du projet mobile (`SKIP_TYPECHECK=1` pour l'ignorer) |
 
 ### Corrections automatiques (avant d'échouer)

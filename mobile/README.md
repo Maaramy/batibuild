@@ -322,31 +322,31 @@ Install deps → prebuild (si android/ absent) → Android SDK du projet
       ↓
 clé debug (assurée) → signingReport → assembleRelease · bundleRelease
       ↓
-Artifact Actions : batibuild-release
-           (APK release + AAB release — conservé 1 jour, et seulement
-            si le run ne publie PAS de Release)
+Upload Nexus 3 (dépôt RAW) : Batibuild-release.apk + Batibuild-release.aab
+           (un seul upload — aucun quota GitHub consommé)
       ↓  (si le run vient d'un tag `v*`)
-GitHub Release v<version> : APK release + AAB release attachés
-           (conservée durablement — hors quota d'artefacts)
+GitHub Release v<version> : les 2 mêmes fichiers attachés
+           (conservée durablement)
 ```
 
 Le **résumé du run** affiche la version réellement compilée (`1.3.2 — versionCode 12`),
-le nom de l'artefact publié, la taille de chaque fichier, les ABI compilées et la
-commande d'installation (`adb install -r Batibuild-release.apk`).
+la destination Nexus (dépôt RAW + chemin), la taille de chaque fichier, les ABI
+compilées et la commande d'installation (`adb install -r Batibuild-release.apk`).
 
-> **Quota d'artefacts** — l'erreur
-> `Failed to CreateArtifact: Artifact storage quota has been hit` vient du
-> stockage GitHub Actions, pas du code : l'APK release et l'AAB release sont
-> publiés dans **un seul artefact** nommé `batibuild-release` (l'APK debug n'est
-> plus produit), conservé **1 jour**, et un job **`cleanup-artifacts`** supprime
-> avant chaque build les anciens artefacts temporaires (jamais les sources, le
-> code ni les releases). Si une Release est publiée, **aucun** artefact Actions
-> n'est créé : téléchargez les fichiers depuis la Release. Si le quota est déjà
-> saturé, supprimez les anciens artefacts dans *Actions → run → Artifacts* puis
-> relancez le workflow.
+> **Publication des APK/AAB (Nexus 3)** — l'erreur
+> `Failed to CreateArtifact: Artifact storage quota has been hit` venait du
+> stockage GitHub Actions, pas du code. Le workflow **ne l'utilise plus** :
+> l'APK release et l'AAB release sont poussés via
+> `astertom/nexus-upload-artifact@v1` vers le **Nexus 3 Repository Manager**
+> (dépôt RAW `NEXUS_REPOSITORIES`, chemin `NEXUS_PATH`, défaut `/batibuild/`).
+> Secrets requis : `NEXUS_HOST_URL`, `NEXUS_USER`, `NEXUS_TOKEN`. Un job
+> **`cleanup-artifacts`** purge en plus les anciens artefacts GitHub résiduels
+> (jamais les sources, le code ni les releases).
 >
-> Pour **conserver un build durablement**, posez un tag `v*` : il est publié en
-> GitHub Release, en dehors de ce quota (voir « Publier une Release » plus bas).
+> Si Nexus n'est pas configuré et qu'aucune Release n'est publiée, le run
+> **échoue** (jamais de build silencieusement perdu). Pour **conserver un build
+> durablement**, posez un tag `v*` : il est publié en GitHub Release (voir
+> « Publier une Release » plus bas).
 
 ### Déclencher
 
@@ -359,24 +359,22 @@ commande d'installation (`adb install -r Batibuild-release.apk`).
 
 ### Récupérer l'APK
 
-Ouvrez le run ✅ → section **Artifacts** en bas de page → téléchargez
-`batibuild-release` (archive contenant `Batibuild-release.apk` et
-`Batibuild-release.aab`) → extrayez `Batibuild-release.apk` → copiez-le sur le
-téléphone et installez-le.
+Ouvrez le run ✅ → le résumé indique le dépôt et le chemin Nexus utilisés →
+récupérez `Batibuild-release.apk` et `Batibuild-release.aab` depuis le **Nexus 3**
+(dépôt RAW `NEXUS_REPOSITORIES`, chemin `NEXUS_PATH`) → copiez
+`Batibuild-release.apk` sur le téléphone et installez-le.
 
-L'artefact reste téléchargeable **1 jour** (rétention configurable au lancement
-manuel via l'entrée `retention_days`) ; les plus anciens sont nettoyés
-automatiquement avant chaque build. Si le run publie une **GitHub Release**,
-aucun artefact Actions n'est créé : téléchargez les fichiers depuis la Release.
+Si le run publie une **GitHub Release**, les 2 mêmes fichiers y sont aussi
+attachés : téléchargez-les depuis l'onglet **Releases**.
 
 > L'APK debug n'est plus généré par le workflow. Pour un build de test local,
 > utilisez `npm run android:debug` (voir la section « Commandes »).
 
 ### Publier une Release (conservation durable) ⭐
 
-Le stockage d'artefacts est limité et partagé : pour garder un build par
-version, attachez-le à une **GitHub Release**, dont le stockage est distinct et
-bien plus large.
+En complément du Nexus 3, un build peut être attaché à une **GitHub Release**
+(stockage distinct, sans limite de 90 jours) — utile pour garder un build par
+version.
 
 ```bash
 git tag v1.3.2 && git push origin v1.3.2
@@ -391,8 +389,8 @@ git tag v1.3.2 && git push origin v1.3.2
 - Le tag **doit** correspondre à `expo.version` de `app.json` : sinon la
   publication est refusée (pas de Release trompeuse).
 - Un tag `v1.3.3-rc1` produit une **pré-version**.
-- La Release est publiée **même si le quota d'artefacts bloque l'upload** de
-  l'artefact du run — c'est justement là qu'elle est utile.
+- La Release est publiée **même si l'upload Nexus a échoué** — un APK reste
+  récupérable dans tous les cas.
 - Relancer le workflow sur le même tag met à jour les fichiers (`--clobber`).
 - Le **résumé du run** affiche le lien de la Release ; les notes de version
   contiennent les **empreintes SHA-256** des deux fichiers.
@@ -437,19 +435,20 @@ n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
   limite la compilation C++ à 2 processus parallèles
   (`CMAKE_BUILD_PARALLEL_LEVEL=2`) : sans cela, les 2 ABI compilées en parallèle
   saturent la RAM et le noyau tue les compilateurs (`Killed`).
-- **Artefacts** : un seul artefact par build (nom unique : version, versionCode,
-  numéro de run), `retention-days` explicite, publication confirmée via l'API
-  GitHub, et nettoyage automatique des anciennes générations avant le build
-  (`mobile/scripts/artifact-storage.mjs`) — le quota de stockage d'artefacts ne
-  peut plus bloquer la publication d'un APK.
+- **Artefacts (Nexus 3)** : un seul upload Nexus par build
+  (`astertom/nexus-upload-artifact@v1`) contenant l'APK release et l'AAB
+  release, vers le dépôt RAW `NEXUS_REPOSITORIES` sous `NEXUS_PATH` — plus
+  aucun artefact GitHub Actions, donc plus aucun quota d'artefacts à craindre.
+  Un job `cleanup-artifacts` purge aussi, avant le build, les artefacts GitHub
+  résiduels (`mobile/scripts/artifact-storage.mjs`).
 - **GitHub Release** : sur un tag `v*` (ou sur demande), les APK/AAB sont
-  attachés à une Release par `mobile/scripts/publish-release.sh` — conservation
-  durable, indépendante du quota d'artefacts. Le job de build porte pour cela la
+  **aussi** attachés à une Release par `mobile/scripts/publish-release.sh` —
+  conservation durable, en plus du Nexus. Le job de build porte pour cela la
   permission `contents: write` ; aucune Release n'est publiée sur un push de
   branche.
 - **Actions Node 24** : `checkout@v5`, `setup-node@v5`, `setup-java@v5`,
-  `cache@v6`, `upload-artifact@v7` (Node 20 a été retiré des runners GitHub) —
-  plus d'avertissement « Node.js 20 actions are deprecated ».
+  `cache@v6`, `astertom/nexus-upload-artifact@v1` (Node 20 a été retiré des
+  runners GitHub) — plus d'avertissement « Node.js 20 actions are deprecated ».
 - **Si un run échoue**, la cause réelle est extraite automatiquement par
   `mobile/scripts/ci-gradle.sh` (section `* What went wrong:`, tâches en échec,
   signatures OOM/disque/CMake) et publiée dans l'étape
