@@ -1,0 +1,1 @@
+import{c as e,L as o,a as r}from"./index-Ch9CPFV7.js";import{j as s}from"./vendor-ui-CIsXZsfk.js";const i=[["path",{d:"M12 6v6h4",key:"135r8i"}],["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}]],l=e("clock-3",i);function m({className:a,...c}){return s.jsx(o,{role:"status","aria-label":"Loading",className:r("size-4 animate-spin",a),...c})}export{l as C,m as S};
