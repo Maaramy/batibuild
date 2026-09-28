@@ -20,12 +20,16 @@
 // ============================================================================
 
 import type jsPDF from "jspdf";
+
+// `brandCore` (et non `branding`) : ce module est aussi compilé dans le bundle
+// Convex pour la facture PDF jointe aux e-mails, où les imports d'assets Vite
+// de `./branding` ne sont pas résolubles.
 import {
   BRAND_LOGO_DATA_URL,
   BRAND_NAME,
   BRAND_RGB,
   BRAND_TAGLINE,
-} from "./branding";
+} from "./brandCore";
 
 /** Couleurs neutres partagées par tous les rapports PDF. */
 export const PDF_COLORS = {

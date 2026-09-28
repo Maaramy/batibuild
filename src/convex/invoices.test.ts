@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { api } from "./_generated/api.js";
@@ -823,5 +823,131 @@ describe("facturation — abonnements Fournisseur et Expert", () => {
     expect(invoices[0].paymentMethod).toBe("bank_transfer");
     expect(invoices[0].status).toBe("paid");
     expect(invoices[0].customerName).toBe("Ing. Sonia Trabelsi");
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * FACTURE PDF JOINTE AUX E-MAILS
+ *
+ * Un abonnement ACTIVÉ et un PAIEMENT CONFIRMÉ expédient la facture au client
+ * en pièce jointe. Le suivi est vérifié ici sur l'historique des e-mails :
+ * chaque envoi porte l'identifiant de la facture enregistrée, c'est-à-dire du
+ * document PDF réellement joint (produit côté serveur).
+ * ------------------------------------------------------------------ */
+
+describe("facturation — facture jointe aux e-mails", () => {
+  let t: ReturnType<typeof convexTest>;
+  let adminId: string;
+
+  beforeEach(async () => {
+    // Les notifications e-mail passent par le scheduler Convex : les tests les
+    // exécutent explicitement avec des minuteries simulées.
+    vi.useFakeTimers();
+    t = convexTest(schema, modules);
+    adminId = await createUser(t, { role: "admin", email: "admin-mail@test.tn" });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Exécute les envois d'e-mails programmés (activation, paiement confirmé). */
+  const flushEmails = () => t.finishAllScheduledFunctions(vi.runAllTimers);
+
+  /** Notifications activées : `createUser` les coupe pour éviter tout envoi. */
+  async function allowEmails(userId: string) {
+    await t.run(async (ctx) => ctx.db.patch(userId as never, { emailNotifications: true }));
+  }
+
+  async function emailRows() {
+    return t.run(async (ctx) => ctx.db.query("emailHistory").collect());
+  }
+
+  async function invoiceRows() {
+    return t.run(async (ctx) => ctx.db.query("invoices").collect());
+  }
+
+  it("joint la facture du forfait activé à l'e-mail d'activation", async () => {
+    const userId = await createUser(t, { name: "Amine Ben Salah", email: "actif@test.tn" });
+    await allowEmails(userId);
+
+    await subscribe(t, userId, { paymentMethod: "d17", amount: 80 });
+    await flushEmails();
+
+    const [invoice] = await invoiceRows();
+    const rows = await emailRows();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].templateKey).toBe("subscription_activated");
+    expect(rows[0].to).toBe("actif@test.tn");
+    // La pièce jointe est la facture RÉELLEMENT enregistrée : le même document
+    // que celui téléchargé depuis « Mes factures ».
+    expect(JSON.parse(rows[0].payloadJson!).invoiceId).toBe(invoice._id);
+    expect(invoice.status).toBe("paid");
+  });
+
+  it("n'envoie la facture qu'à la confirmation du paiement, avec son numéro réel", async () => {
+    const userId = await createUser(t, { email: "attente@test.tn" });
+    await allowEmails(userId);
+
+    // Virement en attente de validation : aucune facture n'est expédiée.
+    await subscribe(t, userId, { paymentMethod: "bank_transfer", amount: 120 });
+    await flushEmails();
+    expect(await emailRows()).toHaveLength(0);
+
+    const sub = await asUser(t, userId).query(api.subscriptions.getMySubscription);
+    await asUser(t, adminId).mutation(api.subscriptions.markReceiptVerified, {
+      subscriptionId: sub!._id,
+      verified: true,
+    });
+    await flushEmails();
+
+    const [invoice] = await invoiceRows();
+    const rows = await emailRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].templateKey).toBe("payment_confirmed");
+
+    const payload = JSON.parse(rows[0].payloadJson!);
+    expect(payload.invoiceId).toBe(invoice._id);
+    // Le numéro affiché dans l'e-mail est celui de la facture jointe — plus
+    // jamais un identifiant technique.
+    expect(payload.vars.numeroFacture).toBe(invoice.invoiceNumber);
+    expect(invoice.invoiceNumber).toBe(formatInvoiceNumber(CURRENT_YEAR, 1));
+  });
+
+  it("joint la facture fournisseur à l'e-mail d'activation du compte", async () => {
+    const userId = await createUser(t, { email: "fourn-mail@test.tn", userRole: "supplier" });
+    await allowEmails(userId);
+    const profileId = await t.run(async (ctx) =>
+      ctx.db.insert("supplierProfiles", {
+        userId: userId as never,
+        companyName: "Med Bâtiment SARL",
+        phone: "+216 20 000 000",
+        email: "contact@medbat.tn",
+        address: "Zone Industrielle, Sousse",
+        specialties: [],
+        regions: [],
+        plan: "none",
+        subscriptionStatus: "pending",
+        paymentMethod: "bank_transfer",
+        paymentAmount: 120,
+        isVisible: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }),
+    );
+
+    await asUser(t, adminId).mutation(api.supplierProfiles.adminApproveSupplierSubscription, {
+      profileId,
+    });
+    await flushEmails();
+
+    const [invoice] = await invoiceRows();
+    const rows = await emailRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].templateKey).toBe("subscription_activated");
+    expect(JSON.parse(rows[0].payloadJson!).invoiceId).toBe(invoice._id);
+    expect(invoice.profileType).toBe("supplier");
+    expect(invoice.status).toBe("paid");
   });
 });

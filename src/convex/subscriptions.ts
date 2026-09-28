@@ -246,7 +246,7 @@ export const createSubscription = mutation({
     // « En attente » tant que le règlement (virement / D17) n'est pas validé,
     // « Payée » dès l'activation immédiate. Aucune facture pour un forfait
     // gratuit (aucun montant réglé) : rien n'est inventé.
-    await issueSubscriptionInvoice(ctx, {
+    const subscriptionInvoice = await issueSubscriptionInvoice(ctx, {
       subscriptionId,
       userId: user._id,
       user,
@@ -293,6 +293,8 @@ export const createSubscription = mutation({
             // Numéro de facture réel (le client le retrouve dans « Mes factures »).
             numeroFacture: await invoiceNumberForSubscription(ctx, subscriptionId),
           },
+          // Facture PDF jointe à l'e-mail d'activation / renouvellement.
+          invoiceId: subscriptionInvoice?._id,
           dedupeKey: `${isRenewal ? "subscription_renewed" : "subscription_activated"}:${user.email}:${subscriptionId}`,
           sendToAdmins: true,
         });
@@ -502,8 +504,9 @@ export const adminApproveSubscription = mutation({
     // ── FACTURE — validation du paiement : la facture passe en « Payée » ──
     // (facture « en attente » créée à la souscription, ou créée maintenant
     // pour un abonnement antérieur au module de facturation).
+    let approvedInvoice: Awaited<ReturnType<typeof issueSubscriptionInvoice>> = null;
     if (targetUser) {
-      await issueSubscriptionInvoice(ctx, {
+      approvedInvoice = await issueSubscriptionInvoice(ctx, {
         subscriptionId: sub._id,
         userId: sub.userId,
         user: targetUser,
@@ -542,6 +545,8 @@ export const adminApproveSubscription = mutation({
           // Numéro de facture réel, disponible dans « Mes factures ».
           numeroFacture: await invoiceNumberForSubscription(ctx, sub._id),
         },
+        // Facture PDF jointe : activation / renouvellement après validation.
+        invoiceId: approvedInvoice?._id,
         dedupeKey: `${isRenewal ? "subscription_renewed" : "subscription_activated"}:${targetUser.email}:${sub._id}`,
         sendToAdmins: true,
       });
@@ -722,8 +727,11 @@ export const markReceiptVerified = mutation({
 
     // ── FACTURE — le statut suit la vérification du reçu de paiement ──
     const receiptUser = await ctx.db.get(sub.userId);
+    // Facture du terme validé : réutilisée plus bas pour joindre le PDF à
+    // l'e-mail « paiement confirmé ».
+    let receiptInvoice: Awaited<ReturnType<typeof issueSubscriptionInvoice>> = null;
     if (args.verified && receiptUser) {
-      await issueSubscriptionInvoice(ctx, {
+      receiptInvoice = await issueSubscriptionInvoice(ctx, {
         subscriptionId: sub._id,
         userId: sub.userId,
         user: receiptUser,
@@ -772,10 +780,12 @@ export const markReceiptVerified = mutation({
             ...splitName(targetUser.name),
             typeAbonnement: planLabel(sub.plan),
             montant: sub.amount ? `${sub.amount} ${sub.currency || "TND"}` : undefined,
-            numeroFacture: `INV-${sub._id}`,
+            numeroFacture: receiptInvoice?.invoiceNumber,
             dateActivation: formatDateFr(sub.startDate),
             dateExpiration: formatDateFr(sub.endDate),
           },
+          // Facture PDF jointe à l'e-mail de confirmation de paiement.
+          invoiceId: receiptInvoice?._id,
           dedupeKey: `payment_confirmed:${targetUser.email}:${sub._id}`,
           sendToAdmins: true,
         });

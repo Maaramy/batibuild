@@ -30,10 +30,19 @@
 // (asset officiel de la plateforme), comme tous les autres rapports PDF.
 // ============================================================================
 
-import jsPDF from "jspdf";
+// Import NOMMÉ (et non l'export par défaut) : ce module est le SEUL de la
+// plateforme à être chargé AUSSI côté serveur, par l'action Node qui joint la
+// facture PDF aux e-mails d'activation et de confirmation de paiement. Sous la
+// condition de résolution `node`, jsPDF est un bundle CommonJS dont l'export
+// par défaut est l'objet du module : `import jsPDF from "jspdf"` y vaut
+// `{ jsPDF, default }`, et `jsPDF.API` n'existe pas. L'export nommé `jsPDF`
+// désigne le constructeur dans les DEUX environnements (navigateur et Node).
+import { jsPDF } from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 
-import { BRAND_NAME, BRAND_RGB, BRAND_TAGLINE } from "./branding";
+// `brandCore` (et non `branding`) : ce module est aussi compilé dans le bundle
+// Convex pour la facture PDF jointe aux e-mails (voir plus bas).
+import { BRAND_NAME, BRAND_RGB, BRAND_TAGLINE } from "./brandCore";
 import { drawReportFooters, drawReportHeader, PDF_COLORS } from "./pdfBranding";
 import {
   DEFAULT_PAYMENT_TERMS,
@@ -414,8 +423,12 @@ export interface DownloadInvoiceOptions {
   onGenerated?: (blob: Blob) => void | Promise<void>;
 }
 
-/** Nom de fichier officiel : `FACT-2026-000001.pdf`. */
-function invoiceFileName(invoiceNumber: string): string {
+/**
+ * Nom de fichier officiel : `FACT-2026-000001.pdf`.
+ * Exporté car la pièce jointe de l'e-mail doit porter EXACTEMENT le même nom
+ * que le fichier téléchargé depuis « Mes factures ».
+ */
+export function invoicePdfFileName(invoiceNumber: string): string {
   return `${sanitize(invoiceNumber) || "facture"}.pdf`;
 }
 
@@ -441,5 +454,5 @@ export function downloadInvoicePdf(
     }
   }
 
-  doc.save(invoiceFileName(invoice.invoiceNumber));
+  doc.save(invoicePdfFileName(invoice.invoiceNumber));
 }

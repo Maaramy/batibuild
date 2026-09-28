@@ -743,6 +743,8 @@ export const adminApproveExpertSubscription = mutation({
           montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : undefined,
           numeroFacture: expertInvoice?.invoiceNumber,
         },
+        // Facture PDF jointe à l'e-mail d'activation du compte expert.
+        invoiceId: expertInvoice?._id,
         dedupeKey: `expert_activated:${to}:${profile._id}`,
         sendToAdmins: true,
       });

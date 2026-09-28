@@ -8,11 +8,9 @@ import { keepSupplierSpecialties } from "../lib/supplierSpecialties";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 import { assertPaymentMethodEnabled } from "./paymentMethodStates";
 import { invoicePeriodEnd } from "../lib/invoiceStatus";
-import type { MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import {
   cancelPendingInvoicesForSubscription,
-  invoiceNumberForSubscription,
   issueProfileRequestInvoice,
   markProfileInvoicePaid,
   profileSubscriptionKey,
@@ -575,6 +573,8 @@ export const adminApproveSupplierSubscription = mutation({
           montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : undefined,
           numeroFacture: supplierInvoice?.invoiceNumber,
         },
+        // Facture PDF jointe à l'e-mail d'activation du compte fournisseur.
+        invoiceId: supplierInvoice?._id,
         dedupeKey: `supplier_activated:${to}:${profile._id}`,
         sendToAdmins: true,
       });
@@ -828,8 +828,13 @@ export const adminVerifySupplierReceipt = mutation({
     });
 
     // Facture : le statut suit la vérification du reçu de paiement.
+    // (réutilisée plus bas pour joindre le PDF à l'e-mail « paiement confirmé »)
+    let supplierReceiptInvoice: Awaited<ReturnType<typeof markProfileInvoicePaid>> = null;
     if (args.verified) {
-      await markProfileInvoicePaid(ctx, supplierInvoiceInput(profile, undefined, Date.now()));
+      supplierReceiptInvoice = await markProfileInvoicePaid(
+        ctx,
+        supplierInvoiceInput(profile, undefined, Date.now()),
+      );
     } else {
       await syncLatestInvoiceForSubscription(
         ctx,
@@ -863,13 +868,12 @@ export const adminVerifySupplierReceipt = mutation({
             nomEntreprise: profile.companyName,
             typeAbonnement: "Fournisseur",
           montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : undefined,
-          numeroFacture: await invoiceNumberForSubscription(
-            ctx,
-            profileSubscriptionKey("supplier", String(profile._id)),
-          ),
+          numeroFacture: supplierReceiptInvoice?.invoiceNumber,
           dateActivation: formatDateFr(profile.subscriptionStartDate),
             dateExpiration: formatDateFr(profile.subscriptionEndDate),
           },
+          // Facture PDF jointe à l'e-mail de confirmation de paiement.
+          invoiceId: supplierReceiptInvoice?._id,
           dedupeKey: `supplier_paid:${to}:${profile._id}`,
           sendToAdmins: true,
         });

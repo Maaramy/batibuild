@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { DEFAULT_TEMPLATES, EMAIL_EVENT_LABELS } from "./emailTemplates";
 import { decryptPassword } from "./emailConfig";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
@@ -135,6 +136,11 @@ export async function scheduleEmailEvent(
     vars: EmailVars;
     dedupeKey?: string;
     sendToAdmins?: boolean;
+    /**
+     * Facture à joindre en PDF (activation d'abonnement, paiement confirmé).
+     * Le PDF est produit côté serveur puis joint à l'e-mail.
+     */
+    invoiceId?: Id<"invoices">;
   },
 ) {
   if (!params.to) return;
@@ -188,6 +194,21 @@ export function renderTokens(text: string, vars: Record<string, string>): string
     };
     return lookup[key] !== undefined ? lookup[key] : m;
   });
+}
+
+/**
+ * Encart « facture jointe » ajouté au corps de l'e-mail lorsqu'un PDF de
+ * facture est joint (activation d'abonnement, paiement confirmé).
+ *
+ * Il est ajouté au moment de l'envoi, et non depuis le modèle : il reste donc
+ * exact même si l'administrateur personnalise le modèle, et il n'apparaît
+ * jamais sur un e-mail sans pièce jointe.
+ * Exporté pour les tests (rendu pur, sans scheduler ni réseau).
+ */
+export function renderInvoiceAttachmentNotice(invoiceNumber?: string | null): string {
+  const number = (invoiceNumber || "").replace(/[^A-Za-z0-9\-/]/g, "").trim();
+  if (!number) return "";
+  return `<p style="margin:18px 0 0;padding:12px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#065f46;font-size:13px;line-height:1.6;">Votre facture <strong>${number}</strong> est jointe à cet e-mail au format PDF (elle reste également téléchargeable depuis votre profil, rubrique «&nbsp;Mes factures&nbsp;»).</p>`;
 }
 
 function buildBrandedHtml(bodyHtml: string, opts: {
@@ -266,6 +287,8 @@ export const processEmailEvent = internalMutation({
     dedupeKey: v.optional(v.string()),
     sendToAdmins: v.optional(v.boolean()),
     force: v.optional(v.boolean()),
+    /** Facture dont le PDF est joint à l'e-mail. */
+    invoiceId: v.optional(v.id("invoices")),
   },
   handler: async (ctx, args) => {
     const vars = (args.vars || {}) as EmailVars;
@@ -280,6 +303,8 @@ export const processEmailEvent = internalMutation({
         vars: args.vars,
         dedupeKey: args.dedupeKey,
         sendToAdmins: args.sendToAdmins,
+        // Conservé pour que « Renvoyer » réexpédie aussi la facture PDF.
+        invoiceId: args.invoiceId,
       });
       await ctx.db.insert("emailHistory", {
         to: args.to,
@@ -375,14 +400,29 @@ export const processEmailEvent = internalMutation({
       heure: vars.heure || "",
     };
 
+    // 4bis. Facture jointe : numéro réel issu de la facture enregistrée.
+    // Le document joint est la source de vérité : le numéro affiché dans
+    // l'e-mail est toujours celui de la facture PDF jointe.
+    let invoiceNumber = vars.numeroFacture || "";
+    if (args.invoiceId) {
+      const invoice = await ctx.db.get(args.invoiceId);
+      if (invoice) {
+        invoiceNumber = invoice.invoiceNumber;
+        resolvedVars.numeroFacture = invoiceNumber;
+      }
+    }
+
     const subject = renderTokens(template.subject, resolvedVars);
-    const bodyHtml = buildBrandedHtml(renderTokens(template.bodyHtml, resolvedVars), {
-      platformName,
-      logoUrl: config.logoUrl || undefined,
-      primaryColor: config.primaryColor || "#7c3aed",
-      accentColor: config.accentColor || "#0ea5e9",
-      signature: config.signature || undefined,
-    }).replace("{{LINK}}", loginLink);
+    const bodyHtml = buildBrandedHtml(
+      renderTokens(template.bodyHtml, resolvedVars) + renderInvoiceAttachmentNotice(invoiceNumber),
+      {
+        platformName,
+        logoUrl: config.logoUrl || undefined,
+        primaryColor: config.primaryColor || "#7c3aed",
+        accentColor: config.accentColor || "#0ea5e9",
+        signature: config.signature || undefined,
+      },
+    ).replace("{{LINK}}", loginLink);
 
     // 5. Admin copy
     let adminCc: string[] = [];
@@ -402,6 +442,8 @@ export const processEmailEvent = internalMutation({
       vars: args.vars,
       dedupeKey: args.dedupeKey,
       sendToAdmins: args.sendToAdmins,
+      // Conservé pour que « Renvoyer » réexpédie aussi la facture PDF.
+      invoiceId: args.invoiceId,
     });
 
     const historyId = await ctx.db.insert("emailHistory", {
@@ -433,6 +475,8 @@ export const processEmailEvent = internalMutation({
       smtpPassword: config.smtpPasswordEnc
         ? decryptPassword(config.smtpPasswordEnc)
         : undefined,
+      // La facture (si l'événement en porte une) est jointe en PDF.
+      invoiceId: args.invoiceId,
     });
 
     return { success: true, status: "pending", historyId };

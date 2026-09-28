@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
@@ -114,6 +114,47 @@ async function allocateInvoiceNumber(
 
   return number;
 }
+
+/* ------------------------------------------------------------------ *
+ * Pièce jointe PDF des e-mails (activation / paiement confirmé)
+ * ------------------------------------------------------------------ */
+
+/**
+ * Facture complète destinée à la génération du PDF joint aux e-mails.
+ *
+ * INTERNE uniquement (`internalQuery`) : elle n'est joignable ni depuis le
+ * navigateur ni avec un identifiant forgé — seul le serveur (l'action Node
+ * d'envoi d'e-mail) peut l'appeler. Les règles d'accès publiques restent
+ * `getMyInvoices` (ses propres factures) et `adminListInvoices` (admin).
+ */
+export const getInvoicePdfData = internalQuery({
+  args: { invoiceId: v.id("invoices") },
+  handler: async (ctx, args) => await ctx.db.get(args.invoiceId),
+});
+
+/**
+ * Enregistre la copie PDF générée côté serveur (`invoices.pdfStorageId`).
+ * Comme `archiveInvoicePdf`, une copie déjà archivée n'est JAMAIS remplacée :
+ * l'historique de facturation reste figé.
+ */
+export const saveInvoicePdf = internalMutation({
+  args: {
+    invoiceId: v.id("invoices"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const invoice = await ctx.db.get(args.invoiceId);
+    if (!invoice) return { success: false, alreadyArchived: false };
+    if (invoice.pdfStorageId) return { success: true, alreadyArchived: true };
+
+    await ctx.db.patch(args.invoiceId, {
+      pdfStorageId: args.storageId,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, alreadyArchived: false };
+  },
+});
 
 /* ------------------------------------------------------------------ *
  * Émission d'une facture

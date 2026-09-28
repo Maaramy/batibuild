@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderTokens } from "./emailNotifications";
+import { renderInvoiceAttachmentNotice, renderTokens } from "./emailNotifications";
 import { DEFAULT_TEMPLATES, EMAIL_EVENT_LABELS } from "./emailTemplates";
 
 // ============================================================================
@@ -139,5 +139,37 @@ describe("modèles ProMarket — demandes reçues", () => {
 
   it("laisse un jeton inconnu tel quel au lieu de vider le modèle", () => {
     expect(renderTokens("Bonjour {{Inconnu}}", VARS)).toBe("Bonjour {{Inconnu}}");
+  });
+});
+
+// ============================================================================
+// Encart « facture jointe »
+//
+// Ajouté au corps de l'e-mail au moment de l'envoi, uniquement lorsqu'une
+// facture PDF est réellement jointe (activation d'abonnement, confirmation de
+// paiement). Il ne dépend donc pas du modèle personnalisable par l'admin.
+// ============================================================================
+
+describe("encart de facture jointe", () => {
+  it("n'apparaît pas quand aucune facture n'est jointe", () => {
+    expect(renderInvoiceAttachmentNotice(undefined)).toBe("");
+    expect(renderInvoiceAttachmentNotice(null)).toBe("");
+    expect(renderInvoiceAttachmentNotice("")).toBe("");
+    expect(renderInvoiceAttachmentNotice("   ")).toBe("");
+  });
+
+  it("affiche le numéro réel de la facture et l'invite à la retrouver dans le profil", () => {
+    const html = renderInvoiceAttachmentNotice("FACT-2026-000042");
+
+    expect(html).toContain("FACT-2026-000042");
+    expect(html.toLowerCase()).toContain("pdf");
+    expect(html).toContain("Mes factures");
+  });
+
+  it("neutralise tout caractère injecté dans le numéro", () => {
+    const html = renderInvoiceAttachmentNotice('FACT-2026-000001<script>alert("x")</script>');
+
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("FACT-2026-000001");
   });
 });

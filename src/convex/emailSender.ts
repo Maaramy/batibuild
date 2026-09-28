@@ -3,6 +3,10 @@
 import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { ActionCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+
+import { buildInvoicePdfAttachment, type InvoicePdfAttachment } from "./invoiceAttachment";
 import nodemailer from "nodemailer";
 import crypto from "node:crypto";
 import dns from "node:dns";
@@ -190,6 +194,8 @@ type DeliverableMailInput = {
   cc?: string[];
   text?: string;
   kind: "auth" | "notification" | "test";
+  /** Pièces jointes (facture PDF des e-mails d'abonnement). */
+  attachments?: { filename: string; content: Buffer }[];
 };
 
 /**
@@ -223,8 +229,55 @@ function buildDeliverableMail(input: DeliverableMailInput) {
     text,
     messageId: makeMessageId(senderEmail),
     headers,
+    attachments:
+      input.attachments && input.attachments.length
+        ? input.attachments.map((file) => ({
+            filename: file.filename,
+            content: file.content,
+            contentType: "application/pdf",
+          }))
+        : undefined,
     ...(dkim ? { dkim } : {}),
   };
+}
+
+/**
+ * Construit la pièce jointe PDF d'une facture pour un envoi d'e-mail.
+ * Best-effort assumé : si le document ne peut pas être produit, l'e-mail part
+ * SANS pièce jointe (le client garde l'accès à sa facture dans la plateforme)
+ * plutôt que d'échouer — un e-mail d'activation ne doit jamais être perdu.
+ */
+async function invoiceAttachmentFor(
+  ctx: ActionCtx,
+  invoiceId: Id<"invoices"> | undefined,
+): Promise<{ attachment?: InvoicePdfAttachment; warning?: string }> {
+  if (!invoiceId) return {};
+
+  try {
+    const invoice = await ctx.runQuery(internal.invoices.getInvoicePdfData, { invoiceId });
+    if (!invoice) return { warning: "Facture introuvable" };
+
+    const attachment = buildInvoicePdfAttachment(invoice);
+
+    // Copie archivée dans l'espace de stockage Convex (facultative : une copie
+    // existante n'est jamais remplacée, et un échec ne bloque pas l'envoi).
+    try {
+      const storageId = await ctx.storage.store(
+        new Blob([new Uint8Array(attachment.content)], { type: "application/pdf" }),
+      );
+      await ctx.runMutation(internal.invoices.saveInvoicePdf, { invoiceId, storageId });
+    } catch (err: any) {
+      console.warn(
+        `[emailSender] copie PDF non archivée pour ${invoice.invoiceNumber} : ${err?.message || err}`,
+      );
+    }
+
+    return { attachment };
+  } catch (err: any) {
+    const message = err?.message || String(err);
+    console.error(`[emailSender] facture PDF non jointe : ${message}`);
+    return { warning: message };
+  }
 }
 
 /**
@@ -246,10 +299,18 @@ export const sendEmailAction = internalAction({
     smtpSecurity: v.optional(v.union(v.literal("ssl"), v.literal("tls"), v.literal("none"))),
     smtpUser: v.optional(v.string()),
     smtpPassword: v.optional(v.string()),
+    /** Facture dont le PDF doit être joint (activation / paiement confirmé). */
+    invoiceId: v.optional(v.id("invoices")),
   },
   handler: async (ctx, args) => {
     let ok = false;
     let error: string | undefined;
+
+    // Facture en pièce jointe (best-effort : jamais bloquant pour l'envoi).
+    const { attachment, warning } = await invoiceAttachmentFor(ctx, args.invoiceId);
+    if (warning) {
+      console.warn(`[emailSender] pièce jointe indisponible : ${warning}`);
+    }
 
     if (args.smtpHost) {
       try {
@@ -269,6 +330,7 @@ export const sendEmailAction = internalAction({
             replyTo: args.replyTo || undefined,
             cc: args.cc,
             kind: "notification",
+            attachments: attachment ? [{ filename: attachment.filename, content: attachment.content }] : undefined,
           }),
         );
         ok = true;
@@ -289,6 +351,10 @@ export const sendEmailAction = internalAction({
           cc: args.cc && args.cc.length ? args.cc : undefined,
           subject: args.subject,
           html: args.html,
+          // Repli VLY : l'API n'accepte que du texte, le PDF part en base64.
+          attachments: attachment
+            ? [{ filename: attachment.filename, content: attachment.base64, encoding: "base64" }]
+            : undefined,
         });
         if (res.success && res.data?.status !== "failed") {
           ok = true;

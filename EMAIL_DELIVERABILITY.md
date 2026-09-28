@@ -140,3 +140,31 @@ Un test d'envoi réel est aussi disponible (**« Tester la configuration SMTP »
    (`rua=`) pour surveiller les tentatives d'usurpation.
 5. **Expéditeur stable** : gardez la même adresse `SMTP_FROM` dans le temps ;
    changer d'identité régulièrement réinitialise la réputation.
+6. **Pièces jointes** : les e-mails d'abonnement portent la facture PDF
+   (`FACT-AAAA-NNNNNN.pdf`, un seul fichier, ~25 Ko) — le format attendu :
+   petit, unique et annoncé dans le corps du message, ce qui n'active aucun
+   filtre anti-spam. Évitez d'ajouter d'autres pièces jointes à ces envois.
+
+---
+
+## 5. Facture PDF jointe aux e-mails d'abonnement
+
+À chaque **activation** (première souscription ou renouvellement) et à chaque
+**confirmation de paiement** (validation d'un virement/D17, vérification d'un
+reçu — Client Pro, Fournisseur et Expert), le client reçoit sa facture en pièce
+jointe PDF :
+
+- le document est généré **côté serveur** par le même module que le
+  téléchargement depuis « Mes factures » (`src/lib/invoicePdf.ts`), à partir de
+  la facture **enregistrée** : mêmes montants, même logo officiel, même numéro ;
+- un encart « Votre facture N° … est jointe à cet e-mail » est ajouté au corps
+  du message ; il n'apparaît que lorsqu'une facture est effectivement jointe ;
+- la copie du PDF est archivée automatiquement (`invoices.pdfStorageId`) ; une
+  facture déjà archivée n'est jamais remplacée ;
+- si le document ne peut pas être produit, l'e-mail part **sans pièce jointe**
+  et l'incident est journalisé côté serveur : une notification d'activation
+  n'est jamais perdue pour autant.
+
+Aucune facture n'est expédiée tant que le paiement n'est pas confirmé (une
+souscription par virement reste « en attente »), et un renouvellement produit
+une **nouvelle** facture jointe sans jamais écraser la précédente.
