@@ -285,9 +285,11 @@ bun run build   # équivaut à : tsc -b && vite build
 ## Pourquoi le heap V8 est plafonné
 
 Le build tourne dans le **même cgroup de 2 Go** que le serveur de dev Vite et
-`convex dev` (≈ 750 Mo à eux deux sur cet environnement). Sans réglage, le pic
-de mémoire du bundling atteint ≈ 1,3 Go, soit un dépassement qui fait terminer
-le build par l'OOM killer :
+`convex dev` (≈ 750 Mo à eux deux sur cet environnement). Sans plafond, V8
+laisse son tas grandir bien au-delà du jeu de données vivant et le pic du
+bundling dépasse la limite : l'OOM killer du cgroup termine alors le processus
+(« Killed », **sans** message de V8 — « JavaScript heap out of memory » serait,
+lui, un abandon de V8) :
 
 ```
 rendering chunks...
@@ -295,20 +297,42 @@ Killed
 ✖ 'tsc -b && vite build' failed
 ```
 
-Le script `build` passe donc par **`scripts/build.sh`**, qui fixe un plafond de
-heap (`--max-old-space-size=800`) pour les deux phases : V8 collecte plus tôt et
-le pic redescend sous la limite sans rien changer à la sortie. Une valeur déjà
-présente dans `NODE_OPTIONS` reste prioritaire.
+Mesuré dans cette sandbox sur la commande exacte que la plateforme exécute
+(`tsc -b && vite build`, les deux phases l'une après l'autre) :
 
-Le plafond est posé dans ce script, et non dans la ligne `build` de
-`package.json`, parce que les plateformes qui recopient la commande de build en
-retirent les préfixes d'environnement : un `export NODE_OPTIONS=… && …` peut
-donc disparaître silencieusement, ce qui laisse le build sans plafond. Pour
-mesurer ou ajuster :
+| | pic du build |
+| --- | --- |
+| sans plafond | ≈ 1 413 Mo → « Killed » |
+| plafonné à 800 Mo | ≈ 1 152 Mo → passe |
+
+Le plafond est donc appliqué à **deux endroits**, parce que la commande de mise
+en production n'est pas celle de `package.json` :
+
+1. **`scripts/build.sh`**, utilisé par `bun run build` (donc aussi par Vercel) :
+   `--max-old-space-size=800` exporté pour les deux phases. Le poser dans la
+   ligne `build` de `package.json` ne suffirait pas : les plateformes qui
+   recopient la commande de build en retirent les préfixes d'environnement.
+2. **`scripts/harden-build-bins.mjs`**, lancé par le `postinstall` : la mise en
+   production est déployée par la plateforme avec la commande du gabarit Vite
+   (`- Running 'tsc -b && vite build' with environment variables …`), qu'elle
+   fournit elle-même et qui ne lit donc jamais `package.json`. Le seul point de
+   contact qui reste est `node_modules/.bin` : le script y remplace les liens
+   `tsc` et `vite` par de petites enveloppes `sh` qui relancent le vrai binaire
+   sous le plafond. `vite` n'est plafonné **que** pour la sous-commande
+   `build` : le serveur de développement (l'aperçu) garde tout son tas.
+
+Pour mesurer ou ajuster (même variable pour les deux mécanismes) :
 
 ```bash
 BB_BUILD_HEAP_MB=900 bun run build
 ```
+
+En dessous de ~700 Mo, V8 abandonne sur « JavaScript heap out of memory » : le
+jeu de données vivant du bundling fait ≈ 650-800 Mo. Si un environnement installe
+les dépendances avec `--ignore-scripts` (donc sans `postinstall`), le plafond
+peut être posé à la main avec `NODE_OPTIONS=--max-old-space-size=800` — à garder
+proche du passage, car cette variable s'applique alors à **tous** les processus
+Node de la sandbox (serveur de dev, tests), pas seulement au build.
 
 ### Périmètre du typecheck frontend
 

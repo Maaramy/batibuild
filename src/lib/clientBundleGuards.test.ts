@@ -10,7 +10,19 @@
 // Ils échouent dès qu'une régression réintroduit le poids supprimé, pour que
 // l'optimisation ne puisse pas se perdre silencieusement.
 // ============================================================================
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -203,6 +215,74 @@ describe("bundle client — poids du build", () => {
     // Le script doit continuer à enchaîner exactement tsc puis vite build.
     expect(script).toMatch(/\btsc -b\b/);
     expect(script).toMatch(/\bvite build\b/);
+
+    // Ce script ne suffit pas : la mise en production est lancée par la
+    // plateforme avec la commande du gabarit Vite, jamais avec celle de
+    // package.json. Le seul point de contact est node_modules/.bin, d'où
+    // l'enveloppe posée par le `postinstall`.
+    expect(
+      pkg.scripts.postinstall,
+      "le postinstall qui plafonne tsc/vite a disparu : le build déployé repart sans plafond",
+    ).toMatch(/scripts\/harden-build-bins\.mjs/);
+    const harden = readFileSync(join(REPO_ROOT, "scripts", "harden-build-bins.mjs"), "utf8");
+    expect(harden, "plafond absent de l'enveloppe des binaires").toMatch(/--max-old-space-size/);
+    expect(harden).toMatch(/typescript\/bin\/tsc/);
+    expect(harden).toMatch(/vite\/bin\/vite\.js/);
+    // `vite` ne doit être plafonné QUE pour `build` : le serveur de dev (donc
+    // l'aperçu) doit garder tout son tas.
+    expect(harden, "la sous-commande build doit être le seul cas plafonné").toMatch(
+      /case "\$1" in/,
+    );
+    expect(harden).toMatch(/buildOnly/);
+  });
+
+  it("l'enveloppe postinstall plafonne tsc (toujours) et vite (build seulement)", () => {
+    // Vérifié pour de vrai sur un faux node_modules : chaque faux binaire
+    // imprime la limite de tas V8 que node lui a donnée, donc le test constate
+    // le plafond au lieu de paraphraser l'enveloppe. Elle doit aussi retrouver
+    // sa cible depuis sa propre position (un node_modules déplacé doit
+    // continuer à marcher) et rester idempotente.
+    const tmp = mkdtempSync(join(tmpdir(), "budgetbati-heap-guard-"));
+    const heapLimitScript = "#!/usr/bin/env node\nconsole.log(Math.round(require('v8').getHeapStatistics().heap_size_limit / 1048576));\n";
+    const heapLimitOf = (...args: string[]) =>
+      Number(execFileSync(join(tmp, "node_modules", ".bin", args.shift() as string), args, {
+        cwd: tmp,
+        encoding: "utf8",
+      }).trim());
+    try {
+      const bin = join(tmp, "node_modules", ".bin");
+      mkdirSync(bin, { recursive: true });
+      mkdirSync(join(tmp, "node_modules", "typescript", "bin"), { recursive: true });
+      mkdirSync(join(tmp, "node_modules", "vite", "bin"), { recursive: true });
+      writeFileSync(join(tmp, "node_modules", "typescript", "bin", "tsc"), heapLimitScript);
+      writeFileSync(join(tmp, "node_modules", "vite", "bin", "vite.js"), heapLimitScript);
+      symlinkSync(join("..", "typescript", "bin", "tsc"), join(bin, "tsc"));
+      symlinkSync(join("..", "vite", "bin", "vite.js"), join(bin, "vite"));
+
+      const harden = join(REPO_ROOT, "scripts", "harden-build-bins.mjs");
+      execFileSync(process.execPath, [harden], { cwd: tmp });
+      const tscWrapper = readFileSync(join(bin, "tsc"), "utf8");
+      const viteWrapper = readFileSync(join(bin, "vite"), "utf8");
+
+      expect(tscWrapper).toMatch(/--max-old-space-size=\d+/);
+      expect(tscWrapper).toContain("../typescript/bin/tsc");
+      expect(viteWrapper).toContain("../vite/bin/vite.js");
+
+      // `tsc -b` : plafonné, quelle que soit la sous-commande.
+      expect(heapLimitOf("tsc", "-b")).toBeLessThan(1200);
+      // `vite build` : plafonné…
+      expect(heapLimitOf("vite", "build")).toBeLessThan(1200);
+      // …mais le serveur de développement (l'aperçu) n'est pas plafonné.
+      expect(heapLimitOf("vite", "--version")).toBeGreaterThan(1500);
+
+      // Idempotence : une seconde exécution n'enveloppe pas l'enveloppe.
+      execFileSync(process.execPath, [harden], { cwd: tmp });
+      expect(readFileSync(join(bin, "tsc"), "utf8")).toBe(tscWrapper);
+      expect(readFileSync(join(bin, "vite"), "utf8")).toBe(viteWrapper);
+      expect(tscWrapper.match(/exec node /g)).toHaveLength(1);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 
   it("chaque accès rapide de projet a une icône déclarée (aucun composant `undefined`)", () => {

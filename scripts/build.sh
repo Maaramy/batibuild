@@ -22,6 +22,12 @@
 # meurt sur « JavaScript heap out of memory » (abort V8), au-dessus V8 conserve
 # des déchets jusqu'à franchir la limite du cgroup. Surchargeable via
 # BB_BUILD_HEAP_MB.
+#
+# Ce script ne couvre QUE `bun run build` : la mise en production est lancée par
+# la plateforme avec la commande du gabarit Vite (`tsc -b && vite build`), qui
+# n'appelle jamais ce fichier. Le même plafond est donc aussi posé sur les
+# binaires eux-mêmes par scripts/harden-build-bins.mjs (postinstall) — mesuré :
+# 1 413 Mo de pic sans plafond, 1 152 Mo avec.
 # ============================================================================
 
 set -eu
