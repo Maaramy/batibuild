@@ -71,6 +71,7 @@ const ShareInvestment = lazy(() => import("./pages/ShareInvestment.tsx"));
 const DemoInvestment = lazy(() => import("./pages/DemoInvestment.tsx"));
 const DemoProject = lazy(() => import("./pages/DemoProject.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"),);
+const OfflineTest = lazy(() => import("./pages/OfflineTest.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -497,6 +498,10 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="/share/investment/:token" element={<ShareInvestment />} />
                 <Route path="/blog" element={<BlogPage />} />
                 <Route path="/blog/:slug" element={<BlogPostPage />} />
+                {/* Page de TEST interne : force `navigator.onLine` et émet les
+                    vrais évènements `offline` / `online` pour vérifier la bannière
+                    réseau affichée dans toute l'application. */}
+                <Route path="/offline-test" element={<OfflineTest />} />
                 <Route path="/terms" element={<LegalPage kind="terms" />} />
                 <Route path="/privacy" element={<LegalPage kind="privacy" />} />
                 <Route path="/admin" element={<AdminLoginPage />} />
