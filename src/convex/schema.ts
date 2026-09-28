@@ -1590,6 +1590,7 @@ const schema = defineSchema(
         v.literal("annonce"),
         v.literal("information"),
         v.literal("news"),
+        v.literal("conseils"),
         v.literal("important"),
         v.literal("urgent"),
         v.literal("maintenance"),

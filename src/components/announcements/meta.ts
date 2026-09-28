@@ -2,6 +2,7 @@ import {
   Megaphone,
   Info,
   Sparkles,
+  Lightbulb,
   AlertTriangle,
   Siren,
   Wrench,
@@ -12,6 +13,7 @@ export type AnnouncementType =
   | "annonce"
   | "information"
   | "news"
+  | "conseils"
   | "important"
   | "urgent"
   | "maintenance";
@@ -52,6 +54,7 @@ export const ANNOUNCEMENT_TYPES = [
   "annonce",
   "information",
   "news",
+  "conseils",
   "important",
   "urgent",
   "maintenance",
@@ -62,6 +65,7 @@ export const TYPE_PRIORITY: Record<AnnouncementType, number> = {
   important: 4,
   annonce: 3,
   news: 3,
+  conseils: 2,
   maintenance: 2,
   information: 1,
 };
@@ -102,6 +106,14 @@ export const ANNOUNCEMENT_TYPE_META: Record<
     badge: "bg-emerald-500/10 text-emerald-600 border-emerald-500/25 dark:text-emerald-400",
     accent: "border-l-emerald-500",
     chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  },
+  conseils: {
+    label: "Conseils",
+    emoji: "💡",
+    icon: Lightbulb,
+    badge: "bg-cyan-500/10 text-cyan-600 border-cyan-500/25 dark:text-cyan-400",
+    accent: "border-l-cyan-500",
+    chip: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
   },
   important: {
     label: "Important",
