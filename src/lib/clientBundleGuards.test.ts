@@ -27,6 +27,16 @@ import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { buildProjectQuickActions } from "./projectQuickActions";
+import {
+  VENDOR_EXTERNAL_SPECIFIERS,
+  VENDOR_FILES,
+  VENDOR_MAPPINGS,
+  resolvePackageFile,
+  vendorExternals,
+  vendorFileContent,
+  vendorFileContents,
+  vendorImportMap,
+} from "../../scripts/vendor-externals-plugin";
 
 const REPO_ROOT = join(__dirname, "..", "..");
 const SRC = join(REPO_ROOT, "src");
@@ -304,4 +314,170 @@ describe("bundle client — poids du build", () => {
     expect(missing, "accès rapides sans icône dans PROJECT_QUICK_ICONS").toEqual([]);
     expect(declared.size).toBeGreaterThanOrEqual(used.length);
   });
+});
+
+describe("bundle client — vendeurs chargés hors bundle", () => {
+  /** Retire commentaires de bloc et de ligne (les fichiers vendeurs sont minifiés). */
+  function withoutComments(code: string): string {
+    return code.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+  }
+
+  /**
+   * Spécificateurs importés par du code (imports statiques ET dynamiques).
+   *
+   * Les fichiers vendeurs sont minifiés : un test ligne à ligne est impossible,
+   * et le motif exige le mot-clé `import` pour ne pas confondre une chaîne de
+   * caractères avec un import. Les commentaires sont retirés : le JSDoc
+   * d'`OrbitControls.js` contient `from 'three/addons/…'`, qui n'est PAS un
+   * import exécuté.
+   */
+  function importedSpecifiers(code: string): string[] {
+    const found = new Set<string>();
+    const re = /\bimport\s*(?:\(\s*)?(?:[^;"'`]*?\bfrom\s*)?["']([^"']+)["']/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(withoutComments(code)))) found.add(m[1]);
+    return [...found];
+  }
+
+  /** Paquet auquel appartient un spécificateur (`three/addons/x` → `three`). */
+  function packageRoot(specifier: string): string {
+    const parts = specifier.split("/");
+    return specifier.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
+  }
+
+  /** Spécificateurs de NOM DE PAQUET (ceux que la carte d'importation doit résoudre). */
+  function bareSpecifiersIn(code: string): string[] {
+    return importedSpecifiers(code).filter(
+      // Relatif, absolu, `node:` ou URL : jamais résolus par la carte du navigateur.
+      (specifier) => !/^[./]/.test(specifier) && !/^[a-z][a-z\d+.-]*:/i.test(specifier),
+    );
+  }
+
+  it("les vendeurs lourds sont marqués externes par le plugin Vite", () => {
+    // Sans ces plugins, `three`, `xlsx`, `jspdf` et `jspdf-autotable` sont
+    // parsés par Rollup : mesuré, cela coûte ~325 Mo de pic mémoire au build
+    // (1 166 Mo → 843 Mo). Le marquage doit rester associé à la carte
+    // d'importation, sinon le navigateur ne pourrait plus résoudre les
+    // spécificateurs laissés dans les chunks.
+    const config = readFileSync(join(REPO_ROOT, "vite.config.ts"), "utf8");
+    expect(config, "plugin d'externalisation absent de vite.config.ts").toMatch(
+      /vendorExternals\(\)/,
+    );
+    expect(config, "injection de la carte d'importation absente").toMatch(
+      /vendorImportMapInjector\(\)/,
+    );
+    // Les entrées de manualChunks devenues sans objet ne doivent pas revenir :
+    // un vendeur externalisé n'est plus un module du graphe.
+    expect(config, "manualChunks citant un vendeur externalisé").not.toMatch(
+      /'(three|xlsx|jspdf)': \['/,
+    );
+
+    const resolveId = vendorExternals().resolveId as unknown as (
+      source: string,
+    ) => { id?: string; external?: boolean } | null;
+    for (const specifier of VENDOR_EXTERNAL_SPECIFIERS) {
+      expect(resolveId(specifier), specifier).toMatchObject({ id: specifier, external: true });
+    }
+    expect(resolveId("react")).toBeNull();
+    expect(resolveId("three-fake")).toBeNull();
+  });
+
+  it("chaque spécificateur d'un paquet externalisé importé par src est déclaré", () => {
+    // Garde-fou principal : dès qu'un paquet est sorti du graphe, TOUS ses
+    // spécificateurs utilisés dans `src` doivent être marqués externes ET avoir
+    // leur entrée dans la carte. Un nouveau spécificateur (ex.
+    // `three/addons/…`) laissé dans le graphe serait sinon ré-analysé par
+    // Rollup (mémoire perdue) ou laissé tel quel dans le chunk (runtime cassé :
+    // « Failed to resolve module specifier »).
+    //
+    // Les paquets surveillés sont DÉDUITS de la table de correspondance : ce
+    // test continue donc de fonctionner quand on ajoute ou retire un vendeur.
+    const packages = new Set(VENDOR_MAPPINGS.map((mapping) => packageRoot(mapping.id)));
+    const covered = new Set(VENDOR_EXTERNAL_SPECIFIERS);
+    const offenders: string[] = [];
+    for (const file of clientSourceFiles()) {
+      // Ce fichier-ci cite forcément des spécificateurs dans ses commentaires.
+      if (isServerOnly(file) || file.endsWith("clientBundleGuards.test.ts")) continue;
+      for (const specifier of importSpecifiers(readFileSync(file, "utf8"))) {
+        if (!packages.has(packageRoot(specifier))) continue;
+        if (!covered.has(specifier)) offenders.push(`${file} → ${specifier}`);
+      }
+    }
+    expect(
+      offenders,
+      "spécificateurs à ajouter à VENDOR_FILES / VENDOR_MAPPINGS (scripts/vendor-externals-plugin.ts)",
+    ).toEqual([]);
+  });
+
+  it("chaque import d'un vendeur émis est résolu par un fichier émis ou par la carte", () => {
+    // LE test central : hors bundle, plus aucun outil ne résout les imports d'un
+    // vendeur — c'est le navigateur qui le fait. Un import relatif sans fichier
+    // émis (404) ou un nom de paquet absent de la carte (« Failed to resolve
+    // module specifier ») casserait une fonctionnalité en production.
+    // C'est ce test qui a révélé la cascade réelle `jspdf` → `fflate` /
+    // `fast-png` → `iobuffer` / `pako` + helpers `@babel/runtime`, au lieu de la
+    // supposer absente.
+    const emitted = new Set(vendorFileContents().map((file) => file.out));
+    const map = vendorImportMap("/");
+    const unresolved: string[] = [];
+    for (const file of vendorFileContents()) {
+      for (const specifier of importedSpecifiers(file.content)) {
+        if (/^[a-z][a-z\d+.-]*:/i.test(specifier)) continue; // URL (`data:`…)
+        if (!specifier.startsWith(".")) {
+          if (!(specifier in map)) unresolved.push(`${file.out} → ${specifier} (absent de la carte)`);
+          continue;
+        }
+        // `join` (et non `resolve`) : les chemins émis sont relatifs à `dist`.
+        const target = join(dirname(file.out), specifier).split("\\").join("/");
+        if (!emitted.has(target)) unresolved.push(`${file.out} → ${specifier} (fichier non émis)`);
+      }
+    }
+    expect(unresolved, "imports de vendeurs non résolus").toEqual([]);
+  });
+
+  it("chaque entrée de la carte pointe vers un fichier réellement émis", () => {
+    const emitted = new Set(vendorFileContents().map((file) => file.out));
+    const map = vendorImportMap("/");
+    for (const mapping of VENDOR_MAPPINGS) {
+      expect(map[mapping.id], mapping.id).toBeTruthy();
+      expect(emitted.has(mapping.to), `${mapping.id} → ${mapping.to} n'est pas émis`).toBe(true);
+    }
+    for (const specifier of VENDOR_EXTERNAL_SPECIFIERS) {
+      expect(specifier in map, specifier).toBe(true);
+    }
+  });
+
+  it("aucun vendeur émis ne dépend de React (pas de seconde instance)", () => {
+    // C'est la condition qui rend l'externalisation sûre : deux instances de
+    // React (ou d'un module partagé) provoquent « Invalid hook call » au
+    // runtime, exactement ce que `resolve.dedupe` empêche dans le bundle.
+    // Un vendeur qui importe React doit donc rester DANS le graphe.
+    const reactLike = (specifier: string) =>
+      specifier === "react" ||
+      specifier === "react-dom" ||
+      specifier.startsWith("react/") ||
+      specifier.startsWith("react-dom/");
+    const offenders: string[] = [];
+    for (const file of vendorFileContents()) {
+      for (const specifier of bareSpecifiersIn(file.content)) {
+        if (reactLike(specifier)) offenders.push(`${file.out} → ${specifier}`);
+      }
+    }
+    expect(offenders, "vendeur externalisé dépendant de React").toEqual([]);
+  });
+
+  it("chaque fichier vendeur déclaré existe et three garde sa structure relative", () => {
+    for (const asset of VENDOR_FILES) {
+      const file = resolvePackageFile(asset.package, asset.file);
+      expect(existsSync(file), `${asset.package}/${asset.file}`).toBe(true);
+      expect(statSync(file).size, asset.out).toBeGreaterThan(0);
+    }
+    // `three.module.min.js` importe `./three.core.min.js` en relatif : les deux
+    // fichiers doivent être émis côte à côte, sous peine d'un 404 au runtime.
+    const three = vendorFileContent("vendor/three/three.module.min.js");
+    expect(three, "three.module.min.js non émis").toBeTruthy();
+    expect(three).toMatch(/from["']\.\/three\.core\.min\.js["']/);
+    expect(vendorFileContent("vendor/three/three.core.min.js")).toBeTruthy();
+  });
+
 });

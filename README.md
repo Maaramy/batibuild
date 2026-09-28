@@ -302,8 +302,16 @@ Mesuré dans cette sandbox sur la commande exacte que la plateforme exécute
 
 | | pic du build |
 | --- | --- |
-| sans plafond | ≈ 1 413 Mo → « Killed » |
-| plafonné à 800 Mo | ≈ 1 152 Mo → passe |
+| sans plafond, avant les optimisations de graphe | ≈ 1 413 Mo → « Killed » |
+| plafonné à 800 Mo, avant les optimisations de graphe | ≈ 1 152 Mo → passe, mais sans marge |
+| plafonné à 800 Mo, **avec** les optimisations de graphe (actuel) | ≈ 900 Mo → passe avec ≈ 350 Mo de marge |
+
+Détail du dernier point, chaque phase mesurée séparément sous le plafond (2026-09-28) :
+
+| étape | pic RSS | durée |
+| --- | --- | --- |
+| `tsc -b` | 882 Mo | ~35 s |
+| `vite build` | 898 Mo | ~25 s |
 
 Le plafond est donc appliqué à **deux endroits**, parce que la commande de mise
 en production n'est pas celle de `package.json` :
@@ -346,15 +354,56 @@ tirait ~250 modules supplémentaires (SDK AI, zod, @auth/core).
 
 ## Ce qui garde le graphe de modules léger
 
-Le pic mémoire du build suit directement la **taille du graphe de modules**.
-Quatre optimisations sont verrouillées par `src/lib/clientBundleGuards.test.ts` :
+Le pic mémoire du build suit les **octets de source que Rollup doit analyser**,
+et les fichiers **minifiés** en coûtent le plus par kilo-octet : un fichier
+minifié contient autant de nœuds d'AST qu'un fichier lisible, mais dans beaucoup
+moins d'octets. Mesuré sur cette sandbox : environ **240 Mo de pic par méga-octet
+de source** pour `xlsx`, environ **145 Mo/Mo** pour `three`. Six optimisations
+sont verrouillées par `src/lib/clientBundleGuards.test.ts` :
 
-| Optimisation | Fichier | Effet |
+| Optimisation | Fichier | Effet mesuré |
 | --- | --- | --- |
+| Vendeurs feuilles **hors du graphe** (`three`, `xlsx`) | `scripts/vendor-externals-plugin.ts` | **−207 Mo** : copiés tels quels dans `dist/vendor/` et résolus par une carte d'importation, ils ne sont plus analysés par Rollup |
+| Plafond d'opérations de fichier Rollup | `vite.config.ts` (`maxParallelFileOps: 4`) | **−30 Mo** pendant l'écriture des chunks |
 | Icônes lucide : alias `lucide-react` → shim | `vite.config.ts` → `src/lib/lucide-shim.js` | évite de parser les ~1 900 modules du barrel (219 icônes utilisées seulement) |
 | Dépendances optionnelles de jsPDF aliasées vers un stub explicite | `vite.config.ts` → `src/lib/pdfHtmlUnsupported.ts` | `html2canvas` / `canvg` / `dompurify` ne servent qu'à `doc.html()`, jamais utilisé (~216 modules morts, dont 206 `core-js`) |
 | Constantes fournisseurs hors du schéma Convex | `src/lib/supplierSpecialties.ts` (réexporté par `src/convex/schema.ts`) | importait sinon tout l'arbre serveur (`@convex-dev/auth/server`) depuis 6 fichiers client |
 | Routes en `React.lazy` | `src/main.tsx` | garde `three`, `xlsx`, `jspdf`, `recharts` hors du chunk d'entrée |
+
+### Vendeurs servis hors bundle (carte d'importation)
+
+`three` (vue de plan 3D) et `xlsx` (export/import Excel de l'administration) sont
+**marqués externes** : Rollup conserve `import … from "three"` dans les chunks au
+lieu de charger et d'analyser le paquet, et la plateforme de build n'a donc plus
+ces 2,9 Mo de source à parser. Les fichiers officiels minifiés sont recopiés dans
+`dist/vendor/` et une **carte d'importation** (`<script type="importmap">`,
+injectée en tête de `<head>`, donc avant tout script `type="module"`) indique au
+navigateur où les trouver. Le chargement reste **différé** : `three` n'est
+téléchargé que lorsque l'utilisateur ouvre la vue 3D, `xlsx` que lorsqu'il lance
+un export ou un import Excel.
+
+Pourquoi seulement ces deux-là, alors que `jspdf` (−118 Mo) et `recharts`
+(−156 Mo) coûtent plus cher encore ?
+
+- **`jspdf`** a été essayé et **abandonné** : un vendeur hors bundle ne peut plus
+  compter sur Rollup pour résoudre ses propres imports, et sa cascade
+  (`fflate`, `fast-png` → `iobuffer` + `pako`, plus deux helpers
+  `@babel/runtime`) utilise des imports **relatifs sans extension** — convention
+  de bundler, invalide dans un navigateur. L'externaliser exigerait de réécrire
+  du code tiers au moment de la copie, pour un gain dont le build n'a plus
+  besoin ;
+- **`recharts`** et **`framer-motion`** dépendent de React : une seconde instance
+  casserait les hooks au runtime (même raison que `resolve.dedupe` dans
+  `vite.config.ts`).
+
+Le test « chaque import d'un vendeur émis est résolu par un fichier émis ou par
+la carte » échoue si l'un de ces cas est introduit : c'est lui qui a révélé la
+cascade de `jspdf` décrite ci-dessus, au lieu de la supposer absente.
+
+**Si un vendeur est mis à jour** et que ses fichiers changent de nom, les tests
+de `clientBundleGuards.test.ts` échouent (fichier source absent, entrée de carte
+sans cible émise, import non résolu) — le build casse AVANT la production, jamais
+en silence dans le navigateur.
 
 ⚠️ Si `doc.html()` devient nécessaire un jour, il faut retirer les alias
 `html2canvas` / `canvg` / `dompurify` de `vite.config.ts` : le stub lève une

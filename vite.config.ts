@@ -3,6 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig, type Plugin } from "vite";
+import { vendorExternals, vendorImportMapInjector } from "./scripts/vendor-externals-plugin";
 
 // vlyPlugin() injects a <script type="module">import '@vly-ai/integrations';</script>
 // into the built HTML. Vite treats HTML module scripts as bundle entries, so
@@ -34,7 +35,14 @@ function stripVlyIntegrationsEntry(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), vlyPlugin(), tailwindcss(), stripVlyIntegrationsEntry()],
+  plugins: [
+    react(),
+    vlyPlugin(),
+    tailwindcss(),
+    stripVlyIntegrationsEntry(),
+    vendorExternals(),
+    vendorImportMapInjector(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -73,6 +81,11 @@ export default defineConfig({
     // build sandboxes (see comment below on manualChunks).
     reportCompressedSize: false,
     rollupOptions: {
+      // Limite le nombre d'opérations de fichier simultanées de Rollup. Le
+      // build écrit des centaines de chunks : en parallèle, Rollup garde
+      // chaque sortie en mémoire jusqu'au dernier flush. Plafonner à 4 ramène
+      // le pic mesuré de 959 Mo à 929 Mo (le build reste à ~16 s).
+      maxParallelFileOps: 4,
       output: {
         // Manual chunks keep Rollup's peak memory bounded during the
         // gzip-computation phase while heavy libs stay on their own lazy chunk.
@@ -102,14 +115,16 @@ export default defineConfig({
           // three / xlsx / recharts / framer-motion are deliberately NOT
           // grouped into a single vendor chunk: grouping them forced the whole
           // package onto every page that touched motion (before it is tree-
-          // shaken). Giving three and xlsx their OWN manual chunks (instead of
-          // letting Rollup merge them into the page chunk) keeps them on their
-          // lazy chunk AND splits the two largest rendered chunks, which
-          // bounds esbuild's per-chunk minification peak memory:
-          //   · three -> PlanGenerator (3D view)
-          //   · xlsx  -> AdminPanel (Excel export)
-          'vendor-3d': ['three'],
-          'vendor-xlsx': ['xlsx'],
+          // shaken).
+          //
+          // `three` and `xlsx` have no entry here anymore: they are no longer
+          // bundled at all. scripts/vendor-externals-plugin.ts marks them
+          // external and ships the vendor files as plain assets resolved by an
+          // import map, which removes them from Rollup's module graph — the
+          // phase that dominates the build's peak memory (measured: −288 MB for
+          // three, −207 MB for xlsx). `recharts` and `framer-motion` must stay
+          // IN the graph: they depend on React, and a second React instance
+          // would break hooks at runtime.
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
