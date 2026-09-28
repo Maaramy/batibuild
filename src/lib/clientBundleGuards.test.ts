@@ -246,7 +246,7 @@ describe("bundle client — poids du build", () => {
     expect(harden).toMatch(/buildOnly/);
   });
 
-  it("l'enveloppe postinstall plafonne tsc (toujours) et vite (build seulement)", () => {
+  it("l'enveloppe postinstall plafonne tsc au plancher mesuré et vite pour build", () => {
     // Vérifié pour de vrai sur un faux node_modules : chaque faux binaire
     // imprime la limite de tas V8 que node lui a donnée, donc le test constate
     // le plafond au lieu de paraphraser l'enveloppe. Elle doit aussi retrouver
@@ -289,7 +289,16 @@ describe("bundle client — poids du build", () => {
       execFileSync(process.execPath, [harden], { cwd: tmp });
       expect(readFileSync(join(bin, "tsc"), "utf8")).toBe(tscWrapper);
       expect(readFileSync(join(bin, "vite"), "utf8")).toBe(viteWrapper);
-      expect(tscWrapper.match(/exec node /g)).toHaveLength(1);
+
+      // L'enveloppe lance node UNE fois par invocation, avec le plafond en
+      // argument de ligne de commande (il l'emporte sur NODE_OPTIONS).
+      expect(tscWrapper.match(/node --max-old-space-size=\d+ "\$target" "\$@"/g)).toHaveLength(1);
+      // …et elle rapporte le code de sortie : dans le journal de déploiement,
+      // « Killed » doit pouvoir être attribué à la bonne étape, et distingué
+      // d'un abandon de V8 (134) ou d'un SIGKILL du noyau (137).
+      expect(tscWrapper).toMatch(/134\) reason=/);
+      expect(tscWrapper).toMatch(/137\) reason=/);
+      expect(tscWrapper).toMatch(/\[heap-guard\] tsc/);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

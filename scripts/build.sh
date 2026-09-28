@@ -17,22 +17,21 @@
 # peut pas être « nettoyé » : il s'applique quelle que soit la façon dont la
 # commande a été transmise.
 #
-# Valeur : 800 Mo pour les DEUX phases. Mesuré dans cette sandbox, `tsc` comme
-# Rollup ont un jeu de données vivant de 650 à 800 Mo : en dessous le build
-# meurt sur « JavaScript heap out of memory » (abort V8), au-dessus V8 conserve
-# des déchets jusqu'à franchir la limite du cgroup. Surchargeable via
+# Valeur : 752 Mo, le PLANCHER mesuré de `tsc` (736 Mo → abandon de V8,
+# 744 Mo → OK à 856 Mo de RSS). Au-dessus, V8 conserve des déchets jusqu'à
+# franchir la limite du cgroup ; en dessous, il abandonne. Surchargeable via
 # BB_BUILD_HEAP_MB.
 #
 # Ce script ne couvre QUE `bun run build` : la mise en production est lancée par
 # la plateforme avec la commande du gabarit Vite (`tsc -b && vite build`), qui
-# n'appelle jamais ce fichier. Le même plafond est donc aussi posé sur les
-# binaires eux-mêmes par scripts/harden-build-bins.mjs (postinstall) — mesuré :
-# 1 413 Mo de pic sans plafond, 1 152 Mo avec.
+# n'appelle jamais ce fichier. Les plafonds sont donc AUSSI posés sur les
+# binaires eux-mêmes par scripts/harden-build-bins.mjs (postinstall), qui est le
+# seul mécanisme réellement partagé avec cette commande-là.
 # ============================================================================
 
 set -eu
 
-export NODE_OPTIONS="--max-old-space-size=${BB_BUILD_HEAP_MB:-800}${NODE_OPTIONS:+ $NODE_OPTIONS}"
+export NODE_OPTIONS="--max-old-space-size=${BB_BUILD_HEAP_MB:-752}${NODE_OPTIONS:+ $NODE_OPTIONS}"
 
 echo "[build] NODE_OPTIONS=$NODE_OPTIONS"
 

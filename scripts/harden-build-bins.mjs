@@ -8,30 +8,50 @@
 //     Killed
 //     ✖ 'tsc -b && vite build' failed
 //
-// Cette commande n'est PAS celle de package.json : la plateforme (Convex
-// `--cmd`) fournit elle-même celle du gabarit Vite, et elle ne lit donc jamais
-// `scripts/build.sh`. Le plafond de heap posé dans ce script-là — la mitigation
-// qui évite l'OOM kill de la sandbox de 2 Go — ne s'appliquait donc JAMAIS au
-// build déployé.
+// Cette commande n'est PAS celle de package.json : elle vient de
+// `convex deploy --cmd "tsc -b && vite build"` (voir `runCommand()` dans
+// `node_modules/convex/dist/esm/cli/lib/deploy2.js`, qui exécute
+// `spawnSync(cmd, { shell: true })`). Elle ne lit donc jamais
+// `scripts/build.sh`, et `--cmd-url-env-var-name` ne sert qu'à injecter
+// `VITE_CONVEX_URL` / `VITE_CONVEX_SITE_URL`.
 //
-// La seule chose que cette commande et nous partageons, c'est la résolution
-// PATH des binaires `tsc` et `vite` : les liens créés par `bun` dans
-// `node_modules/.bin`. Ce script, lancé par le `postinstall`, remplace ces liens
-// par de minuscules enveloppes `sh` qui relancent le vrai binaire sous
-// `--max-old-space-size`. Le plafond s'applique alors quelle que soit la façon
-// dont la commande a été écrite, exactement comme celui de `scripts/build.sh`.
+// Ce que cette commande et nous partageons, c'est la résolution PATH des
+// binaires `tsc` et `vite` (les liens créés par `bun` dans `node_modules/.bin`).
+// Ce script, lancé par le `postinstall`, remplace ces liens par de minuscules
+// enveloppes `sh` qui relancent le vrai binaire sous `--max-old-space-size`.
+// Le plafond s'applique alors quelle que soit la façon dont la commande a été
+// écrite. Vérifié : les enveloppes survivent à `bun add` (le postinstall les
+// repose après le relink des `.bin`).
 //
-// Mesuré dans cette sandbox (cgroup 2 Go, partagé avec le serveur Vite et
-// `convex dev`), sur la commande exacte de la plateforme :
-//   · sans plafond : pic du build ≈ 1 413 Mo  → « Killed » (SIGKILL du cgroup)
-//   · plafonné     : pic du build ≈ 1 152 Mo  → le build passe
+// ── Mesures sur la commande exacte de la plateforme (VmHWM, sandbox 2 Go) ────
+//   · sans plafond ......... tsc ≈ 990 Mo · vite ≈ 1 160 Mo → « Killed »
+//   · plafond 800 Mo (v1) .. tsc ≈ 876 Mo · vite ≈ 888 Mo → toujours « Killed »
+//   · plafonds actuels ..... tsc ≈ 859 Mo · vite ≈ 846 Mo
+//
+// Les deux plafonds ci-dessous sont les PLANCHERS mesurés : en dessous, V8
+// abandonne (« JavaScript heap out of memory »), donc on ne peut pas descendre
+// davantage sans réduire le travail de TypeScript lui-même.
+//   · tsc  : 736 Mo → abandon · 744 Mo → OK (856 Mo de RSS) · 768 Mo → OK (873)
+//   · vite : 704 Mo → OK (846 Mo de RSS)
+// Le pic de `tsc -b` (≈ 859 Mo) est le plancher du build : il est dominé par le
+// contrôle de type de l'application elle-même (1 413 fichiers, ~109 000 lignes,
+// ~897 000 instanciations de types). Ni `exclude`, ni `types`, ni `skipLibCheck`
+// ne le font baisser (mesuré) ; le build incrémental de `tsc -b` n'aide pas non
+// plus sur un checkout froid.
+//
+// ── Journalisation ───────────────────────────────────────────────────────────
+// L'enveloppe rapporte le code de sortie du binaire. Dans le journal de
+// déploiement, cela distingue enfin les deux échecs possibles :
+//   exit=134 → V8 a abandonné (plafond trop bas) ;
+//   exit=137 → SIGKILL du noyau = mémoire insuffisante dans la sandbox.
+// Sans cela, `Killed` ne dit pas quelle étape est morte.
 //
 // Deux précautions :
 //   · `vite` n'est plafonné QUE pour la sous-commande `build` : le serveur de
-//     développement (l'aperçu) doit garder tout le tas dont il a besoin.
+//     développement (l'aperçu) doit garder tout le tas dont il a besoin ;
 //   · l'enveloppe retrouve sa cible À PARTIR DE SA PROPRE POSITION (avec le
 //     chemin absolu du moment de l'installation en secours) : un node_modules
-//     déplacé continue de fonctionner.
+//     déplacé continue de fonctionner ;
 //   · tout échec est silencieux (exit 0) : un `postinstall` ne doit jamais
 //     casser une installation.
 // ============================================================================
@@ -42,9 +62,15 @@ import { pathToFileURL } from "node:url";
 /** Marqueur présent uniquement dans les enveloppes écrites par ce script. */
 export const MARKER = "budgetbati-build-heap-guard";
 
-/** Plafond, surchargeable. Doit rester ≥ ce que le build vivant réclame : en
- * dessous de ~700 Mo V8 abandonne sur « JavaScript heap out of memory ». */
-export const HEAP_MB = process.env.BB_BUILD_HEAP_MB || "800";
+/**
+ * Plafonds de tas, par binaire, en Mo. Surchargables par `BB_BUILD_HEAP_MB`
+ * (une seule valeur pour les deux), mais les valeurs par défaut sont les
+ * planchers MESURÉS — ne pas les remonter sans re-mesurer le pic de RSS.
+ */
+export const HEAP_MB_BY_TARGET = { tsc: "752", vite: "704" };
+
+/** Plafond appliqué à `tsc` (compatibilité : sert aussi de valeur par défaut). */
+export const HEAP_MB = process.env.BB_BUILD_HEAP_MB || HEAP_MB_BY_TARGET.tsc;
 
 /**
  * Binaires plafonnés.
@@ -57,8 +83,11 @@ export const TARGETS = [
   { name: "vite", target: "vite/bin/vite.js", buildOnly: true },
 ];
 
-/** Enveloppe `sh` : retrouve le vrai binaire puis rappelle `node` plafonné. */
-export function wrapperSource({ relTarget, absTarget, heapMb, buildOnly }) {
+/**
+ * Enveloppe `sh` : retrouve le vrai binaire puis rappelle `node` plafonné, et
+ * rapporte le code de sortie (V8 a abandonné vs. tué par le noyau).
+ */
+export function wrapperSource({ name, relTarget, absTarget, heapMb, buildOnly }) {
   const resolveTarget = [
     `self="$0"`,
     `case "$self" in */*) ;; *) self=$(command -v "$self" 2>/dev/null || true) ;; esac`,
@@ -67,19 +96,46 @@ export function wrapperSource({ relTarget, absTarget, heapMb, buildOnly }) {
     `[ -f "$target" ] || target="${absTarget}"`,
   ].join("\n");
   const run = (withCap) =>
-    `exec node ${withCap ? `--max-old-space-size=${heapMb} ` : ""}"$target" "$@"`;
+    [
+      `node ${withCap ? `--max-old-space-size=${heapMb} ` : ""}"$target" "$@"`,
+      `status=$?`,
+      `if [ "$status" -ne 0 ]; then`,
+      `  case "$status" in`,
+      `    134) reason="abandon de V8 (plafond de ${heapMb} Mo épuisé)";;`,
+      `    137) reason="SIGKILL — processus tué par le noyau (mémoire du sandbox)";;`,
+      `    *) reason="échec";;`,
+      `  esac`,
+      `  echo "[heap-guard] ${name} : $reason (exit=$status)${
+        withCap ? "" : " — non plafonné"
+      }" >&2`,
+      `fi`,
+      `exit $status`,
+    ].join("\n");
   const body = buildOnly
-    ? `# Plafonné pour « build » seulement : l'aperçu (serveur de développement) garde tout son tas.\ncase "$1" in\n  build) ${run(true)} ;;\n  *) ${run(false)} ;;\nesac`
+    ? `# Plafonné pour « build » seulement : l'aperçu (serveur de développement) garde tout son tas.\ncase "$1" in\n  build)\n${run(true)}\n    ;;\n  *)\n${run(false)}\n    ;;\nesac`
     : run(true);
   return `#!/bin/sh\n# ${MARKER} — voir scripts/harden-build-bins.mjs\n${resolveTarget}\n${body}\n`;
 }
 
-/** Résultat : "absent" | "already" | "patched" | "skipped". */
-export function patchBin({ binDir, name, target, heapMb = HEAP_MB, buildOnly = false }) {
+/**
+ * Résultat : "absent" | "already" | "patched" | "updated" | "skipped".
+ *
+ * Idempotent ET rafraîchissant : une enveloppe déjà posée mais dont le contenu
+ * a changé (nouveau plafond, nouvelle journalisation, correction) est réécrite.
+ * Sans cela, un simple changement de plafond dans ce fichier n'atteindrait
+ * jamais un `node_modules` déjà installé.
+ */
+export function patchBin({
+  binDir,
+  name,
+  target,
+  heapMb = HEAP_MB_BY_TARGET[name] ?? HEAP_MB,
+  buildOnly = false,
+}) {
   const binPath = join(binDir, name);
   if (!existsSync(binPath)) return "absent";
   const isLink = lstatSync(binPath).isSymbolicLink();
-  if (!isLink && readFileSync(binPath, "utf8").includes(MARKER)) return "already";
+  const existing = isLink ? null : readFileSync(binPath, "utf8");
 
   // Le chemin du paquet est préféré au lien : il ne peut pas se retourner vers
   // l'enveloppe elle-même (boucle `exec` de node sur lui-même).
@@ -88,22 +144,31 @@ export function patchBin({ binDir, name, target, heapMb = HEAP_MB, buildOnly = f
   const absTarget = existsSync(fromPackage) ? fromPackage : linkTarget;
   if (!absTarget || absTarget === binPath) return "skipped";
 
-  unlinkSync(binPath);
-  writeFileSync(
-    binPath,
-    wrapperSource({ relTarget: relative(binDir, absTarget).split("\\").join("/"), absTarget, heapMb, buildOnly }),
-    { mode: 0o755 },
-  );
+  const next = wrapperSource({
+    name,
+    relTarget: relative(binDir, absTarget).split("\\").join("/"),
+    absTarget,
+    heapMb,
+    buildOnly,
+  });
+  if (existing === next) return "already";
+
+  // Un lien doit être retiré AVANT d'écrire : écrire à travers lui écraserait
+  // le vrai binaire du paquet.
+  if (isLink) unlinkSync(binPath);
+  writeFileSync(binPath, next, { mode: 0o755 });
   chmodSync(binPath, 0o755);
-  return "patched";
+  return existing === null ? "patched" : "updated";
 }
 
 function main() {
   if (process.platform === "win32") return; // les liens sont des .cmd : rien à faire
   const binDir = join(process.cwd(), "node_modules", ".bin");
   if (!existsSync(binDir)) return;
-  const results = TARGETS.map((t) => `${t.name}:${patchBin({ binDir, ...t })}`);
-  console.log(`[heap-guard] plafond de build ${HEAP_MB} Mo → ${results.join(", ")}`);
+  const results = TARGETS.map(
+    (t) => `${t.name}:${patchBin({ binDir, ...t })}@${HEAP_MB_BY_TARGET[t.name]}Mo`,
+  );
+  console.log(`[heap-guard] plafonds de build → ${results.join(", ")}`);
 }
 
 const invokedDirectly =
