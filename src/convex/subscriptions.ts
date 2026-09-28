@@ -12,6 +12,12 @@ import {
   resolveProfileRole,
 } from "./profileSubscription";
 import { assertPaymentMethodEnabled } from "./paymentMethodStates";
+import {
+  cancelPendingInvoicesForSubscription,
+  invoiceNumberForSubscription,
+  issueSubscriptionInvoice,
+  syncLatestInvoiceForSubscription,
+} from "./invoices";
 
 // ============================================================================
 // Queries
@@ -236,6 +242,25 @@ export const createSubscription = mutation({
       updatedAt: now,
     });
 
+    // ── FACTURE — émise AUTOMATIQUEMENT à chaque souscription payante ──
+    // « En attente » tant que le règlement (virement / D17) n'est pas validé,
+    // « Payée » dès l'activation immédiate. Aucune facture pour un forfait
+    // gratuit (aucun montant réglé) : rien n'est inventé.
+    await issueSubscriptionInvoice(ctx, {
+      subscriptionId,
+      userId: user._id,
+      user,
+      plan: args.plan,
+      amountTTC: isFreePlan ? 0 : args.amount ?? 0,
+      currency: args.currency || "TND",
+      paymentMethod: isFreePlan ? undefined : args.paymentMethod,
+      paymentId: args.paymentId,
+      periodStart: now,
+      periodEnd: now + duration,
+      status: status === "pending" ? "pending" : "paid",
+      paymentDate: status === "pending" ? undefined : now,
+    });
+
     // Update user's subscription plan (only if not pending) — dernière formule achetée
     if (status !== "pending") {
       // Activation : la période mensuelle remplace l'essai gratuit (qui n'est
@@ -265,7 +290,8 @@ export const createSubscription = mutation({
             dateActivation: formatDateFr(now),
             dateExpiration: formatDateFr(now + duration),
             montant: args.amount ? `${args.amount} ${args.currency || "TND"}` : undefined,
-            numeroFacture: `INV-${subscriptionId}`,
+            // Numéro de facture réel (le client le retrouve dans « Mes factures »).
+            numeroFacture: await invoiceNumberForSubscription(ctx, subscriptionId),
           },
           dedupeKey: `${isRenewal ? "subscription_renewed" : "subscription_activated"}:${user.email}:${subscriptionId}`,
           sendToAdmins: true,
@@ -319,15 +345,23 @@ export const cancelSubscription = mutation({
       .collect();
 
     for (const activeSub of allSubs) {
-      if (activeSub.status !== "active") continue;
+      // Un abonnement actif OU une demande encore en attente de validation peut
+      // être résilié par l'utilisateur (retrait de la demande de paiement).
+      if (activeSub.status !== "active" && activeSub.status !== "pending") continue;
+      const wasActive = activeSub.status === "active";
 
       await ctx.db.patch(activeSub._id, {
         status: "canceled",
         updatedAt: Date.now(),
       });
 
+      // ── Factures : seules les factures NON PAYÉES de cet abonnement sont
+      // annulées. Une facture déjà payée reste payée et l'historique de
+      // facturation est conservé (aucune facture n'est supprimée).
+      await cancelPendingInvoicesForSubscription(ctx, activeSub._id);
+
       // Send automatic email notification (subscription canceled)
-      if (user.email && user.emailNotifications !== false) {
+      if (wasActive && user.email && user.emailNotifications !== false) {
         await scheduleEmailEvent(ctx, {
           to: user.email,
           recipientName: user.name || undefined,
@@ -464,6 +498,27 @@ export const adminApproveSubscription = mutation({
 
     // Send automatic email notification (activation or renewal)
     const targetUser = await ctx.db.get(sub.userId);
+
+    // ── FACTURE — validation du paiement : la facture passe en « Payée » ──
+    // (facture « en attente » créée à la souscription, ou créée maintenant
+    // pour un abonnement antérieur au module de facturation).
+    if (targetUser) {
+      await issueSubscriptionInvoice(ctx, {
+        subscriptionId: sub._id,
+        userId: sub.userId,
+        user: targetUser,
+        plan: sub.plan,
+        amountTTC: sub.amount ?? 0,
+        currency: sub.currency ?? "TND",
+        paymentMethod: sub.paymentMethod,
+        paymentId: sub.paymentId,
+        periodStart: now,
+        periodEnd: now + planDuration,
+        status: "paid",
+        paymentDate: now,
+      });
+    }
+
     if (targetUser?.email && targetUser.emailNotifications !== false) {
       // Renewal if the user had another subscription before this one
       const otherSubs = await ctx.db
@@ -484,7 +539,8 @@ export const adminApproveSubscription = mutation({
           dateActivation: formatDateFr(now),
           dateExpiration: formatDateFr(now + planDuration),
           montant: sub.amount ? `${sub.amount} ${sub.currency || "TND"}` : undefined,
-          numeroFacture: `INV-${sub._id}`,
+          // Numéro de facture réel, disponible dans « Mes factures ».
+          numeroFacture: await invoiceNumberForSubscription(ctx, sub._id),
         },
         dedupeKey: `${isRenewal ? "subscription_renewed" : "subscription_activated"}:${targetUser.email}:${sub._id}`,
         sendToAdmins: true,
@@ -518,6 +574,10 @@ export const adminRejectSubscription = mutation({
       status: "canceled",
       updatedAt: Date.now(),
     });
+
+    // ── Facture : la demande refusée annule la facture NON PAYÉE de cet
+    // abonnement (l'historique reste consultable, rien n'est supprimé).
+    await cancelPendingInvoicesForSubscription(ctx, sub._id);
 
     // Notify the user
     try {
@@ -659,6 +719,29 @@ export const markReceiptVerified = mutation({
       paymentProofVerified: args.verified,
       updatedAt: Date.now(),
     });
+
+    // ── FACTURE — le statut suit la vérification du reçu de paiement ──
+    const receiptUser = await ctx.db.get(sub.userId);
+    if (args.verified && receiptUser) {
+      await issueSubscriptionInvoice(ctx, {
+        subscriptionId: sub._id,
+        userId: sub.userId,
+        user: receiptUser,
+        plan: sub.plan,
+        amountTTC: sub.amount ?? 0,
+        currency: sub.currency ?? "TND",
+        paymentMethod: sub.paymentMethod,
+        paymentId: sub.paymentId,
+        periodStart: sub.startDate,
+        periodEnd: sub.endDate ?? sub.startDate,
+        status: "paid",
+        paymentDate: Date.now(),
+      });
+    } else {
+      // Vérification annulée : la facture du terme en cours repasse « en
+      // attente » (jamais annulée ni supprimée automatiquement).
+      await syncLatestInvoiceForSubscription(ctx, sub._id, { status: "pending" });
+    }
 
     // Notify the user
     try {

@@ -7,6 +7,17 @@ import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 import { normalizeIndicativePrice } from "../lib/expertAvailability";
 import { stripCjk, sanitizeStringList } from "../lib/sanitizeText";
 import { assertPaymentMethodEnabled } from "./paymentMethodStates";
+import { invoicePeriodEnd } from "../lib/invoiceStatus";
+import type { MutationCtx } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
+import {
+  cancelPendingInvoicesForSubscription,
+  invoiceNumberForSubscription,
+  issueProfileRequestInvoice,
+  markProfileInvoicePaid,
+  profileSubscriptionKey,
+  type ProfileInvoiceInput,
+} from "./invoices";
 
 // ============================================================================
 // Constants
@@ -467,6 +478,11 @@ export const requestSubscription = mutation({
       updatedAt: now,
     });
 
+    // ── FACTURE — émise « en attente » dès la demande de paiement, puis
+    // « payée » à la validation (même procédure que l'offre Client Pro).
+    const requested = await ctx.db.get(profile._id);
+    if (requested) await issueProfileRequestInvoice(ctx, expertInvoiceInput(requested));
+
     return { success: true };
   },
 });
@@ -620,6 +636,42 @@ export const adminToggleExpertVisibility = mutation({
   },
 });
 
+/* ------------------------------------------------------------------ *
+ * Facturation — l'abonnement expert produit la même facture que les autres
+ * profils (type de profil « Expert » dans « Mes factures » et dans
+ * Admin → Factures). Le numéro réel est repris dans les e-mails.
+ * ------------------------------------------------------------------ */
+
+/** Données de facturation d'un profil expert (aucune donnée inventée). */
+function expertInvoiceInput(
+  profile: Doc<"expertProfiles">,
+  period?: { start: number; end: number },
+  paymentDate?: number,
+): ProfileInvoiceInput {
+  // Période mensuelle : bornes réelles de l'abonnement dès qu'elles existent,
+  // sinon 30 jours à partir de maintenant (demande en cours de validation).
+  const periodStart = period?.start ?? profile.subscriptionStartDate ?? Date.now();
+  return {
+    profileType: "expert",
+    profileId: String(profile._id),
+    userId: profile.userId,
+    plan: "expert",
+    amountTTC: profile.paymentAmount ?? 0,
+    currency: "TND",
+    paymentMethod: profile.paymentMethod,
+    periodStart,
+    // Durée mensuelle : source unique partagée avec la facturation (`invoicePeriodEnd`).
+    periodEnd: period?.end ?? profile.subscriptionEndDate ?? invoicePeriodEnd(periodStart),
+    paymentDate,
+    customer: {
+      name: profile.displayName,
+      company: profile.companyName ?? profile.displayName,
+      email: profile.email,
+      address: profile.address,
+    },
+  };
+}
+
 /** Admin: Approve a pending expert subscription */
 export const adminApproveExpertSubscription = mutation({
   args: { profileId: v.id("expertProfiles") },
@@ -670,6 +722,12 @@ export const adminApproveExpertSubscription = mutation({
       });
     } catch (e) { /* optional */ }
 
+    // ── FACTURE — la validation du paiement marque le terme en cours PAYÉ ──
+    const expertInvoice = await markProfileInvoicePaid(
+      ctx,
+      expertInvoiceInput(profile, { start: now, end: endDate }, now),
+    );
+
     const expertUser = await ctx.db.get(profile.userId);
     const to = profile.email || expertUser?.email;
     if (to && expertUser?.emailNotifications !== false) {
@@ -683,7 +741,7 @@ export const adminApproveExpertSubscription = mutation({
           dateActivation: formatDateFr(now),
           dateExpiration: formatDateFr(endDate),
           montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : undefined,
-          numeroFacture: `INV-EXP-${profile._id}`,
+          numeroFacture: expertInvoice?.invoiceNumber,
         },
         dedupeKey: `expert_activated:${to}:${profile._id}`,
         sendToAdmins: true,
@@ -714,6 +772,13 @@ export const adminRejectExpertSubscription = mutation({
       isVisible: false,
       updatedAt: Date.now(),
     });
+
+    // Facture : la demande refusée annule la facture NON PAYÉE (historique
+    // conservé — aucune facture n'est supprimée).
+    await cancelPendingInvoicesForSubscription(
+      ctx,
+      profileSubscriptionKey("expert", String(args.profileId)),
+    );
 
     try {
       await ctx.db.insert("adminLogs", {
@@ -746,6 +811,9 @@ export const adminVerifyExpertReceipt = mutation({
       paymentProofVerified: true,
       updatedAt: Date.now(),
     });
+
+    // Facture : le reçu vérifié marque la facture PAYÉE (créée si nécessaire).
+    await markProfileInvoicePaid(ctx, expertInvoiceInput(profile, undefined, Date.now()));
 
     try {
       await ctx.db.insert("adminLogs", {

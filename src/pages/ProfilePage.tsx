@@ -36,6 +36,7 @@ import {
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { MyInvoices } from "@/components/invoices/MyInvoices";
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -559,6 +560,14 @@ export default function ProfilePage() {
               </button>
             </CardContent>
           </Card>
+        </motion.div>
+
+        {/* Mes factures — la section n'apparaît QUE si l'utilisateur a déjà
+            reçu au moins une facture (aucun menu vide pour les comptes sans
+            historique de paiement). Factures personnelles uniquement :
+            filtrage garanti côté serveur. */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
+          <MyInvoices />
         </motion.div>
       </div>
     </main>

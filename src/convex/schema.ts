@@ -848,6 +848,15 @@ const schema = defineSchema(
       value: v.number(),
     }).index("by_kind", ["kind"]),
 
+    // Compteur séquentiel de facturation — un compteur par année civile
+    // (`kind` = « invoice:2026 »). Lu et incrémenté dans la même mutation que
+    // la création de la facture : deux paiements simultanés ne peuvent donc
+    // JAMAIS obtenir le même numéro (transaction Convex sérialisée).
+    invoiceCounters: defineTable({
+      kind: v.string(),
+      value: v.number(),
+    }).index("by_kind", ["kind"]),
+
     subscriptions: defineTable({
       userId: v.id("users"),
       kind: v.optional(v.union(v.literal("construction"), v.literal("investment"))),
@@ -878,6 +887,96 @@ const schema = defineSchema(
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
+
+    // ── FACTURES ──────────────────────────────────────────────────────────────
+    // Historique de facturation : une facture par paiement ou renouvellement.
+    //
+    //   • numérotation UNIQUE et SÉQUENTIELLE (FACT-2026-000001) allouée par
+    //     `invoiceCounters` dans la transaction d'insertion ;
+    //   • une facture n'est JAMAIS supprimée ni écrasée : annulation et
+    //     remboursement sont des STATUTS, pas des suppressions — l'historique
+    //     reste consultable par l'abonné et par l'administrateur ;
+    //   • les informations du client ET les coordonnées de facturation de
+    //     batibuild sont FIGÉES à l'émission (`customer*`, `issuer`) : une
+    //     facture ancienne reste exacte même si le profil change plus tard ;
+    //   • `pdfStorageId` n'est renseigné que si une copie PDF a été archivée :
+    //     par défaut le document est régénéré à la demande depuis ces données
+    //     (déterministe, toujours disponible, y compris hors ligne).
+    invoices: defineTable({
+      /** Numéro officiel, unique et séquentiel : « FACT-2026-000001 ». */
+      invoiceNumber: v.string(),
+      /** Propriétaire de la facture (seul habilité à la consulter). */
+      userId: v.id("users"),
+      /**
+       * Abonnement facturé : identifiant de `subscriptions` pour un profil
+       * Client Pro, ou « supplierProfile:<id> » / « expertProfile:<id> » pour
+       * les abonnements Fournisseur / Expert (tables dédiées).
+       */
+      subscriptionId: v.optional(v.string()),
+      /** Référence de transaction du paiement (aucune passerelle externe). */
+      transactionId: v.optional(v.string()),
+      /** Date d'émission de la facture. */
+      issueDate: v.number(),
+      /** Date du paiement confirmé (absente tant que la facture n'est pas payée). */
+      paymentDate: v.optional(v.number()),
+      /** Période d'abonnement facturée. */
+      billingPeriodStart: v.number(),
+      billingPeriodEnd: v.number(),
+      /** Type de profil facturé : Client Pro / Fournisseur / Expert. */
+      profileType: v.union(
+        v.literal("client"),
+        v.literal("supplier"),
+        v.literal("expert"),
+      ),
+      /** Forfait facturé (pro / supplier / expert). */
+      plan: v.string(),
+      /** Désignation détaillée affichée sur la facture. */
+      description: v.string(),
+      /** Prix hors taxes. */
+      amountHT: v.number(),
+      /** Montant de TVA (0 si non applicable). */
+      taxAmount: v.number(),
+      /** Taux de TVA appliqué (%), figé à l'émission. */
+      taxRate: v.number(),
+      /** Montant toutes taxes comprises — montant réellement réglé. */
+      amountTTC: v.number(),
+      currency: v.string(),
+      /** Méthode de paiement interne (bank_transfer, d17, admin…). */
+      paymentMethod: v.optional(v.string()),
+      /** Statut : payée / en attente / annulée / remboursée. */
+      status: v.union(
+        v.literal("paid"),
+        v.literal("pending"),
+        v.literal("cancelled"),
+        v.literal("refunded"),
+      ),
+      /** Instantané du client au moment de l'émission (historique immuable). */
+      customerName: v.optional(v.string()),
+      customerEmail: v.optional(v.string()),
+      customerAddress: v.optional(v.string()),
+      customerCompany: v.optional(v.string()),
+      /** Coordonnées de facturation de batibuild, figées à l'émission. */
+      issuer: v.optional(
+        v.object({
+          name: v.string(),
+          address: v.optional(v.string()),
+          taxId: v.optional(v.string()),
+          email: v.optional(v.string()),
+          phone: v.optional(v.string()),
+          terms: v.optional(v.string()),
+        }),
+      ),
+      /** Copie PDF archivée (facultative — sinon régénérée à la demande). */
+      pdfStorageId: v.optional(v.id("_storage")),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_number", ["invoiceNumber"])
+      .index("by_status", ["status"])
+      .index("by_issue_date", ["issueDate"])
+      .index("by_user_issue_date", ["userId", "issueDate"])
+      .index("by_subscription", ["subscriptionId"]),
 
     // Admin Action Logs
     adminLogs: defineTable({
@@ -921,6 +1020,7 @@ const schema = defineSchema(
         v.literal("delete_expert_receipt"),
         v.literal("feature_flag_enabled"),
         v.literal("feature_flag_disabled"),
+        v.literal("update_invoice_status"),
       ),
       targetUserId: v.optional(v.id("users")),
       targetUserEmail: v.optional(v.string()),
@@ -1040,6 +1140,21 @@ const schema = defineSchema(
       expertDownloadLimit: v.optional(v.number()),
       trialEnabled: v.optional(v.boolean()),
       trialDurationDays: v.optional(v.number()),
+      // ── Facturation : TVA et coordonnées de l'émetteur ────────────────────
+      // Taux de TVA appliqué aux factures (%). 0 ou absent = « TVA non
+      // applicable » : les prix des forfaits sont alors facturés en l'état.
+      // Le taux est FIGÉ sur chaque facture : le modifier ne réécrit jamais
+      // l'historique.
+      vatRate: v.optional(v.number()),
+      // Coordonnées de facturation affichées sur le PDF (en-tête/pied de page).
+      // Laissées vides par défaut : l'administrateur saisit les informations
+      // légales réelles, aucune donnée n'est inventée.
+      companyLegalName: v.optional(v.string()),
+      companyAddress: v.optional(v.string()),
+      companyTaxId: v.optional(v.string()),
+      companyEmail: v.optional(v.string()),
+      companyPhone: v.optional(v.string()),
+      paymentTerms: v.optional(v.string()),
       // Méthodes de paiement activées/désactivées par l'administrateur.
       // Le catalogue et l'ordre proviennent de `lib/paymentMethods.ts` ;
       // la base ne stocke que l'état de chaque méthode.

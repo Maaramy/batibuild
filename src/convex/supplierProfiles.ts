@@ -7,6 +7,18 @@ import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
 import { keepSupplierSpecialties } from "../lib/supplierSpecialties";
 import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
 import { assertPaymentMethodEnabled } from "./paymentMethodStates";
+import { invoicePeriodEnd } from "../lib/invoiceStatus";
+import type { MutationCtx } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
+import {
+  cancelPendingInvoicesForSubscription,
+  invoiceNumberForSubscription,
+  issueProfileRequestInvoice,
+  markProfileInvoicePaid,
+  profileSubscriptionKey,
+  syncLatestInvoiceForSubscription,
+  type ProfileInvoiceInput,
+} from "./invoices";
 
 // ============================================================================
 // Constants
@@ -409,6 +421,11 @@ export const requestSubscription = mutation({
       updatedAt: now,
     });
 
+    // ── FACTURE — émise « en attente » dès la demande de paiement, puis
+    // « payée » à la validation (même procédure que l'offre Client Pro).
+    const requested = await ctx.db.get(profile._id);
+    if (requested) await issueProfileRequestInvoice(ctx, supplierInvoiceInput(requested));
+
     return { price };
   },
 });
@@ -449,6 +466,42 @@ export const uploadSupplierPaymentProof = mutation({
   },
 });
 
+
+/* ------------------------------------------------------------------ *
+ * Facturation — l'abonnement fournisseur produit la même facture que les
+ * autres profils (type de profil « Fournisseur » dans « Mes factures » et
+ * dans Admin → Factures). Le numéro réel est repris dans les e-mails.
+ * ------------------------------------------------------------------ */
+
+/** Données de facturation d'un profil fournisseur (aucune donnée inventée). */
+function supplierInvoiceInput(
+  profile: Doc<"supplierProfiles">,
+  period?: { start: number; end: number },
+  paymentDate?: number,
+): ProfileInvoiceInput {
+  // Période mensuelle : bornes réelles de l'abonnement dès qu'elles existent,
+  // sinon 30 jours à partir de maintenant (demande en cours de validation).
+  const periodStart = period?.start ?? profile.subscriptionStartDate ?? Date.now();
+  return {
+    profileType: "supplier",
+    profileId: String(profile._id),
+    userId: profile.userId,
+    plan: "supplier",
+    amountTTC: profile.paymentAmount ?? 0,
+    currency: profile.paymentCurrency ?? "TND",
+    paymentMethod: profile.paymentMethod,
+    periodStart,
+    // Durée mensuelle : source unique partagée avec la facturation (`invoicePeriodEnd`).
+    periodEnd: period?.end ?? profile.subscriptionEndDate ?? invoicePeriodEnd(periodStart),
+    paymentDate,
+    customer: {
+      name: profile.companyName,
+      company: profile.companyName,
+      email: profile.email,
+      address: profile.address,
+    },
+  };
+}
 
 /** Admin: Approve a pending supplier subscription (payment verified) */
 export const adminApproveSupplierSubscription = mutation({
@@ -500,6 +553,12 @@ export const adminApproveSupplierSubscription = mutation({
       });
     } catch (e) { /* optional */ }
 
+    // ── FACTURE — la validation du paiement marque le terme en cours PAYÉ ──
+    const supplierInvoice = await markProfileInvoicePaid(
+      ctx,
+      supplierInvoiceInput(profile, { start: now, end: endDate }, now),
+    );
+
     // Send automatic email notification (supplier subscription activated)
     const supplierUser = await ctx.db.get(profile.userId);
     const to = profile.email || supplierUser?.email;
@@ -514,7 +573,7 @@ export const adminApproveSupplierSubscription = mutation({
           dateActivation: formatDateFr(now),
           dateExpiration: formatDateFr(endDate),
           montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : undefined,
-          numeroFacture: `INV-SUP-${profile._id}`,
+          numeroFacture: supplierInvoice?.invoiceNumber,
         },
         dedupeKey: `supplier_activated:${to}:${profile._id}`,
         sendToAdmins: true,
@@ -545,6 +604,13 @@ export const adminRejectSupplierSubscription = mutation({
       isVisible: false,
       updatedAt: Date.now(),
     });
+
+    // Facture : la demande refusée annule la facture NON PAYÉE (historique
+    // conservé — aucune facture n'est supprimée).
+    await cancelPendingInvoicesForSubscription(
+      ctx,
+      profileSubscriptionKey("supplier", String(args.profileId)),
+    );
 
     try {
       await ctx.db.insert("adminLogs", {
@@ -761,6 +827,17 @@ export const adminVerifySupplierReceipt = mutation({
       updatedAt: Date.now(),
     });
 
+    // Facture : le statut suit la vérification du reçu de paiement.
+    if (args.verified) {
+      await markProfileInvoicePaid(ctx, supplierInvoiceInput(profile, undefined, Date.now()));
+    } else {
+      await syncLatestInvoiceForSubscription(
+        ctx,
+        profileSubscriptionKey("supplier", String(args.profileId)),
+        { status: "pending" },
+      );
+    }
+
     try {
       await ctx.db.insert("adminLogs", {
         adminId: admin._id,
@@ -785,9 +862,12 @@ export const adminVerifySupplierReceipt = mutation({
           vars: {
             nomEntreprise: profile.companyName,
             typeAbonnement: "Fournisseur",
-            montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : undefined,
-            numeroFacture: `INV-SUP-${profile._id}`,
-            dateActivation: formatDateFr(profile.subscriptionStartDate),
+          montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : undefined,
+          numeroFacture: await invoiceNumberForSubscription(
+            ctx,
+            profileSubscriptionKey("supplier", String(profile._id)),
+          ),
+          dateActivation: formatDateFr(profile.subscriptionStartDate),
             dateExpiration: formatDateFr(profile.subscriptionEndDate),
           },
           dedupeKey: `supplier_paid:${to}:${profile._id}`,

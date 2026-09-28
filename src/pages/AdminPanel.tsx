@@ -22,6 +22,7 @@ import SupportAdmin from "@/components/admin/SupportAdmin";
 import { AnnouncementList } from "@/components/admin/announcements/AnnouncementList";
 import { FeatureFlagsAdmin } from "@/components/admin/FeatureFlagsAdmin";
 import { PaymentMethodsAdmin } from "@/components/admin/PaymentMethodsAdmin";
+import { InvoicesAdmin } from "@/components/admin/InvoicesAdmin";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -110,9 +111,9 @@ export default function AdminPanel() {
   const requestedTab = searchParams.get("tab");
   const VALID_TABS = [
     "dashboard", "users", "projects", "investments", "materials", "virements",
-    "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs",
-    "experts", "analytics", "support", "journal", "paiement", "limites",
-    "seo", "blog", "bim", "emails", "modeles", "historique", "features",
+    "recus", "recusFournisseurs", "recusExperts", "subscriptions", "invoices",
+    "fournisseurs", "experts", "analytics", "support", "journal", "paiement",
+    "limites", "seo", "blog", "bim", "emails", "modeles", "historique", "features",
   ];
   const initialTab =
     isSupportAgentRole
@@ -704,6 +705,15 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 <CreditCard className="h-3.5 w-3.5" />
                 <span>Abonnements</span>
               </TabsTrigger>
+              {/* Factures — réservé aux ADMINISTRATEURS : les données de
+                  facturation (montants, coordonnées clients) ne sont pas du
+                  ressort des modérateurs, et le serveur refuse tout autre rôle. */}
+              {isAdmin && (
+              <TabsTrigger value="invoices" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Receipt className="h-3.5 w-3.5" />
+                <span>Factures</span>
+              </TabsTrigger>
+              )}
               {canSee("journal") && (
               <TabsTrigger value="journal" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <NotebookPen className="h-3.5 w-3.5" />
@@ -796,6 +806,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               )}
             </TabsList>
           </div>
+
+          {/* ── Factures (administrateur uniquement) ── */}
+          {isAdmin && (
+            <TabsContent value="invoices">
+              <InvoicesAdmin />
+            </TabsContent>
+          )}
 
           {/* ── Support ── */}
           {canSee("support") && (

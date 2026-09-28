@@ -288,11 +288,26 @@ export const updatePaymentConfig = mutation({
     d17Phone: v.optional(v.string()),
     d17Email: v.optional(v.string()),
     d17Notice: v.optional(v.string()),
+    // ── Facturation : TVA et coordonnées de l'émetteur ──
+    // Le taux ne s'applique QU'aux factures émises ensuite : les factures déjà
+    // émises conservent leur taux et leurs montants (historique figé).
+    vatRate: v.optional(v.number()),
+    companyLegalName: v.optional(v.string()),
+    companyAddress: v.optional(v.string()),
+    companyTaxId: v.optional(v.string()),
+    companyEmail: v.optional(v.string()),
+    companyPhone: v.optional(v.string()),
+    paymentTerms: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized: Admin access required");
+    }
+
+    // Taux de TVA : borné à [0 ; 100] pour ne jamais produire de montant absurde.
+    if (args.vatRate !== undefined && (args.vatRate < 0 || args.vatRate > 100)) {
+      throw new Error("Le taux de TVA doit être compris entre 0 et 100 %.");
     }
 
     const existingConfig = await ctx.db
