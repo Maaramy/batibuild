@@ -718,14 +718,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     {error && <ErrorBanner message={error} />}
                     <PrimaryButton loading={isLoading} loadingText="Connexion...">Se connecter</PrimaryButton>
                   </form>
-                  <div className="relative my-4">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" style={{ borderColor: "color-mix(in srgb, var(--auth-primary) 10%, transparent)" }} />
-                    </div>
-                    <div className="relative flex justify-center">
-                      <span className="bg-card/80 px-2 text-[10px] uppercase tracking-wide" style={{ color: "var(--foreground)", opacity: 0.4 }}>ou</span>
-                    </div>
-                  </div>
                 </motion.div>
               ) : (
                 // -- REGISTER --
