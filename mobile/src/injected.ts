@@ -67,6 +67,45 @@ true;
  * (titre de la page, notifications, menu du compte et déconnexion) reste
  * intact — aucune fonctionnalité n'est perdue.
  */
+/**
+ * MARQUEUR D'EXÉCUTION — APPLICATION ANDROID.
+ *
+ * Posé AVANT le premier rendu de la plateforme Web, il permet à celle-ci de
+ * reconnaître de façon FIABLE le contexte Android (aucune détection fragile
+ * basée sur la taille de l'écran ni sur le seul User-Agent).
+ *
+ * La plateforme Web s'en sert UNIQUEMENT pour désactiver ce qui ne doit pas
+ * s'appliquer à l'application :
+ *   · système de cookies Web (aucune lecture, aucune écriture) ;
+ *   · cache navigateur avancé (Service Worker) ;
+ *   · toute interface de consentement liée aux cookies (batibuild n'en affiche
+ *     aucune : les cookies utilisés sont strictement nécessaires).
+ *
+ * Elle ne modifie NI l'écran de démarrage, NI le guide de première utilisation,
+ * NI le menu, NI les notifications, NI la navigation de l'application : la
+ * session et le stockage locaux restent ceux de la coque native
+ * (`mobile/src/storage.ts`).
+ *
+ * La VALEUR du marqueur est partagée avec la plateforme Web : elle doit rester
+ * identique à `ANDROID_APP_MARKER` dans `src/lib/runtime.ts`.
+ */
+export const ANDROID_APP_MARKER_SCRIPT = `
+(function () {
+  try {
+    window.__BATIBUILD_ANDROID_APP__ = true;
+    window.__BATIBUILD_RUNTIME__ = "ANDROID_APP";
+  } catch (e) {}
+})();
+true;
+`;
+
+/**
+ * Jeton ajouté au User-Agent par la WebView (`applicationNameForUserAgent`,
+ * voir `WebViewScreen`) — second signal, stable et vérifiable côté serveur.
+ * Identique à `ANDROID_APP_UA_TOKEN` dans `src/lib/runtime.ts`.
+ */
+export const ANDROID_APP_UA_TOKEN = "BatibuildApp";
+
 export const MOBILE_CHROME_SCRIPT = `
 (function () {
   try {

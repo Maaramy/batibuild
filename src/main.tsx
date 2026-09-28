@@ -4,6 +4,7 @@ import { FeatureGate } from "@/components/FeatureGate";
 import { FeatureFlagsProvider } from "@/hooks/use-feature-flags";
 import { SEO } from "@/components/SEO";
 import { MessagingBadgeSync } from "@/components/MessagingBadgeSync";
+import { WebBootSync } from "@/components/WebBootSync";
 import { useSessionTracking } from "@/hooks/use-session-tracking";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
@@ -213,6 +214,11 @@ createRoot(document.getElementById("root")!).render(
             {/* Pastille temps réel de la Messagerie : publiée vers la barre de
                 navigation native de l'application Android. */}
             <MessagingBadgeSync />
+            {/* Démarrage rapide Web : cookies NON sensibles (langue, thème, état
+                de connexion), Service Worker de cache et préchargement du
+                module suivant. Sans aucun effet dans l'application Android
+                (voir `src/components/WebBootSync.tsx`). */}
+            <WebBootSync />
             <RouteSyncer />
             <SEO />
             <Suspense fallback={<RouteLoading />}>              <Routes>

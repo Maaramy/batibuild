@@ -41,6 +41,8 @@ import {
 } from "../config";
 import { BlobDownloadBridge, guessMime, shareFile } from "../download";
 import {
+  ANDROID_APP_MARKER_SCRIPT,
+  ANDROID_APP_UA_TOKEN,
   DOWNLOAD_BRIDGE_SCRIPT,
   ENTRY_GUARD_SCRIPT,
   MOBILE_CHROME_SCRIPT,
@@ -455,6 +457,10 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
             ref={webRef}
             // Démarre sur /dashboard : jamais sur la page d'accueil publique.
             source={{ uri: ENTRY_URL }}
+            // Jeton stable dans le User-Agent : la plateforme reconnaît ainsi de
+            // façon fiable l'application Android (et désactive côté Web les
+            // cookies et le cache navigateur, qui ne s'appliquent pas ici).
+            applicationNameForUserAgent={ANDROID_APP_UA_TOKEN}
             originWhitelist={["http://*", "https://*", "blob:*", "data:*", "about:*"]}
             // Session / stockage / cache persistants : la session survit au redémarrage.
             sharedCookiesEnabled
@@ -491,7 +497,9 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
             // native ; le reste de l'en-tête web est intact) et
             // `DOWNLOAD_BRIDGE_SCRIPT` rend les PDF « blob: » (estimation du
             // coût de construction, matériaux IA) réellement téléchargeables.
-            injectedJavaScriptBeforeContentLoaded={`${DOWNLOAD_BRIDGE_SCRIPT}${MOBILE_CHROME_SCRIPT}${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
+            // `ANDROID_APP_MARKER_SCRIPT` est posé EN PREMIER : la plateforme
+            // sait, dès son amorçage, qu'elle tourne dans l'application Android.
+            injectedJavaScriptBeforeContentLoaded={`${ANDROID_APP_MARKER_SCRIPT}${DOWNLOAD_BRIDGE_SCRIPT}${MOBILE_CHROME_SCRIPT}${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
             style={[styles.webview, { backgroundColor: theme.surface }]}
             setSupportMultipleWindows={false}
             allowsBackForwardNavigationGestures={Platform.OS === "ios"}

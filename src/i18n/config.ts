@@ -2,6 +2,9 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 
+import { COOKIE_MAX_AGE, COOKIE_NAMES, LANGUAGE_STORAGE_KEY } from "@/lib/webCookies";
+import { shouldUseWebCookies } from "@/lib/runtime";
+
 import frCommon from "./locales/fr/common.json";
 import enCommon from "./locales/en/common.json";
 import arCommon from "./locales/ar/common.json";
@@ -57,6 +60,35 @@ export const SUPPORTED_LANGUAGES = [
 ];
 
 export const DEFAULT_LANGUAGE = "fr";
+
+/**
+ * Configuration de détection de la langue.
+ *
+ * WEB : le cookie `bb_lang` (préférence non sensible) est consulté EN PREMIER,
+ * le stockage local sert de repli — la langue choisie est donc disponible dès
+ * l'amorçage, sans requête ni rendu supplémentaire.
+ *
+ * APPLICATION ANDROID : le détecteur de cookie est retiré de la chaîne, le
+ * stockage local (celui de la coque) restant la seule source — le système de
+ * cookies Web n'est jamais utilisé dans l'application.
+ */
+export function languageDetectionConfig(webCookiesEnabled: boolean) {
+  const secure = typeof location !== "undefined" && location.protocol === "https:";
+  return {
+    order: webCookiesEnabled
+      ? ["cookie", "localStorage", "navigator"]
+      : ["localStorage", "navigator"],
+    lookupLocalStorage: LANGUAGE_STORAGE_KEY,
+    lookupCookie: COOKIE_NAMES.lang as string,
+    caches: webCookiesEnabled ? ["cookie", "localStorage"] : ["localStorage"],
+    cookieOptions: {
+      path: "/",
+      sameSite: "lax" as const,
+      maxAge: COOKIE_MAX_AGE.preferences,
+      secure,
+    },
+  };
+}
 
 export function getDirection(lng: string): "ltr" | "rtl" {
   const lang = SUPPORTED_LANGUAGES.find((l) => l.code === lng);
@@ -130,11 +162,7 @@ i18n
     interpolation: {
       escapeValue: false,
     },
-    detection: {
-      order: ["localStorage", "navigator"],
-      lookupLocalStorage: "budgetbati-lang",
-      caches: ["localStorage"],
-    },
+    detection: languageDetectionConfig(shouldUseWebCookies()),
   });
 
 export default i18n;
