@@ -32,6 +32,23 @@ import { motion, AnimatePresence } from "framer-motion";
 const inputCls =
   "w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30";
 
+/**
+ * Libellé de statut du panneau de vérification de l'authentification e-mail :
+ * OK · Non configuré (DKIM) · À vérifier · Échec. Pour DMARC, la politique
+ * actuellement publiée est affichée telle quelle (p=none pendant la phase de
+ * validation).
+ */
+function checkStatusLabel(label: string, check: any): string {
+  if (!check) return "—";
+  if (check.status === "ok") {
+    if (label === "DMARC" && check.policy) return `OK · politique actuelle : p=${check.policy}`;
+    return "OK";
+  }
+  if (check.status === "na") return label === "DKIM" ? "Non configuré" : "Non applicable";
+  if (check.status === "warn") return "À vérifier";
+  return "Échec";
+}
+
 function Field({
   label,
   hint,
@@ -432,6 +449,11 @@ export default function EmailSettings() {
                     {testResult.detail && (
                       <p className="mt-1 text-[11px] leading-relaxed opacity-85">{testResult.detail}</p>
                     )}
+                    {testResult.dkim?.detail && (
+                      <p className="mt-1 text-[11px] leading-relaxed opacity-85">
+                        DKIM : {testResult.dkim.detail}
+                      </p>
+                    )}
                     {!testResult.success && testResult.code && (
                       <p className="mt-1 text-[10px] uppercase tracking-wide opacity-50">
                         Référence : {testResult.code}
@@ -446,9 +468,16 @@ export default function EmailSettings() {
             <div className="mt-4 border-t border-border/50 pt-4">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground">Éviter la boîte spam</p>
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Authentification e-mail (SPF · DKIM · DMARC)
+                  </p>
                   <p className="text-[11px] text-muted-foreground/60">
-                    Vérifie les enregistrements DNS (MX, SPF, DKIM, DMARC) du domaine de l'expéditeur
+                    Vérifie le domaine d'envoi et les enregistrements DNS (MX, SPF, DKIM, DMARC) de
+                    l'expéditeur
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/50">
+                    DKIM est signé côté serveur uniquement (SMTP_DKIM_DOMAIN, SMTP_DKIM_SELECTOR,
+                    SMTP_DKIM_PRIVATE_KEY) : la clé privée ne quitte jamais le serveur.
                   </p>
                 </div>
                 <Button
@@ -475,7 +504,7 @@ export default function EmailSettings() {
                     className="mt-3 space-y-2 rounded-lg border border-border/50 bg-muted/30 p-3 text-xs"
                   >
                     <p className="font-semibold text-muted-foreground">
-                      Domaine : {delivResult.domain}{" "}
+                      Domaine d'envoi : {delivResult.domain}{" "}
                       {delivResult.allOk ? (
                         <span className="text-emerald-600">· conforme</span>
                       ) : (
@@ -483,11 +512,12 @@ export default function EmailSettings() {
                       )}
                     </p>
                     {[
+                      ["Domaine d'envoi", delivResult.checks?.sender],
                       ["MX", delivResult.checks?.mx],
                       ["SPF", delivResult.checks?.spf],
                       ["DKIM", delivResult.checks?.dkim],
                       ["DMARC", delivResult.checks?.dmarc],
-                      ["Alignement", delivResult.checks?.alignment],
+                      ["Alignement SPF/DKIM/DMARC", delivResult.checks?.alignment],
                     ].map(([label, check]: any) => (
                       <div key={label} className="flex items-start gap-2">
                         {check?.status === "ok" ? (
@@ -500,10 +530,51 @@ export default function EmailSettings() {
                           <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground/60" />
                         )}
                         <p className="min-w-0 leading-relaxed">
-                          <span className="font-semibold">{label}</span> — {check?.detail}
+                          <span className="font-semibold">{label} :</span>{" "}
+                          <span className="font-semibold">{checkStatusLabel(String(label), check)}</span>
+                          {check?.detail ? ` — ${check.detail}` : ""}
                         </p>
                       </div>
                     ))}
+                    {delivResult.checks?.dkim && (
+                      <p className="text-[11px] text-muted-foreground/70">
+                        Signature DKIM dans les e-mails sortants :{" "}
+                        <span className="font-semibold">
+                          {delivResult.checks.dkim.signatureVerified ? "vérifiée" : "non vérifiée"}
+                        </span>
+                        {" · "}
+                        {delivResult.checks.dkim.dnsPublished
+                          ? "enregistrement DNS publié"
+                          : "aucun enregistrement DNS"}
+                        {delivResult.checks.dkim.keyMatches === true
+                          ? " · clé publique alignée"
+                          : ""}
+                      </p>
+                    )}
+                    {delivResult.dmarcPlan?.length > 0 && (
+                      <div className="mt-2 space-y-1 rounded-md border border-border/50 bg-background p-2.5">
+                        <p className="font-semibold text-muted-foreground">
+                          Durcissement DMARC — manuel uniquement (la plateforme ne modifie jamais la
+                          politique DNS)
+                        </p>
+                        {delivResult.dmarcPlan.map((step: any) => (
+                          <p
+                            key={step.policy}
+                            className="text-[11px] leading-relaxed text-muted-foreground/80"
+                          >
+                            <span className="font-semibold">
+                              {step.applied ? "● " : "○ "}p={step.policy}
+                            </span>{" "}
+                            — {step.note}
+                            {!step.applied && (
+                              <span className="mt-0.5 block font-mono text-[10px] text-muted-foreground/70">
+                                Type : TXT · Nom : _dmarc · Valeur : {step.record}
+                              </span>
+                            )}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                     {delivResult.recommendations?.length > 0 && (
                       <div className="mt-2 space-y-1 rounded-md border border-border/50 bg-background p-2.5">
                         <p className="font-semibold text-muted-foreground">Recommandations DNS</p>

@@ -12,7 +12,8 @@ Le code d'envoi (`src/convex/emailSender.ts`) applique automatiquement :
   filtres) ;
 - **STARTTLS obligatoire** sur 587 et vérification des certificats activée par
   défaut ;
-- **Signature DKIM** automatique si les variables `SMTP_DKIM_*` sont définies.
+- **Signature DKIM** automatique dès que les variables `SMTP_DKIM_*` sont
+définies — produite côté serveur uniquement, jamais dans le navigateur.
 
 ---
 
@@ -37,9 +38,28 @@ SMTP_TLS_VERIFY=true
 | `SMTP_FROM_NAME` | Nom affiché (ex. batibuild) |
 | `SMTP_SECURE` | `true` / `465` → SSL direct (port 465) ; `false` / `587` → STARTTLS |
 | `SMTP_TLS_VERIFY` | `true` (défaut) : vérifie les certificats TLS. Mettre `false` uniquement pour un serveur auto-signé en interne |
-| `SMTP_DKIM_DOMAIN` | Domaine signé DKIM (voir ci-dessous) |
+| `SMTP_DKIM_DOMAIN` | Domaine signé DKIM — pour la plateforme : `batibuild.app` (voir ci-dessous) |
 | `SMTP_DKIM_SELECTOR` | Sélecteur DKIM fourni par l'hébergeur (défaut `default`) |
 | `SMTP_DKIM_PRIVATE_KEY` | Clé privée DKIM fournie par l'hébergeur (PEM, peut être collée avec `\n`) |
+| `APP_SENDING_DOMAIN` | Domaine d'envoi attendu (défaut `batibuild.app`) — sert au contrôle « domaine d'expédition « de l'admin |
+
+### DKIM : serveur uniquement
+
+La signature DKIM est produite **exclusivement côté serveur**, dans les actions
+Node de Convex (`src/convex/dkim.ts`, appelé par `src/convex/emailSender.ts`) :
+
+- `SMTP_DKIM_PRIVATE_KEY` n'est lue que dans ce module serveur ;
+- la clé n'est **jamais** journalisée, renvoyée par une action, exposée au
+  navigateur ni committée dans le dépôt (elle vit dans les secrets Convex) ;
+- le frontend ne connaît que des **booléens** (DKIM configuré ou non, signature
+  vérifiée ou non) et des **noms d'enregistrements DNS** — jamais la clé.
+
+La présence des variables ne suffit pas à déclarer DKIM actif : l'application
+compile un message avec le **même moteur d'envoi** et vérifie que l'en-tête
+`DKIM-Signature` est réellement produit avec le bon domaine (`d=`) et le bon
+sélecteur (`s=`), puis compare la clé publique publiée en DNS (`p=`) à la clé
+privée qui signe. Sans ces deux contrôles, DKIM est signalé comme
+« Non configuré » ou en échec.
 
 ### Règle d'or
 
@@ -92,15 +112,27 @@ notifications).
 
 ### 2.3 DMARC (politique de réception)
 
+La politique reste volontairement en **`p=none` pendant la phase de
+validation** : aucun e-mail légitime n'est bloqué et les rapports agrégés
+montrent si SPF et DKIM passent partout.
+
 ```
 Type : TXT
 Nom  : _dmarc
-Valeur : v=DMARC1; p=quarantine; rua=mailto:dmarc@votredomaine.tn; ruf=mailto:dmarc@votredomaine.tn
+Valeur : v=DMARC1; p=none; rua=mailto:dmarc@batibuild.app; ruf=mailto:dmarc@batibuild.app; fo=1; pct=100
 ```
 
-- `p=quarantine` : les e-mails non authentifiés sont mis en spam au lieu
-  d'être rejetés (bon point de départ).
-- Après quelques semaines sans faux positifs : passez à `p=reject`.
+Durcissement progressif (à faire **manuellement** chez le registrar —
+l'application ne modifie jamais la politique DNS) :
+
+1. `p=none` (phase de validation, politique actuelle) : on observe les rapports ;
+2. après 1 à 2 semaines sans faux positif : `p=quarantine` — les e-mails non
+   authentifiés partent en indésirables ;
+3. une fois cette étape stable : `p=reject` — les e-mails non authentifiés sont
+   refusés.
+
+À chaque étape, conservez `rua=` (rapports agrégés) et `ruf=` (rapports d'échec)
+pour détecter toute régression SPF/DKIM avant de durcir davantage.
 
 ### 2.4 MX (le domaine doit pouvoir recevoir du courrier)
 
@@ -112,15 +144,30 @@ minimum un MX vers votre hébergeur e-mail.
 
 ## 3. Vérifier dans l'application
 
-Administration → **E-mail** → bouton **« Vérifier la délivrabilité »** :
+Administration → **E-mail** → **« Authentification e-mail (SPF · DKIM ·
+DMARC) »** → bouton **« Vérifier la délivrabilité »**.
 
-- contrôle MX, SPF, DKIM, DMARC et l'alignement du domaine ;
-- affiche un rapport avec les enregistrements DNS exacts à ajouter ;
-- ne renvoie jamais d'erreur technique brute.
+Le panneau affiche, pour le domaine d'expédition réellement utilisé :
 
-Un test d'envoi réel est aussi disponible (**« Tester la configuration SMTP »**)
-: vérifiez alors dans le client de messagerie les en-têtes
-`Received-SPF: pass`, `dkim=pass` et `dmarc=pass`.
+| Ligne | Statut affiché | Ce qui est réellement contrôlé |
+|---|---|---|
+| Domaine d'envoi | OK / À vérifier | `SMTP_FROM` est bien sur `batibuild.app` |
+| MX | OK / Échec | le domaine peut recevoir du courrier |
+| SPF | OK / Échec | enregistrement TXT `v=spf1 …` (et pas de `+all`) |
+| DKIM | **OK / Non configuré** / Échec | variables présentes **et** signature `DKIM-Signature` réellement produite **et** enregistrement `<sélecteur>._domainkey.<domaine>` publié **et** clé publique alignée sur la clé de signature |
+| DMARC | **OK · politique actuelle : p=…** / Échec | enregistrement `_dmarc` présent et politique lisible |
+| Alignement SPF/DKIM/DMARC | OK / À vérifier | domaine du compte SMTP = domaine de l'expéditeur |
+
+Un bloc « Durcissement DMARC » liste les valeurs exactes des étapes
+`p=quarantine` puis `p=reject`, en indiquant laquelle est active — aucune n'est
+appliquée automatiquement.
+
+Le test d'envoi réel (**« Tester la configuration SMTP »**) indique également si
+la signature DKIM a été appliquée à l'e-mail de test. Côté destinataire, vérifiez
+les en-têtes `Received-SPF: pass`, `dkim=pass` et `dmarc=pass`.
+
+Aucune erreur technique brute n'est jamais renvoyée au navigateur, et la clé
+privée DKIM n'apparaît dans aucune de ces réponses.
 
 ---
 

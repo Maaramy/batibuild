@@ -11,6 +11,16 @@ import nodemailer from "nodemailer";
 import crypto from "node:crypto";
 import dns from "node:dns";
 import { vly } from "./vlyIntegrations";
+import {
+  dkimDnsName,
+  dkimMailOption,
+  dkimPrivateKeyInfo,
+  expectedSendingDomain,
+  matchDkimDnsRecord,
+  readDkimEnv,
+  resolveTxtRecords,
+  verifyOutboundDkimSignature,
+} from "./dkim";
 
 // ============================================================================
 // Node-only email actions (SMTP via nodemailer, VLY API fallback)
@@ -26,8 +36,10 @@ import { vly } from "./vlyIntegrations";
 //   - Version texte brute (ratio texte/HTML) dérivée du HTML
 //   - STARTTLS obligatoire sur 587 (requireTLS) et vérification des
 //     certificats activée par défaut (SMTP_TLS_VERIFY=false pour la désactiver)
-//   - Signature DKIM optionnelle via SMTP_DKIM_DOMAIN / SMTP_DKIM_SELECTOR /
-//     SMTP_DKIM_PRIVATE_KEY
+//   - Signature DKIM via SMTP_DKIM_DOMAIN / SMTP_DKIM_SELECTOR /
+//     SMTP_DKIM_PRIVATE_KEY — produite EXCLUSIVEMENT côté serveur (module
+//     `src/convex/dkim.ts`) ; la clé privée n'est jamais journalisée, renvoyée
+//     par une action ni exposée au navigateur
 
 type SmtpSecurity = "ssl" | "tls" | "none";
 
@@ -165,24 +177,14 @@ function htmlToText(html: string): string {
 }
 
 /**
- * Récupère la signature DKIM optionnelle depuis les variables
- * d'environnement (SMTP_DKIM_DOMAIN, SMTP_DKIM_SELECTOR, SMTP_DKIM_PRIVATE_KEY).
- * Retourne null si non configurée (l'envoi reste valide, mais la délivrabilité
- * sera meilleure avec DKIM — voir adminCheckEmailDeliverability).
+ * Signature DKIM des e-mails sortants, lue dans l'environnement du SERVEUR
+ * (SMTP_DKIM_DOMAIN / SMTP_DKIM_SELECTOR / SMTP_DKIM_PRIVATE_KEY — voir
+ * `src/convex/dkim.ts`). Retourne null si non configurée : l'envoi reste
+ * valide, mais SPF et DMARC sont alors seuls garants de l'authentification.
  */
-function dkimConfigFor(senderEmail: string): nodemailer.SendMailOptions["dkim"] | null {
-  const domain = (process.env.SMTP_DKIM_DOMAIN || "").trim();
-  const privateKey = (process.env.SMTP_DKIM_PRIVATE_KEY || "").trim();
-  if (!domain || !privateKey) return null;
-  const selector = (process.env.SMTP_DKIM_SELECTOR || "default").trim();
-  // Normalise la clé si elle a été collée avec des \n littéraux.
-  const key = privateKey.replace(/\\n/g, "\n");
-  return {
-    domainName: domain,
-    keySelector: selector,
-    privateKey: key,
-    cacheDir: false,
-  };
+function dkimConfigFor(): nodemailer.SendMailOptions["dkim"] | null {
+  const env = readDkimEnv();
+  return env ? dkimMailOption(env) : null;
 }
 
 type DeliverableMailInput = {
@@ -218,7 +220,7 @@ function buildDeliverableMail(input: DeliverableMailInput) {
     "X-Mailer": "batibuild-app/2.0 (SMTP)",
     "X-Entity-Ref-ID": crypto.randomUUID(),
   };
-  const dkim = dkimConfigFor(senderEmail);
+  const dkim = dkimConfigFor();
   return {
     from: input.from,
     to: input.to,
@@ -865,12 +867,47 @@ export const adminTestSmtp = action({
         return { success: false, code, message };
       }
 
+      // 4c. Signature DKIM : vérifiée sur un message compilé par le même
+      // moteur d'envoi — la seule présence des variables ne suffit pas.
+      const dkimEnv = readDkimEnv();
+      const dkimProbe = dkimEnv
+        ? await verifyOutboundDkimSignature(
+            buildDeliverableMail({
+              to: testEmail,
+              subject: `Vérification DKIM — ${settings.senderName}`,
+              html: "<p>Vérification de la signature DKIM.</p>",
+              from: `"${settings.senderName}" <${settings.senderEmail}>`,
+              replyTo: settings.replyTo || undefined,
+              kind: "test",
+            }),
+            dkimEnv,
+          )
+        : { signed: false };
+      const dkim = {
+        configured: !!dkimEnv,
+        signed: dkimProbe.signed,
+        domain: dkimProbe.domain || dkimEnv?.domain,
+        selector: dkimProbe.selector || dkimEnv?.selector,
+        detail: !dkimEnv
+          ? "DKIM non configuré : l'e-mail de test est parti sans signature (SMTP_DKIM_DOMAIN / SMTP_DKIM_SELECTOR / SMTP_DKIM_PRIVATE_KEY absentes)."
+          : dkimProbe.signed
+            ? `Signature DKIM appliquée (d=${dkimEnv.domain}, s=${dkimEnv.selector}).`
+            : `DKIM configuré mais aucune signature produite : ${dkimProbe.error || "signature absente"}`,
+      };
+      const finalWarnings = warnings ? [...warnings] : [];
+      if (dkimEnv && !dkimProbe.signed) {
+        finalWarnings.push(
+          `Signature DKIM absente alors que la configuration DKIM est présente : ${dkimProbe.error || "la clé privée a été refusée par le moteur d'envoi"}.`,
+        );
+      }
+
       return {
         success: true,
         code: "SENT",
         message: "E-mail de test envoyé avec succès.",
         detail: `Connexion SMTP réussie sur ${settings.host}:${settings.port}. L'e-mail de test a été envoyé depuis ${settings.senderEmail} vers ${testEmail}.`,
-        warnings: warnings?.length ? warnings : undefined,
+        dkim,
+        warnings: finalWarnings.length ? finalWarnings : undefined,
       };
     } catch (err: any) {
       // Filet de sécurité : ne JAMAIS laisser une erreur brute remonter au client
@@ -894,19 +931,9 @@ export const adminTestSmtp = action({
 
 type CheckStatus = "ok" | "warn" | "fail" | "na";
 
-async function resolveTxt(domain: string, timeoutMs = 6000): Promise<string[] | null> {
-  try {
-    const records = await Promise.race([
-      dns.promises.resolveTxt(domain),
-      new Promise<never>((_, rej) =>
-        setTimeout(() => rej(new Error("timeout")), timeoutMs),
-      ),
-    ]);
-    return records.map((chunks) => chunks.join(""));
-  } catch {
-    return null;
-  }
-}
+// Les requêtes TXT vivent dans `src/convex/dkim.ts` (partagées avec la
+// vérification DKIM) ; alias local pour la lisibilité de l'audit.
+const resolveTxt = resolveTxtRecords;
 
 async function resolveMx(domain: string, timeoutMs = 6000): Promise<string[] | null> {
   try {
@@ -970,18 +997,43 @@ export const adminCheckEmailDeliverability = action({
       }
 
       const checks: {
+        sender: { status: CheckStatus; detail: string };
         mx: { status: CheckStatus; detail: string };
         spf: { status: CheckStatus; detail: string };
-        dkim: { status: CheckStatus; detail: string; selector?: string };
-        dmarc: { status: CheckStatus; detail: string };
+        dkim: {
+          status: CheckStatus;
+          detail: string;
+          selector?: string;
+          /** La signature est-elle réellement produite dans les e-mails ? */
+          signatureVerified?: boolean;
+          /** Enregistrement `<sélecteur>._domainkey.<domaine>` publié ? */
+          dnsPublished?: boolean;
+          /** Clé publique du DNS identique à la clé privée de signature ? */
+          keyMatches?: boolean;
+        };
+        dmarc: { status: CheckStatus; detail: string; policy?: string };
         alignment: { status: CheckStatus; detail: string };
       } = {
+        sender: { status: "na", detail: "" },
         mx: { status: "na", detail: "" },
         spf: { status: "na", detail: "" },
         dkim: { status: "na", detail: "" },
         dmarc: { status: "na", detail: "" },
         alignment: { status: "na", detail: "" },
       };
+
+      // Domaine d'expédition : la plateforme envoie depuis batibuild.app.
+      const expectedDomain = expectedSendingDomain();
+      checks.sender =
+        domain === expectedDomain
+          ? {
+              status: "ok",
+              detail: `Tous les e-mails sortent depuis « ${settings.senderEmail} » : domaine d'expédition ${domain}.`,
+            }
+          : {
+              status: "warn",
+              detail: `Le domaine d'expédition est « ${domain} » alors que celui de la plateforme est « ${expectedDomain} » : SPF, DKIM et DMARC ne seront pas alignés sur le domaine principal. Configurez SMTP_FROM et SMTP_USER sur ${expectedDomain}.`,
+            };
 
       // MX
       const mx = await resolveMx(domain);
@@ -1023,35 +1075,96 @@ export const adminCheckEmailDeliverability = action({
         };
       }
 
-      // DKIM
-      const dkimDomain = (process.env.SMTP_DKIM_DOMAIN || "").trim();
-      const dkimSelector = (process.env.SMTP_DKIM_SELECTOR || "default").trim();
-      if (dkimDomain) {
-        const dkimTxt = await resolveTxt(`${dkimSelector}._domainkey.${dkimDomain}`);
-        if (dkimTxt && dkimTxt.length > 0) {
-          checks.dkim = {
-            status: "ok",
-            selector: dkimSelector,
-            detail: `Signature DKIM configurée et enregistrement DNS trouvé : ${dkimSelector}._domainkey.${dkimDomain}.`,
-          };
-        } else {
-          checks.dkim = {
-            status: "fail",
-            selector: dkimSelector,
-            detail: `DKIM configuré dans le code (sélecteur « ${dkimSelector} ») mais aucun enregistrement DNS trouvé sur ${dkimSelector}._domainkey.${dkimDomain}. Publiez la clé publique fournie par votre hébergeur.`,
-          };
-        }
-      } else {
+      // DKIM — les variables ne suffisent pas : on vérifie EN PLUS que la
+      // signature est réellement produite par le moteur d'envoi et que la clé
+      // publique publiée en DNS correspond à la clé privée de signature.
+      const dkimEnv = readDkimEnv();
+      if (!dkimEnv) {
         checks.dkim = {
           status: "na",
           detail:
-            "DKIM non configuré. C'est LE levier le plus efficace contre le spam : ajoutez les variables SMTP_DKIM_DOMAIN, SMTP_DKIM_SELECTOR et SMTP_DKIM_PRIVATE_KEY (clé privée fournie par votre hébergeur), puis publiez la clé publique dans vos DNS.",
+            "Non configuré. Ajoutez SMTP_DKIM_DOMAIN, SMTP_DKIM_SELECTOR et SMTP_DKIM_PRIVATE_KEY dans les variables d'environnement du serveur (clé privée fournie par votre hébergeur), puis publiez la clé publique dans vos DNS. La clé privée reste côté serveur : elle ne transite jamais par le navigateur.",
         };
+      } else {
+        const keyInfo = dkimPrivateKeyInfo(dkimEnv);
+        const dnsName = dkimDnsName(dkimEnv);
+        const dkimTxt = await resolveTxt(dnsName);
+        const dkimRecord = dkimTxt?.find((r) => /p\s*=/i.test(r)) || null;
+
+        if (!keyInfo.ok) {
+          checks.dkim = {
+            status: "fail",
+            selector: dkimEnv.selector,
+            signatureVerified: false,
+            dnsPublished: !!dkimRecord,
+            detail: `Variables DKIM présentes mais signature impossible : ${keyInfo.error}`,
+          };
+        } else {
+          // Vérification réelle : on compile un message avec le même moteur
+          // d'envoi (et les mêmes options DKIM que les e-mails de production)
+          // puis on contrôle l'en-tête DKIM-Signature obtenu.
+          const probe = await verifyOutboundDkimSignature(
+            buildDeliverableMail({
+              to: settings.senderEmail,
+              subject: `Vérification DKIM — ${settings.senderName}`,
+              html: "<p>Vérification de la signature DKIM.</p>",
+              from: `"${settings.senderName}" <${settings.senderEmail}>`,
+              replyTo: settings.replyTo || undefined,
+              kind: "test",
+            }),
+            dkimEnv,
+          );
+          const keyMatch = dkimRecord ? matchDkimDnsRecord(dkimRecord, dkimEnv) : "unknown";
+
+          if (!probe.signed) {
+            checks.dkim = {
+              status: "fail",
+              selector: dkimEnv.selector,
+              signatureVerified: false,
+              dnsPublished: !!dkimRecord,
+              detail: `Clé privée présente mais AUCUNE signature DKIM produite dans les e-mails sortants : ${probe.error || "signature absente"}`,
+            };
+          } else if (!dkimRecord) {
+            checks.dkim = {
+              status: "fail",
+              selector: dkimEnv.selector,
+              signatureVerified: true,
+              dnsPublished: false,
+              detail: `Signature DKIM bien appliquée (d=${dkimEnv.domain}, s=${dkimEnv.selector}) mais aucun enregistrement DNS trouvé sur ${dnsName} : les destinataires ne peuvent pas vérifier la signature. Publiez la clé publique fournie par votre hébergeur.`,
+            };
+          } else if (keyMatch === "mismatch") {
+            checks.dkim = {
+              status: "fail",
+              selector: dkimEnv.selector,
+              signatureVerified: true,
+              dnsPublished: true,
+              keyMatches: false,
+              detail: `Signature DKIM appliquée (d=${dkimEnv.domain}, s=${dkimEnv.selector}) mais la clé publique publiée sur ${dnsName} ne correspond PAS à la clé privée qui signe : la vérification échouera chez les destinataires. Republiez la clé publique correspondant à cette clé privée.`,
+            };
+          } else {
+            checks.dkim = {
+              status: "ok",
+              selector: dkimEnv.selector,
+              signatureVerified: true,
+              dnsPublished: true,
+              keyMatches: keyMatch === "match",
+              detail:
+                `Signature DKIM effectivement présente dans les e-mails sortants : d=${dkimEnv.domain}, s=${dkimEnv.selector}, enregistrement ${dnsName} publié` +
+                (keyMatch === "match"
+                  ? " et clé publique alignée sur la clé de signature."
+                  : " (clé publique non comparable — vérifiez le format auprès de l'hébergeur).") +
+                ` Clé de signature : ${keyInfo.algorithm}${keyInfo.bits ? ` ${keyInfo.bits} bits` : ""}.`,
+            };
+          }
+        }
       }
 
-      // DMARC
+      // DMARC — politique actuelle. p=none reste la politique de validation :
+      // l'enregistrement est donc considéré comme conforme, et le durcissement
+      // (quarantine puis reject) est proposé à titre informatif seulement.
       const dmarcTxt = await resolveTxt(`_dmarc.${domain}`);
       const dmarc = dmarcTxt?.find((r) => /^v=DMARC1/i.test(r.trim())) || null;
+      let dmarcPolicy = "";
       if (!dmarc) {
         checks.dmarc = {
           status: "fail",
@@ -1059,11 +1172,26 @@ export const adminCheckEmailDeliverability = action({
             `Aucun enregistrement DMARC pour ${domain}. Sans DMARC, les boîtes Gmail/Outlook ne savent pas quoi faire des e-mails non authentifiés et les classent souvent en spam.`,
         };
       } else {
-        const policy = /p=(none|quarantine|reject)/i.exec(dmarc)?.[1] || "";
-        checks.dmarc = {
-          status: policy === "none" ? "warn" : "ok",
-          detail: `DMARC présent (politique ${policy ? policy.toUpperCase() : "inconnue"}) : ${dmarc.slice(0, 120)}${dmarc.length > 120 ? "…" : ""}.`,
-        };
+        dmarcPolicy = (/p\s*=\s*(none|quarantine|reject)/i.exec(dmarc)?.[1] || "").toLowerCase();
+        if (!dmarcPolicy) {
+          checks.dmarc = {
+            status: "warn",
+            detail: `Enregistrement DMARC présent mais aucune politique « p= » lisible : ${dmarc.slice(0, 120)}${dmarc.length > 120 ? "…" : ""}`,
+          };
+        } else if (dmarcPolicy === "none") {
+          checks.dmarc = {
+            status: "ok",
+            policy: "none",
+            detail:
+              "Enregistrement DMARC présent — politique actuelle : p=none (phase de validation). Aucun e-mail légitime n'est bloqué ; les rapports agrégés (rua) montrent si SPF et DKIM passent partout avant de durcir la politique.",
+          };
+        } else {
+          checks.dmarc = {
+            status: "ok",
+            policy: dmarcPolicy,
+            detail: `Enregistrement DMARC présent — politique actuelle : p=${dmarcPolicy}.`,
+          };
+        }
       }
 
       // Alignement SPF (compte SMTP vs expéditeur)
@@ -1085,11 +1213,16 @@ export const adminCheckEmailDeliverability = action({
       return {
         success: true,
         domain,
+        expectedDomain,
         senderEmail: settings.senderEmail,
         allOk,
         checks,
+        dmarcPolicy: dmarcPolicy || null,
+        // Chemin de durcissement DMARC, fourni à titre d'information : la
+        // plateforme ne modifie JAMAIS la politique DNS automatiquement.
+        dmarcPlan: buildDmarcPlan(domain, dmarcPolicy),
         warnings: warnings?.length ? warnings : [],
-        recommendations: buildDnsRecommendations(domain, checks, dkimDomain),
+        recommendations: buildDnsRecommendations(domain, checks, dmarcPolicy),
       };
     } catch (err: any) {
       console.error(
@@ -1106,18 +1239,51 @@ export const adminCheckEmailDeliverability = action({
   },
 });
 
+/**
+ * Étapes de durcissement DMARC (none → quarantine → reject), purement
+ * informatives : la plateforme ne modifie jamais la politique DNS elle-même.
+ */
+function buildDmarcPlan(
+  domain: string,
+  current: string,
+): { policy: string; applied: boolean; record: string; note: string }[] {
+  const reporting = `rua=mailto:dmarc@${domain}; ruf=mailto:dmarc@${domain}; fo=1; pct=100`;
+  return [
+    {
+      policy: "none",
+      applied: current === "none",
+      record: `v=DMARC1; p=none; ${reporting}`,
+      note: "Phase de validation : on collecte les rapports sans bloquer le moindre e-mail légitime.",
+    },
+    {
+      policy: "quarantine",
+      applied: current === "quarantine",
+      record: `v=DMARC1; p=quarantine; ${reporting}`,
+      note: "Après 1 à 2 semaines de rapports sans faux positif : les e-mails non authentifiés partent en indésirables au lieu d'être rejetés.",
+    },
+    {
+      policy: "reject",
+      applied: current === "reject",
+      record: `v=DMARC1; p=reject; ${reporting}`,
+      note: "Politique stricte : les e-mails non authentifiés sont refusés. À activer une fois DKIM et SPF alignés sur tous les expéditeurs du domaine.",
+    },
+  ];
+}
+
 function buildDnsRecommendations(
   domain: string,
   checks: {
+    sender: { status: CheckStatus; detail: string };
     mx: { status: CheckStatus; detail: string };
     spf: { status: CheckStatus; detail: string };
     dkim: { status: CheckStatus; detail: string; selector?: string };
     dmarc: { status: CheckStatus; detail: string };
     alignment: { status: CheckStatus; detail: string };
   },
-  dkimDomain: string,
+  dmarcPolicy: string,
 ): string[] {
   const recs: string[] = [];
+  const dmarcSteps = buildDmarcPlan(domain, dmarcPolicy);
 
   if (checks.spf.status !== "ok") {
     recs.push(
@@ -1129,19 +1295,34 @@ function buildDnsRecommendations(
 
   if (checks.dkim.status !== "ok") {
     recs.push(
-      "Activez la signature DKIM chez votre hébergeur, puis ajoutez dans les variables d'environnement :\n" +
+      "Activez la signature DKIM chez votre hébergeur, puis ajoutez dans les variables d'environnement du serveur :\n" +
         "  SMTP_DKIM_DOMAIN=<votre domaine>\n" +
         "  SMTP_DKIM_SELECTOR=<sélecteur fourni par l'hébergeur>\n" +
         "  SMTP_DKIM_PRIVATE_KEY=<clé privée fournie par l'hébergeur>\n" +
-        "Le code signera automatiquement chaque e-mail envoyé.",
+        "Publiez la clé publique en DNS, puis relancez cette vérification : le serveur contrôle que la signature est réellement appliquée aux e-mails sortants (et non simplement que les variables existent). La clé privée reste côté serveur.",
     );
   }
 
   if (checks.dmarc.status !== "ok") {
     recs.push(
-      `Ajoutez un enregistrement TXT DMARC sur _dmarc.${domain} :\n` +
-        `  Type : TXT · Nom : _dmarc · Valeur : v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain}; ruf=mailto:dmarc@${domain}\n` +
-        `Après quelques semaines sans faux positifs, passez la politique à p=reject.`,
+      `Ajoutez un enregistrement TXT DMARC sur _dmarc.${domain}, en commençant par la phase de validation :\n` +
+        `  Type : TXT · Nom : _dmarc · Valeur : ${dmarcSteps[0].record}\n` +
+        `p=none permet d'observer les rapports (rua/ruf) sans bloquer d'e-mail légitime.`,
+    );
+  }
+
+  // Durcissement DMARC : toujours proposé (sauf politique déjà stricte),
+  // jamais appliqué automatiquement.
+  if (dmarcPolicy !== "reject") {
+    const target = dmarcSteps.find((s) => s.policy === (dmarcPolicy === "none" ? "quarantine" : "reject")) || dmarcSteps[2];
+    recs.push(
+      `Durcissement DMARC — politique actuelle : ${dmarcPolicy ? `p=${dmarcPolicy}` : "absente"}. Aucune modification n'est appliquée automatiquement : la mise à jour se fait chez votre registrar.\n` +
+        `Prochaine étape (${target.policy}) :\n` +
+        `  Type : TXT · Nom : _dmarc · Valeur : ${target.record}\n` +
+        `${target.note}\n` +
+        (dmarcPolicy === "none"
+          ? "Conservez p=none pendant toute la phase de validation, puis passez à p=quarantine, et enfin à p=reject."
+          : "Une fois cette étape stable, passez à p=reject."),
     );
   }
 
@@ -1154,6 +1335,12 @@ function buildDnsRecommendations(
   if (checks.alignment.status === "warn") {
     recs.push(
       "Utilisez une adresse SMTP_FROM appartenant au même domaine que SMTP_USER, ou ajoutez le domaine de l'expéditeur dans le SPF de votre serveur SMTP.",
+    );
+  }
+
+  if (checks.sender.status !== "ok") {
+    recs.push(
+      `Alignez l'expédition sur le domaine de la plateforme : SMTP_FROM et SMTP_USER doivent être des adresses @${expectedSendingDomain()} pour que SPF, DKIM et DMARC soient alignés.`,
     );
   }
 
