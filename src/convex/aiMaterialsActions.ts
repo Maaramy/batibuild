@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
-import { vly } from "../lib/vly-integrations";
+import { vly } from "./vlyIntegrations";
 import { requireClientProAccess } from "./access";
 import { readFlag } from "./featureFlags";
 import { inferFloorsFromCategory } from "./projectTypes";

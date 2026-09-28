@@ -18,7 +18,7 @@ The `@vly-ai/integrations` package is already included in package.json.
 ```typescript
 "use node";
 
-import { vly } from '../lib/vly-integrations';
+import { vly } from './vlyIntegrations';
 import { action } from "./_generated/server";
 
 export const generateAIResponse = action({

@@ -182,20 +182,27 @@ describe("bundle client — poids du build", () => {
   });
 
   it("le build de production plafonne le heap V8 pour survivre à la sandbox", () => {
-    // Sans plafond, le pic mémoire du bundling atteint ~1,3 Go ; avec les
-    // ~750 Mo déjà consommés par le serveur de dev et Convex dans le même
-    // cgroup de 2 Go, l'OOM killer termine le build (« Killed » pendant
-    // « rendering chunks »). Un plafond de 800 Mo fait collecter V8 plus tôt
-    // et ramène le pic sous la limite sans rien changer à la sortie.
+    // Sans plafond, le pic mémoire du build atteint la limite de 2 Go de la
+    // sandbox (partagée avec le serveur de dev et `convex dev`) et l'OOM killer
+    // termine le build (« Killed »). Le plafond fait collecter V8 plus tôt.
+    //
+    // Il est posé dans `scripts/build.sh` et non dans la ligne « build » de
+    // package.json : une commande recopiée par la plateforme peut voir ses
+    // préfixes d'environnement retirés (`NODE_OPTIONS=… tsc -b`), auquel cas le
+    // plafond disparaît silencieusement. Un fichier exécuté par le shell, lui,
+    // ne peut pas être « nettoyé ».
     const pkg = JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8")) as {
       scripts: Record<string, string>;
     };
     const build = pkg.scripts.build;
     expect(build, "script « build » absent").toBeTruthy();
-    expect(build).toMatch(/--max-old-space-size=\d+/);
+    expect(build, "le build doit passer par le script plafonné").toMatch(/scripts\/build\.sh/);
+
+    const script = readFileSync(join(REPO_ROOT, "scripts", "build.sh"), "utf8");
+    expect(script, "plafond de heap absent").toMatch(/--max-old-space-size=\$\{?\w+/);
     // Le script doit continuer à enchaîner exactement tsc puis vite build.
-    expect(build).toMatch(/\btsc -b\b/);
-    expect(build).toMatch(/\bvite build\b/);
+    expect(script).toMatch(/\btsc -b\b/);
+    expect(script).toMatch(/\bvite build\b/);
   });
 
   it("chaque accès rapide de projet a une icône déclarée (aucun composant `undefined`)", () => {

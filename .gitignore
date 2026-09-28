@@ -3,3 +3,5 @@ node_modules
 dist
 src/convex/_generated
 core
+# Sortie de build de test (copie de dist/ utilisée par knip) : jamais suivie.
+isolate

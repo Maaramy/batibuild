@@ -28,5 +28,20 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "vly-toolbar-readonly.tsx"]
+  "include": ["src", "vly-toolbar-readonly.tsx"],
+  /*
+   * Le backend Convex est EXCLU du programme TypeScript du frontend.
+   *
+   * Le dossier src/convex a son propre projet TypeScript, qui couvre tous ses
+   * fichiers, et il est typé à chaque push Convex (« Typechecking took … » :
+   * un fichier Convex qui ne compile pas bloque la poussée). Le laisser dans ce
+   * projet-ci faisait compiler du code serveur (bcryptjs, nodemailer, SDK
+   * tiers) par le programme du navigateur : ~50 Mo de mémoire TypeScript en
+   * plus, sur un build qui frôle déjà la limite de 2 Go de la sandbox.
+   *
+   * Les fichiers _generated restent bien typés ici : ils sont importés par le
+   * frontend, et « exclude » ne s'applique qu'aux fichiers collectés via
+   * « include », pas à ceux atteints par un import.
+   */
+  "exclude": ["src/convex/**"]
 }

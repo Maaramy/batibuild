@@ -10,7 +10,7 @@ import { buildInvoicePdfAttachment, type InvoicePdfAttachment } from "./invoiceA
 import nodemailer from "nodemailer";
 import crypto from "node:crypto";
 import dns from "node:dns";
-import { vly } from "../lib/vly-integrations";
+import { vly } from "./vlyIntegrations";
 
 // ============================================================================
 // Node-only email actions (SMTP via nodemailer, VLY API fallback)

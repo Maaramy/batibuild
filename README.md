@@ -295,14 +295,30 @@ Killed
 ✖ 'tsc -b && vite build' failed
 ```
 
-Le script `build` fixe donc un plafond de heap (`--max-old-space-size=800`) :
-V8 collecte plus tôt et le pic redescend bien sous la limite (≈ 400 Mo de marge)
-sans rien changer à la sortie. Une valeur déjà présente dans `NODE_OPTIONS`
-reste prioritaire. Pour mesurer ou ajuster :
+Le script `build` passe donc par **`scripts/build.sh`**, qui fixe un plafond de
+heap (`--max-old-space-size=800`) pour les deux phases : V8 collecte plus tôt et
+le pic redescend sous la limite sans rien changer à la sortie. Une valeur déjà
+présente dans `NODE_OPTIONS` reste prioritaire.
+
+Le plafond est posé dans ce script, et non dans la ligne `build` de
+`package.json`, parce que les plateformes qui recopient la commande de build en
+retirent les préfixes d'environnement : un `export NODE_OPTIONS=… && …` peut
+donc disparaître silencieusement, ce qui laisse le build sans plafond. Pour
+mesurer ou ajuster :
 
 ```bash
-NODE_OPTIONS="--max-old-space-size=900" bun run build
+BB_BUILD_HEAP_MB=900 bun run build
 ```
+
+### Périmètre du typecheck frontend
+
+`tsconfig.app.json` exclut `src/convex/**` : le backend a son propre projet
+TypeScript (`src/convex/tsconfig.json`), typé à chaque push Convex, et le
+laisser dans le programme du navigateur faisait compiler du code serveur
+(bcryptjs, nodemailer, SDK tiers) pour ~50 Mo de mémoire en plus. Les modules
+donnés au serveur (ex. `src/convex/vlyIntegrations.ts`) vivent dans le projet
+Convex pour la même raison : importer `@vly-ai/integrations` depuis le frontend
+tirait ~250 modules supplémentaires (SDK AI, zod, @auth/core).
 
 ## Ce qui garde le graphe de modules léger
 

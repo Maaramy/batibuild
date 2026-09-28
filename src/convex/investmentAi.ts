@@ -3,7 +3,7 @@
 import { v, type GenericId } from "convex/values";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
-import { vly } from "../lib/vly-integrations";
+import { vly } from "./vlyIntegrations";
 import {
   INVESTMENT_TYPE_META,
   INVESTMENT_ZONES,
