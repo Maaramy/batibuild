@@ -5,6 +5,7 @@ import { FeatureFlagsProvider } from "@/hooks/use-feature-flags";
 import { SEO } from "@/components/SEO";
 import { MessagingBadgeSync } from "@/components/MessagingBadgeSync";
 import { WebBootSync } from "@/components/WebBootSync";
+import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { useSessionTracking } from "@/hooks/use-session-tracking";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
@@ -219,6 +220,11 @@ createRoot(document.getElementById("root")!).render(
                 module suivant. Sans aucun effet dans l'application Android
                 (voir `src/components/WebBootSync.tsx`). */}
             <WebBootSync />
+            {/* État du réseau : détection temps réel de la perte de connexion et
+                de sa reprise. Bannière unique, non bloquante, sans effet sur la
+                session ; identique sur Desktop, Mobile Web et application
+                Android (même plateforme Web). */}
+            <NetworkStatusBanner />
             <RouteSyncer />
             <SEO />
             <Suspense fallback={<RouteLoading />}>              <Routes>

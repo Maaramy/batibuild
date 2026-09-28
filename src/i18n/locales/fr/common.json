@@ -136,5 +136,17 @@
     "new": "Nouveau",
     "popular": "Populaire",
     "recommended": "Recommandé"
+  },
+  "network": {
+    "offlineTitle": "Connexion Internet perdue",
+    "offlineDetail": "Vérifiez votre connexion. Batibuild tentera automatiquement de se reconnecter.",
+    "reconnecting": "Reconnexion en cours…",
+    "backOnline": "Connexion rétablie",
+    "backOnlineDetail": "La synchronisation reprend automatiquement.",
+    "dataPreserved": "Vos données sont conservées localement. La synchronisation sera effectuée lorsque la connexion sera rétablie.",
+    "pending": "{{count}} opération(s) en attente de synchronisation",
+    "retry": "Réessayer",
+    "sessionOfflineTitle": "Connexion Internet requise",
+    "sessionOfflineDetail": "Votre session est conservée localement. Vérifiez votre connexion : votre espace se rouvrira dès le retour du réseau."
   }
 }

@@ -94,6 +94,8 @@ export { default as ClipboardCheck } from "../../node_modules/lucide-react/dist/
 export { default as ClipboardList } from "../../node_modules/lucide-react/dist/esm/icons/clipboard-list.js";
 export { default as Clock } from "../../node_modules/lucide-react/dist/esm/icons/clock.js";
 export { default as Clock3 } from "../../node_modules/lucide-react/dist/esm/icons/clock-3.js";
+// Icônes de l'état réseau (bandeau hors ligne / données conservées)
+export { default as CloudOff } from "../../node_modules/lucide-react/dist/esm/icons/cloud-off.js";
 export { default as Coffee } from "../../node_modules/lucide-react/dist/esm/icons/coffee.js";
 export { default as Coins } from "../../node_modules/lucide-react/dist/esm/icons/coins.js";
 export { default as Compass } from "../../node_modules/lucide-react/dist/esm/icons/compass.js";
@@ -266,6 +268,9 @@ export { default as Wallet } from "../../node_modules/lucide-react/dist/esm/icon
 export { default as Wand2 } from "../../node_modules/lucide-react/dist/esm/icons/wand-2.js";
 export { default as Warehouse } from "../../node_modules/lucide-react/dist/esm/icons/warehouse.js";
 export { default as Waves } from "../../node_modules/lucide-react/dist/esm/icons/waves.js";
+// Icônes de l'état réseau (bannière « Connexion perdue / rétablie »)
+export { default as Wifi } from "../../node_modules/lucide-react/dist/esm/icons/wifi.js";
+export { default as WifiOff } from "../../node_modules/lucide-react/dist/esm/icons/wifi-off.js";
 export { default as Wrench } from "../../node_modules/lucide-react/dist/esm/icons/wrench.js";
 export { default as X } from "../../node_modules/lucide-react/dist/esm/icons/x.js";
 export { default as XCircle } from "../../node_modules/lucide-react/dist/esm/icons/x-circle.js";

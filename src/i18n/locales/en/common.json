@@ -136,5 +136,17 @@
     "new": "New",
     "popular": "Popular",
     "recommended": "Recommended"
+  },
+  "network": {
+    "offlineTitle": "Internet connection lost",
+    "offlineDetail": "Check your connection. Batibuild will automatically try to reconnect.",
+    "reconnecting": "Reconnecting…",
+    "backOnline": "Connection restored",
+    "backOnlineDetail": "Syncing resumes automatically.",
+    "dataPreserved": "Your data is kept locally. It will be synced once the connection is restored.",
+    "pending": "{{count}} pending operation(s) to sync",
+    "retry": "Try again",
+    "sessionOfflineTitle": "Internet connection required",
+    "sessionOfflineDetail": "Your session is kept locally. Check your connection: your workspace will reopen as soon as the network is back."
   }
 }
