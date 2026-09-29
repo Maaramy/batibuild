@@ -311,7 +311,7 @@ après l'autre) :
 | sans plafond | ≈ 990 Mo | ≈ 1 160 Mo → « Killed » |
 | plafond unique à 800 Mo | 876 Mo | 888 Mo |
 | anciens plafonds (752 / 704) | 859 Mo | 846 Mo → « Killed » |
-| **planchers actuels** | **796 Mo** (`--jitless`, cap 744) | **785 Mo** (cap 620) |
+| **planchers actuels** | **796 Mo** (`--jitless`, cap 744) | cap **660** (620 → abandon de V8) |
 
 Le contrôle de type de l'application (1 413 fichiers, ~109 000 lignes, ~897 000
 instanciations de types) réclame ≈ 720 Mo de données vivantes : avec le JIT, le
@@ -320,11 +320,16 @@ seul, donc plus de cache de code JIT) le même contrôle tient dans **796 Mo**, 
 prix de ~2,3× le temps (≈ 130 s au lieu de ~55 s). C'est le point le plus bas
 atteignable sans rien désactiver.
 
-`vite build` tient dans 785 Mo (plafond 620) ; en dessous, V8 abandonne (600 →
-abandon à 777 Mo). Il **refuse** `--jitless` (échec immédiat) et
-`--max-semi-space-size=1` le fait abandonner dès 620 Mo : il garde donc le
-réglage par défaut. Descendre `maxParallelFileOps` de 4 à 2 ne gagne rien
-(mesuré : 792 Mo).
+`vite build` ne peut pas être allégé de la même façon. Il **refuse** `--jitless`
+(échec immédiat : Node charge `undici`, dont le parseur HTTP est un module
+`WebAssembly`, indisponible sans JIT) et `--max-semi-space-size=1` le fait
+abandonner encore plus tôt. Son seul levier est donc le plafond, et il est plus
+serré qu'il n'y paraît : à 620 Mo le build **abandonne** (« Ineffective
+mark-compacts near heap limit » — jeu vivant ≈ 600 Mo, limite réelle ≈ 635 Mo) ;
+à 660 Mo il passe (mesuré 3×, ~23 s). Un plafond trop juste n'allège pas le pic,
+il casse le build : l'enveloppe rejoue donc une fois à 900 Mo si V8 abandonne
+(`134`). Descendre `maxParallelFileOps` de 4 à 2 ne gagne rien (mesuré : 792 Mo),
+et `--no-opt` fonctionne mais coûte 23 % de temps sans gain mesuré.
 
 Mesuré comme **sans effet** sur la consommation de `tsc` : `exclude` des tests
 (807 → 847 Mo), `types: []` (851 Mo), suppression des 924 fichiers
@@ -346,9 +351,9 @@ en production n'est pas celle de `package.json` :
    contact qui reste est `node_modules/.bin` : le script y remplace les liens
    `tsc` et `vite` par de petites enveloppes `sh` qui relancent le vrai binaire
    sous son plafond. `vite` n'est plafonné **que** pour la sous-commande
-   `build` (620 Mo) : le serveur de développement (l'aperçu) garde tout son
-   tas. L'enveloppe est réécrite automatiquement si son plafond change dans
-   `harden-build-bins.mjs`.
+   `build` (660 Mo, rejoué une fois à 900 Mo si V8 abandonne) : le serveur de
+   développement (l'aperçu) garde tout son tas. L'enveloppe est réécrite
+   automatiquement si son plafond change dans `harden-build-bins.mjs`.
 
 L'enveloppe de `tsc` **choisit son chemin selon le budget mémoire mesuré du
 cgroup**, avant de lancer Node :
@@ -362,8 +367,9 @@ Le chemin rapide garde son repli : si V8 abandonne (`134`) ou si le noyau tue
 (`137`), la même commande est **rejouée** en `--jitless`. Un environnement large
 garde donc un build rapide, un environnement serré obtient un build qui passe.
 
-Pour mesurer ou ajuster les plafonds (une seule valeur, pour les deux
-mécanismes), et pour forcer un chemin :
+Pour mesurer ou ajuster les plafonds (`HEAP_MB_BY_TARGET`, `JITLESS_HEAP_MB` et
+`VITE_ABORT_RETRY_MB` dans `harden-build-bins.mjs` pour le chemin déployé,
+`BB_BUILD_HEAP_MB` pour `scripts/build.sh`), et pour forcer un chemin :
 
 ```bash
 BB_BUILD_HEAP_MB=900 bun run build
@@ -379,7 +385,8 @@ d'échec :
 ```
 [heap-guard] tsc : 1 884 Mo libres — chemin rapide (plafond 752 Mo)
 [heap-guard] tsc : mémoire insuffisante après 51 s — nouvelle tentative en mode économe (--jitless, plafond 744 Mo)
-[heap-guard] vite : abandon de V8 (plafond épuisé) après 29 s — cgroup 2 048 Mo, pic 1 061 Mo, libres 986 Mo (exit=134)
+[heap-guard] vite : abandon de V8 après 29 s — nouvelle tentative (plafond 900 Mo)
+[heap-guard] vite : SIGKILL — processus tué par le noyau (mémoire du sandbox) après 32 s — cgroup 2 048 Mo, pic 2 048 Mo, libres 48 Mo
 ```
 
 `134` = plafond trop bas (il faut le remonter), `137` = mémoire insuffisante

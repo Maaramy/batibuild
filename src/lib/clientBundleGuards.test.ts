@@ -282,6 +282,14 @@ describe("bundle client — poids du build", () => {
       expect(tscWrapper).toMatch(/--max-old-space-size=\d+/);
       expect(tscWrapper).toContain("../typescript/bin/tsc");
       expect(viteWrapper).toContain("../vite/bin/vite.js");
+      // Un plafond trop bas ne baisse pas le pic, il CASSE le build : mesuré,
+      // Vite abandonne à 620 Mo (« Ineffective mark-compacts near heap limit »,
+      // jeu vivant ≈ 600 Mo) et passe à 660 Mo. Le plafond nominal doit donc
+      // rester au-dessus de ce plancher mesuré.
+      expect(
+        Number(/--max-old-space-size=(\d+)/.exec(viteWrapper)?.[1]),
+        "le plafond de vite est repassé sous son plancher mesuré (660 Mo)",
+      ).toBeGreaterThanOrEqual(660);
 
       // `tsc -b` : plafonné, quelle que soit la sous-commande, et le chemin
       // choisi suit le budget mémoire du cgroup (mesuré avant de lancer node).
@@ -317,6 +325,28 @@ describe("bundle client — poids du build", () => {
         .split("\n");
       expect(attempts, "le repli économe doit rejouer la commande").toHaveLength(2);
       expect(Number(attempts[0])).toBeGreaterThan(Number(attempts[1]));
+
+      // `vite build` : son repli est symétrique et inverse — un plafond trop
+      // bas est un ABANDON de V8 (134), pas un pic plus bas, donc le repli doit
+      // ÉLARGIR le plafond, et seulement après l'échec.
+      writeFileSync(
+        join(tmp, "node_modules", "vite", "bin", "vite.js"),
+        "#!/usr/bin/env node\nconst limit = Math.round(require('v8').getHeapStatistics().heap_size_limit / 1048576);\nconsole.log(limit);\nprocess.exit(limit < 800 ? 134 : 0);\n",
+      );
+      const viteAttempts = execFileSync(join(bin, "vite"), ["build"], {
+        cwd: tmp,
+        encoding: "utf8",
+      })
+        .trim()
+        .split("\n");
+      expect(viteAttempts, "un abandon de V8 doit élargir le plafond").toHaveLength(2);
+      expect(Number(viteAttempts[1])).toBeGreaterThan(Number(viteAttempts[0]));
+      // Le serveur de développement (l'aperçu) n'est ni plafonné ni rejoué.
+      expect(
+        execFileSync(join(bin, "vite"), ["--version"], { cwd: tmp, encoding: "utf8" })
+          .trim()
+          .split("\n"),
+      ).toHaveLength(1);
 
       // L'enveloppe lance node UNE fois par invocation, avec le plafond en
       // argument de ligne de commande (il l'emporte sur NODE_OPTIONS).

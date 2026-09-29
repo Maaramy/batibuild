@@ -24,6 +24,13 @@
 # `tsc` étant résolu via node_modules/.bin, ce choix s'applique aussi ici.
 # Surchargeable via BB_BUILD_HEAP_MB.
 #
+# 752 Mo ne convient PAS à `vite build` : sous ~660 Mo de tas, Rollup abandonne
+# (« Ineffective mark-compacts near heap limit »). Les enveloppes de
+# node_modules/.bin posent donc leur propre plafond par binaire (tsc 752/744,
+# vite 660 puis 900 si V8 abandonne) ; un drapeau de ligne de commande l'emporte
+# sur NODE_OPTIONS, cette variable n'est ici qu'un filet de sécurité pour un
+# appel direct aux binaires.
+#
 # Ce script ne couvre QUE `bun run build` : la mise en production est lancée par
 # la plateforme avec la commande du gabarit Vite (`tsc -b && vite build`), qui
 # n'appelle jamais ce fichier. Les plafonds sont donc AUSSI posés sur les
