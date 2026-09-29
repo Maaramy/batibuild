@@ -23,7 +23,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "noPropertyAccessFromIndexSignature": false,
-    "baseUrl": ".",
+    // `baseUrl` est volontairement absent : TypeScript 7 (et donc `tsgo`, voir
+    // scripts/harden-build-bins.mjs) l'a SUPPRIMÉ (erreur TS5102). `paths` se
+    // résout sans lui, relativement à ce fichier.
     "paths": {
       "@/*": ["./src/*"]
     }

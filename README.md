@@ -310,16 +310,27 @@ après l'autre) :
 | --- | --- | --- |
 | sans plafond | ≈ 990 Mo | ≈ 1 160 Mo → « Killed » |
 | plafond unique à 800 Mo | 876 Mo | 888 Mo |
-| **plafonds au plancher (actuel)** | **859 Mo** (752 Mo) | **846 Mo** (704 Mo) |
+| anciens plafonds (752 / 704) | 859 Mo | 846 Mo → « Killed » |
+| **planchers actuels** | **796 Mo** (`--jitless`, cap 744) | **785 Mo** (cap 620) |
 
-`tsc -b` est le plancher du build : sa consommation est celle du contrôle de
-type de l'application elle-même (1 413 fichiers, ~109 000 lignes, ~897 000
-instanciations de types). Mesuré, **rien** de ce qui suit ne la fait baisser :
-`exclude` des tests (807 → 847 Mo), `types: []` (851 Mo), suppression des
-924 fichiers `@types/three` (798 Mo), isolation du backend Convex (727 Mo),
-`--optimize-for-size`, build incrémental `tsc -b` sur un checkout froid. En
-dessous de 744 Mo de plafond, V8 abandonne (« JavaScript heap out of memory ») ;
-à 744 Mo il termine avec 856 Mo de RSS — c'est le minimum atteignable.
+Le contrôle de type de l'application (1 413 fichiers, ~109 000 lignes, ~897 000
+instanciations de types) réclame ≈ 720 Mo de données vivantes : avec le JIT, le
+RSS ne descend pas sous **846 Mo** (plafond 744) ; en `--jitless` (l'interpréteur
+seul, donc plus de cache de code JIT) le même contrôle tient dans **796 Mo**, au
+prix de ~2,3× le temps (≈ 130 s au lieu de ~55 s). C'est le point le plus bas
+atteignable sans rien désactiver.
+
+`vite build` tient dans 785 Mo (plafond 620) ; en dessous, V8 abandonne (600 →
+abandon à 777 Mo). Il **refuse** `--jitless` (échec immédiat) et
+`--max-semi-space-size=1` le fait abandonner dès 620 Mo : il garde donc le
+réglage par défaut. Descendre `maxParallelFileOps` de 4 à 2 ne gagne rien
+(mesuré : 792 Mo).
+
+Mesuré comme **sans effet** sur la consommation de `tsc` : `exclude` des tests
+(807 → 847 Mo), `types: []` (851 Mo), suppression des 924 fichiers
+`@types/three` (798 Mo), isolation du backend Convex (727 Mo),
+`--optimize-for-size`, build incrémental `tsc -b` sur un checkout froid, et
+compilateur natif `tsgo` (4× plus rapide mais 1 110 Mo).
 
 Le plafond est donc appliqué à **deux endroits**, parce que la commande de mise
 en production n'est pas celle de `package.json` :
@@ -334,35 +345,55 @@ en production n'est pas celle de `package.json` :
    fournit elle-même et qui ne lit donc jamais `package.json`. Le seul point de
    contact qui reste est `node_modules/.bin` : le script y remplace les liens
    `tsc` et `vite` par de petites enveloppes `sh` qui relancent le vrai binaire
-   sous son plafond (`752 Mo` pour `tsc`, `704 Mo` pour `vite`). `vite` n'est
-   plafonné **que** pour la sous-commande `build` : le serveur de développement
-   (l'aperçu) garde tout son tas. L'enveloppe est réécrite automatiquement si
-   son plafond change dans `harden-build-bins.mjs`.
+   sous son plafond. `vite` n'est plafonné **que** pour la sous-commande
+   `build` (620 Mo) : le serveur de développement (l'aperçu) garde tout son
+   tas. L'enveloppe est réécrite automatiquement si son plafond change dans
+   `harden-build-bins.mjs`.
 
-Pour mesurer ou ajuster (une seule valeur, appliquée aux deux mécanismes) :
+L'enveloppe de `tsc` **choisit son chemin selon le budget mémoire mesuré du
+cgroup**, avant de lancer Node :
+
+- budget confortable (≥ 1 100 Mo libres) → chemin rapide (cap 752 Mo, JIT) ;
+- budget serré → chemin économe d'emblée (`--jitless`, cap 744 Mo) : inutile de
+  payer 55 s d'un essai que le noyau va tuer, et inutile de déclencher l'OOM
+  killer juste avant la tentative qui compte.
+
+Le chemin rapide garde son repli : si V8 abandonne (`134`) ou si le noyau tue
+(`137`), la même commande est **rejouée** en `--jitless`. Un environnement large
+garde donc un build rapide, un environnement serré obtient un build qui passe.
+
+Pour mesurer ou ajuster les plafonds (une seule valeur, pour les deux
+mécanismes), et pour forcer un chemin :
 
 ```bash
 BB_BUILD_HEAP_MB=900 bun run build
+BB_FAST_MIN_FREE_MB=0 bash -c 'tsc --version'        # toujours le chemin rapide
+BB_FAST_MIN_FREE_MB=999999 bash -c 'tsc --version'   # toujours le chemin économe
 ```
 
-**Diagnostic dans le journal de déploiement.** `Killed` ne dit pas quelle étape
-est morte. Chaque enveloppe rapporte donc maintenant le code de sortie du
-binaire :
+**Diagnostic dans le journal de déploiement.** `Killed` ne dit ni quelle étape
+est morte, ni quelle est la limite réelle du sandbox. Chaque enveloppe annonce
+donc le budget qu'elle mesure, puis la durée et l'état du cgroup en cas
+d'échec :
 
 ```
-[heap-guard] tsc : SIGKILL — processus tué par le noyau (mémoire du sandbox) (exit=137)
-[heap-guard] tsc : abandon de V8 (plafond de 752 Mo épuisé) (exit=134)
+[heap-guard] tsc : 1 884 Mo libres — chemin rapide (plafond 752 Mo)
+[heap-guard] tsc : mémoire insuffisante après 51 s — nouvelle tentative en mode économe (--jitless, plafond 744 Mo)
+[heap-guard] vite : abandon de V8 (plafond épuisé) après 29 s — cgroup 2 048 Mo, pic 1 061 Mo, libres 986 Mo (exit=134)
 ```
 
 `134` = plafond trop bas (il faut le remonter), `137` = mémoire insuffisante
-dans l'environnement de build (il faut la relever, ou réduire encore le travail
-de TypeScript). Si les deux étapes passent sans message, le pic est atteint.
+dans l'environnement de build : la ligne `cgroup …` livre alors la limite exacte
+et le pic atteint, donc l'arbitrage devient chiffré au lieu d'être deviné. Si
+les deux étapes passent sans message d'échec, c'est que tout a tenu.
 
 Si un environnement installe les dépendances avec `--ignore-scripts` (donc sans
 `postinstall`), le plafond peut être posé à la main avec
 `NODE_OPTIONS=--max-old-space-size=752` — à garder proche du passage, car cette
 variable s'applique alors à **tous** les processus Node de la sandbox (serveur
-de dev, tests), pas seulement au build.
+de dev, tests), pas seulement au build. Les drapeaux du chemin économe
+(`--jitless`) sont, eux, le travail de l'enveloppe : les appliquer globalement
+ralentirait l'aperçu et les tests.
 
 ### Périmètre du typecheck frontend
 

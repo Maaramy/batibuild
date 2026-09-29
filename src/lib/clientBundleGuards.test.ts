@@ -246,7 +246,7 @@ describe("bundle client — poids du build", () => {
     expect(harden).toMatch(/buildOnly/);
   });
 
-  it("l'enveloppe postinstall plafonne tsc au plancher mesuré et vite pour build", () => {
+  it("l'enveloppe postinstall plafonne tsc selon le budget mémoire et vite pour build", () => {
     // Vérifié pour de vrai sur un faux node_modules : chaque faux binaire
     // imprime la limite de tas V8 que node lui a donnée, donc le test constate
     // le plafond au lieu de paraphraser l'enveloppe. Elle doit aussi retrouver
@@ -254,11 +254,16 @@ describe("bundle client — poids du build", () => {
     // continuer à marcher) et rester idempotente.
     const tmp = mkdtempSync(join(tmpdir(), "budgetbati-heap-guard-"));
     const heapLimitScript = "#!/usr/bin/env node\nconsole.log(Math.round(require('v8').getHeapStatistics().heap_size_limit / 1048576));\n";
-    const heapLimitOf = (...args: string[]) =>
-      Number(execFileSync(join(tmp, "node_modules", ".bin", args.shift() as string), args, {
-        cwd: tmp,
-        encoding: "utf8",
-      }).trim());
+    // `env` force le budget mémoire que l'enveloppe mesure : c'est lui, et non
+    // la mémoire de la machine de test, qui choisit le chemin.
+    const heapLimitOf = (env: Record<string, string>, name: string, ...args: string[]) =>
+      Number(
+        execFileSync(join(tmp, "node_modules", ".bin", name), args, {
+          cwd: tmp,
+          encoding: "utf8",
+          env: { ...process.env, ...env },
+        }).trim(),
+      );
     try {
       const bin = join(tmp, "node_modules", ".bin");
       mkdirSync(bin, { recursive: true });
@@ -278,17 +283,40 @@ describe("bundle client — poids du build", () => {
       expect(tscWrapper).toContain("../typescript/bin/tsc");
       expect(viteWrapper).toContain("../vite/bin/vite.js");
 
-      // `tsc -b` : plafonné, quelle que soit la sous-commande.
-      expect(heapLimitOf("tsc", "-b")).toBeLessThan(1200);
+      // `tsc -b` : plafonné, quelle que soit la sous-commande, et le chemin
+      // choisi suit le budget mémoire du cgroup (mesuré avant de lancer node).
+      const fastLimit = heapLimitOf({ BB_FAST_MIN_FREE_MB: "0" }, "tsc", "-b");
+      const ecoLimit = heapLimitOf({ BB_FAST_MIN_FREE_MB: "999999" }, "tsc", "-b");
+      expect(fastLimit).toBeLessThan(1200);
+      expect(ecoLimit, "un budget serré doit partir directement en --jitless").toBeLessThan(
+        fastLimit,
+      );
       // `vite build` : plafonné…
-      expect(heapLimitOf("vite", "build")).toBeLessThan(1200);
+      expect(heapLimitOf({}, "vite", "build")).toBeLessThan(1200);
       // …mais le serveur de développement (l'aperçu) n'est pas plafonné.
-      expect(heapLimitOf("vite", "--version")).toBeGreaterThan(1500);
+      expect(heapLimitOf({}, "vite", "--version")).toBeGreaterThan(1500);
 
       // Idempotence : une seconde exécution n'enveloppe pas l'enveloppe.
       execFileSync(process.execPath, [harden], { cwd: tmp });
       expect(readFileSync(join(bin, "tsc"), "utf8")).toBe(tscWrapper);
       expect(readFileSync(join(bin, "vite"), "utf8")).toBe(viteWrapper);
+
+      // Repli : si le chemin rapide est tué par le noyau (137), l'enveloppe
+      // REJOUE la même commande en mode économe. Le faux binaire meurt dès que
+      // son plafond dépasse 748 Mo, comme la sandbox de déploiement.
+      writeFileSync(
+        join(tmp, "node_modules", "typescript", "bin", "tsc"),
+        "#!/usr/bin/env node\nconst limit = Math.round(require('v8').getHeapStatistics().heap_size_limit / 1048576);\nconsole.log(limit);\nprocess.exit(limit > 748 ? 137 : 0);\n",
+      );
+      const attempts = execFileSync(join(bin, "tsc"), ["-b"], {
+        cwd: tmp,
+        encoding: "utf8",
+        env: { ...process.env, BB_FAST_MIN_FREE_MB: "0" },
+      })
+        .trim()
+        .split("\n");
+      expect(attempts, "le repli économe doit rejouer la commande").toHaveLength(2);
+      expect(Number(attempts[0])).toBeGreaterThan(Number(attempts[1]));
 
       // L'enveloppe lance node UNE fois par invocation, avec le plafond en
       // argument de ligne de commande (il l'emporte sur NODE_OPTIONS).
@@ -299,6 +327,19 @@ describe("bundle client — poids du build", () => {
       expect(tscWrapper).toMatch(/134\) reason=/);
       expect(tscWrapper).toMatch(/137\) reason=/);
       expect(tscWrapper).toMatch(/\[heap-guard\] tsc/);
+      // Le journal doit dire la VRAIE limite du sandbox, pas seulement le
+      // plafond demandé : sans cela, « Killed » reste inexplicable.
+      expect(tscWrapper).toMatch(/\/sys\/fs\/cgroup\/memory\.peak/);
+      expect(tscWrapper).toMatch(/libres \$\{free\} Mo/);
+      expect(tscWrapper).toMatch(/\$reason après \$\{elapsed\} s/);
+
+      // `tsc` : si le noyau le tue ou si V8 abandonne, l'enveloppe rejoue la
+      // commande en `--jitless` (mesuré : 796 Mo de RSS au lieu de 846 Mo).
+      // `vite`, lui, refuse `--jitless` (échec immédiat) : il ne doit donc
+      // JAMAIS le recevoir.
+      expect(tscWrapper).toMatch(/--jitless --max-semi-space-size=1 --max-old-space-size=\d+/);
+      expect(tscWrapper).toContain("nouvelle tentative en mode économe");
+      expect(viteWrapper, "vite ne supporte pas --jitless").not.toMatch(/--jitless/);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

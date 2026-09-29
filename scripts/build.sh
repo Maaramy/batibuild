@@ -17,10 +17,12 @@
 # peut pas être « nettoyé » : il s'applique quelle que soit la façon dont la
 # commande a été transmise.
 #
-# Valeur : 752 Mo, le PLANCHER mesuré de `tsc` (736 Mo → abandon de V8,
-# 744 Mo → OK à 856 Mo de RSS). Au-dessus, V8 conserve des déchets jusqu'à
-# franchir la limite du cgroup ; en dessous, il abandonne. Surchargeable via
-# BB_BUILD_HEAP_MB.
+# Valeur : 752 Mo, le plafond du chemin RAPIDE mesuré de `tsc` (744 Mo → OK à
+# 856 Mo de RSS, 736 Mo → abandon de V8 ; au-dessus, V8 conserve des déchets
+# jusqu'à franchir la limite du cgroup). Le chemin économe (`--jitless`, 796 Mo
+# de RSS) et le choix entre les deux sont dans scripts/harden-build-bins.mjs :
+# `tsc` étant résolu via node_modules/.bin, ce choix s'applique aussi ici.
+# Surchargeable via BB_BUILD_HEAP_MB.
 #
 # Ce script ne couvre QUE `bun run build` : la mise en production est lancée par
 # la plateforme avec la commande du gabarit Vite (`tsc -b && vite build`), qui

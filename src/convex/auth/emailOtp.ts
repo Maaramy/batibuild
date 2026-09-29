@@ -9,7 +9,13 @@ export const emailOtp = Email({
   async generateVerificationToken() {
     const random: RandomReader = {
       read(bytes: Uint8Array) {
-        crypto.getRandomValues(bytes);
+        // `RandomReader` type le tampon `Uint8Array` (donc
+        // `Uint8Array<ArrayBufferLike>`), alors que `getRandomValues` exige une
+        // vue adossée à un `ArrayBuffer` réel (jamais un `SharedArrayBuffer`).
+        // Le compilateur natif TypeScript 7 (tsgo, utilisé par le build de
+        // production) le signale ; tsc 5.x non. Le tampon provient toujours
+        // d'ici, donc le cast est sûr et sans effet à l'exécution.
+        crypto.getRandomValues(bytes as Uint8Array<ArrayBuffer>);
       },
     };
     const alphabet = "0123456789";
