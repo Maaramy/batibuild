@@ -54,6 +54,10 @@ const REASON_COPY: Record<
     icon: Hourglass,
     title: "Paiement en attente de validation",
     desc: "Votre paiement est en cours de validation par l'administrateur. L'accès à vos services sera activé dès confirmation.",
+    // Sans cette action, l'utilisateur dont le paiement est en cours restait
+    // bloqué sur cet écran : il peut désormais ouvrir la page Abonnements
+    // (suivi de l'abonnement, moyen de paiement, envoi du reçu).
+    cta: "Paiement",
   },
 };
 
