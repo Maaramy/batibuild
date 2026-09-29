@@ -1,6 +1,6 @@
 import { Download } from "lucide-react";
 
-import { GooglePlayIcon } from "@/components/AppDownloadBanner";
+import { GooglePlayIcon } from "@/components/GooglePlayIcon";
 import { LogoMark } from "@/components/Logo";
 import { ANDROID_APP_DOWNLOAD_URL } from "@/lib/appDownload";
 import { IS_ANDROID_APP } from "@/lib/runtime";
@@ -10,10 +10,9 @@ import { cn } from "@/lib/utils";
  * PETITE BANNIÈRE — « Téléchargez l'application batibuild » dans le PIED DE PAGE
  * de la page d'accueil.
  *
- * Version compacte du bandeau de la page de chargement
- * (`src/components/AppDownloadBanner.tsx`) : même cible de téléchargement
- * (`ANDROID_APP_DOWNLOAD_URL`, lien direct du fichier officiel) et mêmes textes,
- * mais insérée en ligne dans le pied de page, sans flottement ni fermeture.
+ * Cible de téléchargement `ANDROID_APP_DOWNLOAD_URL` (lien direct du fichier
+ * officiel de l'application Android), insérée en ligne dans le pied de page,
+ * sans flottement ni fermeture.
  *
  *   · toute la bannière est UNE seule cible cliquable, avec `aria-label` ;
  *   · `target="_blank"` + `rel="noopener noreferrer"` : nouvel onglet sur
@@ -25,7 +24,7 @@ import { cn } from "@/lib/utils";
  *   · compacte : `min-w-0` + `truncate` pour ne jamais déborder sur mobile.
  *
  * Aucune image lourde : `LogoMark` (asset officiel déjà optimisé) et l'icône
- * Google Play vectorielle partagée avec le bandeau de la page de chargement.
+ * Google Play vectorielle partagée (`GooglePlayIcon`).
  */
 export function AppDownloadFooterBanner({ className }: { className?: string }) {
   // Inutile de proposer l'application depuis l'application elle-même.

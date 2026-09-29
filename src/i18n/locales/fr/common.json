@@ -157,7 +157,6 @@
   "appDownload": {
     "title": "Téléchargez l'application batibuild",
     "subtitle": "Disponible sur Android",
-    "openAria": "Télécharger l'application batibuild pour Android",
-    "closeAria": "Masquer la promotion de l'application batibuild"
+    "openAria": "Télécharger l'application batibuild pour Android"
   }
 }
