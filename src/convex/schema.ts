@@ -997,6 +997,7 @@ const schema = defineSchema(
         v.literal("delete_subscription_receipt"),
         v.literal("delete_supplier_receipt"),
         v.literal("storage_purge"),
+        v.literal("storage_orphan_delete"),
         v.literal("create_material"),
         v.literal("update_material"),
         v.literal("delete_material"),

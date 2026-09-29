@@ -5,8 +5,12 @@ import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { internal } from "./_generated/api.js";
 import {
+  collectReferencedStorageIds,
   collectStorageRefs,
+  selectOrphans,
+  splitOrphansByAge,
   summarizeStorage,
+  toStorageFileInfo,
   utf8ByteLength,
   type StorageFileInfo,
 } from "./storageReport.js";
@@ -16,9 +20,10 @@ const modules = import.meta.glob("./**/*.*s");
 // ============================================================================
 // Rapport stockage (admin) — taille de la base, du storage et orphelins
 //
-// NB : `_listStorageFiles` s'appuie sur `ctx.db.system`, que `convex-test`
-// n'implémente pas encore (0.0.54) — cette fonction n'est donc pas couverte
-// ici ; les tests couvrent la logique de croisement (helpers purs) et la
+// NB : `_listStorageFiles` et `_deleteOrphanedStorageFiles` s'appuient sur
+// `ctx.db.system`, que `convex-test` n'implémente pas encore (0.0.54) — ces
+// fonctions ne sont donc pas couvertes ici ; les tests couvrent la logique de
+// croisement (helpers purs), la sélection des orphelins à supprimer et la
 // lecture des tables utilisateur (`_inspectTable`), qui est la partie métier.
 // ============================================================================
 
@@ -71,7 +76,7 @@ describe("summarizeStorage", () => {
     storageId: string,
     size: number,
     sha256: string,
-  ): StorageFileInfo => ({ storageId, size, contentType: "image/png", sha256 });
+  ): StorageFileInfo => ({ storageId, size, contentType: "image/png", sha256, createdAt: 0 });
 
   it("distingue les fichiers référencés des orphelins", () => {
     const summary = summarizeStorage(
@@ -103,6 +108,109 @@ describe("summarizeStorage", () => {
     expect(summary).toMatchObject({ files: 0, bytes: 0, orphanedFiles: 0, orphanedBytes: 0 });
     expect(summary.orphans).toEqual([]);
     expect(summary.duplicates).toEqual([]);
+  });
+});
+
+// ── Sélection des orphelins à supprimer ─────────────────────────────────────
+
+describe("selectOrphans", () => {
+  const file = (storageId: string, size: number, createdAt = 0): StorageFileInfo => ({
+    storageId,
+    size,
+    contentType: "image/jpeg",
+    sha256: `sha-${storageId}`,
+    createdAt,
+  });
+
+  it("ne retient que les fichiers non référencés, du plus lourd au plus léger", () => {
+    const files = [file("a", 10), file("b", 500), file("c", 90)];
+    expect(selectOrphans(files, new Set(["a"])).map((f) => f.storageId)).toEqual(["b", "c"]);
+  });
+
+  it("retourne une liste vide quand tout est référencé", () => {
+    const files = [file("a", 10), file("b", 500)];
+    expect(selectOrphans(files, new Set(["a", "b"]))).toEqual([]);
+  });
+});
+
+describe("splitOrphansByAge", () => {
+  const file = (storageId: string, ageMs: number, now: number): StorageFileInfo => ({
+    storageId,
+    size: 10,
+    contentType: null,
+    sha256: storageId,
+    createdAt: now - ageMs,
+  });
+
+  it("écarte les fichiers déposés depuis moins d'une heure", () => {
+    const now = 10_000_000_000;
+    const { deletable, recent } = splitOrphansByAge(
+      [
+        file("vieux", 2 * 60 * 60 * 1000, now),
+        file("limite", 60 * 60 * 1000, now),
+        file("frais", 5 * 60 * 1000, now),
+      ],
+      now,
+    );
+    expect(deletable.map((f) => f.storageId)).toEqual(["vieux", "limite"]);
+    expect(recent.map((f) => f.storageId)).toEqual(["frais"]);
+  });
+
+  it("ne supprime rien quand tous les orphelins sont récents", () => {
+    const now = 10_000_000_000;
+    const { deletable, recent } = splitOrphansByAge([file("frais", 1000, now)], now);
+    expect(deletable).toEqual([]);
+    expect(recent).toHaveLength(1);
+  });
+});
+
+describe("toStorageFileInfo", () => {
+  it("normalise une ligne de `_storage` (contentType absent → null)", () => {
+    expect(
+      toStorageFileInfo({ _id: "kg1", _creationTime: 123, size: 42, sha256: "abc" }),
+    ).toEqual({ storageId: "kg1", size: 42, contentType: null, sha256: "abc", createdAt: 123 });
+    expect(
+      toStorageFileInfo({
+        _id: "kg2",
+        _creationTime: 456,
+        size: 7,
+        contentType: "image/webp",
+        sha256: "def",
+      }).contentType,
+    ).toBe("image/webp");
+  });
+});
+
+describe("collectReferencedStorageIds", () => {
+  // Lecteur de tables factice : une seule table « peuplée », les autres vides.
+  const fakeCtx = (docs: Record<string, Record<string, unknown>[]>) => ({
+    query: (table: string) => ({ collect: async () => docs[table] ?? [] }),
+  });
+
+  it("collecte les identifiants référencés, y compris via URL", async () => {
+    const referenced = await collectReferencedStorageIds(
+      fakeCtx({
+        users: [{ image: "https://x.convex.cloud/api/storage/kg1" }, { name: "sans fichier" }],
+        projects: [{ files: [{ storageId: "kg2" }, { storageId: "inconnu" }] }],
+      }),
+      ["kg1", "kg2", "kg3"],
+    );
+    expect([...referenced].sort()).toEqual(["kg1", "kg2"]);
+  });
+
+  it("ignore une table absente et retourne un ensemble vide sans référence", async () => {
+    const referenced = await collectReferencedStorageIds(
+      {
+        query: (table: string) => ({
+          collect: async () => {
+            if (table === "projects") throw new Error("table absente");
+            return [{ name: "x" }];
+          },
+        }),
+      },
+      ["kg1"],
+    );
+    expect(referenced.size).toBe(0);
   });
 });
 
@@ -215,7 +323,7 @@ describe("_requireAdmin", () => {
       const result = await t
         .withIdentity({ subject: userId })
         .query(internal.storageReport._requireAdmin, {});
-      expect(result).toEqual({ adminName: role });
+      expect(result).toMatchObject({ adminName: role, adminId: userId });
     }
   });
 });

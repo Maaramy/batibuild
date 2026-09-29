@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAction } from "convex/react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
   HardDrive,
   Loader2,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 
 // ============================================================================
@@ -25,7 +27,8 @@ import {
 // Mesures réelles calculées à la demande côté Convex :
 //   • base   → documents + octets sérialisés (JSON non compressé) par table ;
 //   • storage → fichiers de `_storage`, octets réels, doublons ;
-//   • orphelins → fichiers qu'aucun document ne référence.
+//   • orphelins → fichiers qu'aucun document ne référence, supprimables
+//     définitivement via l'action `deleteOrphanedStorageFiles`.
 // Les chiffres officiels de facturation restent dans le dashboard Convex
 // (Settings → Usage / Files) : voir la note en bas de l'écran.
 // ============================================================================
@@ -41,6 +44,19 @@ interface StorageFileInfo {
   size: number;
   contentType: string | null;
   sha256: string;
+  createdAt: number;
+}
+
+interface DeleteResult {
+  deletedFiles: number;
+  deletedBytes: number;
+  failedFiles: number;
+  remainingFiles: number;
+  recentFiles: number;
+  totalOrphanFiles: number;
+  totalOrphanBytes: number;
+  rounds: number;
+  deletedAt: number;
 }
 
 interface StorageReport {
@@ -87,9 +103,12 @@ const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
 
 export default function StorageReportAdmin() {
   const runReport = useAction(api.storageReport.getStorageReport);
+  const runDeleteOrphans = useAction(api.storageReport.deleteOrphanedStorageFiles);
   const [report, setReport] = useState<StorageReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [lastDelete, setLastDelete] = useState<DeleteResult | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,6 +141,44 @@ export default function StorageReportAdmin() {
       cancelled = true;
     };
   }, [runReport]);
+
+  // Suppression réelle des orphelins — l'action recalcule les références dans
+  // la transaction de suppression (aucun fichier référencé ne peut être perdu).
+  const handleDeleteOrphans = async () => {
+    const orphans = report?.storage.orphanedFiles ?? 0;
+    if (orphans === 0) return;
+    const confirmed = window.confirm(
+      `Supprimer définitivement ${orphans} fichier(s) orphelin(s) du storage ?\n\n` +
+        `Ils ne sont référencés par aucun document. Cette action est IRRÉVERSIBLE : les fichiers ne pourront pas être récupérés.`,
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      const result = (await runDeleteOrphans({})) as DeleteResult;
+      setLastDelete(result);
+      if (result.deletedFiles === 0 && result.remainingFiles === 0 && orphans > 0) {
+        toast.error("Aucun fichier n'a pu être supprimé — relancez le calcul du rapport.");
+      } else {
+        toast.success(
+          `${result.deletedFiles} fichier(s) orphelin(s) supprimé(s) — ${formatBytes(result.deletedBytes)} libérés`,
+        );
+      }
+      if (result.failedFiles > 0) {
+        toast.warning(`${result.failedFiles} fichier(s) n'ont pas pu être supprimés`);
+      }
+      if (result.recentFiles > 0) {
+        toast.info(
+          `${result.recentFiles} fichier(s) récent(s) ignoré(s) : déposés au storage depuis moins d'une heure (upload peut-être pas encore référencé)`,
+        );
+      }
+      await load();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const storage = report?.storage;
   const orphanShare = storage ? storage.orphanedFiles / Math.max(storage.files, 1) : 0;
@@ -263,9 +320,24 @@ export default function StorageReportAdmin() {
               Présents dans le storage mais référencés par aucun document
               {orphanShare > 0.5 ? " — l'essentiel du stockage est concerné." : "."} La purge
               existante ne les supprime pas : elle nettoie uniquement les références mortes
-              côté base.
+              côté base. La suppression ci-dessous libère réellement l&apos;espace occupé.
             </CardDescription>
           </CardHeader>
+
+          {lastDelete && (
+            <div className="mx-6 mb-3 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs">
+              Dernière suppression ({DATE_FORMAT.format(new Date(lastDelete.deletedAt))}) :{" "}
+              <span className="font-medium">{lastDelete.deletedFiles} fichier(s)</span> —{" "}
+              {formatBytes(lastDelete.deletedBytes)} libérés
+              {lastDelete.remainingFiles > 0
+                ? ` · ${lastDelete.remainingFiles} restant(s), relancez la suppression`
+                : ""}
+              {lastDelete.failedFiles > 0 ? ` · ${lastDelete.failedFiles} échec(s)` : ""}
+              {lastDelete.recentFiles > 0
+                ? ` · ${lastDelete.recentFiles} récent(s) ignoré(s) (< 1 h)`
+                : ""}
+            </div>
+          )}
           <CardContent className="space-y-1.5">
             {storage.orphans.slice(0, 20).map((file) => (
               <div
@@ -274,6 +346,9 @@ export default function StorageReportAdmin() {
               >
                 <span className="truncate font-mono text-[11px] text-muted-foreground">
                   {file.storageId}
+                  <span className="ml-2 text-muted-foreground/70">
+                    {DATE_FORMAT.format(new Date(file.createdAt))}
+                  </span>
                 </span>
                 <span className="shrink-0 flex items-center gap-2">
                   <Badge variant="secondary" className="text-[10px]">
@@ -289,6 +364,30 @@ export default function StorageReportAdmin() {
                 {storage.orphans.length - 20 > 1 ? "s" : ""}.
               </p>
             )}
+
+            <div className="flex flex-col gap-2 border-t border-border/40 pt-3 mt-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Suppression réelle : chaque fichier est revérifié puis effacé du storage
+                (action réservée aux administrateurs et modérateurs, journalisée). Les fichiers
+                déposés depuis moins d&apos;une heure sont ignorés (upload en cours).
+              </p>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="shrink-0"
+                onClick={() => void handleDeleteOrphans()}
+                disabled={deleting || loading}
+              >
+                {deleting ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                )}
+                {deleting
+                  ? "Suppression…"
+                  : `Supprimer ${storage.orphanedFiles} fichier${storage.orphanedFiles > 1 ? "s" : ""} (${formatBytes(storage.orphanedBytes)})`}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
