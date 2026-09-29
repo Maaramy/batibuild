@@ -7,6 +7,7 @@ import { MessagingBadgeSync } from "@/components/MessagingBadgeSync";
 import { WebBootSync } from "@/components/WebBootSync";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ConnectionErrorScreen } from "@/components/ConnectionErrorScreen";
+import { AppDownloadBanner } from "@/components/AppDownloadBanner";
 import { Button } from "@/components/ui/button";
 import {
   installChunkLoadErrorHandler,
@@ -84,6 +85,11 @@ const OfflineTest = lazy(() => import("./pages/OfflineTest.tsx"));
 function RouteLoading() {
   return (
     <div className="min-h-screen flex items-center justify-center">
+      {/* Bandeau promotionnel de l'application Android : sticker compact en haut
+          de la page de chargement. Il ne masque rien (conteneur
+          `pointer-events-none`) et disparaît dès que l'utilisateur le ferme
+          (`sessionStorage`), sans rechargement ni interruption du chargement. */}
+      <AppDownloadBanner />
       <div className="animate-pulse text-muted-foreground">Loading...</div>
     </div>
   );

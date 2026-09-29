@@ -153,5 +153,11 @@
     "connectionErrorDetail": "Les fichiers de l'application n'ont pas pu être chargés. Vérifiez votre connexion puis réessayez.",
     "connectionErrorStillOffline": "La connexion n'est toujours pas disponible. Réessayez dans quelques instants.",
     "connectionErrorHint": "Si le problème persiste, fermez puis rouvrez l'application."
+  },
+  "appDownload": {
+    "title": "Téléchargez l'application batibuild",
+    "subtitle": "Disponible sur Android",
+    "openAria": "Télécharger l'application batibuild pour Android",
+    "closeAria": "Masquer la promotion de l'application batibuild"
   }
 }

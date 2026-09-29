@@ -153,5 +153,11 @@
     "connectionErrorDetail": "The application files could not be loaded. Check your connection and try again.",
     "connectionErrorStillOffline": "The connection is still unavailable. Please try again in a moment.",
     "connectionErrorHint": "If the problem persists, close and reopen the app."
+  },
+  "appDownload": {
+    "title": "Download the batibuild app",
+    "subtitle": "Available on Android",
+    "openAria": "Download the batibuild app for Android",
+    "closeAria": "Hide the batibuild app promotion"
   }
 }
