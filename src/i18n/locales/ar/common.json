@@ -157,6 +157,7 @@
   "appDownload": {
     "title": "حمّل تطبيق batibuild",
     "subtitle": "متوفر على أندرويد",
-    "openAria": "تحميل تطبيق batibuild لأندرويد"
+    "openAria": "تحميل تطبيق batibuild لأندرويد",
+    "closeAria": "إخفاء إشعار تطبيق batibuild"
   }
 }

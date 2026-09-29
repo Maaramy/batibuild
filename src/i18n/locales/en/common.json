@@ -157,6 +157,7 @@
   "appDownload": {
     "title": "Download the batibuild app",
     "subtitle": "Available on Android",
-    "openAria": "Download the batibuild app for Android"
+    "openAria": "Download the batibuild app for Android",
+    "closeAria": "Hide the batibuild app promotion"
   }
 }

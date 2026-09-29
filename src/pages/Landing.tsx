@@ -39,6 +39,8 @@ import {
 } from "@/components/LandingMockScreens";
 import { ProjectLifecycleSection } from "@/components/ProjectLifecycle";
 import { AppDownloadFooterBanner } from "@/components/AppDownloadFooterBanner";
+import { AppDownloadBanner } from "@/components/AppDownloadBanner";
+import { useAppDownloadBannerVisible } from "@/hooks/use-app-download-banner";
 
 // ============================================================================
 // Constants
@@ -222,6 +224,10 @@ function Navbar() {
             : "bg-transparent"
       }`}
     >
+      {/* Bandeau ÉPINGLÉ en haut de la page : `fixed top-0` sur la barre de
+          navigation, donc visible même en défilant. Le ✕ le referme pour la
+          session, sans rechargement. */}
+      <AppDownloadBanner />
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2">
           <Logo />
@@ -292,9 +298,14 @@ function Navbar() {
 function HeroSection() {
   const navigate = useNavigate();
   const { isEnabled: isFeatureEnabled } = useFeatureFlags();
+  // Le bandeau épinglé (`h-10`) s'ajoute à la hauteur de la barre de navigation
+  // fixe (`h-16`) : le haut de page doit rester entièrement visible.
+  const downloadBannerVisible = useAppDownloadBannerVisible();
 
   return (
-    <section className="relative overflow-hidden pt-16">
+    <section
+      className={`relative overflow-hidden ${downloadBannerVisible ? "pt-26" : "pt-16"}`}
+    >
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.06] via-transparent to-background" />
       <div className="absolute top-1/4 -left-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
