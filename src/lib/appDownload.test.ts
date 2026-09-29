@@ -12,7 +12,9 @@
 //   · l'interface n'affiche JAMAIS l'adresse du fichier, porte des `aria-label`
 //     sur ses zones cliquables, ne masque rien (`pointer-events-none`), ne
 //     déborde pas horizontalement (`min-w-0` + `truncate`) et ne déclenche aucun
-//     téléchargement automatique.
+//     téléchargement automatique ;
+//   · la petite bannière du PIED DE PAGE de la page d'accueil renvoie vers ce
+//     même fichier, avec les mêmes textes et les mêmes garde-fous.
 // ============================================================================
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -213,5 +215,72 @@ describe("interface du bandeau", () => {
       expect(messages.openAria).toBeTruthy();
       expect(messages.closeAria).toBeTruthy();
     }
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Bannière du pied de page de la page d'accueil
+ * ------------------------------------------------------------------ */
+
+describe("bannière du pied de page", () => {
+  const footerBanner = stripComments(
+    read("components", "AppDownloadFooterBanner.tsx"),
+  );
+
+  it("cible le même lien officiel, en nouvel onglet, sans exposer l'adresse", () => {
+    expect(footerBanner).toContain("ANDROID_APP_DOWNLOAD_URL");
+    expect(footerBanner).toContain('target="_blank"');
+    expect(footerBanner).toContain('rel="noopener noreferrer"');
+    expect(footerBanner).not.toContain("drive.google.com");
+    expect(footerBanner).not.toContain("uc?export=download");
+    expect(footerBanner).not.toContain("usp=drivesdk");
+  });
+
+  it("est étiquetée pour les lecteurs d'écran", () => {
+    expect(footerBanner).toContain("aria-label=\"Télécharger l'application batibuild pour Android\"");
+  });
+
+  it("ne déclenche aucun téléchargement automatique", () => {
+    expect(footerBanner).not.toContain("useEffect");
+    expect(footerBanner).not.toContain("window.open");
+    expect(footerBanner).not.toContain(".click()");
+    expect(footerBanner).not.toContain("location.reload");
+  });
+
+  it("reste compacte, sans déborder horizontalement", () => {
+    expect(footerBanner).toContain("max-w-md");
+    expect(footerBanner).toContain("min-w-0");
+    expect(footerBanner).toContain("truncate");
+  });
+
+  it("ne s'affiche pas dans l'application Android (elle est déjà installée)", () => {
+    expect(footerBanner).toContain("IS_ANDROID_APP");
+  });
+
+  it("reprend les textes de la bannière de chargement et l'icône partagée", () => {
+    expect(footerBanner).toContain("Téléchargez l'application batibuild");
+    expect(footerBanner).toContain("Disponible sur Android");
+    expect(footerBanner).toContain(
+      'import { GooglePlayIcon } from "@/components/AppDownloadBanner";',
+    );
+    expect(stripComments(read("components", "AppDownloadBanner.tsx"))).toContain(
+      "export function GooglePlayIcon",
+    );
+  });
+
+  it("est rendue dans le pied de page de la page d'accueil", () => {
+    const landing = stripComments(read("pages", "Landing.tsx"));
+
+    expect(landing).toContain(
+      'import { AppDownloadFooterBanner } from "@/components/AppDownloadFooterBanner";',
+    );
+
+    const footer = landing.indexOf("function Footer()");
+    const banner = landing.indexOf("<AppDownloadFooterBanner");
+    const endOfFooter = landing.indexOf("function Landing()");
+
+    expect(footer).toBeGreaterThan(-1);
+    expect(banner).toBeGreaterThan(footer);
+    expect(banner).toBeLessThan(endOfFooter);
   });
 });

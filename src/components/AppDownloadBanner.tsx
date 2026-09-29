@@ -36,8 +36,12 @@ import { cn } from "@/lib/utils";
  * (`LogoMark`) et l'icône Google Play est un SVG en ligne.
  */
 
-/** Icône Google Play (vectorielle, quelques centaines d'octets, aucun réseau). */
-function GooglePlayIcon({ className }: { className?: string }) {
+/**
+ * Icône Google Play (vectorielle, quelques centaines d'octets, aucun réseau).
+ * Exportée : elle est aussi utilisée par la bannière du pied de page de la page
+ * d'accueil (`AppDownloadFooterBanner`) pour éviter toute duplication.
+ */
+export function GooglePlayIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 512 512"

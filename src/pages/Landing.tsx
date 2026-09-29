@@ -38,6 +38,7 @@ import {
   MockInvestProcessPanel,
 } from "@/components/LandingMockScreens";
 import { ProjectLifecycleSection } from "@/components/ProjectLifecycle";
+import { AppDownloadFooterBanner } from "@/components/AppDownloadFooterBanner";
 
 // ============================================================================
 // Constants
@@ -1071,8 +1072,13 @@ function Footer() {
             </ul>
           </div>
         </div>
-        <div className="mt-10 pt-6 border-t border-border/50 text-center text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} GALISKON PROJECT. Tous droits réservés.
+        {/* Petite bannière de téléchargement de l'application Android, à côté
+            de la mention de copyright pour rester compacte. */}
+        <div className="mt-10 pt-6 border-t border-border/50 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+          <AppDownloadFooterBanner className="w-full sm:w-auto" />
+          <div className="text-center text-xs text-muted-foreground sm:text-right">
+            &copy; {new Date().getFullYear()} GALISKON PROJECT. Tous droits réservés.
+          </div>
         </div>
       </div>
     </footer>
