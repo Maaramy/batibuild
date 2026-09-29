@@ -6,6 +6,8 @@
 //   · la source officielle du téléchargement est le fichier Google Drive fourni,
 //     utilisé sous sa forme « téléchargement direct » (jamais la page
 //     intermédiaire `/view`) ;
+//   · une fois l'application publiée sur le Play Store, les DEUX bandeaux
+//     (épinglé et pied de page) basculent ensemble vers la même fiche ;
 //   · le bandeau est ÉPINGLÉ en haut de la page d'accueil (en tête de la barre
 //     de navigation `fixed top-0`), avec un ✕ qui le masque immédiatement ;
 //   · la fermeture est mémorisée pour la SESSION seulement (nouvelle session →
@@ -21,11 +23,16 @@ import { describe, expect, it } from "vitest";
 import {
   ANDROID_APP_DOWNLOAD_URL,
   ANDROID_APP_FILE_ID,
+  ANDROID_APP_PACKAGE_ID,
+  ANDROID_APP_PLAY_STORE_URL,
+  ANDROID_APP_PUBLISHED,
   ANDROID_APP_SHARE_URL,
   APP_DOWNLOAD_BANNER_KEY,
   type BannerFlagStore,
   dismissAppDownloadBanner,
+  getAppDownloadUrl,
   isAppDownloadBannerDismissed,
+  resolveAppDownloadUrl,
   resolveBannerFlagStore,
   subscribeAppDownloadBanner,
 } from "./appDownload";
@@ -77,6 +84,37 @@ describe("lien de téléchargement officiel", () => {
     expect(ANDROID_APP_DOWNLOAD_URL).toContain("uc?export=download");
     expect(ANDROID_APP_DOWNLOAD_URL).not.toContain("/view");
     expect(ANDROID_APP_DOWNLOAD_URL).not.toContain("usp=drivesdk");
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Fiche Play Store : la cible des bandeaux dès la publication
+ * ------------------------------------------------------------------ */
+
+describe("fiche Play Store", () => {
+  it("reprend l'identifiant de paquet déclaré pour la publication", () => {
+    expect(ANDROID_APP_PACKAGE_ID).toBe("com.batibuild.app");
+    expect(ANDROID_APP_PLAY_STORE_URL).toBe(
+      `https://play.google.com/store/apps/details?id=${ANDROID_APP_PACKAGE_ID}`,
+    );
+  });
+
+  it("n'est pas encore la cible : l'application n'est pas publiée", () => {
+    expect(ANDROID_APP_PUBLISHED).toBe(false);
+    expect(getAppDownloadUrl()).toBe(ANDROID_APP_DOWNLOAD_URL);
+  });
+
+  it("devient la cible dès la publication, sans autre changement", () => {
+    expect(resolveAppDownloadUrl(true)).toBe(ANDROID_APP_PLAY_STORE_URL);
+    expect(resolveAppDownloadUrl(false)).toBe(ANDROID_APP_DOWNLOAD_URL);
+  });
+
+  it("suit UN SEUL interrupteur, lu par les deux bandeaux", () => {
+    // Le bandeau épinglé comme celui du pied de page lisent la même fonction :
+    // basculer `ANDROID_APP_PUBLISHED` change les deux en même temps.
+    expect(stripComments(read("lib", "appDownload.ts"))).toContain(
+      "resolveAppDownloadUrl(ANDROID_APP_PUBLISHED)",
+    );
   });
 });
 
@@ -180,7 +218,7 @@ describe("bandeau épinglé en haut de la page", () => {
   const banner = stripComments(read("components", "AppDownloadBanner.tsx"));
 
   it("cible le lien officiel, en nouvel onglet, sans exposer l'adresse", () => {
-    expect(banner).toContain("ANDROID_APP_DOWNLOAD_URL");
+    expect(banner).toContain("getAppDownloadUrl");
     expect(banner).toContain('target="_blank"');
     expect(banner).toContain('rel="noopener noreferrer"');
     // L'URL Google Drive ne doit jamais apparaître dans l'interface.
@@ -280,13 +318,20 @@ describe("bannière du pied de page", () => {
     read("components", "AppDownloadFooterBanner.tsx"),
   );
 
-  it("cible le même lien officiel, en nouvel onglet, sans exposer l'adresse", () => {
-    expect(footerBanner).toContain("ANDROID_APP_DOWNLOAD_URL");
+  it("cible la MÊME cible que le bandeau épinglé, en nouvel onglet, sans exposer l'adresse", () => {
+    expect(footerBanner).toContain("getAppDownloadUrl");
     expect(footerBanner).toContain('target="_blank"');
     expect(footerBanner).toContain('rel="noopener noreferrer"');
+    // Ni le lien Google Drive ni la fiche Play Store ne sont écrits en dur ici :
+    // la cible vient d'une source unique.
     expect(footerBanner).not.toContain("drive.google.com");
     expect(footerBanner).not.toContain("uc?export=download");
     expect(footerBanner).not.toContain("usp=drivesdk");
+    expect(footerBanner).not.toContain("play.google.com");
+
+    const pinnedBanner = stripComments(read("components", "AppDownloadBanner.tsx"));
+    expect(pinnedBanner).toContain("getAppDownloadUrl");
+    expect(pinnedBanner).not.toContain("play.google.com");
   });
 
   it("est étiquetée pour les lecteurs d'écran", () => {

@@ -4,12 +4,18 @@
 // Ce module est la SEULE source du lien de téléchargement : l'interface ne
 // l'écrit jamais en dur et ne l'affiche jamais.
 //
-// Le lien fourni par l'éditeur est la page de partage Google Drive
-// (`/file/d/<id>/view?usp=drivesdk`). Elle ouvre une page intermédiaire inutile
-// avant le téléchargement : le lien réellement utilisé est donc la forme
-// « téléchargement direct » du même fichier
-// (`/uc?export=download&id=<id>`), qui déclenche le téléchargement dès le clic
-// — jamais automatiquement, toujours après une action de l'utilisateur.
+// Tant que l'application n'est pas publiée, la cible est le fichier fourni par
+// l'éditeur : la page de partage Google Drive
+// (`/file/d/<id>/view?usp=drivesdk`) ouvre une page intermédiaire inutile avant
+// le téléchargement, le lien utilisé est donc sa forme « téléchargement direct »
+// (`/uc?export=download&id=<id>`) — jamais automatiquement, toujours après une
+// action de l'utilisateur. Une fois l'application publiée, la cible devient sa
+// fiche Play Store (`getAppDownloadUrl()`).
+//
+// FICHE PLAY STORE : dès que l'application est publiée, `ANDROID_APP_PUBLISHED`
+// passe à `true` et les deux bandeaux (épinglé et pied de page) pointent alors
+// vers la MÊME fiche Play Store — même source, même cible, aucun texte à
+// changer. Avant publication, ils pointent vers le fichier Google Drive.
 //
 // FERMETURE MÉMORISÉE POUR LA SESSION : une fois le bandeau épinglé fermé par
 // l'utilisateur, il ne réapparaît pas tant que l'onglet reste ouvert. Le drapeau
@@ -32,10 +38,43 @@ export const ANDROID_APP_FILE_ID = "1RlqfsjwysJiywPkz-WCPIXM5d7U8Ko6Y";
 export const ANDROID_APP_SHARE_URL = `https://drive.google.com/file/d/${ANDROID_APP_FILE_ID}/view?usp=drivesdk`;
 
 /**
- * Lien de TÉLÉCHARGEMENT DIRECT du même fichier : la cible des clics du bandeau
- * (icône batibuild, icône Google Play et zone principale).
+ * Lien de TÉLÉCHARGEMENT DIRECT du même fichier : cible des clics tant que
+ * l'application n'est pas publiée sur le Play Store.
  */
 export const ANDROID_APP_DOWNLOAD_URL = `https://drive.google.com/uc?export=download&id=${ANDROID_APP_FILE_ID}`;
+
+/**
+ * Identifiant du paquet Android, tel que déclaré pour la publication
+ * (voir `mobile/app.json`, section `android.package`).
+ */
+export const ANDROID_APP_PACKAGE_ID = "com.batibuild.app";
+
+/** Fiche Play Store de l'application, déduite de l'identifiant du paquet. */
+export const ANDROID_APP_PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${ANDROID_APP_PACKAGE_ID}`;
+
+/**
+ * L'application est-elle publiée sur le Play Store ?
+ *
+ * C'est LE seul interrupteur à basculer à la publication : les bandeaux lisent
+ * tous `getAppDownloadUrl()` et suivent ce drapeau sans autre modification.
+ */
+export const ANDROID_APP_PUBLISHED = false;
+
+/**
+ * Choix de la cible, isolé du drapeau pour être testable dans les deux cas :
+ * fiche Play Store si l'application est publiée, sinon fichier direct.
+ */
+export function resolveAppDownloadUrl(published: boolean): string {  return published ? ANDROID_APP_PLAY_STORE_URL : ANDROID_APP_DOWNLOAD_URL;
+}
+
+/**
+ * Cible UNIQUE des clics des bandeaux de téléchargement : la fiche Play Store
+ * dès que l'application est publiée, sinon le fichier officiel (téléchargement
+ * direct Google Drive). Aucune adresse n'est jamais affichée dans l'interface.
+ */
+export function getAppDownloadUrl(): string {
+  return resolveAppDownloadUrl(ANDROID_APP_PUBLISHED);
+}
 
 /** Drapeau de session : bandeau de téléchargement fermé par l'utilisateur. */
 export const APP_DOWNLOAD_BANNER_KEY = "bb_app_download_banner_closed";

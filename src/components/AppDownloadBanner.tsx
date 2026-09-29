@@ -4,7 +4,7 @@ import { Download, X } from "lucide-react";
 
 import { GooglePlayIcon } from "@/components/GooglePlayIcon";
 import { LogoMark } from "@/components/Logo";
-import { ANDROID_APP_DOWNLOAD_URL, dismissAppDownloadBanner } from "@/lib/appDownload";
+import { dismissAppDownloadBanner, getAppDownloadUrl } from "@/lib/appDownload";
 import { useAppDownloadBannerVisible } from "@/hooks/use-app-download-banner";
 import { cn } from "@/lib/utils";
 
@@ -17,8 +17,9 @@ import { cn } from "@/lib/utils";
  * page est une simple constante (voir `HeroSection` dans `src/pages/Landing.tsx`).
  *
  *   · l'icône batibuild, l'icône Google Play, le texte et le bouton mènent tous
- *     au fichier officiel de l'application Android (`ANDROID_APP_DOWNLOAD_URL`,
- *     lien de téléchargement direct) ;
+ *     à la MÊME cible que la bannière du pied de page (`getAppDownloadUrl()`) :
+ *     la fiche Play Store dès que l'application y est publiée, sinon le fichier
+ *     officiel de l'application Android ;
  *   · `target="_blank"` + `rel="noopener noreferrer"` : nouvel onglet sur
  *     ordinateur et navigateur mobile ; dans l'application Android, la coque
  *     ouvre les domaines externes dans le navigateur système — jamais de
@@ -56,7 +57,7 @@ export function AppDownloadBanner({ className }: { className?: string }) {
       <div className="mx-auto flex h-10 max-w-7xl items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:px-8">
         {/* Toute la zone gauche ouvre le téléchargement : une seule cible, large. */}
         <a
-          href={ANDROID_APP_DOWNLOAD_URL}
+          href={getAppDownloadUrl()}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={t("appDownload.openAria")}

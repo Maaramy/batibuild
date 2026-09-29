@@ -2,7 +2,7 @@ import { Download } from "lucide-react";
 
 import { GooglePlayIcon } from "@/components/GooglePlayIcon";
 import { LogoMark } from "@/components/Logo";
-import { ANDROID_APP_DOWNLOAD_URL } from "@/lib/appDownload";
+import { getAppDownloadUrl } from "@/lib/appDownload";
 import { IS_ANDROID_APP } from "@/lib/runtime";
 import { cn } from "@/lib/utils";
 
@@ -10,9 +10,9 @@ import { cn } from "@/lib/utils";
  * PETITE BANNIÈRE — « Téléchargez l'application batibuild » dans le PIED DE PAGE
  * de la page d'accueil.
  *
- * Cible de téléchargement `ANDROID_APP_DOWNLOAD_URL` (lien direct du fichier
- * officiel de l'application Android), insérée en ligne dans le pied de page,
- * sans flottement ni fermeture.
+ * Cible de téléchargement `getAppDownloadUrl()` : la fiche Play Store dès que
+ * l'application y est publiée, sinon le fichier officiel de l'application
+ * Android. Insérée en ligne dans le pied de page, sans flottement ni fermeture.
  *
  *   · toute la bannière est UNE seule cible cliquable, avec `aria-label` ;
  *   · `target="_blank"` + `rel="noopener noreferrer"` : nouvel onglet sur
@@ -32,7 +32,7 @@ export function AppDownloadFooterBanner({ className }: { className?: string }) {
 
   return (
     <a
-      href={ANDROID_APP_DOWNLOAD_URL}
+      href={getAppDownloadUrl()}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Télécharger l'application batibuild pour Android"
