@@ -345,6 +345,8 @@ export default function PricingPage() {
   ) => {
     const isCurrent = isCurrentPlan(plan);
     const reached = false;
+    // Bouton désactivé (offre déjà active / en attente) : on garde le style neutre.
+    const isDisabled = (!reached && isCurrent) || (isPending && plan === currentSubscription?.plan);
 
     return (
       <motion.div
@@ -402,9 +404,11 @@ export default function PricingPage() {
 
         <Button
           variant={popular && !isCurrent ? "default" : "outline"}
-          className="mt-auto w-full h-11 text-sm gap-1"
+          className={`mt-auto w-full h-11 text-sm gap-1 ${
+            isDisabled ? "" : "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white"
+          }`}
           onClick={() => handleSelectPlan(plan)}
-          disabled={(!reached && isCurrent) || (isPending && plan === currentSubscription?.plan)}
+          disabled={isDisabled}
         >
           {isCurrent && !reached
             ? "Offre actuelle"
