@@ -130,6 +130,7 @@ export { default as GripVertical } from "../../node_modules/lucide-react/dist/es
 export { default as Globe } from "../../node_modules/lucide-react/dist/esm/icons/globe.js";
 export { default as Hammer } from "../../node_modules/lucide-react/dist/esm/icons/hammer.js";
 export { default as Handshake } from "../../node_modules/lucide-react/dist/esm/icons/handshake.js";
+export { default as HardDrive } from "../../node_modules/lucide-react/dist/esm/icons/hard-drive.js";
 export { default as HardHat } from "../../node_modules/lucide-react/dist/esm/icons/hard-hat.js";
 export { default as Heading2 } from "../../node_modules/lucide-react/dist/esm/icons/heading-2.js";
 export { default as Headset } from "../../node_modules/lucide-react/dist/esm/icons/headset.js";

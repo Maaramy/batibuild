@@ -23,6 +23,7 @@ import { AnnouncementList } from "@/components/admin/announcements/AnnouncementL
 import { FeatureFlagsAdmin } from "@/components/admin/FeatureFlagsAdmin";
 import { PaymentMethodsAdmin } from "@/components/admin/PaymentMethodsAdmin";
 import { InvoicesAdmin } from "@/components/admin/InvoicesAdmin";
+import StorageReportAdmin from "@/components/admin/StorageReportAdmin";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -51,6 +52,7 @@ import {
   Check,
   Cpu,
   Edit,
+  HardDrive,
   HardHat,
   Loader2,
   Plus,
@@ -114,6 +116,7 @@ export default function AdminPanel() {
     "recus", "recusFournisseurs", "recusExperts", "subscriptions", "invoices",
     "fournisseurs", "experts", "analytics", "support", "journal", "paiement",
     "limites", "seo", "blog", "bim", "emails", "modeles", "historique", "features",
+    "stockage",
   ];
   const initialTab =
     isSupportAgentRole
@@ -319,7 +322,7 @@ export default function AdminPanel() {
   const isAdmin = user?.role === "admin";
   const isModerator = user?.role === "moderator";
   // Onglets accessibles au modérateur (le module support est accessible à tout le staff)
-  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs", "experts", "support", "features"];
+  const MODERATOR_TABS = ["dashboard", "users", "recus", "recusFournisseurs", "recusExperts", "subscriptions", "fournisseurs", "experts", "support", "features", "stockage"];
   // Agent support : accès uniquement au module Support & Messagerie
   const canSee = (tab: string) =>
     isAdmin ||
@@ -732,6 +735,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 <span>Abonnements</span>
               </TabsTrigger>
               )}
+              {canSee("stockage") && (
+              <TabsTrigger value="stockage" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <HardDrive className="h-3.5 w-3.5" />
+                <span>Stockage</span>
+              </TabsTrigger>
+              )}
               <TabsTrigger value="fournisseurs" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Building2 className="h-3.5 w-3.5" />
                 <span>Fournisseurs</span>
@@ -826,6 +835,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               au-dessus de la configuration bancaire et D17 du même onglet. */}
           {canSee("paiement") && activeTab === "paiement" && (
             <PaymentMethodsAdmin />
+          )}
+
+          {/* ── Stockage & base de données ── */}
+          {canSee("stockage") && (
+            <TabsContent value="stockage">
+              <StorageReportAdmin />
+            </TabsContent>
           )}
 
           {/* ── Gestion des fonctionnalités (feature flags) ── */}
