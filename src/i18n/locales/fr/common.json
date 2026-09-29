@@ -147,6 +147,11 @@
     "pending": "{{count}} opération(s) en attente de synchronisation",
     "retry": "Réessayer",
     "sessionOfflineTitle": "Connexion Internet requise",
-    "sessionOfflineDetail": "Votre session est conservée localement. Vérifiez votre connexion : votre espace se rouvrira dès le retour du réseau."
+    "sessionOfflineDetail": "Votre session est conservée localement. Vérifiez votre connexion : votre espace se rouvrira dès le retour du réseau.",
+    "connectionErrorTitle": "Erreur de connexion, vérifier votre connexion internet",
+    "connectionErrorOfflineDetail": "Aucune connexion Internet détectée. Vérifiez votre connexion puis réessayez.",
+    "connectionErrorDetail": "Les fichiers de l'application n'ont pas pu être chargés. Vérifiez votre connexion puis réessayez.",
+    "connectionErrorStillOffline": "La connexion n'est toujours pas disponible. Réessayez dans quelques instants.",
+    "connectionErrorHint": "Si le problème persiste, fermez puis rouvrez l'application."
   }
 }

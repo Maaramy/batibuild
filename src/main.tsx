@@ -6,6 +6,13 @@ import { SEO } from "@/components/SEO";
 import { MessagingBadgeSync } from "@/components/MessagingBadgeSync";
 import { WebBootSync } from "@/components/WebBootSync";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
+import { ConnectionErrorScreen } from "@/components/ConnectionErrorScreen";
+import { Button } from "@/components/ui/button";
+import {
+  installChunkLoadErrorHandler,
+  isChunkLoadError,
+  reportChunkLoadError,
+} from "@/lib/chunkLoadError";
 import { useSessionTracking } from "@/hooks/use-session-tracking";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
@@ -100,41 +107,52 @@ class ToolbarErrorBoundary extends React.Component<
   }
 }
 
-/** Hard guard so runtime errors never leave the preview as a blank page. */
+/**
+ * Garde-fou global des erreurs d'exécution.
+ *
+ * Deux cas, et JAMAIS de détail technique à l'écran :
+ *
+ *   · un module JavaScript qui n'a pas pu être chargé (`import()` rejeté :
+ *     connexion perdue, ou ancien fragment devenu introuvable après un nouveau
+ *     déploiement) → écran de connexion + « Réessayer ». C'est le point de
+ *     rattrapage des routes chargées à la demande (`lazy()` ci-dessus) ;
+ *   · toute autre erreur → écran neutre avec un simple bouton de rechargement.
+ *
+ * Les détails (message, pile d'appels, URL du fichier `.js`) restent dans
+ * `console.error` pour le débogage développeur, jamais dans l'interface.
+ */
 class RootErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { hasError: boolean; message: string; stack: string }
+  { hasError: boolean; moduleError: boolean }
 > {
-  state = { hasError: false, message: "", stack: "" };
+  state = { hasError: false, moduleError: false };
   static getDerivedStateFromError(error: Error) {
-    return {
-      hasError: true,
-      message: error.message || "Unknown runtime error",
-      stack: error.stack || "",
-    };
+    return { hasError: true, moduleError: isChunkLoadError(error) };
   }
   componentDidCatch(err: Error) {
-    console.error("[WebContainer preview] Root crash:", err);
+    if (isChunkLoadError(err)) {
+      // Décide entre le rechargement automatique unique et l'écran de connexion.
+      reportChunkLoadError(err);
+      return;
+    }
+    console.error("[batibuild] Erreur d'exécution non récupérée :", err);
   }
   render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-6">
-          <div className="max-w-lg text-center">
-            <p className="text-sm font-semibold">Preview runtime error</p>
-            <p className="mt-2 text-xs text-muted-foreground break-words">
-              {this.state.message}
-            </p>
-            {this.state.stack && (
-              <pre className="mt-3 text-left text-[10px] leading-4 text-muted-foreground/80 max-h-40 overflow-auto rounded border border-border/60 p-2">
-                {this.state.stack}
-              </pre>
-            )}
-          </div>
+    if (!this.state.hasError) return this.props.children;
+    if (this.state.moduleError) return <ConnectionErrorScreen force />;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+        <div className="w-full max-w-md text-center">
+          <p className="text-sm font-semibold">Une erreur est survenue</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Rechargez la page pour continuer.
+          </p>
+          <Button className="mt-4" onClick={() => window.location.reload()}>
+            Recharger la page
+          </Button>
         </div>
-      );
-    }
-    return this.props.children;
+      </div>
+    );
   }
 }
 
@@ -194,6 +212,10 @@ function RouteSyncer() {
 }
 
 
+// Interception GLOBALE des échecs de chargement de modules (tous les fragments
+// de l'application) : écran de connexion au lieu de l'erreur technique.
+installChunkLoadErrorHandler();
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>
@@ -226,6 +248,10 @@ createRoot(document.getElementById("root")!).render(
                 session ; identique sur Desktop, Mobile Web et application
                 Android (même plateforme Web). */}
             <NetworkStatusBanner />
+            {/* Erreur de connexion lors du chargement d'un module : plein écran,
+                responsive, identique sur Desktop, Mobile Web et Android. Ne rend
+                rien tant qu'aucun échec de module n'est survenu. */}
+            <ConnectionErrorScreen />
             <RouteSyncer />
             <SEO />
             <Suspense fallback={<RouteLoading />}>              <Routes>

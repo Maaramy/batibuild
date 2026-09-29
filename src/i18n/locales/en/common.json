@@ -147,6 +147,11 @@
     "pending": "{{count}} pending operation(s) to sync",
     "retry": "Try again",
     "sessionOfflineTitle": "Internet connection required",
-    "sessionOfflineDetail": "Your session is kept locally. Check your connection: your workspace will reopen as soon as the network is back."
+    "sessionOfflineDetail": "Your session is kept locally. Check your connection: your workspace will reopen as soon as the network is back.",
+    "connectionErrorTitle": "Connection error, check your internet connection",
+    "connectionErrorOfflineDetail": "No Internet connection detected. Check your connection and try again.",
+    "connectionErrorDetail": "The application files could not be loaded. Check your connection and try again.",
+    "connectionErrorStillOffline": "The connection is still unavailable. Please try again in a moment.",
+    "connectionErrorHint": "If the problem persists, close and reopen the app."
   }
 }
