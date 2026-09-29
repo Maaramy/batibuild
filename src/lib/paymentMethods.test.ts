@@ -6,6 +6,7 @@ import {
   enabledPaymentMethodSlugs,
   isPaymentMethodEnabled,
   mergePaymentMethodStates,
+  requiresManualValidation,
 } from "./paymentMethods";
 
 describe("catalogue des méthodes de paiement", () => {
@@ -21,6 +22,24 @@ describe("catalogue des méthodes de paiement", () => {
     expect(isPaymentMethodEnabled(states, "d17")).toBe(true);
     // Méthode déclarée mais dont le flux n'est pas connecté.
     expect(isPaymentMethodEnabled(states, "card")).toBe(false);
+  });
+});
+
+describe("requiresManualValidation", () => {
+  it("le virement ET le D17 sont validés manuellement par l'administrateur", () => {
+    expect(requiresManualValidation("bank_transfer")).toBe(true);
+    expect(requiresManualValidation("d17")).toBe(true);
+  });
+
+  it("une méthode à encaissement automatique n'exige pas de validation", () => {
+    expect(requiresManualValidation("card")).toBe(false);
+  });
+
+  it("une méthode absente ou inconnue est traitée comme manuelle", () => {
+    // Sécurité : on n'active jamais un paiement qu'on ne sait pas encaisser.
+    expect(requiresManualValidation(undefined)).toBe(true);
+    expect(requiresManualValidation(null)).toBe(true);
+    expect(requiresManualValidation("crypto")).toBe(true);
   });
 });
 

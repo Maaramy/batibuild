@@ -55,7 +55,11 @@ function asUser(t: ReturnType<typeof convexTest>, userId: string) {
   return t.withIdentity({ subject: userId });
 }
 
-/** Souscrit un forfait (paiement immédiat type D17 → abonnement actif). */
+/**
+ * Soumet une demande d'abonnement payante (virement ou D17). Aucune méthode
+ * n'étant encaissée automatiquement, la souscription reste « en attente »
+ * jusqu'à la validation de l'administrateur.
+ */
 async function subscribe(
   t: ReturnType<typeof convexTest>,
   userId: string,
@@ -74,6 +78,29 @@ async function subscribe(
     currency: "TND",
     paymentId: overrides.paymentId,
   });
+}
+
+let approverCount = 0;
+
+/**
+ * Souscrit un forfait payant puis fait valider le règlement par un
+ * administrateur : la facture n'est « payée » qu'après cette validation.
+ */
+async function subscribeConfirmed(
+  t: ReturnType<typeof convexTest>,
+  userId: string,
+  overrides: Parameters<typeof subscribe>[2] = {},
+) {
+  const subscriptionId = await subscribe(t, userId, overrides);
+  approverCount += 1;
+  const approverId = await createUser(t, {
+    role: "admin",
+    email: `approbateur${approverCount}@test.tn`,
+  });
+  await asUser(t, approverId).mutation(api.subscriptions.adminApproveSubscription, {
+    subscriptionId,
+  });
+  return subscriptionId;
 }
 
 async function myInvoices(t: ReturnType<typeof convexTest>, userId: string) {
@@ -102,7 +129,7 @@ describe("facturation — génération automatique", () => {
 
   it("crée automatiquement une facture payée lors d'un paiement confirmé", async () => {
     const userId = await createUser(t, { name: "Amine Ben Salah", email: "amine@test.tn" });
-    await subscribe(t, userId, { paymentMethod: "d17", amount: 80 });
+    await subscribeConfirmed(t, userId, { paymentMethod: "d17", amount: 80 });
 
     const invoices = await myInvoices(t, userId);
     expect(invoices).toHaveLength(1);
@@ -286,7 +313,7 @@ describe("facturation — cycle de vie des statuts", () => {
 
   it("n'annule jamais une facture déjà payée lors de la résiliation de l'abonnement", async () => {
     const userId = await createUser(t, { email: "resilie@test.tn" });
-    await subscribe(t, userId, { paymentMethod: "d17", amount: 80 });
+    await subscribeConfirmed(t, userId, { paymentMethod: "d17", amount: 80 });
 
     await asUser(t, userId).mutation(api.subscriptions.cancelSubscription, {});
 
@@ -309,7 +336,7 @@ describe("facturation — cycle de vie des statuts", () => {
 
   it("permet à l'administrateur de passer une facture en remboursée", async () => {
     const userId = await createUser(t, { email: "rembourse@test.tn" });
-    await subscribe(t, userId, { paymentMethod: "d17", amount: 120 });
+    await subscribeConfirmed(t, userId, { paymentMethod: "d17", amount: 120 });
     const [invoice] = await myInvoices(t, userId);
 
     await asUser(t, adminId).mutation(api.invoices.adminUpdateInvoiceStatus, {
@@ -342,8 +369,8 @@ describe("facturation — renouvellement", () => {
 
   it("génère une NOUVELLE facture sans écraser la précédente", async () => {
     const userId = await createUser(t, { email: "renouvellement@test.tn" });
-    await subscribe(t, userId, { amount: 80 });
-    await subscribe(t, userId, { amount: 80 });
+    await subscribeConfirmed(t, userId, { amount: 80 });
+    await subscribeConfirmed(t, userId, { amount: 80 });
 
     const invoices = await myInvoices(t, userId);
     expect(invoices).toHaveLength(2);
@@ -363,7 +390,7 @@ describe("facturation — renouvellement", () => {
 
   it("conserve l'historique complet d'un abonné fidèle", async () => {
     const userId = await createUser(t, { email: "fidele@test.tn" });
-    for (let i = 0; i < 5; i += 1) await subscribe(t, userId, { amount: 120 });
+    for (let i = 0; i < 5; i += 1) await subscribeConfirmed(t, userId, { amount: 120 });
 
     const invoices = await myInvoices(t, userId);
     expect(invoices).toHaveLength(5);
@@ -428,7 +455,7 @@ describe("facturation — sécurité et permissions", () => {
 
   it("refuse la modification d'un statut à tout non-administrateur", async () => {
     const userId = await createUser(t, { email: "intrus@test.tn" });
-    await subscribe(t, userId);
+    await subscribeConfirmed(t, userId);
     const moderatorId = await createUser(t, { role: "moderator", email: "modo2@test.tn" });
     const [invoice] = await myInvoices(t, userId);
 
@@ -503,9 +530,9 @@ describe("facturation — filtres et statistiques administrateur", () => {
     const b = await createUser(t, { email: "b@test.tn" });
     const c = await createUser(t, { email: "c@test.tn" });
 
-    await subscribe(t, a, { amount: 80 }); // payée
+    await subscribeConfirmed(t, a, { amount: 80 }); // payée
     await subscribe(t, b, { amount: 120, paymentMethod: "bank_transfer" }); // en attente
-    const cSub = await subscribe(t, c, { amount: 120 }); // payée puis remboursée
+    const cSub = await subscribeConfirmed(t, c, { amount: 120 }); // payée puis remboursée
     const [cInvoice] = await myInvoices(t, c);
     await asUser(t, adminId).mutation(api.invoices.adminUpdateInvoiceStatus, {
       invoiceId: cInvoice._id,
@@ -535,8 +562,8 @@ describe("facturation — filtres et statistiques administrateur", () => {
       name: "Med Bâtiment",
       userRole: "supplier",
     });
-    await subscribe(t, client, { amount: 80, plan: "pro" });
-    await subscribe(t, supplier, { amount: 120, plan: "supplier" });
+    await subscribeConfirmed(t, client, { amount: 80, plan: "pro" });
+    await subscribeConfirmed(t, supplier, { amount: 120, plan: "supplier" });
 
     const asAdmin = asUser(t, adminId);
     const all = await asAdmin.query(api.invoices.adminListInvoices, {});
@@ -871,7 +898,7 @@ describe("facturation — facture jointe aux e-mails", () => {
     const userId = await createUser(t, { name: "Amine Ben Salah", email: "actif@test.tn" });
     await allowEmails(userId);
 
-    await subscribe(t, userId, { paymentMethod: "d17", amount: 80 });
+    await subscribeConfirmed(t, userId, { paymentMethod: "d17", amount: 80 });
     await flushEmails();
 
     const [invoice] = await invoiceRows();

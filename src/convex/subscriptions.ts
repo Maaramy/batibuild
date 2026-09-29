@@ -12,6 +12,7 @@ import {
   resolveProfileRole,
 } from "./profileSubscription";
 import { assertPaymentMethodEnabled } from "./paymentMethodStates";
+import { requiresManualValidation } from "../lib/paymentMethods";
 import {
   cancelPendingInvoicesForSubscription,
   invoiceNumberForSubscription,
@@ -217,8 +218,14 @@ export const createSubscription = mutation({
       await assertPaymentMethodEnabled(ctx, args.paymentMethod);
     }
 
+    // ── Règlement : le virement bancaire ET le paiement D17 sont à validation
+    // MANUELLE. L'utilisateur joint un justificatif (capture D17 ou preuve de
+    // virement) puis un administrateur approuve la demande — la souscription
+    // reste donc « pending » jusque-là, exactement comme les offres Fournisseur
+    // et Expert. Aucune méthode à encaissement automatique n'est branchée :
+    // seul un forfait gratuit est activé immédiatement.
     const status =
-      isFreePlan ? "active" : args.paymentMethod === "bank_transfer" ? "pending" : "active";
+      isFreePlan || !requiresManualValidation(args.paymentMethod) ? "active" : "pending";
 
     if (status === "pending") {
       // Paiement en attente : l'essai éventuel reste actif jusqu'à validation.
@@ -243,9 +250,9 @@ export const createSubscription = mutation({
     });
 
     // ── FACTURE — émise AUTOMATIQUEMENT à chaque souscription payante ──
-    // « En attente » tant que le règlement (virement / D17) n'est pas validé,
-    // « Payée » dès l'activation immédiate. Aucune facture pour un forfait
-    // gratuit (aucun montant réglé) : rien n'est inventé.
+    // « En attente » tant que le règlement (virement / D17) n'est pas validé
+    // par l'administrateur, « Payée » seulement après cette validation. Aucune
+    // facture pour un forfait gratuit (aucun montant réglé) : rien n'est inventé.
     const subscriptionInvoice = await issueSubscriptionInvoice(ctx, {
       subscriptionId,
       userId: user._id,

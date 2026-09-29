@@ -148,7 +148,8 @@ describe("createSubscription — compatibilité profil ↔ forfait", () => {
       currency: "TND",
     });
     const status = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
-    expect(status?.status).toBe("active");
+    // Demande acceptée : le règlement (D17) reste à valider par l'administrateur.
+    expect(status?.status).toBe("pending");
     expect(status?.planCompatible).toBe(true);
   });
 
@@ -161,7 +162,8 @@ describe("createSubscription — compatibilité profil ↔ forfait", () => {
       currency: "TND",
     });
     const status = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
-    expect(status?.status).toBe("active");
+    // Payant : en attente de la validation du paiement par l'administrateur.
+    expect(status?.status).toBe("pending");
   });
 });
 

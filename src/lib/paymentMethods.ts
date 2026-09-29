@@ -30,6 +30,13 @@ export interface PaymentMethodDefinition {
    * être activée côté utilisateurs.
    */
   implemented: boolean;
+  /**
+   * `true` = aucun encaissement automatique : l'utilisateur joint un
+   * justificatif de paiement (pièce jointe) et un administrateur valide le
+   * règlement. La souscription reste « en attente » jusque-là — elle n'est
+   * jamais activée automatiquement.
+   */
+  manualValidation: boolean;
   /** État appliqué tant qu'aucune configuration n'existe en base. */
   defaultEnabled: boolean;
 }
@@ -40,10 +47,11 @@ export const PAYMENT_METHOD_CATALOG: readonly PaymentMethodDefinition[] = [
     label: "Virement bancaire",
     shortLabel: "Virement",
     description:
-      "Paiement par virement sur le compte bancaire de batibuild, validé manuellement par un administrateur.",
+      "Paiement par virement sur le compte bancaire de batibuild : le client joint la preuve du virement, validée manuellement par un administrateur.",
     emoji: "🏦",
     icon: "bank",
     implemented: true,
+    manualValidation: true,
     defaultEnabled: true,
   },
   {
@@ -51,10 +59,11 @@ export const PAYMENT_METHOD_CATALOG: readonly PaymentMethodDefinition[] = [
     label: "D17 (La Poste Tunisienne)",
     shortLabel: "D17",
     description:
-      "Paiement mobile D17 via l'application de La Poste Tunisienne.",
+      "Paiement mobile D17 via l'application de La Poste Tunisienne : le client joint la capture du paiement, validée manuellement par un administrateur.",
     emoji: "📱",
     icon: "smartphone",
     implemented: true,
+    manualValidation: true,
     defaultEnabled: true,
   },
   {
@@ -66,6 +75,7 @@ export const PAYMENT_METHOD_CATALOG: readonly PaymentMethodDefinition[] = [
     emoji: "💳",
     icon: "card",
     implemented: false,
+    manualValidation: false,
     defaultEnabled: false,
   },
 ];
@@ -79,6 +89,18 @@ export function paymentMethodDefinition(
   slug: PaymentMethodSlug,
 ): PaymentMethodDefinition | undefined {
   return PAYMENT_METHOD_CATALOG.find((m) => m.slug === slug);
+}
+
+/**
+ * Le règlement de cette méthode exige-t-il une validation manuelle par un
+ * administrateur ? Une méthode inconnue est traitée comme manuelle : on
+ * n'active jamais un paiement qu'on ne sait pas encaisser.
+ */
+export function requiresManualValidation(
+  slug: PaymentMethodSlug | undefined | null,
+): boolean {
+  if (!slug) return true;
+  return paymentMethodDefinition(slug)?.manualValidation ?? true;
 }
 
 /** États par défaut, dans l'ordre du catalogue. */

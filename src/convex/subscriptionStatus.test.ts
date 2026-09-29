@@ -409,7 +409,7 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
     const now = Date.now();
     const userId = await createUser(t, { email: "renew@test.com" });
 
-    // Abonnement payé (D17), encore valable 10 jours.
+    // Abonnement payant encore valable 10 jours.
     await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
       plan: "pro",
       paymentMethod: "d17",
@@ -457,6 +457,43 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
     expect(access.reason).not.toBe("ok");
   });
 
+  it("paiement D17 : justificatif attendu, activation par l'administrateur", async () => {
+    const userId = await createUser(t, { email: "d17-manuel@test.com" });
+
+    // D17 suit la même procédure que le virement : demande en attente.
+    const subscriptionId = await asUser(t, userId).mutation(
+      api.subscriptions.createSubscription,
+      { plan: "pro", paymentMethod: "d17", amount: 80, currency: "TND" },
+    );
+
+    const pending = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
+    expect(pending?.status).toBe("pending");
+    expect((await asUser(t, userId).query(api.access.checkClientProAccess)).reason).toBe(
+      "pending",
+    );
+
+    // Le client joint sa capture d'écran D17 (pièce jointe du règlement).
+    const storageId = await t.run(async (ctx) => ctx.storage.store(new Blob(["capture"])));
+    await asUser(t, userId).mutation(api.subscriptions.uploadPaymentProof, {
+      subscriptionId,
+      storageId,
+      url: "https://example.test/d17.png",
+      fileName: "capture-d17.png",
+    });
+    const withProof = await asUser(t, userId).query(api.subscriptions.getMySubscription);
+    expect(withProof?.paymentProofFileName).toBe("capture-d17.png");
+
+    // Aucune activation automatique : validation manuelle par l'admin.
+    const adminId = await createUser(t, { role: "admin", email: "admin-d17@test.com" });
+    await asUser(t, adminId).mutation(api.subscriptions.adminApproveSubscription, {
+      subscriptionId,
+    });
+
+    const active = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
+    expect(active?.status).toBe("active");
+    expect((await asUser(t, userId).query(api.access.checkClientProAccess)).allowed).toBe(true);
+  });
+
   it("désactive l'essai et ouvre 30 jours d'abonnement", async () => {
     await setFreeOffer(t, true);
     const now = Date.now();
@@ -466,11 +503,19 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
       trialEndDate: now + 6 * DAY_MS,
     });
 
-    await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
-      plan: "pro",
-      paymentMethod: "d17",
-      amount: 80,
-      currency: "TND",
+    // Paiement D17 : la demande reste en attente jusqu'à la validation admin.
+    const subscriptionId = await asUser(t, userId).mutation(
+      api.subscriptions.createSubscription,
+      {
+        plan: "pro",
+        paymentMethod: "d17",
+        amount: 80,
+        currency: "TND",
+      },
+    );
+    const adminId = await createUser(t, { role: "admin", email: "admin-period@test.com" });
+    await asUser(t, adminId).mutation(api.subscriptions.adminApproveSubscription, {
+      subscriptionId,
     });
 
     const user = await t.run(async (ctx) => ctx.db.get(userId as any));

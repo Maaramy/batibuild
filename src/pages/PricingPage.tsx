@@ -217,6 +217,11 @@ export default function PricingPage() {
   };
 
   const isPending = currentSubscription?.status === "pending";
+  // Méthode réellement rattachée à la demande en attente (et non le sélecteur
+  // courant) : le justificatif attendu est celui du paiement effectué.
+  const pendingPaymentMethod = isPending
+    ? currentSubscription?.paymentMethod ?? paymentMethod
+    : paymentMethod;
   const currentPlan: string | null = currentSubscription && !isPending ? (currentSubscription.plan as string) : null;
 
   const isCurrentPlan = (plan: PlanId) => currentPlan === plan && !isPending;
@@ -692,7 +697,8 @@ export default function PricingPage() {
               <div className="mt-2.5 flex items-start gap-1.5 text-[10px] text-muted-foreground/70">
                 <Shield className="h-3 w-3 shrink-0 mt-0.5" />
                 <p>
-                  {D17_INFO.notice}. Activation manuelle sous 24h ouvrées.
+                  {D17_INFO.notice}. Activation manuelle sous 24h ouvrées après vérification du paiement
+                  par l'administrateur.
                 </p>
               </div>
 
@@ -702,7 +708,7 @@ export default function PricingPage() {
                   <li>1. Ouvrez l'application D17</li>
                   <li>2. Sélectionnez « Paiement marchand »</li>
                   <li>3. Entrez le téléphone et le montant de {currentPrice} {currency}</li>
-                  <li>4. Envoyez la confirmation par email</li>
+                  <li>4. Joignez la capture du paiement ci-dessous</li>
                 </ol>
               </div>
             </>
@@ -716,7 +722,8 @@ export default function PricingPage() {
                   <div>
                     <p className="text-xs font-semibold text-amber-700">Paiement en attente de validation</p>
                     <p className="text-[10px] text-amber-600/70 mt-0.5">
-                      Votre abonnement sera activé dès réception du {paymentMethod === "d17" ? "paiement D17" : "virement"}.
+                      Votre abonnement sera activé dès validation du{" "}
+                      {pendingPaymentMethod === "d17" ? "paiement D17" : "virement"} par l'administrateur.
                     </p>
                   </div>
                 </div>
@@ -729,7 +736,9 @@ export default function PricingPage() {
                   <p className="text-xs font-semibold">Joindre votre reçu de paiement</p>
                 </div>
                 <p className="text-[9px] text-muted-foreground mb-3">
-                  Ajoutez une capture d'écran du {paymentMethod === "d17" ? "paiement D17" : "virement bancaire"} pour accélérer l'activation.
+                  Ajoutez une capture d'écran du{" "}
+                  {pendingPaymentMethod === "d17" ? "paiement D17" : "virement bancaire"} : le
+                  justificatif est joint à votre demande et accélère l'activation.
                 </p>
 
                 {uploadedFile ? (
