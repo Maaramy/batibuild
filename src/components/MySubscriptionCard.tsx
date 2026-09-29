@@ -193,16 +193,6 @@ export function MySubscriptionCard() {
           </span>
         </div>
 
-        {isLocked && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200/30 bg-red-500/5 p-2.5 text-[10px] text-red-600 dark:text-red-400 sm:text-xs">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              L'accès aux services nécessitant un abonnement est suspendu. Souscrivez à une offre pour
-              retrouver l'accès complet.
-            </span>
-          </div>
-        )}
-
         {!isLocked && status.planCompatible === false && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-200/40 bg-amber-500/5 p-2.5 text-[10px] text-amber-600 dark:text-amber-400 sm:text-xs">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
