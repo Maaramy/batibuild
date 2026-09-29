@@ -59,6 +59,20 @@ interface DeleteResult {
   deletedAt: number;
 }
 
+interface DuplicateDeleteResult {
+  deletedFiles: number;
+  deletedBytes: number;
+  failedFiles: number;
+  remainingFiles: number;
+  recentFiles: number;
+  duplicateGroups: number;
+  groupedFiles: number;
+  totalDuplicateFiles: number;
+  totalDuplicateBytes: number;
+  rounds: number;
+  deletedAt: number;
+}
+
 interface StorageReport {
   generatedAt: number;
   schemaTableCount: number;
@@ -77,6 +91,7 @@ interface StorageReport {
     orphans: StorageFileInfo[];
     duplicates: { sha256: string; count: number; size: number; wastedBytes: number }[];
     duplicateWastedBytes: number;
+    duplicateRemovals: { files: number; bytes: number; groups: number; recentSkipped: number };
   };
 }
 
@@ -104,11 +119,15 @@ const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
 export default function StorageReportAdmin() {
   const runReport = useAction(api.storageReport.getStorageReport);
   const runDeleteOrphans = useAction(api.storageReport.deleteOrphanedStorageFiles);
+  const runDeleteDuplicates = useAction(api.storageReport.deleteDuplicateStorageFiles);
   const [report, setReport] = useState<StorageReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [lastDelete, setLastDelete] = useState<DeleteResult | null>(null);
+  const [deletingDuplicates, setDeletingDuplicates] = useState(false);
+  const [lastDuplicateDelete, setLastDuplicateDelete] =
+    useState<DuplicateDeleteResult | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -177,6 +196,45 @@ export default function StorageReportAdmin() {
       toast.error(errorMessage(e));
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // Suppression des copies dupliquées — un seul exemplaire conservé par
+  // empreinte sha256 ; une copie référencée est toujours conservée côté serveur.
+  const handleDeleteDuplicates = async () => {
+    const plan = report?.storage.duplicateRemovals;
+    if (!plan || plan.files === 0) return;
+    const confirmed = window.confirm(
+      `Supprimer ${plan.files} copie(s) dupliquée(s) du storage ?\n\n` +
+        `Un seul exemplaire est conservé par empreinte sha256 (${formatBytes(plan.bytes)} libérés). ` +
+        `Les copies référencées par un document ne sont jamais supprimées. Cette action est IRRÉVERSIBLE.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingDuplicates(true);
+    try {
+      const result = (await runDeleteDuplicates({})) as DuplicateDeleteResult;
+      setLastDuplicateDelete(result);
+      if (result.deletedFiles === 0 && plan.files > 0) {
+        toast.error("Aucune copie n'a pu être supprimée — relancez le calcul du rapport.");
+      } else {
+        toast.success(
+          `${result.deletedFiles} copie(s) dupliquée(s) supprimée(s) — ${formatBytes(result.deletedBytes)} libérés`,
+        );
+      }
+      if (result.failedFiles > 0) {
+        toast.warning(`${result.failedFiles} fichier(s) n'ont pas pu être supprimés`);
+      }
+      if (result.recentFiles > 0) {
+        toast.info(
+          `${result.recentFiles} copie(s) récente(s) ignorée(s) : déposées au storage depuis moins d'une heure`,
+        );
+      }
+      await load();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setDeletingDuplicates(false);
     }
   };
 
@@ -402,9 +460,31 @@ export default function StorageReportAdmin() {
             </CardTitle>
             <CardDescription className="text-xs">
               Même empreinte <code>sha256</code> — {formatBytes(storage.duplicateWastedBytes)}{" "}
-              dupliqués
+              dupliqués · {storage.duplicateRemovals.files} copie
+              {storage.duplicateRemovals.files > 1 ? "s" : ""} supprimable
+              {storage.duplicateRemovals.files > 1 ? "s" : ""} (
+              {formatBytes(storage.duplicateRemovals.bytes)}) en conservant un exemplaire par
+              empreinte
             </CardDescription>
           </CardHeader>
+
+          {lastDuplicateDelete && (
+            <div className="mx-6 mb-3 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs">
+              Dernière déduplication (
+              {DATE_FORMAT.format(new Date(lastDuplicateDelete.deletedAt))}) :{" "}
+              <span className="font-medium">{lastDuplicateDelete.deletedFiles} copie(s)</span> —{" "}
+              {formatBytes(lastDuplicateDelete.deletedBytes)} libérés
+              {lastDuplicateDelete.remainingFiles > 0
+                ? ` · ${lastDuplicateDelete.remainingFiles} restante(s), relancez la suppression`
+                : ""}
+              {lastDuplicateDelete.failedFiles > 0
+                ? ` · ${lastDuplicateDelete.failedFiles} échec(s)`
+                : ""}
+              {lastDuplicateDelete.recentFiles > 0
+                ? ` · ${lastDuplicateDelete.recentFiles} récente(s) ignorée(s) (< 1 h)`
+                : ""}
+            </div>
+          )}
           <CardContent className="space-y-1.5">
             {storage.duplicates.slice(0, 8).map((group) => (
               <div
@@ -419,6 +499,31 @@ export default function StorageReportAdmin() {
                 </span>
               </div>
             ))}
+
+            <div className="flex flex-col gap-2 border-t border-border/40 pt-3 mt-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Déduplication réversible dans le rapport uniquement : un exemplaire par empreinte
+                est conservé, jamais une copie référencée par un document. Action journalisée.
+              </p>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="shrink-0"
+                onClick={() => void handleDeleteDuplicates()}
+                disabled={
+                  deletingDuplicates || loading || storage.duplicateRemovals.files === 0
+                }
+              >
+                {deletingDuplicates ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                )}
+                {deletingDuplicates
+                  ? "Déduplication…"
+                  : `Supprimer ${storage.duplicateRemovals.files} copie${storage.duplicateRemovals.files > 1 ? "s" : ""} dupliquée${storage.duplicateRemovals.files > 1 ? "s" : ""} (${formatBytes(storage.duplicateRemovals.bytes)})`}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

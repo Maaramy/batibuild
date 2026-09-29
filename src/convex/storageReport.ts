@@ -11,11 +11,14 @@
 //     nombre de fichiers, octets réels, type MIME et doublons par `sha256`.
 //   • Fichiers orphelins : fichiers du storage qu'aucun document ne référence
 //     (recherche par identifiant brut ET par URL `/api/storage/<id>`).
+//   • Doublons exacts : fichiers partageant la même empreinte `sha256`.
 //
 // Le même calcul sert à la SUPPRESSION réelle des orphelins
-// (`deleteOrphanedStorageFiles`) : chaque lot est supprimé dans une mutation
-// unique qui relit les références et supprime le fichier dans la même
-// transaction, afin de ne jamais toucher un fichier référencé.
+// (`deleteOrphanedStorageFiles`) et des copies dupliquées
+// (`deleteDuplicateStorageFiles`, un exemplaire conservé par empreinte) :
+// chaque lot est supprimé dans une mutation unique qui relit les références et
+// supprime les fichiers dans la même transaction, afin de ne jamais toucher un
+// fichier référencé.
 //
 // Le calcul est volontairement déclenché par une action (pas une query
 // réactive) : il parcourt toutes les tables, ce qui serait trop coûteux à
@@ -28,6 +31,7 @@ import {
   internalMutation,
   internalQuery,
   type ActionCtx,
+  type MutationCtx,
 } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -54,6 +58,14 @@ const STORAGE_URL_RE = /\/(?:api\/storage|files)\/([A-Za-z0-9_]+)/;
 
 /** Profondeur maximale du parcours récursif (garde-fou sur les `v.any()`). */
 const MAX_WALK_DEPTH = 25;
+
+/**
+ * Âge minimal d'un fichier avant suppression : un fichier vient d'être envoyé
+ * au storage puis référencé par une mutation séparée, donc un fichier très
+ * récent peut paraître orphelin (ou dupliqué) sans l'être encore. Une heure de
+ * marge écarte ce risque d'upload en cours.
+ */
+const MIN_ORPHAN_AGE_MS = 60 * 60 * 1000;
 
 /**
  * Parcourt récursivement une valeur de document et ajoute à `out` tous les
@@ -114,6 +126,13 @@ export interface StorageSummary {
   orphans: StorageFileInfo[];
   duplicates: { sha256: string; count: number; size: number; wastedBytes: number }[];
   duplicateWastedBytes: number;
+  /** Copies dupliquées réellement supprimables (un exemplaire conservé par empreinte). */
+  duplicateRemovals: {
+    files: number;
+    bytes: number;
+    groups: number;
+    recentSkipped: number;
+  };
 }
 
 /** Métadonnées d'un fichier de la table système `_storage`. */
@@ -146,6 +165,78 @@ export function selectOrphans(
     .sort((a, b) => b.size - a.size);
 }
 
+/** Deux fichiers d'une même empreinte : le plus ancien d'abord (départage stable). */
+function byOldest(a: StorageFileInfo, b: StorageFileInfo): number {
+  return a.createdAt - b.createdAt || a.storageId.localeCompare(b.storageId);
+}
+
+export interface DuplicateRemovalPlan {
+  /** Groupes d'empreintes partagées par au moins deux fichiers. */
+  groups: number;
+  /** Fichiers appartenant à un groupe dupliqué. */
+  groupedFiles: number;
+  /** Copies supprimables, du plus lourd au plus léger. */
+  removals: StorageFileInfo[];
+  /** Copies ignorées car déposées depuis moins d'une heure (`MIN_ORPHAN_AGE_MS`). */
+  recentSkipped: number;
+  /** Groupes où un exemplaire référencé a dû être conservé. */
+  groupsWithKeptReference: number;
+}
+
+/**
+ * Détermine, pour chaque empreinte `sha256` partagée par plusieurs fichiers,
+ * les copies à supprimer en conservant un seul exemplaire :
+ *
+ *   • si une copie est référencée par un document, c'est elle qui est
+ *     conservée — supprimer une copie référencée casserait ce document ;
+ *   • sinon, l'exemplaire le plus ancien est conservé ;
+ *   • les copies déposées depuis moins d'une heure ne sont jamais supprimées.
+ */
+export function planDuplicateRemovals(
+  files: StorageFileInfo[],
+  referencedIds: Set<string>,
+  now: number,
+): DuplicateRemovalPlan {
+  const bySha = new Map<string, StorageFileInfo[]>();
+  for (const file of files) {
+    const group = bySha.get(file.sha256);
+    if (group) group.push(file);
+    else bySha.set(file.sha256, [file]);
+  }
+
+  const cutoff = now - MIN_ORPHAN_AGE_MS;
+  const removals: StorageFileInfo[] = [];
+  let groups = 0;
+  let groupedFiles = 0;
+  let recentSkipped = 0;
+  let groupsWithKeptReference = 0;
+
+  for (const group of bySha.values()) {
+    if (group.length < 2) continue;
+    groups++;
+    groupedFiles += group.length;
+
+    const ordered = [...group].sort(byOldest);
+    const referencedInGroup = ordered.filter((file) => referencedIds.has(file.storageId));
+    if (referencedInGroup.length > 0) groupsWithKeptReference++;
+    const keeper = referencedInGroup[0] ?? ordered[0];
+
+    for (const file of ordered) {
+      if (file.storageId === keeper.storageId) continue;
+      // Un fichier référencé n'est jamais supprimé, quelle que soit l'empreinte.
+      if (referencedIds.has(file.storageId)) continue;
+      if (file.createdAt > cutoff) {
+        recentSkipped++;
+        continue;
+      }
+      removals.push(file);
+    }
+  }
+
+  removals.sort((a, b) => b.size - a.size);
+  return { groups, groupedFiles, removals, recentSkipped, groupsWithKeptReference };
+}
+
 /**
  * Sépare les orphelins supprimables de ceux trop récents (upload peut-être
  * pas encore référencé) : voir `MIN_ORPHAN_AGE_MS`.
@@ -165,6 +256,7 @@ export function splitOrphansByAge(
 export function summarizeStorage(
   files: StorageFileInfo[],
   referencedIds: Set<string>,
+  now = Date.now(),
 ): StorageSummary {
   let bytes = 0;
   let referencedFiles = 0;
@@ -197,6 +289,8 @@ export function summarizeStorage(
   // Orphelins du plus lourd au plus léger (déjà collectés ci-dessus).
   orphans.sort((a, b) => b.size - a.size);
 
+  const removalPlan = planDuplicateRemovals(files, referencedIds, now);
+
   return {
     files: files.length,
     bytes,
@@ -207,6 +301,12 @@ export function summarizeStorage(
     orphans,
     duplicates,
     duplicateWastedBytes,
+    duplicateRemovals: {
+      files: removalPlan.removals.length,
+      bytes: removalPlan.removals.reduce((sum, file) => sum + file.size, 0),
+      groups: removalPlan.groups,
+      recentSkipped: removalPlan.recentSkipped,
+    },
   };
 }
 
@@ -315,14 +415,6 @@ const DELETE_BATCH_SIZE = 25;
 const MAX_DELETE_ROUNDS = 20;
 
 /**
- * Âge minimal d'un fichier avant suppression : un fichier vient d'être envoyé
- * au storage puis référencé par une mutation séparée, donc un fichier très
- * récent peut paraître orphelin sans l'être encore. Une heure de marge écarte
- * ce risque d'upload en cours.
- */
-const MIN_ORPHAN_AGE_MS = 60 * 60 * 1000;
-
-/**
  * Rapport complet : taille estimée de la base (documents + octets JSON),
  * fichiers réellement présents dans le storage et fichiers orphelins.
  */
@@ -380,7 +472,61 @@ export const getStorageReport = action({
   },
 });
 
-// ── Suppression réelle des fichiers orphelins ───────────────────────────────
+// ── Suppression réelle de fichiers du storage (orphelins / doublons) ────────
+
+/** Fichiers du storage + identifiants référencés, lus dans une même transaction. */
+async function loadStorageState(ctx: MutationCtx) {
+  const stored = await ctx.db.system.query("_storage").collect();
+  const files = stored.map((file) => toStorageFileInfo(file as unknown as SystemStorageFile));
+  const referenced = await collectReferencedStorageIds(
+    ctx.db as unknown as TableWalkCtx,
+    files.map((file) => file.storageId),
+  );
+  return { files, referenced };
+}
+
+/** Supprime un lot de fichiers ; un échec isolé n'interrompt pas le reste. */
+async function deleteStorageBatch(ctx: MutationCtx, batch: StorageFileInfo[]) {
+  let deletedFiles = 0;
+  let deletedBytes = 0;
+  const failedIds: string[] = [];
+
+  for (const file of batch) {
+    try {
+      await ctx.storage.delete(file.storageId as Id<"_storage">);
+      deletedFiles++;
+      deletedBytes += file.size;
+    } catch {
+      // Fichier déjà supprimé ou identifiant invalide : on continue.
+      failedIds.push(file.storageId);
+    }
+  }
+
+  return { deletedFiles, deletedBytes, failedIds };
+}
+
+/** Journalise une suppression dans `adminLogs` (jamais bloquant). */
+async function logStorageDeletion(
+  ctx: MutationCtx,
+  args: {
+    adminId: Id<"users">;
+    adminName?: string;
+    action: "storage_orphan_delete" | "storage_duplicate_delete";
+    details: string;
+  },
+) {
+  try {
+    await ctx.db.insert("adminLogs", {
+      adminId: args.adminId,
+      adminName: args.adminName,
+      action: args.action,
+      details: args.details,
+      createdAt: Date.now(),
+    });
+  } catch {
+    /* journalisation optionnelle */
+  }
+}
 
 /**
  * Supprime RÉELLEMENT un lot de fichiers orphelins du storage.
@@ -396,46 +542,22 @@ export const _deleteOrphanedStorageFiles = internalMutation({
     maxFiles: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const stored = await ctx.db.system.query("_storage").collect();
-    const files = stored.map((file) => toStorageFileInfo(file as unknown as SystemStorageFile));
-    const referenced = await collectReferencedStorageIds(
-      ctx.db as unknown as TableWalkCtx,
-      files.map((file) => file.storageId),
-    );
+    const { files, referenced } = await loadStorageState(ctx);
 
     const orphans = selectOrphans(files, referenced);
     const { deletable, recent } = splitOrphansByAge(orphans, Date.now());
     const batch = deletable.slice(0, Math.max(1, args.maxFiles ?? DELETE_BATCH_SIZE));
-
-    let deletedFiles = 0;
-    let deletedBytes = 0;
-    const failedIds: string[] = [];
-
-    for (const file of batch) {
-      try {
-        await ctx.storage.delete(file.storageId as Id<"_storage">);
-        deletedFiles++;
-        deletedBytes += file.size;
-      } catch {
-        // Fichier déjà supprimé ou identifiant invalide : on continue.
-        failedIds.push(file.storageId);
-      }
-    }
+    const { deletedFiles, deletedBytes, failedIds } = await deleteStorageBatch(ctx, batch);
 
     if (batch.length > 0) {
-      try {
-        await ctx.db.insert("adminLogs", {
-          adminId: args.adminId,
-          adminName: args.adminName,
-          action: "storage_orphan_delete",
-          details: `Suppression de ${deletedFiles} fichier(s) orphelin(s) du stockage — ${deletedBytes} octet(s) libéré(s)${
-            failedIds.length > 0 ? ` · ${failedIds.length} échec(s)` : ""
-          }`,
-          createdAt: Date.now(),
-        });
-      } catch {
-        /* journalisation optionnelle : ne bloque jamais la suppression */
-      }
+      await logStorageDeletion(ctx, {
+        adminId: args.adminId,
+        adminName: args.adminName,
+        action: "storage_orphan_delete",
+        details: `Suppression de ${deletedFiles} fichier(s) orphelin(s) du stockage — ${deletedBytes} octet(s) libéré(s)${
+          failedIds.length > 0 ? ` · ${failedIds.length} échec(s)` : ""
+        }`,
+      });
     }
 
     return {
@@ -447,6 +569,50 @@ export const _deleteOrphanedStorageFiles = internalMutation({
       remainingFiles: Math.max(0, deletable.length - batch.length),
       totalOrphanFiles: orphans.length,
       totalOrphanBytes: orphans.reduce((sum, file) => sum + file.size, 0),
+    };
+  },
+});
+
+/**
+ * Supprime RÉELLEMENT un lot de copies dupliquées : un seul exemplaire est
+ * conservé par empreinte `sha256` (une copie référencée est toujours
+ * conservée). Voir `planDuplicateRemovals`.
+ */
+export const _deleteDuplicateStorageFiles = internalMutation({
+  args: {
+    adminId: v.id("users"),
+    adminName: v.optional(v.string()),
+    maxFiles: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { files, referenced } = await loadStorageState(ctx);
+
+    const plan = planDuplicateRemovals(files, referenced, Date.now());
+    const batch = plan.removals.slice(0, Math.max(1, args.maxFiles ?? DELETE_BATCH_SIZE));
+    const { deletedFiles, deletedBytes, failedIds } = await deleteStorageBatch(ctx, batch);
+
+    if (batch.length > 0) {
+      await logStorageDeletion(ctx, {
+        adminId: args.adminId,
+        adminName: args.adminName,
+        action: "storage_duplicate_delete",
+        details: `Suppression de ${deletedFiles} copie(s) dupliquée(s) du stockage (${plan.groups} empreinte(s) concernée(s), un exemplaire conservé) — ${deletedBytes} octet(s) libéré(s)${
+          failedIds.length > 0 ? ` · ${failedIds.length} échec(s)` : ""
+        }`,
+      });
+    }
+
+    return {
+      deletedFiles,
+      deletedBytes,
+      failedFiles: failedIds.length,
+      processedFiles: batch.length,
+      recentFiles: plan.recentSkipped,
+      remainingFiles: Math.max(0, plan.removals.length - batch.length),
+      duplicateGroups: plan.groups,
+      groupedFiles: plan.groupedFiles,
+      totalDuplicateFiles: plan.removals.length,
+      totalDuplicateBytes: plan.removals.reduce((sum, file) => sum + file.size, 0),
     };
   },
 });
@@ -497,6 +663,64 @@ export const deleteOrphanedStorageFiles = action({
       recentFiles,
       totalOrphanFiles,
       totalOrphanBytes,
+      rounds,
+      deletedAt: Date.now(),
+    };
+  },
+});
+
+/**
+ * Action admin : supprime les copies dupliquées en conservant un exemplaire par
+ * empreinte `sha256`, lot par lot, puis renvoie le bilan. Réservée aux
+ * administrateurs et modérateurs ; chaque lot est journalisé dans `adminLogs`.
+ */
+export const deleteDuplicateStorageFiles = action({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await ctx.runQuery(internal.storageReport._requireAdmin, {});
+
+    let deletedFiles = 0;
+    let deletedBytes = 0;
+    let failedFiles = 0;
+    let remainingFiles = 0;
+    let recentFiles = 0;
+    let duplicateGroups = 0;
+    let groupedFiles = 0;
+    let totalDuplicateFiles = 0;
+    let totalDuplicateBytes = 0;
+    let rounds = 0;
+
+    for (let i = 0; i < MAX_DELETE_ROUNDS; i++) {
+      const result = await ctx.runMutation(internal.storageReport._deleteDuplicateStorageFiles, {
+        adminId: admin.adminId,
+        adminName: admin.adminName || undefined,
+        maxFiles: DELETE_BATCH_SIZE,
+      });
+      rounds++;
+      deletedFiles += result.deletedFiles;
+      deletedBytes += result.deletedBytes;
+      failedFiles += result.failedFiles;
+      remainingFiles = result.remainingFiles;
+      recentFiles = result.recentFiles;
+      duplicateGroups = result.duplicateGroups;
+      groupedFiles = result.groupedFiles;
+      totalDuplicateFiles = result.totalDuplicateFiles;
+      totalDuplicateBytes = result.totalDuplicateBytes;
+
+      // Plus rien à supprimer, ou lot entier en échec (on évite la boucle infinie).
+      if (result.remainingFiles === 0 || result.deletedFiles === 0) break;
+    }
+
+    return {
+      deletedFiles,
+      deletedBytes,
+      failedFiles,
+      remainingFiles,
+      recentFiles,
+      duplicateGroups,
+      groupedFiles,
+      totalDuplicateFiles,
+      totalDuplicateBytes,
       rounds,
       deletedAt: Date.now(),
     };

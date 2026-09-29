@@ -7,6 +7,7 @@ import { internal } from "./_generated/api.js";
 import {
   collectReferencedStorageIds,
   collectStorageRefs,
+  planDuplicateRemovals,
   selectOrphans,
   splitOrphansByAge,
   summarizeStorage,
@@ -101,6 +102,18 @@ describe("summarizeStorage", () => {
     expect(summary.duplicates).toHaveLength(1);
     expect(summary.duplicates[0]).toMatchObject({ sha256: "same", count: 3, wastedBytes: 2000 });
     expect(summary.duplicateWastedBytes).toBe(2000);
+    // Un exemplaire conservé par empreinte : 2 copies supprimables.
+    expect(summary.duplicateRemovals).toMatchObject({ files: 2, bytes: 2000, groups: 1 });
+  });
+
+  it("ne propose aucune suppression quand une copie dupliquée est référencée", () => {
+    const summary = summarizeStorage(
+      [file("a", 1000, "same"), file("b", 1000, "same")],
+      new Set(["b"]),
+    );
+    expect(summary.duplicates).toHaveLength(1);
+    expect(summary.duplicateRemovals.files).toBe(1);
+    expect(summary.duplicateRemovals.bytes).toBe(1000);
   });
 
   it("retourne un rapport vide sans fichier", () => {
@@ -108,6 +121,12 @@ describe("summarizeStorage", () => {
     expect(summary).toMatchObject({ files: 0, bytes: 0, orphanedFiles: 0, orphanedBytes: 0 });
     expect(summary.orphans).toEqual([]);
     expect(summary.duplicates).toEqual([]);
+    expect(summary.duplicateRemovals).toEqual({
+      files: 0,
+      bytes: 0,
+      groups: 0,
+      recentSkipped: 0,
+    });
   });
 });
 
@@ -130,6 +149,83 @@ describe("selectOrphans", () => {
   it("retourne une liste vide quand tout est référencé", () => {
     const files = [file("a", 10), file("b", 500)];
     expect(selectOrphans(files, new Set(["a", "b"]))).toEqual([]);
+  });
+});
+
+describe("planDuplicateRemovals", () => {
+  const HOUR = 60 * 60 * 1000;
+  const now = 10_000_000_000;
+  const file = (
+    storageId: string,
+    sha256: string,
+    createdAt: number,
+    size = 100,
+  ): StorageFileInfo => ({ storageId, size, contentType: "image/png", sha256, createdAt });
+
+  it("conserve un exemplaire par empreinte et supprime les copies en trop", () => {
+    const plan = planDuplicateRemovals(
+      [
+        file("ancien", "shaA", now - 5 * HOUR),
+        file("recent", "shaA", now - 2 * HOUR),
+        file("unique", "shaB", now - 5 * HOUR),
+      ],
+      new Set(),
+      now,
+    );
+    expect(plan.groups).toBe(1);
+    expect(plan.groupedFiles).toBe(2);
+    // Le plus ancien est conservé, l'autre supprimé.
+    expect(plan.removals.map((f) => f.storageId)).toEqual(["recent"]);
+    expect(plan.groupsWithKeptReference).toBe(0);
+  });
+
+  it("conserve toujours une copie référencée, même plus récente", () => {
+    const plan = planDuplicateRemovals(
+      [
+        file("orpheline", "shaA", now - 5 * HOUR),
+        file("referencee", "shaA", now - 2 * HOUR),
+      ],
+      new Set(["referencee"]),
+      now,
+    );
+    expect(plan.removals.map((f) => f.storageId)).toEqual(["orpheline"]);
+    expect(plan.groupsWithKeptReference).toBe(1);
+  });
+
+  it("ne supprime jamais deux copies référencées d'une même empreinte", () => {
+    const plan = planDuplicateRemovals(
+      [file("ref1", "shaA", now - 5 * HOUR), file("ref2", "shaA", now - 2 * HOUR)],
+      new Set(["ref1", "ref2"]),
+      now,
+    );
+    expect(plan.removals).toEqual([]);
+    expect(plan.groupsWithKeptReference).toBe(1);
+  });
+
+  it("écarte les copies déposées depuis moins d'une heure", () => {
+    const plan = planDuplicateRemovals(
+      [file("ancien", "shaA", now - 5 * HOUR), file("frais", "shaA", now - 1000)],
+      new Set(),
+      now,
+    );
+    expect(plan.removals).toEqual([]);
+    expect(plan.recentSkipped).toBe(1);
+  });
+
+  it("ignore les empreintes uniques et trie les suppressions par taille", () => {
+    const plan = planDuplicateRemovals(
+      [
+        file("a1", "shaA", now - 5 * HOUR, 10),
+        file("a2", "shaA", now - 4 * HOUR, 10),
+        file("b1", "shaB", now - 5 * HOUR, 900),
+        file("b2", "shaB", now - 4 * HOUR, 900),
+        file("seul", "shaC", now - 5 * HOUR),
+      ],
+      new Set(),
+      now,
+    );
+    expect(plan.groups).toBe(2);
+    expect(plan.removals.map((f) => f.storageId)).toEqual(["b2", "a2"]);
   });
 });
 
