@@ -63,6 +63,7 @@ import {
   Eye,
   MousePointerClick,
   FileDown,
+  Newspaper,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
@@ -349,6 +350,7 @@ export default function Dashboard() {
             // badge par entrée, jamais de doublon en fin de ligne.
             { icon: MessageSquare, label: "Messagerie", messaging: true, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
             { icon: Headset, label: "Support", badge: supportUnread, onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
+            { icon: Newspaper, label: "Blog", onClick: () => { navigate("/blog"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
             ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
           ];
