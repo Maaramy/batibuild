@@ -50,8 +50,6 @@ const AdminPanel = lazy(() => import("./pages/AdminPanel.tsx"));
 const SubscriptionAdminPage = lazy(() => import("./pages/SubscriptionAdminPage.tsx"));
 const PricingPage = lazy(() => import("./pages/PricingPage.tsx"));
 const MaterialsPage = lazy(() => import("./pages/MaterialsPage.tsx"));
-const MaterialDetailPage = lazy(() => import("./pages/MaterialDetailPage.tsx"));
-const MaterialAlertsPage = lazy(() => import("./pages/MaterialAlertsPage.tsx"));
 const AiMaterials = lazy(() => import("./pages/AiMaterials.tsx"));
 const AiMaterialsResult = lazy(() => import("./pages/AiMaterialsResult.tsx"));
 const PlanGenerator = lazy(() => import("./pages/PlanGenerator.tsx"));
@@ -341,28 +339,6 @@ createRoot(document.getElementById("root")!).render(
                     <RequireAuth>
                       <FeatureGate flag="ai_materials">
                         <MaterialsPage />
-                      </FeatureGate>
-                    </RequireAuth>
-                  }
-                />
-                {/* Fiche matériau enrichie + alertes prix. La route statique
-                    « alerts » est déclarée AVANT la route dynamique « :id ». */}
-                <Route
-                  path="/dashboard/materials/alerts"
-                  element={
-                    <RequireAuth>
-                      <FeatureGate flag="ai_materials">
-                        <MaterialAlertsPage />
-                      </FeatureGate>
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  path="/dashboard/materials/:id"
-                  element={
-                    <RequireAuth>
-                      <FeatureGate flag="ai_materials">
-                        <MaterialDetailPage />
                       </FeatureGate>
                     </RequireAuth>
                   }

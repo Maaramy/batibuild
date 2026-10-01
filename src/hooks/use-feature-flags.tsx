@@ -27,7 +27,6 @@ export const LOCAL_DEFAULT_FLAGS: Record<string, boolean> = {
   construction_cost_estimation: true,
   investment_project: true,
   ai_materials: true,
-  material_price_alerts: true,
   architectural_plans: true,
   construction_guide: true,
 };

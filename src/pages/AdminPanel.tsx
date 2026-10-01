@@ -24,10 +24,6 @@ import { FeatureFlagsAdmin } from "@/components/admin/FeatureFlagsAdmin";
 import { PaymentMethodsAdmin } from "@/components/admin/PaymentMethodsAdmin";
 import { InvoicesAdmin } from "@/components/admin/InvoicesAdmin";
 import StorageReportAdmin from "@/components/admin/StorageReportAdmin";
-import {
-  MaterialEnrichDialog,
-  type MaterialEnrichInput,
-} from "@/components/admin/MaterialEnrichDialog";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -101,7 +97,6 @@ import {
   Newspaper,
   Megaphone,
   Headset,
-  Sparkles,
 } from "lucide-react";
 
 // ============================================================================
@@ -151,7 +146,6 @@ export default function AdminPanel() {
     currency: "TND",
   });
   const [editingMaterial, setEditingMaterial] = useState<string | null>(null);
-  const [enrichMaterial, setEnrichMaterial] = useState<MaterialEnrichInput | null>(null);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ updated: number; created: number; errors: string[]; total: number } | null>(null);
@@ -2940,15 +2934,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                             </div>
                           ) : (
                             <div className="flex items-center justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-emerald-600"
-                                title="Enrichir la fiche"
-                                onClick={() => setEnrichMaterial(material)}
-                              >
-                                <Sparkles className="h-4 w-4" />
-                              </Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingMaterial(material._id)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -2974,14 +2959,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               </div>
             </CardContent>
             </Card>
-
-            {enrichMaterial && (
-              <MaterialEnrichDialog
-                material={enrichMaterial}
-                open
-                onOpenChange={(open) => !open && setEnrichMaterial(null)}
-              />
-            )}
           </TabsContent>
 
           {/* Projects Management */}

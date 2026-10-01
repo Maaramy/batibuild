@@ -672,56 +672,9 @@ const schema = defineSchema(
       confidenceIndex: v.optional(v.number()),
       /** Référence officielle du barème batibuild Tunisie 2026 (MAT-xxxx). */
       sku: v.optional(v.string()),
-      // ── Fiche matériau enrichie (enrichissement documentaire) ──────────────
-      // Tous les champs sont optionnels : la fiche est générée à la volée par
-      // `materialProfiles.ts` (caractéristiques, normes, certifications,
-      // conseils) puis surchargée par les valeurs saisies par l'admin.
-      characteristics: v.optional(
-        v.array(v.object({ label: v.string(), value: v.string() })),
-      ),
-      certifications: v.optional(v.array(v.string())),
-      norms: v.optional(v.array(v.string())),
-      packaging: v.optional(v.string()),
-      usageAdvice: v.optional(v.string()),
-      storageAdvice: v.optional(v.string()),
-      safetyAdvice: v.optional(v.string()),
-      compatibility: v.optional(v.array(v.string())),
-      imageUrl: v.optional(v.string()),
-      technicalSheetUrl: v.optional(v.string()),
-      /** Nom du fabricant / distributeur associé à la fiche. */
-      supplierRef: v.optional(v.string()),
-      enrichmentUpdatedAt: v.optional(v.number()),
     })
       .index("by_category", ["category"])
       .index("by_name", ["name"]),
-
-    // ── Alertes prix matériaux ─────────────────────────────────────────────
-    // Un utilisateur suit un matériau : il est notifié (table `notifications`)
-    // dès que le prix franchit un seuil (« below » / « above ») ou varie d'au
-    // moins `thresholdPercent` (« change »).
-    materialPriceAlerts: defineTable({
-      materialPriceId: v.id("materialPrices"),
-      userId: v.id("users"),
-      direction: v.union(
-        v.literal("below"),
-        v.literal("above"),
-        v.literal("change"),
-      ),
-      /** Prix cible (TND) pour « below » et « above ». */
-      targetPrice: v.optional(v.number()),
-      /** Variation minimale en % pour « change ». */
-      thresholdPercent: v.optional(v.number()),
-      note: v.optional(v.string()),
-      active: v.boolean(),
-      createdAt: v.number(),
-      lastTriggeredAt: v.optional(v.number()),
-      /** Nombre de déclenchements depuis la création. */
-      triggerCount: v.optional(v.number()),
-    })
-      .index("by_user", ["userId"])
-      .index("by_material", ["materialPriceId"])
-      .index("by_user_material", ["userId", "materialPriceId"])
-      .index("by_material_active", ["materialPriceId", "active"]),
 
     marketSources: defineTable({
       name: v.string(),
@@ -814,7 +767,6 @@ const schema = defineSchema(
         v.literal("expert_urgent"),
         v.literal("quote_request"),
         v.literal("quote_update"),
-        v.literal("price_alert"),
       ),
       title: v.string(),
       message: v.string(),

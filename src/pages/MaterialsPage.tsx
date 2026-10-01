@@ -8,11 +8,10 @@ import { useState, useMemo } from "react";
 import {
   ArrowLeft, Search, HardHat, RefreshCw,
   Database, Eye, BadgeCheck, FileText, ShieldCheck,
-  Package, Truck, CheckCircle2, AlertTriangle, CalendarDays, Info, BarChart3, Bell,
+  Package, Truck, CheckCircle2, AlertTriangle, CalendarDays, Info, BarChart3,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePageSEO } from "@/hooks/use-page-seo";
-import { useFeatureFlag } from "@/hooks/use-feature-flags";
 import {
   MATERIAL_CATEGORY_2026,
   MATERIAL_CATEGORY_LABELS,
@@ -71,7 +70,6 @@ const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).jo
 export default function MaterialsPage() {
   usePageSEO({ title: "Prix des matériaux 2026 - batibuild", description: "Base de données des matériaux de construction en Tunisie 2026 : références consolidées, prix observés en ligne, publications 2026 et estimations indicatives." });
   const navigate = useNavigate();
-  const alertsEnabled = useFeatureFlag("material_price_alerts");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
 
@@ -180,16 +178,6 @@ export default function MaterialsPage() {
               </div>
             </div>
           </div>
-
-          {alertsEnabled && (
-            <button
-              onClick={() => navigate("/dashboard/materials/alerts")}
-              className="flex items-center gap-1.5 rounded-lg border border-border/40 px-3 py-1.5 text-xs font-medium hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-colors shrink-0"
-            >
-              <Bell className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Alertes prix</span>
-            </button>
-          )}
         </div>
       </header>
 
@@ -526,8 +514,7 @@ export default function MaterialsPage() {
                               return (
                                 <tr
                                   key={material._id}
-                                  onClick={() => navigate(`/dashboard/materials/${material._id}`)}
-                                  className="border-b border-border/5 hover:bg-emerald-500/5 transition-colors cursor-pointer"
+                                  className="border-b border-border/5 hover:bg-muted/10 transition-colors"
                                 >
                                   <td className="py-2.5 px-4 font-medium truncate max-w-[220px] sm:max-w-none">
                                     {material.name}

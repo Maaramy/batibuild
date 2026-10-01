@@ -3,65 +3,6 @@ import { mutation, query, internalMutation } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { materialCategoryValidator } from "./schema";
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
-import { evaluatePriceAlerts } from "./materialAlerts";
-
-// Champs de la fiche matériau enrichie (tous optionnels).
-const enrichmentArgs = {
-  characteristics: v.optional(
-    v.array(v.object({ label: v.string(), value: v.string() })),
-  ),
-  certifications: v.optional(v.array(v.string())),
-  norms: v.optional(v.array(v.string())),
-  packaging: v.optional(v.string()),
-  usageAdvice: v.optional(v.string()),
-  storageAdvice: v.optional(v.string()),
-  safetyAdvice: v.optional(v.string()),
-  compatibility: v.optional(v.array(v.string())),
-  imageUrl: v.optional(v.string()),
-  technicalSheetUrl: v.optional(v.string()),
-  supplierRef: v.optional(v.string()),
-};
-
-type EnrichmentInput = {
-  characteristics?: { label: string; value: string }[];
-  certifications?: string[];
-  norms?: string[];
-  packaging?: string;
-  usageAdvice?: string;
-  storageAdvice?: string;
-  safetyAdvice?: string;
-  compatibility?: string[];
-  imageUrl?: string;
-  technicalSheetUrl?: string;
-  supplierRef?: string;
-};
-
-/** Vrai dès qu'au moins un champ de la fiche enrichie est fourni. */
-function hasEnrichmentFields(args: EnrichmentInput): boolean {
-  return Object.keys(pickEnrichment(args)).length > 0;
-}
-
-/** Sous-ensemble « fiche enrichie » réellement présent dans les arguments. */
-function pickEnrichment(args: EnrichmentInput): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  const keys: (keyof EnrichmentInput)[] = [
-    "characteristics",
-    "certifications",
-    "norms",
-    "packaging",
-    "usageAdvice",
-    "storageAdvice",
-    "safetyAdvice",
-    "compatibility",
-    "imageUrl",
-    "technicalSheetUrl",
-    "supplierRef",
-  ];
-  for (const key of keys) {
-    if (args[key] !== undefined) out[key] = args[key];
-  }
-  return out;
-}
 
 // ============================================================================
 // Queries
@@ -168,14 +109,12 @@ export const createMaterialPrice = mutation({
       ),
     ),
     confidenceIndex: v.optional(v.number()),
-    ...enrichmentArgs,
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user || user.role !== "admin") {
       throw new Error("Unauthorized: Admin access required");
     }
-    const hasEnrichment = hasEnrichmentFields(args);
     const id = await ctx.db.insert("materialPrices", {
       category: args.category,
       name: args.name,
@@ -188,8 +127,6 @@ export const createMaterialPrice = mutation({
       notes: args.notes,
       priceQuality: args.priceQuality,
       confidenceIndex: args.confidenceIndex,
-      ...pickEnrichment(args),
-      ...(hasEnrichment ? { enrichmentUpdatedAt: Date.now() } : {}),
       lastUpdated: Date.now(),
       updatedBy: user._id,
     });
@@ -205,10 +142,6 @@ export const updateMaterialPrice = mutation({
     name: v.optional(v.string()),
     nameAr: v.optional(v.string()),
     nameFr: v.optional(v.string()),
-    subcategory: v.optional(v.string()),
-    brand: v.optional(v.string()),
-    manufacturer: v.optional(v.string()),
-    description: v.optional(v.string()),
     unit: v.optional(v.string()),
     region: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -220,7 +153,6 @@ export const updateMaterialPrice = mutation({
       ),
     ),
     confidenceIndex: v.optional(v.number()),
-    ...enrichmentArgs,
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -246,25 +178,14 @@ export const updateMaterialPrice = mutation({
       ...(args.name !== undefined && { name: args.name }),
       ...(args.nameAr !== undefined && { nameAr: args.nameAr }),
       ...(args.nameFr !== undefined && { nameFr: args.nameFr }),
-      ...(args.subcategory !== undefined && { subcategory: args.subcategory }),
-      ...(args.brand !== undefined && { brand: args.brand }),
-      ...(args.manufacturer !== undefined && { manufacturer: args.manufacturer }),
-      ...(args.description !== undefined && { description: args.description }),
       ...(args.unit !== undefined && { unit: args.unit }),
       ...(args.region !== undefined && { region: args.region }),
       ...(args.notes !== undefined && { notes: args.notes }),
       ...(args.priceQuality !== undefined && { priceQuality: args.priceQuality }),
       ...(args.confidenceIndex !== undefined && { confidenceIndex: args.confidenceIndex }),
-      ...pickEnrichment(args),
-      ...(hasEnrichmentFields(args) ? { enrichmentUpdatedAt: Date.now() } : {}),
       lastUpdated: Date.now(),
       updatedBy: user._id,
     });
-
-    // Déclenche les alertes prix des utilisateurs qui suivent ce matériau.
-    if (args.unitPrice !== undefined && args.unitPrice !== existing.unitPrice) {
-      await evaluatePriceAlerts(ctx, existing, existing.unitPrice, args.unitPrice);
-    }
     return args.id;
   },
 });
@@ -442,7 +363,6 @@ export const updateAllMaterialPrices = internalMutation({
           lastUpdated: Date.now(),
           updatedBy: adminUser._id,
         });
-        await evaluatePriceAlerts(ctx, m, m.unitPrice, newPrice);
         updated++;
       }
     }
@@ -493,7 +413,6 @@ export const refreshMaterialPrices = mutation({
           lastUpdated: Date.now(),
           updatedBy: user._id,
         });
-        await evaluatePriceAlerts(ctx, m, m.unitPrice, newPrice);
         updated++;
       }
     }
@@ -566,7 +485,6 @@ export const bulkUpdateMaterialPrices = mutation({
               lastUpdated: now,
               updatedBy: user._id,
             });
-            await evaluatePriceAlerts(ctx, match, match.unitPrice, row.unitPrice);
             updated++;
           }
         } else if (row.sku) {

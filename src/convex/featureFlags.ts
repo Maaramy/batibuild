@@ -41,12 +41,6 @@ export const FEATURE_FLAGS_CATALOG = [
     description: "Assistant intelligent de choix des matériaux",
   },
   {
-    key: "material_price_alerts",
-    name: "Alertes prix matériaux",
-    description:
-      "Suivi des prix avec notification dès qu'un seuil ou une variation est atteint",
-  },
-  {
     key: "architectural_plans",
     name: "Plans architecturaux",
     description: "Génération/analyse des plans",
