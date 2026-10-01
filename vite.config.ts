@@ -150,8 +150,9 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    hmr: {
-      overlay: false,
-    },
+    // HMR must stay disabled in the Freebuff Web platform: the managed dev
+    // server handles reloads, and leaving HMR on caused stale-module runtime
+    // errors (global "Une erreur est survenue" screen).
+    hmr: false,
   },
 });
