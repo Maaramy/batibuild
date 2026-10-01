@@ -68,9 +68,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
 import { useState, useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useTheme } from "next-themes";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
@@ -211,25 +209,6 @@ export default function Dashboard() {
         ? "/dashboard/messages?tab=requests"
         : "/dashboard/messages";
   const handleSignOut = async () => { await signOut(); navigate("/auth"); };
-
-  const costSeries = useMemo(() => {
-    const byMonth = new Map<string, { label: string; total: number }>();
-    (projects as any[]).forEach((p) => {
-      const total = p.costEstimate?.totalCost;
-      if (!total) return;
-      const d = new Date(p.createdAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const cur = byMonth.get(key) ?? {
-        label: d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
-        total: 0,
-      };
-      cur.total += total;
-      byMonth.set(key, cur);
-    });
-    return [...byMonth.entries()]
-      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-      .map(([, v]) => v);
-  }, [projects]);
 
   // ── Statistiques des projets d'investissement enregistrés ──
   const investStats = useMemo(() => {
@@ -991,51 +970,6 @@ export default function Dashboard() {
 
           {/* ── Période d'essai / abonnement (source de vérité serveur) ── */}
           <MySubscriptionCard />
-
-          {/* ── Évolution des coûts (Recharts) ── */}
-          {costSeries.length >= 2 && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-            >
-              <Card className="border border-border/40 bg-card/60 shadow-soft">
-                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 lg:p-5">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
-                      <TrendingUp className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <CardTitle className="text-sm sm:text-base lg:text-lg">Évolution des coûts</CardTitle>
-                      <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
-                        {costSeries.length} mois de données
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4 lg:p-5 pt-0">
-                  <ResponsiveContainer width="100%" height={250}>
-                    <AreaChart data={costSeries}>
-                      <defs>
-                        <linearGradient id="costGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.02} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                      <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-muted-foreground" />
-                      <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                      <Tooltip
-                        formatter={(value: number) => [fmtTND(value), "Coût"]}
-                        contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }}
-                      />
-                      <Area type="monotone" dataKey="total" stroke="var(--primary)" fill="url(#costGrad)" strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
 
           {/* Projects section */}
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm shadow-none">
