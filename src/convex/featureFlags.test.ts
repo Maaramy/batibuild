@@ -40,7 +40,7 @@ describe("featureFlags.getFlagsMap", () => {
     t = convexTest(schema, modules);
   });
 
-  it("retourne les 6 fonctionnalités par défaut (toutes actives)", async () => {
+  it("retourne les 7 fonctionnalités par défaut (toutes actives)", async () => {
     const userId = await createTestUser(t);
     const map = await t.withIdentity({ subject: userId }).query(
       api.featureFlags.getFlagsMap,
@@ -51,6 +51,7 @@ describe("featureFlags.getFlagsMap", () => {
       construction_cost_estimation: true,
       investment_project: true,
       ai_materials: true,
+      material_price_alerts: true,
       architectural_plans: true,
       construction_guide: true,
       plans_3d_enhanced: true,
@@ -182,12 +183,13 @@ describe("featureFlags.getAllFlags", () => {
       {},
     );
 
-    expect(flags).toHaveLength(6);
+    expect(flags).toHaveLength(7);
     expect(flags!.every((f) => f.enabled === true)).toBe(true);
     expect(flags!.map((f) => f.key)).toEqual([
       "construction_cost_estimation",
       "investment_project",
       "ai_materials",
+      "material_price_alerts",
       "architectural_plans",
       "construction_guide",
       "plans_3d_enhanced",
@@ -219,7 +221,7 @@ describe("featureFlags.ensureFlagDocs", () => {
     const { internal } = await import("./_generated/api.js");
 
     const first = await t.mutation(internal.featureFlags.ensureFlagDocs, {});
-    expect(first.created).toBe(6);
+    expect(first.created).toBe(7);
 
     const second = await t.mutation(internal.featureFlags.ensureFlagDocs, {});
     expect(second.created).toBe(0);

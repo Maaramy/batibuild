@@ -38,6 +38,7 @@ export { default as Banknote } from "../../node_modules/lucide-react/dist/esm/ic
 export { default as BarChart } from "../../node_modules/lucide-react/dist/esm/icons/bar-chart.js";
 export { default as BarChart3 } from "../../node_modules/lucide-react/dist/esm/icons/bar-chart-3.js";
 export { default as Bell } from "../../node_modules/lucide-react/dist/esm/icons/bell.js";
+export { default as BellOff } from "../../node_modules/lucide-react/dist/esm/icons/bell-off.js";
 export { default as Blocks } from "../../node_modules/lucide-react/dist/esm/icons/blocks.js";
 export { default as Bold } from "../../node_modules/lucide-react/dist/esm/icons/bold.js";
 export { default as BookOpen } from "../../node_modules/lucide-react/dist/esm/icons/book-open.js";
