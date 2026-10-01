@@ -93,6 +93,27 @@ export const getCopilotAnalysis = query({
   },
 });
 
+/**
+ * Analyse enregistrée la plus récente d'un PROJET (pour réutiliser le résultat
+ * existant au lieu de relancer l'analyse IA). Renvoie null si aucune analyse
+ * n'a encore été enregistrée pour ce projet.
+ */
+export const getCopilotAnalysisForProject = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+    const doc = await ctx.db
+      .query("aiMaterialAnalyses")
+      .withIndex("by_user_project", (q) =>
+        q.eq("userId", user._id).eq("projectId", args.projectId),
+      )
+      .order("desc")
+      .first();
+    return doc;
+  },
+});
+
 // ── Mutations ────────────────────────────────────────────────────────────────
 export const saveCopilotAnalysis = mutation({
   args: {

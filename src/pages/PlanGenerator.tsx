@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -23,6 +23,8 @@ import {
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { JourneyStepBanner } from "@/components/JourneyStepBanner";
+import { useJourneyStep } from "@/hooks/use-journey-step";
 import { projectTypeLabel, inferFloorsFromCategory } from "@/convex/projectTypes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,6 +69,12 @@ export default function PlanGenerator() {
   });
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  // ── Project Journey : étape « Plan IA » mémorisée par projet ──
+  // Les plans sont déterministes (mêmes données → mêmes plans) : on mémorise
+  // simplement que l'étape a été générée pour ne pas la présenter comme neuve.
+  const recordJourney = useMutation(api.journey.recordJourneyAnalysis);
+  const journeyPlans = useJourneyStep(id, "plans");
 
   // ── Écran de chargement fixe (3 s) avant affichage des résultats ──
   const [loading, setLoading] = useState(true);
@@ -125,6 +133,19 @@ export default function PlanGenerator() {
     () => Math.max(0, ...variants.map((v) => v.validation.score)),
     [variants],
   );
+
+  // Migration : marque l'étape « Plan IA » comme réalisée une seule fois (les
+  // plans étant déterministes, aucun calcul n'est relancé lors des visites).
+  useEffect(() => {
+    if (!loading && project && id && allVariants.length > 0 && !journeyPlans.hasResult) {
+      recordJourney({ projectId: id as never, module: "plans" }).catch(() => {});
+    }
+  }, [loading, project, id, allVariants.length, journeyPlans.hasResult, recordJourney]);
+
+  const handleRefreshPlans = () => {
+    if (!id) return;
+    recordJourney({ projectId: id as never, module: "plans" }).catch(() => {});
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
@@ -205,6 +226,13 @@ export default function PlanGenerator() {
           </div>
         ) : (
           <>
+            {/* État de l'étape « Plan IA » — plans sauvegardés affichés directement. */}
+            <JourneyStepBanner
+              status={journeyPlans.status}
+              analyzedAt={journeyPlans.analyzedAt}
+              onRefresh={handleRefreshPlans}
+            />
+
             {/* ── Bandeau synthèse projet ── */}
             <Card className="border-primary/15 bg-gradient-to-r from-violet-500/[0.05] to-transparent">
               <CardContent className="py-4 px-4 sm:px-5 flex flex-wrap items-center gap-x-6 gap-y-2">

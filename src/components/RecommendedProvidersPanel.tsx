@@ -27,6 +27,8 @@ import { useNavigate } from "react-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { JourneyStepBanner } from "@/components/JourneyStepBanner";
+import { useJourneyStep } from "@/hooks/use-journey-step";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -444,6 +446,17 @@ export function RecommendedProvidersPanel({
   const refreshMutation = useMutation(api.recommendedProviders.refresh);
   const [refreshing, setRefreshing] = useState(false);
 
+  // ── Project Journey : étape « Consultations » mémorisée par projet ──
+  // Les recommandations sont déjà persistées (`projectRecommendedProviders`) et
+  // réutilisées (aucune relance si `generatedAt > 0`).
+  const recordJourney = useMutation(api.journey.recordJourneyAnalysis);
+  const journeyConsult = useJourneyStep(projectId, "consult");
+  useEffect(() => {
+    if (data && data.generatedAt > 0 && !journeyConsult.hasResult) {
+      recordJourney({ projectId, module: "consult" }).catch(() => {});
+    }
+  }, [data, projectId, journeyConsult.hasResult, recordJourney]);
+
   // Dialogues ProMarket (rendez-vous / service) — ouverts depuis une carte expert.
   const [appointmentExpert, setAppointmentExpert] = useState<RecommendedProviderView | null>(null);
   const [serviceExpert, setServiceExpert] = useState<RecommendedProviderView | null>(null);
@@ -466,6 +479,8 @@ export function RecommendedProvidersPanel({
     setRefreshing(true);
     try {
       await refreshMutation({ projectId });
+      // Recherche volontaire de nouveaux prestataires → version des données mémorisée.
+      await recordJourney({ projectId, module: "consult" }).catch(() => {});
     } catch (e: any) {
       toast.error(e?.message ?? "Impossible d'actualiser les recommandations");
     } finally {
@@ -568,6 +583,13 @@ export function RecommendedProvidersPanel({
         </div>
 
         <div className="px-4 py-4 space-y-4">
+          {/* État de l'étape « Consultations » — recommandations sauvegardées. */}
+          <JourneyStepBanner
+            status={journeyConsult.status}
+            analyzedAt={journeyConsult.analyzedAt}
+            onRefresh={() => void handleRefresh()}
+            refreshing={refreshing}
+          />
           {data === undefined ? (
             <p className="text-[12px] text-muted-foreground/70">Chargement des recommandations…</p>
           ) : (

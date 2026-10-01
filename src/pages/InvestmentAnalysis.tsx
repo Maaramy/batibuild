@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
+import { JourneyStepBanner } from "@/components/JourneyStepBanner";
+import { useJourneyStep } from "@/hooks/use-journey-step";
 import { useQuery, useMutation, useAction } from "convex/react";
 import {
   Landmark,
@@ -437,6 +439,24 @@ function InvestmentAnalysisBody({
   const runAnalysisAction = useAction(api.investmentAi.runAnalysis);
   const deleteAnalysis = useMutation(api.investments.deleteAnalysis);
   const toggleFavorite = useMutation(api.investments.toggleFavorite);
+
+  // ── Project Journey : étape « Investissement » mémorisée par projet ──
+  // Le rapport vit dans `investmentAnalyses` ; on réutilise l'analyse déjà
+  // enregistrée pour ce projet au lieu d'en relancer une.
+  const recordJourney = useMutation(api.journey.recordJourneyAnalysis);
+  const journeyInvestment = useJourneyStep(projectId, "investment");
+  const savedForProject =
+    (saved as any[]).find((a) => a.projectId && a.projectId === projectId) ?? null;
+
+  useEffect(() => {
+    if (savedForProject && projectId && !journeyInvestment.hasResult) {
+      recordJourney({
+        projectId: projectId as any,
+        module: "investment",
+        resultRef: savedForProject._id as string,
+      }).catch(() => {});
+    }
+  }, [savedForProject, projectId, journeyInvestment.hasResult, recordJourney]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [favBusyId, setFavBusyId] = useState<string | null>(null);
 
@@ -517,6 +537,12 @@ function InvestmentAnalysisBody({
       const run = res as any;
       const id = run?._id as string | undefined;
       if (!id) throw new Error("L'analyse n'a pas pu être enregistrée.");
+      // Mémorise l'étape du parcours (rapport disponible pour ce projet).
+      await recordJourney({
+        projectId: (projectId ?? undefined) as any,
+        module: "investment",
+        resultRef: id,
+      }).catch(() => {});
       toast.success("Analyse générée avec succès");
       navigate(`/dashboard/investments/result/${id}`, { state: { run } });
     } catch (err: any) {
@@ -693,6 +719,34 @@ function InvestmentAnalysisBody({
     <main className="min-h-screen bg-background">
         <ClientProPaywall>
       <div className="mx-auto max-w-[1400px] px-3 sm:px-5 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+        {/* État de l'étape « Investissement » — rapport sauvegardé réutilisé. */}
+        {journeyInvestment.status !== "none" && (
+          <div className="space-y-2">
+            <JourneyStepBanner
+              status={journeyInvestment.status}
+              analyzedAt={journeyInvestment.analyzedAt}
+              onRefresh={() => {
+                setStep(1);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                toast("Relancez l'analyse", {
+                  description: "Ajustez les données du bien puis validez pour recalculer le rapport.",
+                });
+              }}
+              refreshing={running}
+            />
+            {savedForProject && journeyInvestment.hasResult && (
+              <button
+                type="button"
+                onClick={() => handleOpen(savedForProject)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/5 px-3 py-2 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-500/10 dark:text-indigo-400"
+              >
+                <ArrowUpRight className="h-3.5 w-3.5" />
+                Voir le rapport d'investissement enregistré
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div className="min-w-0">
             <nav className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground">
