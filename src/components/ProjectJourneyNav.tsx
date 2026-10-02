@@ -8,6 +8,8 @@ import { isHeaderNavItemActive } from "@/components/HeaderNav";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 import { ArrowLeft, ArrowRight, FileText, Loader2, Lock } from "lucide-react";
+import { projectTypeLabel } from "@/convex/projectTypes";
+import { projectRegionLabel } from "@/lib/myProjects";
 import {
   buildProjectJourney,
   type ProjectJourneyFlags,
@@ -79,6 +81,13 @@ interface ProjectJourneyNavProps {
    * est déduite de la route affichée.
    */
   activeKey?: ProjectJourneyStepKey;
+  /**
+   * Affiche l'en-tête du projet (nom, type • surface • ville, `# x / N`)
+   * au-dessus de l'étape. Activé par défaut afin que l'identité du projet
+   * reste visible durant tout le parcours ; une page qui possède déjà son
+   * propre en-tête projet (détail du projet) peut le désactiver.
+   */
+  showProjectHeader?: boolean;
   maxWidthClassName?: string;
   className?: string;
 }
@@ -89,6 +98,8 @@ interface JourneyProject {
   name?: string;
   category?: string;
   surface?: number;
+  surfaceTotale?: number;
+  region?: string;
   costEstimate?: unknown;
 }
 
@@ -98,6 +109,7 @@ export function ProjectJourneyNav({
   flags,
   steps: stepsOverride,
   activeKey,
+  showProjectHeader = true,
   maxWidthClassName = "max-w-5xl",
   className,
 }: ProjectJourneyNavProps) {
@@ -153,6 +165,26 @@ export function ProjectJourneyNav({
     () => (project ? reportStatuses(project, artifact) : null),
     [project, artifact],
   );
+
+  // En-tête du projet, conservé durant tout le parcours : type • surface •
+  // ville, plus le rang du projet parmi ceux de l'utilisateur (`# x / N`).
+  const projectMeta = useMemo<string[]>(() => {
+    if (!project) return [];
+    const parts: string[] = [];
+    if (project.category) parts.push(projectTypeLabel(project.category));
+    if (project.surface) parts.push(`${project.surface}m² couv.`);
+    if (project.surfaceTotale) parts.push(`${project.surfaceTotale}m² totale`);
+    const region = projectRegionLabel(project);
+    if (region) parts.push(region);
+    return parts;
+  }, [project]);
+
+  const projectCounter = useMemo(() => {
+    if (!hasProjectId || !projects) return null;
+    const index = projects.findIndex((p) => p._id === projectId);
+    if (index === -1) return null;
+    return { current: index + 1, total: projects.length };
+  }, [projects, projectId, hasProjectId]);
 
   const [busyKey, setBusyKey] = useState<ProjectJourneyStepKey | null>(null);
 
@@ -247,6 +279,39 @@ export function ProjectJourneyNav({
     <nav aria-label="Parcours du projet" className={cn("w-full", className)}>
       <div className={cn("mx-auto px-3 pt-3 sm:px-4", maxWidthClassName)}>
         <div className="rounded-2xl border border-foreground/10 bg-card/95 p-3 sm:p-4">
+          {/* En-tête du projet — conservé durant tout le parcours. */}
+          {showProjectHeader && project && (
+            <div className="mb-3 flex items-center gap-2 rounded-xl border border-foreground/10 bg-muted/30 px-2 py-2 sm:px-3">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(hasProjectId ? `/dashboard/project/${projectId}` : "/dashboard")
+                }
+                aria-label="Revenir au projet"
+                title="Revenir au projet"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-foreground/15 bg-background text-foreground transition-colors hover:bg-muted/60 active:scale-95"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+              </button>
+              <div className="h-4 w-px shrink-0 bg-border/60" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {project.name ?? "Projet"}
+                </p>
+                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                  {projectMeta.join(" • ")}
+                  {projectCounter && (
+                    <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                      #{projectCounter.current}
+                      <span className="text-muted-foreground/50">/</span>
+                      {projectCounter.total}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Progression — # x / N, recalculée selon les étapes réellement visibles */}
           <div className="mb-3 flex items-center justify-between gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">

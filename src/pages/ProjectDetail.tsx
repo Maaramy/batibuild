@@ -655,6 +655,7 @@ export default function ProjectDetail() {
           projectId={project._id}
           category={project.category}
           flags={journeyFlags}
+          showProjectHeader={false}
           maxWidthClassName="max-w-5xl"
         />
       )}
