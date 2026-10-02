@@ -112,8 +112,6 @@ export const recommendMaterials = action({
     projectId: v.optional(v.id("projects")),
     context: v.any(),
     categories: v.array(v.string()),
-    /** Matériaux requis (issus de l'estimation des coûts) — filtrage précis. */
-    materialIds: v.optional(v.array(v.string())),
     enhanceWithAI: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<RecommendResult> => {
@@ -158,7 +156,6 @@ export const recommendMaterials = action({
       categories: args.categories,
       materials,
       offers,
-      materialIds: args.materialIds,
     });
 
     // ── Enrichissement IA de la recommandation finale (avec repli sûr) ──
