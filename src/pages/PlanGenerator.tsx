@@ -54,8 +54,10 @@ const LOADING_DURATION_MS = 3000;
 
 const LOADING_STEPS = [
   "Analyse des caractéristiques du projet…",
+  "Calcul de l'emprise et du programme spatial…",
   "Génération des variantes architecturales…",
   "Validation spatiale (surfaces, circulation, structure)…",
+  "Notation et finalisation des variantes…",
 ];
 
 export default function PlanGenerator() {
@@ -154,17 +156,48 @@ export default function PlanGenerator() {
             <p className="text-xs text-muted-foreground mt-1 max-w-md">
               Le moteur spatial compose, valide et note chaque variante avant affichage.
             </p>
-            <div className="w-full max-w-sm mt-6 space-y-2">
+            {/* ── Parcours de génération en 5 étapes ── */}
+            <div className="w-full max-w-sm mt-6 space-y-3">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 font-medium">
+                  <Sparkles className="h-3 w-3 text-violet-500" />
+                  Étape {stepIdx + 1} / {LOADING_STEPS.length}
+                </span>
+                <span className="tabular-nums">{Math.round(progress)}%</span>
+              </div>
               <Progress value={progress} className="h-1.5" />
-              <motion.p
-                key={stepIdx}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-[11px] text-muted-foreground flex items-center justify-center gap-1.5"
-              >
-                <Sparkles className="h-3 w-3 text-violet-500" />
-                {LOADING_STEPS[stepIdx]}
-              </motion.p>
+              <ol className="space-y-1.5 text-left">
+                {LOADING_STEPS.map((label, i) => {
+                  const done = i < stepIdx;
+                  const active = i === stepIdx;
+                  return (
+                    <li
+                      key={label}
+                      className={cn(
+                        "flex items-center gap-2 text-[11px] transition-colors",
+                        done && "text-muted-foreground",
+                        active && "text-foreground font-medium",
+                        !done && !active && "text-muted-foreground/50",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold tabular-nums",
+                          done && "border-emerald-500/40 bg-emerald-500/10 text-emerald-600",
+                          active && "border-violet-500/50 bg-violet-500/10 text-violet-600",
+                          !done && !active && "border-border text-muted-foreground/60",
+                        )}
+                      >
+                        {done ? "✓" : i + 1}
+                      </span>
+                      <span className="truncate">{label}</span>
+                      {active && (
+                        <Loader2 className="ml-auto h-3 w-3 shrink-0 animate-spin text-violet-500" />
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
             </div>
           </div>
         ) : !project ? (
