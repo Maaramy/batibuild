@@ -24,6 +24,11 @@ const DEFAULT_PLAN_PRICING = {
   // depuis Admin → Abonnements mensuels. Aucune règle n'est codée en dur :
   // toutes les permissions Free/PDF lisent cette configuration.
   freePlanEnabled: false,
+  // Forfait par défaut des nouveaux utilisateurs ("free" | "client_pro").
+  // "free" par défaut : équivaut au comportement historique (aucun forfait payé).
+  defaultPlan: "free" as const,
+  // Disponibilité du forfait Client Pro (peut être retiré comme défaut).
+  clientProEnabled: true,
   proPrice: 80, // Client Pro — payant par défaut
   expertPrice: 120,
   supplierPrice: 120,
@@ -64,6 +69,8 @@ export const getPlanPricing = query({
     return {
       startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
       freePlanEnabled: config.freePlanEnabled === true,
+      clientProEnabled: config.clientProEnabled !== false,
+      defaultPlan: config.defaultPlan ?? DEFAULT_PLAN_PRICING.defaultPlan,
       // null = forfait gratuit ; la valeur par défaut (sans config) n'est PAS gratuite.
       proPrice: config.proPrice ?? null,
       expertPrice: config.expertPrice ?? null,
@@ -172,6 +179,88 @@ export const updateFreePlanConfig = mutation({
   },
 });
 
+/**
+ * Active/désactive le forfait Client Pro (admin uniquement).
+ *
+ * Quand il est désactivé, Client Pro ne peut plus être choisi comme forfait
+ * par défaut. Aucune donnée n'est supprimée et les abonnements existants ne
+ * sont pas modifiés automatiquement.
+ */
+export const updateClientProEnabled = mutation({
+  args: { enabled: v.boolean() },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const existingConfig = await ctx.db.query("paymentConfig").order("desc").first();
+    if (existingConfig) {
+      await ctx.db.patch(existingConfig._id, {
+        clientProEnabled: args.enabled,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("paymentConfig", {
+        ...DEFAULT_PLAN_PRICING,
+        clientProEnabled: args.enabled,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      } as any);
+    }
+
+    return { success: true, clientProEnabled: args.enabled };
+  },
+});
+
+/**
+ * Définit le FORFAIT PAR DÉFAUT attribué aux nouveaux utilisateurs
+ * (admin uniquement). Contrôle serveur : un forfait désactivé ne peut jamais
+ * être enregistré comme défaut — l'administrateur doit sélectionner l'autre
+ * forfait actif. La configuration est stockée dans Convex (`paymentConfig`) et
+ * ne s'applique qu'aux nouvelles inscriptions.
+ */
+export const updateDefaultPlanConfig = mutation({
+  args: { plan: v.union(v.literal("free"), v.literal("client_pro")) },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const existingConfig = await ctx.db.query("paymentConfig").order("desc").first();
+    const freePlanEnabled = existingConfig?.freePlanEnabled === true;
+    const clientProEnabled = existingConfig?.clientProEnabled !== false;
+
+    if (args.plan === "free" && !freePlanEnabled) {
+      throw new Error(
+        "Le forfait Free est désactivé : il ne peut pas être défini comme forfait par défaut. Activez Free ou sélectionnez Client Pro.",
+      );
+    }
+    if (args.plan === "client_pro" && !clientProEnabled) {
+      throw new Error(
+        "Client Pro est désactivé : il ne peut pas être défini comme forfait par défaut. Activez Client Pro ou sélectionnez Free.",
+      );
+    }
+
+    if (existingConfig) {
+      await ctx.db.patch(existingConfig._id, {
+        defaultPlan: args.plan,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("paymentConfig", {
+        ...DEFAULT_PLAN_PRICING,
+        defaultPlan: args.plan,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      } as any);
+    }
+
+    return { success: true, defaultPlan: args.plan };
+  },
+});
+
 /** Get public pricing info (no auth required - for pricing page) */
 export const getPublicPricing = query({
   handler: async (ctx) => {
@@ -189,6 +278,8 @@ export const getPublicPricing = query({
     return {
       startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
       freePlanEnabled: config.freePlanEnabled === true,
+      clientProEnabled: config.clientProEnabled !== false,
+      defaultPlan: config.defaultPlan ?? DEFAULT_PLAN_PRICING.defaultPlan,
       // null = forfait gratuit ; la valeur par défaut (sans config) n'est PAS gratuite.
       proPrice: config.proPrice ?? null,
       expertPrice: config.expertPrice ?? null,

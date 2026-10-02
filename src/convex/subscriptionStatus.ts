@@ -6,11 +6,13 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { v } from "convex/values";
 import { getCurrentUser } from "./users";
 import { compatibilityFieldsForUser } from "./profileSubscription";
 import { scheduleEmailEvent, formatDateFr, splitName } from "./emailNotifications";
 import {
   DAY_MS,
+  MONTHLY_DURATION_DAYS,
   PHASE_LABELS,
   TRIAL_DURATION_DAYS,
   computeSubscriptionSnapshot,
@@ -282,6 +284,102 @@ export const startMyTrial = mutation({
     if (!user) throw new Error("Non connecté");
     return await startTrialFor(ctx, user._id);
   },
+});
+
+// ============================================================================
+// Forfait par défaut (configuration administrée)
+// ============================================================================
+
+export type DefaultPlanValue = "free" | "client_pro";
+
+/**
+ * Attribue le FORFAIT PAR DÉFAUT configuré par l'administrateur à un NOUVEL
+ * utilisateur (appelé à l'inscription uniquement).
+ *
+ * Règles :
+ *   - ne remplace JAMAIS un forfait déjà défini → les utilisateurs existants
+ *     restent strictement inchangés ;
+ *   - lit toujours la configuration Convex (`paymentConfig.defaultPlan`),
+ *     jamais une valeur codée en dur ;
+ *   - n'attribue jamais un forfait désactivé (repli sur l'autre forfait actif
+ *     si l'administrateur a désactivé le défaut entre-temps) ;
+ *   - ne supprime aucune donnée.
+ */
+export async function applyDefaultPlanForNewUser(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+): Promise<{ applied: boolean; plan: DefaultPlanValue | null }> {
+  const user = await ctx.db.get(userId);
+  if (!user) return { applied: false, plan: null };
+  // Un forfait explicitement choisi / déjà attribué n'est jamais remplacé.
+  if (user.subscriptionPlan != null) return { applied: false, plan: null };
+
+  const config = await ctx.db.query("paymentConfig").order("desc").first();
+  const now = Date.now();
+  const requested: DefaultPlanValue = config?.defaultPlan ?? "free";
+  const freePlanEnabled = config?.freePlanEnabled === true;
+  const clientProEnabled = config?.clientProEnabled !== false;
+
+  // Un forfait désactivé n'est jamais attribué : repli sur l'autre forfait actif.
+  let plan: DefaultPlanValue | null = requested;
+  if (plan === "client_pro" && !clientProEnabled) plan = freePlanEnabled ? "free" : null;
+  else if (plan === "free" && !freePlanEnabled) plan = clientProEnabled ? "client_pro" : null;
+
+  if (plan === "client_pro") {
+    // Client Pro : abonnement mensuel (30 jours) actif attribué par défaut.
+    const endDate = now + MONTHLY_DURATION_DAYS * DAY_MS;
+    await ctx.db.patch(userId, {
+      subscriptionPlan: "pro",
+      subscriptionStartDate: now,
+      subscriptionEndDate: endDate,
+      subscriptionDaysTotal: MONTHLY_DURATION_DAYS,
+      subscriptionDaysRemaining: MONTHLY_DURATION_DAYS,
+      subscriptionStatus: "active",
+      updatedAt: now,
+    });
+    const existing = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (!existing) {
+      await ctx.db.insert("subscriptions", {
+        userId,
+        kind: "construction",
+        plan: "pro",
+        status: "active",
+        startDate: now,
+        endDate,
+        paymentMethod: "default_plan",
+        amount: 0,
+        currency: "TND",
+        monthlyDownloadCount: 0,
+        downloadLimit: Infinity,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    return { applied: true, plan: "client_pro" };
+  }
+
+  if (plan === "free") {
+    await ctx.db.patch(userId, {
+      subscriptionPlan: "free",
+      subscriptionStatus: "free",
+      updatedAt: now,
+    });
+    return { applied: true, plan: "free" };
+  }
+
+  return { applied: false, plan: null };
+}
+
+/**
+ * Point d'entrée interne (test / automatisation) : applique le forfait par
+ * défaut à un utilisateur. Réservé au backend.
+ */
+export const applyDefaultPlanOnSignup = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => applyDefaultPlanForNewUser(ctx, args.userId),
 });
 
 // ============================================================================

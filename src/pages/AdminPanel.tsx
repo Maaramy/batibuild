@@ -216,6 +216,9 @@ export default function AdminPanel() {
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
   // Forfait Free (0 TND) — activé/désactivé par l'administrateur (jamais codé en dur).
   const updateFreePlanConfig = useMutation(api.payments.updateFreePlanConfig);
+  // Disponibilité de Client Pro + forfait par défaut des nouveaux utilisateurs.
+  const updateClientProEnabled = useMutation(api.payments.updateClientProEnabled);
+  const updateDefaultPlanConfig = useMutation(api.payments.updateDefaultPlanConfig);
   // Abonnements mensuels (30 jours) — trois offres : Client Pro, Fournisseur, Expert.
   // Prix null/0 = forfait gratuit (bascule « Offre gratuite » par forfait).
   // Client Pro est payant par défaut (80 TND/mois) — plus aucun essai gratuit.
@@ -230,6 +233,9 @@ export default function AdminPanel() {
   const [savingLimits, setSavingLimits] = useState(false);
   // État du forfait Free (switch admin) — synchronisé depuis la config serveur.
   const [freePlanEnabled, setFreePlanEnabled] = useState(false);
+  // Disponibilité de Client Pro + forfait par défaut ("free" | "client_pro").
+  const [clientProEnabled, setClientProEnabled] = useState(true);
+  const [defaultPlan, setDefaultPlan] = useState<"free" | "client_pro">("free");
   const [savingPayment, setSavingPayment] = useState(false);
   const [paymentForm, setPaymentForm] = useState<Record<string, any>>({
     bankName: "", bankTitulaire: "", bankRib: "", bankIban: "", bankSwift: "",
@@ -249,8 +255,10 @@ export default function AdminPanel() {
         expertFree: isFree(planForm.expertPrice),
       });
       setFreePlanEnabled(planForm.freePlanEnabled === true);
+      setClientProEnabled(planForm.clientProEnabled !== false);
+      setDefaultPlan(planForm.defaultPlan ?? "free");
     }
-  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice, planForm?.freePlanEnabled]);
+  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice, planForm?.freePlanEnabled, planForm?.clientProEnabled, planForm?.defaultPlan]);
 
   // Sync payment form when config loads
   useEffect(() => {
@@ -4134,11 +4142,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         Gratuit — 0 TND/mois · fonctionnalités principales pour tous les profils
                       </p>
                     </div>
-                    {freePlanEnabled ? (
-                      <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Activé</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px]">Désactivé</Badge>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {defaultPlan === "free" && (
+                        <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20">✓ Forfait par défaut</Badge>
+                      )}
+                      {freePlanEnabled ? (
+                        <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Activé</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px]">Désactivé</Badge>
+                      )}
+                    </div>
                   </div>
                   <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
                     <p><strong className="text-foreground">Description :</strong> forfait gratuit ouvrant l'estimation, les plans IA, le choix matériaux, les consultations et le suivi à tous les profils (Client, Fournisseur, Expert).</p>
@@ -4186,6 +4199,14 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         <Badge className="text-[10px] bg-blue-500/10 text-blue-600 border-blue-200/30">Payant</Badge>
                       )}
                       <Badge variant="outline" className="text-[10px] bg-blue-500/5">Client Pro</Badge>
+                      {defaultPlan === "client_pro" && (
+                        <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20">✓ Forfait par défaut</Badge>
+                      )}
+                      {clientProEnabled ? (
+                        <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Activé</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px]">Désactivé</Badge>
+                      )}
                     </div>
                   </div>
                   <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
@@ -4217,6 +4238,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                       />
                       <span className="text-[11px] text-muted-foreground">Offre gratuite</span>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={clientProEnabled} onCheckedChange={setClientProEnabled} />
+                    <span className="text-[11px] text-muted-foreground">
+                      {clientProEnabled ? "Forfait Client Pro disponible" : "Forfait Client Pro désactivé"}
+                    </span>
                   </div>
                 </div>
 
@@ -4326,6 +4353,63 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                   </div>
                 </div>
 
+                {/* ═══ Forfait par défaut ═══ */}
+                <div className="p-5 rounded-xl bg-gradient-to-br from-primary/5 to-primary/0 border border-primary/20 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-bold flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-primary" />
+                      Forfait par défaut
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Sélectionnez le forfait attribué automatiquement aux nouveaux utilisateurs lorsqu'aucun autre forfait n'est sélectionné.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {([
+                      { id: "free" as const, label: `${FREE_PLAN_LABEL} — Gratuit`, available: freePlanEnabled, hint: "Free désactivé" },
+                      { id: "client_pro" as const, label: "Client Pro — Abonnement mensuel", available: clientProEnabled, hint: "Client Pro désactivé" },
+                    ]).map((opt) => {
+                      const selected = defaultPlan === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          disabled={!opt.available}
+                          onClick={() => opt.available && setDefaultPlan(opt.id)}
+                          className={cn(
+                            "flex items-center gap-3 rounded-xl border p-3 text-left transition-all",
+                            selected ? "border-primary bg-primary/5" : "border-border/40 hover:border-primary/40",
+                            !opt.available && "cursor-not-allowed opacity-50",
+                          )}
+                        >
+                          <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded-full border", selected ? "border-primary" : "border-muted-foreground/40")}>
+                            {selected && <span className="h-2 w-2 rounded-full bg-primary" />}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-xs font-medium">{opt.label}</span>
+                            {!opt.available && (
+                              <span className="block text-[10px] text-muted-foreground">
+                                {opt.hint} — sélectionnez l'autre forfait actif.
+                              </span>
+                            )}
+                          </span>
+                          {selected && (
+                            <Badge className="text-[9px] bg-primary/10 text-primary border-primary/20">✓ Forfait par défaut</Badge>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!freePlanEnabled && !clientProEnabled && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400">
+                      Les deux forfaits sont désactivés : activez-en un pour définir un forfait par défaut.
+                    </p>
+                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    Une modification ne s'applique qu'aux <strong className="text-foreground">nouvelles inscriptions</strong> : le forfait des utilisateurs existants reste inchangé.
+                  </p>
+                </div>
+
                 <div className="rounded-lg bg-amber-500/5 border border-amber-200/20 p-3 text-[11px] text-amber-600 dark:text-amber-400">
                   <p>L'essai gratuit a été <strong>supprimé</strong>. Chaque forfait est soit payant (prix défini ci-dessus), soit gratuit via son bouton « Offre gratuite » — l'activation des services est alors <strong>automatique</strong>, sans que le client ait à choisir un forfait.</p>
                 </div>
@@ -4338,10 +4422,23 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 ) : (
                   <Button
                     onClick={async () => {
+                      // Refus d'enregistrer un forfait par défaut désactivé.
+                      if (defaultPlan === "free" && !freePlanEnabled) {
+                        toast.error("Le forfait Free est désactivé : sélectionnez un autre forfait par défaut.");
+                        return;
+                      }
+                      if (defaultPlan === "client_pro" && !clientProEnabled) {
+                        toast.error("Client Pro est désactivé : sélectionnez un autre forfait par défaut.");
+                        return;
+                      }
                       setSavingLimits(true);
                       try {
                         // Forfait Free — activation/désactivation sans code.
                         await updateFreePlanConfig({ enabled: freePlanEnabled });
+                        // Disponibilité du forfait Client Pro (défaut / affichage).
+                        await updateClientProEnabled({ enabled: clientProEnabled });
+                        // Forfait par défaut des nouveaux utilisateurs.
+                        await updateDefaultPlanConfig({ plan: defaultPlan });
                         // Client Pro (Start remplacé par Client Pro)
                         await updatePlanPricing({
                           plan: "pro",

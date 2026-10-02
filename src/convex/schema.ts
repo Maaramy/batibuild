@@ -1154,6 +1154,14 @@ const schema = defineSchema(
       // Client Pro). Quand il est désactivé, les droits reviennent à la règle
       // payante précédente. Jamais codé en dur : toujours lu depuis la config.
       freePlanEnabled: v.optional(v.boolean()),
+      // Disponibilité du forfait Client Pro (peut être retiré comme défaut).
+      // true/absent = disponible ; false = désactivé par l'administrateur.
+      clientProEnabled: v.optional(v.boolean()),
+      // Forfait attribué AUTOMATIQUEMENT aux nouveaux utilisateurs qui ne
+      // sélectionnent aucune offre à l'inscription. Lu côté backend
+      // (`subscriptionStatus.applyDefaultPlanForNewUser`) : jamais codé en dur.
+      // "client_pro" est stocké en abonnement "pro".
+      defaultPlan: v.optional(v.union(v.literal("free"), v.literal("client_pro"))),
       // ── Facturation : TVA et coordonnées de l'émetteur ────────────────────
       // Taux de TVA appliqué aux factures (%). 0 ou absent = « TVA non
       // applicable » : les prix des forfaits sont alors facturés en l'état.
