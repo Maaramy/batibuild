@@ -8,7 +8,7 @@ import {
   TrendingDown, TrendingUp, Minus, Wand2, Gauge, CalendarDays, BadgeCheck,
   Crown, CircleDollarSign, CircleDot, Store, Trophy, FileDown, Package,
   Hammer, Truck, Trash2, Boxes, Percent, ChevronDown, ChevronUp,
-  ShieldCheck, Lightbulb, ArrowRight, ListChecks, Ruler,
+  ShieldCheck, Lightbulb, ArrowRight, ListChecks, Ruler, ClipboardList,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -442,6 +442,157 @@ function SolutionCard({
   );
 }
 
+/**
+ * TABLEAU RÉCAPITULATIF « CHOIX DES MATÉRIAUX »
+ *
+ * Une ligne par poste (catégorie) du projet analysé : le matériau retenu, la
+ * quantité, le prix unitaire et le prix total. Toutes les valeurs viennent du
+ * moteur IA — aucune n'est recalculée ici. Le poste retenu est celui qui sert
+ * de base au coût du projet (solution Équilibrée, sinon la première solution),
+ * ce qui rend le total du tableau identique au poste « Matériaux » du bloc
+ * « Coût estimatif ».
+ */
+function MaterialsChoiceTable({ result }: { result: RecommendResult }) {
+  const rows = result.categories
+    .map((cat) => {
+      const solution =
+        cat.solutions.find((s) => s.profile === "equilibre") ?? cat.solutions[0];
+      if (!solution) return null;
+      return { categoryId: cat.categoryId, categoryLabel: cat.label, solution };
+    })
+    .filter((row): row is { categoryId: string; categoryLabel: string; solution: Solution } => row !== null);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <section id="choix" className="scroll-mt-24 space-y-3">
+      <SectionHeading
+        icon={ClipboardList}
+        tone="violet"
+        title="Choix des matériaux"
+        subtitle="Tous les matériaux requis pour le projet — quantités et coûts estimés"
+        right={
+          <Badge variant="outline" className="gap-1 text-[10px]">
+            <Boxes className="h-3 w-3" /> {rows.length} matériau(x)
+          </Badge>
+        }
+      />
+
+      <Card className="overflow-hidden rounded-2xl border-border/40">
+        <CardContent className="p-0">
+          {/* Tableau desktop / tablette */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="border-b border-border/30 bg-muted/40 text-muted-foreground">
+                  <th className="px-3 py-2 text-left font-medium">Matériau recommandé</th>
+                  <th className="px-3 py-2 text-left font-medium">Nom de l'article</th>
+                  <th className="px-3 py-2 text-right font-medium">Quantité</th>
+                  <th className="px-3 py-2 text-right font-medium">Prix unitaire</th>
+                  <th className="px-3 py-2 text-right font-medium">Prix total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const m = row.solution.material;
+                  return (
+                    <tr
+                      key={row.categoryId}
+                      className="border-b border-border/20 transition-colors last:border-0 hover:bg-muted/20"
+                    >
+                      <td className="px-3 py-2.5">
+                        <p className="font-semibold leading-tight">{row.categoryLabel}</p>
+                        <p className="text-[9px] text-muted-foreground">
+                          Solution {row.solution.profileLabel} · {row.solution.qualityScore10}/10 qualité
+                        </p>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <p className="font-medium leading-tight">{m.name}</p>
+                        <p className="text-[9px] text-muted-foreground">
+                          {m.brand ? `${m.brand} · ` : ""}
+                          {m.availability ? m.availability : `Réf. ${m.id}`}
+                        </p>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums">
+                        {fmtNum(m.quantity)}
+                        <span className="text-[9px] font-normal text-muted-foreground">
+                          {" "}
+                          {m.quantityUnit}
+                        </span>
+                      </td>
+                      <td
+                        className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums"
+                        title={`Fourchette constatée : ${fmtTnd(m.band.min)} – ${fmtTnd(m.band.max)}`}
+                      >
+                        {fmtTnd(m.band.avg)}
+                        <span className="text-[9px] text-muted-foreground"> /{m.unit}</span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right font-bold tabular-nums text-primary">
+                        {fmtTnd(m.materialCost, 0)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="bg-emerald-500/[0.06]">
+                  <td colSpan={4} className="px-3 py-3 text-right text-[11px] font-semibold">
+                    Total matériaux (Σ Quantité × Prix unitaire)
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+                    {fmtTnd(result.cost.materials, 0)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Cartes mobiles (WebView) */}
+          <ul className="divide-y divide-border/20 md:hidden">
+            {rows.map((row) => {
+              const m = row.solution.material;
+              return (
+                <li key={row.categoryId} className="px-3.5 py-3">
+                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                    {row.categoryLabel}
+                  </p>
+                  <p className="text-xs font-semibold leading-snug">{m.name}</p>
+                  <p className="text-[9px] text-muted-foreground">
+                    Solution {row.solution.profileLabel} · {row.solution.qualityScore10}/10 qualité
+                    {m.brand ? ` · ${m.brand}` : ""}
+                  </p>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <Metric label="Quantité" value={fmtNum(m.quantity)} hint={m.quantityUnit} />
+                    <Metric label="Prix unitaire" value={fmtTnd(m.band.avg)} hint={`/${m.unit}`} />
+                    <Metric
+                      label="Prix total"
+                      value={fmtTnd(m.materialCost, 0)}
+                      tone="emerald"
+                      className={TONE.emerald.tile}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+            <li className="flex items-center justify-between bg-emerald-500/[0.06] px-3.5 py-3">
+              <span className="text-[11px] font-semibold">Total matériaux</span>
+              <span className="text-sm font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+                {fmtTnd(result.cost.materials, 0)}
+              </span>
+            </li>
+          </ul>
+
+          <p className="border-t border-border/25 bg-muted/[0.08] px-3 py-2 text-[9px] leading-relaxed text-muted-foreground">
+            Prix total = <b>Quantité × Prix unitaire</b>. Les prix proviennent du catalogue 2026 et
+            des offres fournisseurs recensées. La pose, le transport, les déchets, les accessoires
+            et la TVA 19 % sont détaillés dans « Coût estimatif ».
+          </p>
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉSULTATS DE L'ANALYSE MATÉRIAUX IA (page dédiée)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -524,6 +675,7 @@ export function AiAnalysisResults({
   const rangePos = clamp(((cost.total - cost.min) / rangeSpan) * 100, 0, 100);
 
   const sections = [
+    { id: "choix", label: "Choix des matériaux" },
     { id: "synthese", label: "Synthèse" },
     { id: "cout", label: "Coût estimatif" },
     { id: "categories", label: "Catégories" },
@@ -533,6 +685,9 @@ export function AiAnalysisResults({
   return (
     <div className="space-y-6">
       {pdfGate.dialog}
+
+      {/* ══ CHOIX DES MATÉRIAUX — récapitulatif, au-dessus de la recommandation ═ */}
+      <MaterialsChoiceTable result={result} />
 
       {/* ══ 1. SYNTHÈSE — la réponse en un coup d'œil ═══════════════════════ */}
       <section id="synthese" className="scroll-mt-24">
