@@ -8,7 +8,7 @@ import {
   TrendingDown, TrendingUp, Minus, Wand2, Gauge, CalendarDays, BadgeCheck,
   Crown, CircleDollarSign, CircleDot, Store, Trophy, FileDown, Package,
   Hammer, Truck, Trash2, Boxes, Percent, ChevronDown, ChevronUp,
-  ShieldCheck, Lightbulb, ArrowRight, ListChecks, Ruler, ClipboardList,
+  ShieldCheck, Lightbulb, ArrowRight, ListChecks, Ruler,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,14 +44,6 @@ const fmtTnd = (n: number, digits = 3) =>
 
 const fmtNum = (n: number, digits = 2) =>
   new Intl.NumberFormat("fr-TN", { maximumFractionDigits: digits }).format(n);
-
-/** Montant sans code devise : les en-têtes du tableau « Choix des matériaux »
- *  portent déjà l'unité (TND), ce qui allège les colonnes sur mobile. */
-const fmtAmount = (n: number, digits = 2) =>
-  new Intl.NumberFormat("fr-TN", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(n);
 
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
@@ -450,134 +442,6 @@ function SolutionCard({
   );
 }
 
-/**
- * TABLEAU RÉCAPITULATIF « CHOIX DES MATÉRIAUX »
- *
- * Une ligne par poste (catégorie) du projet analysé : le matériau retenu, la
- * quantité, le prix unitaire et le prix total. Toutes les valeurs viennent du
- * moteur IA — aucune n'est recalculée ici. Le poste retenu est celui qui sert
- * de base au coût du projet (solution Équilibrée, sinon la première solution),
- * ce qui rend le total du tableau identique au poste « Matériaux » du bloc
- * « Coût estimatif ».
- */
-function MaterialsChoiceTable({ result }: { result: RecommendResult }) {
-  const rows = result.categories
-    .map((cat) => {
-      const solution =
-        cat.solutions.find((s) => s.profile === "equilibre") ?? cat.solutions[0];
-      if (!solution) return null;
-      return { categoryId: cat.categoryId, categoryLabel: cat.label, solution };
-    })
-    .filter((row): row is { categoryId: string; categoryLabel: string; solution: Solution } => row !== null);
-
-  if (rows.length === 0) return null;
-
-  return (
-    <section id="choix" className="scroll-mt-24 space-y-3">
-      <SectionHeading
-        icon={ClipboardList}
-        tone="violet"
-        title="Choix des matériaux"
-        subtitle="Tous les matériaux requis pour le projet — quantités et coûts estimés"
-        right={
-          <Badge variant="outline" className="gap-1 text-[10px]">
-            <Boxes className="h-3 w-3" /> {rows.length} matériau(x)
-          </Badge>
-        }
-      />
-
-      <Card className="overflow-hidden rounded-2xl border-border/40">
-        <CardContent className="p-0">
-          {/* Tableau classique — largeurs fixées pour tenir entièrement dans
-              l'écran : aucun défilement horizontal, même sur mobile. */}
-          <div className="w-full">
-            <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
-              <thead>
-                <tr>
-                  <th className="w-[23%] border border-border/60 bg-muted/60 px-1.5 py-1.5 text-left font-semibold sm:px-2.5">
-                    Matériau recommandé
-                  </th>
-                  <th className="w-[29%] border border-border/60 bg-muted/60 px-1.5 py-1.5 text-left font-semibold sm:px-2.5">
-                    Nom de l'article
-                  </th>
-                  <th className="w-[14%] border border-border/60 bg-muted/60 px-1.5 py-1.5 text-right font-semibold sm:px-2.5">
-                    Quantité
-                  </th>
-                  <th className="w-[17%] border border-border/60 bg-muted/60 px-1.5 py-1.5 text-right font-semibold sm:px-2.5">
-                    Prix unitaire
-                    <span className="block text-[8px] font-normal text-muted-foreground">TND</span>
-                  </th>
-                  <th className="w-[17%] border border-border/60 bg-muted/60 px-1.5 py-1.5 text-right font-semibold sm:px-2.5">
-                    Prix total
-                    <span className="block text-[8px] font-normal text-muted-foreground">TND</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => {
-                  const m = row.solution.material;
-                  return (
-                    <tr key={row.categoryId} className="align-top even:bg-muted/20">
-                      <td className="break-words border border-border/50 px-1.5 py-1.5 sm:px-2.5">
-                        <p className="font-semibold leading-tight">{row.categoryLabel}</p>
-                        <p className="mt-0.5 hidden text-[9px] text-muted-foreground sm:block">
-                          Solution {row.solution.profileLabel} · {row.solution.qualityScore10}/10
-                        </p>
-                      </td>
-                      <td className="break-words border border-border/50 px-1.5 py-1.5 sm:px-2.5">
-                        <p className="leading-tight">{m.name}</p>
-                        <p className="mt-0.5 hidden text-[9px] text-muted-foreground sm:block">
-                          {m.brand ? `${m.brand} · ` : ""}
-                          {m.availability ? m.availability : `Réf. ${m.id}`}
-                        </p>
-                      </td>
-                      <td className="border border-border/50 px-1.5 py-1.5 text-right tabular-nums sm:px-2.5">
-                        {fmtNum(m.quantity)}
-                        <span className="block text-[9px] text-muted-foreground">
-                          {m.quantityUnit}
-                        </span>
-                      </td>
-                      <td
-                        className="border border-border/50 px-1.5 py-1.5 text-right tabular-nums sm:px-2.5"
-                        title={`Fourchette constatée : ${fmtTnd(m.band.min)} – ${fmtTnd(m.band.max)}`}
-                      >
-                        {fmtAmount(m.band.avg, 2)}
-                        <span className="block text-[9px] text-muted-foreground">/{m.unit}</span>
-                      </td>
-                      <td className="border border-border/50 px-1.5 py-1.5 text-right font-semibold tabular-nums sm:px-2.5">
-                        {fmtAmount(m.materialCost, 0)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="bg-muted/60">
-                  <td
-                    colSpan={4}
-                    className="border border-border/60 px-1.5 py-1.5 text-right font-semibold sm:px-2.5"
-                  >
-                    Total matériaux (Σ Quantité × Prix unitaire)
-                  </td>
-                  <td className="border border-border/60 px-1.5 py-1.5 text-right font-bold tabular-nums sm:px-2.5">
-                    {fmtAmount(result.cost.materials, 0)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          <p className="border-t border-border/40 px-3 py-2 text-[9px] leading-relaxed text-muted-foreground">
-            Prix total = <b>Quantité × Prix unitaire</b>. Les prix proviennent du catalogue 2026 et
-            des offres fournisseurs recensées. La pose, le transport, les déchets, les accessoires
-            et la TVA 19 % sont détaillés dans « Coût estimatif ».
-          </p>
-        </CardContent>
-      </Card>
-    </section>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉSULTATS DE L'ANALYSE MATÉRIAUX IA (page dédiée)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -660,7 +524,6 @@ export function AiAnalysisResults({
   const rangePos = clamp(((cost.total - cost.min) / rangeSpan) * 100, 0, 100);
 
   const sections = [
-    { id: "choix", label: "Choix des matériaux" },
     { id: "synthese", label: "Synthèse" },
     { id: "cout", label: "Coût estimatif" },
     { id: "categories", label: "Catégories" },
@@ -670,9 +533,6 @@ export function AiAnalysisResults({
   return (
     <div className="space-y-6">
       {pdfGate.dialog}
-
-      {/* ══ CHOIX DES MATÉRIAUX — récapitulatif, au-dessus de la recommandation ═ */}
-      <MaterialsChoiceTable result={result} />
 
       {/* ══ 1. SYNTHÈSE — la réponse en un coup d'œil ═══════════════════════ */}
       <section id="synthese" className="scroll-mt-24">
