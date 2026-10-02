@@ -20,7 +20,6 @@ import type { RecommendResult, MaterialScores, CostSummary, Solution } from "@/c
 import { generateMaterialReportPdf } from "@/lib/materialReportPdf";
 import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
 import { categorySpecialties } from "@/lib/supplierMatch";
-import { CategoryTopArticles } from "@/components/ai/CategoryTopArticles";
 import { useAuth } from "@/hooks/use-auth";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 
@@ -892,7 +891,6 @@ export function AiAnalysisResults({
                       );
                     })()}
 
-                    <CategoryTopArticles articles={cat.topArticles ?? []} />
                   </CardContent>
                 </Card>
               </motion.div>
