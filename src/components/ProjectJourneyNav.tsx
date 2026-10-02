@@ -357,6 +357,7 @@ export function ProjectJourneyNav({
         </header>
       )}
 
+      {hasSteps && (
       <nav aria-label="Parcours du projet" className={cn("w-full", className)}>
       <div className={cn("mx-auto px-3 pt-3 sm:px-4", maxWidthClassName)}>
         <div className="rounded-2xl border border-foreground/10 bg-card/95 p-3 sm:p-4">
@@ -443,6 +444,7 @@ export function ProjectJourneyNav({
         </div>
       </div>
       </nav>
+      )}
       {pdfGate.dialog}
     </>
   );

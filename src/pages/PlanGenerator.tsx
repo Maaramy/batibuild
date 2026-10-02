@@ -128,13 +128,15 @@ export default function PlanGenerator() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
         <ClientProPaywall>
-      {/* En-tête : l'en-tête projet unifié du JourneyNav remplace l'ancien
-          en-tête de fonctionnalité (« Plans d'architecte IA »). */}
-      {/* Journey du projet — parcours linéaire persistant (PDF par étape +
-          « Suivant → »), dans le flux normal de la page. */}
+      {/* Page de génération : le parcours linéaire n'y est pas affiché
+          (`steps={[]}` masque le Journey). Seul l'en-tête projet persistant
+          subsiste — « Nom du projet : Plans architecturaux AI » — pour
+          remplacer l'ancien en-tête de fonctionnalité. */}
       <ProjectJourneyNav
         projectId={id}
         category={project?.category}
+        steps={[]}
+        featureLabel="Plans architecturaux AI"
         maxWidthClassName="max-w-7xl"
       />
 
