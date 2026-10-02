@@ -3,9 +3,7 @@ import { useParams, useNavigate } from "react-router";
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
   BadgeCheck,
-  Boxes,
   Building2,
   ChevronDown,
   Compass,
@@ -130,33 +128,8 @@ export default function PlanGenerator() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
         <ClientProPaywall>
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-border/20 bg-background/90 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <button
-              onClick={() => navigate(`/dashboard/project/${id}`)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all shrink-0"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="h-4 w-px bg-border/50 shrink-0" />
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/20 to-indigo-500/10 text-violet-600 shrink-0">
-              <Boxes className="h-3.5 w-3.5" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm font-semibold tracking-tight truncate">
-                Plans d'architecte IA
-              </h1>
-              <p className="text-[9px] text-muted-foreground leading-tight truncate">
-                {VARIANTS_PER_PROJECT} variantes 2D / 3D · Validation spatiale automatique
-              </p>
-            </div>
-          </div>
-        </div>
-
-      </header>
-
+      {/* En-tête : l'en-tête projet unifié du JourneyNav remplace l'ancien
+          en-tête de fonctionnalité (« Plans d'architecte IA »). */}
       {/* Journey du projet — parcours linéaire persistant (PDF par étape +
           « Suivant → »), dans le flux normal de la page. */}
       <ProjectJourneyNav

@@ -15,7 +15,7 @@ import { uploadQuoteAttachment } from "@/lib/quoteAttachments";
 import { QUOTE_MOTIF_OTHER } from "@/lib/quoteMotifs";
 import { StarRating } from "@/components/StarRating";
 import {
-  ArrowLeft, Store, MapPin, Phone, Mail, Briefcase, Star,
+  Store, MapPin, Phone, Mail, Briefcase, Star,
   FileText, Loader2, Send, Layers,
 } from "lucide-react";
 import {
@@ -315,39 +315,14 @@ export default function SuppliersDirectory() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
-      {/* Header — barre unique sticky : titre + Projet Journey. Elle reste
-          toujours au-dessus de la recherche et de ses options (z-40). */}
-      <header className="sticky top-0 z-40 border-b border-border/20 bg-background/90 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-12 sm:h-14">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <button
-              onClick={() => navigate(-1)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all shrink-0"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="h-4 w-px bg-border/50 shrink-0" />
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600 shrink-0">
-              <Store className="h-3 w-3" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-xs font-semibold leading-tight">
-                Trouvez un fournisseur près de chez vous
-              </h1>
-              <p className="text-[8px] text-muted-foreground leading-tight">
-                {suppliers ? `${filtered.length} fournisseur(s) trouvé(s)` : "Chargement…"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-      </header>
-
+      {/* En-tête : l'en-tête projet unifié du JourneyNav remplace l'en-tête de
+          fonctionnalité (« Trouvez un fournisseur près de chez vous »). */}
       {/* Journey du projet — affiché lorsque l'annuaire est ouvert depuis un
           projet (contexte conservé dans l'URL). */}
       <ProjectJourneyNav
         projectId={projectIdParam}
         flags={journeyFlags}
+        featureLabel="Trouvez un fournisseur près de chez vous"
         maxWidthClassName="max-w-7xl"
       />
 

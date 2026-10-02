@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQuery } from "convex/react";
-import { ArrowLeft, Loader2, Sparkles, ShieldCheck, Info } from "lucide-react";
+import { Loader2, ShieldCheck, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { categorySpecialties } from "@/lib/supplierMatch";
@@ -90,33 +90,15 @@ export default function AiMaterialsResult() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-10">
         <ClientProPaywall>
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-border/20 bg-background/90 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <button onClick={() => navigate("/dashboard/ai-materials")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all shrink-0">
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="h-4 w-px bg-border/50 shrink-0" />
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/10 text-emerald-600 shrink-0">
-              <Sparkles className="h-3.5 w-3.5" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm font-semibold truncate">Résultat de l'analyse IA</h1>
-              <p className="text-[9px] text-muted-foreground leading-tight truncate">Assistant Matériaux · Prix Tunisie 2026 · Copilot</p>
-            </div>
-          </div>
-        </div>
-
-      </header>
-
+      {/* En-tête : l'en-tête projet unifié du JourneyNav remplace l'ancien
+          en-tête de fonctionnalité (« Résultat de l'analyse IA »). */}
       {/* Journey du projet — masqué tant que les résultats ne sont pas affichés :
           coût estimatif, liste des prix, puis fournisseurs trouvés par l'analyse. */}
       <ProjectJourneyNav
         steps={journeySteps}
         projectId={analysis?.projectId ?? null}
         activeKey="priceList"
+        featureLabel="Résultat de l'analyse IA"
         maxWidthClassName="max-w-7xl"
       />
 

@@ -88,6 +88,14 @@ interface ProjectJourneyNavProps {
    * propre en-tête projet (détail du projet) peut le désactiver.
    */
   showProjectHeader?: boolean;
+  /**
+   * Libellé de la fonctionnalité affiché après le nom du projet dans l'en-tête
+   * (« Nom du projet : [Fonctionnalité] »). Il remplace les en-têtes propres à
+   * chaque fonctionnalité. Lorsque l'étape courante est identifiée, son libellé
+   * est utilisé en priorité ; ce libellé sert de repli quand aucun projet (donc
+   * aucune étape) n'est disponible.
+   */
+  featureLabel?: string;
   maxWidthClassName?: string;
   className?: string;
 }
@@ -110,6 +118,7 @@ export function ProjectJourneyNav({
   steps: stepsOverride,
   activeKey,
   showProjectHeader = true,
+  featureLabel,
   maxWidthClassName = "max-w-5xl",
   className,
 }: ProjectJourneyNavProps) {
@@ -245,48 +254,63 @@ export function ProjectJourneyNav({
     pdfGate.requestPdfDownload(() => runDownload(step));
   };
 
-  if (steps.length === 0) return null;
+  const hasSteps = steps.length > 0;
+  const total = steps.length;
 
   // Progression dynamique : étape active si l'on est sur son module, sinon
   // première étape non terminée (d'après les rapports réellement disponibles).
-  const activeIndex =
-    activeKey != null
-      ? steps.findIndex((step) => step.key === activeKey)
-      : steps.findIndex((step) => isHeaderNavItemActive({ path: step.path }, pathname));
-  const completedCount = steps.filter((step) => pdfReadyFor(step)).length;
+  const activeIndex = !hasSteps
+    ? -1
+    : activeKey != null
+      ? steps.findIndex((s) => s.key === activeKey)
+      : steps.findIndex((s) => isHeaderNavItemActive({ path: s.path }, pathname));
+  const completedCount = steps.filter((s) => pdfReadyFor(s)).length;
   const currentIndex =
-    activeIndex >= 0 ? activeIndex : Math.min(completedCount, steps.length - 1);
-  const total = steps.length;
+    activeIndex >= 0
+      ? activeIndex
+      : Math.min(completedCount, Math.max(total - 1, 0));
 
   // Une seule étape est affichée : l'étape DÉDIÉE à la page courante. Le
   // parcours complet n'est jamais déroulé en même temps — on avance de proche
   // en proche avec « Suivant → » et on revient avec « Étape précédente ».
-  const stepIndex = Math.min(Math.max(currentIndex, 0), total - 1);
-  const step = steps[stepIndex] as ProjectJourneyStep;
-  const previous = stepIndex > 0 ? steps[stepIndex - 1] : undefined;
-  const next = stepIndex < total - 1 ? steps[stepIndex + 1] : undefined;
+  const stepIndex = hasSteps ? Math.min(Math.max(currentIndex, 0), total - 1) : 0;
+  const step: ProjectJourneyStep | undefined = hasSteps
+    ? steps[stepIndex]
+    : undefined;
+  const previous = step && stepIndex > 0 ? steps[stepIndex - 1] : undefined;
+  const next = step && stepIndex < total - 1 ? steps[stepIndex + 1] : undefined;
 
-  const hasReport = !!step.reportKey;
-  const pdfReady = pdfReadyFor(step);
-  const busy = busyKey === step.key;
+  const hasReport = !!step?.reportKey;
+  const pdfReady = step ? pdfReadyFor(step) : false;
+  const busy = step ? busyKey === step.key : false;
   const stateLabel = !hasReport
     ? "Étape du parcours"
     : pdfReady
       ? "PDF disponible"
       : "Non commencé";
 
+  // En-tête projet unifié — il remplace les en-têtes propres à chaque
+  // fonctionnalité : « Nom du projet : [Fonctionnalité] ». Le libellé de l'étape
+  // courante prime ; `featureLabel` sert de repli (page sans projet identifié).
+  const headerFeature = step?.label ?? featureLabel ?? null;
+  const showHeader = showProjectHeader && (project != null || headerFeature != null);
+  if (!hasSteps && !showHeader) return null;
+  const headerBackTarget = hasProjectId
+    ? `/dashboard/project/${projectId}`
+    : "/dashboard";
+
   return (
     <nav aria-label="Parcours du projet" className={cn("w-full", className)}>
       <div className={cn("mx-auto px-3 pt-3 sm:px-4", maxWidthClassName)}>
         <div className="rounded-2xl border border-foreground/10 bg-card/95 p-3 sm:p-4">
-          {/* En-tête du projet — conservé durant tout le parcours. */}
-          {showProjectHeader && project && (
+          {/* En-tête du projet — conservé durant tout le parcours et fusionné
+              avec le nom de la fonctionnalité : « Nom du projet :
+              [Fonctionnalité] ». Il remplace les en-têtes propres aux pages. */}
+          {showHeader && (
             <div className="mb-3 flex items-center gap-2 rounded-xl border border-foreground/10 bg-muted/30 px-2 py-2 sm:px-3">
               <button
                 type="button"
-                onClick={() =>
-                  navigate(hasProjectId ? `/dashboard/project/${projectId}` : "/dashboard")
-                }
+                onClick={() => navigate(headerBackTarget)}
                 aria-label="Revenir au projet"
                 title="Revenir au projet"
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-foreground/15 bg-background text-foreground transition-colors hover:bg-muted/60 active:scale-95"
@@ -296,22 +320,38 @@ export function ProjectJourneyNav({
               <div className="h-4 w-px shrink-0 bg-border/60" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-foreground">
-                  {project.name ?? "Projet"}
-                </p>
-                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                  {projectMeta.join(" • ")}
-                  {projectCounter && (
-                    <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
-                      #{projectCounter.current}
-                      <span className="text-muted-foreground/50">/</span>
-                      {projectCounter.total}
-                    </span>
+                  {project ? (
+                    <>
+                      {project.name ?? "Projet"}
+                      {headerFeature && (
+                        <span className="font-normal text-muted-foreground">
+                          {" : "}
+                          {headerFeature}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    headerFeature ?? "Parcours du projet"
                   )}
                 </p>
+                {project && (
+                  <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                    {projectMeta.join(" • ")}
+                    {projectCounter && (
+                      <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                        #{projectCounter.current}
+                        <span className="text-muted-foreground/50">/</span>
+                        {projectCounter.total}
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
             </div>
           )}
 
+          {step && (
+          <>
           {/* Progression — # x / N, recalculée selon les étapes réellement visibles */}
           <div className="mb-3 flex items-center justify-between gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -397,6 +437,8 @@ export function ProjectJourneyNav({
               <ArrowLeft className="h-3 w-3" />
               Étape précédente : {previous.label}
             </button>
+          )}
+          </>
           )}
         </div>
       </div>

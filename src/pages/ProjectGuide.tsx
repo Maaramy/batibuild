@@ -341,17 +341,9 @@ export default function ProjectGuide() {
     <main className="min-h-screen bg-background pb-10">
         <ClientProPaywall>
       {pdfGate.dialog}
-      {/* Journey du projet — parcours linéaire persistant (PDF par étape +
-          « Suivant → »), dans le flux normal de la page. */}
-      {selectedProject && (
-        <ProjectJourneyNav
-          projectId={selectedProject._id}
-          category={selectedProject.category}
-          maxWidthClassName="max-w-6xl"
-        />
-      )}
       <div className="mx-auto max-w-6xl px-3 sm:px-5 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        {/* En-tête */}
+        {/* En-tête — l'en-tête projet unifié remplace l'ancien en-tête de
+            fonctionnalité : « Nom du projet : Mon projet de A à Z ». */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <button onClick={() => navigate("/dashboard")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg hover:bg-muted/50 active:scale-95 transition-all cursor-pointer">
@@ -361,9 +353,12 @@ export default function ProjectGuide() {
               <Rocket className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-sm sm:text-lg font-bold tracking-tight truncate">Mon projet de A à Z</h1>
+              <h1 className="text-sm sm:text-lg font-bold tracking-tight truncate">
+                {roadmap.project.name}
+                <span className="font-normal text-muted-foreground"> : Mon projet de A à Z</span>
+              </h1>
               <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
-                {roadmap.project.name} · {roadmap.project.categoryLabel}
+                {roadmap.project.categoryLabel}
                 {roadmap.project.regionLabel ? ` · ${roadmap.project.regionLabel}` : ""}
               </p>
             </div>
@@ -390,6 +385,17 @@ export default function ProjectGuide() {
             </Button>
           </div>
         </div>
+
+        {/* Journey du projet — parcours linéaire persistant (PDF par étape +
+            « Suivant → »). L'en-tête projet est déjà affiché juste au-dessus. */}
+        {selectedProject && (
+          <ProjectJourneyNav
+            projectId={selectedProject._id}
+            category={selectedProject.category}
+            showProjectHeader={false}
+            maxWidthClassName="max-w-6xl"
+          />
+        )}
 
         {/* Parcours (barre de progression UX) */}
         <div className="rounded-xl border border-border/40 bg-background/50 p-3 sm:p-4 overflow-x-auto scrollbar-none">
