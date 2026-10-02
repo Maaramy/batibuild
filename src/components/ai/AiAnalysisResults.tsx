@@ -45,6 +45,14 @@ const fmtTnd = (n: number, digits = 3) =>
 const fmtNum = (n: number, digits = 2) =>
   new Intl.NumberFormat("fr-TN", { maximumFractionDigits: digits }).format(n);
 
+/** Montant sans code devise : les en-têtes du tableau « Choix des matériaux »
+ *  portent déjà l'unité (TND), ce qui allège les colonnes sur mobile. */
+const fmtAmount = (n: number, digits = 2) =>
+  new Intl.NumberFormat("fr-TN", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(n);
+
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
@@ -480,25 +488,28 @@ function MaterialsChoiceTable({ result }: { result: RecommendResult }) {
 
       <Card className="overflow-hidden rounded-2xl border-border/40">
         <CardContent className="p-0">
-          {/* Tableau classique — quadrillage complet, défilement horizontal sur mobile */}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-[11px]">
+          {/* Tableau classique — largeurs fixées pour tenir entièrement dans
+              l'écran : aucun défilement horizontal, même sur mobile. */}
+          <div className="w-full">
+            <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
               <thead>
                 <tr>
-                  <th className="border border-border/60 bg-muted/60 px-3 py-2 text-left font-semibold">
+                  <th className="w-[23%] border border-border/60 bg-muted/60 px-1.5 py-1.5 text-left font-semibold sm:px-2.5">
                     Matériau recommandé
                   </th>
-                  <th className="border border-border/60 bg-muted/60 px-3 py-2 text-left font-semibold">
+                  <th className="w-[29%] border border-border/60 bg-muted/60 px-1.5 py-1.5 text-left font-semibold sm:px-2.5">
                     Nom de l'article
                   </th>
-                  <th className="border border-border/60 bg-muted/60 px-3 py-2 text-right font-semibold">
+                  <th className="w-[14%] border border-border/60 bg-muted/60 px-1.5 py-1.5 text-right font-semibold sm:px-2.5">
                     Quantité
                   </th>
-                  <th className="border border-border/60 bg-muted/60 px-3 py-2 text-right font-semibold">
+                  <th className="w-[17%] border border-border/60 bg-muted/60 px-1.5 py-1.5 text-right font-semibold sm:px-2.5">
                     Prix unitaire
+                    <span className="block text-[8px] font-normal text-muted-foreground">TND</span>
                   </th>
-                  <th className="border border-border/60 bg-muted/60 px-3 py-2 text-right font-semibold">
+                  <th className="w-[17%] border border-border/60 bg-muted/60 px-1.5 py-1.5 text-right font-semibold sm:px-2.5">
                     Prix total
+                    <span className="block text-[8px] font-normal text-muted-foreground">TND</span>
                   </th>
                 </tr>
               </thead>
@@ -507,32 +518,34 @@ function MaterialsChoiceTable({ result }: { result: RecommendResult }) {
                   const m = row.solution.material;
                   return (
                     <tr key={row.categoryId} className="align-top even:bg-muted/20">
-                      <td className="border border-border/50 px-3 py-2">
+                      <td className="break-words border border-border/50 px-1.5 py-1.5 sm:px-2.5">
                         <p className="font-semibold leading-tight">{row.categoryLabel}</p>
-                        <p className="mt-0.5 text-[9px] text-muted-foreground">
-                          Solution {row.solution.profileLabel} · {row.solution.qualityScore10}/10 qualité
+                        <p className="mt-0.5 hidden text-[9px] text-muted-foreground sm:block">
+                          Solution {row.solution.profileLabel} · {row.solution.qualityScore10}/10
                         </p>
                       </td>
-                      <td className="border border-border/50 px-3 py-2">
+                      <td className="break-words border border-border/50 px-1.5 py-1.5 sm:px-2.5">
                         <p className="leading-tight">{m.name}</p>
-                        <p className="mt-0.5 text-[9px] text-muted-foreground">
+                        <p className="mt-0.5 hidden text-[9px] text-muted-foreground sm:block">
                           {m.brand ? `${m.brand} · ` : ""}
                           {m.availability ? m.availability : `Réf. ${m.id}`}
                         </p>
                       </td>
-                      <td className="whitespace-nowrap border border-border/50 px-3 py-2 text-right tabular-nums">
+                      <td className="border border-border/50 px-1.5 py-1.5 text-right tabular-nums sm:px-2.5">
                         {fmtNum(m.quantity)}
-                        <span className="text-[9px] text-muted-foreground"> {m.quantityUnit}</span>
+                        <span className="block text-[9px] text-muted-foreground">
+                          {m.quantityUnit}
+                        </span>
                       </td>
                       <td
-                        className="whitespace-nowrap border border-border/50 px-3 py-2 text-right tabular-nums"
+                        className="border border-border/50 px-1.5 py-1.5 text-right tabular-nums sm:px-2.5"
                         title={`Fourchette constatée : ${fmtTnd(m.band.min)} – ${fmtTnd(m.band.max)}`}
                       >
-                        {fmtTnd(m.band.avg)}
-                        <span className="text-[9px] text-muted-foreground"> /{m.unit}</span>
+                        {fmtAmount(m.band.avg, 2)}
+                        <span className="block text-[9px] text-muted-foreground">/{m.unit}</span>
                       </td>
-                      <td className="whitespace-nowrap border border-border/50 px-3 py-2 text-right font-semibold tabular-nums">
-                        {fmtTnd(m.materialCost, 0)}
+                      <td className="border border-border/50 px-1.5 py-1.5 text-right font-semibold tabular-nums sm:px-2.5">
+                        {fmtAmount(m.materialCost, 0)}
                       </td>
                     </tr>
                   );
@@ -542,12 +555,12 @@ function MaterialsChoiceTable({ result }: { result: RecommendResult }) {
                 <tr className="bg-muted/60">
                   <td
                     colSpan={4}
-                    className="border border-border/60 px-3 py-2 text-right font-semibold"
+                    className="border border-border/60 px-1.5 py-1.5 text-right font-semibold sm:px-2.5"
                   >
                     Total matériaux (Σ Quantité × Prix unitaire)
                   </td>
-                  <td className="whitespace-nowrap border border-border/60 px-3 py-2 text-right font-bold tabular-nums">
-                    {fmtTnd(result.cost.materials, 0)}
+                  <td className="border border-border/60 px-1.5 py-1.5 text-right font-bold tabular-nums sm:px-2.5">
+                    {fmtAmount(result.cost.materials, 0)}
                   </td>
                 </tr>
               </tfoot>
