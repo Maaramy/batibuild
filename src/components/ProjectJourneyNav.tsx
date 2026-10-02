@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
  *   - les étapes viennent de `@/lib/projectJourney` (groupe A : 6 étapes,
  *     groupe B : 3 étapes) et sont filtrées par les feature flags de
  *     l'administration — une étape désactivée disparaît et le total est
- *     recalculé automatiquement (`# x / N`) ;
+ *     recalculé automatiquement ;
  *   - l'icône PDF de chaque étape télécharge le rapport DÉJÀ GÉNÉRÉ à partir des
  *     données enregistrées (aucun recalcul d'analyse). Elle réutilise le système
  *     PDF existant (`reportDownloads`, logo BatiBuild) et respecte les
@@ -337,7 +337,7 @@ export function ProjectJourneyNav({
                       )}
                     </>
                   ) : (
-                    headerFeature ?? "Parcours du projet"
+                    headerFeature
                   )}
                 </p>
                 {project && (
@@ -362,16 +362,6 @@ export function ProjectJourneyNav({
         <div className="rounded-2xl border border-foreground/10 bg-card/95 p-3 sm:p-4">
           {step && (
           <>
-          {/* Progression — # x / N, recalculée selon les étapes réellement visibles */}
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Parcours du projet
-            </p>
-            <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
-              # {stepIndex + 1} / {total}
-            </span>
-          </div>
-
           {/* Étape dédiée à la page : [icône PDF] Nom de l'étape [Suivant →] */}
           <div className="flex items-center gap-2 rounded-xl border border-emerald-500/50 bg-background px-2 py-2 sm:gap-3 sm:px-3 sm:py-2.5">
             {/* Icône PDF — télécharge le rapport déjà généré, sans relancer
