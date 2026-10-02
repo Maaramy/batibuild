@@ -19,8 +19,6 @@ import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
-import { JourneyStepBanner } from "@/components/JourneyStepBanner";
-import { useJourneyStep } from "@/hooks/use-journey-step";
 import { projectJourneyGroup } from "@/lib/projectJourney";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
@@ -420,13 +418,6 @@ export default function ProjectDetail() {
 
   const { isEnabled: isFeatureEnabled, flags: journeyFlags } = useFeatureFlags();
 
-  // ── Project Journey : étape « Coût estimatif » mémorisée par projet ──
-  // Le résultat vit dans `projects.costEstimate` ; on n'enregistre ici que
-  // l'état de l'étape (date + version des données) pour l'afficher directement
-  // sans relancer l'analyse.
-  const journeyCost = useJourneyStep(project?._id ?? null, "cost");
-  const recordJourney = useMutation(api.journey.recordJourneyAnalysis);
-
   // Bouton « Return on Investment » : réservé au groupe A (projets neufs /
   // immobiliers) — le parcours du groupe B ne comporte pas d'étape
   // investissement. Même règle que la barre d'étapes du parcours.
@@ -457,8 +448,6 @@ export default function ProjectDetail() {
     setRefreshingQuantitatif(true);
     try {
       await simulateAnalysis({ projectId: project._id });
-      // Actualisation volontaire → on mémorise la nouvelle version des données.
-      await recordJourney({ projectId: project._id, module: "cost" }).catch(() => {});
       toast.success("Quantitatif mis à jour selon le catalogue 2026");
     } catch (err: any) {
       toast.error(err?.message || "Erreur lors de la mise à jour du quantitatif");
@@ -466,15 +455,6 @@ export default function ProjectDetail() {
       setRefreshingQuantitatif(false);
     }
   };
-
-  // Migration des estimations déjà enregistrées : on n'enregistre l'état de
-  // l'étape qu'une seule fois (ensuite `hasResult` devient vrai), donc jamais
-  // de relance d'analyse à chaque visite.
-  useEffect(() => {
-    if (done && project?._id && !journeyCost.hasResult) {
-      recordJourney({ projectId: project._id, module: "cost" }).catch(() => {});
-    }
-  }, [done, project?._id, journeyCost.hasResult, recordJourney]);
 
   const confInfo = useMemo(() => {
     if (!ai) return { pct: 0, info: CONFIDENCE_STEPS[2] };
@@ -877,13 +857,6 @@ export default function ProjectDetail() {
         {/* ── REPORT ──────────────────────────────────────────── */}
         {done && ce && ai && (
           <motion.div ref={reportRef} initial="initial" animate="animate" className="space-y-4 bb-protected-content bb-protected-watermark relative">
-            {/* État de l'étape « Coût estimatif » — résultat sauvegardé affiché directement. */}
-            <JourneyStepBanner
-              status={journeyCost.status}
-              analyzedAt={journeyCost.analyzedAt}
-              onRefresh={() => void refreshQuantitatif()}
-              refreshing={refreshingQuantitatif}
-            />
             {/* ═══ Hero Total ═══ */}
             <motion.div variants={fadeUp} custom={0}
               className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-800 to-green-950 shadow-soft-lg">

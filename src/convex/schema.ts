@@ -1363,31 +1363,6 @@ const schema = defineSchema(
       .index("by_project", ["projectId"])
       .index("by_user_project", ["userId", "projectId"]),
 
-    // Cache du parcours « Project Journey » — une ligne par projet et par
-    // étape/module. Enregistre l'état RÉEL d'une analyse (terminée ou en cours),
-    // la version des données du projet utilisée et la référence vers le résultat
-    // persisté dans sa table dédiée (`aiMaterialAnalyses`, `investmentAnalyses`,
-    // `projectRoadmaps`, `projects.costEstimate`…). Aucun résultat n'est dupliqué
-    // ici : cette table ne sert qu'à savoir si une étape est déjà réalisée et si
-    // les données du projet ont changé depuis (`dataVersion` obsolète). Voir
-    // `src/convex/journey.ts`.
-    journeyAnalyses: defineTable({
-      userId: v.id("users"),
-      projectId: v.id("projects"),
-      /** Étape du parcours : cost | plans | materials | consult | execution | investment. */
-      module: v.string(),
-      status: v.union(v.literal("running"), v.literal("done")),
-      /** Empreinte des données du projet au moment de l'analyse. */
-      dataVersion: v.string(),
-      /** Identifiant du résultat persisté dans sa table dédiée (si applicable). */
-      resultRef: v.optional(v.string()),
-      analyzedAt: v.number(),
-      updatedAt: v.number(),
-    })
-      .index("by_project", ["projectId"])
-      .index("by_user_project", ["userId", "projectId"])
-      .index("by_project_module", ["projectId", "module"]),
-
     // Prestataires recommandés par l'IA pour un projet — association unique
     // (projectId + providerId + type) : un même fournisseur/expert ne peut
     // jamais être recommandé deux fois pour le même projet. Voir

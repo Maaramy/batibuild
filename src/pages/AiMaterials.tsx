@@ -12,8 +12,6 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
-import { JourneyStepBanner } from "@/components/JourneyStepBanner";
-import { useJourneyStep } from "@/hooks/use-journey-step";
 import {
 ArrowLeft, Sparkles, HardHat, Loader2, Store, Scale, Check, Trash2, MapPin, Ruler, Wand2, ShieldCheck, RefreshCw, CircleDollarSign, Building2, Info,
 Blocks, Search, X, MoreHorizontal, ExternalLink, AlertCircle, CalendarDays, LayoutGrid, CheckCircle2, FilterX
@@ -117,15 +115,6 @@ export default function AiMaterials() {
     [projects, projectId],
   );
 
-  // ── Project Journey : étape « Choix matériaux » mémorisée par projet ──
-  // Analyse déjà enregistrée pour ce projet → on la réutilise (aucune relance).
-  const savedForProject = useQuery(
-    api.aiMaterials.getCopilotAnalysisForProject,
-    projectId ? { projectId: projectId as any } : "skip",
-  );
-  const recordJourney = useMutation(api.journey.recordJourneyAnalysis);
-  const journeyMaterials = useJourneyStep(projectId || null, "materials");
-
   // Pré-sélectionner uniquement les catégories correspondant aux résultats BIM réels
   useEffect(() => {
     if (catStats.length > 0 && selectedCats.length === 0) {
@@ -142,18 +131,6 @@ export default function AiMaterials() {
   }, [catStats]);
 
   const [enhance, setEnhance] = useState(true);
-
-  // Migration : une analyse déjà enregistrée pour le projet est marquée
-  // « terminée » une seule fois → jamais de nouvelle analyse IA à l'ouverture.
-  useEffect(() => {
-    if (savedForProject && projectId && !journeyMaterials.hasResult) {
-      recordJourney({
-        projectId: projectId as any,
-        module: "materials",
-        resultRef: savedForProject._id as string,
-      }).catch(() => {});
-    }
-  }, [savedForProject, projectId, journeyMaterials.hasResult, recordJourney]);
 
   // ── Résultats ──
   const [analyzing, setAnalyzing] = useState(false);
@@ -250,12 +227,6 @@ export default function AiMaterials() {
           results: { recommend: res },
         });
         setSavedId(savedAnalysisId);
-        // Mémorise l'étape du parcours : le résultat existe désormais pour ce projet.
-        await recordJourney({
-          projectId: projectId as any,
-          module: "materials",
-          resultRef: savedAnalysisId,
-        }).catch(() => {});
       } catch {
         /* la sauvegarde est optionnelle */
       }
@@ -347,27 +318,6 @@ export default function AiMaterials() {
             </div>
           </div>
         </motion.div>
-
-        {/* État de l'étape « Choix matériaux » — résultat sauvegardé réutilisé. */}
-        {journeyMaterials.status !== "none" && (
-          <div className="space-y-2">
-            <JourneyStepBanner
-              status={journeyMaterials.status}
-              analyzedAt={journeyMaterials.analyzedAt}
-              onRefresh={goToAnalyzeStep}
-            />
-            {savedForProject && journeyMaterials.hasResult && (
-              <button
-                type="button"
-                onClick={() => navigate(`/dashboard/ai-materials/result/${savedForProject._id}`)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-500/10 dark:text-emerald-400"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Voir les résultats enregistrés de « {journeyProject?.name ?? "ce projet"} »
-              </button>
-            )}
-          </div>
-        )}
 
         {/* ÉTAPE 1 — PROJET */}
         <Card className="border border-border/40 overflow-hidden rounded-xl">

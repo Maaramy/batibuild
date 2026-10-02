@@ -8,8 +8,6 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
-import { JourneyStepBanner } from "@/components/JourneyStepBanner";
-import { useJourneyStep } from "@/hooks/use-journey-step";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { Button } from "@/components/ui/button";
@@ -111,12 +109,6 @@ export default function ProjectGuide() {
   const generateDocument = useMutation(api.roadmap.generateDocument);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
 
-  // ── Project Journey : étape « Exécution & suivi » mémorisée par projet ──
-  // La feuille de route est déjà persistée (`projectRoadmaps`) ; on mémorise
-  // ici l'état de l'étape pour l'afficher directement sans régénérer.
-  const recordJourney = useMutation(api.journey.recordJourneyAnalysis);
-  const journeyExecution = useJourneyStep(projectId, "execution");
-
   const [tab, setTab] = useState("apercu");
   const [generating, setGenerating] = useState(false);
   const [expense, setExpense] = useState({ label: "", amount: "", category: "Gros œuvre" });
@@ -142,21 +134,11 @@ export default function ProjectGuide() {
   const roadmapId = roadmapData?.roadmapId ?? null;
   const loading = roadmapData === undefined;
 
-  // Migration : une feuille de route déjà générée pour le projet est marquée
-  // « terminée » une seule fois — jamais de régénération automatique.
-  useEffect(() => {
-    if (roadmap && projectId && !journeyExecution.hasResult) {
-      recordJourney({ projectId: projectId as any, module: "execution" }).catch(() => {});
-    }
-  }, [roadmap, projectId, journeyExecution.hasResult, recordJourney]);
-
   const handleGenerate = async () => {
     if (!projectId) return;
     setGenerating(true);
     try {
       await generate({ projectId: projectId as any });
-      // Marque l'étape « Exécution & suivi » comme réalisée (version des données à jour).
-      await recordJourney({ projectId: projectId as any, module: "execution" }).catch(() => {});
       toast.success("Feuille de route générée avec succès 🚀");
       setTab("apercu");
     } catch (err: any) {
@@ -368,14 +350,6 @@ export default function ProjectGuide() {
         </div>
       )}
       <div className="mx-auto max-w-6xl px-3 sm:px-5 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        {/* État de l'étape « Exécution & suivi » — feuille de route sauvegardée. */}
-        <JourneyStepBanner
-          status={journeyExecution.status}
-          analyzedAt={journeyExecution.analyzedAt}
-          onRefresh={() => void handleGenerate()}
-          refreshing={generating}
-        />
-
         {/* En-tête */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
           <div className="flex items-center gap-3 min-w-0">

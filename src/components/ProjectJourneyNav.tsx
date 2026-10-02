@@ -1,7 +1,5 @@
 import { Fragment, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { useQuery } from "convex/react";
-import { AlertTriangle, CheckCircle2, Circle, Loader2 } from "lucide-react";
 
 import { isHeaderNavItemActive } from "@/components/HeaderNav";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
@@ -10,44 +8,7 @@ import {
   type ProjectJourneyFlags,
   type ProjectJourneyStep,
 } from "@/lib/projectJourney";
-import { api } from "@/convex/_generated/api";
-import type { JourneyModule, JourneyStepStatus } from "@/convex/journey";
 import { cn } from "@/lib/utils";
-
-/**
- * Étape du parcours → module de cache du Project Journey. « Liste prix » et
- * « Fournisseur » partagent respectivement les modules « materials » et
- * « consult » (même analyse, autre affichage).
- */
-const STEP_MODULE: Record<string, JourneyModule> = {
-  cost: "cost",
-  plans: "plans",
-  materials: "materials",
-  priceList: "materials",
-  consult: "consult",
-  execution: "execution",
-  investment: "investment",
-  supplier: "consult",
-  suppliers: "consult",
-};
-
-/** Icône et couleur de l'état d'une étape (○ · ◐ · ✓ · ⚠). */
-function statusVisual(status: JourneyStepStatus): {
-  icon: typeof Circle;
-  className: string;
-  spin?: boolean;
-} {
-  switch (status) {
-    case "done":
-      return { icon: CheckCircle2, className: "text-emerald-500" };
-    case "stale":
-      return { icon: AlertTriangle, className: "text-amber-500" };
-    case "running":
-      return { icon: Loader2, className: "text-sky-500", spin: true };
-    default:
-      return { icon: Circle, className: "text-muted-foreground/50" };
-  }
-}
 
 /**
  * BARRE DE NAVIGATION DU PARCOURS DU PROJET
@@ -130,13 +91,6 @@ export function ProjectJourneyNav({
 
   const steps = stepsOverride ?? defaultSteps;
 
-  // État RÉEL des étapes (résultats sauvegardés par projet) : lecture seule,
-  // aucune analyse n'est relancée. Abonnement Convex → se met à jour seul.
-  const journeyState = useQuery(
-    api.journey.getJourneyState,
-    projectId ? { projectId: projectId as never } : "skip",
-  );
-
   if (steps.length === 0) return null;
 
   return (
@@ -153,12 +107,6 @@ export function ProjectJourneyNav({
           <div className="flex w-max min-w-full items-center justify-center">
             {steps.map((step, i) => {
               const active = isHeaderNavItemActive({ path: step.path }, pathname);
-              const module = STEP_MODULE[step.key];
-              const stepStatus: JourneyStepStatus = module
-                ? (journeyState?.modules?.[module]?.status ?? "none")
-                : "none";
-              const visual = statusVisual(stepStatus);
-              const StatusIcon = visual.icon;
               return (
                 <Fragment key={step.key}>
                   {/* Étape dimensionnée sur son contenu (aucun étirement). */}
@@ -178,15 +126,6 @@ export function ProjectJourneyNav({
                       )}
                     >
                       {i + 1}
-                      {/* État de l'étape : ○ non analysé · ◐ en cours · ✓ terminé · ⚠ à actualiser */}
-                      {stepStatus !== "none" && (
-                        <span
-                          aria-hidden
-                          className="absolute -right-0.5 -top-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-background"
-                        >
-                          <StatusIcon className={cn("h-2.5 w-2.5", visual.className, visual.spin && "animate-spin")} />
-                        </span>
-                      )}
                     </span>
                     <span
                       className={cn(
