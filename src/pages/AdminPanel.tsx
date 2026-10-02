@@ -23,6 +23,7 @@ import { AnnouncementList } from "@/components/admin/announcements/AnnouncementL
 import { FeatureFlagsAdmin } from "@/components/admin/FeatureFlagsAdmin";
 import { PaymentMethodsAdmin } from "@/components/admin/PaymentMethodsAdmin";
 import { InvoicesAdmin } from "@/components/admin/InvoicesAdmin";
+import { CLIENT_PRO_PLAN_LABEL, FREE_PLAN_FEATURES, FREE_PLAN_LABEL } from "@/lib/freePlan";
 import StorageReportAdmin from "@/components/admin/StorageReportAdmin";
 import { useState, useEffect } from "react";
 import {
@@ -213,6 +214,8 @@ export default function AdminPanel() {
   const updatePlanPricing = useMutation(api.payments.updatePlanPricing);
   const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
+  // Forfait Free (0 TND) — activé/désactivé par l'administrateur (jamais codé en dur).
+  const updateFreePlanConfig = useMutation(api.payments.updateFreePlanConfig);
   // Abonnements mensuels (30 jours) — trois offres : Client Pro, Fournisseur, Expert.
   // Prix null/0 = forfait gratuit (bascule « Offre gratuite » par forfait).
   // Client Pro est payant par défaut (80 TND/mois) — plus aucun essai gratuit.
@@ -225,6 +228,8 @@ export default function AdminPanel() {
     expertFree: false,
   });
   const [savingLimits, setSavingLimits] = useState(false);
+  // État du forfait Free (switch admin) — synchronisé depuis la config serveur.
+  const [freePlanEnabled, setFreePlanEnabled] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
   const [paymentForm, setPaymentForm] = useState<Record<string, any>>({
     bankName: "", bankTitulaire: "", bankRib: "", bankIban: "", bankSwift: "",
@@ -243,8 +248,9 @@ export default function AdminPanel() {
         supplierFree: isFree(planForm.supplierPrice),
         expertFree: isFree(planForm.expertPrice),
       });
+      setFreePlanEnabled(planForm.freePlanEnabled === true);
     }
-  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice]);
+  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice, planForm?.freePlanEnabled]);
 
   // Sync payment form when config loads
   useEffect(() => {
@@ -4116,6 +4122,51 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* ═══ Forfait Free (gratuit) ═══ */}
+                <div className="p-5 rounded-xl bg-gradient-to-br from-slate-500/5 to-slate-500/0 border border-slate-200/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold flex items-center gap-2">
+                        <Badge variant="outline" className="text-[10px] bg-slate-500/5">FREE</Badge>
+                        {FREE_PLAN_LABEL}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Gratuit — 0 TND/mois · fonctionnalités principales pour tous les profils
+                      </p>
+                    </div>
+                    {freePlanEnabled ? (
+                      <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Activé</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px]">Désactivé</Badge>
+                    )}
+                  </div>
+                  <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
+                    <p><strong className="text-foreground">Description :</strong> forfait gratuit ouvrant l'estimation, les plans IA, le choix matériaux, les consultations et le suivi à tous les profils (Client, Fournisseur, Expert).</p>
+                    <div className="grid grid-cols-1 gap-x-4 gap-y-1 pt-1 sm:grid-cols-2">
+                      {FREE_PLAN_FEATURES.map((f) => (
+                        <span key={f.label} className="flex items-center gap-1.5">
+                          {f.included ? (
+                            <Check className="h-3 w-3 shrink-0 text-emerald-500" />
+                          ) : (
+                            <span className="shrink-0 text-[10px]">🔒</span>
+                          )}
+                          <span className="truncate">
+                            {f.label}
+                            {!f.included && f.lockedHint ? ` — ${f.lockedHint}` : ""}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                    <p className="pt-1"><strong className="text-foreground">Restriction PDF :</strong> le téléchargement des rapports PDF reste réservé à {CLIENT_PRO_PLAN_LABEL}.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={freePlanEnabled} onCheckedChange={setFreePlanEnabled} />
+                    <span className="text-[11px] text-muted-foreground">
+                      {freePlanEnabled ? "Forfait Free activé" : "Forfait Free désactivé"}
+                    </span>
+                  </div>
+                </div>
+
                 {/* ═══ Forfait Client Pro (Start remplacé par Client Pro) ═══ */}
                 <div className="p-5 rounded-xl bg-gradient-to-br from-blue-500/5 to-blue-500/0 border border-blue-200/20 space-y-4">
                   <div className="flex items-center justify-between">
@@ -4289,6 +4340,8 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                     onClick={async () => {
                       setSavingLimits(true);
                       try {
+                        // Forfait Free — activation/désactivation sans code.
+                        await updateFreePlanConfig({ enabled: freePlanEnabled });
                         // Client Pro (Start remplacé par Client Pro)
                         await updatePlanPricing({
                           plan: "pro",

@@ -21,6 +21,7 @@ import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
 import { categorySpecialties } from "@/lib/supplierMatch";
 import { CategoryTopArticles } from "@/components/ai/CategoryTopArticles";
 import { useAuth } from "@/hooks/use-auth";
+import { usePdfGate } from "@/hooks/use-pdf-gate";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -78,6 +79,8 @@ export function AiAnalysisResults({
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  // Téléchargement PDF : contrôle centralisé (réservé au forfait payant Client Pro).
+  const pdfGate = usePdfGate();
   const optimizeCopilotBudget = useAction(api.aiMaterialsActions.optimizeCopilotBudget);
   const improveCopilotPerformance = useAction(api.aiMaterialsActions.improveCopilotPerformance);
 
@@ -116,16 +119,19 @@ export function AiAnalysisResults({
   };
 
   const handlePdf = () => {
-    try {
-      generateMaterialReportPdf({ result, optimization: optimization || undefined, performance: performance || undefined });
-      toast.success("Rapport PDF généré.");
-    } catch (err: any) {
-      toast.error("Erreur PDF : " + err.message);
-    }
+    pdfGate.requestPdfDownload(() => {
+      try {
+        generateMaterialReportPdf({ result, optimization: optimization || undefined, performance: performance || undefined });
+        toast.success("Rapport PDF généré.");
+      } catch (err: any) {
+        toast.error("Erreur PDF : " + err.message);
+      }
+    });
   };
 
   return (
     <div className="space-y-5">
+      {pdfGate.dialog}
       {/* Recommandation finale */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <Card className="border border-emerald-500/30 bg-gradient-to-br from-emerald-50/60 to-teal-50/30 dark:from-emerald-950/20 dark:to-teal-950/10 overflow-hidden rounded-xl">

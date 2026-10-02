@@ -12,6 +12,7 @@ import {
   resolveProfileRole,
 } from "./profileSubscription";
 import { assertPaymentMethodEnabled } from "./paymentMethodStates";
+import { getPdfDownloadAccess, PDF_ACCESS_MARKER } from "./access";
 import { requiresManualValidation } from "../lib/paymentMethods";
 import {
   cancelPendingInvoicesForSubscription,
@@ -125,12 +126,25 @@ export const checkDownloadAllowed = query({
   },
 });
 
-async function checkDownloadAllowedForKind(_ctx: any, _kind: string) {
-  return { allowed: true, reason: "ok", limit: Infinity, used: 0 } as any;
+async function checkDownloadAllowedForKind(ctx: any, _kind: string) {
+  const user = await getCurrentUser(ctx);
+  const access = await getPdfDownloadAccess(ctx, user);
+  return { allowed: access.allowed, reason: access.reason, limit: Infinity, used: 0 } as any;
 }
 
-async function consumeDownloadForKind(_ctx: any, _kind: string): Promise<void> {
-  // Quotas removed — no-op
+/**
+ * Contrôle serveur du téléchargement PDF : réservé au forfait payant Client Pro.
+ * Le forfait Free et l'essai sont refusés — l'interface ne peut pas contourner
+ * cette vérification (les générateurs PDF appellent cette mutation).
+ */
+async function consumeDownloadForKind(ctx: any, _kind: string): Promise<void> {
+  const user = await getCurrentUser(ctx);
+  const access = await getPdfDownloadAccess(ctx, user);
+  if (!access.allowed) {
+    throw new Error(
+      `${PDF_ACCESS_MARKER}Le téléchargement des rapports PDF est réservé à l'abonnement Client Pro.`,
+    );
+  }
 }
 
 // consumeDownloadForKind — quotas removed
@@ -153,6 +167,55 @@ export const checkDownloadAllowedFor = query({
   },
 });
 
+
+// ============================================================================
+// Forfait Free (gratuit)
+// ============================================================================
+
+/**
+ * Souscrit au forfait Free (0 TND). Disponible UNIQUEMENT quand
+ * l'administrateur l'a activé (`paymentConfig.freePlanEnabled`).
+ *
+ * Le forfait Free ouvre les fonctionnalités principales à tous les profils,
+ * mais ne donne PAS accès au téléchargement des rapports PDF (voir
+ * `access.getPdfDownloadAccess`). Aucune donnée (projets, résultats) n'est
+ * supprimée : les abonnements payants actifs/en attente sont simplement
+ * annulés pour éviter deux forfaits simultanés.
+ */
+export const chooseFreePlan = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Non connecté");
+
+    const config = await ctx.db.query("paymentConfig").order("desc").first();
+    if (config?.freePlanEnabled !== true) {
+      throw new Error("Le forfait Free n'est pas disponible actuellement.");
+    }
+
+    const now = Date.now();
+    const subs = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    for (const sub of subs) {
+      if (sub.status === "active" || sub.status === "pending") {
+        await ctx.db.patch(sub._id, { status: "canceled", updatedAt: now });
+      }
+    }
+
+    await ctx.db.patch(user._id, {
+      subscriptionPlan: "free",
+      subscriptionStatus: "free",
+      subscriptionEndDate: undefined,
+      subscriptionStartDate: undefined,
+      subscriptionDaysRemaining: 0,
+      updatedAt: now,
+    });
+
+    return { success: true };
+  },
+});
 
 // ============================================================================
 // Mutations

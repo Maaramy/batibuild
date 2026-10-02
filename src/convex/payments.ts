@@ -20,6 +20,10 @@ import { getEnabledPaymentMethodSlugs, getPaymentMethodStates } from "./paymentM
 const UNLIMITED = 1000000;
 const DEFAULT_PLAN_PRICING = {
   startPrice: 80,
+  // Forfait Free (0 TND) — désactivé par défaut : l'administrateur l'active
+  // depuis Admin → Abonnements mensuels. Aucune règle n'est codée en dur :
+  // toutes les permissions Free/PDF lisent cette configuration.
+  freePlanEnabled: false,
   proPrice: 80, // Client Pro — payant par défaut
   expertPrice: 120,
   supplierPrice: 120,
@@ -59,6 +63,7 @@ export const getPlanPricing = query({
 
     return {
       startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
+      freePlanEnabled: config.freePlanEnabled === true,
       // null = forfait gratuit ; la valeur par défaut (sans config) n'est PAS gratuite.
       proPrice: config.proPrice ?? null,
       expertPrice: config.expertPrice ?? null,
@@ -132,6 +137,41 @@ export const updatePlanPricing = mutation({
   },
 });
 
+/**
+ * Active/désactive le forfait Free (admin uniquement).
+ *
+ * Source de vérité unique : `paymentConfig.freePlanEnabled`. Aucune règle
+ * Free/PDF n'est codée en dur ailleurs — le contrôle d'accès et la restriction
+ * PDF lisent toujours cette valeur. Désactiver le forfait ne supprime JAMAIS
+ * aucun projet, résultat ou donnée utilisateur : seul l'accès est re-cadré.
+ */
+export const updateFreePlanConfig = mutation({
+  args: { enabled: v.boolean() },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const existingConfig = await ctx.db.query("paymentConfig").order("desc").first();
+    if (existingConfig) {
+      await ctx.db.patch(existingConfig._id, {
+        freePlanEnabled: args.enabled,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("paymentConfig", {
+        ...DEFAULT_PLAN_PRICING,
+        freePlanEnabled: args.enabled,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      } as any);
+    }
+
+    return { success: true, freePlanEnabled: args.enabled };
+  },
+});
+
 /** Get public pricing info (no auth required - for pricing page) */
 export const getPublicPricing = query({
   handler: async (ctx) => {
@@ -148,6 +188,7 @@ export const getPublicPricing = query({
 
     return {
       startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
+      freePlanEnabled: config.freePlanEnabled === true,
       // null = forfait gratuit ; la valeur par défaut (sans config) n'est PAS gratuite.
       proPrice: config.proPrice ?? null,
       expertPrice: config.expertPrice ?? null,

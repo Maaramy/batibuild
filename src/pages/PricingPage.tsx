@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { MySubscriptionCard } from "@/components/MySubscriptionCard";
 import { availablePaymentMethods } from "@/lib/paymentMethods";
+import { CLIENT_PRO_PLAN_LABEL, FREE_PLAN_LABEL, PLAN_COMPARISON } from "@/lib/freePlan";
 
 // Default payment config (fallback if not set in DB)
 const DEFAULT_PAYMENT = {
@@ -132,6 +133,11 @@ export default function PricingPage() {
   const [paymentMethod, setPaymentMethod] = useState<string>("bank_transfer");
   const paymentSectionRef = useRef<HTMLDivElement>(null);
   const paymentConfig = useQuery(api.payments.getPublicPricing);
+  // ── Forfait Free : disponible uniquement quand l'admin l'a activé
+  // (`paymentConfig.freePlanEnabled`). Aucune valeur codée en dur.
+  const freePlanEnabled = (paymentConfig as any)?.freePlanEnabled === true;
+  const chooseFreePlan = useMutation(api.subscriptions.chooseFreePlan);
+  const [freeBusy, setFreeBusy] = useState(false);
 
   // ── Méthodes de paiement disponibles (activées par l'administrateur) ──
   const paymentMethods = availablePaymentMethods(
@@ -267,6 +273,23 @@ export default function PricingPage() {
         ? "Demande d'abonnement envoyée ! En attente de validation du paiement D17."
         : "Demande d'abonnement envoyée ! En attente de validation du virement."
     );
+  };
+
+  // ── Souscription au forfait Free (0 TND) — refusée côté serveur si désactivé ──
+  const handleChooseFree = async () => {
+    if (!isAuthenticated) {
+      navigate("/auth");
+      return;
+    }
+    setFreeBusy(true);
+    try {
+      await chooseFreePlan({});
+      toast.success("Forfait Free activé ! Vous pouvez utiliser le parcours sans paiement.");
+    } catch (err: any) {
+      toast.error(err?.message || "Impossible d'activer le forfait Free.");
+    } finally {
+      setFreeBusy(false);
+    }
   };
 
   const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -476,6 +499,73 @@ export default function PricingPage() {
             </span>
           </div>
         )}
+
+        {/* ═══ Forfait Free (gratuit) — affiché uniquement s'il est activé par l'admin ═══ */}
+        {freePlanEnabled && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="mb-8 rounded-2xl border border-slate-300/50 bg-gradient-to-br from-slate-500/[0.06] to-background p-5 sm:p-6"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px] font-semibold">
+                    {FREE_PLAN_LABEL}
+                  </Badge>
+                  <span className="text-2xl font-bold text-emerald-600">Gratuit</span>
+                  <span className="text-xs text-muted-foreground">0 TND · /mois</span>
+                </div>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                  Utilisez le parcours complet (estimation, plans IA, matériaux, consultations,
+                  suivi) sans paiement. Le téléchargement des rapports PDF reste réservé à{" "}
+                  <strong>{CLIENT_PRO_PLAN_LABEL}</strong>.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                className="h-11 shrink-0 gap-1.5 sm:w-48"
+                onClick={handleChooseFree}
+                disabled={freeBusy}
+              >
+                {freeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Choisir {FREE_PLAN_LABEL}
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ═══ Comparatif Free ↔ Client Pro ═══ */}
+        <div className="mb-10 overflow-hidden rounded-2xl border border-border/40">
+          <div className="grid grid-cols-[1fr_5rem_6rem] items-center gap-x-3 border-b border-border/30 bg-muted/20 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[1fr_7rem_8rem]">
+            <span>Fonctionnalité</span>
+            <span className="text-center">{FREE_PLAN_LABEL}</span>
+            <span className="text-center text-primary">{CLIENT_PRO_PLAN_LABEL}</span>
+          </div>
+          {PLAN_COMPARISON.map((row) => (
+            <div
+              key={row.feature}
+              className="grid grid-cols-[1fr_5rem_6rem] items-center gap-x-3 border-b border-border/20 px-4 py-2.5 text-sm last:border-b-0 sm:grid-cols-[1fr_7rem_8rem]"
+            >
+              <span className="min-w-0 truncate">{row.feature}</span>
+              <span className="flex justify-center">
+                {row.free ? (
+                  <Check className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">🔒</span>
+                )}
+              </span>
+              <span className="flex justify-center">
+                {row.pro ? (
+                  <Check className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <X className="h-4 w-4 text-muted-foreground/50" />
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
 
         {/* ═══ Les 3 forfaits ═══ */}
         <div

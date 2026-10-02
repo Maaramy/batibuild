@@ -23,6 +23,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { usePdfGate } from "@/hooks/use-pdf-gate";
 import { projectTypeLabel, inferFloorsFromCategory } from "@/convex/projectTypes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -293,6 +294,8 @@ function VariantCard({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  // Téléchargement PDF : contrôle centralisé (réservé au forfait payant Client Pro).
+  const pdfGate = usePdfGate();
   // Sélection partagée 2D ↔ 3D : cliquer une pièce dans l'une des vues la
   // met en surbrillance dans l'autre (même identifiant de pièce).
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
@@ -305,21 +308,23 @@ function VariantCard({
     ? floor.rooms.find((r) => r.id === selectedRoomId) ?? null
     : null;
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (pdfBusy) return;
-    setPdfBusy(true);
-    try {
-      await downloadFloorPlanPdf({
-        plan: floor,
-        projectName,
-        variantName: variant.name,
-        floorLabel,
-      });
-    } catch (err) {
-      console.error("Erreur export PDF du plan :", err);
-    } finally {
-      setPdfBusy(false);
-    }
+    pdfGate.requestPdfDownload(async () => {
+      setPdfBusy(true);
+      try {
+        await downloadFloorPlanPdf({
+          plan: floor,
+          projectName,
+          variantName: variant.name,
+          floorLabel,
+        });
+      } catch (err) {
+        console.error("Erreur export PDF du plan :", err);
+      } finally {
+        setPdfBusy(false);
+      }
+    });
   };
 
   const scoreColor =
@@ -335,6 +340,7 @@ function VariantCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.3 }}
     >
+      {pdfGate.dialog}
       <Card className="overflow-hidden">
         <CardHeader className="pb-3 pt-4 px-4">
           <div className="flex items-start justify-between gap-3">

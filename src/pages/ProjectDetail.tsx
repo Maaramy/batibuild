@@ -23,6 +23,7 @@ import { projectJourneyGroup } from "@/lib/projectJourney";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { RecommendedProvidersPanel } from "@/components/RecommendedProvidersPanel";
+import { usePdfGate } from "@/hooks/use-pdf-gate";
 import { ArticleEditDialog } from "@/components/quantitatif/ArticleEditDialog";
 import { QuantitatifDetails } from "@/components/quantitatif/QuantitatifDetails";
 import {
@@ -175,6 +176,8 @@ export default function ProjectDetail() {
   const startAnalysis = useMutation(api.projects.startAnalysis);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
   const consumeDownload = useMutation(api.subscriptions.consumeDownload);
+  // Téléchargement PDF : contrôle centralisé (réservé au forfait payant Client Pro).
+  const pdfGate = usePdfGate();
   const resetAllCustomizations = useMutation(
     api.quantitatifCustom.resetAllCustomizations,
   );
@@ -248,16 +251,21 @@ export default function ProjectDetail() {
     // le PDF est généré directement, sans étape de choix intermédiaire.
     // Les scénarios Économique / Standard / Premium restent exportables via
     // « Autres scénarios » et ne sont jamais altérés.
-    if (hasCustomization && personalized) {
-      generatePDF(PERSONALIZED_SCENARIO_KEY);
-      return;
-    }
-    openScenarioPicker();
+    // Contrôle PDF centralisé : le forfait Free ouvre l'accès au dialogue
+    // Client Pro au lieu de générer le fichier.
+    pdfGate.requestPdfDownload(() => {
+      if (hasCustomization && personalized) {
+        void generatePDF(PERSONALIZED_SCENARIO_KEY);
+        return;
+      }
+      openScenarioPicker();
+    });
   };
 
   const confirmPdfDownload = () => {
     setShowPdfPicker(false);
-    generatePDF(pdfPickerScenario);
+    // Contrôle PDF centralisé (au cas où le sélecteur serait ouvert autrement).
+    pdfGate.requestPdfDownload(() => generatePDF(pdfPickerScenario));
   };
 
   
@@ -598,6 +606,7 @@ export default function ProjectDetail() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.02] via-background to-background pb-10">
         <ClientProPaywall>
+      {pdfGate.dialog}
       {/* Sticky Header */}
       <header className="glass-header sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 flex items-center justify-between h-12 sm:h-14">
@@ -926,7 +935,7 @@ export default function ProjectDetail() {
                     </button>
                     {hasCustomization && (
                       <button
-                        onClick={openScenarioPicker}
+                        onClick={() => pdfGate.requestPdfDownload(openScenarioPicker)}
                         disabled={exporting}
                         title="Exporter l'un des scénarios Économique / Standard / Premium"
                         className={cn(

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
+import { usePdfGate } from "@/hooks/use-pdf-gate";
 import { useQuery, useAction, useMutation } from "convex/react";
 import {
   Landmark,
@@ -73,10 +74,11 @@ export default function InvestmentResults() {
   const zones = useQuery(api.investments.getInvestmentZones) || [];
   const askAssistant = useAction(api.investmentAi.askInvestorAssistant);
   const toggleFavorite = useMutation(api.investments.toggleFavorite);
-  // Quotas removed — always allow PDF download
-  const handlePdfDownload = async () => {
+  // Téléchargement PDF : contrôle centralisé (réservé au forfait payant Client Pro).
+  const pdfGate = usePdfGate();
+  const handlePdfDownload = () => {
     if (!run) return;
-    generatePdf(run);
+    pdfGate.requestPdfDownload(() => generatePdf(run));
   };
   const [favBusy, setFavBusy] = useState(false);
 
@@ -220,6 +222,7 @@ export default function InvestmentResults() {
   return (
     <main className="min-h-screen bg-background">
         <ClientProPaywall>
+      {pdfGate.dialog}
       <div className="mx-auto max-w-[1400px] px-3 sm:px-5 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* ═══ Header ═══ */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">

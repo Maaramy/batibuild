@@ -18,6 +18,7 @@ import { resolveProfileRole, type UserRole } from "./profileSubscription";
 
 export type ClientProAccessReason =
   | "ok"
+  | "free_plan"
   | "not_client_pro"
   | "plan_not_allowed_for_profile"
   | "no_subscription"
@@ -32,11 +33,38 @@ export interface ClientProAccess {
 
 export const CLIENT_PRO_ACCESS_MARKER = "CLIENT_PRO_ACCESS:";
 
+/** Marqueur d'erreur serveur : téléchargement PDF réservé au forfait payant. */
+export const PDF_ACCESS_MARKER = "PDF_ACCESS_REQUIRED:";
+
 /** État « Offre gratuite » (switch admin) pour chaque forfait — prix null ou 0. */
 export interface FreePlanStatus {
   proFree: boolean;
   supplierFree: boolean;
   expertFree: boolean;
+}
+
+/**
+ * Le forfait Free est-il activé par l'administrateur ?
+ *
+ * Vérification centralisée : lit TOUJOURS `paymentConfig.freePlanEnabled`
+ * (jamais une constante). Fonctionne depuis une query/mutation (ctx.db) comme
+ * depuis une action (ctx.runQuery). Désactivé ou illisible → false, donc retour
+ * à la règle payante existante.
+ */
+export async function isFreePlanEnabled(ctx: any): Promise<boolean> {
+  try {
+    if (ctx.db) {
+      const config = await ctx.db
+        .query("paymentConfig")
+        .order("desc")
+        .first();
+      return config?.freePlanEnabled === true;
+    }
+    const pricing = await ctx.runQuery(api.payments.getPublicPricing);
+    return pricing?.freePlanEnabled === true;
+  } catch {
+    return false;
+  }
 }
 
 export async function getFreePlanStatus(ctx: any): Promise<FreePlanStatus> {
@@ -118,6 +146,14 @@ export async function getClientProAccess(ctx: any, user: any): Promise<ClientPro
     return { allowed: true, reason: "ok" };
   }
 
+  // ── Forfait Free : fonctionnalités principales ouvertes à TOUS les profils
+  // (estimation, plans IA, matériaux, consultations, construction & suivi),
+  // sans paiement. Le téléchargement PDF n'est PAS couvert ici (voir
+  // `canDownloadPdf`). Désactivé par l'admin → on retombe sur la règle payante.
+  if (await isFreePlanEnabled(ctx)) {
+    return { allowed: true, reason: "free_plan" };
+  }
+
   // ── Règle obligatoire : les services Client Pro exigent le profil Client Pro ──
   // Vérification backend (profil explicite, ou inféré des profils spécialisés).
   // Un Expert ou un Fournisseur n'accède JAMAIS aux fonctionnalités Client Pro,
@@ -169,6 +205,89 @@ export async function requireClientProAccess(ctx: any, user: any, service: strin
     throw clientProAccessError(service);
   }
 }
+
+// ============================================================================
+// Téléchargement des rapports PDF — contrôle centralisé (forfait payant)
+// ============================================================================
+// Règle produit : le téléchargement des rapports PDF est réservé au forfait
+// payant Client Pro. Le forfait Free et l'essai en sont EXCLUS. Ce contrôle est
+// côté backend (Convex) : l'interface ne fait que l'afficher.
+
+export type PdfAccessReason = ClientProAccessReason;
+
+export interface PdfDownloadAccess {
+  allowed: boolean;
+  reason: PdfAccessReason;
+  plan: string | null;
+}
+
+/** Décision pure/centralisée : l'utilisateur peut-il télécharger un rapport PDF ? */
+export async function getPdfDownloadAccess(ctx: any, user: any): Promise<PdfDownloadAccess> {
+  if (!user) return { allowed: false, reason: "no_subscription", plan: null };
+  if (user.role === "admin" || user.role === "moderator") {
+    return { allowed: true, reason: "ok", plan: user.subscriptionPlan ?? null };
+  }
+
+  // Les rapports PDF des projets sont réservés au profil Client (Client Pro).
+  let profileRole: UserRole | null;
+  if (ctx.db) profileRole = await resolveProfileRole(ctx, user);
+  else
+    profileRole = (await ctx.runQuery(api.profileSubscription.getMyProfileRole)) as UserRole | null;
+  if (profileRole !== null && profileRole !== "client") {
+    return { allowed: false, reason: "not_client_pro", plan: user.subscriptionPlan ?? null };
+  }
+
+  const snapshot: any = ctx.db
+    ? await getUserSubscriptionStatus(ctx, user._id)
+    : await ctx.runQuery(api.subscriptionStatus.getMySubscriptionStatus);
+
+  const plan = snapshot?.plan ?? user.subscriptionPlan ?? null;
+  // Abonnement mensuel PAYANT actif uniquement (`type === "monthly"`)
+  // — l'essai (`trial`) et le forfait Free n'autorisent pas le PDF.
+  const paidActive =
+    snapshot?.type === "monthly" &&
+    snapshot?.isActive === true &&
+    snapshot?.planCompatible !== false;
+  if (paidActive) return { allowed: true, reason: "ok", plan };
+
+  // Forfait Free activé : l'utilisateur a accès aux fonctionnalités principales
+  // mais PAS au téléchargement PDF → motif explicite « free_plan ».
+  if (await isFreePlanEnabled(ctx)) {
+    return { allowed: false, reason: "free_plan", plan };
+  }
+
+  if (snapshot?.type === "trial" || snapshot?.isActive === true) {
+    return { allowed: false, reason: "free_plan", plan };
+  }
+  if (snapshot?.status === "pending") return { allowed: false, reason: "pending", plan };
+  if (snapshot?.status === "expired") return { allowed: false, reason: "expired", plan };
+  if (snapshot?.status === "trial_expired") {
+    return { allowed: false, reason: "trial_expired", plan };
+  }
+  return { allowed: false, reason: "no_subscription", plan };
+}
+
+/** Droit de télécharger un rapport PDF (réactif) — consommé par l'interface. */
+export const canDownloadPdf = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    return await getPdfDownloadAccess(ctx, user);
+  },
+});
+
+/**
+ * Alias explicite `getUserSubscription()` — état d'abonnement complet de
+ * l'utilisateur connecté (même source de vérité que « Mon abonnement »).
+ */
+export const getUserSubscription = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+    return await getUserSubscriptionStatus(ctx, user._id);
+  },
+});
 
 /** État d'accès Client Pro (réactif) — consommé par l'interface. */
 export const checkClientProAccess = query({

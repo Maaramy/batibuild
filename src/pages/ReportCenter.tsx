@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { projectTypeLabel } from "@/convex/projectTypes";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
+import { usePdfGate } from "@/hooks/use-pdf-gate";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { Button } from "@/components/ui/button";
 import {
@@ -95,6 +96,8 @@ export default function ReportCenter() {
   const convex = useConvex();
   const { isEnabled } = useFeatureFlags();
   const consumeDownload = useMutation(api.subscriptions.consumeDownload);
+  // Téléchargement PDF : contrôle centralisé (réservé au forfait payant Client Pro).
+  const pdfGate = usePdfGate();
 
   usePageSEO({
     title: "Rapports PDF - batibuild",
@@ -128,7 +131,7 @@ export default function ReportCenter() {
 
   const loading = projects === undefined;
 
-  const handleDownload = async (
+  const runDownload = async (
     project: ProjectCardData,
     moduleKey: ReportModuleKey,
     artifact?: ProjectReportArtifacts,
@@ -171,8 +174,19 @@ export default function ReportCenter() {
     }
   };
 
+  // Toute demande de téléchargement passe par le contrôle PDF centralisé :
+  // forfait Free → dialogue « Rapport PDF disponible avec Client Pro ».
+  const handleDownload = (
+    project: ProjectCardData,
+    moduleKey: ReportModuleKey,
+    artifact?: ProjectReportArtifacts,
+  ) => {
+    pdfGate.requestPdfDownload(() => runDownload(project, moduleKey, artifact));
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.04] via-background to-background pb-16">
+      {pdfGate.dialog}
       {/* En-tête sticky */}
       <header className="sticky top-0 z-40 border-b border-border/20 bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 sm:px-6">

@@ -1145,6 +1145,15 @@ const schema = defineSchema(
       expertDownloadLimit: v.optional(v.number()),
       trialEnabled: v.optional(v.boolean()),
       trialDurationDays: v.optional(v.number()),
+      // ── Forfait Free (gratuit) ────────────────────────────────────────────
+      // Activation/désactivation administrée depuis
+      // Admin → Abonnements mensuels. Quand il est activé, le forfait Free ouvre
+      // les fonctionnalités principales (estimation, plans IA, matériaux,
+      // consultations, construction & suivi) à TOUS les profils, sans paiement,
+      // mais SANS le téléchargement des rapports PDF (réservé au forfait payant
+      // Client Pro). Quand il est désactivé, les droits reviennent à la règle
+      // payante précédente. Jamais codé en dur : toujours lu depuis la config.
+      freePlanEnabled: v.optional(v.boolean()),
       // ── Facturation : TVA et coordonnées de l'émetteur ────────────────────
       // Taux de TVA appliqué aux factures (%). 0 ou absent = « TVA non
       // applicable » : les prix des forfaits sont alors facturés en l'état.

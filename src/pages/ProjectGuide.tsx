@@ -8,6 +8,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { usePdfGate } from "@/hooks/use-pdf-gate";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { Button } from "@/components/ui/button";
@@ -108,6 +109,8 @@ export default function ProjectGuide() {
   const deletePhoto = useMutation(api.roadmap.deleteControlPhoto);
   const generateDocument = useMutation(api.roadmap.generateDocument);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+  // Téléchargement PDF : contrôle centralisé (réservé au forfait payant Client Pro).
+  const pdfGate = usePdfGate();
 
   const [tab, setTab] = useState("apercu");
   const [generating, setGenerating] = useState(false);
@@ -337,6 +340,7 @@ export default function ProjectGuide() {
   return (
     <main className="min-h-screen bg-background pb-10">
         <ClientProPaywall>
+      {pdfGate.dialog}
       {/* Parcours du projet — barre sticky « Où suis-je dans mon projet ? » :
           permet de passer d'une étape à l'autre à tout moment, en conservant
           le projet courant. */}
@@ -384,7 +388,7 @@ export default function ProjectGuide() {
               {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               Régénérer
             </Button>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => exportRoadmapPdf(roadmap)}>
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => pdfGate.requestPdfDownload(() => exportRoadmapPdf(roadmap))}>
               <Download className="h-3.5 w-3.5" /> Rapport PDF
             </Button>
           </div>
