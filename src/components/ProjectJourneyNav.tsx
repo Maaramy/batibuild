@@ -300,14 +300,20 @@ export function ProjectJourneyNav({
     : "/dashboard";
 
   return (
-    <nav aria-label="Parcours du projet" className={cn("w-full", className)}>
-      <div className={cn("mx-auto px-3 pt-3 sm:px-4", maxWidthClassName)}>
-        <div className="rounded-2xl border border-foreground/10 bg-card/95 p-3 sm:p-4">
-          {/* En-tête du projet — conservé durant tout le parcours et fusionné
-              avec le nom de la fonctionnalité : « Nom du projet :
-              [Fonctionnalité] ». Il remplace les en-têtes propres aux pages. */}
-          {showHeader && (
-            <div className="mb-3 flex items-center gap-2 rounded-xl border border-foreground/10 bg-muted/30 px-2 py-2 sm:px-3">
+    <>
+      {/* Bandeau projet COLLANT — conservé en haut de toutes les pages du
+          parcours et fusionné avec le nom de la fonctionnalité :
+          « Nom du projet : [Fonctionnalité] ». Il remplace les en-têtes propres
+          aux pages. Rendue en dehors de la carte (parent = <main>) pour rester
+          collée pendant tout le défilement de la page. */}
+      {showHeader && (
+        <header className="sticky top-0 z-40 border-b border-border/20 bg-background/90 backdrop-blur-md">
+          <div
+            className={cn(
+              "mx-auto flex items-center gap-2 px-3 py-2 sm:px-4",
+              maxWidthClassName,
+            )}
+          >
               <button
                 type="button"
                 onClick={() => navigate(headerBackTarget)}
@@ -347,9 +353,13 @@ export function ProjectJourneyNav({
                   </p>
                 )}
               </div>
-            </div>
-          )}
+          </div>
+        </header>
+      )}
 
+      <nav aria-label="Parcours du projet" className={cn("w-full", className)}>
+      <div className={cn("mx-auto px-3 pt-3 sm:px-4", maxWidthClassName)}>
+        <div className="rounded-2xl border border-foreground/10 bg-card/95 p-3 sm:p-4">
           {step && (
           <>
           {/* Progression — # x / N, recalculée selon les étapes réellement visibles */}
@@ -442,7 +452,8 @@ export function ProjectJourneyNav({
           )}
         </div>
       </div>
+      </nav>
       {pdfGate.dialog}
-    </nav>
+    </>
   );
 }
