@@ -480,54 +480,58 @@ function MaterialsChoiceTable({ result }: { result: RecommendResult }) {
 
       <Card className="overflow-hidden rounded-2xl border-border/40">
         <CardContent className="p-0">
-          {/* Tableau desktop / tablette */}
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-[11px]">
+          {/* Tableau classique — quadrillage complet, défilement horizontal sur mobile */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-[11px]">
               <thead>
-                <tr className="border-b border-border/30 bg-muted/40 text-muted-foreground">
-                  <th className="px-3 py-2 text-left font-medium">Matériau recommandé</th>
-                  <th className="px-3 py-2 text-left font-medium">Nom de l'article</th>
-                  <th className="px-3 py-2 text-right font-medium">Quantité</th>
-                  <th className="px-3 py-2 text-right font-medium">Prix unitaire</th>
-                  <th className="px-3 py-2 text-right font-medium">Prix total</th>
+                <tr>
+                  <th className="border border-border/60 bg-muted/60 px-3 py-2 text-left font-semibold">
+                    Matériau recommandé
+                  </th>
+                  <th className="border border-border/60 bg-muted/60 px-3 py-2 text-left font-semibold">
+                    Nom de l'article
+                  </th>
+                  <th className="border border-border/60 bg-muted/60 px-3 py-2 text-right font-semibold">
+                    Quantité
+                  </th>
+                  <th className="border border-border/60 bg-muted/60 px-3 py-2 text-right font-semibold">
+                    Prix unitaire
+                  </th>
+                  <th className="border border-border/60 bg-muted/60 px-3 py-2 text-right font-semibold">
+                    Prix total
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => {
                   const m = row.solution.material;
                   return (
-                    <tr
-                      key={row.categoryId}
-                      className="border-b border-border/20 transition-colors last:border-0 hover:bg-muted/20"
-                    >
-                      <td className="px-3 py-2.5">
+                    <tr key={row.categoryId} className="align-top even:bg-muted/20">
+                      <td className="border border-border/50 px-3 py-2">
                         <p className="font-semibold leading-tight">{row.categoryLabel}</p>
-                        <p className="text-[9px] text-muted-foreground">
+                        <p className="mt-0.5 text-[9px] text-muted-foreground">
                           Solution {row.solution.profileLabel} · {row.solution.qualityScore10}/10 qualité
                         </p>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <p className="font-medium leading-tight">{m.name}</p>
-                        <p className="text-[9px] text-muted-foreground">
+                      <td className="border border-border/50 px-3 py-2">
+                        <p className="leading-tight">{m.name}</p>
+                        <p className="mt-0.5 text-[9px] text-muted-foreground">
                           {m.brand ? `${m.brand} · ` : ""}
                           {m.availability ? m.availability : `Réf. ${m.id}`}
                         </p>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums">
+                      <td className="whitespace-nowrap border border-border/50 px-3 py-2 text-right tabular-nums">
                         {fmtNum(m.quantity)}
-                        <span className="text-[9px] font-normal text-muted-foreground">
-                          {" "}
-                          {m.quantityUnit}
-                        </span>
+                        <span className="text-[9px] text-muted-foreground"> {m.quantityUnit}</span>
                       </td>
                       <td
-                        className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums"
+                        className="whitespace-nowrap border border-border/50 px-3 py-2 text-right tabular-nums"
                         title={`Fourchette constatée : ${fmtTnd(m.band.min)} – ${fmtTnd(m.band.max)}`}
                       >
                         {fmtTnd(m.band.avg)}
                         <span className="text-[9px] text-muted-foreground"> /{m.unit}</span>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-right font-bold tabular-nums text-primary">
+                      <td className="whitespace-nowrap border border-border/50 px-3 py-2 text-right font-semibold tabular-nums">
                         {fmtTnd(m.materialCost, 0)}
                       </td>
                     </tr>
@@ -535,11 +539,14 @@ function MaterialsChoiceTable({ result }: { result: RecommendResult }) {
                 })}
               </tbody>
               <tfoot>
-                <tr className="bg-emerald-500/[0.06]">
-                  <td colSpan={4} className="px-3 py-3 text-right text-[11px] font-semibold">
+                <tr className="bg-muted/60">
+                  <td
+                    colSpan={4}
+                    className="border border-border/60 px-3 py-2 text-right font-semibold"
+                  >
                     Total matériaux (Σ Quantité × Prix unitaire)
                   </td>
-                  <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+                  <td className="whitespace-nowrap border border-border/60 px-3 py-2 text-right font-bold tabular-nums">
                     {fmtTnd(result.cost.materials, 0)}
                   </td>
                 </tr>
@@ -547,42 +554,7 @@ function MaterialsChoiceTable({ result }: { result: RecommendResult }) {
             </table>
           </div>
 
-          {/* Cartes mobiles (WebView) */}
-          <ul className="divide-y divide-border/20 md:hidden">
-            {rows.map((row) => {
-              const m = row.solution.material;
-              return (
-                <li key={row.categoryId} className="px-3.5 py-3">
-                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                    {row.categoryLabel}
-                  </p>
-                  <p className="text-xs font-semibold leading-snug">{m.name}</p>
-                  <p className="text-[9px] text-muted-foreground">
-                    Solution {row.solution.profileLabel} · {row.solution.qualityScore10}/10 qualité
-                    {m.brand ? ` · ${m.brand}` : ""}
-                  </p>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    <Metric label="Quantité" value={fmtNum(m.quantity)} hint={m.quantityUnit} />
-                    <Metric label="Prix unitaire" value={fmtTnd(m.band.avg)} hint={`/${m.unit}`} />
-                    <Metric
-                      label="Prix total"
-                      value={fmtTnd(m.materialCost, 0)}
-                      tone="emerald"
-                      className={TONE.emerald.tile}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-            <li className="flex items-center justify-between bg-emerald-500/[0.06] px-3.5 py-3">
-              <span className="text-[11px] font-semibold">Total matériaux</span>
-              <span className="text-sm font-black tabular-nums text-emerald-600 dark:text-emerald-400">
-                {fmtTnd(result.cost.materials, 0)}
-              </span>
-            </li>
-          </ul>
-
-          <p className="border-t border-border/25 bg-muted/[0.08] px-3 py-2 text-[9px] leading-relaxed text-muted-foreground">
+          <p className="border-t border-border/40 px-3 py-2 text-[9px] leading-relaxed text-muted-foreground">
             Prix total = <b>Quantité × Prix unitaire</b>. Les prix proviennent du catalogue 2026 et
             des offres fournisseurs recensées. La pose, le transport, les déchets, les accessoires
             et la TVA 19 % sont détaillés dans « Coût estimatif ».
