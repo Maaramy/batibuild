@@ -42,12 +42,14 @@ export const getCopilotCategories = query({
 export const getCostEstimationCategories = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, { projectId }) => {
+    const EMPTY = { hasEstimation: false, categories: [], materialsCount: 0, budgetPerM2: 0, totalCost: 0 };
+
     const user = await getCurrentUser(ctx);
-    if (!user) return { hasEstimation: false, categories: [], materialsCount: 0 };
+    if (!user) return EMPTY;
 
     const project = await ctx.db.get(projectId);
     if (!project || (project.userId !== user._id && user.role !== "admin")) {
-      return { hasEstimation: false, categories: [], materialsCount: 0 };
+      return EMPTY;
     }
 
     let dqe =
@@ -74,13 +76,23 @@ export const getCostEstimationCategories = query({
     }
 
     if (!dqe?.lots?.length) {
-      return { hasEstimation: false, categories: [], materialsCount: 0 };
+      return EMPTY;
     }
 
     const materials = await ctx.db.query("materialPrices").collect();
     const categories = categoriesFromCostEstimation(dqe, materials as any[]);
     const materialsCount = categories.reduce((sum, c) => sum + c.count, 0);
-    return { hasEstimation: true, categories, materialsCount };
+
+    // Budget estimé (TND/m²) — alimente la pré-sélection « standing + budget ».
+    const costEstimate = (project as any).costEstimate;
+    const built =
+      (Number((project as any).surface) || 0) * Math.max(1, Number((project as any).floors) || 1);
+    const totalCost = Number(costEstimate?.totalCost) || 0;
+    const budgetPerM2 =
+      Number(costEstimate?.costPerSquareMeter) ||
+      (built > 0 && totalCost > 0 ? totalCost / built : 0);
+
+    return { hasEstimation: true, categories, materialsCount, budgetPerM2, totalCost };
   },
 });
 

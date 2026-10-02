@@ -17,6 +17,7 @@ Sparkles, HardHat, Loader2, Store, Scale, Check, Trash2, MapPin, Ruler, Wand2, S
 Blocks, Search, X, MoreHorizontal, ExternalLink, AlertCircle, CalendarDays, LayoutGrid, CheckCircle2, FilterX
 } from "lucide-react";
 import { ProjectContext } from "@/convex/aiMaterialsEngine";
+import { STANDING_OPTIONS, preselectCategories } from "@/lib/materialPreselection";
 import { REGION_LABELS } from "@/lib/projectPdf";
 import { Input } from "@/components/ui/input";
 import {
@@ -128,21 +129,34 @@ export default function AiMaterials() {
     [estimation],
   );
 
-  // Pré-sélection : tous les matériaux requis par l'estimation, appliquée une
-  // seule fois par projet (les désélections manuelles de l'utilisateur sont
-  // préservées tant que le projet ne change pas).
-  const selectionProjectRef = useRef<string | null>(null);
+  // Pré-sélection intelligente : catégories retenues selon le standing du projet
+  // et le budget estimé (TND/m²). Recalculée dès que l'un des deux change.
+  const preselection = useMemo(
+    () =>
+      preselectCategories({
+        categoryIds: estimationCategories.map((c) => c.id as string),
+        standing: form.standing,
+        budgetPerM2: estimation?.budgetPerM2 || undefined,
+      }),
+    [estimationCategories, form.standing, estimation],
+  );
+
+  // Appliquée une seule fois par (projet + standing) : les ajustements manuels
+  // de l'utilisateur sont préservés tant que ni le projet ni le standing ne
+  // changent.
+  const selectionKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (estimation === undefined) return; // requête en cours de chargement
-    const pid = journeyProject?._id ?? null;
-    if (selectionProjectRef.current === pid) return;
-    selectionProjectRef.current = pid;
+    const key = `${journeyProject?._id ?? ""}:${form.standing}`;
+    if (selectionKeyRef.current === key) return;
+    selectionKeyRef.current = key;
+    const keep = new Set(preselection.categoryIds);
     setSelectedMaterialIds(
-      estimation.hasEstimation
-        ? estimationCategories.flatMap((c) => c.materials.map((m: any) => m.id as string))
-        : [],
+      estimationCategories
+        .filter((c) => keep.has(c.id))
+        .flatMap((c) => c.materials.map((m: any) => m.id as string)),
     );
-  }, [estimation, estimationCategories, journeyProject]);
+  }, [estimation, estimationCategories, preselection, journeyProject, form.standing]);
 
   // Catégories actives = celles dont au moins un matériau est sélectionné.
   const selectedCats = useMemo(
@@ -484,6 +498,27 @@ export default function AiMaterials() {
               </div>
             ) : (
               <>
+                {/* Pré-sélection intelligente (standing + budget estimé) */}
+                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-2.5 py-2">
+                  <Wand2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                  <span className="text-[10px] leading-tight text-muted-foreground">{preselection.reason}</span>
+                  <label className="ml-auto flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                    Standing
+                    <select
+                      value={form.standing}
+                      onChange={(e) => setForm((f) => ({ ...f, standing: e.target.value }))}
+                      aria-label="Standing du projet"
+                      className="h-7 rounded-lg border border-border/50 bg-background px-1.5 text-[10px] font-semibold text-foreground outline-none focus:border-emerald-500/60"
+                    >
+                      {STANDING_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
                 {/* Filtrage précis des matériaux requis */}
                 <div className="relative mb-3">
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
