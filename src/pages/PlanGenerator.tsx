@@ -128,14 +128,14 @@ export default function PlanGenerator() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
         <ClientProPaywall>
-      {/* Page de génération : le parcours linéaire n'y est pas affiché
-          (`steps={[]}` masque le Journey). Seul l'en-tête projet persistant
-          subsiste — « Nom du projet : Plans architecturaux AI » — pour
-          remplacer l'ancien en-tête de fonctionnalité. */}
+      {/* Parcours du projet — l'étape « Plans architecturaux AI » fait partie
+          du parcours (groupes A et B) : cette page affiche donc son étape
+          dédiée, avec « Étape précédente : Coût estimatif » et « Suivant → »
+          pour enchaîner sans perdre les données du projet. `featureLabel` sert
+          de repli tant que le projet n'est pas encore chargé. */}
       <ProjectJourneyNav
         projectId={id}
         category={project?.category}
-        steps={[]}
         featureLabel="Plans architecturaux AI"
         maxWidthClassName="max-w-7xl"
       />
