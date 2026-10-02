@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQuery } from "convex/react";
-import { Loader2, ShieldCheck, Info } from "lucide-react";
+import { CheckCircle2, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { api } from "@/convex/_generated/api";
 import { categorySpecialties } from "@/lib/supplierMatch";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
@@ -15,6 +17,13 @@ import { useFeatureFlags } from "@/hooks/use-feature-flags";
 
 /** Durée fixe de l'écran de chargement : 3 secondes. */
 const LOADING_DURATION_MS = 3000;
+
+/** Étapes affichées pendant l'analyse — repères de progression lisibles. */
+const LOADING_STEPS = [
+  "Lecture des caractéristiques du projet…",
+  "Croisement du catalogue 2026 et des offres fournisseurs…",
+  "Calcul des coûts et classement des solutions…",
+];
 
 export default function AiMaterialsResult() {
   usePageSEO({
@@ -87,6 +96,12 @@ export default function AiMaterialsResult() {
     [journeyReady, analysis?.projectId, suppliersDirectoryHref, journeyFlags],
   );
 
+  // Étape courante de l'écran de chargement (déduite de la progression).
+  const loadingStepIndex = Math.min(
+    LOADING_STEPS.length - 1,
+    Math.floor((Math.min(100, progress) / 100) * LOADING_STEPS.length),
+  );
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-10">
         <ClientProPaywall>
@@ -105,66 +120,99 @@ export default function AiMaterialsResult() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
         {/* ── Écran de chargement (3 secondes) ── */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="flex flex-col items-center justify-center py-16 text-center sm:py-24">
             <div className="relative mb-6">
-              <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping" />
-              <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30">
+              <div className="absolute inset-0 animate-ping rounded-full bg-emerald-500/10" />
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-emerald-500/30 bg-gradient-to-br from-emerald-500/20 to-teal-500/10">
                 <Loader2 className="h-9 w-9 animate-spin text-emerald-600" />
               </div>
             </div>
             <h2 className="text-lg font-bold tracking-tight">Analyse des matériaux en cours…</h2>
-            <p className="text-xs text-muted-foreground mt-1.5 max-w-sm">
-              Croisement du catalogue 2026, des offres fournisseurs et de votre projet — cela ne prend que quelques instants.
+            <p className="mt-1.5 max-w-sm text-xs text-muted-foreground">
+              Croisement du catalogue 2026, des offres fournisseurs et de votre projet.
             </p>
-            {/* Barre de progression */}
-            <div className="mt-6 w-64 h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-100 ease-linear"
-                style={{ width: `${progress}%` }}
-              />
+
+            {/* Progression + repères d'étapes */}
+            <div className="mt-6 w-full max-w-sm">
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-100 ease-linear"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                <span>Progression</span>
+                <span className="font-semibold tabular-nums">{Math.round(progress)} %</span>
+              </div>
+
+              <ul className="mt-4 space-y-1.5 text-left">
+                {LOADING_STEPS.map((label, i) => {
+                  const done = i < loadingStepIndex;
+                  const current = i === loadingStepIndex;
+                  return (
+                    <li
+                      key={label}
+                      className={cn(
+                        "flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] transition-colors",
+                        current
+                          ? "border-emerald-500/40 bg-emerald-500/[0.06] font-medium text-foreground"
+                          : done
+                            ? "border-border/40 bg-muted/10 text-muted-foreground"
+                            : "border-border/30 bg-background text-muted-foreground/70",
+                      )}
+                    >
+                      {done ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                      ) : current ? (
+                        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-emerald-600" />
+                      ) : (
+                        <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-border" />
+                      )}
+                      {label}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           </div>
         ) : !analysis ? (
           /* Analyse introuvable ou non autorisée */
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 border border-amber-500/30 mb-4">
-              <Info className="h-6 w-6 text-amber-600" />
-            </div>
-            <h2 className="text-base font-bold tracking-tight">Analyse introuvable</h2>
-            <p className="text-xs text-muted-foreground mt-1.5 max-w-sm">
-              Cette analyse n'existe pas ou n'est pas accessible avec votre compte.
-            </p>
-            <Button size="sm" className="mt-4" onClick={() => navigate("/dashboard/ai-materials")}>
-              Retour à l'assistant matériaux
-            </Button>
-          </div>
+          <Card className="mx-auto max-w-md rounded-2xl border-amber-500/25 bg-amber-500/[0.04]">
+            <CardContent className="flex flex-col items-center px-5 py-10 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-500/30 bg-amber-500/10">
+                <Info className="h-6 w-6 text-amber-600" />
+              </div>
+              <h2 className="text-base font-bold tracking-tight">Analyse introuvable</h2>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Cette analyse n'existe pas ou n'est pas accessible avec votre compte.
+              </p>
+              <Button size="sm" className="mt-5" onClick={() => navigate("/dashboard/ai-materials")}>
+                Retour à l'assistant matériaux
+              </Button>
+            </CardContent>
+          </Card>
         ) : !result ? (
-          /* Analyse sans recommandation */
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 border border-amber-500/30 mb-4">
-              <Info className="h-6 w-6 text-amber-600" />
-            </div>
-            <h2 className="text-base font-bold tracking-tight">Analyse sans recommandation enregistrée</h2>
-            <Button size="sm" className="mt-4" onClick={() => navigate("/dashboard/ai-materials")}>
-              Relancer une analyse
-            </Button>
-          </div>
+          /* Analyse sans recommandation enregistrée */
+          <Card className="mx-auto max-w-md rounded-2xl border-amber-500/25 bg-amber-500/[0.04]">
+            <CardContent className="flex flex-col items-center px-5 py-10 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-500/30 bg-amber-500/10">
+                <Info className="h-6 w-6 text-amber-600" />
+              </div>
+              <h2 className="text-base font-bold tracking-tight">
+                Analyse sans recommandation enregistrée
+              </h2>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Les résultats n'ont pas pu être reconstitués pour cette analyse.
+              </p>
+              <Button size="sm" className="mt-5" onClick={() => navigate("/dashboard/ai-materials")}>
+                Relancer une analyse
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
-          /* ── Résultats (structure et design conservés) ── */
+          /* ── Résultats ── */
           <AiAnalysisResults result={result} analysisRegion={result.context?.region} />
         )}
-
-        {/* Pied de page */}
-        <div className="rounded-xl border border-border/30 bg-muted/10 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[10px] text-muted-foreground/70">
-          <span className="flex items-center gap-1.5">
-            <ShieldCheck className="h-3 w-3" />
-            Les prix ne sont jamais inventés : toutes les valeurs proviennent du catalogue 2026 et des offres fournisseurs (données datées).
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Info className="h-3 w-3" />
-            Pour les éléments structurels, la validation d'un professionnel qualifié reste requise.
-          </span>
-        </div>
       </div>
 
             </ClientProPaywall>
