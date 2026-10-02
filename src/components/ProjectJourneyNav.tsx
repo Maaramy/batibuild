@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { isHeaderNavItemActive } from "@/components/HeaderNav";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
-import { ArrowRight, FileText, Loader2, Lock } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, Loader2, Lock } from "lucide-react";
 import {
   buildProjectJourney,
   type ProjectJourneyFlags,
@@ -30,9 +30,12 @@ import { cn } from "@/lib/utils";
 /**
  * JOURNEY DU PROJET — parcours linéaire persistant
  *
- * Le Journey remplace l'ancienne barre d'étapes : chaque étape est une ligne
- * compacte `[PDF] Nom de l'étape [Suivant →]`, mobile-first, sur fond clair,
- * contours fins, accents vert/mint et boutons arrondis.
+ * Le Journey remplace l'ancienne barre d'étapes et n'affiche qu'UNE seule
+ * étape à la fois — celle dédiée à la page courante : `[PDF] Nom de l'étape
+ * [Suivant →]`, mobile-first, sur fond clair, contours fins, accents vert/mint
+ * et boutons arrondis. On avance de proche en proche (« Suivant → ») et on
+ * revient à l'étape précédente ; le parcours complet n'est jamais déroulé en
+ * même temps.
  *
  *   - les étapes viennent de `@/lib/projectJourney` (groupe A : 6 étapes,
  *     groupe B : 3 étapes) et sont filtrées par les feature flags de
@@ -70,6 +73,12 @@ interface ProjectJourneyNavProps {
    * Journey. Sans cette prop, le parcours est déduit du type de projet.
    */
   steps?: ProjectJourneyStep[];
+  /**
+   * Force l'étape affichée (utile quand la route de la page ne correspond pas
+   * à l'étape, ex. la page « Résultat de l'analyse IA »). Par défaut l'étape
+   * est déduite de la route affichée.
+   */
+  activeKey?: ProjectJourneyStepKey;
   maxWidthClassName?: string;
   className?: string;
 }
@@ -88,6 +97,7 @@ export function ProjectJourneyNav({
   category,
   flags,
   steps: stepsOverride,
+  activeKey,
   maxWidthClassName = "max-w-5xl",
   className,
 }: ProjectJourneyNavProps) {
@@ -207,13 +217,31 @@ export function ProjectJourneyNav({
 
   // Progression dynamique : étape active si l'on est sur son module, sinon
   // première étape non terminée (d'après les rapports réellement disponibles).
-  const activeIndex = steps.findIndex((step) =>
-    isHeaderNavItemActive({ path: step.path }, pathname),
-  );
+  const activeIndex =
+    activeKey != null
+      ? steps.findIndex((step) => step.key === activeKey)
+      : steps.findIndex((step) => isHeaderNavItemActive({ path: step.path }, pathname));
   const completedCount = steps.filter((step) => pdfReadyFor(step)).length;
   const currentIndex =
     activeIndex >= 0 ? activeIndex : Math.min(completedCount, steps.length - 1);
   const total = steps.length;
+
+  // Une seule étape est affichée : l'étape DÉDIÉE à la page courante. Le
+  // parcours complet n'est jamais déroulé en même temps — on avance de proche
+  // en proche avec « Suivant → » et on revient avec « Étape précédente ».
+  const stepIndex = Math.min(Math.max(currentIndex, 0), total - 1);
+  const step = steps[stepIndex] as ProjectJourneyStep;
+  const previous = stepIndex > 0 ? steps[stepIndex - 1] : undefined;
+  const next = stepIndex < total - 1 ? steps[stepIndex + 1] : undefined;
+
+  const hasReport = !!step.reportKey;
+  const pdfReady = pdfReadyFor(step);
+  const busy = busyKey === step.key;
+  const stateLabel = !hasReport
+    ? "Étape du parcours"
+    : pdfReady
+      ? "PDF disponible"
+      : "Non commencé";
 
   return (
     <nav aria-label="Parcours du projet" className={cn("w-full", className)}>
@@ -225,109 +253,86 @@ export function ProjectJourneyNav({
               Parcours du projet
             </p>
             <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
-              # {currentIndex + 1} / {total}
+              # {stepIndex + 1} / {total}
             </span>
           </div>
 
-          <ol className="space-y-2">
-            {steps.map((step, i) => {
-              const active = isHeaderNavItemActive({ path: step.path }, pathname);
-              const hasReport = !!step.reportKey;
-              const pdfReady = pdfReadyFor(step);
-              const busy = busyKey === step.key;
-              const next = steps[i + 1];
+          {/* Étape dédiée à la page : [icône PDF] Nom de l'étape [Suivant →] */}
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/50 bg-background px-2 py-2 sm:gap-3 sm:px-3 sm:py-2.5">
+            {/* Icône PDF — télécharge le rapport déjà généré, sans relancer
+                aucune analyse. État « non disponible » si le rapport n'existe
+                pas encore ou si l'étape n'a pas de rapport. */}
+            <button
+              type="button"
+              disabled={!hasReport || busy || !project}
+              onClick={() => handlePdf(step)}
+              aria-label={
+                !hasReport
+                  ? `Aucun rapport PDF pour l'étape ${step.label}`
+                  : pdfReady
+                    ? `Télécharger le rapport PDF — ${step.label}`
+                    : `Rapport ${step.label} non disponible`
+              }
+              title={
+                !hasReport
+                  ? "Aucun rapport PDF pour cette étape"
+                  : pdfReady
+                    ? "Télécharger le rapport PDF"
+                    : "Rapport à générer d'abord"
+              }
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all",
+                pdfReady
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 active:scale-95 dark:text-emerald-400"
+                  : "cursor-not-allowed border-foreground/10 bg-muted/40 text-muted-foreground/50",
+              )}
+            >
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : hasReport ? (
+                <FileText className="h-4 w-4" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+            </button>
 
-              const stateLabel = !hasReport
-                ? "Étape du parcours"
-                : pdfReady
-                  ? "PDF disponible"
-                  : "Non commencé";
+            {/* Nom de l'étape + état réel */}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">
+                {step.label}
+              </p>
+              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                {stateLabel}
+              </p>
+            </div>
 
-              return (
-                <li key={step.key}>
-                  <div
-                    className={cn(
-                      "flex items-center gap-2 rounded-xl border bg-background px-2 py-2 transition-colors sm:gap-3 sm:px-3 sm:py-2.5",
-                      active
-                        ? "border-emerald-500/50"
-                        : "border-foreground/10",
-                    )}
-                  >
-                    {/* Icône PDF — télécharge le rapport déjà généré, sans relancer
-                        aucune analyse. État « non disponible » si le rapport n'existe
-                        pas encore ou si l'étape n'a pas de rapport. */}
-                    <button
-                      type="button"
-                      disabled={!hasReport || busy || !project}
-                      onClick={() => handlePdf(step)}
-                      aria-label={
-                        !hasReport
-                          ? `Aucun rapport PDF pour l'étape ${step.label}`
-                          : pdfReady
-                            ? `Télécharger le rapport PDF — ${step.label}`
-                            : `Rapport ${step.label} non disponible`
-                      }
-                      title={
-                        !hasReport
-                          ? "Aucun rapport PDF pour cette étape"
-                          : pdfReady
-                            ? "Télécharger le rapport PDF"
-                            : "Rapport à générer d'abord"
-                      }
-                      className={cn(
-                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all",
-                        pdfReady
-                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 active:scale-95 dark:text-emerald-400"
-                          : "cursor-not-allowed border-foreground/10 bg-muted/40 text-muted-foreground/50",
-                      )}
-                    >
-                      {busy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : hasReport ? (
-                        <FileText className="h-4 w-4" />
-                      ) : (
-                        <Lock className="h-4 w-4" />
-                      )}
-                    </button>
+            {/* « Suivant → » : ouvre l'étape suivante en conservant les données
+                du projet. Absent sur la dernière étape. */}
+            {next ? (
+              <button
+                type="button"
+                onClick={() => navigate(next.href)}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-foreground/15 bg-background px-2.5 py-1.5 text-[11px] font-semibold text-foreground transition-colors hover:border-foreground/30 hover:bg-muted/50 active:scale-95 sm:px-3"
+              >
+                Suivant
+                <ArrowRight className="h-3 w-3" />
+              </button>
+            ) : (
+              <span className="h-7 w-7 shrink-0" aria-hidden />
+            )}
+          </div>
 
-                    {/* Nom de l'étape + état réel */}
-                    <button
-                      type="button"
-                      onClick={() => navigate(step.href)}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <p
-                        className={cn(
-                          "truncate text-sm font-medium",
-                          active ? "text-foreground" : "text-foreground/80",
-                        )}
-                      >
-                        {step.label}
-                      </p>
-                      <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                        {stateLabel}
-                      </p>
-                    </button>
-
-                    {/* « Suivant → » : ouvre l'étape suivante en conservant les
-                        données du projet. Absent sur la dernière étape. */}
-                    {next ? (
-                      <button
-                        type="button"
-                        onClick={() => navigate(next.href)}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-foreground/15 bg-background px-2.5 py-1.5 text-[11px] font-semibold text-foreground transition-colors hover:border-foreground/30 hover:bg-muted/50 active:scale-95 sm:px-3"
-                      >
-                        Suivant
-                        <ArrowRight className="h-3 w-3" />
-                      </button>
-                    ) : (
-                      <span className="h-7 w-7 shrink-0" aria-hidden />
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+          {/* Retour à l'étape précédente (les données restent conservées). */}
+          {previous && (
+            <button
+              type="button"
+              onClick={() => navigate(previous.href)}
+              className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              Étape précédente : {previous.label}
+            </button>
+          )}
         </div>
       </div>
       {pdfGate.dialog}

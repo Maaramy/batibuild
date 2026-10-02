@@ -116,6 +116,7 @@ export default function AiMaterialsResult() {
       <ProjectJourneyNav
         steps={journeySteps}
         projectId={analysis?.projectId ?? null}
+        activeKey="priceList"
         maxWidthClassName="max-w-7xl"
       />
 
