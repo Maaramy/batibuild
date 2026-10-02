@@ -20,8 +20,9 @@
  *       5. Investissement
  *       6. Exécution & suivi
  *   - **Groupe B** — tous les autres types (rénovation, extension, piscine,
- *     restaurant, café, travaux techniques…) : 3 étapes seulement
- *     (coût estimatif → mise en relation → fournisseurs).
+ *     restaurant, café, travaux techniques…) : 4 étapes
+ *     (coût estimatif → plans architecturaux AI → mise en relation →
+ *     fournisseurs).
  *
  * Chaque lien conserve le contexte du projet (`?project=…` ou `/:id`) : la
  * navigation ne recrée jamais de projet et ne perd aucune donnée.
@@ -161,11 +162,23 @@ export function buildProjectJourney(
     reportKey: null,
   };
 
-  // Groupe B — coût estimatif → mise en relation → fournisseurs.
+  // Étape commune aux deux groupes : la génération des plans d'architecte IA
+  // s'appuie uniquement sur les données déjà enregistrées du projet.
+  const plans: ProjectJourneyStep = {
+    key: "plans",
+    label: "Plans architecturaux AI",
+    path: `/dashboard/plans/${pid}`,
+    href: `/dashboard/plans/${pid}`,
+    reportKey: "plans",
+  };
+
+  // Groupe B — coût estimatif → plans architecturaux AI → mise en relation →
+  // fournisseurs.
   if (group === "B")
     return filterDisabledSteps(
       [
         cost,
+        plans,
         consult,
         {
           key: "suppliers",
@@ -182,13 +195,7 @@ export function buildProjectJourney(
   return filterDisabledSteps(
     [
       cost,
-      {
-        key: "plans",
-        label: "Plans architecturaux AI",
-        path: `/dashboard/plans/${pid}`,
-        href: `/dashboard/plans/${pid}`,
-        reportKey: "plans",
-      },
+      plans,
       {
         key: "materials",
         label: "Choix matériaux",
