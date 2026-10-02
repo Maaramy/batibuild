@@ -93,7 +93,6 @@ export default function AiMaterials() {
   const paramProject = params.get("project");
   useAuth();
   const projects = useQuery(api.projects.getUserProjects, {}) || [];
-  const catStats = useQuery(api.aiMaterials.getCopilotCategories) || [];
   const analyses = useQuery(api.aiMaterials.getCopilotAnalyses) || [];
   const saveAnalysis = useMutation(api.aiMaterials.saveCopilotAnalysis);
   const deleteAnalysis = useMutation(api.aiMaterials.deleteCopilotAnalysis);
@@ -107,7 +106,10 @@ export default function AiMaterials() {
     region: "tunis",
     standing: "standard",
   });
-  const [selectedCats, setSelectedCats] = useState<string[]>([]);
+  // Sélection précise : identifiants des matériaux réellement requis par
+  // l'analyse (issus de l'estimation des coûts de construction du projet).
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<string[]>([]);
+  const [materialQuery, setMaterialQuery] = useState("");
 
   // Projet courant (contexte du parcours « Où suis-je dans mon projet ? »).
   const journeyProject = useMemo(
@@ -115,20 +117,57 @@ export default function AiMaterials() {
     [projects, projectId],
   );
 
-  // Pré-sélectionner uniquement les catégories correspondant aux résultats BIM réels
+  // Catégories & matériaux réellement utilisés dans l'estimation globale des
+  // coûts de construction (DQE du projet) — source dynamique de l'étape 2.
+  const estimation = useQuery(
+    api.aiMaterials.getCostEstimationCategories,
+    journeyProject ? { projectId: journeyProject._id as any } : "skip",
+  );
+  const estimationCategories = useMemo<any[]>(
+    () => (estimation?.hasEstimation ? (estimation.categories as any[]) : []),
+    [estimation],
+  );
+
+  // Pré-sélection : tous les matériaux requis par l'estimation, appliquée une
+  // seule fois par projet (les désélections manuelles de l'utilisateur sont
+  // préservées tant que le projet ne change pas).
+  const selectionProjectRef = useRef<string | null>(null);
   useEffect(() => {
-    if (catStats.length > 0 && selectedCats.length === 0) {
-      const CORE_CATEGORY_IDS = new Set([
-        // Gros oeuvre
-        "ciment", "acier", "briques", "blocs_beton", "beton",
-        // Second oeuvre
-        "bois", "carrelage", "faience", "peinture", "enduit", "menuiserie", "portes", "revetements_sol",
-        // Equipements
-        "sanitaires", "robinetterie", "electricite", "plomberie", "chauffage", "climatisation",
-      ]);
-      setSelectedCats(catStats.filter((c) => CORE_CATEGORY_IDS.has(c.id)).map((c) => c.id));
-    }
-  }, [catStats]);
+    if (estimation === undefined) return; // requête en cours de chargement
+    const pid = journeyProject?._id ?? null;
+    if (selectionProjectRef.current === pid) return;
+    selectionProjectRef.current = pid;
+    setSelectedMaterialIds(
+      estimation.hasEstimation
+        ? estimationCategories.flatMap((c) => c.materials.map((m: any) => m.id as string))
+        : [],
+    );
+  }, [estimation, estimationCategories, journeyProject]);
+
+  // Catégories actives = celles dont au moins un matériau est sélectionné.
+  const selectedCats = useMemo(
+    () =>
+      estimationCategories
+        .filter((c) => c.materials.some((m: any) => selectedMaterialIds.includes(m.id)))
+        .map((c) => c.id as string),
+    [estimationCategories, selectedMaterialIds],
+  );
+
+  // Filtrage précis : recherche insensible aux accents dans les matériaux.
+  const normSearch = (s: string) =>
+    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const filteredCategories = useMemo(() => {
+    const q = normSearch(materialQuery.trim());
+    if (!q) return estimationCategories;
+    return estimationCategories
+      .map((c) => ({
+        ...c,
+        materials: c.materials.filter(
+          (m: any) => normSearch(m.name).includes(q) || normSearch(c.label).includes(q),
+        ),
+      }))
+      .filter((c) => c.materials.length > 0);
+  }, [estimationCategories, materialQuery]);
 
   const [enhance, setEnhance] = useState(true);
 
@@ -216,6 +255,7 @@ export default function AiMaterials() {
         projectId: projectId as any,
         context: projectCtx,
         categories: selectedCats,
+        materialIds: selectedMaterialIds,
         enhanceWithAI: enhance,
       });
       // Sauvegarde automatique puis redirection vers la page dédiée de résultat
@@ -251,6 +291,33 @@ export default function AiMaterials() {
   };
 
   const noProjects = projects.length === 0;
+
+  const estimationMaterialCount = useMemo(
+    () => estimationCategories.reduce((sum, c) => sum + c.materials.length, 0),
+    [estimationCategories],
+  );
+  const allMaterialsSelected =
+    estimationMaterialCount > 0 && selectedMaterialIds.length >= estimationMaterialCount;
+
+  const toggleMaterial = (id: string) =>
+    setSelectedMaterialIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
+  const toggleCategory = (cat: any) => {
+    const ids: string[] = cat.materials.map((m: any) => m.id);
+    const all = ids.length > 0 && ids.every((id) => selectedMaterialIds.includes(id));
+    setSelectedMaterialIds((prev) =>
+      all ? prev.filter((id) => !ids.includes(id)) : Array.from(new Set([...prev, ...ids])),
+    );
+  };
+
+  const toggleAllMaterials = () =>
+    setSelectedMaterialIds(
+      allMaterialsSelected
+        ? []
+        : estimationCategories.flatMap((c) => c.materials.map((m: any) => m.id as string)),
+    );
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
@@ -369,46 +436,150 @@ export default function AiMaterials() {
           </CardContent>
         </Card>
 
-        {/* ÉTAPE 2 — CATÉGORIES */}
+        {/* ÉTAPE 2 — MATÉRIAUX REQUIS (dynamique selon l'estimation des coûts) */}
         <Card className="border border-border/40 overflow-hidden rounded-xl">
           <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 text-xs font-bold">2</div>
                 <div>
-                  <CardTitle className="text-sm font-semibold">Sélection des catégories de matériaux</CardTitle>
-                  <CardDescription className="text-[10px]">{selectedCats.length} sélectionnée(s) · {catStats.length} catégories disponibles</CardDescription>
+                  <CardTitle className="text-sm font-semibold">Matériaux requis par votre estimation</CardTitle>
+                  <CardDescription className="text-[10px]">
+                    {estimation?.hasEstimation
+                      ? `${selectedCats.length} catégorie(s) · ${selectedMaterialIds.length}/${estimationMaterialCount} matériau(x) sélectionné(s)`
+                      : "Aligné sur le calcul des coûts de construction du projet"}
+                  </CardDescription>
                 </div>
               </div>
-              <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1"
-                onClick={() => setSelectedCats(selectedCats.length === catStats.length ? [] : catStats.map((c) => c.id))}>
-                <RefreshCw className="h-3 w-3" />
-                {selectedCats.length === catStats.length ? "Tout désélectionner" : "Tout sélectionner"}
-              </Button>
+              {estimation?.hasEstimation && (
+                <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={toggleAllMaterials}>
+                  <RefreshCw className="h-3 w-3" />
+                  {allMaterialsSelected ? "Tout désélectionner" : "Tout sélectionner"}
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-4 sm:p-5">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
-              {catStats.map((c) => {
-                const active = selectedCats.includes(c.id);
-                return (
-                  <button key={c.id}
-                    onClick={() => setSelectedCats(active ? selectedCats.filter((x) => x !== c.id) : [...selectedCats, c.id])}
-                    className={cn(
-                      "relative flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition-all cursor-pointer",
-                      active ? "border-emerald-500/60 bg-emerald-500/5 ring-1 ring-emerald-500/20" : "border-border/40 hover:border-border hover:bg-muted/30",
-                    )}
-                  >
-                    <span className={cn("absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full border text-[9px] transition-all",
-                      active ? "bg-emerald-500 border-emerald-500 text-white" : "border-border text-transparent")}>
-                      <Check className="h-2.5 w-2.5" />
-                    </span>
-                    <span className={cn("text-xs font-semibold leading-tight pr-4", active ? "text-emerald-700 dark:text-emerald-400" : "")}>{c.label}</span>
-                    <span className="text-[9px] text-muted-foreground">{c.count} matériaux en base</span>
-                  </button>
-                );
-              })}
-            </div>
+            {!journeyProject ? (
+              /* Aucun projet sélectionné → impossible d'aligner sur une estimation. */
+              <div className="rounded-xl border border-dashed border-border/60 p-6 sm:p-8 text-center">
+                <HardHat className="h-9 w-9 mx-auto mb-2 text-muted-foreground/40" />
+                <p className="text-sm font-medium">Sélectionnez d'abord un projet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Les catégories et matériaux sont chargés depuis l'estimation des coûts de construction du projet choisi à l'étape 1.
+                </p>
+              </div>
+            ) : !estimation?.hasEstimation ? (
+              /* Projet sans estimation des coûts → inciter à la lancer. */
+              <div className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/[0.04] p-6 sm:p-8 text-center">
+                <Info className="h-9 w-9 mx-auto mb-2 text-amber-500" />
+                <p className="text-sm font-medium">Aucune estimation des coûts pour ce projet</p>
+                <p className="text-xs text-muted-foreground mt-1 mb-3 max-w-md mx-auto">
+                  Pour analyser uniquement les matériaux réellement utilisés, lancez d'abord le calcul des coûts de construction — les catégories et matériaux seront alors chargés automatiquement.
+                </p>
+                <Button size="sm" className="h-8 gap-1.5 text-xs"
+                  onClick={() => navigate(`/dashboard/project/${journeyProject._id}`)}>
+                  <CircleDollarSign className="h-3.5 w-3.5" /> Lancer le calcul des coûts
+                </Button>
+              </div>
+            ) : (
+              <>
+                {/* Filtrage précis des matériaux requis */}
+                <div className="relative mb-3">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={materialQuery}
+                    onChange={(e) => setMaterialQuery(e.target.value)}
+                    placeholder="Filtrer les matériaux requis (ex. ciment, carrelage…)"
+                    aria-label="Filtrer les matériaux requis pour l'analyse"
+                    className="h-9 rounded-lg pl-8 pr-8 text-xs"
+                  />
+                  {materialQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setMaterialQuery("")}
+                      aria-label="Effacer le filtre"
+                      className="absolute right-2 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+
+                {filteredCategories.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/50 px-4 py-8 text-center">
+                    <FilterX className="h-6 w-6 text-muted-foreground/40" />
+                    <p className="text-[11px] text-muted-foreground">Aucun matériau de l'estimation ne correspond à ce filtre.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredCategories.map((c) => {
+                      const selectedInCat = c.materials.filter((m: any) => selectedMaterialIds.includes(m.id)).length;
+                      const allCatSelected = selectedInCat === c.materials.length && c.materials.length > 0;
+                      const someCatSelected = selectedInCat > 0 && !allCatSelected;
+                      return (
+                        <div
+                          key={c.id}
+                          className={cn(
+                            "rounded-xl border p-2.5 transition-colors",
+                            selectedInCat > 0 ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-border/40",
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => toggleCategory(c)}
+                              className="flex items-center gap-2 text-left cursor-pointer">
+                              <span className={cn(
+                                "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] transition-all",
+                                allCatSelected ? "border-emerald-500 bg-emerald-500 text-white"
+                                  : someCatSelected ? "border-emerald-500/60 bg-emerald-500/15 text-transparent"
+                                  : "border-border text-transparent",
+                              )}>
+                                <Check className="h-2.5 w-2.5" />
+                              </span>
+                              <span className={cn("text-xs font-semibold", selectedInCat > 0 ? "text-emerald-700 dark:text-emerald-400" : "")}>
+                                {c.label}
+                              </span>
+                            </button>
+                            <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+                              {selectedInCat}/{c.materials.length} sélectionné(s)
+                            </span>
+                          </div>
+                          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                            {c.materials.map((m: any) => {
+                              const active = selectedMaterialIds.includes(m.id);
+                              return (
+                                <button key={m.id} type="button" onClick={() => toggleMaterial(m.id)}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-all cursor-pointer",
+                                    active ? "border-emerald-500/50 bg-emerald-500/5" : "border-border/40 hover:border-border hover:bg-muted/30",
+                                  )}
+                                >
+                                  <span className={cn(
+                                    "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[8px]",
+                                    active ? "border-emerald-500 bg-emerald-500 text-white" : "border-border text-transparent",
+                                  )}>
+                                    <Check className="h-2 w-2" />
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate text-[11px] font-medium">{m.name}</span>
+                                  <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">
+                                    {m.quantity ? `${Math.round(m.quantity * 10) / 10} ${m.unit}` : m.unit}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <p className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <Info className="h-3 w-3 shrink-0" />
+                  Ces matériaux proviennent de l'estimation des coûts de construction de « {journeyProject.name} ». L'analyse n'étudiera que les matériaux sélectionnés.
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -430,7 +601,11 @@ export default function AiMaterials() {
                 Enrichir les explications avec l'IA générative
               </label>
               <div className="sm:ml-auto">
-                <Button className="gap-2 h-9" disabled={analyzing} onClick={handleAnalyze}>
+                <Button
+                  className="gap-2 h-9"
+                  disabled={analyzing || !estimation?.hasEstimation || selectedMaterialIds.length === 0}
+                  onClick={handleAnalyze}
+                >
                   {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                   {analyzing ? "Analyse en cours..." : "Lancer l'analyse IA"}
                 </Button>

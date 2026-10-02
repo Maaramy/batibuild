@@ -11,6 +11,8 @@
 //    d'ingénieur/architecte.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { resolveCatalogReference } from "./dqeEngine";
+
 export type StandingLevel = "economique" | "standard" | "bon_standing" | "premium" | "luxe";
 export type BudgetMode = "limite" | "economique" | "moyen" | "confortable" | "premium" | "personnalise";
 export type Profile = "economique" | "equilibre" | "premium";
@@ -214,6 +216,89 @@ export function matchCategoryMaterials(cat: CopilotCategory, materials: CatalogM
       out.push(m);
       seen.add(m._id);
     }
+  }
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SÉLECTION DYNAMIQUE — catégories & matériaux réellement utilisés par le
+// calcul des coûts de construction (DQE « Quantitatif détaillé » du projet).
+// ─────────────────────────────────────────────────────────────────────────────
+export type EstimationMaterial = {
+  id: string;
+  name: string;
+  unit: string;
+  unitPrice: number;
+  /** Quantité prévue par l'estimation des coûts du projet. */
+  quantity: number;
+};
+
+export type EstimationCategory = {
+  id: string;
+  label: string;
+  icon: string;
+  /** Nombre de matériaux de l'estimation présents dans la base des prix. */
+  count: number;
+  materials: EstimationMaterial[];
+};
+
+const asArr = <T,>(x: any): T[] => (Array.isArray(x) ? x : []);
+
+/**
+ * Catégories du copilot **effectivement mobilisées** par l'estimation globale
+ * des coûts de construction d'un projet : chaque ligne du DQE est résolue vers
+ * sa référence du catalogue officiel 2026, puis rattachée aux catégories du
+ * copilot. Seuls les matériaux présents à la fois dans l'estimation et dans la
+ * base des prix (`materialPrices`) sont renvoyés — aucune catégorie ni matériau
+ * non utilisé n'est proposé à l'analyse.
+ */
+export function categoriesFromCostEstimation(
+  dqe: any,
+  materials: CatalogMaterial[],
+): EstimationCategory[] {
+  // 1) Matériaux utilisés par l'estimation : nom normalisé → quantité cumulée.
+  const usedQty = new Map<string, number>();
+  for (const lot of asArr<any>(dqe?.lots)) {
+    for (const line of asArr<any>(lot?.lines)) {
+      const ref = resolveCatalogReference(String(line?.designation ?? ""));
+      if (!ref) continue;
+      const key = normOffer(ref.name);
+      usedQty.set(key, (usedQty.get(key) ?? 0) + (Number(line?.quantity) || 0));
+    }
+  }
+  if (usedQty.size === 0) return [];
+
+  // 2) Matériaux de la base des prix réellement présents dans l'estimation.
+  const usedMaterials: CatalogMaterial[] = [];
+  const seen = new Set<string>();
+  for (const m of materials) {
+    const key = normOffer(m.name);
+    if (usedQty.has(key) && !seen.has(key)) {
+      seen.add(key);
+      usedMaterials.push(m);
+    }
+  }
+  if (usedMaterials.length === 0) return [];
+
+  // 3) Rattachement aux catégories du copilot (un matériau peut appartenir à
+  //    plusieurs catégories, exactement comme dans l'analyse).
+  const out: EstimationCategory[] = [];
+  for (const cat of COPILOT_CATEGORIES) {
+    const catMaterials = matchCategoryMaterials(cat, usedMaterials);
+    if (catMaterials.length === 0) continue;
+    out.push({
+      id: cat.id,
+      label: cat.label,
+      icon: cat.icon,
+      count: catMaterials.length,
+      materials: catMaterials.map((m) => ({
+        id: m._id,
+        name: m.name,
+        unit: m.unit,
+        unitPrice: m.unitPrice,
+        quantity: usedQty.get(normOffer(m.name)) ?? 0,
+      })),
+    });
   }
   return out;
 }
@@ -840,6 +925,12 @@ export function recommendForProject(input: {
   categories: string[];
   materials: CatalogMaterial[];
   offers: Offer[];
+  /**
+   * Restriction optionnelle aux matériaux effectivement requis par l'analyse
+   * (identifiants de la base des prix, issus de l'estimation des coûts). Sans
+   * valeur, tous les matériaux recensés de la catégorie sont considérés.
+   */
+  materialIds?: string[];
 }): RecommendResult {
   const ctx = input.context;
   const selected = input.categories
@@ -862,8 +953,13 @@ export function recommendForProject(input: {
   const missingData: string[] = [];
   const costLines: { label: string; material: number; pose: number; transport: number; waste: number; accessories: number; tva: number; total: number; min: number; max: number }[] = [];
 
+  const materialFilter =
+    input.materialIds && input.materialIds.length > 0 ? new Set(input.materialIds) : null;
+
   for (const cat of selected) {
-    const candidates = matchCategoryMaterials(cat, input.materials);
+    const candidates = matchCategoryMaterials(cat, input.materials).filter(
+      (m) => !materialFilter || materialFilter.has(m._id),
+    );
     if (candidates.length === 0) {
       missingData.push(`Aucun matériau recensé pour « ${cat.label} » dans la base des prix.`);
       continue;

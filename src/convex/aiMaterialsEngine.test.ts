@@ -10,6 +10,7 @@ import {
   fallbackChatAnswer,
   buildAssistantContext,
   buildTopArticles,
+  categoriesFromCostEstimation,
   TOP_ARTICLES_LIMIT,
   CatalogMaterial,
   Offer,
@@ -367,5 +368,35 @@ describe("fallbackChatAnswer & contexte", () => {
     const text = buildAssistantContext(null, { ...ctx, region: "ariana" });
     expect(text).toContain("Villa test");
     expect(text).toContain("ariana");
+  });
+});
+
+describe("categoriesFromCostEstimation", () => {
+  const dqeMats: CatalogMaterial[] = [
+    { _id: "d-cim", name: "Ciment CPJ 42.5 (sac 50 kg)", category: "liants_ciments_mortiers", unit: "sac", unitPrice: 14.7 },
+    { _id: "d-peint", name: "Peinture intérieure mate (L)", category: "peintures_enduits_finitions", unit: "L", unitPrice: 12 },
+  ];
+  const dqe = {
+    lots: [
+      { id: "gros_oeuvre", lines: [
+        { designation: "Ciment CPJ 42.5 (sac 50 kg)", quantity: 60 },
+        { designation: "Ciment CPJ 42.5 (sac 50 kg)", quantity: 40 },
+      ] },
+    ],
+  };
+
+  it("ne renvoie que les matériaux réellement utilisés par l'estimation", () => {
+    const cats = categoriesFromCostEstimation(dqe, dqeMats);
+    const ids = cats.flatMap((c) => c.materials.map((m) => m.id));
+    expect(ids).toContain("d-cim");
+    expect(ids).not.toContain("d-peint");
+  });
+
+  it("cumule les quantités et retourne vide sans estimation", () => {
+    const cats = categoriesFromCostEstimation(dqe, dqeMats);
+    const m = cats.find((c) => c.id === "ciment")!.materials.find((x) => x.id === "d-cim");
+    expect(m!.quantity).toBe(100);
+    expect(categoriesFromCostEstimation(null, dqeMats)).toEqual([]);
+    expect(categoriesFromCostEstimation({ lots: [] }, dqeMats)).toEqual([]);
   });
 });
