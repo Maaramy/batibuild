@@ -155,13 +155,15 @@ export default function PlanGenerator() {
           </div>
         </div>
 
-        {/* Parcours du projet — conservé dans l'en-tête sticky. */}
-        <ProjectJourneyNav
-          projectId={id}
-          category={project?.category}
-          maxWidthClassName="max-w-7xl"
-        />
       </header>
+
+      {/* Journey du projet — parcours linéaire persistant (PDF par étape +
+          « Suivant → »), dans le flux normal de la page. */}
+      <ProjectJourneyNav
+        projectId={id}
+        category={project?.category}
+        maxWidthClassName="max-w-7xl"
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
         {/* ── Écran de chargement (3 secondes) ── */}

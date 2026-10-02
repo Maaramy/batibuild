@@ -274,13 +274,15 @@ export default function AiMaterials() {
           </div>
         </div>
 
-        {/* Parcours du projet — conservé dans l'en-tête sticky. */}
-        <ProjectJourneyNav
-          projectId={journeyProject?._id ?? null}
-          category={journeyProject?.category}
-          maxWidthClassName="max-w-7xl"
-        />
       </header>
+
+      {/* Journey du projet — parcours linéaire persistant (PDF par étape +
+          « Suivant → »), dans le flux normal de la page. */}
+      <ProjectJourneyNav
+        projectId={journeyProject?._id ?? null}
+        category={journeyProject?.category}
+        maxWidthClassName="max-w-7xl"
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Hero */}

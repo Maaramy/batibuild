@@ -303,18 +303,16 @@ export default function ProfessionalsDirectory() {
           </div>
         </div>
 
-        {/* Parcours du projet — affiché lorsque l'annuaire est ouvert depuis un
-            projet (contexte conservé dans l'URL). */}
-        <ProjectJourneyNav
-          projectId={projectIdParam}
-          category={project?.category}
-          flags={journeyFlags}
-          maxWidthClassName="max-w-7xl"
-          // Fond opaque : la barre du parcours ne laisse jamais apparaître la
-          // recherche ou ses options en dessous pendant le défilement.
-          className="bg-background"
-        />
       </header>
+
+      {/* Journey du projet — affiché lorsque l'annuaire est ouvert depuis un
+          projet (contexte conservé dans l'URL). */}
+      <ProjectJourneyNav
+        projectId={projectIdParam}
+        category={project?.category}
+        flags={journeyFlags}
+        maxWidthClassName="max-w-7xl"
+      />
 
       {/* Contenu : espace réservé sous la barre sticky (scroll-mt) pour que la
           recherche et son panneau ne passent jamais sous Projet Journey. */}

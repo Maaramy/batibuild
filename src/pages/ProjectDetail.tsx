@@ -645,19 +645,19 @@ export default function ProjectDetail() {
           </div>
         </div>
 
-        {/* Parcours du projet — « Où suis-je dans mon projet ? » : menu
-            horizontal scrollable, sticky avec l'en-tête, étapes déterminées
-            par le type du projet et liens conservant le contexte (id) du
-            projet. Toutes les étapes restent accessibles à tout moment. */}
-        {project.status === "completed" && (
-          <ProjectJourneyNav
-            projectId={project._id}
-            category={project.category}
-            flags={journeyFlags}
-            maxWidthClassName="max-w-5xl"
-          />
-        )}
       </header>
+
+      {/* Journey du projet — parcours linéaire « Où suis-je dans mon projet ? » :
+          liste des étapes, téléchargement PDF de chaque rapport déjà généré et
+          « Suivant → » vers l'étape suivante (contexte du projet conservé). */}
+      {project.status === "completed" && (
+        <ProjectJourneyNav
+          projectId={project._id}
+          category={project.category}
+          flags={journeyFlags}
+          maxWidthClassName="max-w-5xl"
+        />
+      )}
 
       {/* ── Export Progress Overlay ── */}
       {exporting && (

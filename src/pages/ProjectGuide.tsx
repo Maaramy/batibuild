@@ -341,17 +341,14 @@ export default function ProjectGuide() {
     <main className="min-h-screen bg-background pb-10">
         <ClientProPaywall>
       {pdfGate.dialog}
-      {/* Parcours du projet — barre sticky « Où suis-je dans mon projet ? » :
-          permet de passer d'une étape à l'autre à tout moment, en conservant
-          le projet courant. */}
+      {/* Journey du projet — parcours linéaire persistant (PDF par étape +
+          « Suivant → »), dans le flux normal de la page. */}
       {selectedProject && (
-        <div className="sticky top-0 z-30 border-b border-border/20 bg-background/90 backdrop-blur-md">
-          <ProjectJourneyNav
-            projectId={selectedProject._id}
-            category={selectedProject.category}
-            maxWidthClassName="max-w-6xl"
-          />
-        </div>
+        <ProjectJourneyNav
+          projectId={selectedProject._id}
+          category={selectedProject.category}
+          maxWidthClassName="max-w-6xl"
+        />
       )}
       <div className="mx-auto max-w-6xl px-3 sm:px-5 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* En-tête */}

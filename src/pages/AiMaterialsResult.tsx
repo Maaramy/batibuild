@@ -109,11 +109,15 @@ export default function AiMaterialsResult() {
           </div>
         </div>
 
-        {/* Parcours du projet — conservé dans l'en-tête sticky et masqué tant
-            que les résultats ne sont pas affichés : coût estimatif, liste des
-            prix, puis fournisseurs trouvés par l'analyse. */}
-        <ProjectJourneyNav steps={journeySteps} maxWidthClassName="max-w-7xl" />
       </header>
+
+      {/* Journey du projet — masqué tant que les résultats ne sont pas affichés :
+          coût estimatif, liste des prix, puis fournisseurs trouvés par l'analyse. */}
+      <ProjectJourneyNav
+        steps={journeySteps}
+        projectId={analysis?.projectId ?? null}
+        maxWidthClassName="max-w-7xl"
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
         {/* ── Écran de chargement (3 secondes) ── */}
