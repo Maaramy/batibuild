@@ -52,6 +52,7 @@ export {
 
 interface PricingInfo {
   freeOfferEnabled: boolean;
+  freePlanEnabled: boolean;
   planPrice: number | null;
   currency: string;
 }
@@ -63,6 +64,7 @@ async function readPricing(ctx: DbCtx): Promise<PricingInfo> {
   const config = await ctx.db.query("paymentConfig").order("desc").first();
   return {
     freeOfferEnabled: isFreeOffer(config?.proPrice),
+    freePlanEnabled: config?.freePlanEnabled === true,
     planPrice: config?.proPrice ?? null,
     currency: config?.currency ?? "TND",
   };
@@ -123,6 +125,7 @@ export async function getUserSubscriptionStatus(
     now,
     isAdmin: user.role === "admin" || user.role === "moderator",
     freeOfferEnabled: pricing.freeOfferEnabled,
+    freePlanEnabled: pricing.freePlanEnabled,
     planPrice: pricing.planPrice,
     currency: pricing.currency,
     profileCompatibility,

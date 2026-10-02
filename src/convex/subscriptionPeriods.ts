@@ -31,9 +31,10 @@ export type SubscriptionPhase =
   | "trial_expired" // essai terminé → paiement obligatoire
   | "expired" // abonnement mensuel expiré → renouvellement obligatoire
   | "trial_available" // offre gratuite activée, essai pas encore démarré
+  | "free" // forfait Free (gratuit) choisi : accès de base sans PDF
   | "none"; // aucun accès (offre gratuite désactivée, jamais d'essai)
 
-export type SubscriptionKind = "monthly" | "trial" | "admin" | "none";
+export type SubscriptionKind = "monthly" | "trial" | "free" | "admin" | "none";
 
 export interface SubscriptionSnapshot {
   status: SubscriptionPhase;
@@ -139,6 +140,7 @@ export const PHASE_LABELS: Record<SubscriptionPhase, string> = {
   trial_expired: "Essai expiré",
   expired: "Abonnement expiré",
   trial_available: "Essai disponible",
+  free: "Forfait gratuit",
   none: "Aucun abonnement",
 };
 
@@ -161,6 +163,8 @@ export interface SnapshotInput {
   subscriptionPrice?: number | null;
   /** Un paiement mensuel est en attente de validation. */
   pendingPayment?: boolean;
+  /** Le forfait Free (gratuit) est-il proposé par l'administration ? */
+  freePlanEnabled?: boolean;
   /** ── Compatibilité profil ↔ abonnement (règle obligatoire) ── */
   profileCompatibility?: {
     profileRole: "client" | "supplier" | "expert" | null;
@@ -191,6 +195,7 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     subscriptionPlan,
     subscriptionPrice,
     pendingPayment = false,
+    freePlanEnabled = false,
     profileCompatibility = null,
   } = input;
 
@@ -283,6 +288,24 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
       price: null,
       startDate: trialStartDate ?? null,
       endDate: trialEndDate ?? null,
+    };
+  }
+
+  // 3bis. Forfait Free (gratuit) choisi et toujours proposé → accès de base
+  // (fonctionnalités incluses, rapports PDF réservés à Client Pro). Ce cas
+  // prime sur l'essai expiré / l'absence d'abonnement : un utilisateur du
+  // forfait Free ne doit jamais être présenté comme « sans abonnement ».
+  if (plan === "free" && freePlanEnabled) {
+    return {
+      ...base,
+      status: "free",
+      type: "free",
+      isActive: true,
+      requiresPayment: false,
+      planName: planDisplayName("free"),
+      price: 0,
+      startDate: null,
+      endDate: null,
     };
   }
 

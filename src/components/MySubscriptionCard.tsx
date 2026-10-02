@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import {
   AlertTriangle,
   CreditCard,
+  Crown,
   Hourglass,
   Loader2,
   Sparkles,
@@ -84,6 +85,9 @@ export function MySubscriptionCard() {
   // Aucun accès : offre gratuite désactivée et essai jamais accordé. L'utilisateur
   // n'a jamais souscrit — afficher « abonnement expiré » serait faux.
   const isNone = status.type === "none";
+  // Forfait Free (gratuit) choisi : accès de base accordé, rapports PDF réservés
+  // à Client Pro. Ce n'est PAS une absence d'abonnement.
+  const isFreePhase = status.type === "free";
   // Période terminée (essai ou abonnement) ou aucun droit : le CTA doit inviter
   // à choisir/renouveler une offre, pas à consulter l'abonnement en cours.
   const isLocked = isExpiredPhase || isNone;
@@ -98,7 +102,16 @@ export function MySubscriptionCard() {
           ? "Profitez de votre période d’essai gratuit."
           : "Votre période d’essai gratuit est terminée. Veuillez choisir une offre pour continuer à utiliser la plateforme.",
       }
-    : {
+    : isFreePhase
+      ? {
+          title: "Forfait Free",
+          badge: "🟢 Forfait gratuit actif",
+          icon: Sparkles,
+          tone: "sky",
+          message:
+            "Vous utilisez le forfait gratuit : les fonctions essentielles sont incluses. Les rapports PDF sont réservés au forfait Client Pro.",
+        }
+      : {
         title: "Abonnement mensuel",
         badge: isNone
           ? "🔴 Aucun abonnement"
@@ -121,6 +134,7 @@ export function MySubscriptionCard() {
   const Icon = copy.icon;
   const toneClasses: Record<string, string> = {
     emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    sky: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
     amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
     red: "bg-red-500/10 text-red-600 dark:text-red-400",
   };
@@ -144,7 +158,7 @@ export function MySubscriptionCard() {
                 >
                   {copy.badge}
                 </Badge>
-                {!isTrialPhase && status.planName && (
+                {!isTrialPhase && !isFreePhase && status.planName && (
                   <Badge variant="outline" className="text-[9px] px-1.5 py-0">
                     {status.planName}
                   </Badge>
@@ -156,11 +170,16 @@ export function MySubscriptionCard() {
 
           <Button
             size="sm"
-            variant={isLocked ? "default" : "outline"}
+            variant={isLocked || isFreePhase ? "default" : "outline"}
             onClick={() => navigate("/dashboard/pricing")}
             className="h-7 shrink-0 gap-1 px-2.5 text-[10px] sm:text-xs"
           >
-            {isLocked ? (
+            {isFreePhase ? (
+              <>
+                <Crown className="h-3 w-3" />
+                Passer à Client Pro
+              </>
+            ) : isLocked ? (
               <>
                 <CreditCard className="h-3 w-3" />
                 {isTrialPhase || isNone ? "Choisir une offre" : "Renouveler mon abonnement"}
@@ -174,7 +193,7 @@ export function MySubscriptionCard() {
           </Button>
         </div>
 
-        {!isPending && !isNone && (
+        {!isPending && !isNone && !isFreePhase && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[10px] font-medium sm:text-xs">
               <span className="text-muted-foreground">Jours restants</span>
@@ -188,9 +207,15 @@ export function MySubscriptionCard() {
 
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
           <Timer className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            Expiration : <span className="font-medium text-foreground">{formatDate(endDate)}</span>
-          </span>
+          {isFreePhase ? (
+            <span>
+              Aucune échéance — <span className="font-medium text-foreground">forfait gratuit permanent</span>.
+            </span>
+          ) : (
+            <span>
+              Expiration : <span className="font-medium text-foreground">{formatDate(endDate)}</span>
+            </span>
+          )}
         </div>
 
         {!isLocked && status.planCompatible === false && (

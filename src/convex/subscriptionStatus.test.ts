@@ -207,6 +207,45 @@ describe("computeSubscriptionSnapshot", () => {
     expect(snap.isActive).toBe(true);
     expect(snap.requiresPayment).toBe(false);
   });
+
+  it("forfait Free choisi et proposé → état « Forfait gratuit », jamais « Aucun abonnement »", () => {
+    const snap = computeSubscriptionSnapshot({
+      ...base,
+      freeOfferEnabled: false,
+      freePlanEnabled: true,
+      planPrice: 80,
+    });
+    expect(snap.status).toBe("free");
+    expect(snap.type).toBe("free");
+    expect(snap.isActive).toBe(true);
+    expect(snap.requiresPayment).toBe(false);
+    expect(snap.planName).toBe("Gratuit");
+    expect(snap.price).toBe(0);
+  });
+
+  it("forfait Free désactivé → repli sur « Aucun abonnement » (le forfait n'accorde plus l'accès)", () => {
+    const snap = computeSubscriptionSnapshot({
+      ...base,
+      freeOfferEnabled: false,
+      freePlanEnabled: false,
+      planPrice: 80,
+    });
+    expect(snap.status).toBe("none");
+    expect(snap.type).toBe("none");
+  });
+
+  it("abonnement mensuel payant actif prime sur le forfait Free enregistré", () => {
+    const snap = computeSubscriptionSnapshot({
+      ...base,
+      freePlanEnabled: true,
+      subscriptionPlan: "pro",
+      subscriptionPrice: 80,
+      subscriptionStartDate: NOW,
+      subscriptionEndDate: NOW + MONTHLY_DURATION_DAYS * DAY_MS,
+    });
+    expect(snap.status).toBe("active");
+    expect(snap.type).toBe("monthly");
+  });
 });
 
 describe("daysRemainingUntil", () => {
