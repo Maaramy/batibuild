@@ -163,7 +163,7 @@ export const recommendMaterials = action({
       try {
         const summary = result.categories
           .map((c) => {
-            const s = c.solutions.find((x) => x.profile === "equilibre") || c.solutions[0];
+            const s = c.solutions.find((x) => x.profile === result.recommendation.solution) || c.solutions[0];
             return `- ${c.label} → ${s.material.name} (${s.material.band.avg.toFixed(2)} TND/${s.material.unit}, score ${s.scores.noteGlobale}/100)`;
           })
           .join("\n");
