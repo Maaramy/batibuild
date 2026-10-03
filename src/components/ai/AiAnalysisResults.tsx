@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import { useAction } from "convex/react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -19,7 +18,6 @@ import { api } from "@/convex/_generated/api";
 import type { RecommendResult, MaterialScores, CostSummary, Solution } from "@/convex/aiMaterialsEngine";
 import { generateMaterialReportPdf } from "@/lib/materialReportPdf";
 import { SupplierRecommendedCard } from "@/components/SupplierRecommendedCard";
-import { categorySpecialties } from "@/lib/supplierMatch";
 import { useAuth } from "@/hooks/use-auth";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 
@@ -445,15 +443,7 @@ function SolutionCard({
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉSULTATS DE L'ANALYSE MATÉRIAUX IA (page dédiée)
 // ═══════════════════════════════════════════════════════════════════════════
-export function AiAnalysisResults({
-  result,
-  analysisRegion,
-}: {
-  result: RecommendResult;
-  /** Région (code) du projet analysé — pré-remplit le filtre région de l'annuaire. */
-  analysisRegion?: string;
-}) {
-  const navigate = useNavigate();
+export function AiAnalysisResults({ result }: { result: RecommendResult }) {
   const { user } = useAuth();
   // Téléchargement PDF : contrôle centralisé (réservé au forfait payant Client Pro).
   const pdfGate = usePdfGate();
@@ -841,11 +831,12 @@ export function AiAnalysisResults({
                       ))}
                     </div>
 
-                    {/* Fournisseur recommandé pour la solution équilibrée */}
+                    {/* Fournisseur recommandé pour la solution retenue */}
                     {(() => {
-                      const equilibreSol = cat.solutions.find((s) => s.profile === "equilibre");
-                      if (!equilibreSol) return null;
-                      const mat = equilibreSol.material;
+                      const retainedSol =
+                        cat.solutions.find((s) => s.profile === recProfile) || cat.solutions[0];
+                      if (!retainedSol) return null;
+                      const mat = retainedSol.material;
                       return (
                         <div>
                           <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -863,30 +854,6 @@ export function AiAnalysisResults({
                             ]}
                             currentUserId={user?._id as string | undefined}
                           />
-                        </div>
-                      );
-                    })()}
-
-                    {/* Annuaire pré-filtré : région du projet + spécialité */}
-                    {(() => {
-                      const specs = categorySpecialties([cat.categoryId]);
-                      if (specs.length === 0) return null;
-                      const params = new URLSearchParams();
-                      params.set("from", "materials");
-                      params.set("specialty", specs.join(","));
-                      if (analysisRegion) params.set("region", analysisRegion);
-                      return (
-                        <div className="flex justify-end">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 w-full justify-center gap-1.5 text-[11px] font-medium text-primary border-primary/25 hover:bg-primary/5 sm:w-auto"
-                            onClick={() => navigate(`/dashboard/suppliers-directory?${params.toString()}`)}
-                          >
-                            <Store className="h-3 w-3" />
-                            Voir tous les fournisseurs — {cat.label}
-                            <ArrowRight className="h-3 w-3" />
-                          </Button>
                         </div>
                       );
                     })()}
