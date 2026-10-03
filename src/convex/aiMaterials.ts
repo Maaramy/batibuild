@@ -93,7 +93,7 @@ export const getAiMaterialsProjectData = query({
     if (!project) return null;
 
     // Coût total du DQE (dérivé du coût estimatif si stocké, sinon 0).
-    const dqeCost = project.costEstimate?.total ?? 0;
+    const dqeCost = project.costEstimate?.totalCost ?? 0;
 
     // Déroulé des besoins par lot du DQE.
     const needsByCategory: DqeNeedsByCategory[] = (project.costEstimate?.dqe?.lots ?? []).map((lot: any) => ({
