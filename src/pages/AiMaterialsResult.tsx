@@ -53,6 +53,7 @@ export default function AiMaterialsResult() {
     };
   }, []);
 
+  // Loading + navigate is not allowed, but we're using skip mode; this is a read-only result screen.
   const analysis = useQuery(
     api.aiMaterials.getCopilotAnalysis,
     loading || !id ? "skip" : { analysisId: id as any },
