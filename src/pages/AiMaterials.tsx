@@ -1,25 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useAuth } from "@/hooks/use-auth";
-import { api } from "@/convex/_generated/api";
-import { ClientProPaywall } from "@/components/ClientProPaywall";
-import { projectTypeLabel } from "@/convex/projectTypes";
-import { useQuery, useMutation, useAction } from "convex/react";
-import { useNavigate, useSearchParams } from "react-router";
-import { useState, useMemo } from "react";
-import { toast } from "sonner";
-import { motion } from "framer-motion";
-import { usePageSEO } from "@/hooks/use-page-seo";
-import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
-import {
-  Sparkles, HardHat, Loader2, Store, Scale, Check, Trash2, MapPin, Ruler,
-  Wand2, ShieldCheck, RefreshCw, CircleDollarSign, Building2, Info,
-  Blocks, Search, X, MoreHorizontal, ExternalLink, AlertCircle, CalendarDays,
-  LayoutGrid, CheckCircle2, FilterX,
-} from "lucide-react";
-import { ProjectContext } from "@/convex/aiMaterialsEngine";
-import { REGION_LABELS } from "@/lib/projectPdf";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -28,10 +9,30 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { api } from "@/convex/_generated/api";
+import { ClientProPaywall } from "@/components/ClientProPaywall";
+import { projectTypeLabel } from "@/convex/projectTypes";
+import { useQuery, useMutation, useAction } from "convex/react";
+import { useNavigate, useSearchParams } from "react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { motion } from "framer-motion";
+import { usePageSEO } from "@/hooks/use-page-seo";
+import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import {
+  Sparkles, HardHat, Loader2, Check, Trash2, MapPin, Ruler,
+  Wand2, ShieldCheck, RefreshCw, CircleDollarSign, Building2, Info,
+  Blocks, Search, X, MoreHorizontal, ExternalLink, AlertCircle, CalendarDays,
+  LayoutGrid, FilterX,
+} from "lucide-react";
+import type { ProjectContext } from "@/convex/aiMaterialsEngine";
+import type { AiMaterialsProjectData, DqeNeedPoste } from "@/convex/aiMaterials";
+import { REGION_LABELS } from "@/lib/projectPdf";
 import {
   AI_MATERIALS_STATUS_LABEL,
   buildAiMaterialsHistoryEntry,
   filterAiMaterialsHistory,
+  type AiMaterialsHistoryEntry,
   type AiMaterialsHistoryStatus,
 } from "@/lib/aiMaterialsHistory";
 
@@ -44,86 +45,102 @@ const fmtTnd = (n: number) =>
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
-/** Solutions du moteur Matériaux AI — chaque solution produit son propre résultat. */
-export type AiSolutionId = "economique" | "standard" | "premium" | "personnalise";
+/** TVA appliquée aux besoins (marché tunisien 2026) — même taux que le moteur. */
+const TVA = 0.19;
+
+/**
+ * Solution retenue = scénario budgétaire du Quantitatif détaillé. Chaque
+ * solution produit son propre résultat (quantités identiques, prix recalculés).
+ */
+export type AiSolutionId = "economique" | "standard" | "premium";
+
 const SOLUTION_ID_LABEL: Record<AiSolutionId, string> = {
   economique: "Économique",
   standard: "Standard",
   premium: "Premium",
-  personnalise: "Personnalisée",
 };
 
-// ── Données projet → besoins Matériaux AI (source = Quantitatif détaillé) ───
-// Rappels d'architecture :
-//   Projet → DQE → Solution retenue → Besoins calculés → Matériaux AI → Pré-sélection
-import type {
-  DqeNeedPoste,
-  DqeNeedsByCategory,
-  AiMaterialsProjectData,
-  getAiMaterialsProjectData,
-} from "@/convex/aiMaterials";
+const SOLUTION_IDS: AiSolutionId[] = ["economique", "standard", "premium"];
 
-interface AiMaterialsProjectResult
-  extends Omit<AiMaterialsProjectData, "preSelectedMaterialIds" | "needs" | "needsByCategory"> {
-  /** Besoins calculés à partir du DQE du projet (par poste). */
-  needs: DqeNeedPoste[];
-  /** Besoins par catégorie de travaux. */
-  needsByCategory: DqeNeedsByCategory[];
-  /** Statut de compatibilité d'un matériau par rapport aux besoins calculés. */
-  compatibility: "compatible" | "incompatible" | "unnecessary";
+const SOLUTION_HINT: Record<AiSolutionId, string> = {
+  economique: "Matériaux de base, finitions simples",
+  standard: "Bon compromis courant (référence du DQE)",
+  premium: "Matériaux et finitions haut de gamme",
+};
+
+/** Statut de compatibilité d'un besoin par rapport au choix retenu. */
+type Compatibility = "compatible" | "incompatible" | "unnecessary";
+
+const COMPATIBILITY_STYLE: Record<Compatibility, { className: string; label: string }> = {
+  compatible: { className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700", label: "Compatible" },
+  incompatible: { className: "border-red-500/40 bg-red-500/10 text-red-700", label: "Incompatible" },
+  unnecessary: { className: "border-amber-500/40 bg-amber-500/10 text-amber-700", label: "Non retenu" },
+};
+
+/** Besoin du DQE enrichi : prix de la solution retenue, TVA et compatibilité. */
+interface DerivedNeed extends DqeNeedPoste {
+  factor: number;
+  scaledUnitPrice: number;
+  scaledTotal: number;
+  tva: number;
+  totalTTC: number;
+  selected: boolean;
+  compatibility: Compatibility;
 }
 
-/** Pré-sélection générée à partir des besoins réellement calculés dans le DQE. */
-function buildPreSelectedMaterialIds(
-  projectData: AiMaterialsProjectResult,
-  solution: AiSolutionId,
-): string[] {
-  const ids = new Set<string>();
-  for (const need of projectData.needs) {
-    ids.add(need.designation.toLowerCase().replace(/\s+/g, "_"));
-  }
-  return [...ids];
-}
-
-function buildNeedsByCategory(needs: DqeNeedPoste[]): DqeNeedsByCategory[] {
-  const groups = new Map<string, DqeNeedPoste[]>();
-  for (const need of needs) {
-    const key = need.nature || "other";
-    const list = groups.get(key) ?? [];
-    list.push(need);
-    groups.set(key, list);
-  }
-  return Array.from(groups.entries()).map(([id, needs]) => ({
-    id,
-    label: id,
-    nature: id,
-    needs,
-  })) as DqeNeedsByCategory[];
-}
-
-/**
- * Recalcule la vue Matériaux AI à partir du DQE actuel et de la solution
- * retenue. L'ajout d'un champ `solution` sur `needs` permet à la vue de
- * rafraîchir les quantités/prix et à la prédéfinition d'échanger sur la
- * solution qui a servi au calcul sans perdre les choix manuels.
- */
-function computeProjectData(projectData: AiMaterialsProjectData, solution: AiSolutionId): AiMaterialsProjectResult {
-  const needs = projectData.needs.map((n) => ({
-    ...n,
-    solution,
-    total: (n.quantity || 0) * (n.total || 0),
-  }));
+/** Applique le facteur de la solution retenue à un besoin du DQE. */
+function deriveNeed(
+  need: DqeNeedPoste,
+  factor: number,
+  selected: boolean,
+): DerivedNeed {
+  const scaledUnitPrice = Math.round(need.unitPrice * factor * 100) / 100;
+  const scaledTotal = Math.round(need.total * factor);
+  const tva = Math.round(scaledTotal * TVA);
+  const compatibility: Compatibility = !selected
+    ? "unnecessary"
+    : need.nature === "materiaux" && !!need.suggestedCategoryId
+      ? "compatible"
+      : "incompatible";
   return {
-    ...projectData,
-    needs,
-    needsByCategory: buildNeedsByCategory(needs),
-    preSelectedMaterialIds: buildPreSelectedMaterialIds({ ...projectData, needs }, solution),
-    compatibility: projectData.compatibility ?? "unnecessary" as AiMaterialsProjectResult["compatibility"],
+    ...need,
+    factor,
+    scaledUnitPrice,
+    scaledTotal,
+    tva,
+    totalTTC: scaledTotal + tva,
+    selected,
+    compatibility,
   };
 }
 
+// ── Historique (interface) ───────────────────────────────────────────────────
+const HISTORY_FILTERS: { value: AiMaterialsHistoryStatus | "all"; label: string }[] = [
+  { value: "all", label: "Toutes" },
+  { value: "completed", label: "Terminées" },
+  { value: "running", label: "En cours" },
+  { value: "error", label: "Erreurs" },
+];
+
+const HISTORY_STATUS_STYLE: Record<
+  AiMaterialsHistoryStatus,
+  { className: string; icon: typeof Check }
+> = {
+  completed: { className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700", icon: Check },
+  running: { className: "border-sky-500/40 bg-sky-500/10 text-sky-700", icon: RefreshCw },
+  error: { className: "border-red-500/40 bg-red-500/10 text-red-700", icon: AlertCircle },
+};
+
+const HISTORY_STANDING_LABELS: Record<string, string> = {
+  economique: "Économique",
+  standard: "Standard",
+  premium: "Premium",
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE — AI MATERIALS COPILOT
+// Chaîne de dépendances : Projet → DQE → Solution retenue → Besoins →
+// Matériaux AI → Pré-sélection. Tout est recalculé quand l'un d'eux change.
 // ═══════════════════════════════════════════════════════════════════════════
 export default function AiMaterials() {
   usePageSEO({
@@ -133,182 +150,198 @@ export default function AiMaterials() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const paramProject = params.get("project");
-  useAuth();
 
-  const projects = useQuery(api.projects.getUserProjects, {}) || [];
-  // Historique des analyses (le filtrage et l'interface restent inchangés ; les
-  // documents proviennent désormais du chemin de lecture existant `getProject`).
-  const [historyQuery, setHistoryQuery] = useState("");
-  const [historyStatus, setHistoryStatus] = useState<AiMaterialsHistoryStatus | "all">("all");
   const analyzeStepRef = useRef<HTMLDivElement | null>(null);
 
-  const historyEntries = useMemo(
-    () => [] as AiMaterialsHistoryEntry[],
-    [],
-  );
+  const projects = useQuery(api.projects.getUserProjects, {}) || [];
 
-  const visibleHistory = useMemo(
-    () => filterAiMaterialsHistory(historyEntries, { query: historyQuery, status: historyStatus }),
-    [historyEntries, historyQuery, historyStatus],
-  );
+  // ── Projet sélectionné ──
+  const [projectId, setProjectId] = useState<string>(paramProject || "");
 
-  const historyCounters = useMemo(() => ({
-    all: 0,
-    completed: 0,
-    running: 0,
-    error: 0,
-  }), [historyEntries]);
-
-  // ── Solution retenue ──
+  // ── Solution retenue (scénario budgétaire) ──
   const [solution, setSolution] = useState<AiSolutionId>("standard");
 
-  // ── Formulaire de projet ──
-  const [projectId, setProjectId] = useState<string | null>(paramProject || "");
-  const [form, setForm] = useState({
-    surface: 120,
-    floors: 1,
-    region: "tunis",
-    standing: "standard",
-  });
+  // ── Sélections manuelles (conservées lors des recalculs) ──
+  // Clé = identifiant stable du besoin (`lotId::index`). Absente → la
+  // pré-sélection du serveur s'applique ; présente → choix explicite du client.
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 
-  // ── Sélections manuelles du client (conservées lors des recalculs) ──
-  /** IDs des matériaux choisis explicitement par l'utilisateur. */
-  const [manualSelections, setManualSelections] = useState<string[]>([]);
-  /** Résultats calculés dynamiquement à partir du DQE + solution retenue. */
-  const [projectData, setProjectData] = useState<AiMaterialsProjectResult | null>(null);
-
-  // ── Résultats d'analyse ──
+  // ── Analyse ──
   const [analyzing, setAnalyzing] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [enhance, setEnhance] = useState(true);
 
-  const journeyProject = useMemo(
-    () => projects.find((p: any) => p._id === projectId) as any,
-    [projects, projectId],
+  // ── Historique ──
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyStatus, setHistoryStatus] = useState<AiMaterialsHistoryStatus | "all">("all");
+
+  const recommendMaterials = useAction(api.aiMaterialsActions.recommendMaterials);
+  const saveCopilotAnalysis = useMutation(api.aiMaterials.saveCopilotAnalysis);
+  const deleteCopilotAnalysis = useMutation(api.aiMaterials.deleteCopilotAnalysis);
+
+  // ── Source du besoin : Quantitatif détaillé du projet (réactif) ──
+  const projectData = useQuery(
+    api.aiMaterials.getAiMaterialsProjectData,
+    projectId ? { projectId: projectId as any } : "skip",
   );
-  const project = journeyProject;
-  const selectProject = (id: string) => {
-    setProjectId(id);
-    const proj = projects.find((p: any) => p._id === id) as any;
-    if (proj) {
-      setForm((f) => ({
-        ...f,
-        surface: proj.surface || f.surface,
-        floors: proj.floors || f.floors || 1,
-        region: proj.region || f.region,
-      }));
-    }
-  };
 
-  // ── Rechargement des données projet à partir du Quantitatif détaillé ──
-  const refreshProjectData = async (pid: string, solution: AiSolutionId) => {
-    if (!pid) return;
-    try {
-      const data = await ctx.query(api.aiMaterials.getAiMaterialsProjectData, { projectId: pid });
-      if (data) {
-        setProjectData(computeProjectData(data as AiMaterialsProjectResult, solution));
-      }
-    } catch {
-      // Pas critique
-    }
-  };
-
-  // ── Analyse IA ──
-  const projectCtx = useMemo<ProjectContext>(() => {
-    const proj = projects.find((p: any) => p._id === projectId) as any;
-    if (!proj) return {
-      region: form.region,
-      surface: Number(form.surface) || 0,
-      floors: Number(form.floors) || 1,
-      standing: form.standing as ProjectContext["standing"],
-      budgetMode: "moyen",
-    };
-    return {
-      projectName: proj.name,
-      projectCategory: proj.category,
-      region: proj.region || form.region,
-      surface: Number(proj.surface || form.surface) || 0,
-      floors: Number(proj.floors || form.floors) || 1,
-      standing: form.standing as ProjectContext["standing"],
-      budgetMode: "moyen",
-      rooms: { bathrooms: proj.bathrooms, kitchens: proj.kitchens, bedrooms: proj.bedrooms },
-      terrainSurface: proj.surfaceTotale,
-    };
-  }, [projects, projectId, form]);
-
-
-
-  // Lancer l'analyse uniquement si les besoins (et la solution) sont dispos.
-  const handleAnalyze = async () => {
-    if (!projectId) return toast.error("Choisissez un projet.");
-    if (!projectData || projectData.needs.length === 0) {
-      return toast.error("Aucun besoin calculé à partir du Quantitatif détaillé.");
-    }
-    setAnalyzing(true);
-    try {
-      const res = await recommendMaterials({
-        projectId: projectId as any,
-        context: projectCtx,
-        categories: manualSelections,
-        enhanceWithAI: enhance,
-      });
-      let savedAnalysisId: string | undefined;
-      try {
-        savedAnalysisId = await saveAnalysis({
-          projectId: projectId as any,
-          input: { context: projectCtx, categories: manualSelections, useAI: true, enhance },
-          results: { recommend: res },
-        });
-        setSavedId(savedAnalysisId);
-      } catch {
-        /* la sauvegarde est optionnelle */
-      }
-      toast.success("Analyse terminée.");
-      if (savedAnalysisId) {
-        navigate(`/dashboard/ai-materials/result/${savedAnalysisId}`);
-      } else {
-        toast.error("Impossible de rediriger : analyse non enregistrée.");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'analyse");
-    }
-    setAnalyzing(false);
-  };
-
-  const loadAnalysis = (doc: any) => {
-    const res = doc?.results?.recommend;
-    if (!doc || !res) return toast.error("Analyse sans recommandation enregistrée.");
-    setSavedId(doc._id);
-    navigate(`/dashboard/ai-materials/result/${doc._id}`);
-  };
-
-  const noProjects = projects.length === 0;
-
-  const selectAllManual = () => {
-    setManualSelections(
-      projectData?.needs.map((n) => n.designation) ?? [],
-    );
-  };
-
-  const toggleManualSelection = (id: string) => {
-    setManualSelections((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-  };
+  // ── Analyses enregistrées (historique réel) ──
+  const historyDocs = useQuery(api.aiMaterials.getCopilotAnalyses, {}) ?? [];
 
   const project = useMemo(
     () => (projects.find((p: any) => p._id === projectId) as any) || null,
     [projects, projectId],
   );
 
-  // ── Historique des analyses (données, statuts, routes et actions inchangés) ──
-  const [historyQuery, setHistoryQuery] = useState("");
-  const [historyStatus, setHistoryStatus] = useState<AiMaterialsHistoryStatus | "all">("all");
-  const analyzeStepRef = useRef<HTMLDivElement | null>(null);
+  // Changement de projet → les choix manuels précédents ne s'appliquent plus.
+  useEffect(() => {
+    setOverrides({});
+  }, [projectId]);
 
-  const historyEntries = useMemo(
-    () => [] as AiMaterialsHistoryEntry[],
-    [],
+  // ── Besoins recalculés : DQE × solution retenue × pré-sélection ──
+  const factor = projectData?.budgetScenarios?.[solution]?.factor ?? 1;
+
+  const isSelected = (need: DqeNeedPoste) =>
+    overrides[need.key] ?? need.preSelected;
+
+  const needsByCategory = useMemo(() => {
+    if (!projectData) return [];
+    return projectData.needsByCategory.map((cat) => ({
+      ...cat,
+      needs: cat.needs.map((need) => deriveNeed(need, factor, isSelected(need))),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectData, factor, overrides]);
+
+  const allNeeds = useMemo(
+    () => needsByCategory.flatMap((c) => c.needs),
+    [needsByCategory],
+  );
+
+  const selectedNeeds = useMemo(
+    () => allNeeds.filter((n) => n.selected),
+    [allNeeds],
+  );
+
+  const totals = useMemo(() => {
+    const selectedTotal = selectedNeeds.reduce((s, n) => s + n.scaledTotal, 0);
+    const selectedTTC = selectedNeeds.reduce((s, n) => s + n.totalTTC, 0);
+    const dqeTotal = allNeeds.reduce((s, n) => s + n.scaledTotal, 0);
+    return {
+      selectedTotal,
+      selectedTTC,
+      dqeTotal,
+      count: selectedNeeds.length,
+    };
+  }, [selectedNeeds, allNeeds]);
+
+  const preSelectedCount = allNeeds.filter((n) => n.preSelected).length;
+  const manualCount = allNeeds.filter((n) => overrides[n.key] !== undefined).length;
+
+  // ── Catégories envoyées au moteur : issues des besoins sélectionnés ──
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of selectedNeeds) if (n.suggestedCategoryId) set.add(n.suggestedCategoryId);
+    return [...set];
+  }, [selectedNeeds]);
+
+  const projectCtx = useMemo<ProjectContext>(() => {
+    const proj = project as any;
+    return {
+      projectName: proj?.name,
+      projectCategory: proj?.category,
+      region: proj?.region,
+      surface: Number(proj?.surface) || 0,
+      floors: Number(proj?.floors) || 1,
+      rooms: {
+        bathrooms: proj?.bathrooms,
+        kitchens: proj?.kitchens,
+        bedrooms: proj?.bedrooms,
+      },
+      terrainSurface: proj?.surfaceTotale,
+      standing: solution as ProjectContext["standing"],
+      budgetMode: "moyen",
+    };
+  }, [project, solution]);
+
+  const selectProject = (id: string) => {
+    setProjectId(id);
+    setSavedId(null);
+  };
+
+  const toggleNeed = (need: DqeNeedPoste) => {
+    setOverrides((prev) => ({ ...prev, [need.key]: !isSelected(need) }));
+  };
+
+  const selectAll = () => {
+    const next: Record<string, boolean> = {};
+    for (const n of allNeeds) next[n.key] = true;
+    setOverrides(next);
+  };
+
+  const clearAll = () => {
+    const next: Record<string, boolean> = {};
+    for (const n of allNeeds) next[n.key] = false;
+    setOverrides(next);
+  };
+
+  const resetToPreSelection = () => setOverrides({});
+
+  const goToAnalyzeStep = () => {
+    analyzeStepRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  // ── Analyse IA ──
+  const handleAnalyze = async () => {
+    if (!projectId) return toast.error("Choisissez un projet.");
+    if (!projectData || allNeeds.length === 0) {
+      return toast.error("Aucun besoin calculé à partir du Quantitatif détaillé.");
+    }
+    if (categories.length === 0) {
+      return toast.error("Sélectionnez au moins un matériau reconnu dans le catalogue.");
+    }
+    setAnalyzing(true);
+    try {
+      const result = await recommendMaterials({
+        projectId: projectId as any,
+        context: projectCtx,
+        categories,
+        enhanceWithAI: enhance,
+      });
+      let analysisId: string | null = null;
+      try {
+        analysisId = await saveCopilotAnalysis({
+          projectId: projectId as any,
+          input: {
+            context: projectCtx,
+            categories,
+            solution,
+            selectedNeedKeys: selectedNeeds.map((n) => n.key),
+            enhance,
+          },
+          results: { recommend: result },
+        });
+        setSavedId(analysisId);
+      } catch {
+        // La sauvegarde est optionnelle : le résultat reste affichable.
+      }
+      toast.success("Analyse terminée.");
+      if (analysisId) {
+        navigate(`/dashboard/ai-materials/result/${analysisId}`);
+      } else {
+        toast.error("Analyse non enregistrée : impossible d'afficher le résultat.");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Erreur lors de l'analyse");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  // ── Historique ──
+  const historyEntries = useMemo<AiMaterialsHistoryEntry[]>(
+    () => historyDocs.map((doc: any) => buildAiMaterialsHistoryEntry(doc, savedId)),
+    [historyDocs, savedId],
   );
 
   const visibleHistory = useMemo(
@@ -316,33 +349,32 @@ export default function AiMaterials() {
     [historyEntries, historyQuery, historyStatus],
   );
 
-  const historyCounters = useMemo(() => ({
-    all: 0,
-    completed: 0,
-    running: 0,
-    error: 0,
-  }), [historyEntries]);
+  const historyCounters = useMemo(
+    () => ({
+      all: historyEntries.length,
+      completed: historyEntries.filter((e) => e.status === "completed").length,
+      running: historyEntries.filter((e) => e.status === "running").length,
+      error: historyEntries.filter((e) => e.status === "error").length,
+    }),
+    [historyEntries],
+  );
 
-  const goToAnalyzeStep = () => {
-    analyzeStepRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  const loadAnalysis = (entry: AiMaterialsHistoryEntry) => {
+    if (!entry.hasRecommendation) return toast.error("Analyse sans recommandation enregistrée.");
+    setSavedId(entry.id);
+    navigate(`/dashboard/ai-materials/result/${entry.id}`);
   };
 
-  // Premier affichage : si le projet sélectionné a un DQE, recalcul immédiat
-  // (simulation d'un changement de Quantitatif détaillé après sa modification).
-  useEffect(() => {
-    if (projectId) {
-      refreshProjectData(projectId, solution);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, solution]);
+  const noProjects = projects.length === 0;
+  const dqeMissing = !!projectId && projectData === null;
+  const loadingNeeds = !!projectId && projectData === undefined;
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
       <ClientProPaywall>
-        {/* Journey du projet — parcours linéaire persistant. */}
         <ProjectJourneyNav
-          projectId={journeyProject?._id ?? null}
-          category={journeyProject?.category}
+          projectId={project?._id ?? null}
+          category={project?.category}
           featureLabel="Assistant Matériaux IA"
           maxWidthClassName="max-w-7xl"
         />
@@ -365,15 +397,15 @@ export default function AiMaterials() {
               </div>
               <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight">Quel est le meilleur matériau pour mon projet ?</h2>
               <p className="mt-1.5 text-xs sm:text-sm text-emerald-100/80 max-w-2xl">
-                L'IA analyse le catalogue 2026 et les offres fournisseurs pour vous proposer 3 solutions
-                (Standard · Équilibrée · Premium), le coût total estimé, les fournisseurs au meilleur prix
-                et l'optimisation de votre budget — adaptés au climat et au marché tunisien.
+                Les besoins sont calculés automatiquement depuis le Quantitatif détaillé du projet et la
+                solution retenue. L'IA croise ensuite le catalogue 2026 et les offres fournisseurs pour
+                proposer la meilleure solution, le coût estimé et les fournisseurs au meilleur prix.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {[
                   { icon: CircleDollarSign, text: "Budget & standing" },
-                  { icon: Scale, text: "3 solutions comparées" },
-                  { icon: Store, text: "Fournisseurs recensés" },
+                  { icon: RefreshCw, text: "Recalcul automatique" },
+                  { icon: Blocks, text: "Pré-sélection DQE" },
                   { icon: Wand2, text: "Optimisation IA" },
                 ].map((b, i) => (
                   <Badge key={i} className="gap-1.5 border-emerald-400/30 bg-white/10 text-emerald-50 py-1.5 px-3">
@@ -391,7 +423,7 @@ export default function AiMaterials() {
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 text-xs font-bold">1</div>
                 <div>
                   <CardTitle className="text-sm font-semibold">Mon projet</CardTitle>
-                  <CardDescription className="text-[10px]">Choisissez un projet de construction existant — les informations sont importées automatiquement</CardDescription>
+                  <CardDescription className="text-[10px]">Choisissez un projet — le Quantitatif détaillé et ses besoins sont importés automatiquement</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -400,7 +432,7 @@ export default function AiMaterials() {
                 <div className="rounded-xl border border-dashed border-border/60 p-6 sm:p-8 text-center">
                   <Building2 className="h-10 w-10 mx-auto mb-2 text-muted-foreground/40" />
                   <p className="text-sm font-medium">Aucun projet de construction trouvé</p>
-                  <p className="text-xs text-muted-foreground mt-1 mb-3">Créez d'abord un projet pour importer automatiquement surface, type et localisation.</p>
+                  <p className="text-xs text-muted-foreground mt-1 mb-3">Créez d'abord un projet pour importer automatiquement son Quantitatif détaillé.</p>
                   <Button size="sm" onClick={() => navigate("/dashboard/new")} className="h-8 gap-1.5 text-xs">
                     <HardHat className="h-3.5 w-3.5" /> Créer un projet de construction
                   </Button>
@@ -452,32 +484,43 @@ export default function AiMaterials() {
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 text-xs font-bold">2</div>
                 <div>
                   <CardTitle className="text-sm font-semibold">Solution retenue</CardTitle>
-                  <CardDescription className="text-[10px]">Sélectionnez la solution qui servira de référence au calcul des matériaux et des prix.</CardDescription>
+                  <CardDescription className="text-[10px]">Scénario budgétaire du projet qui sert de référence au calcul des matériaux et des prix.</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-4 sm:p-5">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {(Object.keys(SOLUTION_ID_LABEL) as AiSolutionId[]).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setSolution(s)}
-                    className={cn(
-                      "flex items-center justify-between rounded-xl border px-3 py-3 text-left transition-all cursor-pointer",
-                      solution === s
-                        ? "border-amber-500/50 bg-amber-500/5 ring-1 ring-amber-500/20"
-                        : "border-border/40 hover:border-border hover:bg-muted/30",
-                    )}
-                  >
-                    <span className="text-sm font-semibold">{SOLUTION_ID_LABEL[s]}</span>
-                    {solution === s && <Check className="h-4 w-4 text-amber-600" />}
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {SOLUTION_IDS.map((s) => {
+                  const f = projectData?.budgetScenarios?.[s]?.factor ?? 1;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setSolution(s)}
+                      className={cn(
+                        "flex items-start justify-between gap-2 rounded-xl border px-3 py-3 text-left transition-all cursor-pointer",
+                        solution === s
+                          ? "border-amber-500/50 bg-amber-500/5 ring-1 ring-amber-500/20"
+                          : "border-border/40 hover:border-border hover:bg-muted/30",
+                      )}
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold">{SOLUTION_ID_LABEL[s]}</span>
+                        <span className="mt-0.5 block text-[10px] text-muted-foreground">{SOLUTION_HINT[s]}</span>
+                        {projectData && (
+                          <span className="mt-1 inline-block text-[10px] font-medium text-amber-700">
+                            ×{f.toFixed(2)}
+                          </span>
+                        )}
+                      </span>
+                      {solution === s && <Check className="h-4 w-4 shrink-0 text-amber-600" />}
+                    </button>
+                  );
+                })}
               </div>
               <p className="mt-3 text-[11px] text-muted-foreground">
-                Par défaut, si aucune autre solution n'est sélectionnée, la <span className="font-semibold text-foreground">Solution Standard</span> est utilisée.
-                Chaque solution produit son propre résultat : les quantités et les prix sont recalculés
-                dès que vous changez de solution.
+                Par défaut, la <span className="font-semibold text-foreground">Solution Standard</span> (référence du
+                Quantitatif détaillé) est utilisée. Changer de solution recalcule immédiatement les prix unitaires et
+                les totaux des besoins, sans perdre vos choix manuels.
               </p>
             </CardContent>
           </Card>
@@ -485,39 +528,63 @@ export default function AiMaterials() {
           {/* ÉTAPE 3 — BESOINS DU QUANTITATIF DÉTAILLÉ */}
           <Card className="border border-border/40 overflow-hidden rounded-xl">
             <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 text-xs font-bold">3</div>
-                <div>
-                  <CardTitle className="text-sm font-semibold">Besoins du Quantitatif détaillé</CardTitle>
-                  <CardDescription className="text-[10px]">Source unique des besoins : les catégories de travaux et les quantités calculées du projet.</CardDescription>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 text-xs font-bold">3</div>
+                  <div>
+                    <CardTitle className="text-sm font-semibold">Besoins du Quantitatif détaillé</CardTitle>
+                    <CardDescription className="text-[10px]">Source unique des besoins : catégories de travaux et quantités calculées du projet.</CardDescription>
+                  </div>
                 </div>
+                {projectData && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/5 px-2.5 py-1 text-[10px] font-medium text-violet-700">
+                    <Info className="h-3 w-3" />
+                    Provenance DQE · généré le {projectData.generatedAt ? fmtDate(projectData.generatedAt) : "—"}
+                  </span>
+                )}
               </div>
             </CardHeader>
             <CardContent className="p-4 sm:p-5">
-              {!projectData || projectData.needs.length === 0 ? (
+              {!projectId ? (
+                <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border/50 px-4 py-8 text-center">
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">Sélectionnez un projet pour charger son Quantitatif détaillé.</p>
+                </div>
+              ) : loadingNeeds ? (
                 <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border/50 px-4 py-8 text-center">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">Chargement du Quantitatif détaillé…</p>
                 </div>
+              ) : dqeMissing || allNeeds.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/[0.04] px-4 py-8 text-center">
+                  <AlertCircle className="mx-auto mb-2 h-8 w-8 text-amber-600/60" />
+                  <p className="text-sm font-medium">Aucun besoin calculé pour ce projet</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Lancez d'abord l'analyse du projet pour générer son Quantitatif détaillé (DQE).
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-3">
-                  {projectData.needsByCategory.map((cat) => (
+                  {needsByCategory.map((cat) => (
                     <div key={cat.id}>
-                      <h4 className="text-xs font-semibold text-muted-foreground mb-2">{cat.label}</h4>
+                      <div className="mb-2 flex items-center gap-2">
+                        <h4 className="text-xs font-semibold text-muted-foreground">{cat.label}</h4>
+                        <span className="text-[10px] text-muted-foreground/60">{cat.needs.length} poste(s)</span>
+                      </div>
                       <div className="space-y-2">
                         {cat.needs.map((need) => (
                           <div
-                            key={`${cat.id}-${need.designation}`}
-                            className="flex items-center justify-between rounded-lg border border-border/30 px-3 py-2"
+                            key={need.key}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-border/30 px-3 py-2"
                           >
                             <div className="min-w-0">
-                              <p className="text-xs font-medium truncate">{need.designation}</p>
+                              <p className="truncate text-xs font-medium">{need.designation}</p>
                               <p className="text-[10px] text-muted-foreground">
-                                {need.unit} × {need.quantity} · {need.nature} · solution : {SOLUTION_ID_LABEL[need.solution]}
+                                {need.quantity} {need.unit} × {fmtTnd(need.scaledUnitPrice)} · {need.nature}
                               </p>
                             </div>
-                            <span className="text-xs tabular-nums font-semibold text-primary">
-                              {fmtTnd(need.total)}
+                            <span className="shrink-0 text-xs font-semibold tabular-nums text-primary">
+                              {fmtTnd(need.scaledTotal)}
                             </span>
                           </div>
                         ))}
@@ -529,7 +596,7 @@ export default function AiMaterials() {
             </CardContent>
           </Card>
 
-          {/* ÉTAPE 4 — MATÉRIAUX AI */}
+          {/* ÉTAPE 4 — MATÉRIAUX AI (pré-sélection + compatibilité) */}
           <Card className="border border-border/40 overflow-hidden rounded-xl">
             <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
@@ -537,103 +604,122 @@ export default function AiMaterials() {
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 text-xs font-bold">4</div>
                   <div>
                     <CardTitle className="text-sm font-semibold">Matériaux AI</CardTitle>
-                    <CardDescription className="text-[10px]">Résultats dynamiques du Quantitatif détaillé + solution retenue.</CardDescription>
+                    <CardDescription className="text-[10px]">
+                      Pré-sélection automatique depuis le DQE — {preSelectedCount} poste(s) proposé(s), {totals.count} retenu(s).
+                    </CardDescription>
                   </div>
                 </div>
-                <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={selectAllManual}>
-                  <RefreshCw className="h-3 w-3" /> Tout sélectionner
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={selectAll}>
+                    <Check className="h-3 w-3" /> Tout sélectionner
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={clearAll}>
+                    <X className="h-3 w-3" /> Tout désélectionner
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={resetToPreSelection}>
+                    <RefreshCw className="h-3 w-3" /> Pré-sélection
+                  </Button>
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="p-4 sm:p-5">
-              {!projectData || projectData.needs.length === 0 ? (
+            <CardContent className="p-4 sm:p-5 space-y-3">
+              {allNeeds.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border/50 px-4 py-8 text-center">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">Aucun matériau calculé pour le moment.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {projectData.needs.map((need) => {
-                    const compat = projectData.compatibility;
-                    return (
-                      <div
-                        key={need.designation}
-                        className={cn(
-                          "flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border p-3 transition-all",
-                          compat === "compatible"
-                            ? "border-emerald-500/30 bg-emerald-500/5"
-                            : compat === "incompatible"
-                              ? "border-red-500/30 bg-red-500/5"
-                              : "border-amber-500/30 bg-amber-500/5",
-                        )}
-                      >
-                        <div className="flex items-start gap-3 min-w-0">
-                          <span
-                            className={cn(
-                              "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                              compat === "compatible" && "bg-emerald-500/20 text-emerald-700",
-                              compat === "incompatible" && "bg-red-500/20 text-red-700",
-                              compat === "unnecessary" && "bg-amber-500/20 text-amber-700",
-                            )}
-                          >
-                            {compat === "compatible" && <Check className="h-3.5 w-3.5" />}
-                            {compat === "incompatible" && <AlertCircle className="h-3.5 w-3.5" />}
-                            {compat === "unnecessary" && <X className="h-3.5 w-3.5" />}
-                          </span>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-xs font-semibold truncate">{need.designation}</p>
-                              {manualSelections.includes(need.designation) && (
-                                <Badge className="gap-1 ml-auto rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-700">
-                                  <Check className="h-2.5 w-2.5" /> Man. choisi
-                                </Badge>
-                              )}
+                <>
+                  {/* Récapitulatif */}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="rounded-xl border border-border/40 bg-muted/10 p-3">
+                      <p className="text-[10px] text-muted-foreground">Postes retenus</p>
+                      <p className="text-sm font-bold tabular-nums">{totals.count} / {allNeeds.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-border/40 bg-muted/10 p-3">
+                      <p className="text-[10px] text-muted-foreground">Total HT retenu</p>
+                      <p className="text-sm font-bold tabular-nums">{fmtTnd(totals.selectedTotal)}</p>
+                    </div>
+                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+                      <p className="text-[10px] text-muted-foreground">Total TTC retenu</p>
+                      <p className="text-sm font-bold tabular-nums text-emerald-700">{fmtTnd(totals.selectedTTC)}</p>
+                    </div>
+                    <div className="rounded-xl border border-border/40 bg-muted/10 p-3">
+                      <p className="text-[10px] text-muted-foreground">Choix manuels</p>
+                      <p className="text-sm font-bold tabular-nums">{manualCount}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {allNeeds.map((need) => {
+                      const style = COMPATIBILITY_STYLE[need.compatibility];
+                      return (
+                        <div
+                          key={need.key}
+                          className={cn(
+                            "flex flex-col gap-3 rounded-xl border p-3 transition-all sm:flex-row sm:items-center sm:justify-between",
+                            need.selected
+                              ? need.compatibility === "compatible"
+                                ? "border-emerald-500/30 bg-emerald-500/5"
+                                : "border-red-500/30 bg-red-500/5"
+                              : "border-border/40 bg-muted/10",
+                          )}
+                        >
+                          <div className="flex min-w-0 items-start gap-3">
+                            <label className="mt-0.5 flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={need.selected}
+                                onChange={() => toggleNeed(need)}
+                                className="h-4 w-4 accent-emerald-600"
+                                aria-label={`Choisir ${need.designation}`}
+                              />
+                            </label>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate text-xs font-semibold">{need.designation}</p>
+                                {overrides[need.key] !== undefined && (
+                                  <Badge className="gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-700">
+                                    <Check className="h-2.5 w-2.5" /> Choix manuel
+                                  </Badge>
+                                )}
+                                {need.suggestedCategoryLabel && (
+                                  <span className="rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-medium text-violet-700">
+                                    {need.suggestedCategoryLabel}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                {need.poste}{need.sousPoste ? ` · ${need.sousPoste}` : ""} · {need.nature}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground/70">
+                                Besoin DQE : {need.quantity} {need.unit} × {fmtTnd(need.scaledUnitPrice)} ={" "}
+                                {fmtTnd(need.scaledTotal)} HT · TVA {fmtTnd(need.tva)} · TTC {fmtTnd(need.totalTTC)}
+                              </p>
                             </div>
-                            <p className="text-[11px] text-muted-foreground">
-                              {need.unit} × {need.quantity} · {need.nature} · {SOLUTION_ID_LABEL[need.solution]}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground/70">
-                              Besoin DQE : {fmtTnd(need.total)}
-                            </p>
                           </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-3">
-                          <label className="flex items-center gap-2 text-xs cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={manualSelections.includes(need.designation)}
-                              onChange={() => toggleManualSelection(need.designation)}
-                              className="accent-emerald-600"
-                            />
-                            <span className="text-xs text-muted-foreground">Choisir</span>
-                          </label>
                           <span
                             className={cn(
-                              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold",
-                              compat === "compatible" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-700",
-                              compat === "incompatible" && "border-red-500/40 bg-red-500/10 text-red-700",
-                              compat === "unnecessary" && "border-amber-500/40 bg-amber-500/10 text-amber-700",
+                              "inline-flex shrink-0 items-center gap-1 self-start rounded-full border px-2 py-0.5 text-[9px] font-semibold sm:self-center",
+                              style.className,
                             )}
                           >
-                            {compat === "compatible" && <Check className="h-2.5 w-2.5" />}
-                            {compat === "incompatible" && <AlertCircle className="h-2.5 w-2.5" />}
-                            {compat === "unnecessary" && <X className="h-2.5 w-2.5" />}
-                            {SOLUTION_ID_LABEL[need.solution]}
-                            {compat === "unnecessary" && (
-                              <span className="text-[8px] font-normal">(inutile)</span>
-                            )}
+                            {need.compatibility === "compatible" && <Check className="h-2.5 w-2.5" />}
+                            {need.compatibility === "incompatible" && <AlertCircle className="h-2.5 w-2.5" />}
+                            {need.compatibility === "unnecessary" && <X className="h-2.5 w-2.5" />}
+                            {style.label}
                           </span>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
 
-          {/* Bouton lancer l'analyse */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          {/* Lancer l'analyse */}
+          <div ref={analyzeStepRef} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <label className="flex items-center gap-2 text-xs cursor-pointer">
               <input
                 type="checkbox"
@@ -646,7 +732,7 @@ export default function AiMaterials() {
             <div className="sm:ml-auto">
               <Button
                 className="gap-2 h-9"
-                disabled={analyzing || !projectData || projectData.needs.length === 0}
+                disabled={analyzing || allNeeds.length === 0 || categories.length === 0}
                 onClick={handleAnalyze}
               >
                 {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -766,7 +852,6 @@ export default function AiMaterials() {
                       {visibleHistory.map((entry, index) => {
                         const badge = HISTORY_STATUS_STYLE[entry.status];
                         const StatusIcon = badge.icon;
-                        const doc = historyDocs.get(entry.id);
                         const summary = [
                           entry.standing ? (HISTORY_STANDING_LABELS[entry.standing] ?? entry.standing) : null,
                           entry.surface ? `${entry.surface} m²` : null,
@@ -812,17 +897,17 @@ export default function AiMaterials() {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="w-48">
-                                    <DropdownMenuItem className="cursor-pointer gap-2 text-xs" onClick={() => loadAnalysis(doc)}>
+                                    <DropdownMenuItem className="cursor-pointer gap-2 text-xs" onClick={() => loadAnalysis(entry)}>
                                       <ExternalLink className="h-3.5 w-3.5" /> Voir l'analyse
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem className="cursor-pointer gap-2 text-xs" onClick={() => loadAnalysis(doc)}>
+                                    <DropdownMenuItem className="cursor-pointer gap-2 text-xs" onClick={() => loadAnalysis(entry)}>
                                       <RefreshCw className="h-3.5 w-3.5" /> Charger les résultats
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                       className="cursor-pointer gap-2 text-xs text-destructive focus:text-destructive"
                                       onClick={async () => {
-                                        await deleteAnalysis({ analysisId: entry.id as any });
+                                        await deleteCopilotAnalysis({ analysisId: entry.id as any });
                                         if (savedId === entry.id) setSavedId(null);
                                         toast.success("Analyse supprimée");
                                       }}
@@ -870,7 +955,7 @@ export default function AiMaterials() {
                                 <Button
                                   size="sm"
                                   className="h-9 w-full gap-1.5 rounded-lg text-xs active:scale-[0.98]"
-                                  onClick={() => loadAnalysis(doc)}
+                                  onClick={() => loadAnalysis(entry)}
                                 >
                                   <ExternalLink className="h-3.5 w-3.5" />
                                   Voir l'analyse
