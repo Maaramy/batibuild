@@ -841,12 +841,11 @@ export function AiAnalysisResults({
                       ))}
                     </div>
 
-                    {/* Fournisseur recommandé pour la solution retenue */}
+                    {/* Fournisseur recommandé pour la solution équilibrée */}
                     {(() => {
-                      const retainedSol =
-                        cat.solutions.find((s) => s.profile === recProfile) || cat.solutions[0];
-                      if (!retainedSol) return null;
-                      const mat = retainedSol.material;
+                      const equilibreSol = cat.solutions.find((s) => s.profile === "equilibre");
+                      if (!equilibreSol) return null;
+                      const mat = equilibreSol.material;
                       return (
                         <div>
                           <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

@@ -696,7 +696,7 @@ export type RecommendResult = {
 };
 
 const PROFILE_LABEL: Record<Profile, string> = {
-  economique: "Standard",
+  economique: "Économique",
   equilibre: "Équilibrée",
   premium: "Premium",
 };
@@ -1001,8 +1001,8 @@ export function recommendForProject(input: {
     const eco = solutions.find((s) => s.profile === "economique");
     const bestValue = eq ? "equilibre" : eco ? "economique" : solutions[0].profile;
 
-    // Ligne de coût : on retient la solution recommandée (Standard par défaut)
-    const line = solutions.find((s) => s.profile === "economique") || solutions[0];
+    // Ligne de coût : on retient la solution recommandée (équilibrée par défaut)
+    const line = solutions.find((s) => s.profile === "equilibre") || solutions[0];
     // Meilleur fournisseur de la catégorie : offre la moins chère constatée parmi
     // les 3 solutions (fiabilité la plus élevée en cas d'égalité de prix).
     let bestSupplier: BestSupplier | null = null;
@@ -1079,7 +1079,7 @@ export function recommendForProject(input: {
       context: ctx,
       categories,
       recommendation: {
-        solution: "economique",
+        solution: "equilibre",
         score: 0,
         materialName: "",
         categoryLabel: "",
@@ -1092,12 +1092,12 @@ export function recommendForProject(input: {
     };
   }
 
-  // Solution retenue : par défaut le profil « Standard » (economique — la solution
-  // la moins chère), le profil « Premium » seulement en mode budget premium.
   const picked =
-    ctx.budgetMode === "premium"
-      ? allSolutions.find((s) => s.profile === "premium") || allSolutions[0]
-      : allSolutions.find((s) => s.profile === "economique") || allSolutions[0];
+    ctx.budgetMode === "limite" || ctx.budgetMode === "economique"
+      ? allSolutions.find((s) => s.profile === "economique") || allSolutions[0]
+      : ctx.budgetMode === "premium"
+        ? allSolutions.find((s) => s.profile === "premium") || allSolutions[0]
+        : allSolutions.find((s) => s.profile === "equilibre") || allSolutions[0];
 
   const advantages = picked.pros.slice(0, 4);
   const limits = picked.cons.slice(0, 3);
@@ -1148,8 +1148,7 @@ export function optimizeBudget(input: { result: RecommendResult; budgetAmount: n
 
   for (const cat of result.categories) {
     const eco = cat.solutions.find((s) => s.profile === "economique");
-    // Point de départ : la solution retenue (par défaut « Standard » / economique).
-    const std = cat.solutions.find((s) => s.profile === result.recommendation.solution) || eco;
+    const std = cat.solutions.find((s) => s.profile === "equilibre") || eco;
     if (!eco || !std) continue;
     if (std.material.id === eco.material.id) {
       optimized += std.material.totalCost;
@@ -1205,7 +1204,7 @@ export function improvePerformance(input: { result: RecommendResult }): Performa
   const improvements: PerformanceImprovement["improvements"] = [];
 
   for (const cat of result.categories) {
-    const current = cat.solutions.find((s) => s.profile === result.recommendation.solution) || cat.solutions[0];
+    const current = cat.solutions.find((s) => s.profile === "equilibre") || cat.solutions[0];
     if (!current || cat.solutions.length < 2) continue;
     // Meilleure performance parmi les solutions proposées (thermique + acoustique)
     const best = [...cat.solutions].sort(
@@ -1436,7 +1435,7 @@ export function buildAssistantContext(result: RecommendResult | null, ctx: Proje
   if (result && result.categories.length) {
     const lines = result.categories
       .map((c) => {
-        const s = c.solutions.find((x) => x.profile === result.recommendation.solution) || c.solutions[0];
+        const s = c.solutions.find((x) => x.profile === "equilibre") || c.solutions[0];
         return `- ${c.label} : ${s.material.name} (${s.material.band.avg.toFixed(2)} TND/${s.material.unit}, score ${s.scores.noteGlobale}/100)`;
       })
       .join("\n");
