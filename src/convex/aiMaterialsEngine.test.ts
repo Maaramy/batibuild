@@ -144,6 +144,14 @@ describe("estimateQuantity", () => {
     expect(estimateQuantity("piscine", { ...ctx, projectCategory: "maison" }).quantity).toBe(0);
     expect(estimateQuantity("piscine", { ...ctx, projectCategory: "villa" }).quantity).toBe(1);
   });
+
+  it("piscine : quantité forcée à 0 quand le projet n'a pas de piscine (hasPool false)", () => {
+    // Même une villa (qui en a une par défaut) → 0 si hasPool est explicitement false.
+    expect(estimateQuantity("piscine", { ...ctx, projectCategory: "villa", hasPool: false }).quantity).toBe(0);
+    expect(estimateQuantity("piscine", { ...ctx, projectCategory: "villa", hasPool: true }).quantity).toBe(1);
+    // Aucune quantité de piscine ne doit pouvoir alimenter le coût total.
+    expect(estimateQuantity("piscine", { ...ctx, projectCategory: "villa", hasPool: false }).quantity * 100).toBe(0);
+  });
 });
 
 describe("recommendForProject", () => {
@@ -398,5 +406,27 @@ describe("categoriesFromCostEstimation", () => {
     expect(m!.quantity).toBe(100);
     expect(categoriesFromCostEstimation(null, dqeMats)).toEqual([]);
     expect(categoriesFromCostEstimation({ lots: [] }, dqeMats)).toEqual([]);
+  });
+
+  it("masque la catégorie piscine quand le projet n'a pas de piscine", () => {
+    const poolMats: CatalogMaterial[] = [
+      { _id: "pool-1", name: "Revêtement piscine mosaïque (m²)", category: "revetements_sols_murs", unit: "m²", unitPrice: 44 },
+      { _id: "pool-2", name: "Margelles piscine (granito / pierre)", category: "amenagements_exterieurs", unit: "ml", unitPrice: 45 },
+      { _id: "pool-3", name: "Carrelage grès cérame 60x60", category: "revetements_sols_murs", unit: "m²", unitPrice: 26 },
+    ];
+    const poolDqe = {
+      lots: [
+        { id: "piscine", lines: [
+          { designation: "Revêtement piscine mosaïque (m²)", quantity: 90 },
+          { designation: "Margelles piscine (granito / pierre)", quantity: 24 },
+          { designation: "Carrelage grès cérame 60x60", quantity: 120 },
+        ] },
+      ],
+    };
+    // Sans piscine → aucune catégorie « piscine » proposée.
+    expect(categoriesFromCostEstimation(poolDqe, poolMats, false).map((c) => c.id)).not.toContain("piscine");
+    // Avec piscine (ou information absente) → la catégorie réapparaît.
+    expect(categoriesFromCostEstimation(poolDqe, poolMats, true).map((c) => c.id)).toContain("piscine");
+    expect(categoriesFromCostEstimation(poolDqe, poolMats, undefined).map((c) => c.id)).toContain("piscine");
   });
 });

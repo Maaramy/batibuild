@@ -15,6 +15,7 @@ import {
   INVESTMENT_ELIGIBLE_TYPES,
   INVESTMENT_INELIGIBLE_TYPES,
   isInvestmentEligible,
+  projectHasPool,
 } from "./projectTypes";
 import { INVESTMENT_TYPES } from "./investmentTypes";
 
@@ -46,6 +47,29 @@ describe("inferFloorsFromCategory — niveaux par défaut du moteur BIM", () => 
 // NB : « Maison R+1 » et « Maison R+2 » ont été supprimés — le nombre de
 // niveaux est désormais choisi manuellement dans le formulaire.
 // ============================================================================
+
+describe("projectHasPool — piscine réellement présente dans le projet", () => {
+  it("maison / appartement sans champ pools → pas de piscine", () => {
+    expect(projectHasPool("maison", undefined)).toBe(false);
+    expect(projectHasPool("appartement", undefined)).toBe(false);
+    expect(projectHasPool("local_commercial", undefined)).toBe(false);
+  });
+
+  it("le champ pools explicitement renseigné est prioritaire", () => {
+    expect(projectHasPool("maison", 0)).toBe(false);
+    expect(projectHasPool("maison", 1)).toBe(true);
+    // Une villa avec pools = 0 ne doit pas présélectionner la piscine.
+    expect(projectHasPool("villa", 0)).toBe(false);
+    expect(projectHasPool("villa", 1)).toBe(true);
+  });
+
+  it("villa / résidence touristique → piscine par défaut ; projet « piscine » → toujours", () => {
+    expect(projectHasPool("villa", undefined)).toBe(true);
+    expect(projectHasPool("residence_touristique", undefined)).toBe(true);
+    expect(projectHasPool("piscine", 0)).toBe(true);
+    expect(projectHasPool("piscine_coque", undefined)).toBe(true);
+  });
+});
 
 describe("PROJECT_TYPES — catalogue officiel (21 types)", () => {
   it("contient exactement les 21 types de projet du catalogue", () => {

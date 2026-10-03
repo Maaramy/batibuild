@@ -196,6 +196,29 @@ export const ROOM_ONLY_FOR: Record<string, string[]> = {
   pools: ["villa"],
 };
 
+/**
+ * Le projet comporte-t-il une piscine ?
+ *
+ * Source unique de vérité pour toute la chaîne estimation → DQE → matériaux :
+ * - projet de type « piscine » → toujours vrai (le projet EST la piscine) ;
+ * - champ `pools` explicitement renseigné → sa valeur (0 = pas de piscine) ;
+ * - sinon, seuls les types dont la composition inclut une piscine par défaut
+ *   (villa, résidence touristique) → vrai.
+ *
+ * Une maison, un appartement, un local… sans champ `pools` explicite est donc
+ * réputé SANS piscine : aucun poste « piscine » ne doit être injecté dans le
+ * quantitatif ni présélectionné côté matériaux.
+ */
+export function projectHasPool(
+  category: string | undefined | null,
+  pools?: number | null,
+): boolean {
+  const cat = (category ?? "").toLowerCase();
+  if (cat.startsWith("piscine")) return true;
+  if (pools !== undefined && pools !== null) return Number(pools) > 0;
+  return cat === "villa" || cat === "residence_touristique";
+}
+
 /** Valeurs par défaut des pièces selon le type de bien. */
 export const ROOM_DEFAULTS: Record<
   string,

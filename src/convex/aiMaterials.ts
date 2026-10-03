@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { requireClientProAccess } from "./access";
 import { readFlag } from "./featureFlags";
+import { projectHasPool } from "./projectTypes";
 import {
   COPILOT_CATEGORIES,
   COPILOT_CATEGORY_BY_ID,
@@ -42,7 +43,7 @@ export const getCopilotCategories = query({
 export const getCostEstimationCategories = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, { projectId }) => {
-    const EMPTY = { hasEstimation: false, categories: [], materialsCount: 0, budgetPerM2: 0, totalCost: 0 };
+    const EMPTY = { hasEstimation: false, categories: [], materialsCount: 0, budgetPerM2: 0, totalCost: 0, hasPool: false };
 
     const user = await getCurrentUser(ctx);
     if (!user) return EMPTY;
@@ -80,7 +81,11 @@ export const getCostEstimationCategories = query({
     }
 
     const materials = await ctx.db.query("materialPrices").collect();
-    const categories = categoriesFromCostEstimation(dqe, materials as any[]);
+    // Masquage dynamique : un projet sans piscine ne doit jamais proposer la
+    // catégorie « Matériaux pour piscine » (et aucun coût de piscine ne doit
+    // entrer dans le calcul).
+    const hasPool = projectHasPool(project.category, (project as any).pools);
+    const categories = categoriesFromCostEstimation(dqe, materials as any[], hasPool);
     const materialsCount = categories.reduce((sum, c) => sum + c.count, 0);
 
     // Budget estimé (TND/m²) — alimente la pré-sélection « standing + budget ».
@@ -92,7 +97,7 @@ export const getCostEstimationCategories = query({
       Number(costEstimate?.costPerSquareMeter) ||
       (built > 0 && totalCost > 0 ? totalCost / built : 0);
 
-    return { hasEstimation: true, categories, materialsCount, budgetPerM2, totalCost };
+    return { hasEstimation: true, categories, materialsCount, budgetPerM2, totalCost, hasPool };
   },
 });
 

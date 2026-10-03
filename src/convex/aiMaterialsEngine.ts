@@ -63,7 +63,14 @@ export type ProjectContext = {
   budgetMode?: BudgetMode;
   budgetAmount?: number; // TND (personnalisé)
   priorities?: Record<PriorityKey, number>; // 0-100
-  rooms?: { bathrooms?: number; kitchens?: number; bedrooms?: number };
+  rooms?: { bathrooms?: number; kitchens?: number; bedrooms?: number; pools?: number };
+  /**
+   * Le projet comporte-t-il une piscine ? Si `false`, la catégorie
+   * « Matériaux pour piscine » est totalement écartée de l'analyse (masquage
+   * dynamique) — aucune quantité ni aucun coût de piscine n'est produit.
+   * Si `undefined`, le comportement historique par type de projet s'applique.
+   */
+  hasPool?: boolean;
   terrainSurface?: number; // m² du terrain
 };
 
@@ -255,6 +262,8 @@ const asArr = <T,>(x: any): T[] => (Array.isArray(x) ? x : []);
 export function categoriesFromCostEstimation(
   dqe: any,
   materials: CatalogMaterial[],
+  /** Si `false`, la catégorie « Matériaux pour piscine » est masquée. */
+  hasPool?: boolean,
 ): EstimationCategory[] {
   // 1) Matériaux utilisés par l'estimation : nom normalisé → quantité cumulée.
   const usedQty = new Map<string, number>();
@@ -284,6 +293,9 @@ export function categoriesFromCostEstimation(
   //    plusieurs catégories, exactement comme dans l'analyse).
   const out: EstimationCategory[] = [];
   for (const cat of COPILOT_CATEGORIES) {
+    // Masquage dynamique : projet sans piscine → la catégorie piscine n'est
+    // jamais proposée, même si un libellé du DQE contient le mot « piscine ».
+    if (cat.id === "piscine" && hasPool === false) continue;
     const catMaterials = matchCategoryMaterials(cat, usedMaterials);
     if (catMaterials.length === 0) continue;
     out.push({
@@ -309,6 +321,11 @@ export function categoriesFromCostEstimation(
 export type QuantityEstimate = { quantity: number; unitLabel: string };
 
 export function estimateQuantity(categoryId: string, ctx: ProjectContext): QuantityEstimate {
+  // Projet sans piscine → la catégorie « piscine » est neutralisée : aucune
+  // quantité, donc aucun coût de piscine ne peut être injecté dans le total.
+  if (categoryId === "piscine" && ctx.hasPool === false) {
+    return { quantity: 0, unitLabel: "forfait" };
+  }
   const S = Math.max(0, ctx.surface || 0);
   const floors = Math.max(1, ctx.floors || 1);
   const built = S * floors;

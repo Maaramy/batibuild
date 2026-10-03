@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
-import { projectTypeLabel } from "@/convex/projectTypes";
+import { projectTypeLabel, projectHasPool } from "@/convex/projectTypes";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -125,7 +125,13 @@ export default function AiMaterials() {
     journeyProject ? { projectId: journeyProject._id as any } : "skip",
   );
   const estimationCategories = useMemo<any[]>(
-    () => (estimation?.hasEstimation ? (estimation.categories as any[]) : []),
+    () =>
+      estimation?.hasEstimation
+        ? (estimation.categories as any[]).filter(
+            // Masquage dynamique : projet sans piscine → jamais de catégorie piscine.
+            (c) => !(c.id === "piscine" && estimation.hasPool === false),
+          )
+        : [],
     [estimation],
   );
 
@@ -242,7 +248,15 @@ export default function AiMaterials() {
       floors: Number(proj.floors || form.floors) || 1,
       standing: form.standing as ProjectContext["standing"],
       budgetMode: "moyen",
-      rooms: { bathrooms: proj.bathrooms, kitchens: proj.kitchens, bedrooms: proj.bedrooms },
+      rooms: {
+        bathrooms: proj.bathrooms,
+        kitchens: proj.kitchens,
+        bedrooms: proj.bedrooms,
+        pools: proj.pools,
+      },
+      // Projet sans piscine → catégorie piscine écartée et aucun coût de
+      // piscine n'est calculé ni injecté dans le total.
+      hasPool: projectHasPool(proj.category, proj.pools),
       terrainSurface: proj.surfaceTotale,
     };
   }, [projects, projectId, form]);
