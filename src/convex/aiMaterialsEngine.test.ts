@@ -291,6 +291,36 @@ describe("recommendForProject", () => {
     const prem = cat.solutions.find((s) => s.profile === "premium")!;
     expect(prem.material.band.avg).toBeGreaterThanOrEqual(eco.material.band.avg);
   });
+
+  it("masque la catégorie piscine quand le projet n'a pas de piscine (hasPool false)", () => {
+    const poolMats: CatalogMaterial[] = [
+      { _id: "pool-1", name: "Revêtement piscine mosaïque (m²)", category: "revetements_sols_murs", unit: "m²", unitPrice: 44 },
+      { _id: "pool-2", name: "Margelles piscine (granito / pierre)", category: "amenagements_exterieurs", unit: "ml", unitPrice: 45 },
+      { _id: "cim-1", name: "Ciment CPJ 42.5 (sac 50kg)", category: "liants_ciments_mortiers", unit: "sac", unitPrice: 16.5 },
+    ];
+    // Une villa (piscine par défaut) explicitement sans piscine : même en
+    // transmettant « piscine » dans les catégories, le bloc est écarté et
+    // aucun coût de piscine n'entre dans le total.
+    const withoutPool = recommendForProject({
+      context: { ...ctx, projectCategory: "villa", hasPool: false },
+      categories: ["piscine", "ciment"],
+      materials: poolMats,
+      offers: [],
+    });
+    expect(withoutPool.categories.map((c) => c.categoryId)).not.toContain("piscine");
+    expect(withoutPool.categories.map((c) => c.categoryId)).toContain("ciment");
+
+    // Avec piscine (ou information absente) → le bloc réapparaît et son coût
+    // s'ajoute au total : la différence prouve que le masquage retire bien le coût.
+    const withPool = recommendForProject({
+      context: { ...ctx, projectCategory: "villa", hasPool: true },
+      categories: ["piscine", "ciment"],
+      materials: poolMats,
+      offers: [],
+    });
+    expect(withPool.categories.map((c) => c.categoryId)).toContain("piscine");
+    expect(withoutPool.cost.total).toBeLessThan(withPool.cost.total);
+  });
 });
 
 describe("optimizeBudget", () => {

@@ -952,7 +952,13 @@ export function recommendForProject(input: {
   const ctx = input.context;
   const selected = input.categories
     .map((id) => COPILOT_CATEGORY_BY_ID[id])
-    .filter((c): c is CopilotCategory => !!c);
+    .filter((c): c is CopilotCategory => !!c)
+    // Masquage dynamique (dernière barrière, côté serveur) : un projet sans
+    // piscine ne doit JAMAIS produire de bloc « Matériaux pour piscine », même
+    // si l'identifiant a été transmis (sélection périmée, analyse enregistrée,
+    // appel direct de l'action). Aucun coût de piscine n'entre alors dans le
+    // total du devis.
+    .filter((c) => !(c.id === "piscine" && ctx.hasPool === false));
   const offersByProduct = new Map<string, Offer[]>();
   for (const o of input.offers) {
     const list = offersByProduct.get(o.productId) || [];

@@ -6,7 +6,7 @@ import { api } from "./_generated/api";
 import { vly } from "./vlyIntegrations";
 import { requireClientProAccess } from "./access";
 import { readFlag } from "./featureFlags";
-import { inferFloorsFromCategory } from "./projectTypes";
+import { inferFloorsFromCategory, projectHasPool } from "./projectTypes";
 import {
   COPILOT_CATEGORY_BY_ID,
   matchCategoryMaterials,
@@ -144,8 +144,15 @@ export const recommendMaterials = action({
         bathrooms: project?.bathrooms,
         kitchens: project?.kitchens,
         bedrooms: project?.bedrooms,
+        pools: project?.pools,
       },
       terrainSurface: args.context?.terrainSurface ?? project?.surfaceTotale,
+      // Masquage dynamique (source unique de vérité) : un projet sans piscine
+      // écarte la catégorie « Matériaux pour piscine » et empêche tout coût de
+      // piscine d'entrer dans le total, même si le client ne l'a pas signalé.
+      hasPool:
+        args.context?.hasPool ??
+        (project ? projectHasPool(project.category, project.pools) : undefined),
       priorities: args.context?.priorities || { price: 50, quality: 50, isolation: 50, durability: 50, eco: 50 },
       standing: args.context?.standing || "standard",
       budgetMode: args.context?.budgetMode || "moyen",
