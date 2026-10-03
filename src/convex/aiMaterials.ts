@@ -7,6 +7,7 @@ import {
   COPILOT_CATEGORIES,
   COPILOT_CATEGORY_BY_ID,
   matchCategoryMaterials,
+  categoriesFromCostEstimation,
 } from "./aiMaterialsEngine";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -26,6 +27,72 @@ export const getCopilotCategories = query({
       icon: cat.icon,
       count: matchCategoryMaterials(cat, materials as any[]).length,
     }));
+  },
+});
+
+/**
+ * Catégories & matériaux **réellement utilisés** par l'estimation globale des
+ * coûts de construction (DQE) du projet sélectionné.
+ *
+ * Lecture strictement privée : le projet est vérifié comme appartenant à
+ * l'utilisateur connecté (ou à un administrateur). Renvoie `hasEstimation:
+ * false` tant que le calcul des coûts n'a pas été lancé, afin que l'interface
+ * propose de le lancer plutôt que d'afficher des catégories non pertinentes.
+ */
+export const getCostEstimationCategories = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }) => {
+    const EMPTY = { hasEstimation: false, categories: [], materialsCount: 0, budgetPerM2: 0, totalCost: 0 };
+
+    const user = await getCurrentUser(ctx);
+    if (!user) return EMPTY;
+
+    const project = await ctx.db.get(projectId);
+    if (!project || (project.userId !== user._id && user.role !== "admin")) {
+      return EMPTY;
+    }
+
+    let dqe =
+      (project as any).dqe ??
+      (project as any).costEstimate?.dqe ??
+      null;
+
+    // Repli : anciennes estimations sans DQE — on reconstitue les matériaux du
+    // calcul des coûts à partir du découpage `costEstimate.breakdown.items`.
+    if (!dqe?.lots?.length) {
+      const breakdown = (project as any).costEstimate?.breakdown;
+      if (Array.isArray(breakdown) && breakdown.length > 0) {
+        dqe = {
+          lots: breakdown.map((b: any) => ({
+            id: b?.category,
+            name: b?.label,
+            lines: (Array.isArray(b?.items) ? b.items : []).map((it: any) => ({
+              designation: it?.name,
+              quantity: it?.quantity,
+            })),
+          })),
+        };
+      }
+    }
+
+    if (!dqe?.lots?.length) {
+      return EMPTY;
+    }
+
+    const materials = await ctx.db.query("materialPrices").collect();
+    const categories = categoriesFromCostEstimation(dqe, materials as any[]);
+    const materialsCount = categories.reduce((sum, c) => sum + c.count, 0);
+
+    // Budget estimé (TND/m²) — alimente la pré-sélection « standing + budget ».
+    const costEstimate = (project as any).costEstimate;
+    const built =
+      (Number((project as any).surface) || 0) * Math.max(1, Number((project as any).floors) || 1);
+    const totalCost = Number(costEstimate?.totalCost) || 0;
+    const budgetPerM2 =
+      Number(costEstimate?.costPerSquareMeter) ||
+      (built > 0 && totalCost > 0 ? totalCost / built : 0);
+
+    return { hasEstimation: true, categories, materialsCount, budgetPerM2, totalCost };
   },
 });
 

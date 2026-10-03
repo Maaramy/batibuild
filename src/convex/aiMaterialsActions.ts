@@ -112,6 +112,8 @@ export const recommendMaterials = action({
     projectId: v.optional(v.id("projects")),
     context: v.any(),
     categories: v.array(v.string()),
+    /** Matériaux requis (issus de l'estimation des coûts) — filtrage précis. */
+    materialIds: v.optional(v.array(v.string())),
     enhanceWithAI: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<RecommendResult> => {
@@ -156,6 +158,7 @@ export const recommendMaterials = action({
       categories: args.categories,
       materials,
       offers,
+      materialIds: args.materialIds,
     });
 
     // ── Enrichissement IA de la recommandation finale (avec repli sûr) ──
@@ -163,7 +166,7 @@ export const recommendMaterials = action({
       try {
         const summary = result.categories
           .map((c) => {
-            const s = c.solutions.find((x) => x.profile === result.recommendation.solution) || c.solutions[0];
+            const s = c.solutions.find((x) => x.profile === "equilibre") || c.solutions[0];
             return `- ${c.label} → ${s.material.name} (${s.material.band.avg.toFixed(2)} TND/${s.material.unit}, score ${s.scores.noteGlobale}/100)`;
           })
           .join("\n");

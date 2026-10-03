@@ -17,6 +17,7 @@ Sparkles, HardHat, Loader2, Store, Scale, Check, Trash2, MapPin, Ruler, Wand2, S
 Blocks, Search, X, MoreHorizontal, ExternalLink, AlertCircle, CalendarDays, LayoutGrid, CheckCircle2, FilterX
 } from "lucide-react";
 import { ProjectContext } from "@/convex/aiMaterialsEngine";
+import { STANDING_OPTIONS, preselectCategories } from "@/lib/materialPreselection";
 import { REGION_LABELS } from "@/lib/projectPdf";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,24 +42,6 @@ const fmtTnd = (n: number) =>
 
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-
-/** Catégories pré-sélectionnées par défaut (cœur d'un projet de construction). */
-const CORE_CATEGORY_IDS = [
-  "beton",
-  "ciment",
-  "acier",
-  "briques",
-  "blocs_beton",
-  "isolation_thermique",
-  "etancheite",
-  "carrelage",
-  "peinture",
-  "menuiserie",
-  "sanitaires",
-  "electricite",
-  "plomberie",
-];
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HISTORIQUE DES ANALYSES — présentation (données, statuts et actions inchangés)
@@ -124,11 +107,10 @@ export default function AiMaterials() {
     region: "tunis",
     standing: "standard",
   });
-
-  // Catégories de matériaux proposées par le copilot.
-  const categories = useQuery(api.aiMaterials.getCopilotCategories) || [];
-  // Catégories retenues pour l'analyse (pré-sélection « cœur de projet »).
-  const [selectedCats, setSelectedCats] = useState<string[]>([]);
+  // Sélection précise : identifiants des matériaux réellement requis par
+  // l'analyse (issus de l'estimation des coûts de construction du projet).
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<string[]>([]);
+  const [materialQuery, setMaterialQuery] = useState("");
 
   // Projet courant (contexte du parcours « Où suis-je dans mon projet ? »).
   const journeyProject = useMemo(
@@ -136,15 +118,70 @@ export default function AiMaterials() {
     [projects, projectId],
   );
 
-  // Pré-sélection par défaut des catégories les plus courantes, appliquée une
-  // seule fois : les ajustements manuels de l'utilisateur restent maîtres.
+  // Catégories & matériaux réellement utilisés dans l'estimation globale des
+  // coûts de construction (DQE du projet) — source dynamique de l'étape 2.
+  const estimation = useQuery(
+    api.aiMaterials.getCostEstimationCategories,
+    journeyProject ? { projectId: journeyProject._id as any } : "skip",
+  );
+  const estimationCategories = useMemo<any[]>(
+    () => (estimation?.hasEstimation ? (estimation.categories as any[]) : []),
+    [estimation],
+  );
+
+  // Pré-sélection intelligente : catégories retenues selon le standing du projet
+  // et le budget estimé (TND/m²). Recalculée dès que l'un des deux change.
+  const preselection = useMemo(
+    () =>
+      preselectCategories({
+        categoryIds: estimationCategories.map((c) => c.id as string),
+        standing: form.standing,
+        budgetPerM2: estimation?.budgetPerM2 || undefined,
+      }),
+    [estimationCategories, form.standing, estimation],
+  );
+
+  // Appliquée une seule fois par (projet + standing) : les ajustements manuels
+  // de l'utilisateur sont préservés tant que ni le projet ni le standing ne
+  // changent.
   const selectionKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (categories.length === 0 || selectionKeyRef.current === "preselected") return;
-    selectionKeyRef.current = "preselected";
-    const available = new Set(categories.map((c) => c.id));
-    setSelectedCats(CORE_CATEGORY_IDS.filter((id) => available.has(id)));
-  }, [categories]);
+    if (estimation === undefined) return; // requête en cours de chargement
+    const key = `${journeyProject?._id ?? ""}:${form.standing}`;
+    if (selectionKeyRef.current === key) return;
+    selectionKeyRef.current = key;
+    const keep = new Set(preselection.categoryIds);
+    setSelectedMaterialIds(
+      estimationCategories
+        .filter((c) => keep.has(c.id))
+        .flatMap((c) => c.materials.map((m: any) => m.id as string)),
+    );
+  }, [estimation, estimationCategories, preselection, journeyProject, form.standing]);
+
+  // Catégories actives = celles dont au moins un matériau est sélectionné.
+  const selectedCats = useMemo(
+    () =>
+      estimationCategories
+        .filter((c) => c.materials.some((m: any) => selectedMaterialIds.includes(m.id)))
+        .map((c) => c.id as string),
+    [estimationCategories, selectedMaterialIds],
+  );
+
+  // Filtrage précis : recherche insensible aux accents dans les matériaux.
+  const normSearch = (s: string) =>
+    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const filteredCategories = useMemo(() => {
+    const q = normSearch(materialQuery.trim());
+    if (!q) return estimationCategories;
+    return estimationCategories
+      .map((c) => ({
+        ...c,
+        materials: c.materials.filter(
+          (m: any) => normSearch(m.name).includes(q) || normSearch(c.label).includes(q),
+        ),
+      }))
+      .filter((c) => c.materials.length > 0);
+  }, [estimationCategories, materialQuery]);
 
   const [enhance, setEnhance] = useState(true);
 
@@ -232,6 +269,7 @@ export default function AiMaterials() {
         projectId: projectId as any,
         context: projectCtx,
         categories: selectedCats,
+        materialIds: selectedMaterialIds,
         enhanceWithAI: enhance,
       });
       // Sauvegarde automatique puis redirection vers la page dédiée de résultat
@@ -268,16 +306,32 @@ export default function AiMaterials() {
 
   const noProjects = projects.length === 0;
 
-  const allCatsSelected =
-    categories.length > 0 && selectedCats.length >= categories.length;
+  const estimationMaterialCount = useMemo(
+    () => estimationCategories.reduce((sum, c) => sum + c.materials.length, 0),
+    [estimationCategories],
+  );
+  const allMaterialsSelected =
+    estimationMaterialCount > 0 && selectedMaterialIds.length >= estimationMaterialCount;
 
-  const toggleCat = (id: string) =>
-    setSelectedCats((prev) =>
+  const toggleMaterial = (id: string) =>
+    setSelectedMaterialIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
 
-  const toggleAllCats = () =>
-    setSelectedCats(allCatsSelected ? [] : categories.map((c) => c.id));
+  const toggleCategory = (cat: any) => {
+    const ids: string[] = cat.materials.map((m: any) => m.id);
+    const all = ids.length > 0 && ids.every((id) => selectedMaterialIds.includes(id));
+    setSelectedMaterialIds((prev) =>
+      all ? prev.filter((id) => !ids.includes(id)) : Array.from(new Set([...prev, ...ids])),
+    );
+  };
+
+  const toggleAllMaterials = () =>
+    setSelectedMaterialIds(
+      allMaterialsSelected
+        ? []
+        : estimationCategories.flatMap((c) => c.materials.map((m: any) => m.id as string)),
+    );
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
@@ -396,64 +450,168 @@ export default function AiMaterials() {
           </CardContent>
         </Card>
 
-        {/* ÉTAPE 2 — CATÉGORIES DE MATÉRIAUX */}
+        {/* ÉTAPE 2 — MATÉRIAUX REQUIS (dynamique selon l'estimation des coûts) */}
         <Card className="border border-border/40 overflow-hidden rounded-xl">
           <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 text-xs font-bold">2</div>
                 <div>
-                  <CardTitle className="text-sm font-semibold">Catégories de matériaux</CardTitle>
+                  <CardTitle className="text-sm font-semibold">Matériaux requis par votre estimation</CardTitle>
                   <CardDescription className="text-[10px]">
-                    {categories.length} catégorie(s) disponible(s) · {selectedCats.length} sélectionnée(s)
+                    {estimation?.hasEstimation
+                      ? `${selectedCats.length} catégorie(s) · ${selectedMaterialIds.length}/${estimationMaterialCount} matériau(x) sélectionné(s)`
+                      : "Aligné sur le calcul des coûts de construction du projet"}
                   </CardDescription>
                 </div>
               </div>
-              <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={toggleAllCats}>
-                <RefreshCw className="h-3 w-3" />
-                {allCatsSelected ? "Tout désélectionner" : "Tout sélectionner"}
-              </Button>
+              {estimation?.hasEstimation && (
+                <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={toggleAllMaterials}>
+                  <RefreshCw className="h-3 w-3" />
+                  {allMaterialsSelected ? "Tout désélectionner" : "Tout sélectionner"}
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-4 sm:p-5">
-            {categories.length === 0 ? (
-              <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border/50 px-4 py-8 text-center">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">Chargement des catégories…</p>
+            {!journeyProject ? (
+              /* Aucun projet sélectionné → impossible d'aligner sur une estimation. */
+              <div className="rounded-xl border border-dashed border-border/60 p-6 sm:p-8 text-center">
+                <HardHat className="h-9 w-9 mx-auto mb-2 text-muted-foreground/40" />
+                <p className="text-sm font-medium">Sélectionnez d'abord un projet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Les catégories et matériaux sont chargés depuis l'estimation des coûts de construction du projet choisi à l'étape 1.
+                </p>
+              </div>
+            ) : !estimation?.hasEstimation ? (
+              /* Projet sans estimation des coûts → inciter à la lancer. */
+              <div className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/[0.04] p-6 sm:p-8 text-center">
+                <Info className="h-9 w-9 mx-auto mb-2 text-amber-500" />
+                <p className="text-sm font-medium">Aucune estimation des coûts pour ce projet</p>
+                <p className="text-xs text-muted-foreground mt-1 mb-3 max-w-md mx-auto">
+                  Pour analyser uniquement les matériaux réellement utilisés, lancez d'abord le calcul des coûts de construction — les catégories et matériaux seront alors chargés automatiquement.
+                </p>
+                <Button size="sm" className="h-8 gap-1.5 text-xs"
+                  onClick={() => navigate(`/dashboard/project/${journeyProject._id}`)}>
+                  <CircleDollarSign className="h-3.5 w-3.5" /> Lancer le calcul des coûts
+                </Button>
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {categories.map((c) => {
-                    const active = selectedCats.includes(c.id);
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => toggleCat(c.id)}
-                        className={cn(
-                          "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-all cursor-pointer",
-                          active
-                            ? "border-emerald-500/50 bg-emerald-500/5"
-                            : "border-border/40 hover:border-border hover:bg-muted/30",
-                        )}
-                      >
-                        <span className={cn(
-                          "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[8px]",
-                          active ? "border-emerald-500 bg-emerald-500 text-white" : "border-border text-transparent",
-                        )}>
-                          <Check className="h-2 w-2" />
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-[11px] font-medium">{c.label}</span>
-                        <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">{c.count} mat.</span>
-                      </button>
-                    );
-                  })}
+                {/* Pré-sélection intelligente (standing + budget estimé) */}
+                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-2.5 py-2">
+                  <Wand2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                  <span className="text-[10px] leading-tight text-muted-foreground">{preselection.reason}</span>
+                  <label className="ml-auto flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                    Standing
+                    <select
+                      value={form.standing}
+                      onChange={(e) => setForm((f) => ({ ...f, standing: e.target.value }))}
+                      aria-label="Standing du projet"
+                      className="h-7 rounded-lg border border-border/50 bg-background px-1.5 text-[10px] font-semibold text-foreground outline-none focus:border-emerald-500/60"
+                    >
+                      {STANDING_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
+
+                {/* Filtrage précis des matériaux requis */}
+                <div className="relative mb-3">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={materialQuery}
+                    onChange={(e) => setMaterialQuery(e.target.value)}
+                    placeholder="Filtrer les matériaux requis (ex. ciment, carrelage…)"
+                    aria-label="Filtrer les matériaux requis pour l'analyse"
+                    className="h-9 rounded-lg pl-8 pr-8 text-xs"
+                  />
+                  {materialQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setMaterialQuery("")}
+                      aria-label="Effacer le filtre"
+                      className="absolute right-2 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+
+                {filteredCategories.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/50 px-4 py-8 text-center">
+                    <FilterX className="h-6 w-6 text-muted-foreground/40" />
+                    <p className="text-[11px] text-muted-foreground">Aucun matériau de l'estimation ne correspond à ce filtre.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredCategories.map((c) => {
+                      const selectedInCat = c.materials.filter((m: any) => selectedMaterialIds.includes(m.id)).length;
+                      const allCatSelected = selectedInCat === c.materials.length && c.materials.length > 0;
+                      const someCatSelected = selectedInCat > 0 && !allCatSelected;
+                      return (
+                        <div
+                          key={c.id}
+                          className={cn(
+                            "rounded-xl border p-2.5 transition-colors",
+                            selectedInCat > 0 ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-border/40",
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => toggleCategory(c)}
+                              className="flex items-center gap-2 text-left cursor-pointer">
+                              <span className={cn(
+                                "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] transition-all",
+                                allCatSelected ? "border-emerald-500 bg-emerald-500 text-white"
+                                  : someCatSelected ? "border-emerald-500/60 bg-emerald-500/15 text-transparent"
+                                  : "border-border text-transparent",
+                              )}>
+                                <Check className="h-2.5 w-2.5" />
+                              </span>
+                              <span className={cn("text-xs font-semibold", selectedInCat > 0 ? "text-emerald-700 dark:text-emerald-400" : "")}>
+                                {c.label}
+                              </span>
+                            </button>
+                            <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+                              {selectedInCat}/{c.materials.length} sélectionné(s)
+                            </span>
+                          </div>
+                          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                            {c.materials.map((m: any) => {
+                              const active = selectedMaterialIds.includes(m.id);
+                              return (
+                                <button key={m.id} type="button" onClick={() => toggleMaterial(m.id)}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-all cursor-pointer",
+                                    active ? "border-emerald-500/50 bg-emerald-500/5" : "border-border/40 hover:border-border hover:bg-muted/30",
+                                  )}
+                                >
+                                  <span className={cn(
+                                    "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[8px]",
+                                    active ? "border-emerald-500 bg-emerald-500 text-white" : "border-border text-transparent",
+                                  )}>
+                                    <Check className="h-2 w-2" />
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate text-[11px] font-medium">{m.name}</span>
+                                  <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">
+                                    {m.quantity ? `${Math.round(m.quantity * 10) / 10} ${m.unit}` : m.unit}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <p className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                   <Info className="h-3 w-3 shrink-0" />
-                  L'analyse comparera uniquement les catégories sélectionnées, aux prix du catalogue 2026 et des offres fournisseurs.
+                  Ces matériaux proviennent de l'estimation des coûts de construction de « {journeyProject.name} ». L'analyse n'étudiera que les matériaux sélectionnés.
                 </p>
               </>
             )}
@@ -480,7 +638,7 @@ export default function AiMaterials() {
               <div className="sm:ml-auto">
                 <Button
                   className="gap-2 h-9"
-                  disabled={analyzing || selectedCats.length === 0}
+                  disabled={analyzing || !estimation?.hasEstimation || selectedMaterialIds.length === 0}
                   onClick={handleAnalyze}
                 >
                   {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
