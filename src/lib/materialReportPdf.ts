@@ -319,7 +319,7 @@ export function generateMaterialReportPdf(input: {
   sectionTitle("7. Fournisseurs disponibles (meilleures offres)");
   const supplierRows: any[][] = [];
   for (const cat of result.categories) {
-    const s = cat.solutions.find((x: any) => x.profile === "equilibre") || cat.solutions[0];
+    const s = cat.solutions.find((x: any) => x.profile === result.recommendation.solution) || cat.solutions[0];
     for (const sup of s.suppliers.slice(0, 2)) {
       supplierRows.push([cat.label, stripEmojis(s.material.name), sup.name, sup.governorate || "—", `${sup.price.toFixed(2)} TND/${sup.unit || ""}`]);
     }
@@ -355,7 +355,7 @@ export function generateMaterialReportPdf(input: {
   // ═══ 12. ALTERNATIVES (solutions A & C vs recommandée) ══════
   sectionTitle("8. Alternatives");
   for (const cat of result.categories) {
-    const rec = cat.solutions.find((x: any) => x.profile === "equilibre") || cat.solutions[0];
+    const rec = cat.solutions.find((x: any) => x.profile === result.recommendation.solution) || cat.solutions[0];
     const alts = cat.solutions.filter((x: any) => x.material.id !== rec.material.id);
     if (!alts.length) continue;
     addPageIfNeeded(8);

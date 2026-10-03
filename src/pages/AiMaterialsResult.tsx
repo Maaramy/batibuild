@@ -211,7 +211,7 @@ export default function AiMaterialsResult() {
           </Card>
         ) : (
           /* ── Résultats ── */
-          <AiAnalysisResults result={result} analysisRegion={result.context?.region} />
+          <AiAnalysisResults result={result} />
         )}
       </div>
 
