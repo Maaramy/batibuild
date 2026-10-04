@@ -15,14 +15,11 @@ import {
   XCircle,
   Info,
   Scale,
-  TrendingDown,
-  TrendingUp,
   Package,
   History,
   RotateCcw,
   Save,
   ChevronDown,
-  Flame,
   Gem,
   Coins,
   Link2,
@@ -432,63 +429,6 @@ export function ChoixMateriauxWorkspace({
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Intelligence prédictive IA ──────────────────────────────────── */}
-      <Card className="overflow-hidden rounded-2xl border-border/40">
-        <CardHeader className="border-b border-border/20 px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 text-violet-600">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div>
-              <CardTitle className="text-sm font-semibold">Intelligence prédictive</CardTitle>
-              <CardDescription className="text-[10px]">
-                Recommandations construites sur les montants réels du projet — l'IA propose, vous décidez.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-5">
-          {ws.recommendations.length === 0 ? (
-            <p className="py-4 text-center text-[11px] text-muted-foreground">
-              Aucune recommandation : la sélection actuelle est optimale sur les données disponibles.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {ws.recommendations.slice(0, 8).map((r) => {
-                const Icon =
-                  r.kind === "missing_data"
-                    ? XCircle
-                    : r.kind === "economy_available"
-                      ? TrendingDown
-                      : r.kind === "premium_impact"
-                        ? Flame
-                        : TrendingUp;
-                const tone =
-                  r.kind === "missing_data"
-                    ? "text-rose-600"
-                    : r.kind === "economy_available"
-                      ? "text-emerald-600"
-                      : r.kind === "premium_impact"
-                        ? "text-amber-600"
-                        : "text-sky-600";
-                return (
-                  <li key={`${r.articleId}:${r.kind}`} className="rounded-xl border border-border/40 px-3 py-2">
-                    <div className="flex items-start gap-2">
-                      <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", tone)} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-semibold">{r.title}</p>
-                        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{r.message}</p>
-                        <p className="mt-1 text-[10px] italic text-muted-foreground/70">{r.basis}</p>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
         </CardContent>
       </Card>
 

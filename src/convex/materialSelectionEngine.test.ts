@@ -14,7 +14,6 @@ import {
   materialsTotal,
   packageRuleFor,
   packagingForLine,
-  predictiveRecommendations,
   projectMaterialsStatus,
   quantitativeVersion,
   quantitatifForScenario,
@@ -236,36 +235,6 @@ describe("scorePriceQuality — rapport qualité/prix", () => {
     expect(score.score).toBeGreaterThan(0);
     expect(score.reason.length).toBeGreaterThan(10);
     expect(score.signals.length).toBeGreaterThan(0);
-  });
-});
-
-// ============================================================================
-// §6 — Intelligence prédictive
-// ============================================================================
-
-describe("predictiveRecommendations — IA prédictive", () => {
-  it("signale les données manquantes sans inventer de montant", () => {
-    const lines = materialLinesFromLots(syntheticLots(), "standard");
-    const recs = predictiveRecommendations(lines, {}, "standard");
-    const missing = recs.find((r) => r.articleId === "gros_oeuvre::2")!;
-    expect(missing).toBeTruthy();
-    expect(missing.kind).toBe("missing_data");
-    expect(missing.savings).toBeUndefined();
-  });
-
-  it("propose une alternative chiffrée à partir des variantes réelles", () => {
-    const lots = villaDqe();
-    const standard = materialLinesFromLots(quantitatifForScenario(lots, SCENARIOS, "standard"), "standard");
-    const contexts = buildScenarioContexts(COST);
-    const line = materialsOnly(standard).find((l) => l.priceAvailable)!;
-    const variants: Record<string, any> = {
-      [line.articleId]: variantsForLine(line, line.unitPrice, contexts, "standard"),
-    };
-    const recs = predictiveRecommendations(standard, variants, "standard");
-    const rec = recs.find((r) => r.articleId === line.articleId)!;
-    expect(rec).toBeTruthy();
-    expect(["economy_available", "keep", "premium_impact"]).toContain(rec.kind);
-    expect(rec.basis.length).toBeGreaterThan(0);
   });
 });
 
@@ -729,7 +698,6 @@ describe("buildMaterialWorkspace — payload unique UI ↔ serveur", () => {
     expect(ws.hasQuantitatif).toBe(false);
     expect(ws.lines).toHaveLength(0);
     expect(ws.materialsTotal).toBe(0);
-    expect(ws.recommendations).toHaveLength(0);
   });
 
   it("résout une référence catalogue pour la majorité des lignes réelles", () => {

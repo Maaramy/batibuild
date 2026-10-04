@@ -539,102 +539,6 @@ export function scorePriceQuality(
   return { level, label: PRICE_QUALITY_LABELS[level], score, reason: reasons[level], signals };
 }
 
-// ── Intelligence prédictive (§6) ───────────────────────────────────────────
-export type RecommendationKind =
-  | "keep"
-  | "economy_available"
-  | "premium_impact"
-  | "missing_data"
-  | "verify";
-
-export interface MaterialRecommendation {
-  articleId: string;
-  designation: string;
-  kind: RecommendationKind;
-  title: string;
-  message: string;
-  /** Économie potentielle (TND) sans changer la quantité. */
-  savings?: number;
-  /** Surcoût (TND) de la variante actuelle. */
-  extraCost?: number;
-  alternativeScenario?: MaterialScenarioKey;
-  /** Base factuelle de la recommandation (toujours des données réelles). */
-  basis: string;
-}
-
-/**
- * Recommandations de l'IA prédictive : chaque message est construit sur des
- * montants réels du projet (aucun prix fictif). L'IA propose, l'utilisateur
- * décide — aucune recommandation n'est appliquée automatiquement.
- */
-export function predictiveRecommendations(
-  lines: MaterialLine[] | null | undefined,
-  variantsByArticle: Record<string, MaterialVariant[] | undefined>,
-  activeScenario: MaterialScenarioKey,
-): MaterialRecommendation[] {
-  const out: MaterialRecommendation[] = [];
-  for (const line of materialsOnly(lines)) {
-    if (!line.priceAvailable) {
-      out.push({
-        articleId: line.articleId,
-        designation: line.designation,
-        kind: "missing_data",
-        title: "Prix non disponible",
-        message: `Le prix de « ${line.designation} » n'est pas renseigné dans les données du projet. Complétez la base de prix pour obtenir une recommandation chiffrée.`,
-        basis: "Quantitatif détaillé — prix unitaire absent",
-      });
-      continue;
-    }
-
-    const variants = asArr<MaterialVariant>(variantsByArticle[line.articleId]);
-    const cheaper = variants
-      .filter((v) => v.available && v.total < line.total - 1)
-      .sort((a, b) => a.total - b.total)[0];
-    const pricier = variants
-      .filter((v) => v.available && v.total > line.total + 1)
-      .sort((a, b) => b.total - a.total)[0];
-
-    if (activeScenario === "premium" && cheaper) {
-      const diff = line.total - cheaper.total;
-      out.push({
-        articleId: line.articleId,
-        designation: line.designation,
-        kind: "premium_impact",
-        title: "Attention : impact budgétaire",
-        message: `« ${line.designation} » en Premium augmente le budget de ${Math.round(diff)} TND par rapport à la variante ${cheaper.label}. Son niveau de performance supérieur peut toutefois être pertinent pour cette application.`,
-        savings: diff,
-        alternativeScenario: cheaper.scenario,
-        basis: `Variante ${cheaper.label} du Quantitatif détaillé`,
-      });
-    } else if (cheaper && line.total > 0) {
-      const diff = line.total - cheaper.total;
-      out.push({
-        articleId: line.articleId,
-        designation: line.designation,
-        kind: "economy_available",
-        title: "Alternative recommandée",
-        message: `Une variante ${cheaper.label} permettrait de réduire le coût des matériaux de ${Math.round(diff)} TND tout en conservant la quantité calculée pour cet ouvrage.`,
-        savings: diff,
-        alternativeScenario: cheaper.scenario,
-        basis: `Variante ${cheaper.label} du Quantitatif détaillé`,
-      });
-    } else if (pricier) {
-      const diff = pricier.total - line.total;
-      out.push({
-        articleId: line.articleId,
-        designation: line.designation,
-        kind: "keep",
-        title: "Choix pertinent",
-        message: `Le matériau ${MATERIAL_SCENARIO_LABELS[activeScenario]} retenu offre actuellement le meilleur compromis entre prix et qualité pour « ${line.designation} » : la variante ${pricier.label} coûterait ${Math.round(diff)} TND de plus.`,
-        extraCost: diff,
-        alternativeScenario: pricier.scenario,
-        basis: "Variantes comparées du Quantitatif détaillé",
-      });
-    }
-  }
-  return out;
-}
-
 // ── Conditionnements (§17.14) ──────────────────────────────────────────────
 export interface PackagingInfo {
   need: number;
@@ -1284,8 +1188,6 @@ export interface MaterialWorkspace {
   variants: Record<string, MaterialVariant[]>;
   /** Score prix / qualité par article. */
   scores: Record<string, PriceQualityScore>;
-  /** Recommandations de l'IA prédictive. */
-  recommendations: MaterialRecommendation[];
   /** Total global des matériaux du scénario actif (Σ quantité × P.U.). */
   materialsTotal: number;
   /** Total global des matériaux du scénario de référence (proposition). */
@@ -1371,7 +1273,6 @@ export function buildMaterialWorkspace(input: {
     lines,
     variants,
     scores,
-    recommendations: predictiveRecommendations(lines, variants, active),
     materialsTotal: total,
     referenceTotal,
     budget: {
