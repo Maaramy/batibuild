@@ -19,6 +19,7 @@ import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { DecisionSupportModule } from "@/components/decision/DecisionSupportModule";
 import { projectJourneyGroup } from "@/lib/projectJourney";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
@@ -59,6 +60,7 @@ import {
   investmentTypeForProject,
   inferFloorsFromCategory,
   normalizeLegacyCategory,
+  projectTypeLabel,
 } from "@/convex/projectTypes";
 import {
   ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
@@ -1567,6 +1569,28 @@ export default function ProjectDetail() {
                 </motion.div>
               );
             })()}
+
+            {/* ═══ Aide à la décision — Intelligence prédictive IA ═══
+                Extension directe du résultat « Coût estimatif » : l'analyse se
+                déclenche automatiquement après le résultat principal et le
+                Quantitatif détaillé, sans redirection ni bouton supplémentaire.
+                L'étape « Aide à la décision » du Journey renvoie ici (ancre). */}
+            <DecisionSupportModule
+              projectId={project._id}
+              projectName={project.name}
+              projectTypeLabel={projectTypeLabel(project.category)}
+              regionLabel={
+                project.region ? REGION_LABELS[project.region] ?? project.region : undefined
+              }
+              surface={builtSurface}
+              projectTotal={displayTotal}
+              scenarioLabel={
+                isPersonalizedScenario
+                  ? PERSONALIZED_SCENARIO_LABEL
+                  : scenarios?.[selectedScenario as keyof typeof scenarios]?.label ??
+                    BUDGET_SCENARIO_LABELS[effectiveScenario]
+              }
+            />
 
             {/* ═══ Pie + Detail ═══ */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

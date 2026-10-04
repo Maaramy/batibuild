@@ -14,11 +14,11 @@
  *     résidence touristique, projet immobilier neuf) : parcours complet en 6
  *     étapes :
  *       1. Coût estimatif
- *       2. Plans architecturaux AI
- *       3. Choix matériaux
+ *       2. Aide à la décision
+ *       3. Plans architecturaux AI
  *       4. Mise en relation
- *       5. Investissement
- *       6. Exécution & suivi
+ *       5. Exécution & suivi
+ *       6. Investissement
  *   - **Groupe B** — tous les autres types (rénovation, extension, piscine,
  *     restaurant, café, travaux techniques…) : 4 étapes
  *     (coût estimatif → plans architecturaux AI → mise en relation →
@@ -61,6 +61,10 @@ export type ProjectJourneyFlags = Record<string, boolean> | null | undefined;
 /** Clés de feature flags qui pilotent les étapes du parcours. */
 export const JOURNEY_FLAG_KEYS = {
   cost: "construction_cost_estimation",
+  // « Aide à la décision » est une extension directe du résultat « Coût
+  // estimatif » (Intelligence prédictive affichée sur la même page) : elle suit
+  // donc l'activation du module de coût.
+  decision: "construction_cost_estimation",
   plans: "architectural_plans",
   materials: "ai_materials",
   priceList: "ai_materials",
@@ -90,6 +94,7 @@ function filterDisabledSteps(
 
 export type ProjectJourneyStepKey =
   | "cost"
+  | "decision"
   | "plans"
   | "materials"
   | "priceList"
@@ -191,32 +196,43 @@ export function buildProjectJourney(
       flags,
     );
 
-  // Groupe A — parcours complet (Exécution & suivi en 6e position).
+  // Groupe A — parcours complet :
+  //   1. Coût estimatif → 2. Aide à la décision → 3. Plan IA →
+  //   4. Mise en relation → 5. Exécution & suivi → 6. Investissement.
+  //
+  // « Aide à la décision » n'est PAS un second module d'analyse : c'est une
+  // interface du Journey qui affiche le résultat déjà généré par l'Intelligence
+  // prédictive, intégré directement à la page de résultat du « Coût estimatif »
+  // (aucune page séparée). Son lien conserve l'ancre de section afin de faire
+  // défiler la page projet jusqu'au module, sans changer de page.
   return filterDisabledSteps(
     [
       cost,
+      {
+        key: "decision",
+        label: "Aide à la décision",
+        // Même page que « Coût estimatif » : l'étape ne sert qu'à positionner le
+        // parcours (l'analyse prédictive est affichée juste après le résultat).
+        path: `/dashboard/project/${pid}`,
+        href: `/dashboard/project/${pid}#aide-a-la-decision`,
+        // Aucun rapport PDF propre : l'étape affiche un résultat déjà calculé.
+        reportKey: null,
+      },
       plans,
-      {
-        key: "materials",
-        label: "Choix matériaux",
-        path: "/dashboard/ai-materials",
-        href: `/dashboard/ai-materials?project=${pid}`,
-        reportKey: "materials",
-      },
       consult,
-      {
-        key: "investment",
-        label: "Investissement",
-        path: "/dashboard/investments",
-        href: `/dashboard/investments?project=${pid}`,
-        reportKey: "investment",
-      },
       {
         key: "execution",
         label: "Exécution & suivi",
         path: "/dashboard/guide",
         href: `/dashboard/guide?project=${pid}`,
         reportKey: "execution",
+      },
+      {
+        key: "investment",
+        label: "Investissement",
+        path: "/dashboard/investments",
+        href: `/dashboard/investments?project=${pid}`,
+        reportKey: "investment",
       },
     ],
     flags,

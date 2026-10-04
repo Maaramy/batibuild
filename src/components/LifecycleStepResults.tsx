@@ -26,6 +26,7 @@ import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Banknote,
+  BrainCircuit,
   Building2,
   CalendarRange,
   CheckCircle2,
@@ -399,6 +400,7 @@ function Plan3DView({ plan }: { plan: FloorPlan }) {
 
 const STEP_TONES: Record<string, { accent: string; icon: LucideIcon }> = {
   cost: { accent: "text-emerald-600", icon: Wallet },
+  decision: { accent: "text-violet-600", icon: BrainCircuit },
   plans: { accent: "text-sky-600", icon: Ruler },
   materials: { accent: "text-violet-600", icon: Layers },
   consult: { accent: "text-amber-600", icon: Users },
@@ -444,6 +446,7 @@ export function StepResultPanel({
 
         <div className="p-3">
           {stepKey === "cost" && <CostResult data={data} />}
+          {stepKey === "decision" && <DecisionResult data={data} />}
           {stepKey === "plans" && <PlanResult data={data} />}
           {stepKey === "materials" && <MaterialsResult data={data} />}
           {stepKey === "consult" && <ConsultResult data={data} />}
@@ -655,6 +658,36 @@ function PlanResult({ data }: { data: LifecycleShowcase }) {
             {PLAN_ROOM_LABELS[r.kind] ?? r.label} · {r.w.toFixed(1)}×{r.h.toFixed(1)} m
           </Chip>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ── 2 bis. Aide à la décision — aperçu de l'Intelligence prédictive ─────────
+
+function DecisionResult({ data }: { data: LifecycleShowcase }) {
+  const { materials } = data;
+  return (
+    <div className="space-y-3">
+      <Grid>
+        <Metric icon={BrainCircuit} label="Postes analysés" value={<AnimatedNumber value={materials.analyzed} />} tone="text-violet-600" />
+        <Metric icon={Gauge} label="Matériaux suivis" value={<AnimatedNumber value={materials.selected} />} sub="prix & variantes réels" tone="text-violet-600" />
+        <Metric
+          icon={Banknote}
+          label="Économie accessible"
+          value={<AnimatedNumber value={materials.potentialSaving} format={(n) => formatTnd(n)} />}
+          sub="optimisation du budget"
+          tone="text-emerald-600"
+        />
+        <Metric icon={Percent} label="Prix unitaires" value={<AnimatedNumber value={materials.unitPrices.length} />} sub="prévisions de prix" tone="text-sky-600" />
+      </Grid>
+
+      <div className="rounded-lg border border-violet-500/20 bg-violet-500/[0.04] p-2.5">
+        <p className="flex items-start gap-1.5 text-[10px] leading-snug text-muted-foreground">
+          <Wand2 className="mt-0.5 h-3 w-3 shrink-0 text-violet-600" />
+          L'IA analyse les prix, le budget, les quantités et les opportunités d'achat : prévisions,
+          alertes, priorité d'achat et scénarios « Et si ? » — à partir des données réelles du projet.
+        </p>
       </div>
     </div>
   );

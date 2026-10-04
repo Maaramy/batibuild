@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useQuery } from "convex/react";
 import {
+  BrainCircuit,
   Calculator,
   Check,
   HardHat,
-  Layers,
   Ruler,
   Sparkles,
   TrendingUp,
@@ -24,7 +24,7 @@ import { ResultPlaceholder, StepResultPanel } from "@/components/LifecycleStepRe
  * Représente les 6 étapes du projet, dans l'ordre officiel de « Projet Journey »
  * (`src/lib/projectJourney.ts`) :
  *
- *   01 Coût estimatif → 02 Plan IA → 03 Choix matériaux →
+ *   01 Coût estimatif → 02 Aide à la décision → 03 Plan IA →
  *   04 Consultations → 05 Exécution & suivi → 06 Investissement
  *
  * Les intitulés, l'ordre et les feature flags sont identiques à ceux du
@@ -73,6 +73,22 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
     },
   },
   {
+    key: "decision",
+    label: "Aide à la décision",
+    description:
+      "Anticipez vos achats, maîtrisez votre budget et réduisez les pertes grâce à l'analyse prédictive.",
+    icon: BrainCircuit,
+    // Extension directe du résultat « Coût estimatif » : suit son activation.
+    flag: JOURNEY_FLAG_KEYS.decision,
+    accents: {
+      gradient: "from-violet-500 to-purple-500",
+      text: "text-violet-600 dark:text-violet-400",
+      ring: "ring-violet-500/20",
+      shadow: "shadow-violet-500/30",
+      chip: "bg-violet-500/10",
+    },
+  },
+  {
     key: "plans",
     label: "Plan IA",
     description:
@@ -85,20 +101,6 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
       ring: "ring-sky-500/20",
       shadow: "shadow-sky-500/30",
       chip: "bg-sky-500/10",
-    },
-  },
-  {
-    key: "materials",
-    label: "Choix matériaux",
-    description: "Analysez et sélectionnez les matériaux adaptés à votre projet.",
-    icon: Layers,
-    flag: JOURNEY_FLAG_KEYS.materials,
-    accents: {
-      gradient: "from-violet-500 to-purple-500",
-      text: "text-violet-600 dark:text-violet-400",
-      ring: "ring-violet-500/20",
-      shadow: "shadow-violet-500/30",
-      chip: "bg-violet-500/10",
     },
   },
   {

@@ -123,7 +123,7 @@ export function ProjectJourneyNav({
   className,
 }: ProjectJourneyNavProps) {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   const convex = useConvex();
   const consumeDownload = useMutation(api.subscriptions.consumeDownload);
   const pdfGate = usePdfGate();
@@ -263,7 +263,16 @@ export function ProjectJourneyNav({
     ? -1
     : activeKey != null
       ? steps.findIndex((s) => s.key === activeKey)
-      : steps.findIndex((s) => isHeaderNavItemActive({ path: s.path }, pathname));
+      : (() => {
+          // Deux étapes peuvent partager la même page (ex. « Coût estimatif » et
+          // son extension « Aide à la décision » sur la page projet) : l'ancre de
+          // section de l'URL tranche alors en priorité.
+          if (hash) {
+            const byHash = steps.findIndex((s) => s.href.includes(hash));
+            if (byHash >= 0) return byHash;
+          }
+          return steps.findIndex((s) => isHeaderNavItemActive({ path: s.path }, pathname));
+        })();
   const completedCount = steps.filter((s) => pdfReadyFor(s)).length;
   const currentIndex =
     activeIndex >= 0
