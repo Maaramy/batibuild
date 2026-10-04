@@ -50,8 +50,6 @@ const AdminPanel = lazy(() => import("./pages/AdminPanel.tsx"));
 const SubscriptionAdminPage = lazy(() => import("./pages/SubscriptionAdminPage.tsx"));
 const PricingPage = lazy(() => import("./pages/PricingPage.tsx"));
 const MaterialsPage = lazy(() => import("./pages/MaterialsPage.tsx"));
-const AiMaterials = lazy(() => import("./pages/AiMaterials.tsx"));
-const AiMaterialsResult = lazy(() => import("./pages/AiMaterialsResult.tsx"));
 const PlanGenerator = lazy(() => import("./pages/PlanGenerator.tsx"));
 const ProjectGuide = lazy(() => import("./pages/ProjectGuide.tsx"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage.tsx"));
@@ -343,25 +341,18 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
+                {/* Module « Matériaux AI » (assistant de choix des matériaux)
+                    retiré. Les anciens chemins renvoient vers la page existante
+                    des prix des matériaux afin qu'aucun lien interne (parcours
+                    du projet, accès rapides, rapports) ne pointe vers une page
+                    morte. */}
                 <Route
                   path="/dashboard/ai-materials"
-                  element={
-                    <RequireAuth>
-                      <FeatureGate flag="ai_materials">
-                        <AiMaterials />
-                      </FeatureGate>
-                    </RequireAuth>
-                  }
+                  element={<Navigate to="/dashboard/materials" replace />}
                 />
                 <Route
                   path="/dashboard/ai-materials/result/:id"
-                  element={
-                    <RequireAuth>
-                      <FeatureGate flag="ai_materials">
-                        <AiMaterialsResult />
-                      </FeatureGate>
-                    </RequireAuth>
-                  }
+                  element={<Navigate to="/dashboard/materials" replace />}
                 />
                 <Route
                   path="/dashboard/plans/:id"

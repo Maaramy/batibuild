@@ -72,14 +72,6 @@ const FEATURES = [
     to: "/dashboard",
   },
   {
-    icon: Sparkles,
-    title: "Choisissez les meilleurs matériaux",
-    desc: "Comparez 3 options (Économique, Équilibré, Premium) pour chaque poste — l'IA recommande le meilleur rapport qualité/prix.",
-    gradient: "from-violet-500/20 to-purple-500/20",
-    iconColor: "text-violet-600 dark:text-violet-400",
-    to: "/dashboard/ai-materials",
-  },
-  {
     icon: ClipboardList,
     title: "Ne perdez plus une seule étape",
     desc: "Guide complet de 10 phases : démarches tunisiennes, budget, planning, contrôle de chantier — rien n'est oublié.",
@@ -236,7 +228,6 @@ function Navbar() {
 
         <nav className="hidden md:flex items-center gap-8">
           <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a>
-          {isFeatureEnabled("ai_materials") && <a href="/dashboard/ai-materials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Matériaux IA</a>}
           <a href="/dashboard/guide" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Guide A-Z</a>
           <a href="/dashboard/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Tarifs</a>
           <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Avis</a>
@@ -280,7 +271,6 @@ function Navbar() {
         >
           <div className="px-4 py-4 space-y-3">
             <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Fonctionnalités</a>
-            {isFeatureEnabled("ai_materials") && <a href="/dashboard/ai-materials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Assistant Matériaux IA</a>}
             <a href="/dashboard/guide" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Guide Construction A-Z</a>
             <a href="/dashboard/pricing" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Tarifs & abonnements</a>
             <a href="#testimonials" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Avis</a>
@@ -564,7 +554,7 @@ function HeroSection() {
             <p className="label-overline mb-4">Toute la plateforme</p>
             <div className="flex flex-wrap justify-center gap-2">
               {[
-                ...(isFeatureEnabled("ai_materials") ? [{ label: "Assistant Matériaux IA", icon: Sparkles, to: "/dashboard/ai-materials" }, { label: "Prix des matériaux", icon: Table2, to: "/dashboard/materials" }] : []),
+                ...(isFeatureEnabled("ai_materials") ? [{ label: "Prix des matériaux", icon: Table2, to: "/dashboard/materials" }] : []),
                 { label: "Guide Construction A-Z", icon: ClipboardList, to: "/dashboard/guide" },
                 ...(isFeatureEnabled("investment_project") ? [{ label: "Investissement immobilier", icon: ChartBar, to: "/dashboard/investments" }] : []),
                 { label: "Espace fournisseur", icon: Store, to: "/dashboard/supplier" },
@@ -866,8 +856,7 @@ function FeaturesSection() {
   const navigate = useNavigate();
   const { isEnabled: isFeatureEnabled } = useFeatureFlags();
   const visibleFeatures = FEATURES.filter(
-    (f) =>
-      (f.to !== "/dashboard/ai-materials" && f.to !== "/dashboard/materials") || isFeatureEnabled("ai_materials")
+    (f) => f.to !== "/dashboard/materials" || isFeatureEnabled("ai_materials")
   ).filter(
     (f) => f.to !== "/dashboard/investments" || isFeatureEnabled("investment_project")
   );
@@ -1053,14 +1042,13 @@ function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Logo size="sm" className="mb-4" wordmarkClassName="text-base" />
             <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">
-              Plateforme IA complète : estimation de construction, assistant de choix des matériaux, guide A-Z, investissement immobilier et fournisseurs — prix actualisés du marché tunisien.
+              Plateforme IA complète : estimation de construction, prix des matériaux, guide A-Z, investissement immobilier et fournisseurs — prix actualisés du marché tunisien.
             </p>
           </div>
           <div>
             <h4 className="text-sm font-semibold mb-3">Produit</h4>
             <ul className="space-y-2">
               <li><a href="#features" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a></li>
-              {isFeatureEnabled("ai_materials") && <li><a href="/dashboard/ai-materials" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Assistant Matériaux IA</a></li>}
               <li><a href="/dashboard/guide" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Guide Construction A-Z</a></li>
               {isFeatureEnabled("investment_project") && <li><a href="/dashboard/investments" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Investissement immobilier</a></li>}
               {isFeatureEnabled("ai_materials") && <li><a href="/dashboard/materials" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Prix des matériaux</a></li>}
