@@ -746,7 +746,12 @@ export interface SelectionValidationInput {
    */
   scenario: MaterialScenarioKey;
   scenarioAvailable: boolean;
-  /** Budget matériaux prévu (total matériaux du scénario de référence). */
+  /**
+   * Budget matériaux PRÉVU du scénario ACTIF retenu (total matériaux du
+   * scénario actif, même calcul que « Coût estimatif »). Le scénario de
+   * référence Standard n'est jamais utilisé ici : sinon une sélection
+   * correcte en Premium/Économique serait faussement signalée en dépassement.
+   */
   budgetMaterials: number;
 }
 
@@ -1288,6 +1293,13 @@ export interface MaterialWorkspace {
   budget: {
     projectTotal: number;
     costPerM2: number;
+    /**
+     * Budget matériaux PRÉVU du scénario ACTIF retenu (total matériaux du
+     * scénario actif). C'est la base de comparaison de la sélection : une
+     * sélection conforme au scénario actif ne peut donc jamais être signalée
+     * « budget dépassé » (le scénario de référence Standard ne sert qu'à
+     * mesurer l'impact prix, jamais de budget).
+     */
     materialsBudget: number;
     materialsSharePct: number;
   };
@@ -1365,7 +1377,7 @@ export function buildMaterialWorkspace(input: {
     budget: {
       projectTotal: activeCtx?.totalCost ?? 0,
       costPerM2: activeCtx?.costPerM2 ?? 0,
-      materialsBudget: referenceTotal,
+      materialsBudget: total,
       materialsSharePct,
     },
     quantitativeVersion: quantitativeVersion(rawLots),

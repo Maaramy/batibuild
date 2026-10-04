@@ -502,6 +502,45 @@ describe("Sélection finale — états, validation, confirmation", () => {
     expect(warnings[0].message).toContain("choix personnalisé (Standard)");
     expect(warnings[0].message).toContain("scénario retenu (Premium)");
   });
+
+  it("ne signale pas de dépassement pour une sélection conforme au scénario actif", () => {
+    // Régression : le budget était comparé au total du scénario de RÉFÉRENCE
+    // (Standard) alors que la sélection est calculée dans le scénario ACTIF :
+    // une sélection Premium parfaitement conforme était donc faussement
+    // signalée « budget dépassé » (+25 %). Le budget doit suivre le scénario actif.
+    const ws = buildMaterialWorkspace({ rawLots: villaDqe(), costEstimate: COST, scenario: "premium" });
+    const selections = selectAllRecommended(ws.lines, ws.scenario);
+    const v = validateSelection({
+      lines: ws.lines,
+      selections,
+      scenario: ws.scenario,
+      scenarioAvailable: true,
+      budgetMaterials: ws.budget.materialsBudget,
+    });
+    expect(ws.budget.materialsBudget).toBeCloseTo(ws.materialsTotal, 6);
+    expect(selectionMaterialsTotal(ws.lines, selections)).toBeCloseTo(ws.materialsTotal, 6);
+    expect(v.warnings.some((i) => i.code === "over_budget")).toBe(false);
+    expect(v.blocking).toHaveLength(0);
+  });
+
+  it("signale toujours un vrai dépassement du budget matériaux", () => {
+    const ws = buildMaterialWorkspace({ rawLots: villaDqe(), costEstimate: COST, scenario: "standard" });
+    // Choix Premium pour TOUTES les lignes alors que le scénario actif (donc le
+    // budget prévu) est Standard : la sélection dépasse réellement le budget.
+    const selections: Record<string, MaterialSelectionEntry> = {};
+    for (const line of ws.lines) {
+      const premium = ws.variants[line.articleId].find((x) => x.scenario === "premium");
+      if (premium) selections[line.articleId] = selectVariant(line, premium, true);
+    }
+    const v = validateSelection({
+      lines: ws.lines,
+      selections,
+      scenario: "standard",
+      scenarioAvailable: true,
+      budgetMaterials: ws.budget.materialsBudget,
+    });
+    expect(v.warnings.some((i) => i.code === "over_budget")).toBe(true);
+  });
 });
 
 describe("recalculateSelection — recalcul officiel (§18.4→§18.5)", () => {
@@ -673,6 +712,16 @@ describe("buildMaterialWorkspace — payload unique UI ↔ serveur", () => {
     const premium = buildMaterialWorkspace({ rawLots: villaDqe(), costEstimate: COST, scenario: "premium" });
     expect(premium.materialsTotal).toBeGreaterThan(standard.materialsTotal);
     expect(premium.referenceTotal).toBeCloseTo(standard.materialsTotal, 6);
+  });
+
+  it("fixe le budget matériaux sur le scénario ACTIF, jamais sur le Standard", () => {
+    // Le budget prévu suit le scénario retenu : en Premium il vaut le total
+    // matériaux Premium, ce qui évite un faux « budget dépassé ».
+    const standard = buildMaterialWorkspace({ rawLots: villaDqe(), costEstimate: COST, scenario: "standard" });
+    const premium = buildMaterialWorkspace({ rawLots: villaDqe(), costEstimate: COST, scenario: "premium" });
+    expect(standard.budget.materialsBudget).toBeCloseTo(standard.materialsTotal, 6);
+    expect(premium.budget.materialsBudget).toBeCloseTo(premium.materialsTotal, 6);
+    expect(premium.budget.materialsBudget).toBeGreaterThan(standard.budget.materialsBudget);
   });
 
   it("gère proprement l'absence de Quantitatif", () => {
