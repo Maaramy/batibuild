@@ -190,8 +190,12 @@ export interface MaterialLine {
  * Construit les lignes de matériaux à partir des lots du Quantitatif détaillé
  * **déjà mis à l'échelle du scénario**.
  *
- * Invariant : `total = quantité × prix unitaire` (toujours recalculé) et
- * aucune désignation n'est modifiée.
+ * Invariant : le prix total est repris EXACTEMENT tel que calculé par le
+ * Quantitatif détaillé (`line.total`, après mise à l'échelle du scénario) ; à
+ * défaut seulement, il est recalculé (`quantité × prix unitaire`). Aucune
+ * désignation, unité ou quantité n'est modifiée : le montant affiché ici ne
+ * peut donc jamais différer du module « Coût estimatif » pour le même
+ * projet / scénario / quantitatif.
  */
 export function materialLinesFromLots(
   lots: any[] | null | undefined,
@@ -203,6 +207,11 @@ export function materialLinesFromLots(
     asArr<any>(lot?.lines).forEach((line: any, index: number) => {
       const quantity = Number(line?.quantity) || 0;
       const unitPrice = Number(line?.unitPrice) || 0;
+      // Montant officiel du Quantitatif détaillé (déjà arrondi par le moteur de
+      // coût). On ne le recalcule jamais : c'est la garantie d'égalité stricte
+      // avec « Coût estimatif ».
+      const storedTotal = Number(line?.total);
+      const total = Number.isFinite(storedTotal) ? storedTotal : quantity * unitPrice;
       const designation = String(line?.designation ?? "").trim();
       const catalog = designation ? catalogReferenceFor(designation) : null;
       const isMaterial = String(line?.nature ?? "materiaux") === "materiaux";
@@ -217,7 +226,7 @@ export function materialLinesFromLots(
         unit: String(line?.unit ?? catalog?.unit ?? ""),
         quantity,
         unitPrice,
-        total: quantity * unitPrice,
+        total,
         scenario,
         quality: isMaterial ? qualityForScenario(scenario, !!catalog) : "inconnue",
         nature: String(line?.nature ?? "materiaux"),
@@ -761,7 +770,10 @@ export function selectionMaterialsTotal(
     const entry = selections[line.articleId];
     if (!entry) return sum;
     const qty = entry.selectedQuantity ?? entry.quantity;
-    return sum + qty * entry.unitPrice;
+    // Ligne non modifiée → montant officiel du Quantitatif détaillé (égalité
+    // stricte avec « Coût estimatif ») ; sinon recalcul quantité × P.U.
+    const unchanged = qty === line.quantity && entry.unitPrice === line.unitPrice;
+    return sum + (unchanged ? line.total : qty * entry.unitPrice);
   }, 0);
 }
 
@@ -931,8 +943,10 @@ export function recalculateSelection(
     const reference = referenceByArticle.get(entry.articleId);
     if (!reference) continue; // article disparu du Quantitatif → sélection obsolète
     const selectedQuantity = entry.selectedQuantity ?? entry.quantity;
-    const totalPrice = selectedQuantity * entry.unitPrice;
-    const referenceTotalPrice = reference.quantity * reference.unitPrice;
+    const unchanged =
+      selectedQuantity === reference.quantity && entry.unitPrice === reference.unitPrice;
+    const totalPrice = unchanged ? reference.total : selectedQuantity * entry.unitPrice;
+    const referenceTotalPrice = reference.total;
     lines.push({
       articleId: entry.articleId,
       designation: reference.designation,

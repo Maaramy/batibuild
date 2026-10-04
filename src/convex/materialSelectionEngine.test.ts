@@ -573,3 +573,48 @@ describe("buildMaterialWorkspace — payload unique UI ↔ serveur", () => {
     expect(catalogReferenceFor("Ciment CPJ 42.5")).toBeTruthy();
   });
 });
+
+// ============================================================================
+// §18 — Principe absolu : aucun montant ne diffère du moteur « Coût estimatif »
+// ============================================================================
+
+describe("Cohérence stricte avec le moteur de coût (§18)", () => {
+  it("reprend le prix total EXACT de chaque ligne du Quantitatif détaillé", () => {
+    const lots = villaDqe();
+    const originalTotals = new Map<string, number>();
+    lots.forEach((lot: any) =>
+      (lot.lines ?? []).forEach((line: any, index: number) =>
+        originalTotals.set(`${lot.id}::${index}`, Number(line.total)),
+      ),
+    );
+    const ws = buildMaterialWorkspace({ rawLots: lots, costEstimate: COST, scenario: "standard" });
+    for (const line of ws.lines) {
+      expect(line.total).toBe(originalTotals.get(line.articleId));
+    }
+  });
+
+  it("le total du scénario de référence égale la somme des lignes matériaux du DQE", () => {
+    const lots = villaDqe();
+    const expected = lots.reduce(
+      (sum: number, lot: any) =>
+        sum +
+        (lot.lines ?? [])
+          .filter((l: any) => (l.nature ?? "materiaux") === "materiaux")
+          .reduce((s: number, l: any) => s + (Number(l.total) || 0), 0),
+      0,
+    );
+    const ws = buildMaterialWorkspace({ rawLots: lots, costEstimate: COST, scenario: "standard" });
+    expect(ws.materialsTotal).toBeCloseTo(expected, 6);
+  });
+
+  it("proposition, sélection et recalcul donnent le MÊME total à l'identique", () => {
+    for (const scenario of ["economique", "standard", "premium"] as const) {
+      const ws = buildMaterialWorkspace({ rawLots: villaDqe(), costEstimate: COST, scenario });
+      const entries = acceptAllRecommendations(ws.lines, ws.scenario);
+      expect(selectionMaterialsTotal(ws.lines, entries)).toBeCloseTo(ws.materialsTotal, 6);
+      const recalc = recalculateSelection(ws.lines, entries, ws.scenario);
+      expect(recalc.materialsTotal).toBeCloseTo(ws.materialsTotal, 6);
+      expect(recalc.impact).toBeCloseTo(0, 6);
+    }
+  });
+});
