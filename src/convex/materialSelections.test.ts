@@ -6,6 +6,7 @@ import schema from "./schema.js";
 import { api } from "./_generated/api.js";
 import { generateDqe } from "./dqeEngine.js";
 import { acceptAllRecommendations, materialsTotal } from "./materialSelectionEngine.js";
+import { autoLaunchMaterialSelection } from "./materialSelections.js";
 
 const modules = import.meta.glob("./**/*.*s");
 
@@ -181,5 +182,98 @@ describe("materialSelections — API", () => {
     await asUser.mutation(api.materialSelections.resetSelection, { projectId });
     const res = await asUser.query(api.materialSelections.getMaterialsWorkspace, { projectId });
     expect(res!.saved).toBeNull();
+  });
+});
+
+// ============================================================================
+// §9 — Auto-lancement à la fin du Coût estimatif, sans redirection
+// ============================================================================
+
+describe("materialSelections — auto-lancement (§9)", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  it("initialise le module avec la sélection proposée par l'IA, sans sélection préalable", async () => {
+    const user = await createUser(t);
+    const projectId = await createProject(t, user);
+    await enableFlag(t);
+
+    const launched = await t.run(async (ctx) =>
+      autoLaunchMaterialSelection(ctx as any, user, projectId),
+    );
+    expect(launched.launched).toBe(true);
+
+    const asUser = t.withIdentity({ subject: user });
+    const res = await asUser.query(api.materialSelections.getMaterialsWorkspace, { projectId });
+    expect(res!.saved).not.toBeNull();
+    expect(res!.saved!.status).toBe("en_cours");
+    expect(res!.saved!.scenario).toBe("standard");
+    // La sélection couvre 100 % des matériaux et n'est pas obsolète.
+    expect(Object.keys(res!.saved!.entries ?? {}).length).toBe(res!.workspace.lines.length);
+    expect(res!.saved!.stale).toBe(false);
+    expect((res!.saved!.totals as any).materialsTotal).toBeCloseTo(
+      res!.workspace.materialsTotal,
+      4,
+    );
+  });
+
+  it("ne réécrase pas un brouillon tant que le Quantitatif et les prix n'ont pas changé", async () => {
+    const user = await createUser(t);
+    const projectId = await createProject(t, user);
+    await enableFlag(t);
+
+    const first = await t.run(async (ctx) =>
+      autoLaunchMaterialSelection(ctx as any, user, projectId),
+    );
+    expect(first.launched).toBe(true);
+
+    const second = await t.run(async (ctx) =>
+      autoLaunchMaterialSelection(ctx as any, user, projectId),
+    );
+    expect(second.launched).toBe(false);
+  });
+
+  it("ne s'auto-lance pas si le module est désactivé", async () => {
+    const user = await createUser(t);
+    const projectId = await createProject(t, user);
+    // Feature flag explicitement désactivé.
+    await t.run(async (ctx) =>
+      ctx.db.insert("featureFlags", {
+        key: "ai_materials",
+        name: "Matériaux IA",
+        description: "test",
+        enabled: false,
+        updatedAt: Date.now(),
+      }),
+    );
+    const launched = await t.run(async (ctx) =>
+      autoLaunchMaterialSelection(ctx as any, user, projectId),
+    );
+    expect(launched.launched).toBe(false);
+  });
+
+  it("ne s'auto-lance pas sans Quantitatif détaillé", async () => {
+    const user = await createUser(t);
+    await enableFlag(t);
+    const projectId = await t.run(async (ctx) =>
+      ctx.db.insert("projects", {
+        userId: user,
+        name: "Projet sans DQE",
+        category: "villa",
+        status: "draft",
+        region: "tunis",
+        surface: 150,
+        floors: 2,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      } as any),
+    );
+    const launched = await t.run(async (ctx) =>
+      autoLaunchMaterialSelection(ctx as any, user, projectId),
+    );
+    expect(launched.launched).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import { getCurrentUser } from "./users";
 import { requireClientProAccess } from "./access";
 import { readFlag } from "./featureFlags";
 import {
+  acceptAllRecommendations,
   buildMaterialWorkspace,
   materialsOnly,
   recalculateSelection,
@@ -151,6 +152,73 @@ export const getSelectionVersions = query({
     return versions.sort((a, b) => b.version - a.version);
   },
 });
+
+/**
+ * AUTO-LANCEMENT (§9) — déclenché dès que le « Coût estimatif » se termine.
+ *
+ * Le module « Choix matériaux AI » s'initialise tout seul à partir du
+ * Quantitatif détaillé fraîchement calculé : scénario de référence, sélection
+ * proposée par l'IA, versions des données — SANS aucune redirection :
+ * l'utilisateur reste sur la page où il se trouve, le résultat est simplement
+ * prêt lorsqu'il ouvre le module.
+ *
+ * Appelé en « best effort » par le moteur de coût : une erreur ici ne doit
+ * jamais faire échouer le calcul des coûts. Un brouillon en cours dont le
+ * Quantitatif n'a pas changé n'est pas écrasé (aucune perte de travail).
+ */
+export async function autoLaunchMaterialSelection(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  projectId: Id<"projects">,
+): Promise<{ launched: boolean }> {
+  try {
+    if (!(await readFlag(ctx, "ai_materials"))) return { launched: false };
+    const project = await ctx.db.get(projectId);
+    if (!project) return { launched: false };
+
+    const { rawLots, costEstimate, realCostFactor } = projectQuantitatifContext(project);
+    const ws = buildMaterialWorkspace({
+      rawLots,
+      costEstimate,
+      scenario: "standard",
+      realCostFactor,
+    });
+    if (!ws.hasQuantitatif || ws.lines.length === 0) return { launched: false };
+
+    // Ne pas écraser un brouillon en cours tant que le Quantitatif / les prix
+    // n'ont pas changé (protection du travail de l'utilisateur).
+    const existing = await ctx.db
+      .query("materialSelections")
+      .withIndex("by_user_project", (q) => q.eq("userId", userId).eq("projectId", projectId))
+      .first();
+    const dataChanged =
+      !existing ||
+      (existing.quantitativeVersion ?? "") !== ws.quantitativeVersion ||
+      (existing.priceVersion ?? "") !== ws.priceVersion;
+    if (!dataChanged) return { launched: false };
+
+    const entries = acceptAllRecommendations(ws.lines, ws.scenario);
+    const recalculated = recalculateSelection(ws.lines, entries, ws.scenario);
+    await upsertDraft(ctx, userId, projectId, {
+      scenario: ws.scenario,
+      entries,
+      totals: {
+        materialsTotal: recalculated.materialsTotal,
+        referenceTotal: recalculated.referenceTotal,
+        impact: recalculated.impact,
+        selectedCount: recalculated.selectedCount,
+        requiredCount: recalculated.requiredCount,
+      },
+      quantitativeVersion: ws.quantitativeVersion,
+      priceVersion: ws.priceVersion,
+      status: "en_cours",
+    });
+    return { launched: true };
+  } catch {
+    // Auto-lancement best-effort : jamais bloquant pour le Coût estimatif.
+    return { launched: false };
+  }
+}
 
 // ── Mutations ──────────────────────────────────────────────────────────────
 async function assertEnabled(ctx: MutationCtx, user: any) {

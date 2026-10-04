@@ -594,6 +594,7 @@ import {
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { generateDqe } from "./dqeEngine";
 import { inferFloorsFromCategory, normalizeLegacyCategory } from "./projectTypes";
+import { autoLaunchMaterialSelection } from "./materialSelections";
 
 // ============================================================================
 // Simulate Analysis (BIM Professional Engine)
@@ -796,5 +797,12 @@ export const simulateAnalysis = mutation({
       providerRecommendations: recommendations,
       updatedAt: Date.now(),
     });
+
+    // ── Auto-lancement de « Choix matériaux AI » (§9) ──
+    // Dès la fin du Coût estimatif, le module s'initialise à partir du
+    // Quantitatif détaillé qui vient d'être calculé (scénario de référence +
+    // sélection proposée par l'IA), SANS aucune redirection : l'utilisateur
+    // reste là où il est. Best-effort : ne bloque jamais le calcul de coût.
+    await autoLaunchMaterialSelection(ctx, user._id, args.projectId);
   },
 });
