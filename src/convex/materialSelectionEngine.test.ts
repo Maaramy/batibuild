@@ -21,6 +21,7 @@ import {
   recalculateSelection,
   resolveActiveScenario,
   scorePriceQuality,
+  selectAllRecommended,
   selectVariant,
   selectionLineState,
   selectionMaterialsTotal,
@@ -328,9 +329,9 @@ describe("Sélection finale — états, validation, confirmation", () => {
     const lines = materialsOnly(materialLinesFromLots(syntheticLots(), "standard")).filter(
       (l) => l.priceAvailable,
     );
-    const full = acceptAllRecommendations(lines, "standard");
+    const proposals = acceptAllRecommendations(lines, "standard");
 
-    const partial: Record<string, MaterialSelectionEntry | undefined> = { ...full };
+    const partial: Record<string, MaterialSelectionEntry | undefined> = { ...proposals };
     delete partial["gros_oeuvre::0"];
     const ko = validateSelection({
       lines,
@@ -342,15 +343,34 @@ describe("Sélection finale — états, validation, confirmation", () => {
     expect(ko.canConfirm).toBe(false);
     expect(ko.blocking.some((i) => i.code === "incomplete_selection")).toBe(true);
 
+    // Recommandations IA PROPOSÉES mais non acceptées : couverture complète,
+    // aucun transfert automatique vers « Matériaux sélectionnés ».
+    const proposed = validateSelection({
+      lines,
+      selections: proposals,
+      scenario: "standard",
+      scenarioAvailable: true,
+      budgetMaterials: 2000,
+    });
+    expect(proposed.missingCount).toBe(0);
+    expect(proposed.selectedCount).toBe(0);
+    expect(proposed.proposedCount).toBe(lines.length);
+    expect(proposed.canConfirm).toBe(false);
+    expect(proposed.warnings.some((i) => i.code === "pending_recommendations")).toBe(true);
+
+    // Acceptation EXPLICITE des recommandations → sélection validable.
+    const accepted = selectAllRecommended(lines, "standard");
     const ok = validateSelection({
       lines,
-      selections: full,
+      selections: accepted,
       scenario: "standard",
       scenarioAvailable: true,
       budgetMaterials: 2000,
     });
     expect(ok.canConfirm).toBe(true);
     expect(ok.missingCount).toBe(0);
+    expect(ok.proposedCount).toBe(0);
+    expect(ok.selectedCount).toBe(lines.length);
     expect(ok.acceptedRecommendations).toBe(1);
   });
 
@@ -392,9 +412,8 @@ describe("Sélection finale — états, validation, confirmation", () => {
     const lines = materialsOnly(materialLinesFromLots(syntheticLots(), "standard")).filter(
       (l) => l.priceAvailable,
     );
-    const selections = acceptAllRecommendations(lines, "standard");
+    const selections = selectAllRecommended(lines, "standard");
     selections["gros_oeuvre::0"].scenario = "premium";
-    selections["gros_oeuvre::0"].userSelected = true;
     const v = validateSelection({
       lines,
       selections,
@@ -493,6 +512,28 @@ describe("Score & statut global", () => {
     expect(
       projectMaterialsStatus({ requiredCount: 5, selectedCount: 5, validated: false, stale: false, blocking: 1 }),
     ).toBe("blocage");
+    // Recommandations IA proposées : jamais « sélectionnées » par défaut.
+    expect(
+      projectMaterialsStatus({
+        requiredCount: 5,
+        selectedCount: 0,
+        proposedCount: 5,
+        validated: false,
+        stale: false,
+        blocking: 0,
+      }),
+    ).toBe("recommandations");
+    // Une fois acceptées explicitement → « Matériaux sélectionnés ».
+    expect(
+      projectMaterialsStatus({
+        requiredCount: 5,
+        selectedCount: 5,
+        proposedCount: 0,
+        validated: false,
+        stale: false,
+        blocking: 0,
+      }),
+    ).toBe("selectionnes");
   });
 });
 

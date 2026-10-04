@@ -753,9 +753,17 @@ export interface SelectionValidation {
   blocking: SelectionIssue[];
   warnings: SelectionIssue[];
   canConfirm: boolean;
+  /** Articles EXPLICITEMENT retenus par l'utilisateur (décision, pas proposition). */
   selectedCount: number;
   requiredCount: number;
+  /** Articles obligatoires sans aucune couverture (ni proposition, ni choix). */
   missingCount: number;
+  /**
+   * Recommandations IA proposées mais NON encore acceptées par l'utilisateur :
+   * elles remplissent le Quantitatif (proposition) sans être transférées
+   * automatiquement dans « Matériaux sélectionnés » (§16.2).
+   */
+  proposedCount: number;
   /** Articles sélectionnés hors recommandation IA. */
   customizedCount: number;
   acceptedRecommendations: number;
@@ -800,7 +808,9 @@ export function validateSelection(input: SelectionValidationInput): SelectionVal
     });
   }
 
+  let coveredCount = 0;
   let selectedCount = 0;
+  let proposedCount = 0;
   let customizedCount = 0;
   let acceptedRecommendations = 0;
   const recommendedScenario = input.recommendedScenario ?? scenario;
@@ -824,7 +834,10 @@ export function validateSelection(input: SelectionValidationInput): SelectionVal
     }
     const entry = selections[line.articleId];
     if (!entry) continue;
-    selectedCount += 1;
+    coveredCount += 1;
+    // Proposition IA (userSelected=false) != sélection de l'utilisateur (§16.2).
+    if (entry.userSelected) selectedCount += 1;
+    else proposedCount += 1;
     const qty = entry.selectedQuantity ?? entry.quantity;
     if (!(qty > 0)) {
       blocking.push({
@@ -855,17 +868,23 @@ export function validateSelection(input: SelectionValidationInput): SelectionVal
     }
   }
 
-  const missingCount = required.length - selectedCount;
+  const missingCount = required.length - coveredCount;
   if (missingCount > 0) {
     blocking.push({
       code: "incomplete_selection",
       severity: "blocking",
-      message: `${missingCount} matériau${missingCount > 1 ? "x" : ""} obligatoire${missingCount > 1 ? "s" : ""} non sélectionné${missingCount > 1 ? "s" : ""} — la sélection doit couvrir 100 % du Quantitatif détaillé.`,
+      message: `${missingCount} matériau${missingCount > 1 ? "x" : ""} obligatoire${missingCount > 1 ? "s" : ""} sans couverture — la sélection doit couvrir 100 % du Quantitatif détaillé.`,
     });
     warnings.push({
       code: "progress",
       severity: "warning",
-      message: `${selectedCount} / ${required.length} matériaux sélectionnés — ${missingCount} restant${missingCount > 1 ? "s" : ""} à sélectionner.`,
+      message: `${coveredCount} / ${required.length} matériaux couverts — ${missingCount} restant${missingCount > 1 ? "s" : ""} à renseigner.`,
+    });
+  } else if (proposedCount > 0) {
+    warnings.push({
+      code: "pending_recommendations",
+      severity: "warning",
+      message: `${proposedCount} matériau${proposedCount > 1 ? "x" : ""} proposé${proposedCount > 1 ? "s" : ""} par l'IA ${proposedCount > 1 ? "sont" : "est"} en attente de votre décision — acceptez les recommandations ou ajustez avant de valider.`,
     });
   }
 
@@ -882,10 +901,13 @@ export function validateSelection(input: SelectionValidationInput): SelectionVal
   return {
     blocking,
     warnings,
-    canConfirm: blocking.length === 0,
+    // La validation exige un CHOIX EXPLICITE : les propositions IA seules ne
+    // suffisent pas (aucun transfert automatique vers « Matériaux sélectionnés »).
+    canConfirm: blocking.length === 0 && selectedCount >= required.length,
     selectedCount,
     requiredCount: required.length,
-    missingCount: required.length - selectedCount,
+    missingCount: required.length - coveredCount,
+    proposedCount,
     customizedCount,
     acceptedRecommendations,
   };
@@ -995,7 +1017,12 @@ export function selectionLineState(
 }
 
 // ── Actions groupées (§17.16) ─────────────────────────────────────────────
-/** Accepte toutes les recommandations IA : sélection = scénario de référence. */
+/**
+ * PROPOSITION IA : remplit le Quantitatif avec les valeurs recommandées mais
+ * SANS les marquer comme sélectionnées (`userSelected: false`). Utilisé par
+ * l'auto-lancement et à l'ouverture du module : l'IA propose, l'utilisateur
+ * décide — aucun transfert automatique vers « Matériaux sélectionnés » (§16.2).
+ */
 export function acceptAllRecommendations(
   lines: MaterialLine[] | null | undefined,
   scenario: MaterialScenarioKey,
@@ -1017,6 +1044,22 @@ export function acceptAllRecommendations(
       userSelected: false,
       selectedAt: now,
     };
+  }
+  return out;
+}
+
+/**
+ * ACCEPTATION EXPLICITE des recommandations IA par l'utilisateur : mêmes lignes
+ * que `acceptAllRecommendations` mais marquées `userSelected: true`. C'est ce
+ * geste qui transfère les propositions dans « Matériaux sélectionnés ».
+ */
+export function selectAllRecommended(
+  lines: MaterialLine[] | null | undefined,
+  scenario: MaterialScenarioKey,
+): Record<string, MaterialSelectionEntry> {
+  const out = acceptAllRecommendations(lines, scenario);
+  for (const key of Object.keys(out)) {
+    out[key] = { ...out[key], userSelected: true };
   }
   return out;
 }
@@ -1093,6 +1136,7 @@ export function selectionScore(input: {
 // ── Statut global (§17.24) ────────────────────────────────────────────────
 export type ProjectMaterialsStatus =
   | "en_cours"
+  | "recommandations"
   | "selectionnes"
   | "valides"
   | "a_reviser"
@@ -1100,6 +1144,7 @@ export type ProjectMaterialsStatus =
 
 export const PROJECT_MATERIALS_STATUS_LABELS: Record<ProjectMaterialsStatus, string> = {
   en_cours: "Sélection en cours",
+  recommandations: "Recommandations IA proposées",
   selectionnes: "Matériaux sélectionnés",
   valides: "Matériaux validés",
   a_reviser: "À réviser",
@@ -1108,6 +1153,7 @@ export const PROJECT_MATERIALS_STATUS_LABELS: Record<ProjectMaterialsStatus, str
 
 export const PROJECT_MATERIALS_STATUS_ICONS: Record<ProjectMaterialsStatus, string> = {
   en_cours: "🟡",
+  recommandations: "🟣",
   selectionnes: "🟢",
   valides: "🔵",
   a_reviser: "🟠",
@@ -1118,6 +1164,8 @@ export const PROJECT_MATERIALS_STATUS_ICONS: Record<ProjectMaterialsStatus, stri
 export function projectMaterialsStatus(input: {
   requiredCount: number;
   selectedCount: number;
+  /** Recommandations IA proposées (non encore acceptées). */
+  proposedCount?: number;
   validated: boolean;
   stale: boolean;
   blocking: number;
@@ -1128,6 +1176,9 @@ export function projectMaterialsStatus(input: {
   if (input.requiredCount > 0 && input.selectedCount >= input.requiredCount) {
     return "selectionnes";
   }
+  // Des recommandations IA couvrent le Quantitatif mais n'ont pas encore été
+  // acceptées : le module affiche « proposées », jamais « sélectionnées ».
+  if ((input.proposedCount ?? 0) > 0) return "recommandations";
   return "en_cours";
 }
 

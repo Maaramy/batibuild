@@ -5,7 +5,11 @@ import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { api } from "./_generated/api.js";
 import { generateDqe } from "./dqeEngine.js";
-import { acceptAllRecommendations, materialsTotal } from "./materialSelectionEngine.js";
+import {
+  acceptAllRecommendations,
+  materialsTotal,
+  selectAllRecommended,
+} from "./materialSelectionEngine.js";
 import { autoLaunchMaterialSelection } from "./materialSelections.js";
 
 const modules = import.meta.glob("./**/*.*s");
@@ -71,7 +75,8 @@ async function enableFlag(t: ReturnType<typeof convexTest>) {
 }
 
 function entriesFromWorkspace(ws: any, scenario: string) {
-  return acceptAllRecommendations(ws.lines, scenario as any);
+  // Sélection EXPLICITE (acceptation des recommandations par l'utilisateur).
+  return selectAllRecommended(ws.lines, scenario as any);
 }
 
 describe("materialSelections — API", () => {
@@ -169,6 +174,32 @@ describe("materialSelections — API", () => {
     ).rejects.toThrow();
   });
 
+  it("refuse de valider de simples propositions IA non acceptées, puis accepte après décision", async () => {
+    const user = await createUser(t);
+    const projectId = await createProject(t, user);
+    await enableFlag(t);
+    const asUser = t.withIdentity({ subject: user });
+
+    const res = await asUser.query(api.materialSelections.getMaterialsWorkspace, { projectId });
+    // Propositions IA : couvrent le Quantitatif mais ne sont PAS une sélection.
+    const proposals = acceptAllRecommendations(res!.workspace.lines, "standard");
+    await expect(
+      asUser.mutation(api.materialSelections.confirmSelection, {
+        projectId,
+        scenario: "standard",
+        entries: proposals,
+      }),
+    ).rejects.toThrow();
+
+    const accepted = selectAllRecommended(res!.workspace.lines, "standard");
+    const confirmed = await asUser.mutation(api.materialSelections.confirmSelection, {
+      projectId,
+      scenario: "standard",
+      entries: accepted,
+    });
+    expect(confirmed.version).toBe(1);
+  });
+
   it("réinitialise la sélection courante", async () => {
     const user = await createUser(t);
     const projectId = await createProject(t, user);
@@ -214,6 +245,10 @@ describe("materialSelections — auto-lancement (§9)", () => {
     // La sélection couvre 100 % des matériaux et n'est pas obsolète.
     expect(Object.keys(res!.saved!.entries ?? {}).length).toBe(res!.workspace.lines.length);
     expect(res!.saved!.stale).toBe(false);
+    // Aucune ligne n'est marquée « sélectionnée » : ce sont des propositions IA.
+    expect(
+      Object.values(res!.saved!.entries ?? {}).every((e: any) => e.userSelected === false),
+    ).toBe(true);
     expect((res!.saved!.totals as any).materialsTotal).toBeCloseTo(
       res!.workspace.materialsTotal,
       4,

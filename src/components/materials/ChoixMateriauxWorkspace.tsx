@@ -36,6 +36,7 @@ import {
   acceptAllRecommendations,
   packagingForLine,
   projectMaterialsStatus,
+  selectAllRecommended,
   selectVariant,
   selectionMaterialsTotal,
   selectionScore,
@@ -75,6 +76,7 @@ const PQ_STYLE: Record<PriceQualityLevel, string> = {
 
 const STATUS_STYLE: Record<string, string> = {
   en_cours: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-500",
+  recommandations: "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-400",
   selectionnes: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   valides: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400",
   a_reviser: "border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-500",
@@ -125,8 +127,14 @@ export function ChoixMateriauxWorkspace({
   }, [ws, data, initKey, activeScenario]);
 
   const total = useMemo(() => (ws ? selectionMaterialsTotal(ws.lines, entries) : 0), [ws, entries]);
+  // « Sélectionnés » ne compte QUE les lignes explicitement retenues par
+  // l'utilisateur ; les propositions IA sont comptées séparément.
   const selectedCount = useMemo(
-    () => (ws ? ws.lines.filter((l) => !!entries[l.articleId]).length : 0),
+    () => (ws ? ws.lines.filter((l) => entries[l.articleId]?.userSelected).length : 0),
+    [ws, entries],
+  );
+  const proposedCount = useMemo(
+    () => (ws ? ws.lines.filter((l) => entries[l.articleId] && !entries[l.articleId]?.userSelected).length : 0),
     [ws, entries],
   );
   const validation = useMemo(() => {
@@ -163,6 +171,7 @@ export function ChoixMateriauxWorkspace({
     return projectMaterialsStatus({
       requiredCount: validation.requiredCount,
       selectedCount: validation.selectedCount,
+      proposedCount: validation.proposedCount,
       validated: data?.saved?.status === "valides" && !data?.saved?.stale,
       stale: !!data?.saved?.stale,
       blocking: validation.blocking.length,
@@ -256,13 +265,27 @@ export function ChoixMateriauxWorkspace({
     }
   };
 
-  const setAll = () => setEntries(acceptAllRecommendations(ws.lines, activeScenario));
+  // Acceptation EXPLICITE : c'est ce geste (et lui seul) qui transfère les
+  // recommandations IA dans « Matériaux sélectionnés ».
+  const setAll = () => {
+    setEntries(selectAllRecommended(ws.lines, activeScenario));
+    toast.success("Recommandations IA acceptées : matériaux sélectionnés.");
+  };
 
+  // Cycle : aucune → accepte la proposition IA (sélection) → désélectionne.
   const toggleLine = (line: MaterialLine) => {
     setEntries((prev) => {
       const next = { ...prev };
-      if (next[line.articleId]) {
+      const current = next[line.articleId];
+      if (current?.userSelected) {
+        // Déjà retenu explicitement → désélectionner.
         delete next[line.articleId];
+        return next;
+      }
+      if (current) {
+        // Proposition IA → acceptation EXPLICITE (transfert vers la sélection).
+        next[line.articleId] = { ...current, userSelected: true };
+        return next;
       } else {
         const variant = ws.variants[line.articleId]?.find((v) => v.scenario === activeScenario);
         next[line.articleId] = variant
@@ -374,9 +397,10 @@ export function ChoixMateriauxWorkspace({
           )}
 
           {/* Totaux */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {[
               { label: "Total global matériaux", value: fmtTnd(total), accent: true },
+              { label: "Recommandations IA", value: `${proposedCount} / ${ws.lines.length}` },
               { label: "Matériaux sélectionnés", value: `${selectedCount} / ${ws.lines.length}` },
               { label: "Coût total des travaux", value: fmtTnd(ws.budget.projectTotal) },
               {
@@ -475,7 +499,7 @@ export function ChoixMateriauxWorkspace({
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" className="h-7 gap-1 text-[10px]" onClick={setAll}>
-                <Sparkles className="h-3 w-3" /> Recommandations IA
+                <Sparkles className="h-3 w-3" /> Accepter les recommandations IA
               </Button>
               <Button size="sm" variant="ghost" className="h-7 gap-1 text-[10px]" onClick={handleReset}>
                 <RotateCcw className="h-3 w-3" /> Réinitialiser
@@ -503,29 +527,42 @@ export function ChoixMateriauxWorkspace({
               <TableBody>
                 {ws.lines.map((line) => {
                   const pq = ws.scores[line.articleId];
-                  const selected = !!entries[line.articleId];
                   const entry = entries[line.articleId];
+                  const isSelected = !!entry?.userSelected;
+                  const isProposed = !!entry && !entry.userSelected;
                   const pkg = packagingForLine(line);
                   return (
                     <Fragment key={line.articleId}>
-                      <TableRow className={cn(!selected && "opacity-60")}>
+                      <TableRow className={cn(!entry && "opacity-60")}>
                         <TableCell>
                           <div className="flex items-start gap-2">
                             <button
                               type="button"
                               onClick={() => toggleLine(line)}
-                              aria-label={selected ? "Désélectionner" : "Sélectionner"}
+                              aria-label={
+                                isSelected ? "Désélectionner" : isProposed ? "Accepter la recommandation IA" : "Sélectionner"
+                              }
                               className={cn(
                                 "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[9px] transition-all",
-                                selected
+                                isSelected
                                   ? "border-emerald-500 bg-emerald-500 text-white"
-                                  : "border-border text-transparent",
+                                  : isProposed
+                                    ? "border-violet-500 bg-violet-500/15 text-violet-600"
+                                    : "border-border text-transparent",
                               )}
                             >
-                              <Check className="h-2.5 w-2.5" />
+                              {isProposed ? <Sparkles className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
                             </button>
                             <div className="min-w-0">
                               <p className="text-xs font-medium leading-tight">{line.designation}</p>
+                              {isProposed && (
+                                <Badge
+                                  variant="secondary"
+                                  className="mt-0.5 border-violet-500/30 bg-violet-500/10 text-[9px] text-violet-700 dark:text-violet-400"
+                                >
+                                  Recommandé par AI — à valider
+                                </Badge>
+                              )}
                               <p className="mt-0.5 text-[9px] text-muted-foreground">
                                 {line.lotName}
                                 {line.subcategory ? ` · ${line.subcategory}` : ""}
@@ -657,30 +694,45 @@ export function ChoixMateriauxWorkspace({
           <div className="space-y-2 p-3 md:hidden">
             {ws.lines.map((line) => {
               const pq = ws.scores[line.articleId];
-              const selected = !!entries[line.articleId];
               const entry = entries[line.articleId];
+              const isSelected = !!entry?.userSelected;
+              const isProposed = !!entry && !entry.userSelected;
               return (
                 <div
                   key={line.articleId}
                   className={cn(
                     "rounded-xl border p-3",
-                    selected ? "border-emerald-500/40 bg-emerald-500/[0.03]" : "border-border/40",
+                    isSelected
+                      ? "border-emerald-500/40 bg-emerald-500/[0.03]"
+                      : isProposed
+                        ? "border-violet-500/40 bg-violet-500/[0.03]"
+                        : "border-border/40",
                   )}
                 >
                   <div className="flex items-start gap-2">
                     <button
                       type="button"
                       onClick={() => toggleLine(line)}
+                      aria-label={
+                        isSelected ? "Désélectionner" : isProposed ? "Accepter la recommandation IA" : "Sélectionner"
+                      }
                       className={cn(
                         "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[9px]",
-                        selected ? "border-emerald-500 bg-emerald-500 text-white" : "border-border text-transparent",
+                        isSelected
+                          ? "border-emerald-500 bg-emerald-500 text-white"
+                          : isProposed
+                            ? "border-violet-500 bg-violet-500/15 text-violet-600"
+                            : "border-border text-transparent",
                       )}
                     >
-                      <Check className="h-2.5 w-2.5" />
+                      {isProposed ? <Sparkles className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
                     </button>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold leading-tight">{line.designation}</p>
-                      <p className="mt-0.5 text-[9px] text-muted-foreground">{line.lotName}</p>
+                      <p className="mt-0.5 text-[9px] text-muted-foreground">
+                        {line.lotName}
+                        {isProposed ? " · recommandé par AI — à valider" : isSelected ? " · sélectionné" : ""}
+                      </p>
                     </div>
                     {pq && (
                       <span className={cn("rounded-full border px-2 py-0.5 text-[9px] font-semibold", PQ_STYLE[pq.level])}>
@@ -792,11 +844,14 @@ export function ChoixMateriauxWorkspace({
 
           {validation && (
             <div className="flex flex-wrap gap-2 text-[10px]">
+              <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-violet-700 dark:text-violet-400">
+                {validation.proposedCount} recommandation(s) IA en attente
+              </span>
               <span className="rounded-full border border-border/40 bg-muted/20 px-2 py-0.5">
                 {validation.selectedCount} / {validation.requiredCount} sélectionnés
               </span>
               <span className="rounded-full border border-border/40 bg-muted/20 px-2 py-0.5">
-                {validation.acceptedRecommendations} recommandations IA acceptées
+                {validation.acceptedRecommendations} conformes au scénario de référence
               </span>
               <span className="rounded-full border border-border/40 bg-muted/20 px-2 py-0.5">
                 {validation.customizedCount} choix personnalisés
