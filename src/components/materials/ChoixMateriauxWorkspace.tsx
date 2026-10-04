@@ -33,7 +33,6 @@ import {
   MATERIAL_SCENARIO_LABELS,
   PROJECT_MATERIALS_STATUS_ICONS,
   PROJECT_MATERIALS_STATUS_LABELS,
-  acceptAllRecommendations,
   packagingForLine,
   projectMaterialsStatus,
   selectAllRecommended,
@@ -120,9 +119,21 @@ export function ChoixMateriauxWorkspace({
     initRef.current = initKey;
     const saved = data?.saved;
     if (saved && saved.scenario === activeScenario && !saved.stale && saved.entries) {
-      setEntries(saved.entries as Record<string, MaterialSelectionEntry>);
+      // Les lignes enregistrées restent « sélectionnées » par défaut : une
+      // éventuelle proposition IA héritée est automatiquement acceptée (les
+      // lignes volontairement désélectionnées sont absentes et le restent).
+      const restored: Record<string, MaterialSelectionEntry> = {};
+      for (const [key, entry] of Object.entries(
+        saved.entries as Record<string, MaterialSelectionEntry>,
+      )) {
+        restored[key] = { ...entry, userSelected: true };
+      }
+      setEntries(restored);
     } else {
-      setEntries(acceptAllRecommendations(ws.lines, activeScenario));
+      // Par défaut, les recommandations IA sont ACCEPTÉES automatiquement en
+      // arrière-plan : les matériaux apparaissent « sélectionnés » sans
+      // intervention de l'utilisateur, qui peut ensuite ajuster chaque ligne.
+      setEntries(selectAllRecommended(ws.lines, activeScenario));
     }
   }, [ws, data, initKey, activeScenario]);
 

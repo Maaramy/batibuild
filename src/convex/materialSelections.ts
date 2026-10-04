@@ -6,10 +6,10 @@ import { getCurrentUser } from "./users";
 import { requireClientProAccess } from "./access";
 import { readFlag } from "./featureFlags";
 import {
-  acceptAllRecommendations,
   buildMaterialWorkspace,
   materialsOnly,
   recalculateSelection,
+  selectAllRecommended,
   selectionScore,
   validateSelection,
   MATERIAL_SCENARIO_KEYS,
@@ -103,10 +103,16 @@ export const getMaterialsWorkspace = query({
       .first();
 
     const { rawLots, costEstimate, realCostFactor } = projectQuantitatifContext(project);
+    // Le scénario du « Coût estimatif » est la source partagée : s'il est
+    // défini sur le projet, il pilote le module (sinon on retombe sur le
+    // scénario enregistré puis « standard »).
+    const projectScenario = isScenario((project as any).selectedScenario)
+      ? ((project as any).selectedScenario as MaterialScenarioKey)
+      : null;
     const workspace = buildMaterialWorkspace({
       rawLots,
       costEstimate,
-      scenario: saved?.scenario ?? "standard",
+      scenario: projectScenario ?? saved?.scenario ?? "standard",
       realCostFactor,
     });
 
@@ -177,10 +183,14 @@ export async function autoLaunchMaterialSelection(
     if (!project) return { launched: false };
 
     const { rawLots, costEstimate, realCostFactor } = projectQuantitatifContext(project);
+    // Scénario de référence = celui du « Coût estimatif » (source partagée).
+    const scenario: MaterialScenarioKey = isScenario((project as any).selectedScenario)
+      ? ((project as any).selectedScenario as MaterialScenarioKey)
+      : "standard";
     const ws = buildMaterialWorkspace({
       rawLots,
       costEstimate,
-      scenario: "standard",
+      scenario,
       realCostFactor,
     });
     if (!ws.hasQuantitatif || ws.lines.length === 0) return { launched: false };
@@ -197,7 +207,10 @@ export async function autoLaunchMaterialSelection(
       (existing.priceVersion ?? "") !== ws.priceVersion;
     if (!dataChanged) return { launched: false };
 
-    const entries = acceptAllRecommendations(ws.lines, ws.scenario);
+    // Les matériaux apparaissent SÉLECTIONNÉS par défaut (recommandations IA
+    // acceptées automatiquement, en arrière-plan, sans intervention de
+    // l'utilisateur) ; il peut ensuite ajuster chaque ligne.
+    const entries = selectAllRecommended(ws.lines, ws.scenario);
     const recalculated = recalculateSelection(ws.lines, entries, ws.scenario);
     await upsertDraft(ctx, userId, projectId, {
       scenario: ws.scenario,
@@ -279,14 +292,27 @@ export const setSelectionScenario = mutation({
     if (!ws.scenarios.find((s) => s.key === scenario)?.available) {
       throw new Error("Ce scénario n'est pas disponible pour ce projet.");
     }
+    // Changement de scénario : les matériaux restent SÉLECTIONNÉS par défaut
+    // (recommandations du nouveau scénario acceptées automatiquement).
+    const entries = selectAllRecommended(ws.lines, scenario);
+    const recalculated = recalculateSelection(ws.lines, entries, scenario);
     await upsertDraft(ctx, user._id, projectId, {
       scenario,
-      entries: {},
-      totals: { materialsTotal: ws.materialsTotal, referenceTotal: ws.referenceTotal },
+      entries,
+      totals: {
+        materialsTotal: recalculated.materialsTotal,
+        referenceTotal: recalculated.referenceTotal,
+        impact: recalculated.impact,
+        selectedCount: recalculated.selectedCount,
+        requiredCount: recalculated.requiredCount,
+      },
       quantitativeVersion: ws.quantitativeVersion,
       priceVersion: ws.priceVersion,
       status: "en_cours",
     });
+    // Le scénario choisi ici devient la source partagée au niveau du projet
+    // (réciprocité avec « Coût estimatif »).
+    await ctx.db.patch(projectId, { selectedScenario: scenario, updatedAt: Date.now() });
     return { scenario };
   },
 });

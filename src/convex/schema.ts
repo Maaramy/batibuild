@@ -396,6 +396,10 @@ const schema = defineSchema(
       status: projectStatusValidator,
       description: v.optional(v.string()),
       region: v.optional(regionValidator),
+      // Scénario budgétaire actif choisi dans « Coût estimatif »
+      // ("economique" | "standard" | "premium"). Source partagée qui pilote
+      // « Choix matériaux AI » et « Analyse IA & historique ».
+      selectedScenario: v.optional(v.string()),
       
       // Surface (unified field, in m²)
       surface: v.optional(v.number()),

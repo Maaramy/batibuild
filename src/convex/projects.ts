@@ -467,6 +467,37 @@ export const updateProjectDimensions = mutation({
   },
 });
 
+/**
+ * Définit le scénario budgétaire actif du projet (choisi dans « Coût estimatif »).
+ *
+ * Ce champ est la SOURCE PARTAGÉE du scénario : « Choix matériaux AI » et
+ * « Analyse IA & historique » le lisent pour rester alignés sur le résultat de
+ * l'estimation des coûts de construction. Seuls les trois scénarios d'origine
+ * sont acceptés (Économique / Standard / Premium).
+ */
+export const setProjectScenario = mutation({
+  args: { projectId: v.id("projects"), scenario: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Unauthorized");
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+    if (project.userId !== user._id && user.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+    if (!["economique", "standard", "premium"].includes(args.scenario)) {
+      throw new Error("Scénario invalide");
+    }
+
+    await ctx.db.patch(args.projectId, {
+      selectedScenario: args.scenario,
+      updatedAt: Date.now(),
+    });
+    return { scenario: args.scenario };
+  },
+});
+
 /** Toggle favorite status */
 export const toggleFavorite = mutation({
   args: { projectId: v.id("projects") },

@@ -13,7 +13,7 @@ import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { useParams, useNavigate } from "react-router";
-import { useState, useMemo, Fragment, useEffect } from "react";
+import { useState, useMemo, Fragment, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
 import { toast } from "sonner";
@@ -173,6 +173,10 @@ export default function ProjectDetail() {
     return { current: idx + 1, total: allProjects.length };
   }, [allProjects, project]);
   const toggleFav = useMutation(api.projects.toggleFavorite);
+  // Scénario budgétaire PARTAGÉ : persisté sur le projet afin que
+  // « Choix matériaux AI » et « Analyse IA & historique » suivent le résultat
+  // de l'estimation des coûts de construction.
+  const setProjectScenario = useMutation(api.projects.setProjectScenario);
   const startAnalysis = useMutation(api.projects.startAnalysis);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
   const consumeDownload = useMutation(api.subscriptions.consumeDownload);
@@ -200,6 +204,18 @@ export default function ProjectDetail() {
   const [refreshingQuantitatif, setRefreshingQuantitatif] = useState(false);
   const [openCat, setOpenCat] = useState<string>("__all_expanded");
   const [selectedScenario, setSelectedScenario] = useState<string>("standard");
+
+  // Initialisation (unique) du scénario affiché depuis la source partagée du
+  // projet — définie par « Coût estimatif » ou par « Choix matériaux AI ».
+  const scenarioInitRef = useRef(false);
+  useEffect(() => {
+    if (scenarioInitRef.current || !project) return;
+    scenarioInitRef.current = true;
+    const stored = (project as any).selectedScenario;
+    if (typeof stored === "string" && ["economique", "standard", "premium"].includes(stored)) {
+      setSelectedScenario(stored);
+    }
+  }, [project]);
   const [editingLine, setEditingLine] = useState<{
     lotId: string;
     lotName: string;
@@ -379,6 +395,16 @@ export default function ProjectDetail() {
     selectedScenario === PERSONALIZED_SCENARIO_KEY
       ? baseScenarioKey
       : (selectedScenario as BudgetScenarioKey);
+
+  // Applique un scénario ET le persiste au niveau du projet : ce champ partagé
+  // pilote ensuite « Choix matériaux AI » et « Analyse IA & historique ».
+  const chooseScenario = (key: string) => {
+    setSelectedScenario(key);
+    const persisted = key === PERSONALIZED_SCENARIO_KEY ? baseScenarioKey : key;
+    if (project?._id && ["economique", "standard", "premium"].includes(persisted)) {
+      void setProjectScenario({ projectId: project._id, scenario: persisted });
+    }
+  };
 
   // Quantitatif brut (niveau de référence du moteur) indexé par clé d'article.
   const rawDqeLots = useMemo(
@@ -1051,7 +1077,7 @@ export default function ProjectDetail() {
                     const isStd = key === "standard";
                     const Icon = key === "economique" ? Wallet : key === "standard" ? Gauge : Sparkles;
                     return (
-                      <button key={key} onClick={() => setSelectedScenario(key)}
+                      <button key={key} onClick={() => chooseScenario(key)}
                         className={cn("relative rounded-xl border-2 p-4 transition-all text-left w-full",
                           isActive
                             ? "border-primary/50 bg-gradient-to-br from-primary/[0.08] to-background shadow-md ring-1 ring-primary/20 scale-[1.02]"
@@ -1084,7 +1110,7 @@ export default function ProjectDetail() {
                         moins une modification d'article existe. */}
                     {hasCustomization && personalized && (
                       <button
-                        onClick={() => setSelectedScenario(PERSONALIZED_SCENARIO_KEY)}
+                        onClick={() => chooseScenario(PERSONALIZED_SCENARIO_KEY)}
                         className={cn(
                           "relative rounded-xl border-2 p-4 transition-all text-left w-full",
                           isPersonalizedScenario
@@ -1256,7 +1282,7 @@ export default function ProjectDetail() {
                             : currentTotal
                         }
                         builtSurface={builtSurface}
-                        onSaved={() => setSelectedScenario(PERSONALIZED_SCENARIO_KEY)}
+                        onSaved={() => chooseScenario(PERSONALIZED_SCENARIO_KEY)}
                       />
                     )}
 
@@ -1283,7 +1309,7 @@ export default function ProjectDetail() {
                             onClick={async () => {
                               try {
                                 await resetAllCustomizations({ projectId: project._id });
-                                setSelectedScenario(baseScenarioKey);
+                                chooseScenario(baseScenarioKey);
                                 toast.success("Toutes les modifications ont été réinitialisées");
                               } catch (err: any) {
                                 toast.error(err?.message || "Erreur lors de la réinitialisation");

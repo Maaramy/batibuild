@@ -149,6 +149,23 @@ export default function AiMaterials() {
     [estimationCategories, form.standing, estimation],
   );
 
+  // Le scénario choisi dans le « Coût estimatif » du projet pilote aussi
+  // l'onglet « Analyse IA & historique » : le standing suit automatiquement le
+  // scénario du résultat d'estimation des coûts (Économique / Standard /
+  // Premium), sans intervention de l'utilisateur.
+  const standingSyncRef = useRef<string | null>(null);
+  useEffect(() => {
+    const proj = journeyProject;
+    const stored = proj?.selectedScenario as string | undefined;
+    if (!proj || typeof stored !== "string") return;
+    const syncKey = `${proj._id}:${stored}`;
+    if (standingSyncRef.current === syncKey) return;
+    standingSyncRef.current = syncKey;
+    if (STANDING_OPTIONS.some((o) => o.value === stored)) {
+      setForm((f) => (f.standing === stored ? f : { ...f, standing: stored }));
+    }
+  }, [journeyProject]);
+
   // Appliquée une seule fois par (projet + standing) : les ajustements manuels
   // de l'utilisateur sont préservés tant que ni le projet ni le standing ne
   // changent.
@@ -271,11 +288,17 @@ export default function AiMaterials() {
     setProjectId(id);
     const proj = projects.find((p: any) => p._id === id) as any;
     if (proj) {
+      const storedScenario = proj.selectedScenario as string | undefined;
       setForm((f) => ({
         ...f,
         surface: proj.surface || f.surface,
         floors: proj.floors || f.floors || 1,
         region: proj.region || f.region,
+        // Alignement immédiat sur le scénario du « Coût estimatif ».
+        standing:
+          typeof storedScenario === "string" && STANDING_OPTIONS.some((o) => o.value === storedScenario)
+            ? storedScenario
+            : f.standing,
       }));
     }
   };

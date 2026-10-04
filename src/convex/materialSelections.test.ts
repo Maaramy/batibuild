@@ -227,7 +227,7 @@ describe("materialSelections — auto-lancement (§9)", () => {
     t = convexTest(schema, modules);
   });
 
-  it("initialise le module avec la sélection proposée par l'IA, sans sélection préalable", async () => {
+  it("initialise le module avec les matériaux sélectionnés par défaut (recommandations IA acceptées)", async () => {
     const user = await createUser(t);
     const projectId = await createProject(t, user);
     await enableFlag(t);
@@ -245,9 +245,10 @@ describe("materialSelections — auto-lancement (§9)", () => {
     // La sélection couvre 100 % des matériaux et n'est pas obsolète.
     expect(Object.keys(res!.saved!.entries ?? {}).length).toBe(res!.workspace.lines.length);
     expect(res!.saved!.stale).toBe(false);
-    // Aucune ligne n'est marquée « sélectionnée » : ce sont des propositions IA.
+    // Les matériaux apparaissent SÉLECTIONNÉS par défaut, sans intervention de
+    // l'utilisateur : les recommandations IA sont acceptées en arrière-plan.
     expect(
-      Object.values(res!.saved!.entries ?? {}).every((e: any) => e.userSelected === false),
+      Object.values(res!.saved!.entries ?? {}).every((e: any) => e.userSelected === true),
     ).toBe(true);
     expect((res!.saved!.totals as any).materialsTotal).toBeCloseTo(
       res!.workspace.materialsTotal,
@@ -288,6 +289,36 @@ describe("materialSelections — auto-lancement (§9)", () => {
       autoLaunchMaterialSelection(ctx as any, user, projectId),
     );
     expect(launched.launched).toBe(false);
+  });
+
+  it("suit le scénario choisi dans « Coût estimatif » (source partagée)", async () => {
+    const user = await createUser(t);
+    const projectId = await createProject(t, user);
+    await enableFlag(t);
+    const asUser = t.withIdentity({ subject: user });
+
+    // Le scénario est choisi dans le résultat d'estimation des coûts de
+    // construction (page projet) puis doit piloter le module matériaux.
+    await asUser.mutation(api.projects.setProjectScenario, {
+      projectId,
+      scenario: "premium",
+    });
+    const res = await asUser.query(api.materialSelections.getMaterialsWorkspace, { projectId });
+    expect(res!.workspace.scenario).toBe("premium");
+  });
+
+  it("répercute sur le projet le scénario choisi dans « Choix matériaux »", async () => {
+    const user = await createUser(t);
+    const projectId = await createProject(t, user);
+    await enableFlag(t);
+    const asUser = t.withIdentity({ subject: user });
+
+    await asUser.mutation(api.materialSelections.setSelectionScenario, {
+      projectId,
+      scenario: "economique",
+    });
+    const project = await t.run(async (ctx) => ctx.db.get(projectId));
+    expect((project as any).selectedScenario).toBe("economique");
   });
 
   it("ne s'auto-lance pas sans Quantitatif détaillé", async () => {
