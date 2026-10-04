@@ -1312,6 +1312,19 @@ export const INSUFFICIENT_DATA_MESSAGE =
 
 export type PriceTrendDirection = "hausse" | "baisse" | "stable";
 export type PredictionConfidence = "faible" | "moyenne" | "elevee";
+/**
+ * Source réelle d'une prévision :
+ *   • `historique` — tendance temporelle issue de l'historique de prix marché.
+ *   • `variantes`  — à défaut d'historique, comparaison des prix RÉELS des
+ *     scénarios disponibles (Économique / Standard / Premium) pour le même
+ *     besoin : elle indique si un coût inférieur est réellement accessible.
+ */
+export type PriceForecastBasis = "historique" | "variantes";
+
+export const PRICE_FORECAST_BASIS_LABELS: Record<PriceForecastBasis, string> = {
+  historique: "Historique marché",
+  variantes: "Comparaison scénarios",
+};
 export type PurchaseTiming =
   | "acheter_maintenant"
   | "acheter_prochainement"
@@ -1380,6 +1393,8 @@ export interface MaterialPriceForecast {
   observations: number;
   horizon: string;
   observedWindowDays: number | null;
+  /** Origine réelle de la prévision (historique marché ou variantes réelles). */
+  basis: PriceForecastBasis;
   recommendation: string;
 }
 
@@ -1390,6 +1405,7 @@ export interface PurchasePeriodAdvice {
   trend: PriceTrendDirection;
   trendPct: number;
   confidence: PredictionConfidence;
+  basis: PriceForecastBasis;
   reason: string;
 }
 
@@ -1498,59 +1514,107 @@ export function predictiveIntelligence(input: {
     trendByCat.set(key, t);
   }
 
-  // ── Évolution prévisionnelle des prix (à partir de l'historique réel) ────
+  // ── Évolution prévisionnelle des prix ─────────────────────────────────────
+  // 1) Tendance temporelle dès qu'un historique marché existe pour la
+  //    catégorie.  2) Sinon, comparaison des prix RÉELS des scénarios
+  //    disponibles pour le même besoin (aucune valeur inventée) : elle révèle
+  //    si un coût unitaire inférieur est réellement accessible. Ce repli garantit
+  //    un résultat exploitable même sans historique marché enregistré.
   const priceForecasts: MaterialPriceForecast[] = [];
   for (const line of scope) {
     const trend = trendByCat.get(String(line.category ?? "").trim().toLowerCase());
-    if (!trend || !Number.isFinite(trend.netPct)) continue;
-    const trendPct = round2(trend.netPct);
+    if (trend && Number.isFinite(trend.netPct) && Math.round(Number(trend.changes) || 0) > 0) {
+      const trendPct = round2(trend.netPct);
+      const direction: PriceTrendDirection =
+        trendPct >= TREND_THRESHOLD_PCT
+          ? "hausse"
+          : trendPct <= -TREND_THRESHOLD_PCT
+            ? "baisse"
+            : "stable";
+      const observations = Math.max(0, Math.round(Number(trend.changes) || 0));
+      const confidence: PredictionConfidence =
+        observations >= 8 ? "elevee" : observations >= 3 ? "moyenne" : "faible";
+      const confidenceScore = Math.max(0, Math.min(1, observations / 10));
+      const { horizon, windowDays } = forecastHorizon(trend);
+      const recommendation =
+        direction === "hausse"
+          ? trendPct >= 2
+            ? "Acheter maintenant : hausse probable, anticipez l'achat."
+            : "Acheter prochainement : hausse probable."
+          : direction === "baisse"
+            ? "Attendre : baisse probable, surveillez le prix."
+            : "Surveiller le prix : stabilité probable.";
+      priceForecasts.push({
+        articleId: line.articleId,
+        designation: line.designation,
+        category: line.category,
+        unit: line.unit,
+        currentUnitPrice: round2(line.unitPrice),
+        currentTotal: round2(line.quantity * line.unitPrice),
+        trend: direction,
+        trendPct,
+        confidence,
+        confidenceScore,
+        observations,
+        horizon,
+        observedWindowDays: windowDays,
+        basis: "historique",
+        recommendation,
+      });
+      continue;
+    }
+
+    // Repli : comparaison des prix réels des variantes de scénario.
+    const vs = asArr<MaterialVariant>(variantsMap[line.articleId]).filter(
+      (v) => v.available && Number(v.unitPrice) > 0,
+    );
+    if (vs.length === 0) continue;
+    const active = vs.find((v) => v.scenario === scenario);
+    const currentUnitPrice = active ? active.unitPrice : line.unitPrice;
+    if (!(currentUnitPrice > 0)) continue;
+    const cheapest = vs.reduce((m, v) => (v.unitPrice < m.unitPrice ? v : m));
+    const deltaPct = round2(((cheapest.unitPrice - currentUnitPrice) / currentUnitPrice) * 100);
     const direction: PriceTrendDirection =
-      trendPct >= TREND_THRESHOLD_PCT
-        ? "hausse"
-        : trendPct <= -TREND_THRESHOLD_PCT
-          ? "baisse"
-          : "stable";
-    const observations = Math.max(0, Math.round(Number(trend.changes) || 0));
-    const confidence: PredictionConfidence =
-      observations >= 8 ? "elevee" : observations >= 3 ? "moyenne" : "faible";
-    const confidenceScore = Math.max(0, Math.min(1, observations / 10));
-    const { horizon, windowDays } = forecastHorizon(trend);
-    const recommendation =
-      direction === "hausse"
-        ? trendPct >= 2
-          ? "Acheter maintenant : hausse probable, anticipez l'achat."
-          : "Acheter prochainement : hausse probable."
-        : direction === "baisse"
-          ? "Attendre : baisse probable, surveillez le prix."
-          : "Surveiller le prix : stabilité probable.";
+      cheapest.scenario !== scenario && deltaPct <= -TREND_THRESHOLD_PCT ? "baisse" : "stable";
+    const observations = vs.length;
+    const confidence: PredictionConfidence = vs.length >= 3 ? "moyenne" : "faible";
+    const confidenceScore = Math.max(0, Math.min(1, vs.length / 3));
     priceForecasts.push({
       articleId: line.articleId,
       designation: line.designation,
       category: line.category,
       unit: line.unit,
-      currentUnitPrice: round2(line.unitPrice),
-      currentTotal: round2(line.quantity * line.unitPrice),
+      currentUnitPrice: round2(currentUnitPrice),
+      currentTotal: round2(line.quantity * currentUnitPrice),
       trend: direction,
-      trendPct,
+      trendPct: direction === "baisse" ? deltaPct : 0,
       confidence,
       confidenceScore,
       observations,
-      horizon,
-      observedWindowDays: windowDays,
-      recommendation,
+      horizon: "prochaines semaines",
+      observedWindowDays: null,
+      basis: "variantes",
+      recommendation:
+        direction === "baisse"
+          ? `Baisse possible : le scénario ${MATERIAL_SCENARIO_LABELS[cheapest.scenario]} propose le même besoin à un coût unitaire inférieur.`
+          : "Stable : vous êtes déjà au meilleur coût disponible parmi les scénarios pour ce poste.",
     });
   }
   priceForecasts.sort((a, b) => b.currentTotal - a.currentTotal);
 
   // ── Meilleure période d'achat (déduite de la tendance réelle) ────────────
   const purchasePlan: PurchasePeriodAdvice[] = priceForecasts.map((f) => {
+    // Une baisse issue de l'historique invite à attendre ; une baisse issue des
+    // variantes est une opportunité déjà accessible (on optimise maintenant).
     const timing: PurchaseTiming =
       f.trend === "hausse"
         ? f.trendPct >= 2
           ? "acheter_maintenant"
           : "acheter_prochainement"
         : f.trend === "baisse"
-          ? "attendre"
+          ? f.basis === "historique"
+            ? "attendre"
+            : "acheter_prochainement"
           : "surveiller";
     return {
       articleId: f.articleId,
@@ -1559,6 +1623,7 @@ export function predictiveIntelligence(input: {
       trend: f.trend,
       trendPct: f.trendPct,
       confidence: f.confidence,
+      basis: f.basis,
       reason: f.recommendation,
     };
   });

@@ -22,6 +22,7 @@ import {
   INSUFFICIENT_DATA_MESSAGE,
   LOSS_RISK_LABELS,
   PREDICTION_CONFIDENCE_LABELS,
+  PRICE_FORECAST_BASIS_LABELS,
   PRICE_TREND_FULL_LABELS,
   PRICE_TREND_LABELS,
   PURCHASE_TIMING_LABELS,
@@ -229,7 +230,7 @@ export function PredictiveIntelligenceCard({
         <SubSection
           icon={TrendingUp}
           title="Évolution prévisionnelle des prix"
-          description="Tendance issue de l'historique de prix de marché disponible — jamais une certitude."
+          description="Tendance issue de l'historique marché ou, à défaut, comparaison des prix réels des scénarios disponibles."
         >
           {priceForecasts.length === 0 ? (
             <InsufficientData />
@@ -273,6 +274,11 @@ export function PredictiveIntelligenceCard({
                     </div>
                     <ConfidenceMeter confidence={f.confidence} />
                   </div>
+                  <div className="mt-1">
+                    <span className="rounded-full border border-border/40 bg-muted/20 px-2 py-0.5 text-[9px] text-muted-foreground">
+                      Source : {PRICE_FORECAST_BASIS_LABELS[f.basis]}
+                    </span>
+                  </div>
                   <p className="mt-1 text-[10px] text-muted-foreground">
                     Recommandation : <span className="text-foreground">{f.recommendation}</span>
                   </p>
@@ -304,6 +310,9 @@ export function PredictiveIntelligenceCard({
                   )}
                 >
                   {PURCHASE_TIMING_LABELS[a.timing]}
+                </span>
+                <span className="rounded-full border border-border/40 bg-muted/20 px-2 py-0.5 text-[9px] text-muted-foreground">
+                  {PRICE_FORECAST_BASIS_LABELS[a.basis]}
                 </span>
                 <span className="basis-full text-[10px] text-muted-foreground sm:basis-auto sm:flex-1">
                   {a.reason}

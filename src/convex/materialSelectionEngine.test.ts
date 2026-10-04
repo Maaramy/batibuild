@@ -853,6 +853,30 @@ describe("predictiveIntelligence — tendances, budget et pertes", () => {
     expect(pi.totals.lossRisk).toBeCloseTo(0.6, 6);
   });
 
+  it("produit des prévisions à partir des variantes réelles sans historique marché", () => {
+    const ws = buildMaterialWorkspace({ rawLots: villaDqe(), costEstimate: COST, scenario: "standard" });
+    const pi = predictiveIntelligence({
+      lines: ws.lines,
+      variants: ws.variants,
+      scenario: ws.scenario,
+      materialsBudget: ws.budget.materialsBudget,
+      marketTrends: null,
+    });
+    // Sans historique, le repli sur les prix réels des scénarios évite la
+    // « Données insuffisantes » : un résultat concret est toujours affiché.
+    expect(pi.available).toBe(true);
+    expect(pi.reason).toBeNull();
+    expect(pi.priceForecasts.length).toBeGreaterThan(0);
+    expect(pi.purchasePlan.length).toBe(pi.priceForecasts.length);
+    const f = pi.priceForecasts[0];
+    expect(f.basis).toBe("variantes");
+    // Le prix prévisionnel est un prix réel des variantes du projet.
+    const vs = ws.variants[f.articleId];
+    expect(vs.some((v) => v.unitPrice === f.currentUnitPrice)).toBe(true);
+    const advice = pi.purchasePlan.find((p) => p.articleId === f.articleId)!;
+    expect(advice.basis).toBe("variantes");
+  });
+
   it("signale « Données insuffisantes » lorsqu'aucune donnée n'est exploitable", () => {
     const pi = predictiveIntelligence({ lines: [], scenario: "standard", marketTrends: null });
     expect(pi.available).toBe(false);
