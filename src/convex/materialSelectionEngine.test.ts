@@ -444,6 +444,42 @@ describe("Sélection finale — états, validation, confirmation", () => {
     expect(v.canConfirm).toBe(true);
   });
 
+  it("n'avertit pas sur la qualité d'une ligne sans référence catalogue (§12)", () => {
+    // Régression : « Terrassement et fondations » (ouvrage composite réel du
+    // Quantitatif, sans référence produit au catalogue) déclenchait un faux
+    // avertissement « qualité à préciser (aucune référence catalogue) ».
+    const lots = [
+      {
+        id: "terrassement",
+        name: "Terrassement",
+        lines: [
+          {
+            designation: "Terrassement et fondations",
+            unit: "m²",
+            quantity: 120,
+            unitPrice: 75,
+            total: 9000,
+            nature: "materiaux",
+          },
+        ],
+      },
+    ] as any[];
+    const lines = materialsOnly(materialLinesFromLots(lots, "standard"));
+    expect(lines[0].qualityAvailable).toBe(false);
+    expect(lines[0].quality).toBe("inconnue");
+    const selections = selectAllRecommended(lines, "standard");
+    const v = validateSelection({
+      lines,
+      selections,
+      scenario: "standard",
+      scenarioAvailable: true,
+      budgetMaterials: 20000,
+    });
+    expect(v.warnings.some((i) => i.code === "quality_unknown")).toBe(false);
+    expect(v.blocking).toHaveLength(0);
+    expect(v.canConfirm).toBe(true);
+  });
+
   it("n'affiche jamais deux fois le même libellé dans l'avertissement", () => {
     const lines = materialsOnly(materialLinesFromLots(syntheticLots(), "premium")).filter(
       (l) => l.priceAvailable,

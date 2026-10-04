@@ -863,14 +863,13 @@ export function validateSelection(input: SelectionValidationInput): SelectionVal
     } else {
       acceptedRecommendations += 1;
     }
-    if (!line.qualityAvailable) {
-      warnings.push({
-        code: "quality_unknown",
-        severity: "warning",
-        articleId: line.articleId,
-        message: `« ${line.designation} » : qualité à préciser (aucune référence catalogue).`,
-      });
-    }
+    // Aucun avertissement « qualité à préciser » par ligne : sans référence
+    // catalogue, la gamme est simplement « à préciser » (§12) — c'est un état
+    // ATTENDU du Quantitatif réel (les ouvrages composites n'ont pas de
+    // référence produit), et non une anomalie de la sélection. Il est déjà
+    // affiché sur la ligne (« Qualité à préciser ») et n'est pas modifiable
+    // ici : l'alerter par ligne saturerait la liste au détriment des vrais
+    // problèmes (budget dépassé, recommandations en attente…).
   }
 
   const missingCount = required.length - coveredCount;
