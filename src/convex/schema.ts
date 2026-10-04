@@ -1368,6 +1368,43 @@ const schema = defineSchema(
       .index("by_user_project", ["userId", "projectId"])
       .index("by_created", ["createdAt"]),
 
+    // Sélection courante des matériaux du module « Choix matériaux AI ».
+    // Une seule ligne par projet et par utilisateur : elle porte le scénario
+    // actif (synchronisé avec le Coût estimatif) et le brouillon de sélection.
+    materialSelections: defineTable({
+      userId: v.id("users"),
+      projectId: v.id("projects"),
+      scenario: v.string(),
+      /** Entrées de sélection indexées par `articleId` (traçabilité §17.26). */
+      entries: v.any(),
+      totals: v.any(),
+      /** Versions des données au moment de l'enregistrement (§18.17). */
+      quantitativeVersion: v.optional(v.string()),
+      priceVersion: v.optional(v.string()),
+      status: v.string(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_project", ["userId", "projectId"]),
+
+    // Versions validées (historique) de la sélection finale des matériaux.
+    materialSelectionVersions: defineTable({
+      userId: v.id("users"),
+      projectId: v.id("projects"),
+      version: v.number(),
+      scenario: v.string(),
+      entries: v.any(),
+      totals: v.any(),
+      score: v.any(),
+      status: v.string(),
+      quantitativeVersion: v.optional(v.string()),
+      priceVersion: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_project", ["userId", "projectId"])
+      .index("by_user_project_version", ["userId", "projectId", "version"]),
+
     projectRoadmaps: defineTable({
       userId: v.id("users"),
       projectId: v.id("projects"),

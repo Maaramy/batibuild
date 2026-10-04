@@ -652,8 +652,12 @@ export function packagingForLine(line: MaterialLine): PackagingInfo | null {
   const need = Number(line.quantity) || 0;
   if (need <= 0 || rule.size <= 0) return null;
   const unit = String(line.unit ?? "").toLowerCase();
-  // Unité déjà au conditionnement (sac) ou déjà au besoin (kg) → rien à faire.
-  if (unit.includes(rule.unit) || unit === rule.needUnit) return null;
+  const pkgUnit = rule.unit.toLowerCase();
+  const needUnit = rule.needUnit.toLowerCase();
+  // Quantité déjà exprimée dans l'unité du conditionnement → rien à convertir.
+  if (unit === pkgUnit || unit.startsWith(pkgUnit)) return null;
+  // Unité inconnue : aucune conversion n'est inventée pour autant.
+  if (unit !== needUnit) return null;
   const purchasedQty = Math.ceil(need / rule.size);
   const coveredQty = purchasedQty * rule.size;
   const unitPrice = Number(line.catalogUnitPrice) || 0;

@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChoixMateriauxWorkspace } from "@/components/materials/ChoixMateriauxWorkspace";
 import {
 Sparkles, HardHat, Loader2, Store, Scale, Check, Trash2, MapPin, Ruler, Wand2, ShieldCheck, RefreshCw, CircleDollarSign, Building2, Info,
 Blocks, Search, X, MoreHorizontal, ExternalLink, AlertCircle, CalendarDays, LayoutGrid, CheckCircle2, FilterX
@@ -190,6 +192,10 @@ export default function AiMaterials() {
   }, [estimationCategories, materialQuery]);
 
   const [enhance, setEnhance] = useState(true);
+
+  // Onglet principal : « Choix des matériaux » (relié au Quantitatif détaillé)
+  // ou « Analyse IA » (assistant comparatif + historique existant).
+  const [materialTab, setMaterialTab] = useState<"selection" | "analyse">("selection");
 
   // ── Résultats ──
   const [analyzing, setAnalyzing] = useState(false);
@@ -464,6 +470,40 @@ export default function AiMaterials() {
           </CardContent>
         </Card>
 
+        {/* Onglets principaux : « Choix des matériaux » (relié au Quantitatif
+            détaillé du Coût estimatif) et « Analyse IA » (assistant comparatif
+            + historique existant). */}
+        <Tabs
+          value={materialTab}
+          onValueChange={(v) => setMaterialTab(v as "selection" | "analyse")}
+          className="space-y-4 sm:space-y-6"
+        >
+          <TabsList>
+            <TabsTrigger value="selection">Choix des matériaux</TabsTrigger>
+            <TabsTrigger value="analyse">Analyse IA &amp; historique</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="selection" className="mt-0">
+            {journeyProject ? (
+              <ChoixMateriauxWorkspace
+                projectId={journeyProject._id}
+                projectName={journeyProject.name}
+                onOpenCostEstimate={() => navigate(`/dashboard/project/${journeyProject._id}`)}
+              />
+            ) : (
+              <Card className="border border-dashed border-border/60">
+                <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+                  <HardHat className="h-9 w-9 text-muted-foreground/40" />
+                  <p className="text-sm font-medium">Sélectionnez d'abord un projet</p>
+                  <p className="max-w-md text-xs text-muted-foreground">
+                    Le choix des matériaux s'appuie directement sur le Quantitatif détaillé du projet.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="analyse" className="mt-0 space-y-4 sm:space-y-6">
         {/* ÉTAPE 2 — MATÉRIAUX REQUIS (dynamique selon l'estimation des coûts) */}
         <Card className="border border-border/40 overflow-hidden rounded-xl">
           <CardHeader className="pb-3 border-b border-border/20 px-4 sm:px-6 py-3 sm:py-4">
@@ -902,6 +942,9 @@ export default function AiMaterials() {
             )}
           </CardContent>
         </Card>
+
+          </TabsContent>
+        </Tabs>
 
         {/* Pied de page */}
         <div className="rounded-xl border border-border/30 bg-muted/10 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[10px] text-muted-foreground/70">
