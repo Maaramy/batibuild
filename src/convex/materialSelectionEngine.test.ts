@@ -408,7 +408,7 @@ describe("Sélection finale — états, validation, confirmation", () => {
     expect(noScenario.blocking.some((i) => i.code === "scenario_unavailable")).toBe(true);
   });
 
-  it("avertit lors d'un choix personnalisé différent du scénario de référence", () => {
+  it("avertit lors d'un choix personnalisé différent du scénario retenu", () => {
     const lines = materialsOnly(materialLinesFromLots(syntheticLots(), "standard")).filter(
       (l) => l.priceAvailable,
     );
@@ -420,11 +420,51 @@ describe("Sélection finale — états, validation, confirmation", () => {
       scenario: "standard",
       scenarioAvailable: true,
       budgetMaterials: 5000,
-      recommendedScenario: "standard",
     });
     expect(v.customizedCount).toBe(1);
     expect(v.warnings.some((i) => i.code === "custom_choice")).toBe(true);
     expect(v.canConfirm).toBe(true);
+  });
+
+  it("n'avertit pas quand le choix suit le scénario actif (Premium)", () => {
+    const lines = materialsOnly(materialLinesFromLots(syntheticLots(), "premium")).filter(
+      (l) => l.priceAvailable,
+    );
+    const selections = selectAllRecommended(lines, "premium");
+    const v = validateSelection({
+      lines,
+      selections,
+      scenario: "premium",
+      scenarioAvailable: true,
+      budgetMaterials: 5000,
+    });
+    expect(v.customizedCount).toBe(0);
+    expect(v.warnings.some((i) => i.code === "custom_choice")).toBe(false);
+    expect(v.acceptedRecommendations).toBe(lines.length);
+    expect(v.canConfirm).toBe(true);
+  });
+
+  it("n'affiche jamais deux fois le même libellé dans l'avertissement", () => {
+    const lines = materialsOnly(materialLinesFromLots(syntheticLots(), "premium")).filter(
+      (l) => l.priceAvailable,
+    );
+    const selections = selectAllRecommended(lines, "premium");
+    // Une seule ligne dévie du scénario actif (Premium) : seul cet article est
+    // signalé, et les deux libellés affichés diffèrent bien.
+    for (const id of Object.keys(selections)) selections[id].scenario = "premium";
+    selections["gros_oeuvre::0"].scenario = "standard";
+    const v = validateSelection({
+      lines,
+      selections,
+      scenario: "premium",
+      scenarioAvailable: true,
+      budgetMaterials: 5000,
+    });
+    expect(v.customizedCount).toBe(1);
+    const warnings = v.warnings.filter((i) => i.code === "custom_choice");
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].message).toContain("choix personnalisé (Standard)");
+    expect(warnings[0].message).toContain("scénario retenu (Premium)");
   });
 });
 

@@ -740,13 +740,14 @@ export interface SelectionIssue {
 export interface SelectionValidationInput {
   lines: MaterialLine[];
   selections: Record<string, MaterialSelectionEntry | undefined>;
-  /** Scénario de référence retenu pour la sélection. */
+  /**
+   * Scénario ACTIF de la sélection (celui affiché dans « Coût estimatif ») :
+   * c'est la base de comparaison des choix personnalisés.
+   */
   scenario: MaterialScenarioKey;
   scenarioAvailable: boolean;
   /** Budget matériaux prévu (total matériaux du scénario de référence). */
   budgetMaterials: number;
-  /** Scénario recommandé par l'IA (scénario de référence par défaut). */
-  recommendedScenario?: MaterialScenarioKey;
 }
 
 export interface SelectionValidation {
@@ -813,7 +814,11 @@ export function validateSelection(input: SelectionValidationInput): SelectionVal
   let proposedCount = 0;
   let customizedCount = 0;
   let acceptedRecommendations = 0;
-  const recommendedScenario = input.recommendedScenario ?? scenario;
+  // Base de comparaison = scénario ACTIF, jamais un « scénario recommandé »
+  // distinct : sinon des lignes correctement choisies pour le scénario actif
+  // seraient signalées à tort comme personnalisées (et le message afficherait
+  // deux fois le même libellé).
+  const baselineScenario = scenario;
 
   for (const line of required) {
     if (!line.designation || !line.unit) {
@@ -847,13 +852,13 @@ export function validateSelection(input: SelectionValidationInput): SelectionVal
         message: `Quantité invalide pour « ${line.designation} » : la quantité doit être supérieure à zéro.`,
       });
     }
-    if (entry.scenario !== recommendedScenario) {
+    if (entry.scenario !== baselineScenario) {
       customizedCount += 1;
       warnings.push({
         code: "custom_choice",
         severity: "warning",
         articleId: line.articleId,
-        message: `« ${line.designation} » : choix personnalisé (${MATERIAL_SCENARIO_LABELS[entry.scenario]}) différent du scénario de référence ${MATERIAL_SCENARIO_LABELS[scenario]}.`,
+        message: `« ${line.designation} » : choix personnalisé (${MATERIAL_SCENARIO_LABELS[entry.scenario]}) différent du scénario retenu (${MATERIAL_SCENARIO_LABELS[baselineScenario]}).`,
       });
     } else {
       acceptedRecommendations += 1;

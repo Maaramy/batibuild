@@ -156,7 +156,6 @@ export function ChoixMateriauxWorkspace({
       scenario: activeScenario,
       scenarioAvailable: !!ws.scenarios.find((s) => s.key === activeScenario)?.available,
       budgetMaterials: ws.budget.materialsBudget,
-      recommendedScenario: ws.referenceScenario,
     });
   }, [ws, entries, activeScenario]);
 
@@ -862,7 +861,7 @@ export function ChoixMateriauxWorkspace({
                 {validation.selectedCount} / {validation.requiredCount} sélectionnés
               </span>
               <span className="rounded-full border border-border/40 bg-muted/20 px-2 py-0.5">
-                {validation.acceptedRecommendations} conformes au scénario de référence
+                {validation.acceptedRecommendations} conformes au scénario retenu
               </span>
               <span className="rounded-full border border-border/40 bg-muted/20 px-2 py-0.5">
                 {validation.customizedCount} choix personnalisés

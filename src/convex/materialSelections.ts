@@ -382,7 +382,6 @@ export const confirmSelection = mutation({
       scenario,
       scenarioAvailable: !!ws.scenarios.find((s) => s.key === scenario)?.available,
       budgetMaterials: ws.budget.materialsBudget,
-      recommendedScenario: ws.scenario,
     });
     if (!validation.canConfirm) {
       throw new Error(validation.blocking.map((i) => i.message).join(" "));
