@@ -1286,3 +1286,384 @@ export function buildMaterialWorkspace(input: {
     generatedAt: Date.now(),
   };
 }
+
+// ============================================================================
+// INTELLIGENCE PRÉDICTIVE — module « Choix matériaux »
+// ----------------------------------------------------------------------------
+// Données 100 % réelles, aucune invention de prix ni de tendance :
+//   • Lignes du Quantitatif détaillé au scénario RETENU (prix + quantités).
+//   • Variantes de scénarios (Économique / Standard / Premium) = prix réels du
+//     même moteur de coût → base des économies potentielles et des alternatives.
+//   • Conditionnements réels (`packagingForLine`) → surplus / pertes.
+//   • Historique de prix de marché disponible (`getPriceTrends`) → tendance.
+//
+// Sans historique exploitable, aucune prévision de prix n'est fabriquée : le
+// module affiche « Données insuffisantes pour établir une prévision fiable. »
+// Il ne modifie JAMAIS les quantités ni les matériaux sélectionnés : il ne
+// produit que des analyses et des recommandations (décision finale au client).
+// ============================================================================
+
+/** Seuil de variation (en %) au-delà duquel une tendance est qualifiée. */
+const TREND_THRESHOLD_PCT = 0.5;
+
+/** Message affiché lorsqu'aucune prévision fiable ne peut être calculée. */
+export const INSUFFICIENT_DATA_MESSAGE =
+  "Données insuffisantes pour établir une prévision fiable.";
+
+export type PriceTrendDirection = "hausse" | "baisse" | "stable";
+export type PredictionConfidence = "faible" | "moyenne" | "elevee";
+export type PurchaseTiming =
+  | "acheter_maintenant"
+  | "acheter_prochainement"
+  | "attendre"
+  | "surveiller";
+
+export const PRICE_TREND_LABELS: Record<PriceTrendDirection, string> = {
+  hausse: "↗ Hausse",
+  baisse: "↘ Baisse",
+  stable: "→ Stable",
+};
+
+export const PRICE_TREND_FULL_LABELS: Record<PriceTrendDirection, string> = {
+  hausse: "Hausse probable",
+  baisse: "Baisse probable",
+  stable: "Stabilité probable",
+};
+
+export const PREDICTION_CONFIDENCE_LABELS: Record<PredictionConfidence, string> = {
+  faible: "Confiance faible",
+  moyenne: "Confiance moyenne",
+  elevee: "Confiance élevée",
+};
+
+export const PURCHASE_TIMING_LABELS: Record<PurchaseTiming, string> = {
+  acheter_maintenant: "Acheter maintenant",
+  acheter_prochainement: "Acheter prochainement",
+  attendre: "Attendre",
+  surveiller: "Surveiller le prix",
+};
+
+export const LOSS_RISK_LABELS: Record<LossRiskKind, string> = {
+  surplus_conditionnement: "Surplus de conditionnement",
+  quantite_excessive: "Quantité excessive",
+  planification: "Planification à optimiser",
+};
+
+/**
+ * Tendance de prix RÉELLE d'une catégorie de marché (source : marché BatiBuild,
+ * table `offerPriceHistory` via `getPriceTrends`). `changes` = nombre de
+ * variations observées (proxy de la confiance), `netPct` = variation nette
+ * moyenne observée (%).
+ */
+export interface MarketCategoryTrend {
+  category: string;
+  changes: number;
+  netPct: number;
+  firstChangedAt?: number;
+  lastChangedAt?: number;
+}
+
+export interface MaterialPriceForecast {
+  articleId: string;
+  designation: string;
+  category: string;
+  unit: string;
+  /** Prix unitaire réel du scénario retenu. */
+  currentUnitPrice: number;
+  /** Montant réel du besoin (quantité × prix unitaire) au scénario retenu. */
+  currentTotal: number;
+  trend: PriceTrendDirection;
+  trendPct: number;
+  confidence: PredictionConfidence;
+  /** Indice de confiance normalisé (0 → 1), dérivé du nombre d'observations. */
+  confidenceScore: number;
+  observations: number;
+  horizon: string;
+  observedWindowDays: number | null;
+  recommendation: string;
+}
+
+export interface PurchasePeriodAdvice {
+  articleId: string;
+  designation: string;
+  timing: PurchaseTiming;
+  trend: PriceTrendDirection;
+  trendPct: number;
+  confidence: PredictionConfidence;
+  reason: string;
+}
+
+export interface BudgetOptimizationItem {
+  articleId: string;
+  designation: string;
+  currentScenario: MaterialScenarioKey;
+  alternativeScenario: MaterialScenarioKey;
+  currentTotal: number;
+  alternativeTotal: number;
+  saving: number;
+  savingPct: number;
+  note: string;
+}
+
+export interface BudgetRiskItem {
+  articleId: string;
+  designation: string;
+  total: number;
+  sharePct: number;
+  note: string;
+}
+
+export interface BudgetOptimization {
+  potentialSaving: number;
+  items: BudgetOptimizationItem[];
+  riskItems: BudgetRiskItem[];
+}
+
+export type LossRiskKind =
+  | "surplus_conditionnement"
+  | "quantite_excessive"
+  | "planification";
+
+export interface LossReductionItem {
+  articleId: string;
+  designation: string;
+  kind: LossRiskKind;
+  surplusQty: number;
+  surplusUnit: string;
+  surplusCost: number;
+  recommendation: string;
+}
+
+export interface PredictiveIntelligence {
+  /** Vrai si AU MOINS une analyse repose sur des données réelles. */
+  available: boolean;
+  reason: string | null;
+  scenario: MaterialScenarioKey;
+  analyzedLines: number;
+  marketCategoriesUsed: number;
+  priceForecasts: MaterialPriceForecast[];
+  purchasePlan: PurchasePeriodAdvice[];
+  budget: BudgetOptimization;
+  lossReduction: LossReductionItem[];
+  totals: { potentialSaving: number; lossRisk: number };
+  generatedAt: number;
+}
+
+/** Horizon temporel dérivé de la fenêtre d'historique réellement observée. */
+function forecastHorizon(t: MarketCategoryTrend): {
+  horizon: string;
+  windowDays: number | null;
+} {
+  const first = Number(t.firstChangedAt);
+  const last = Number(t.lastChangedAt);
+  const windowDays =
+    Number.isFinite(first) && Number.isFinite(last) && last >= first
+      ? Math.round((last - first) / 86_400_000)
+      : null;
+  const horizon = windowDays === null || windowDays <= 45 ? "prochaines semaines" : "prochains mois";
+  return { horizon, windowDays };
+}
+
+/**
+ * Calcule l'intelligence prédictive à partir des données RÉELLES du projet.
+ * Fonction pure : elle n'appelle aucun service et ne modifie aucune donnée.
+ *
+ * `lines`/`variants` proviennent de `buildMaterialWorkspace` au scénario retenu,
+ * `selections` identifie les matériaux réellement présélectionnés, et
+ * `marketTrends` provient de l'historique de prix de marché disponible.
+ */
+export function predictiveIntelligence(input: {
+  lines: MaterialLine[] | null | undefined;
+  selections?: Record<string, MaterialSelectionEntry | undefined> | null;
+  variants?: Record<string, MaterialVariant[]> | null;
+  scenario: MaterialScenarioKey;
+  materialsBudget?: number;
+  marketTrends?: MarketCategoryTrend[] | null;
+}): PredictiveIntelligence {
+  const scenario = input.scenario;
+  const selections = input.selections ?? null;
+  const variantsMap = input.variants ?? {};
+  const lines = asArr<MaterialLine>(input.lines).filter(
+    (l) => l.priceAvailable && Number(l.quantity) > 0,
+  );
+  // Périmètre = matériaux réellement présélectionnés ; à défaut, tous les
+  // matériaux du Quantitatif du scénario retenu (données réelles uniquement).
+  const selected = selections ? lines.filter((l) => selections[l.articleId]) : lines;
+  const scope = selected.length > 0 ? selected : lines;
+
+  const trendByCat = new Map<string, MarketCategoryTrend>();
+  for (const t of asArr<MarketCategoryTrend>(input.marketTrends)) {
+    const key = String(t.category ?? "").trim().toLowerCase();
+    if (!key || trendByCat.has(key)) continue;
+    trendByCat.set(key, t);
+  }
+
+  // ── Évolution prévisionnelle des prix (à partir de l'historique réel) ────
+  const priceForecasts: MaterialPriceForecast[] = [];
+  for (const line of scope) {
+    const trend = trendByCat.get(String(line.category ?? "").trim().toLowerCase());
+    if (!trend || !Number.isFinite(trend.netPct)) continue;
+    const trendPct = round2(trend.netPct);
+    const direction: PriceTrendDirection =
+      trendPct >= TREND_THRESHOLD_PCT
+        ? "hausse"
+        : trendPct <= -TREND_THRESHOLD_PCT
+          ? "baisse"
+          : "stable";
+    const observations = Math.max(0, Math.round(Number(trend.changes) || 0));
+    const confidence: PredictionConfidence =
+      observations >= 8 ? "elevee" : observations >= 3 ? "moyenne" : "faible";
+    const confidenceScore = Math.max(0, Math.min(1, observations / 10));
+    const { horizon, windowDays } = forecastHorizon(trend);
+    const recommendation =
+      direction === "hausse"
+        ? trendPct >= 2
+          ? "Acheter maintenant : hausse probable, anticipez l'achat."
+          : "Acheter prochainement : hausse probable."
+        : direction === "baisse"
+          ? "Attendre : baisse probable, surveillez le prix."
+          : "Surveiller le prix : stabilité probable.";
+    priceForecasts.push({
+      articleId: line.articleId,
+      designation: line.designation,
+      category: line.category,
+      unit: line.unit,
+      currentUnitPrice: round2(line.unitPrice),
+      currentTotal: round2(line.quantity * line.unitPrice),
+      trend: direction,
+      trendPct,
+      confidence,
+      confidenceScore,
+      observations,
+      horizon,
+      observedWindowDays: windowDays,
+      recommendation,
+    });
+  }
+  priceForecasts.sort((a, b) => b.currentTotal - a.currentTotal);
+
+  // ── Meilleure période d'achat (déduite de la tendance réelle) ────────────
+  const purchasePlan: PurchasePeriodAdvice[] = priceForecasts.map((f) => {
+    const timing: PurchaseTiming =
+      f.trend === "hausse"
+        ? f.trendPct >= 2
+          ? "acheter_maintenant"
+          : "acheter_prochainement"
+        : f.trend === "baisse"
+          ? "attendre"
+          : "surveiller";
+    return {
+      articleId: f.articleId,
+      designation: f.designation,
+      timing,
+      trend: f.trend,
+      trendPct: f.trendPct,
+      confidence: f.confidence,
+      reason: f.recommendation,
+    };
+  });
+
+  // ── Optimisation du budget (écarts réels entre scénarios) ────────────────
+  const budgetItems: BudgetOptimizationItem[] = [];
+  for (const line of scope) {
+    const vs = asArr<MaterialVariant>(variantsMap[line.articleId]).filter(
+      (v) => v.available && Number(v.unitPrice) > 0,
+    );
+    if (vs.length < 2) continue;
+    const active = vs.find((v) => v.scenario === scenario);
+    const cheapest = vs.reduce((m, v) => (v.unitPrice < m.unitPrice ? v : m));
+    const currentUnit = active ? active.unitPrice : line.unitPrice;
+    const currentTotal = round2(line.quantity * currentUnit);
+    const alternativeTotal = round2(line.quantity * cheapest.unitPrice);
+    const saving = round2(currentTotal - alternativeTotal);
+    if (cheapest.scenario === scenario || saving <= 1e-6) continue;
+    budgetItems.push({
+      articleId: line.articleId,
+      designation: line.designation,
+      currentScenario: scenario,
+      alternativeScenario: cheapest.scenario,
+      currentTotal,
+      alternativeTotal,
+      saving,
+      savingPct: currentTotal > 0 ? round2((saving / currentTotal) * 100) : 0,
+      note: `Passer au scénario ${MATERIAL_SCENARIO_LABELS[cheapest.scenario]} : même besoin, qualité ${cheapest.qualityLabel}. Est-ce compatible avec vos exigences ?`,
+    });
+  }
+  budgetItems.sort((a, b) => b.saving - a.saving);
+  const potentialSaving = round2(budgetItems.reduce((s, i) => s + i.saving, 0));
+
+  // Matériaux dont le prix représente un risque pour le budget.
+  const budgetBase =
+    Number(input.materialsBudget) > 0 ? Number(input.materialsBudget) : materialsTotal(scope);
+  const riskItems: BudgetRiskItem[] = scope
+    .map((line) => ({ line, total: round2(line.quantity * line.unitPrice) }))
+    .filter((x) => budgetBase > 0 && x.total / budgetBase >= 0.1)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3)
+    .map((x) => ({
+      articleId: x.line.articleId,
+      designation: x.line.designation,
+      total: x.total,
+      sharePct: round2((x.total / budgetBase) * 100),
+      note: "Poste majeur du budget matériaux : surveillez l'évolution de son prix et comparez les fournisseurs.",
+    }));
+
+  // ── Réduction des pertes (conditionnements réels + planification) ────────
+  const lossReduction: LossReductionItem[] = [];
+  const flagged = new Set<string>();
+  for (const line of scope) {
+    const pkg = packagingForLine(line);
+    if (!pkg || pkg.surplus <= 1e-6 || pkg.extraCost <= 1e-6) continue;
+    const ratio = pkg.need > 0 ? pkg.surplus / pkg.need : 0;
+    flagged.add(line.articleId);
+    lossReduction.push({
+      articleId: line.articleId,
+      designation: line.designation,
+      kind: ratio >= 0.2 ? "quantite_excessive" : "surplus_conditionnement",
+      surplusQty: round2(pkg.surplus),
+      surplusUnit: pkg.needUnit,
+      surplusCost: round2(pkg.extraCost),
+      recommendation:
+        `Le conditionnement (${pkg.packageUnit} de ${pkg.packageSize} ${pkg.needUnit}) impose ` +
+        `${pkg.purchasedQty} ${pkg.packageUnit} pour un besoin de ${round2(pkg.need)} ${pkg.needUnit}. ` +
+        `Ajustez la commande ou prévoyez l'usage du surplus pour éviter la perte.`,
+    });
+  }
+  lossReduction.sort((a, b) => b.surplusCost - a.surplusCost);
+
+  // Planification : postes à fort montant, sans donnée chiffrée inventée.
+  const planningCandidates = scope
+    .filter((l) => !flagged.has(l.articleId))
+    .sort((a, b) => b.quantity * b.unitPrice - a.quantity * a.unitPrice)
+    .slice(0, 3);
+  for (const line of planningCandidates) {
+    lossReduction.push({
+      articleId: line.articleId,
+      designation: line.designation,
+      kind: "planification",
+      surplusQty: 0,
+      surplusUnit: line.unit || "",
+      surplusCost: 0,
+      recommendation:
+        "Poste à fort montant : planifiez les achats par phases et vérifiez les quantités avant commande pour limiter le stockage et les pertes.",
+    });
+  }
+  const lossRisk = round2(lossReduction.reduce((s, i) => s + i.surplusCost, 0));
+
+  const available = priceForecasts.length > 0 || budgetItems.length > 0 || lossReduction.length > 0;
+  const marketCategoriesUsed = new Set(priceForecasts.map((f) => f.category)).size;
+
+  return {
+    available,
+    reason: available ? null : INSUFFICIENT_DATA_MESSAGE,
+    scenario,
+    analyzedLines: scope.length,
+    marketCategoriesUsed,
+    priceForecasts,
+    purchasePlan,
+    budget: { potentialSaving, items: budgetItems, riskItems },
+    lossReduction,
+    totals: { potentialSaving, lossRisk },
+    generatedAt: Date.now(),
+  };
+}

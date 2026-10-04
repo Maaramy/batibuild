@@ -214,6 +214,7 @@ export { default as Power } from "../../node_modules/lucide-react/dist/esm/icons
 export { default as PowerOff } from "../../node_modules/lucide-react/dist/esm/icons/power-off.js";
 export { default as Quote } from "../../node_modules/lucide-react/dist/esm/icons/quote.js";
 export { default as Receipt } from "../../node_modules/lucide-react/dist/esm/icons/receipt.js";
+export { default as Recycle } from "../../node_modules/lucide-react/dist/esm/icons/recycle.js";
 export { default as RefreshCcw } from "../../node_modules/lucide-react/dist/esm/icons/refresh-ccw.js";
 export { default as RefreshCw } from "../../node_modules/lucide-react/dist/esm/icons/refresh-cw.js";
 export { default as Rocket } from "../../node_modules/lucide-react/dist/esm/icons/rocket.js";

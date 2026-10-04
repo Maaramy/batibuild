@@ -44,6 +44,7 @@ import {
   type MaterialWorkspace,
   type PriceQualityLevel,
 } from "@/convex/materialSelectionEngine";
+import { PredictiveIntelligenceCard } from "@/components/materials/PredictiveIntelligenceCard";
 
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -917,6 +918,9 @@ export function ChoixMateriauxWorkspace({
           </CardContent>
         </Card>
       )}
+
+      {/* ── Intelligence prédictive — DERNIER bloc des résultats ─────────── */}
+      <PredictiveIntelligenceCard workspace={ws} selections={entries} />
 
       <p className="flex items-center gap-1.5 px-1 text-[10px] text-muted-foreground/70">
         <Info className="h-3 w-3 shrink-0" />

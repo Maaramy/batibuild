@@ -358,6 +358,10 @@ export const getPriceTrends = query({
     const productCategoryMap = new Map(products.map((p) => [p._id, p.category]));
     const offerProductMap = new Map(offers.map((o) => [o._id, o.productId]));
     const catChanges: Record<string, number[]> = {};
+    // Fenêtre réellement observée par catégorie (timestamps des variations) :
+    // elle alimente l'horizon temporel des prévisions sans rien inventer.
+    const catFirst: Record<string, number> = {};
+    const catLast: Record<string, number> = {};
     for (const h of history) {
       const productId = offerProductMap.get(h.offerId);
       if (!productId) continue;
@@ -366,11 +370,18 @@ export const getPriceTrends = query({
       if (!catChanges[cat]) catChanges[cat] = [];
       const pct = h.previousAvg > 0 ? ((h.newAvg - h.previousAvg) / h.previousAvg) * 100 : 0;
       catChanges[cat].push(pct);
+      const at = Number(h.changedAt) || 0;
+      if (at > 0) {
+        catFirst[cat] = catFirst[cat] ? Math.min(catFirst[cat], at) : at;
+        catLast[cat] = Math.max(catLast[cat] ?? 0, at);
+      }
     }
     return Object.entries(catChanges).map(([category, changes]) => ({
       category,
       changes: changes.length,
       netPct: changes.reduce((a, b) => a + b, 0) / changes.length,
+      firstChangedAt: catFirst[category],
+      lastChangedAt: catLast[category],
     }));
   },
 });
