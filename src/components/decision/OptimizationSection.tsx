@@ -149,46 +149,48 @@ function RingGauge({
   stroke: string;
 }) {
   const pct = clampPct(value);
-  const size = 76;
+  // Le viewBox reste fixe : la taille AFFICHÉE est pilotée par les classes
+  // responsive ci-dessous, la jauge s'adapte donc sans recalcul.
+  const vb = 76;
   const strokeWidth = 7;
-  const radius = (size - strokeWidth) / 2;
+  const radius = (vb - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-background p-2.5">
-      <div className="relative shrink-0" style={{ width: size, height: size }}>
+    <div className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-background p-2.5 sm:gap-3">
+      <div className="relative h-14 w-14 shrink-0 sm:h-[76px] sm:w-[76px]">
         <svg
-          viewBox={`0 0 ${size} ${size}`}
-          width={size}
-          height={size}
+          viewBox={`0 0 ${vb} ${vb}`}
+          className="h-full w-full"
           role="img"
           aria-label={`${label} : ${formatPercent(pct)}`}
         >
           <circle
-            cx={size / 2}
-            cy={size / 2}
+            cx={vb / 2}
+            cy={vb / 2}
             r={radius}
             fill="none"
             strokeWidth={strokeWidth}
             className="stroke-muted"
           />
           <circle
-            cx={size / 2}
-            cy={size / 2}
+            cx={vb / 2}
+            cy={vb / 2}
             r={radius}
             fill="none"
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            transform={`rotate(-90 ${vb / 2} ${vb / 2})`}
             className={cn("transition-[stroke-dashoffset] duration-500", stroke)}
           />
         </svg>
         <span
           className={cn(
-            "absolute inset-0 flex items-center justify-center text-[13px] font-black tabular-nums",
+            "absolute inset-0 flex items-center justify-center font-black tabular-nums",
+            "text-[11px] sm:text-[13px]",
             stroke,
           )}
         >
@@ -208,14 +210,14 @@ function RealizationBar({ pct }: { pct: number }) {
   const v = clampPct(pct);
   const tone = v >= 100 ? "bg-emerald-500" : v > 0 ? "bg-amber-500" : "bg-border";
   return (
-    <div className="flex w-32 shrink-0 items-center justify-end gap-1.5">
-      <div className="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-muted">
+    <div className="flex w-20 shrink-0 items-center justify-end gap-1 sm:w-32 sm:gap-1.5">
+      <div className="h-1.5 w-8 shrink-0 overflow-hidden rounded-full bg-muted sm:w-14">
         <div
           className={cn("h-full rounded-full transition-[width] duration-300", tone)}
           style={{ width: `${v}%` }}
         />
       </div>
-      <span className="w-11 shrink-0 text-right tabular-nums text-[9.5px] text-muted-foreground">
+      <span className="w-9 shrink-0 text-right tabular-nums text-[9.5px] text-muted-foreground sm:w-11">
         {formatPercent(v)}
       </span>
     </div>
@@ -312,8 +314,8 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
                         <div className="border-t border-border/20 p-2">
                           <div className="flex items-baseline gap-2 pb-1 text-[9.5px] uppercase tracking-wide text-muted-foreground">
                             <span className="min-w-0 flex-1">Article</span>
-                            <span className="w-24 shrink-0 text-right">Montant</span>
-                            <span className="w-32 shrink-0 text-right">Réalisation</span>
+                            <span className="w-20 shrink-0 text-right sm:w-24">Montant</span>
+                            <span className="w-20 shrink-0 text-right sm:w-32">Réalisation</span>
                           </div>
                           <ul className="space-y-1">
                             {sub.articles.map((art, idx) => (
@@ -329,7 +331,7 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
                                   ) : null}
                                   {art.designation}
                                 </span>
-                                <span className="w-24 shrink-0 whitespace-nowrap text-right tabular-nums">
+                                <span className="w-20 shrink-0 whitespace-nowrap text-right tabular-nums sm:w-24">
                                   {formatTndAmount(art.estimatedCost)}
                                 </span>
                                 <RealizationBar pct={art.realizationPct} />
