@@ -74,6 +74,8 @@ import {
   type SupplierMatch,
 } from "@/lib/materialIntelligence";
 import { MaterialAnalysisSection } from "@/components/decision/MaterialAnalysisSection";
+import { OptimizationSection } from "@/components/decision/OptimizationSection";
+import { buildOptimizationPlan, type OptimizationPlan } from "@/lib/optimizationEngine";
 import {
   buildDecisionAnalysis,
   buildSimulations,
@@ -503,6 +505,21 @@ export function DecisionSupportModule({
     });
   }, [allowed, workspaceQuery, priceList, materialTrends, trends, suppliers, intelligence, projectTotal]);
 
+  // ── Optimisation — couche complémentaire au-dessus de l'analyse matériaux ─
+  // Aucun calcul existant n'est touché : le moteur lit l'analyse matériau-par-
+  // matériau (et les sorties déjà produites) et en déduit les opportunités.
+  const optimization = useMemo<OptimizationPlan | null>(() => {
+    if (!materialIntel || !workspaceQuery || !analysis) return null;
+    return buildOptimizationPlan({
+      intel: materialIntel,
+      workspace: workspaceQuery.workspace,
+      analysis,
+      projectTotal,
+      scenario: workspaceQuery.workspace.scenario,
+      scenarioLabel,
+    });
+  }, [materialIntel, workspaceQuery, analysis, projectTotal, scenarioLabel]);
+
   // ── Signature des données (quantitatif / prix / scénario / marché) ───────
   const signature = useMemo(
     () =>
@@ -666,6 +683,9 @@ export function DecisionSupportModule({
 
       {/* ── Analyse de vos matériaux — matériau par matériau (prioritaire) ── */}
       {materialIntel && <MaterialAnalysisSection intel={materialIntel} />}
+
+      {/* ── Optimisation — leviers, simulation, validation utilisateur ── */}
+      {optimization && <OptimizationSection plan={optimization} />}
 
       <KpiGrid analysis={a} />
       <GlobalScoreCard analysis={a} intel={materialIntel} />
