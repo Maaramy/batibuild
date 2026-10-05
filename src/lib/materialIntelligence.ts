@@ -189,6 +189,14 @@ export interface MaterialIntelRow {
   impactScore: number;
   priorityScore: number;
   impactAmount: number;
+  /**
+   * Score de surveillance /100 (§11) — agrégation pondérée des six critères de
+   * classement demandés, dans leur ordre de priorité :
+   *   1. risque de hausse (riskScore) · 2. impact financier (impactScore) ·
+   *   3. quantité nécessaire · 4. priorité d'achat (priorityScore) ·
+   *   5. risque de perte (valeur de perte) · 6. niveau de confiance.
+   */
+  watchScore: number;
 
   // ── Décision ───────────────────────────────────────────────────────────
   timing: PurchaseTiming;
@@ -230,6 +238,7 @@ export interface MaterialIntelAggregate {
   totalExposure: number;
   totalCurrent: number;
   totalProjected: number;
+  totalLoss: number;
   confidencePct: number;
 }
 
@@ -576,6 +585,7 @@ export function buildMaterialIntelligence(
       impactScore: 0,
       priorityScore: 0,
       impactAmount,
+      watchScore: 0,
       timing: "surveiller",
       timingLabel: PURCHASE_TIMING_LABELS.surveiller,
       timingReason: "",
@@ -600,6 +610,8 @@ export function buildMaterialIntelligence(
   // ── Normalisation des scores d'impact & priorité (relatifs au projet) ────
   const maxImpact = Math.max(1, ...draft.map((r) => Math.abs(r.impactAmount)));
   const maxTotal = Math.max(1, ...draft.map((r) => r.currentTotal));
+  const maxQty = Math.max(1e-6, ...draft.map((r) => r.quantity));
+  const maxLoss = Math.max(1e-6, ...draft.map((r) => r.lossValue));
   for (const row of draft) {
     const impactAbs = Math.abs(row.impactAmount);
     const impactShare = impactAbs / maxImpact;
@@ -611,6 +623,23 @@ export function buildMaterialIntelligence(
     const shareScore = clamp(Math.round(Math.min(1, budgetShare * 3) * 100));
     row.priorityScore = clamp(
       Math.round(row.impactScore * 0.5 + row.riskScore * 0.35 + shareScore * 0.15),
+    );
+
+    // ── Classement « Matériaux à surveiller » (§11) ─────────────────────
+    // Agrégation pondérée respectant l'ordre de priorité demandé : risque de
+    // hausse, impact financier, quantité, priorité d'achat, risque de perte,
+    // niveau de confiance. Chaque critère est normalisé /100 sur le projet.
+    const qtyScore = clamp(Math.round((row.quantity / maxQty) * 100));
+    const lossScore = clamp(Math.round((row.lossValue / maxLoss) * 100));
+    row.watchScore = clamp(
+      Math.round(
+        row.riskScore * 0.30 +
+          row.impactScore * 0.22 +
+          qtyScore * 0.15 +
+          row.priorityScore * 0.15 +
+          lossScore * 0.10 +
+          row.confidencePct * 0.08,
+      ),
     );
 
     // ── Période d'achat par matériau, avec explication ───────────────────
@@ -709,6 +738,7 @@ export function buildMaterialIntelligence(
       totalExposure,
       totalCurrent,
       totalProjected,
+      totalLoss,
       confidencePct,
     },
     analyzedCount: analyzed,

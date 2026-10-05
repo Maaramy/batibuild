@@ -221,5 +221,17 @@ describe("buildMaterialIntelligence — analyse matériau par matériau", () => 
     expect(acier.priorityScore).toBeGreaterThan(ciment.priorityScore);
     // Agrégation = somme des analyses individuelles.
     expect(result.aggregate.totalCurrent).toBeCloseTo(acier.currentTotal + ciment.currentTotal, 1);
+    // §11 — classement « Matériaux à surveiller » par score de surveillance.
+    expect(acier.watchScore).toBeGreaterThan(0);
+    expect(acier.watchScore).toBeLessThanOrEqual(100);
+    expect(acier.watchScore).toBeGreaterThan(ciment.watchScore);
+    // §13 — agrégats disponibles pour l'aide à la décision.
+    for (const r of result.rows) {
+      expect(r.watchScore).toBeGreaterThanOrEqual(0);
+      expect(r.watchScore).toBeLessThanOrEqual(100);
+    }
+    expect(result.aggregate.totalLoss).toBeGreaterThanOrEqual(0);
+    expect(result.aggregate.priceRiskScore).toBeLessThanOrEqual(100);
+    expect(result.aggregate.antiWasteScore).toBeLessThanOrEqual(100);
   });
 });

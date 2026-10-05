@@ -68,6 +68,7 @@ import { predictiveIntelligence } from "@/convex/materialSelectionEngine";
 import {
   buildMaterialIntelligence,
   type CategoryTrendRow,
+  type MaterialIntelligence,
   type MaterialTrendRow,
   type PriceListRow,
   type SupplierMatch,
@@ -78,6 +79,7 @@ import {
   buildSimulations,
   groupsPresent,
   materialGroup,
+  riskBand,
   scoreBand,
   PREDICTION_CONFIDENCE_LABELS,
   PRICE_FORECAST_BASIS_LABELS,
@@ -666,7 +668,7 @@ export function DecisionSupportModule({
       {materialIntel && <MaterialAnalysisSection intel={materialIntel} />}
 
       <KpiGrid analysis={a} />
-      <GlobalScoreCard analysis={a} />
+      <GlobalScoreCard analysis={a} intel={materialIntel} />
       <PriceEvolutionSection analysis={a} groups={groups} />
       <PurchasePeriodSection analysis={a} />
       <BudgetOptimizationSection analysis={a} />
@@ -796,7 +798,99 @@ function KpiGrid({ analysis: a }: { analysis: DecisionAnalysis }) {
 
 // ── 2. Score global IA (§4) ─────────────────────────────────────────────────
 
-function GlobalScoreCard({ analysis: a }: { analysis: DecisionAnalysis }) {
+function GlobalScoreCard({
+  analysis: a,
+  intel,
+}: {
+  analysis: DecisionAnalysis;
+  intel?: MaterialIntelligence | null;
+}) {
+  // §13 — Les indicateurs globaux sont l'AGRÉGATION des analyses individuelles
+  // de chaque matériau (jamais une analyse directe des catégories du Quantitatif).
+  if (intel && intel.aggregate.analyzed > 0) {
+    const agg = intel.aggregate;
+    const band = scoreBand(agg.globalScore);
+    const parts: { label: string; value: number; tone: ScoreTone; detail: string }[] = [
+      {
+        label: "Risque prix",
+        value: agg.priceRiskScore,
+        tone: riskBand(agg.priceRiskScore).tone,
+        detail: `${agg.rising} matériau(x) en hausse · ${agg.falling} en baisse`,
+      },
+      {
+        label: "Optimisation budgétaire",
+        value: agg.budgetOptimizationScore,
+        tone: scoreBand(agg.budgetOptimizationScore).tone,
+        detail: `${formatTnd(agg.totalPotentialSaving)} d'économie potentielle`,
+      },
+      {
+        label: "Priorité des achats",
+        value: agg.purchasePriorityScore,
+        tone: scoreBand(agg.purchasePriorityScore).tone,
+        detail: `${agg.priorityPurchases} achat(s) prioritaire(s)`,
+      },
+      {
+        label: "Anti-gaspillage",
+        value: agg.antiWasteScore,
+        tone: scoreBand(agg.antiWasteScore).tone,
+        detail: `${formatTnd(agg.totalLoss)} de pertes estimées`,
+      },
+      {
+        label: "Fiabilité des prévisions",
+        value: agg.confidencePct,
+        tone: scoreBand(agg.confidencePct).tone,
+        detail: `${agg.analyzed} matériaux analysés · ${agg.notFound} sans correspondance`,
+      },
+    ];
+
+    return (
+      <div className="rounded-2xl border bg-card p-4 shadow-sm">
+        <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+          <div className="flex flex-col items-center">
+            <ScoreRing value={agg.globalScore} tone={band.tone} />
+            <div className="mt-2 text-center">
+              <p className="text-xs font-semibold">Score d'intelligence des matériaux</p>
+              <ToneBadge label={band.label} tone={band.tone} />
+            </div>
+          </div>
+          <div className="w-full flex-1 space-y-2.5">
+            {parts.map((p) => (
+              <div key={p.label}>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-medium">{p.label}</span>
+                  <span className={cn("ml-auto text-[11px] font-bold tabular-nums", TONE_TEXT[p.tone])}>
+                    {p.value}/100
+                  </span>
+                </div>
+                <div className="mt-1">
+                  <SoftBar value={p.value} tone={p.tone} />
+                </div>
+                <p className="mt-0.5 text-[9.5px] text-muted-foreground">{p.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+          <span>
+            Économie potentielle totale :{" "}
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+              {formatTnd(agg.totalPotentialSaving)}
+            </span>
+          </span>
+          <span>
+            Exposition totale aux hausses :{" "}
+            <span className="font-semibold text-red-600 dark:text-red-400">{formatTnd(agg.totalExposure)}</span>
+          </span>
+        </div>
+        <p className="mt-3 flex items-start gap-1.5 text-[10px] text-muted-foreground">
+          <Info className="mt-0.5 h-3 w-3 shrink-0" />
+          Scores agrégés à partir de l'analyse individuelle des {agg.analyzed} matériaux du projet — estimation
+          indicative, jamais une certitude.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-2xl border bg-card p-4 shadow-sm">
       <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">

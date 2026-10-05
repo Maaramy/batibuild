@@ -67,6 +67,14 @@ function TrendPill({ row }: { row: MaterialIntelRow }) {
   );
 }
 
+/** Pastille de période d'achat par matériau (§8) — couleur + libellé, jamais la couleur seule. */
+function timingDot(row: MaterialIntelRow): string {
+  if (row.timing === "acheter_maintenant") return "🟢";
+  if (row.timing === "acheter_prochainement") return "🟠";
+  if (row.timing === "attendre") return "🔵";
+  return row.timingLabel === "Achat non prioritaire" ? "🟡" : "🔵";
+}
+
 function ScoreBar({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
     <div>
@@ -175,7 +183,7 @@ function MaterialFiche({ row }: { row: MaterialIntelRow }) {
 
       <div className="space-y-1.5">
         <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Pertes & achat</p>
-        <Info2 label="Période d'achat" value={row.timingLabel} />
+        <Info2 label="Période d'achat" value={`${timingDot(row)} ${row.timingLabel}`} />
         <Info2
           label="Perte estimée"
           value={row.lossValue > 0 ? `${formatTnd(row.lossValue)} (${row.lossQty} ${row.lossUnit})` : "—"}
@@ -211,9 +219,16 @@ export function MaterialAnalysisSection({ intel }: { intel: MaterialIntelligence
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const sorted = useMemo(() => [...rows].sort((a, b) => b.priorityScore - a.priorityScore), [rows]);
+  // « Matériaux à surveiller » (§11) : classement par score de surveillance, qui
+  // agrège dans l'ordre — risque de hausse · impact financier · quantité ·
+  // priorité d'achat · risque de perte · confiance.
   const watchlist = useMemo(
-    () => sorted.filter((r) => r.trend === "hausse" || r.riskScore >= 60).slice(0, 6),
-    [sorted],
+    () =>
+      [...rows]
+        .filter((r) => r.trend === "hausse" || r.riskScore >= 60)
+        .sort((a, b) => b.watchScore - a.watchScore)
+        .slice(0, 6),
+    [rows],
   );
   const groupsPresent = useMemo<MaterialGroup[]>(() => {
     const set = new Set<MaterialGroup>();
@@ -318,7 +333,7 @@ export function MaterialAnalysisSection({ intel }: { intel: MaterialIntelligence
               <ShieldAlert className="h-4 w-4 text-amber-600" />
               <h3 className="text-sm font-bold tracking-tight">Matériaux à surveiller</h3>
               <span className="text-[10px] text-muted-foreground">
-                classés par priorité d'achat (risque · impact · quantité · pertes)
+                risque de hausse · impact financier · quantité · priorité d'achat · pertes · confiance
               </span>
             </div>
             <div className="space-y-1.5">
@@ -332,13 +347,17 @@ export function MaterialAnalysisSection({ intel }: { intel: MaterialIntelligence
                   }}
                   className="flex w-full items-center gap-3 rounded-xl border border-border/40 bg-background px-3 py-2 text-left transition-colors hover:border-primary/30 hover:bg-muted/30"
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-[11px] font-black tabular-nums text-amber-700 dark:text-amber-300">
-                    {row.priorityScore}
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-[11px] font-black tabular-nums text-amber-700 dark:text-amber-300"
+                    title={`Score de surveillance ${row.watchScore}/100`}
+                  >
+                    {row.watchScore}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[12px] font-semibold">{row.designation}</span>
                     <span className="block truncate text-[10px] text-muted-foreground">
-                      {row.group} · {row.quantity.toLocaleString("fr-FR")} {row.unit} · {formatTnd(row.currentTotal)}
+                      {row.group} · {row.quantity.toLocaleString("fr-FR")} {row.unit} · {formatTnd(row.currentTotal)} ·
+                      priorité {row.priorityScore} · risque {row.riskScore}
                     </span>
                   </span>
                   <TrendPill row={row} />
