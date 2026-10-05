@@ -3,7 +3,55 @@ import { describe, expect, it } from 'vitest'
 import type { CategoryBreakdownItem, QuantitatifLot } from '@/lib/optimizationEngine'
 import { buildBudgetAnalysis } from '@/lib/optimizationEngine'
 
-const makeBreakdown: CategoryBreakdownItem[] = [
+const makeBreakdown = [
+  {
+    category: 'etudes',
+    label: 'Frais préliminaires et études',
+    estimatedCost: 5000,
+    percentage: 4.2,
+    items: [],
+  },
+  {
+    category: 'gros_oeuvre',
+    label: 'Gros œuvre',
+    estimatedCost: 60000,
+    percentage: 50,
+    items: [],
+  },
+  {
+    category: 'second_oeuvre',
+    label: 'Second œuvre et finitions',
+    estimatedCost: 40000,
+    percentage: 33.3,
+    items: [],
+  },
+  {
+    category: 'amenagements_exterieurs',
+    label: 'Aménagements extérieurs',
+    estimatedCost: 15000,
+    percentage: 12.5,
+    items: [],
+  },
+] as CategoryBreakdownItem[]
+
+const makeLots: QuantitatifLot[] = [
+  {
+    id: 'etudes',
+    name: 'Etudes',
+    subtotal: 5000,
+    lines: [
+      { designation: 'Étude architecturale', quantity: 1, unit: 'fa', unitPrice: 5000, total: 5000, nature: 'etudes' },
+    ],
+  },
+  {
+    id: 'gros_oeuvre',
+    name: 'Gros œuvre',
+    subtotal: 60000,
+    lines: [
+      { designation: 'Ciment', quantity: 100, unit: 'sac', unitPrice: 100, total: 10000, nature: 'beton' },
+    ],
+  },
+]
   {
     category: 'etudes',
     label: 'Frais préliminaires et études',
@@ -35,6 +83,23 @@ const makeBreakdown: CategoryBreakdownItem[] = [
 ]
 
 const makeLots: QuantitatifLot[] = [
+  {
+    id: 'etudes',
+    name: 'Etudes',
+    subtotal: 5000,
+    lines: [
+      { designation: 'Étude architecturale', quantity: 1, unit: 'fa', unitPrice: 5000, total: 5000, nature: 'etudes' },
+    ],
+  },
+  {
+    id: 'gros_oeuvre',
+    name: 'Gros œuvre',
+    subtotal: 60000,
+    lines: [
+      { designation: 'Ciment', quantity: 100, unit: 'sac', unitPrice: 100, total: 10000, nature: 'beton' },
+    ],
+  },
+]: QuantitatifLot[] = [
   {
     id: 'etudes',
     name: 'Etudes',
