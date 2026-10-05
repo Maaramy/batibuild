@@ -26,6 +26,7 @@ import { RecommendedProvidersPanel } from "@/components/RecommendedProvidersPane
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 import { ArticleEditDialog } from "@/components/quantitatif/ArticleEditDialog";
 import { QuantitatifDetails } from "@/components/quantitatif/QuantitatifDetails";
+import { MaterialIntelligenceSection } from "@/components/decision/MaterialIntelligenceSection";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1665,6 +1666,14 @@ export default function ProjectDetail() {
                   {project.region && <div className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />Région : {REGION_LABELS[project.region]}</div>}
                   <div className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />{totalItems} postes détaillés</div>
                 </div>
+              </motion.div>
+
+              {/* ═══ Analyse détaillée des matériaux (automatique, sous « Confiance ») ═══ */}
+              <motion.div variants={fadeUp} custom={5} className="lg:col-span-3">
+                <MaterialIntelligenceSection
+                  projectId={id}
+                  projectTotal={Number(displayTotal ?? 0)}
+                />
               </motion.div>
 
               {ai.anomalies && ai.anomalies.length > 0 && (

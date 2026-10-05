@@ -17,8 +17,11 @@
 // • Réservé au forfait Client Pro : un état verrouillé élégant s'affiche pour
 //   les autres profils, et aucun calcul IA avancé n'est alors lancé.
 //
-// • Contenu : uniquement les modules « Analyse de vos matériaux » (matériau par
-//   matériau) et « Optimisez votre projet » (leviers + simulation + décisions).
+// • Contenu : le module de budget (« Capacité de construction ») et le parcours
+//   « Optimisez votre projet » (leviers + simulation + décisions). L'analyse
+//   détaillée des matériaux est désormais affichée dans « Coût de
+//   construction » (sous la carte « Confiance ») ; elle est seulement relue
+//   ici pour alimenter le moteur d'optimisation.
 // ============================================================================
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -51,7 +54,7 @@ import {
   type PriceListRow,
   type SupplierMatch,
 } from "@/lib/materialIntelligence";
-import { MaterialAnalysisSection } from "@/components/decision/MaterialAnalysisSection";
+
 import { OptimizationSection } from "@/components/decision/OptimizationSection";
 import { buildOptimizationPlan, type OptimizationPlan } from "@/lib/optimizationEngine";
 import { buildBudgetAnalysis, type BudgetAnalysis } from "@/lib/budgetEngine";
@@ -488,8 +491,9 @@ export function DecisionSupportModule({
         </div>
       )}
 
-      {/* ── Analyse de vos matériaux — matériau par matériau (prioritaire) ── */}
-      {materialIntel && <MaterialAnalysisSection intel={materialIntel} />}
+      {/* L'analyse détaillée des matériaux est affichée dans « Coût de
+          construction » (sous la carte « Confiance »). Ici, elle alimente
+          uniquement le moteur d'optimisation — sans double affichage. */}
 
       {/* ── Budget + optimisation — leviers, simulation, validation ── */}
       {optimization && (
