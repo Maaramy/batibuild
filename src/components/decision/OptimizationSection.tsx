@@ -138,9 +138,21 @@ function StatusBadge({ status }: { status: BudgetStatus }) {
 }
 
 /**
+ * Libellé court d'un poste : le libellé du Quantitatif peut embarquer un
+ * complément entre parenthèses qui répète les sous-catégories listées juste
+ * en dessous (« Gros œuvre (fondations, structures) » → « Gros œuvre »).
+ * L'affichage ne garde que le libellé propre.
+ */
+function shortLabel(label: string): string {
+  const cleaned = label.replace(/\s*\([^()]*\)\s*$/, "").trim();
+  return cleaned.length > 0 ? cleaned : label;
+}
+
+/**
  * Quantitatif à 3 niveaux : catégorie → sous-catégorie → article.
- * Chaque ligne affiche son % de réalisation (montant financé / montant estimé),
- * calculé par `budgetEngine` — jamais codé en dur.
+ * Chaque ligne affiche son montant estimé et son % de réalisation (montant
+ * financé / montant estimé, calculé par `budgetEngine` — jamais codé en dur).
+ * Un seul montant par ligne : celui du poste, la réalisation le %.
  */
 function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
@@ -158,18 +170,16 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
               className="flex w-full items-center gap-2.5 bg-muted/20 px-3 py-2.5 text-left transition-colors hover:bg-muted/40"
             >
               <span className="min-w-0 flex-1">
-                <span className="block text-[12px] font-semibold">{cat.categoryLabel}</span>
+                <span className="block text-[12px] font-semibold">{shortLabel(cat.categoryLabel)}</span>
                 <span className="block text-[10px] text-muted-foreground">
                   {formatTndAmount(cat.estimatedCost)} · {formatPercent(cat.pctOfTotal)} du projet
                 </span>
               </span>
               <span className="shrink-0 text-right">
                 <span className="block text-[12px] font-bold tabular-nums">
-                  {formatTndAmount(cat.fundedAmount)}
+                  {formatPercent(cat.realizationPct)}
                 </span>
-                <span className="block text-[9.5px] text-muted-foreground">
-                  réalisation {formatPercent(cat.realizationPct)}
-                </span>
+                <span className="block text-[9.5px] text-muted-foreground">réalisation</span>
               </span>
               <StatusBadge status={cat.status} />
               {catOpen ? (
@@ -192,7 +202,9 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
                         className="flex w-full items-center gap-2 bg-background px-2.5 py-2 text-left transition-colors hover:bg-muted/20"
                       >
                         <span className="min-w-0 flex-1">
-                          <span className="block text-[11.5px] font-medium">{sub.subcategoryLabel}</span>
+                          <span className="block text-[11.5px] font-medium">
+                            {shortLabel(sub.subcategoryLabel)}
+                          </span>
                           <span className="block text-[10px] text-muted-foreground">
                             {formatTndAmount(sub.estimatedCost)} · {formatPercent(sub.pctOfCategory)} de la
                             catégorie
@@ -200,11 +212,9 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
                         </span>
                         <span className="shrink-0 text-right">
                           <span className="block text-[11.5px] font-bold tabular-nums">
-                            {formatTndAmount(sub.fundedAmount)}
+                            {formatPercent(sub.realizationPct)}
                           </span>
-                          <span className="block text-[9.5px] text-muted-foreground">
-                            réalisation {formatPercent(sub.realizationPct)}
-                          </span>
+                          <span className="block text-[9.5px] text-muted-foreground">réalisation</span>
                         </span>
                         <StatusBadge status={sub.status} />
                         {subOpen ? (
@@ -215,32 +225,36 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
                       </button>
 
                       {subOpen && (
-                        <ul className="space-y-1 border-t border-border/20 p-2">
-                          {sub.articles.map((art, idx) => (
-                            <li
-                              key={`${subKey}:${idx}`}
-                              className="flex items-center gap-2 text-[11px]"
-                            >
-                              <span className="min-w-0 flex-1 truncate">
-                                {art.quantity !== undefined ? (
-                                  <span className="text-muted-foreground">
-                                    {art.quantity} {art.unit} —{" "}
-                                  </span>
-                                ) : null}
-                                {art.designation}
-                              </span>
-                              <span className="shrink-0 tabular-nums text-muted-foreground">
-                                {formatTndAmount(art.estimatedCost)}
-                              </span>
-                              <span className="w-16 shrink-0 text-right tabular-nums">
-                                {formatTndAmount(art.fundedAmount)}
-                              </span>
-                              <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">
-                                {formatPercent(art.realizationPct)}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                        <div className="border-t border-border/20 p-2">
+                          <div className="flex items-baseline gap-2 pb-1 text-[9.5px] uppercase tracking-wide text-muted-foreground">
+                            <span className="min-w-0 flex-1">Article</span>
+                            <span className="w-24 shrink-0 text-right">Montant</span>
+                            <span className="w-14 shrink-0 text-right">Réalisation</span>
+                          </div>
+                          <ul className="space-y-1">
+                            {sub.articles.map((art, idx) => (
+                              <li
+                                key={`${subKey}:${idx}`}
+                                className="flex items-start gap-2 text-[11px]"
+                              >
+                                <span className="min-w-0 flex-1 break-words">
+                                  {art.quantity !== undefined ? (
+                                    <span className="text-muted-foreground">
+                                      {art.quantity} {art.unit} —{" "}
+                                    </span>
+                                  ) : null}
+                                  {art.designation}
+                                </span>
+                                <span className="w-24 shrink-0 whitespace-nowrap text-right tabular-nums">
+                                  {formatTndAmount(art.estimatedCost)}
+                                </span>
+                                <span className="w-14 shrink-0 text-right tabular-nums text-muted-foreground">
+                                  {formatPercent(art.realizationPct)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       )}
                     </div>
                   );
