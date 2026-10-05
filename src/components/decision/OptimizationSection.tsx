@@ -23,19 +23,15 @@ import {
   CircleCheck,
   Clock3,
   Coins,
-  Gauge,
   Info,
   Layers,
   Lightbulb,
-  Package,
   Recycle,
   Scale,
   ShoppingCart,
   Sparkles,
   Tag,
   Target,
-  TrendingUp,
-  Wallet,
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -143,9 +139,6 @@ function OpportunityRow({
             )}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-muted-foreground">
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-              Économie potentielle : {formatTnd(op.saving)} · {op.savingPct.toLocaleString("fr-FR")} %
-            </span>
             <span>Impact {op.impactScore}/100</span>
             <span
               className={cn("rounded-full border px-2 py-0.5 font-semibold", risk.cls)}
@@ -279,211 +272,51 @@ export function OptimizationSection({ plan }: { plan: OptimizationPlan }) {
         </CardContent>
       </Card>
     );
-  }
-
-  const obj = plan.objective;
-  const trackPct = (v: number) => `${Math.max(0, Math.min(100, (v / 25) * 100))}%`;
-  const bandTone =
-    obj.band === "eleve" ? "text-amber-600 dark:text-amber-400" : obj.band === "atteint" ? "text-emerald-600 dark:text-emerald-400" : "text-sky-600 dark:text-sky-400";
-
-  return (
+  }  return (
     <div className="space-y-3">
-      {/* ── §16 Récapitulatif supérieur (dynamique) ── */}
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <Stat icon={Package} label="Total des matériaux" value={String(plan.topCards.materials)} tone="text-primary" />
-        <Stat
-          icon={Wallet}
-          label="Budget optimisé"
-          value={`${formatTnd(plan.topCards.budgetOptimise)} · −${plan.topCards.budgetOptimisePct.toLocaleString("fr-FR")} %`}
-          tone="text-emerald-600"
-        />
-        <Stat
-          icon={Recycle}
-          label="Réduction des pertes"
-          value={`${plan.topCards.pertesPct.toLocaleString("fr-FR")} %`}
-          tone="text-amber-600"
-        />
-        <Stat
-          icon={TrendingUp}
-          label="Prévision des prix"
-          value={formatTnd(plan.topCards.previsionPrix)}
-          tone="text-sky-600"
-        />
-      </div>
-
-      {/* ── §3 Objectif d'optimisation (jauge) ── */}
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.06] via-background to-background">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Target className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold tracking-tight">Objectif d'optimisation</h3>
-                <p className="text-[11px] text-muted-foreground">
-                  Zone de référence {obj.targetLow}–{obj.targetHigh} % — une orientation, jamais une obligation.
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Potentiel actuel</p>
-              <p className={cn("text-2xl font-black tabular-nums", bandTone)}>
-                {obj.currentPct.toLocaleString("fr-FR")} %
-              </p>
-            </div>
-          </div>
-
-          {/* Jauge : piste 0–25 %, zone cible 15–20 % matérialisée. */}
-          <div className="mt-3">
-            <div className="relative h-3 overflow-hidden rounded-full bg-muted">
-              <div
-                className="absolute inset-y-0 border-x border-primary/40 bg-primary/10"
-                style={{ left: trackPct(obj.targetLow), width: trackPct(obj.targetHigh - obj.targetLow) }}
-                title={`Zone cible ${obj.targetLow}–${obj.targetHigh} %`}
-              />
-              <div
-                className={cn(
-                  "absolute inset-y-0 left-0 rounded-full",
-                  obj.band === "en_cours" ? "bg-sky-500" : obj.band === "atteint" ? "bg-emerald-500" : "bg-amber-500",
-                )}
-                style={{ width: trackPct(obj.currentPct) }}
-              />
-            </div>
-            <div className="mt-1 flex justify-between text-[9px] text-muted-foreground">
-              <span>0 %</span>
-              <span>Zone cible : {obj.targetLow}–{obj.targetHigh} %</span>
-              <span>25 %</span>
-            </div>
-          </div>
-
-          <p className={cn("mt-2 text-[11px] font-semibold", bandTone)}>{obj.message}</p>
-
-          {plan.honesty && (
-            <div className="mt-2 flex items-start gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/[0.05] p-2.5">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-              <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">{plan.honesty}</p>
-            </div>
-          )}
-
-          {obj.band !== "en_cours" && (
-            <div className="mt-2 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] p-2.5">
-              <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-              <div>
-                <p className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-200">
-                  🎯 Potentiel intéressant détecté
-                </p>
-                <p className="text-[11px] leading-snug text-emerald-800/90 dark:text-emerald-200/90">
-                  Plusieurs leviers d'optimisation peuvent permettre d'améliorer le coût du projet. Sélectionnez les
-                  recommandations qui correspondent à vos priorités.
-                </p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── §12/13 Coût total optimisable + §14 Matériaux optimisables ── */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Coins className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-bold tracking-tight">💰 Coût total</h3>
-            </div>
-            <div className="mt-3 grid grid-cols-1 items-center gap-2 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
-              <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Coût initial</p>
-                <p className="text-base font-black tabular-nums">{formatTnd(plan.coutInitial)}</p>
-              </div>
-              <ArrowRight className="mx-auto hidden h-4 w-4 text-muted-foreground sm:block" />
-              <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Potentiel d'optimisation</p>
-                <p className="text-base font-black tabular-nums text-emerald-600 dark:text-emerald-400">
-                  {plan.potentielPct.toLocaleString("fr-FR")} %
-                </p>
-              </div>
-              <ArrowRight className="mx-auto hidden h-4 w-4 text-muted-foreground sm:block" />
-              <div className="rounded-xl border border-primary/30 bg-primary/[0.06] p-2.5">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Coût optimisé estimé</p>
-                <p className="text-base font-black tabular-nums text-primary">{formatTnd(plan.coutOptimise)}</p>
-              </div>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
-              <span>
-                Économie réellement réalisable : <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatTnd(plan.economieRealisable)}</span>
-              </span>
-              <span>
-                Somme brute des opportunités : <span className="font-semibold text-foreground">{formatTnd(plan.economieBrute)}</span>
-              </span>
-              {plan.overlap > 0 && (
-                <span>
-                  Dédoublonnage (chevauchements) : −{formatTnd(plan.overlap)} ({plan.overlapPct.toLocaleString("fr-FR")} %)
-                </span>
-              )}
-            </div>
-            <p className="mt-2 flex items-start gap-1.5 text-[10px] text-muted-foreground">
-              <Info className="mt-0.5 h-3 w-3 shrink-0" />
-              Estimation basée sur les opportunités actuellement détectées. Les économies ne sont jamais additionnées
-              naïvement : les recommandations qui se chevauchent sont dédoublonnées.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Layers className="h-4 w-4 text-amber-600" />
-              <h3 className="text-sm font-bold tracking-tight">🧱 Matériaux optimisables</h3>
-            </div>
-            <p className="mt-2 text-2xl font-black tabular-nums">
-              {plan.materiauxOptimisables}
-              <span className="text-sm font-medium text-muted-foreground"> / {plan.materiauxTotal}</span>
-            </p>
-            <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
-              <p>
-                <span className="font-semibold text-foreground">{plan.fortImpact}</span> matériau(x) à fort impact
-              </p>
-              <p>
-                <span className="font-semibold text-foreground">{plan.alternativesDisponibles}</span> alternative(s) disponible(s)
-              </p>
-              <p>
-                <span className="font-semibold text-foreground">{plan.opportunitesAchat}</span> opportunité(s) d'achat
-              </p>
-            </div>
-            <p className="mt-2 text-[10px] text-muted-foreground">
-              Analyse individuelle des matériaux (jamais des catégories).
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── §15 Score d'optimisation du projet ── */}
-      <Card>
+      {/* ── §12/13 Coût total optimisable ── */}
+      <Card className="">
         <CardContent className="p-4">
           <div className="flex items-center gap-2">
-            <Gauge className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-bold tracking-tight">Score d'optimisation du projet</h3>
-            <span className="ml-auto text-lg font-black tabular-nums text-primary">{plan.scoreOptimisation}/100</span>
+            <Coins className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-bold tracking-tight">💰 Coût total</h3>
           </div>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">
-            Capacité du projet à être optimisé — à ne pas confondre avec le pourcentage d'économie (potentiel{" "}
-            {plan.potentielPct.toLocaleString("fr-FR")} %).
+          <div className="mt-3 grid grid-cols-1 items-center gap-2 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
+            <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Coût initial</p>
+              <p className="text-base font-black tabular-nums">{formatTnd(plan.coutInitial)}</p>
+            </div>
+            <ArrowRight className="mx-auto hidden h-4 w-4 text-muted-foreground sm:block" />
+            <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Potentiel d'optimisation</p>
+              <p className="text-base font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+                {plan.potentielPct.toLocaleString("fr-FR")} %
+              </p>
+            </div>
+            <ArrowRight className="mx-auto hidden h-4 w-4 text-muted-foreground sm:block" />
+            <div className="rounded-xl border border-primary/30 bg-primary/[0.06] p-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Coût optimisé estimé</p>
+              <p className="text-base font-black tabular-nums text-primary">{formatTnd(plan.coutOptimise)}</p>
+            </div>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+            <span>
+              Économie réellement réalisable : <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatTnd(plan.economieRealisable)}</span>
+            </span>
+            <span>
+              Somme brute des opportunités : <span className="font-semibold text-foreground">{formatTnd(plan.economieBrute)}</span>
+            </span>
+            {plan.overlap > 0 && (
+              <span>
+                Dédoublonnage (chevauchements) : −{formatTnd(plan.overlap)} ({plan.overlapPct.toLocaleString("fr-FR")} %)
+              </span>
+            )}
+          </div>
+          <p className="mt-2 flex items-start gap-1.5 text-[10px] text-muted-foreground">
+            <Info className="mt-0.5 h-3 w-3 shrink-0" />
+            Estimation basée sur les opportunités actuellement détectées. Les économies ne sont jamais additionnées
+            naïvement : les recommandations qui se chevauchent sont dédoublonnées.
           </p>
-          <div className="mt-3 grid grid-cols-1 gap-x-5 gap-y-2 sm:grid-cols-2">
-            {plan.scoreCriteria.map((c) => (
-              <div key={c.label}>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-medium">{c.label}</span>
-                  <span className="ml-auto text-[11px] font-bold tabular-nums">{c.value}/100</span>
-                </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, c.value))}%` }} />
-                </div>
-                <p className="mt-0.5 text-[9.5px] text-muted-foreground">{c.detail}</p>
-              </div>
-            ))}
-          </div>
         </CardContent>
       </Card>
 
@@ -493,9 +326,6 @@ export function OptimizationSection({ plan }: { plan: OptimizationPlan }) {
           <div className="flex flex-wrap items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-bold tracking-tight">🎯 Optimisez votre projet</h3>
-            <span className="text-[10px] text-muted-foreground">
-              Objectif de référence : {obj.targetLow}–{obj.targetHigh} %
-            </span>
           </div>
 
           {/* Progression (§9) */}
