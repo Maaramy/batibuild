@@ -6,7 +6,7 @@
 // depuis le Quantitatif détaillé ET le coût estimatif du projet — jamais de
 // valeurs fixes ou de doublons de données.
 
-import { useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -61,6 +61,8 @@ import {
   formatTndAmount,
   MIN_BUDGET_TND,
   type BudgetAnalysis,
+  type BudgetCategoryLine,
+  type BudgetStatus,
 } from "@/lib/budgetEngine";
 
 function KPIBlock({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -97,6 +99,188 @@ const STATUS_LABEL: Record<string, string> = {
 
 
 /** Palette cohérente avec les tons du projet (thème Batibuild). */
+/** Cellule « % de réalisation » : valeur + barre, calculée par le moteur. */
+function RealizationCell({ pct }: { pct: number }) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <div className="hidden h-1.5 w-14 overflow-hidden rounded-full bg-muted sm:block">
+        <div
+          className={cn(
+            "h-full rounded-full",
+            clamped >= 100 ? "bg-emerald-500" : clamped > 0 ? "bg-amber-500" : "bg-border",
+          )}
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
+      <span className="tabular-nums">{clamped} %</span>
+    </div>
+  );
+}
+
+function StatusPill({ status }: { status: BudgetStatus }) {
+  return (
+    <span className={cn("inline-block rounded-full border px-2 py-0.5 text-[9px] font-semibold", STATUS_TONE[status])}>
+      {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+/**
+ * Quantitatif détaillé adapté au budget — même arborescence que « Coût
+ * estimatif » : Catégorie → Sous-catégorie → Article, avec pour chaque niveau
+ * le coût estimé, le budget alloué, le % du coût total et le % de réalisation.
+ */
+function QuantitatifTable({ breakdown }: { breakdown: BudgetCategoryLine[] }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-[11px]">
+        <thead>
+          <tr className="border-b border-border/40 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+            <th className="px-2 py-2">Catégorie / sous-catégorie / article</th>
+            <th className="px-2 py-2 text-right">Coût estimé</th>
+            <th
+              className="px-2 py-2 text-right"
+              title="Montant du budget effectivement alloué à ce poste"
+            >
+              Budget nécessaire
+            </th>
+            <th className="px-2 py-2 text-right">% du coût total</th>
+            <th className="px-2 py-2 text-right">% réalisation</th>
+            <th className="px-2 py-2">Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          {breakdown.map((cat) => {
+            const open = expanded[cat.categoryId] ?? false;
+            return (
+              <Fragment key={cat.categoryId}>
+                {/* ── Niveau 1 : catégorie ── */}
+                <tr className="border-b border-border/20 bg-muted/10 hover:bg-muted/20">
+                  <td className="px-2 py-2">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((e) => ({ ...e, [cat.categoryId]: !open }))}
+                      className="flex w-full items-center gap-2 text-left"
+                      aria-expanded={open}
+                    >
+                      {cat.subcategories.length > 0 ? (
+                        open ? (
+                          <ChevronUp className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        )
+                      ) : (
+                        <span className="h-3 w-3 shrink-0" />
+                      )}
+                      <CategoryBadge name={cat.categoryId} />
+                      <span className="font-semibold text-foreground">{cat.categoryLabel}</span>
+                    </button>
+                  </td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">
+                    {formatTndAmount(cat.estimatedCost)}
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums" title={`Budget cumulé : ${formatTndAmount(cat.budgetNeeded)}`}>
+                    {formatTndAmount(cat.fundedAmount)}
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums">{cat.pctOfTotal} %</td>
+                  <td className="px-2 py-2 text-right">
+                    <RealizationCell pct={cat.realizationPct} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <StatusPill status={cat.status} />
+                  </td>
+                </tr>
+
+                {/* ── Niveau 2 : sous-catégories ── */}
+                {open &&
+                  cat.subcategories.map((sub) => {
+                    const subOpen = expanded[sub.subcategoryId] ?? false;
+                    return (
+                      <Fragment key={sub.subcategoryId}>
+                        <tr className="border-b border-border/10 hover:bg-muted/10">
+                          <td className="py-2 pl-8 pr-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpanded((e) => ({ ...e, [sub.subcategoryId]: !subOpen }))
+                              }
+                              className="flex w-full items-center gap-2 text-left"
+                              aria-expanded={subOpen}
+                            >
+                              {sub.articles.length > 0 ? (
+                                subOpen ? (
+                                  <ChevronUp className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                ) : (
+                                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                )
+                              ) : (
+                                <span className="h-3 w-3 shrink-0" />
+                              )}
+                              <span className="font-medium text-foreground">{sub.subcategoryLabel}</span>
+                              <span className="text-[9px] text-muted-foreground">
+                                ({sub.pctOfCategory} % de la catégorie)
+                              </span>
+                            </button>
+                          </td>
+                          <td className="px-2 py-2 text-right tabular-nums">
+                            {formatTndAmount(sub.estimatedCost)}
+                          </td>
+                          <td className="px-2 py-2 text-right tabular-nums">
+                            {formatTndAmount(sub.fundedAmount)}
+                          </td>
+                          <td className="px-2 py-2 text-right text-muted-foreground">—</td>
+                          <td className="px-2 py-2 text-right">
+                            <RealizationCell pct={sub.realizationPct} />
+                          </td>
+                          <td className="px-2 py-2">
+                            <StatusPill status={sub.status} />
+                          </td>
+                        </tr>
+
+                        {/* ── Niveau 3 : articles ── */}
+                        {subOpen &&
+                          sub.articles.map((article, ai) => (
+                            <tr key={`${sub.subcategoryId}-${ai}`} className="border-b border-border/10 hover:bg-muted/10">
+                              <td className="py-1.5 pl-12 pr-2 text-muted-foreground">
+                                {article.designation}
+                                {article.quantity != null && article.unit && (
+                                  <span className="ml-1 text-[9px] text-muted-foreground/70">
+                                    ({new Intl.NumberFormat("fr-FR").format(article.quantity)} {article.unit}
+                                    {article.unitPrice != null
+                                      ? ` × ${new Intl.NumberFormat("fr-FR").format(article.unitPrice)} TND`
+                                      : ""}
+                                    )
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-right tabular-nums">
+                                {formatTndAmount(article.estimatedCost)}
+                              </td>
+                              <td className="px-2 py-1.5 text-right tabular-nums">
+                                {formatTndAmount(article.fundedAmount)}
+                              </td>
+                              <td className="px-2 py-1.5 text-right text-muted-foreground">—</td>
+                              <td className="px-2 py-1.5 text-right">
+                                <RealizationCell pct={article.realizationPct} />
+                              </td>
+                              <td className="px-2 py-1.5" />
+                            </tr>
+                          ))}
+                      </Fragment>
+                    );
+                  })}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 const CATEGORY_COLORS = [
   "#6366f1",
   "#0ea5e9",
@@ -150,48 +334,7 @@ function BudgetAnalysisCard({
         )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-[11px]">
-          <thead>
-            <tr className="border-b border-border/40 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-              <th className="px-2 py-2">Catégorie</th>
-              <th className="px-2 py-2 text-right">Coût estimé</th>
-              <th className="px-2 py-2 text-right" title="Montant du budget effectivement alloué à cette catégorie">
-                  Budget nécessaire
-                </th>
-              <th className="px-2 py-2 text-right">% du coût total</th>
-              <th className="px-2 py-2">Statut</th>
-            </tr>
-          </thead>
-          <tbody>
-            {analysis.breakdown.map((cat) => (
-              <tr key={cat.categoryId} className="border-b border-border/20 hover:bg-muted/20">
-                <td className="px-2 py-2">
-                  <div className="flex items-center gap-2">
-                    <CategoryBadge name={cat.categoryId} />
-                    <span className="font-medium text-foreground">{cat.categoryLabel}</span>
-                  </div>
-                </td>
-                <td className="px-2 py-2 text-right tabular-nums">{formatTndAmount(cat.estimatedCost)}</td>
-                <td
-                  className="px-2 py-2 text-right tabular-nums"
-                  title={`Budget cumulé pour atteindre ce poste : ${formatTndAmount(cat.budgetNeeded)}`}
-                >
-                  {formatTndAmount(cat.fundedAmount)}
-                </td>
-                <td className="px-2 py-2 text-right">
-                  <span className="tabular-nums">{cat.pctOfTotal} %</span>
-                </td>
-                <td className="px-2 py-2">
-                  <span className={cn("rounded-full border px-2 py-0.5 text-[9px] font-semibold", STATUS_TONE[cat.status])}>
-                    {STATUS_LABEL[cat.status]}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <QuantitatifTable breakdown={analysis.breakdown} />
 
       <div className="space-y-2">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">

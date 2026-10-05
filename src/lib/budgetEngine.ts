@@ -27,10 +27,116 @@ export interface CategoryBreakdownItem {
   percentage: number;
 }
 
+export interface QuantitatifLotLine {
+  designation: string;
+  /** Sous-lot du Quantitatif détaillé (ex. « Fondations »). */
+  subcategory?: string;
+  quantity?: number;
+  unit?: string;
+  unitPrice?: number;
+  total?: number;
+}
+
 export interface QuantitatifLot {
   id: string;
   name: string;
   subtotal: number;
+  lines?: QuantitatifLotLine[];
+}
+
+/**
+ * Correspondance lot du Quantitatif → catégorie de coût (« Estimation du coût
+ * de construction »). Elle permet de retrouver, pour une catégorie, les
+ * sous-catégories et articles réellement chiffrés dans le projet.
+ */
+const LOT_TO_CATEGORY: Record<string, string> = {
+  // ── Études / frais préliminaires ──
+  frais_preliminaires: "etudes",
+  etudes: "etudes",
+  etudes_imprevus: "etudes",
+  // ── Gros œuvre : terrassement, fondations, structure, enveloppe ──
+  gros_oeuvre: "gros_oeuvre",
+  terrassement: "gros_oeuvre",
+  terrassement_granulats: "gros_oeuvre",
+  terre: "gros_oeuvre",
+  preparation: "gros_oeuvre",
+  fondations: "gros_oeuvre",
+  structure: "gros_oeuvre",
+  coque: "gros_oeuvre",
+  maconnerie: "gros_oeuvre",
+  etancheite: "gros_oeuvre",
+  charpente: "gros_oeuvre",
+  toiture: "gros_oeuvre",
+  facade: "gros_oeuvre",
+  // ── Second œuvre : cloisons, revêtements, menuiseries, finitions ──
+  second_oeuvre: "second_oeuvre",
+  cloisons: "second_oeuvre",
+  revetements: "second_oeuvre",
+  carrelage: "second_oeuvre",
+  peinture: "second_oeuvre",
+  finition: "second_oeuvre",
+  finitions: "second_oeuvre",
+  nettoyage: "second_oeuvre",
+  nettoyage_finition: "second_oeuvre",
+  menuiserie: "second_oeuvre",
+  portes: "second_oeuvre",
+  // ── Équipements : fluides, électricité, cuisine ──
+  equipements: "equipements",
+  plomberie: "equipements",
+  electricite: "equipements",
+  cablage: "equipements",
+  eclairage: "equipements",
+  appareillage: "equipements",
+  tableau: "equipements",
+  alimentation: "equipements",
+  robinetterie: "equipements",
+  evacuation: "equipements",
+  sanitaires: "equipements",
+  chauffe_eau: "equipements",
+  froid: "equipements",
+  ventilation: "equipements",
+  cvc: "equipements",
+  filtration: "equipements",
+  meubles: "equipements",
+  cuisine_pro: "equipements",
+  plan_travail: "equipements",
+  // ── Aménagements extérieurs ──
+  amenagements_exterieurs: "amenagements_exterieurs",
+  amenagements: "amenagements_exterieurs",
+  amenagement: "amenagements_exterieurs",
+  exterior: "amenagements_exterieurs",
+  // ── Transports / divers ──
+  transport: "transport",
+  vrd: "transport",
+  depose: "main_oeuvre",
+  depose_demolition: "main_oeuvre",
+  main_oeuvre: "main_oeuvre",
+  essais: "main_oeuvre",
+  // ── Lots de finition à rattacher aux aménagements (non listés ci-dessus) ──
+  enseignes: "amenagements_exterieurs",
+  divers: "transport",
+};
+
+/**
+ * Motifs de repli : si un lot du Quantitatif n'est pas listé ci-dessus, on
+ * le rattache à sa catégorie par mots-clés. Aucun article n'est donc perdu.
+ */
+const LOT_KEYWORDS: Array<{ match: RegExp; category: string }> = [
+  { match: /(etude|frais| prelim)/i, category: "etudes" },
+  { match: /(terrassement|terre|fondation|structur|maconner|coque|charpente|toiture|facade|etancheite)/i, category: "gros_oeuvre" },
+  { match: /(second|clois|revet|carrel|peintur|finition|nettoyage|menuiser|porte)/i, category: "second_oeuvre" },
+  { match: /(plomber|electri|cablage|eclairage|appareil|sanitair|chauffe|ventil|cvc|filtration|meuble|cuisine|plan_travail|robinetterie|alimentation|evacuation|equipement)/i, category: "equipements" },
+  { match: /(amenagement|exterieur|exterior|enseigne)/i, category: "amenagements_exterieurs" },
+  { match: /(vrd|transport|divers)/i, category: "transport" },
+  { match: /(depose|main_oeuvre|essai)/i, category: "main_oeuvre" },
+];
+
+function categoryForLot(lotId: string): string | null {
+  const key = String(lotId ?? "").toLowerCase();
+  const direct = LOT_TO_CATEGORY[key];
+  if (direct) return direct;
+  const fallback = LOT_KEYWORDS.find((k) => k.match.test(key));
+  return fallback ? fallback.category : null;
 }
 
 /** Priorité des chantiers : un projet se construit dans cet ordre. */
@@ -59,6 +165,32 @@ export function categoryPriority(category: string): number {
 
 export type BudgetStatus = "realisable" | "partiel" | "report";
 
+/** Niveau « article » du Quantitatif détaillé. */
+export interface BudgetArticleLine {
+  designation: string;
+  estimatedCost: number;
+  fundedAmount: number;
+  /** % de réalisation de l'article (0 → 100). */
+  realizationPct: number;
+  quantity?: number;
+  unit?: string;
+  unitPrice?: number;
+}
+
+/** Niveau « sous-catégorie » (sous-lot du Quantitatif). */
+export interface BudgetSubcategoryLine {
+  subcategoryId: string;
+  subcategoryLabel: string;
+  estimatedCost: number;
+  fundedAmount: number;
+  /** % du coût de la catégorie que représente cette sous-catégorie. */
+  pctOfCategory: number;
+  /** % de réalisation de la sous-catégorie (0 → 100). */
+  realizationPct: number;
+  status: BudgetStatus;
+  articles: BudgetArticleLine[];
+}
+
 export interface BudgetCategoryLine {
   categoryId: string;
   categoryLabel: string;
@@ -69,8 +201,12 @@ export interface BudgetCategoryLine {
   budgetNeeded: number;
   /** Part du budget réellement allouée à ce chantier. */
   fundedAmount: number;
+  /** % de réalisation de la catégorie (0 → 100). */
+  realizationPct: number;
   status: BudgetStatus;
   priority: number;
+  /** Sous-catégories du Quantitatif rattachées à cette catégorie. */
+  subcategories: BudgetSubcategoryLine[];
 }
 
 export type BudgetScenarioKey = "actuel" | "plus_palier" | "complet";
@@ -188,10 +324,129 @@ interface SimulatedScenario {
  * « partiel » s'il est entamé mais non terminé, « report » s'il est hors
  * budget. Rien n'est inventé : seuls les montants du Quantitatif sont utilisés.
  */
+/** % de réalisation d'un poste (0 → 100), jamais codé en dur. */
+function realizationPct(estimatedCost: number, fundedAmount: number): number {
+  if (estimatedCost <= 0) return 0;
+  return round1(Math.max(0, Math.min(100, (fundedAmount / estimatedCost) * 100)));
+}
+
+/**
+ * Reconstitue la hiérarchie « Quantitatif détaillé » (sous-catégories +
+ * articles) d'une catégorie, et y répartit le montant financé par ordre
+ * d'importance technique : le budget est consommé sous-catégorie par
+ * sous-catégorie, puis article par article.
+ *
+ * Les articles viennent du Quantitatif réel du projet — aucun montant n'est
+ * inventé. Si une catégorie n'a pas de détail exploitable, une seule
+ * sous-catégorie agrégée reprend le montant de la catégorie (l'interface
+ * affiche alors un seul niveau, sans article).
+ */
+function buildHierarchy(
+  cat: CategoryBreakdownItem,
+  lots: QuantitatifLot[],
+  categoryFunded: number,
+): BudgetSubcategoryLine[] {
+  const cost = Math.max(0, Number(cat.estimatedCost) || 0);
+
+  // Regroupement des articles par sous-lot, dans l'ordre du Quantitatif.
+  const groups = new Map<string, { label: string; lines: BudgetArticleLine[]; total: number }>();
+  for (const lot of lots) {
+    if (categoryForLot(lot.id) !== cat.category) continue;
+    for (const line of lot.lines ?? []) {
+      const total =
+        Number.isFinite(Number(line.total)) && Number(line.total) > 0
+          ? Number(line.total)
+          : (Number(line.quantity) || 0) * (Number(line.unitPrice) || 0);
+      if (total <= 0) continue;
+      const label = String(line.subcategory ?? lot.name ?? cat.label).trim() || cat.label;
+      const entry = groups.get(label) ?? { label, lines: [], total: 0 };
+      entry.lines.push({
+        designation: String(line.designation ?? "").trim() || "Article",
+        estimatedCost: round2(total),
+        fundedAmount: 0,
+        realizationPct: 0,
+        quantity: line.quantity,
+        unit: line.unit,
+        unitPrice: line.unitPrice,
+      });
+      entry.total = round2(entry.total + total);
+      groups.set(label, entry);
+    }
+  }
+
+  // Aucune ligne exploitable → un niveau agrégé, sans article détaillé.
+  if (groups.size === 0) {
+    if (cost <= 0) return [];
+    const pctOfCategory = 100;
+    return [
+      {
+        subcategoryId: `${cat.category}__global`,
+        subcategoryLabel: cat.label,
+        estimatedCost: round2(cost),
+        fundedAmount: round2(categoryFunded),
+        pctOfCategory,
+        realizationPct: realizationPct(cost, categoryFunded),
+        status:
+          categoryFunded >= cost ? "realisable" : categoryFunded > 0 ? "partiel" : "report",
+        articles: [],
+      },
+    ];
+  }
+
+  // Les sous-catégories sont ordonnées par importance (coût décroissant, puis
+  // ordre du Quantitatif) : c'est l'ordre dans lequel le budget est engagé.
+  const orderedGroups = [...groups.values()].sort((a, b) => b.total - a.total);
+  const detailedTotal = round2(orderedGroups.reduce((s, g) => s + g.total, 0));
+  // Si le détail ne recouvre pas tout le coût de la catégorie, la différence
+  // reste affichée telle quelle dans le % de réalisation (aucun montant ajouté).
+  const scale = detailedTotal > 0 ? cost / detailedTotal : 0;
+
+  let left = round2(categoryFunded);
+  return orderedGroups.map((g, idx) => {
+    const subCost = scale > 0 ? round2(g.total * scale) : round2(g.total);
+    let subFunded: number;
+    if (left >= subCost) {
+      subFunded = subCost;
+    } else if (left > 0) {
+      subFunded = left;
+    } else {
+      subFunded = 0;
+    }
+    left = round2(Math.max(0, left - subFunded));
+
+    let articleLeft = subFunded;
+    const articles = g.lines.map((line) => {
+      const lineCost = scale > 0 ? round2(line.estimatedCost * scale) : line.estimatedCost;
+      const articleFunded =
+        articleLeft >= lineCost ? lineCost : articleLeft > 0 ? articleLeft : 0;
+      articleLeft = round2(Math.max(0, articleLeft - articleFunded));
+      return {
+        ...line,
+        estimatedCost: lineCost,
+        fundedAmount: round2(articleFunded),
+        realizationPct: realizationPct(lineCost, articleFunded),
+      };
+    });
+
+    return {
+      subcategoryId: `${cat.category}__${idx}`,
+      subcategoryLabel: g.label,
+      estimatedCost: subCost,
+      fundedAmount: round2(subFunded),
+      pctOfCategory: cost > 0 ? round1((subCost / cost) * 100) : 0,
+      realizationPct: realizationPct(subCost, subFunded),
+      status:
+        subFunded >= subCost && subCost > 0 ? "realisable" : subFunded > 0 ? "partiel" : "report",
+      articles,
+    };
+  });
+}
+
 function simulateScenario(
   ordered: CategoryBreakdownItem[],
   projectTotal: number,
   budget: number,
+  lots: QuantitatifLot[],
 ): SimulatedScenario {
   let remaining = Math.max(0, budget);
   let cumulative = 0;
@@ -224,8 +479,10 @@ function simulateScenario(
       pctOfTotal: projectTotal > 0 ? round1((cost / projectTotal) * 100) : 0,
       budgetNeeded: round2(cumulative),
       fundedAmount: round2(fundedAmount),
+      realizationPct: realizationPct(cost, fundedAmount),
       status,
       priority: categoryPriority(cat.category),
+      subcategories: buildHierarchy(cat, lots, fundedAmount),
     };
   });
 
@@ -291,6 +548,7 @@ export function buildBudgetAnalysis(input: BudgetAnalysisInput): BudgetAnalysis 
   const breakdown = (input.breakdown ?? []).filter(
     (c) => c && Number(c.estimatedCost) > 0,
   );
+  const lots = input.lots ?? [];
   const ordered = [...breakdown].sort(
     (a, b) => categoryPriority(a.category) - categoryPriority(b.category),
   );
@@ -378,7 +636,7 @@ export function buildBudgetAnalysis(input: BudgetAnalysisInput): BudgetAnalysis 
     };
   }
 
-  const current = simulateScenario(ordered, projectTotal, budget);
+  const current = simulateScenario(ordered, projectTotal, budget, lots);
   const boostedBudget = round2(budget + BUDGET_SIMULATION_STEP_TND);
   const scenarios: BudgetScenarioLine[] = [
     toScenario("actuel", "Budget actuel", budget, current, projectTotal, budget),
@@ -386,7 +644,7 @@ export function buildBudgetAnalysis(input: BudgetAnalysisInput): BudgetAnalysis 
       "plus_palier",
       `+ ${frNumber(BUDGET_SIMULATION_STEP_TND)} TND`,
       boostedBudget,
-      simulateScenario(ordered, projectTotal, boostedBudget),
+      simulateScenario(ordered, projectTotal, boostedBudget, lots),
       projectTotal,
       budget,
     ),
@@ -394,7 +652,7 @@ export function buildBudgetAnalysis(input: BudgetAnalysisInput): BudgetAnalysis 
       "complet",
       "Projet complet",
       projectTotal,
-      simulateScenario(ordered, projectTotal, projectTotal),
+      simulateScenario(ordered, projectTotal, projectTotal, lots),
       projectTotal,
       budget,
     ),

@@ -58,6 +58,17 @@ export const getProjectBudgetContext = query({
         id: String(lot?.id ?? ''),
         name: String(lot?.name ?? ''),
         subtotal: real(Number(lot?.subtotal) || 0),
+        // Articles du Quantitatif détaillé (désignation, sous-lot, quantité,
+        // prix unitaire, montant) : ce sont eux qui alimentent la
+        // hiérarchie Catégorie → Sous-catégorie → Article.
+        lines: (lot?.lines ?? []).map((line: any) => ({
+          designation: String(line?.designation ?? ''),
+          subcategory: line?.sousLot ? String(line.sousLot) : undefined,
+          quantity: Number(line?.quantity) || 0,
+          unit: line?.unit ? String(line.unit) : undefined,
+          unitPrice: Number(line?.unitPrice) || 0,
+          total: real(Number(line?.total) || (Number(line?.quantity) || 0) * (Number(line?.unitPrice) || 0)),
+        })),
       }))
       .filter((lot: { id: string }) => lot.id !== '')
 
