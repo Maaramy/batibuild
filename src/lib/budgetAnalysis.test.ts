@@ -1,239 +1,136 @@
 import { describe, expect, it } from 'vitest'
 
-import type { CategoryBreakdownItem, QuantitatifLot } from '@/lib/optimizationEngine'
-import { buildBudgetAnalysis } from '@/lib/optimizationEngine'
+import { buildBudgetAnalysis, type CategoryBreakdownItem } from '@/lib/budgetEngine'
 
-const makeBreakdown = [
-  {
-    category: 'etudes',
-    label: 'Frais préliminaires et études',
-    estimatedCost: 5000,
-    percentage: 4.2,
-    items: [],
-  },
-  {
-    category: 'gros_oeuvre',
-    label: 'Gros œuvre',
-    estimatedCost: 60000,
-    percentage: 50,
-    items: [],
-  },
-  {
-    category: 'second_oeuvre',
-    label: 'Second œuvre et finitions',
-    estimatedCost: 40000,
-    percentage: 33.3,
-    items: [],
-  },
+const makeBreakdown: CategoryBreakdownItem[] = [
+  { category: 'etudes', label: 'Frais préliminaires et études', estimatedCost: 5000, percentage: 4.2 },
+  { category: 'gros_oeuvre', label: 'Gros œuvre', estimatedCost: 60000, percentage: 50 },
+  { category: 'second_oeuvre', label: 'Second œuvre et finitions', estimatedCost: 40000, percentage: 33.3 },
   {
     category: 'amenagements_exterieurs',
     label: 'Aménagements extérieurs',
     estimatedCost: 15000,
     percentage: 12.5,
-    items: [],
-  },
-] as CategoryBreakdownItem[]
-
-const makeLots: QuantitatifLot[] = [
-  {
-    id: 'etudes',
-    name: 'Etudes',
-    subtotal: 5000,
-    lines: [
-      { designation: 'Étude architecturale', quantity: 1, unit: 'fa', unitPrice: 5000, total: 5000, nature: 'etudes' },
-    ],
-  },
-  {
-    id: 'gros_oeuvre',
-    name: 'Gros œuvre',
-    subtotal: 60000,
-    lines: [
-      { designation: 'Ciment', quantity: 100, unit: 'sac', unitPrice: 100, total: 10000, nature: 'beton' },
-    ],
-  },
-]
-  {
-    category: 'etudes',
-    label: 'Frais préliminaires et études',
-    estimatedCost: 5000,
-    percentage: 4.2,
-    items: [],
-  },
-  {
-    category: 'gros_oeuvre',
-    label: 'Gros œuvre',
-    estimatedCost: 60000,
-    percentage: 50,
-    items: [],
-  },
-  {
-    category: 'second_oeuvre',
-    label: 'Second œuvre et finitions',
-    estimatedCost: 40000,
-    percentage: 33.3,
-    items: [],
-  },
-  {
-    category: 'amenagements_exterieurs',
-    label: 'Aménagements extérieurs',
-    estimatedCost: 15000,
-    percentage: 12.5,
-    items: [],
   },
 ]
 
-const makeLots: QuantitatifLot[] = [
-  {
-    id: 'etudes',
-    name: 'Etudes',
-    subtotal: 5000,
-    lines: [
-      { designation: 'Étude architecturale', quantity: 1, unit: 'fa', unitPrice: 5000, total: 5000, nature: 'etudes' },
-    ],
-  },
-  {
-    id: 'gros_oeuvre',
-    name: 'Gros œuvre',
-    subtotal: 60000,
-    lines: [
-      { designation: 'Ciment', quantity: 100, unit: 'sac', unitPrice: 100, total: 10000, nature: 'beton' },
-    ],
-  },
-]: QuantitatifLot[] = [
-  {
-    id: 'etudes',
-    name: 'Etudes',
-    subtotal: 5000,
-    lines: [
-      { designation: 'Étude architecturale', quantity: 1, unit: 'fa', unitPrice: 5000, total: 5000, nature: 'etudes' },
-    ],
-  },
-  {
-    id: 'gros_oeuvre',
-    name: 'Gros œuvre',
-    subtotal: 60000,
-    lines: [
-      { designation: 'Ciment', quantity: 100, unit: 'sac', unitPrice: 100, total: 10000, nature: 'beton' },
-    ],
-  },
-]
+function analyze(budgetAvailable: number) {
+  return buildBudgetAnalysis({
+    projectId: 'proj-1',
+    userId: 'user-1',
+    projectName: 'Projet test',
+    projectTotal: 120000,
+    scenarioLabel: 'Standard',
+    budgetAvailable,
+    breakdown: makeBreakdown,
+  })
+}
 
-describe('buildBudgetAnalysis — déterministe et lié au projet (§3, §11)', () => {
-  it('calcule les KPI du budget à partir du breakdown réel', () => {
-    const analysis = buildBudgetAnalysis({
-      projectId: 'proj-1',
-      userId: 'user-1',
-      projectName: 'Projet test',
-      projectTotal: 120000,
-      scenarioLabel: 'Standard',
-      budgetAvailable: 60000,
-      breakdown: makeBreakdown,
-      lots: makeLots,
-    })
+describe('buildBudgetAnalysis — déterministe et lié au projet', () => {
+  it('calcule les indicateurs du budget à partir de la décomposition réelle', () => {
+    const analysis = analyze(60000)
 
     expect(analysis.available).toBe(true)
     expect(analysis.projectTotal).toBe(120000)
     expect(analysis.availableBudget).toBe(60000)
-    expect(analysis.usedBudget).toBe(65000)
+    expect(analysis.usedBudget).toBe(60000)
     expect(analysis.remainingBudget).toBe(0)
-    expect(analysis.projectReachablePct).toBe(54.2)
-    expect(analysis.selectedCostSharePct).toBe(54.2)
+    expect(analysis.projectReachablePct).toBe(50)
+    expect(analysis.budgetUsedPct).toBe(100)
   })
 
-  it('identifie les catégories réalisables, partiellement réalisables et à reporter', () => {
-    const analysis = buildBudgetAnalysis({
-      projectId: 'proj-1',
-      userId: 'user-1',
-      projectName: 'Projet test',
-      projectTotal: 120000,
-      scenarioLabel: 'Standard',
-      budgetAvailable: 60000,
-      breakdown: makeBreakdown,
-      lots: makeLots,
-    })
+  it('classe les chantiers selon la priorité de construction et le budget', () => {
+    const analysis = analyze(60000)
 
     expect(analysis.statusSummary.realisable.map((l) => l.categoryLabel)).toEqual([
       'Frais préliminaires et études',
-      'Gros œuvre',
     ])
+    expect(analysis.statusSummary.partiel.map((l) => l.categoryLabel)).toEqual(['Gros œuvre'])
     expect(analysis.statusSummary.report.map((l) => l.categoryLabel)).toEqual([
       'Second œuvre et finitions',
       'Aménagements extérieurs',
     ])
   })
 
-  it('génère trois scénarios (actuel, +50000, complet) dynamiques', () => {
-    const analysis = buildBudgetAnalysis({
-      projectId: 'proj-1',
-      userId: 'user-1',
-      projectName: 'Projet test',
-      projectTotal: 120000,
-      scenarioLabel: 'Standard',
-      budgetAvailable: 60000,
-      breakdown: makeBreakdown,
-      lots: makeLots,
-    })
+  it('indique le budget cumulé nécessaire pour chaque chantier', () => {
+    const analysis = analyze(60000)
+    const needed = Object.fromEntries(
+      analysis.breakdown.map((l) => [l.categoryId, l.budgetNeeded]),
+    )
 
-    expect(analysis.scenarios).toHaveLength(3)
-    expect(analysis.scenarios[0].scenario).toBe('actuel')
-    expect(analysis.scenarios[0].budget).toBe(60000)
-    expect(analysis.scenarios[1].scenario).toBe('plus_cinquantaine')
-    expect(analysis.scenarios[1].budget).toBe(110000)
-    expect(analysis.scenarios[2].scenario).toBe('complet')
-    expect(analysis.scenarios[2].budget).toBe(120000)
+    expect(needed.etudes).toBe(5000)
+    expect(needed.gros_oeuvre).toBe(65000)
+    expect(needed.second_oeuvre).toBe(105000)
+    expect(needed.amenagements_exterieurs).toBe(120000)
   })
 
-  it('produit une phrase récapitulative sans valeurs codées en dur', () => {
-    const analysis = buildBudgetAnalysis({
-      projectId: 'proj-1',
-      userId: 'user-1',
-      projectName: 'Projet test',
-      projectTotal: 120000,
-      scenarioLabel: 'Standard',
-      budgetAvailable: 60000,
-      breakdown: makeBreakdown,
-      lots: makeLots,
-    })
+  it('tient compte de la part de chaque chantier dans le coût total', () => {
+    const analysis = analyze(60000)
+    const grosOeuvre = analysis.breakdown.find((l) => l.categoryId === 'gros_oeuvre')
+
+    expect(grosOeuvre?.pctOfTotal).toBe(50)
+  })
+
+  it('génère trois scénarios dynamiques (actuel, +50 000, projet complet)', () => {
+    const analysis = analyze(60000)
+
+    expect(analysis.scenarios.map((s) => s.scenario)).toEqual([
+      'actuel',
+      'plus_cinquantaine',
+      'complet',
+    ])
+    expect(analysis.scenarios[0].budget).toBe(60000)
+    expect(analysis.scenarios[1].budget).toBe(110000)
+    expect(analysis.scenarios[2].budget).toBe(120000)
+    // Le budget « projet complet » finance nécessairement 100 % du projet.
+    expect(analysis.scenarios[2].progressPct).toBe(100)
+    expect(analysis.scenarios[2].remaining).toBe(0)
+  })
+
+  it('fait progresser les scénarios avec le budget (monotonic)', () => {
+    const analysis = analyze(60000)
+    const [actuel, plus, complet] = analysis.scenarios
+
+    expect(actuel.progressPct).toBeLessThan(plus.progressPct)
+    expect(plus.progressPct).toBeLessThanOrEqual(complet.progressPct)
+  })
+
+  it('produit une phrase récapitulative sans montant codé en dur', () => {
+    const analysis = analyze(60000)
 
     expect(analysis.summarySentence).toContain('60 000 TND')
-    expect(analysis.summarySentence).toContain('projet')
-    expect(analysis.summarySentence).toMatch(/54,2 %/)
+    expect(analysis.summarySentence).toContain('50 %')
+    expect(analysis.summarySentence).toContain('Projet test')
+    expect(analysis.summarySentence).toContain('Second œuvre et finitions')
   })
 
-  it('génère une recommandation IA cohérente avec la priorisation', () => {
-    const analysis = buildBudgetAnalysis({
-      projectId: 'proj-1',
-      userId: 'user-1',
-      projectName: 'Projet test',
-      projectTotal: 120000,
-      scenarioLabel: 'Standard',
-      budgetAvailable: 60000,
-      breakdown: makeBreakdown,
-      lots: makeLots,
-    })
+  it('génère une recommandation cohérente avec la priorisation', () => {
+    const analysis = analyze(60000)
 
-    expect(analysis.recommendation).toContain('gros œuvre')
-    expect(analysis.recommendation).toContain('60 000')
-    expect(analysis.recommendation).toContain('finition')
+    expect(analysis.recommendation.toLowerCase()).toContain('gros œuvre')
+    expect(analysis.recommendation).toContain('60 000 TND')
+    expect(analysis.recommendation.toLowerCase()).toContain('finition')
   })
 
-  it('retourne une analyse indisponible si le budget est <= 0', () => {
-    const analysis = buildBudgetAnalysis({
-      projectId: 'proj-1',
-      userId: 'user-1',
-      projectName: 'Projet test',
-      projectTotal: 120000,
-      scenarioLabel: 'Standard',
-      budgetAvailable: 0,
-      breakdown: makeBreakdown,
-      lots: makeLots,
-    })
+  it('marque tous les chantiers comme réalisables quand le budget couvre le projet', () => {
+    const analysis = analyze(150000)
+
+    expect(analysis.projectReachablePct).toBe(100)
+    expect(analysis.statusSummary.realisable).toHaveLength(4)
+    expect(analysis.statusSummary.partiel).toHaveLength(0)
+    expect(analysis.statusSummary.report).toHaveLength(0)
+    expect(analysis.remainingBudget).toBe(30000)
+  })
+
+  it('indique une indisponibilité explicite si le budget est nul', () => {
+    const analysis = analyze(0)
 
     expect(analysis.available).toBe(false)
     expect(analysis.reason).toContain('0 TND')
+    expect(analysis.scenarios).toHaveLength(0)
   })
 
-  it('retourne une analyse indisponible si le breakdown est vide', () => {
+  it('indique une indisponibilité explicite si la décomposition est vide', () => {
     const analysis = buildBudgetAnalysis({
       projectId: 'proj-1',
       userId: 'user-1',
@@ -242,26 +139,21 @@ describe('buildBudgetAnalysis — déterministe et lié au projet (§3, §11)', 
       scenarioLabel: 'Standard',
       budgetAvailable: 60000,
       breakdown: [],
-      lots: [],
     })
 
     expect(analysis.available).toBe(false)
     expect(analysis.reason).toContain('décomposition')
   })
 
-  it('est généré à chaque appel (horodatage)', () => {
+  it('est déterministe : deux appels donnent le même résultat', () => {
+    expect(JSON.stringify(analyze(60000))).toBe(JSON.stringify(analyze(60000)))
+  })
+
+  it('horodate chaque analyse', () => {
     const before = Date.now()
-    const analysis = buildBudgetAnalysis({
-      projectId: 'proj-1',
-      userId: 'user-1',
-      projectName: 'Projet test',
-      projectTotal: 120000,
-      scenarioLabel: 'Standard',
-      budgetAvailable: 60000,
-      breakdown: makeBreakdown,
-      lots: makeLots,
-    })
+    const analysis = analyze(60000)
     const after = Date.now()
+
     expect(analysis.generatedAt).toBeGreaterThanOrEqual(before)
     expect(analysis.generatedAt).toBeLessThanOrEqual(after)
   })

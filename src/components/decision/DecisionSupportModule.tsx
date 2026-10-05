@@ -21,7 +21,7 @@
 //   matériau) et « Optimisez votre projet » (leviers + simulation + décisions).
 // ============================================================================
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router";
 import { useQuery } from "convex/react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
+import { useMutation } from "convex/react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { predictiveIntelligence } from "@/convex/materialSelectionEngine";
 import {
@@ -53,6 +54,7 @@ import {
 import { MaterialAnalysisSection } from "@/components/decision/MaterialAnalysisSection";
 import { OptimizationSection } from "@/components/decision/OptimizationSection";
 import { buildOptimizationPlan, type OptimizationPlan } from "@/lib/optimizationEngine";
+import { buildBudgetAnalysis, type BudgetAnalysis } from "@/lib/budgetEngine";
 import {
   buildDecisionAnalysis,
   PRICE_FORECAST_BASIS_LABELS,
@@ -135,7 +137,9 @@ export interface DecisionSupportModuleProps {
 
 export function DecisionSupportModule({
   projectId,
+  projectName,
   projectTypeLabel,
+  surface,
   projectTotal,
   scenarioLabel,
 }: DecisionSupportModuleProps) {
@@ -232,6 +236,66 @@ export function DecisionSupportModule({
       scenarioLabel,
     });
   }, [materialIntel, workspaceQuery, analysis, projectTotal, scenarioLabel]);
+
+  // ── Budget disponible : analyse « capacité de construction » ───────────
+  // Le budget saisi par l'utilisateur est la SEULE donnée qu'il apporte ;
+  // tout le reste est recalculé à partir du Quantitatif réel du projet.
+  const budgetContext = useQuery(
+    api.decisionSupport.getProjectBudgetContext,
+    allowed ? { projectId: projectId as Id<"projects"> } : "skip",
+  );
+  const savedBudget = useQuery(
+    api.decisionSupport.getBudgetAnalysis,
+    allowed ? { projectId: projectId as Id<"projects"> } : "skip",
+  );
+  const saveBudget = useMutation(api.decisionSupport.saveBudgetAnalysis);
+
+  const [budgetAvailable, setBudgetAvailable] = useState<number | null>(null);
+  const [analyzedBudget, setAnalyzedBudget] = useState<number | null>(null);
+
+  // Restauration du dernier budget analysé pour ce projet.
+  useEffect(() => {
+    if (savedBudget === undefined || analyzedBudget !== null) return;
+    if (typeof savedBudget?.budgetAvailable === "number" && savedBudget.budgetAvailable > 0) {
+      setAnalyzedBudget(savedBudget.budgetAvailable);
+      setBudgetAvailable(savedBudget.budgetAvailable);
+    }
+  }, [savedBudget, analyzedBudget]);
+
+  const budgetAnalysis = useMemo<BudgetAnalysis | null>(() => {
+    const ctx = budgetContext;
+    if (!ctx || analyzedBudget === null || analyzedBudget <= 0) return null;
+    return buildBudgetAnalysis({
+      projectId,
+      userId: ctx.userId,
+      projectName: projectName ?? ctx.projectName,
+      scenarioLabel,
+      projectTotal,
+      budgetAvailable: analyzedBudget,
+      breakdown: ctx.breakdown,
+      lots: ctx.lots,
+      surface,
+    });
+  }, [budgetContext, analyzedBudget, projectId, projectName, scenarioLabel, projectTotal, surface]);
+
+  const runBudgetAnalysis = useCallback(
+    (budget: number) => {
+      const value = Math.max(0, Math.round(budget));
+      setAnalyzedBudget(value);
+      // Seuls le budget et un résumé traçable sont mémorisés : le tableau
+      // détaillé est toujours recalculé à partir du Quantitatif à jour.
+      void saveBudget({
+        projectId: projectId as Id<"projects">,
+        budgetAvailable: value,
+        result: {
+          projectTotal,
+          scenarioLabel,
+          analyzedAt: Date.now(),
+        },
+      });
+    },
+    [saveBudget, projectId, projectTotal, scenarioLabel],
+  );
 
   // ── Signature des données (quantitatif / prix / scénario / marché) ───────
   const signature = useMemo(
@@ -397,8 +461,16 @@ export function DecisionSupportModule({
       {/* ── Analyse de vos matériaux — matériau par matériau (prioritaire) ── */}
       {materialIntel && <MaterialAnalysisSection intel={materialIntel} />}
 
-      {/* ── Optimisation — leviers, simulation, validation utilisateur ── */}
-      {optimization && <OptimizationSection plan={optimization} />}
+      {/* ── Budget + optimisation — leviers, simulation, validation ── */}
+      {optimization && (
+        <OptimizationSection
+          plan={optimization}
+          budgetAnalysis={budgetAnalysis}
+          budgetAvailable={budgetAvailable ?? undefined}
+          onBudgetChange={(value) => setBudgetAvailable(value === "" ? null : Number(value))}
+          onBudgetAnalyze={runBudgetAnalysis}
+        />
+      )}
     </section>
   );
 }

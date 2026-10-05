@@ -12,6 +12,7 @@
 import { useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ArrowRight,
   BarChart3,
   BrainCircuit,
   ChevronDown,
@@ -39,7 +40,6 @@ import {
   type MaterialIntelRow,
   type MaterialIntelligence,
 } from "@/lib/materialIntelligence";
-import { projectCategoryLabels, type ProjectCategory } from "@/convex/projectTypes";
 
 type TrendFilter = "all" | "hausse" | "baisse" | "surveiller";
 type BudgetScenario = "actuel" | "plus_cinquantaine" | "complet";
@@ -52,9 +52,6 @@ const WORK_CATEGORY_PRIORITY: { key: string; label: string; qlabel: string }[] =
   { key: "finitions", label: "Finitions", qlabel: "Finitions" },
   { key: "exterieurs", label: "Aménagements extérieurs", qlabel: "Aménagements extérieurs" },
 ];
-
-const formatTndInt = (n: number) => formatTnd(Math.round(n));
-
 
 function TrendPill({ row }: { row: MaterialIntelRow }) {
   const map = {
@@ -227,22 +224,8 @@ function Info2({ label, value, tone }: { label: string; value: string; tone?: st
 
 export function MaterialAnalysisSection({
   intel,
-  projectCategory,
-  projectName,
-  regionLabel,
-  surface,
-  projectTotal,
-  scenarioLabel,
-  onCategoryChange,
 }: {
   intel: MaterialIntelligence;
-  projectCategory?: ProjectCategory;
-  projectName?: string;
-  regionLabel?: string;
-  surface?: number;
-  projectTotal?: number;
-  scenarioLabel?: string;
-  onCategoryChange?: (cat: ProjectCategory) => void;
 }) {
   const { rows, aggregate } = intel;
   const [showDetail, setShowDetail] = useState(false);
@@ -356,25 +339,6 @@ export function MaterialAnalysisSection({
           </Button>
         </CardContent>
       </Card>
-
-      {/* ── Priorité projet (§6) ── */}
-      {projectCategory && (
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.05] to-transparent">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-2.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <BarChart3 className="h-4.5 w-4.5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold tracking-tight">Priorité du projet</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Ce projet est classé comme « {projectCategoryLabels[projectCategory] ?? String(projectCategory)} » et sera traité avec les paramètres associés.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* ── Classement « Matériaux à surveiller » ── */}
       {watchlist.length > 0 && (
