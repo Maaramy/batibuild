@@ -61,9 +61,9 @@ export type ProjectJourneyFlags = Record<string, boolean> | null | undefined;
 /** Clés de feature flags qui pilotent les étapes du parcours. */
 export const JOURNEY_FLAG_KEYS = {
   cost: "construction_cost_estimation",
-  // « Aide à la décision » est une extension directe du résultat « Coût
-  // estimatif » (Intelligence prédictive affichée sur la même page) : elle suit
-  // donc l'activation du module de coût.
+  // « Aide à la décision » est une page dédiée qui exploite le résultat déjà
+  // calculé du « Coût estimatif » (Intelligence prédictive IA) : elle suit donc
+  // l'activation du module de coût.
   decision: "construction_cost_estimation",
   plans: "architectural_plans",
   materials: "ai_materials",
@@ -200,21 +200,18 @@ export function buildProjectJourney(
   //   1. Coût estimatif → 2. Aide à la décision → 3. Plan IA →
   //   4. Mise en relation → 5. Exécution & suivi → 6. Investissement.
   //
-  // « Aide à la décision » n'est PAS un second module d'analyse : c'est une
-  // interface du Journey qui affiche le résultat déjà généré par l'Intelligence
-  // prédictive, intégré directement à la page de résultat du « Coût estimatif »
-  // (aucune page séparée). Son lien conserve l'ancre de section afin de faire
-  // défiler la page projet jusqu'au module, sans changer de page.
+  // « Aide à la décision » est une page DÉDIÉE (`DECISION_PAGE_PATH`) qui
+  // affiche uniquement le résultat déjà généré par l'Intelligence prédictive :
+  // elle est retirée de la page de résultat « Coût estimatif ». Son lien
+  // conserve le contexte du projet (`/:id`).
   return filterDisabledSteps(
     [
       cost,
       {
         key: "decision",
         label: "Aide à la décision",
-        // Même page que « Coût estimatif » : l'étape ne sert qu'à positionner le
-        // parcours (l'analyse prédictive est affichée juste après le résultat).
-        path: `/dashboard/project/${pid}`,
-        href: `/dashboard/project/${pid}#aide-a-la-decision`,
+        path: `/dashboard/decision/${pid}`,
+        href: `/dashboard/decision/${pid}`,
         // Aucun rapport PDF propre : l'étape affiche un résultat déjà calculé.
         reportKey: null,
       },
@@ -241,6 +238,9 @@ export function buildProjectJourney(
 
 /** Route de l'annuaire des fournisseurs (page des fournisseurs trouvés). */
 export const SUPPLIERS_DIRECTORY_PATH = "/dashboard/suppliers-directory";
+
+/** Route de la page dédiée « Aide à la décision » (Intelligence prédictive IA). */
+export const DECISION_PAGE_PATH = "/dashboard/decision";
 
 /** Route de la liste des prix — page « Matériaux de construction ». */
 export const MATERIALS_PAGE_PATH = "/dashboard/materials";

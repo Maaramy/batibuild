@@ -264,9 +264,8 @@ export function ProjectJourneyNav({
     : activeKey != null
       ? steps.findIndex((s) => s.key === activeKey)
       : (() => {
-          // Deux étapes peuvent partager la même page (ex. « Coût estimatif » et
-          // son extension « Aide à la décision » sur la page projet) : l'ancre de
-          // section de l'URL tranche alors en priorité.
+          // Une ancre de section fournie par l'URL (lien profond) tranche en
+          // priorité ; sinon l'étape active est déduite de la route affichée.
           if (hash) {
             const byHash = steps.findIndex((s) => s.href.includes(hash));
             if (byHash >= 0) return byHash;

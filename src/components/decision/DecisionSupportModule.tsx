@@ -1,9 +1,9 @@
 // ============================================================================
 // AIDE À LA DÉCISION — module « Intelligence prédictive IA »
 // ----------------------------------------------------------------------------
-// Copilote financier & achats du projet. Le module est intégré DIRECTEMENT à la
-// page de résultat du « Coût estimatif » (juste après le Quantitatif détaillé) :
-// aucune redirection, aucune page séparée, aucun bouton à cliquer.
+// Copilote financier & achats du projet. Le module est affiché sur la page
+// DÉDIÉE « Aide à la décision » (étape n°2 du parcours groupe A) : il a été
+// retiré de la page de résultat « Coût estimatif ».
 //
 // • Déclenchement automatique : dès que les résultats du coût sont disponibles,
 //   l'analyse se prépare (état de chargement élégant) puis s'affiche.

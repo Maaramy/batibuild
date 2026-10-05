@@ -194,7 +194,7 @@ describe("buildProjectJourney — liens, rapports et contexte du projet", () => 
     expect(steps.map((s) => s.key)).toEqual(GROUP_A_KEYS);
     expect(steps.map((s) => s.href)).toEqual([
       "/dashboard/project/proj_1",
-      "/dashboard/project/proj_1#aide-a-la-decision",
+      "/dashboard/decision/proj_1",
       "/dashboard/plans/proj_1",
       "/dashboard/professionals-directory?project=proj_1",
       "/dashboard/guide?project=proj_1",
@@ -237,10 +237,14 @@ describe("buildProjectJourney — liens, rapports et contexte du projet", () => 
 
   it("les liens du parcours sont uniques (aucune destination dupliquée)", () => {
     const steps = buildProjectJourney("maison", PID);
-    // « Aide à la décision » réutilise volontairement la page du coût estimatif :
-    // le href se distingue par l'ancre de section, jamais le path de repérage.
+    // « Aide à la décision » dispose de sa propre page dédiée : chaque étape a
+    // une route de repérage et un lien distincts.
     expect(new Set(steps.map((s) => s.href)).size).toBe(steps.length);
-    expect(steps.filter((s) => s.path === `/dashboard/project/${PID}`)).toHaveLength(2);
+    expect(new Set(steps.map((s) => s.path)).size).toBe(steps.length);
+    expect(steps.filter((s) => s.path === `/dashboard/project/${PID}`)).toHaveLength(1);
+    expect(
+      steps.find((s) => s.key === "decision")?.href,
+    ).toBe(`/dashboard/decision/${PID}`);
   });
 });
 
