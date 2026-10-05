@@ -128,6 +128,100 @@ function Kpi({
   );
 }
 
+/** Pourcentage borné à [0, 100] — une jauge ne déborde jamais de son cercle. */
+function clampPct(n: number): number {
+  return Math.max(0, Math.min(100, Number.isFinite(n) ? n : 0));
+}
+
+/**
+ * Jauge circulaire : le cercle plein représente 100 %, l'arc rempli la part
+ *atteinte. La valeur reste écrite au centre — aucune donnée n'est cachée.
+ */
+function RingGauge({
+  label,
+  value,
+  hint,
+  stroke,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+  stroke: string;
+}) {
+  const pct = clampPct(value);
+  const size = 76;
+  const strokeWidth = 7;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - pct / 100);
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-background p-2.5">
+      <div className="relative shrink-0" style={{ width: size, height: size }}>
+        <svg
+          viewBox={`0 0 ${size} ${size}`}
+          width={size}
+          height={size}
+          role="img"
+          aria-label={`${label} : ${formatPercent(pct)}`}
+        >
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            strokeWidth={strokeWidth}
+            className="stroke-muted"
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            className={cn("transition-[stroke-dashoffset] duration-500", stroke)}
+          />
+        </svg>
+        <span
+          className={cn(
+            "absolute inset-0 flex items-center justify-center text-[13px] font-black tabular-nums",
+            stroke,
+          )}
+        >
+          {formatPercent(pct)}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+        {hint ? <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{hint}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+/** Barre de progression du taux de réalisation d'un poste du Quantitatif. */
+function RealizationBar({ pct }: { pct: number }) {
+  const v = clampPct(pct);
+  const tone = v >= 100 ? "bg-emerald-500" : v > 0 ? "bg-amber-500" : "bg-border";
+  return (
+    <div className="flex w-32 shrink-0 items-center justify-end gap-1.5">
+      <div className="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn("h-full rounded-full transition-[width] duration-300", tone)}
+          style={{ width: `${v}%` }}
+        />
+      </div>
+      <span className="w-11 shrink-0 text-right tabular-nums text-[9.5px] text-muted-foreground">
+        {formatPercent(v)}
+      </span>
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: BudgetStatus }) {
   const meta = STATUS_META[status];
   return (
@@ -175,12 +269,7 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
                   {formatTndAmount(cat.estimatedCost)} · {formatPercent(cat.pctOfTotal)} du projet
                 </span>
               </span>
-              <span className="shrink-0 text-right">
-                <span className="block text-[12px] font-bold tabular-nums">
-                  {formatPercent(cat.realizationPct)}
-                </span>
-                <span className="block text-[9.5px] text-muted-foreground">réalisation</span>
-              </span>
+              <RealizationBar pct={cat.realizationPct} />
               <StatusBadge status={cat.status} />
               {catOpen ? (
                 <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -210,12 +299,7 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
                             catégorie
                           </span>
                         </span>
-                        <span className="shrink-0 text-right">
-                          <span className="block text-[11.5px] font-bold tabular-nums">
-                            {formatPercent(sub.realizationPct)}
-                          </span>
-                          <span className="block text-[9.5px] text-muted-foreground">réalisation</span>
-                        </span>
+                        <RealizationBar pct={sub.realizationPct} />
                         <StatusBadge status={sub.status} />
                         {subOpen ? (
                           <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -229,7 +313,7 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
                           <div className="flex items-baseline gap-2 pb-1 text-[9.5px] uppercase tracking-wide text-muted-foreground">
                             <span className="min-w-0 flex-1">Article</span>
                             <span className="w-24 shrink-0 text-right">Montant</span>
-                            <span className="w-14 shrink-0 text-right">Réalisation</span>
+                            <span className="w-32 shrink-0 text-right">Réalisation</span>
                           </div>
                           <ul className="space-y-1">
                             {sub.articles.map((art, idx) => (
@@ -248,9 +332,7 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
                                 <span className="w-24 shrink-0 whitespace-nowrap text-right tabular-nums">
                                   {formatTndAmount(art.estimatedCost)}
                                 </span>
-                                <span className="w-14 shrink-0 text-right tabular-nums text-muted-foreground">
-                                  {formatPercent(art.realizationPct)}
-                                </span>
+                                <RealizationBar pct={art.realizationPct} />
                               </li>
                             ))}
                           </ul>
@@ -289,17 +371,24 @@ function BudgetCapacityCard({ analysis }: { analysis: BudgetAnalysis }) {
 
         <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{analysis.summarySentence}</p>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <Kpi
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <RingGauge
             label="Chantier finançable"
-            value={formatPercent(analysis.projectReachablePct)}
+            value={analysis.projectReachablePct}
             hint="du coût total du projet"
-            tone="text-primary"
+            stroke={
+              analysis.projectReachablePct >= 80
+                ? "stroke-emerald-500 text-emerald-600 dark:text-emerald-400"
+                : analysis.projectReachablePct >= 50
+                  ? "stroke-amber-500 text-amber-600 dark:text-amber-400"
+                  : "stroke-red-500 text-red-600 dark:text-red-400"
+            }
           />
-          <Kpi
+          <RingGauge
             label="Budget consommé"
-            value={formatPercent(analysis.budgetUsedPct)}
+            value={analysis.budgetUsedPct}
             hint={formatTndAmount(analysis.usedBudget)}
+            stroke="stroke-primary text-primary"
           />
           <Kpi
             label="Reste disponible"
