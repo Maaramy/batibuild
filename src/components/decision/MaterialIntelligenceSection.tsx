@@ -1,15 +1,15 @@
 // ============================================================================
 // ANALYSE DÉTAILLÉE DES MATÉRIAUX — composant autonome.
 //
-// Affiche l'analyse matériau-par-matériau du projet SANS intervention de
-// l'utilisateur : il charge lui-même son Quantitatif, la Liste des prix, les
+// Affiche l'analyse matériau-par-matériau du projet sans aucun geste de
+// l'utilisateur : il charge lui-même le Quantitatif, la Liste des prix, les
 // historiques et les fournisseurs, puis rend le résultat dès qu'il est prêt.
 // Utilisé sous la carte « Confiance » de la page « Coût de construction ».
 // ============================================================================
 
 import { useMemo } from "react";
 import { useQuery } from "convex/react";
-import { Info, Loader2, TriangleAlert } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -21,7 +21,7 @@ import {
   type SupplierMatch,
 } from "@/lib/materialIntelligence";
 import { MaterialAnalysisSection } from "@/components/decision/MaterialAnalysisSection";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export interface MaterialIntelligenceSectionProps {
   projectId: string;
@@ -33,11 +33,10 @@ export function MaterialIntelligenceSection({
   projectId,
   projectTotal,
 }: MaterialIntelligenceSectionProps) {
-  const typedProjectId = projectId as Id<"projects">;
-
-  const workspaceQuery = useQuery(api.materialSelections.getMaterialsWorkspace, {
-    projectId: typedProjectId,
-  });
+  const workspaceQuery = useQuery(
+    api.materialSelections.getMaterialsWorkspace,
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
+  );
   const trends = useQuery(api.marketData.getPriceTrends, {});
   const priceList = useQuery(api.materials.getMaterialPrices, {});
   const materialTrends = useQuery(api.marketData.getMaterialPriceTrends, {});
@@ -55,8 +54,6 @@ export function MaterialIntelligenceSection({
     supplierNames.length > 0 ? { names: supplierNames } : "skip",
   );
 
-  // Chaque matériau du Quantitatif est croisé avec la Liste des prix et son
-  // propre historique ; l'agrégation projet en découle.
   const intel = useMemo(() => {
     if (!workspaceQuery) return null;
     const ws = workspaceQuery.workspace;
@@ -73,44 +70,44 @@ export function MaterialIntelligenceSection({
     });
   }, [workspaceQuery, priceList, materialTrends, trends, suppliers, projectTotal]);
 
-  // Chargement : aucun geste utilisateur requis, l'analyse s'affiche seule.
-  if (workspaceQuery === undefined || trends === undefined) {
+  // Chargement : aucun geste utilisateur requis — l'analyse se rend toute
+  // seule dès que le Quantitatif + Liste des prix + historiques sont prêts.
+  if (workspaceQuery === undefined || workspaceQuery === null || trends === undefined || trends === null) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="flex items-center gap-2.5 p-4">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          <div>
-            <p className="text-sm font-semibold">Analyse détaillée des matériaux en cours…</p>
-            <p className="text-[11px] text-muted-foreground">
-              Croisement automatique du Quantitatif avec la Liste des prix et l'historique.
-            </p>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Analyse détaillée des matériaux</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2.5">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <div>
+              <p className="text-sm font-semibold">Chargement…</p>
+              <p className="text-[11px] text-muted-foreground">
+                Croisement automatique du Quantitatif avec la Liste des prix et l'historique.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  if (!intel || !workspaceQuery.workspace.lines.length) {
+  const workspace = workspaceQuery.workspace;
+  if (!intel || !workspace?.lines.length) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="flex items-start gap-2.5 p-4">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <p className="text-[11px] text-muted-foreground">
-            L'analyse détaillée des matériaux s'affichera dès que le Quantitatif détaillé du projet sera calculé.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!intel.available) {
-    return (
-      <Card className="border-dashed border-amber-500/40">
-        <CardContent className="flex items-start gap-2.5 p-4">
-          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-          <p className="text-[11px] text-amber-800 dark:text-amber-200">
-            {intel.reason ?? "Données insuffisantes pour l'analyse détaillée des matériaux."}
-          </p>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Analyse détaillée des matériaux</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start gap-2.5">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <p className="text-[11px] text-muted-foreground">
+              Aucun matériau détaillé n'est encore disponible pour ce projet.
+              L'analyse détaillée des matériaux s'affichera dès que le Quantitatif sera calculé.
+            </p>
+          </div>
         </CardContent>
       </Card>
     );

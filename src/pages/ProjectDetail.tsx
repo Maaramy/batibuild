@@ -570,8 +570,7 @@ export default function ProjectDetail() {
 
   // Total et coût/m² réellement affichés : le scénario « Personnalisé » n'est
   // pris en compte que lorsqu'il est effectivement affiché.
-  const displayTotal =
-    personalized && isPersonalizedScenario ? personalized.totals.total : currentTotal;
+  const displayTotal: number = personalized && isPersonalizedScenario ? Number(personalized.totals.total) : Number(currentTotal);
   const displayCostM2 =
     personalized && isPersonalizedScenario ? personalized.totals.costPerM2 : currentCostM2;
 
@@ -1670,10 +1669,7 @@ export default function ProjectDetail() {
 
               {/* ═══ Analyse détaillée des matériaux (automatique, sous « Confiance ») ═══ */}
               <motion.div variants={fadeUp} custom={5} className="lg:col-span-3">
-                <MaterialIntelligenceSection
-                  projectId={id}
-                  projectTotal={Number(displayTotal ?? 0)}
-                />
+                <MaterialIntelligenceSection projectId={String(id)} projectTotal={displayTotal} />
               </motion.div>
 
               {ai.anomalies && ai.anomalies.length > 0 && (
