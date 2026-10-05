@@ -1,7 +1,11 @@
 // ============================================================================
-// AIDE À LA DÉCISION — « OPTIMISEZ VOTRE PROJET »
+// AIDE À LA DÉCISION — « OPTIMISEZ VOTRE PROJET » ( optimisation + budget IA )
 // ----------------------------------------------------------------------------
 // Couche d'OPTIMISATION au-dessus de l'analyse matériau-par-matériau :
+// + carte Budget IA (capacité de construction) : dédiée au projet sélectionné.
+// Le budget, les scénarios et la recommandation IA sont calculés dynamiquement
+// depuis le Quantitatif détaillé ET le coût estimatif du projet — jamais de
+// valeurs fixes ou de doublons de données.
 //   • objectif d'optimisation dynamique (jauge + zone cible) ;
 //   • coût total → potentiel → coût optimisé estimé ;
 //   • matériaux optimisables + score d'optimisation du projet ;
@@ -36,6 +40,7 @@ import {
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn, formatTnd } from "@/lib/utils";
 import { PREDICTION_CONFIDENCE_LABELS } from "@/lib/decisionAnalysis";
 import {
@@ -48,6 +53,219 @@ import {
   type OptimizationRisk,
   type OpportunityAction,
 } from "@/lib/optimizationEngine";
+import { RefreshCw } from "lucide-react";
+function budgetProgressionBlocks(pct: number, total = 24, max = 100): string {
+  const clamp = (n: number, min = 0, max = 100) => Math.max(min, Math.min(max, n));
+  const filled = clamp(Math.round((clamp(pct, 0, max) / max) * total), 0, total);
+  return "█".repeat(filled) + "░".repeat(total - filled);
+}
+function formatTndInt(n: number) {
+  return formatTnd(Math.round(n));
+}
+function KPIBlock({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="rounded-xl border border-border/40 bg-background p-2.5">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={cn("mt-1 text-sm font-bold tabular-nums", tone && tone.startsWith("text-") ? tone : "")}>
+        {value}
+      </p>
+    </div>
+  );
+}
+function CategoryBadge({ name }: { name: string }) {
+  return (
+    <span className="rounded-full border border-border/50 bg-muted/40 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+      {name}
+    </span>
+  );
+}
+const STATUS_TONE: Record<string, string> = {
+  realisable: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  partiel: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  report: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300",
+};
+const STATUS_LABEL: Record<string, string> = {
+  realisable: "Réalisable",
+  partiel: "Partiellement réalisable",
+  report: "À reporter",
+};
+function categoryLabel(cat: string): string {
+  const CAT_LABELS: Record<string, string> = {
+    etudes: "Frais préliminaires et études",
+    gros_oeuvre: "Gros œuvre",
+    second_oeuvre: "Second œuvre et finitions",
+    amenagements_exterieurs: "Aménagements extérieurs",
+    main_oeuvre: "Main d'œuvre",
+    equipements: "Équipements",
+    transport: "Transport",
+  };
+  return CAT_LABELS[String(cat).toLowerCase()] ?? String(cat);
+}
+function BudgetAnalysisCard({ analysis, onEdit }: { analysis: any; onEdit: () => void }) {
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <KPIBlock label="Budget disponible" value={formatTndInt(analysis.availableBudget)} tone="text-primary" />
+        <KPIBlock label="Budget utilisé" value={formatTndInt(analysis.usedBudget)} tone="text-amber-600 dark:text-amber-400" />
+        <KPIBlock label="Budget restant" value={formatTndInt(analysis.remainingBudget)} tone="text-sky-600 dark:text-sky-400" />
+        <KPIBlock label="Part du projet réalisable" value={analysis.projectReachablePct.toLocaleString("fr-FR") + " %"} tone="text-emerald-600 dark:text-emerald-400" />
+        <KPIBlock label="Coût total estimé" value={formatTndInt(analysis.projectTotal)} tone="text-muted-foreground" />
+        {analysis.perUnitEstimate != null && (
+          <KPIBlock label="Chiffre d'affaires estimé à m²" value={formatTndInt(analysis.perUnitEstimate)} tone="text-muted-foreground" />
+        )}
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="border-b border-border/40 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+              <th className="px-2 py-2">Catégorie</th>
+              <th className="px-2 py-2 text-right">Coût estimé</th>
+              <th className="px-2 py-2 text-right">Budget nécessaire</th>
+              <th className="px-2 py-2 text-right">% du coût total</th>
+              <th className="px-2 py-2">Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            {analysis.breakdown.map((cat: any) => {
+              const status: string = cat.estimatedCost <= analysis.availableBudget ? "realisable" : "report";
+              return (
+                <tr key={cat.category} className="border-b border-border/20 hover:bg-muted/20">
+                  <td className="px-2 py-2">
+                    <div className="flex items-center gap-2">
+                      <CategoryBadge name={cat.category} />
+                      <span className="text-foreground font-medium">{cat.label}</span>
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums">{formatTndInt(cat.estimatedCost)}</td>
+                  <td className="px-2 py-2 text-right tabular-nums">
+                    {status === "realisable" ? formatTndInt(cat.estimatedCost) : "—"}
+                  </td>
+                  <td className="px-2 py-2 text-right">
+                    <span className="tabular-nums">
+                      {cat.percentage.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %
+                    </span>
+                  </td>
+                  <td className="px-2 py-2">
+                    <span className={cn("rounded-full border px-2 py-0.5 text-[9px] font-semibold", STATUS_TONE[status])}>
+                      {STATUS_LABEL[status]}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Que puis-je construire avec mon budget ?</p>
+        {analysis.scenarios.map((sc: any) => (
+          <div key={sc.scenario} className="overflow-hidden rounded-xl border border-border/40">
+            <div className={cn(
+              "flex items-center gap-2.5 px-3 py-2 text-left",
+              sc.scenario === "actuel" && "bg-primary/5 border-primary/30",
+              sc.scenario === "plus_cinquantaine" && "bg-sky-500/5 border-sky-500/30",
+              sc.scenario === "complet" && "bg-emerald-500/5 border-emerald-500/30",
+            )}>
+              <span className="text-[12px] font-semibold">
+                {sc.scenario === "actuel" && "Budget actuel"}
+                {sc.scenario === "plus_cinquantaine" && "+ 50 000 TND"}
+                {sc.scenario === "complet" && "Projet complet"}
+              </span>
+              <span className="ml-auto text-[11px] font-bold tabular-nums">
+                Budget : {formatTndInt(sc.budget)} TND
+                <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                  · {sc.progressPct.toLocaleString("fr-FR")} %
+                </span>
+              </span>
+            </div>
+            {sc.scenario === "actuel" && (
+              <div className="border-t border-border/30 px-3 py-2 text-[11px] text-muted-foreground">
+                {sc.reachableCategories.length > 0 && (
+                  <span className="font-medium text-foreground">
+                    Travaux réalisables : {sc.reachableCategories.map((c: string) => categoryLabel(c)).join(", ")}
+                  </span>
+                )}
+                {sc.partialCategories.length > 0 && (
+                  <span className="block mt-1">
+                    Partiellement réalisables : {sc.partialCategories.map((c: string) => categoryLabel(c)).join(", ")}
+                  </span>
+                )}
+                {sc.reportCategories.length > 0 && (
+                  <span className="block mt-1 text-amber-700 dark:text-amber-300">
+                    À reporter : {sc.reportCategories.map((c: string) => categoryLabel(c)).join(", ")}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-border/40 bg-muted/20 p-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Progression du projet</p>
+        <div className="mt-1 flex items-center gap-3">
+          <div className="flex-1">
+            <div className="h-3 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-emerald-500"
+                style={{ width: `${analysis.projectReachablePct}%` }}
+              />
+            </div>
+          </div>
+          <span className="text-[11px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+            {analysis.projectReachablePct.toLocaleString("fr-FR")} %
+          </span>
+        </div>
+        <div className="mt-1 flex items-center gap-3">
+          <div className="flex-1">
+            <div className="h-3 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${analysis.selectedCostSharePct}%` }}
+              />
+            </div>
+          </div>
+          <span className="text-[11px] font-bold tabular-nums text-primary">
+            {analysis.selectedCostSharePct.toLocaleString("fr-FR")} %
+          </span>
+        </div>
+        <p className="mt-1 text-[10px] text-muted-foreground font-mono">
+          {budgetProgressionBlocks(analysis.projectReachablePct)}
+        </p>
+      </div>
+
+      {analysis.recommendation && (
+        <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3">
+          <div className="flex items-start gap-2">
+            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Recommandation de l'IA</p>
+              <p className="mt-1 text-[11px] leading-snug text-foreground">{analysis.recommendation}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {analysis.summarySentence && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-3">
+          <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">
+            {analysis.summarySentence}
+          </p>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={onEdit}>
+          <RefreshCw className="h-3.5 w-3.5" />
+          Modifier mon budget
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 
 const LEVER_ICONS: Record<OptimizationLeverKey, typeof Tag> = {
   prix: Tag,
@@ -75,12 +293,34 @@ const ACTION_LABEL: Record<Exclude<OpportunityAction, "pending">, string> = {
   later: "Plus tard",
 };
 
+const STATUS_TONE: Record<BudgetReachability, string> = {
+  realisable: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  partiel: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  report: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300",
+};
+const STATUS_LABEL: Record<BudgetReachability, string> = {
+  realisable: "Réalisable",
+  partiel: "Partiellement réalisable",
+  report: "À reporter",
+};
+
 function Stat({ icon: Icon, label, value, tone }: { icon: typeof Tag; label: string; value: string; tone?: string }) {
   return (
     <div className="rounded-xl border border-border/40 bg-background p-2.5">
       <Icon className={cn("h-3.5 w-3.5", tone ?? "text-muted-foreground")} />
       <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="text-sm font-bold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function KPIBlock({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="rounded-xl border border-border/40 bg-background p-2.5">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={cn("mt-1 text-sm font-bold tabular-nums", tone && tone.startsWith("text-") ? tone : "")}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -213,7 +453,21 @@ function OpportunityRow({
   );
 }
 
-export function OptimizationSection({ plan }: { plan: OptimizationPlan }) {
+export function OptimizationSection({
+  plan,
+  budgetAnalysis,
+  onBudgetAnalyze,
+  onBudgetEdit,
+  budgetAvailable,
+  onBudgetChange,
+}: {
+  plan: OptimizationPlan;
+  budgetAnalysis?: BudgetAnalysis | null;
+  onBudgetAnalyze?: (budget: number) => void;
+  onBudgetEdit?: () => void;
+  budgetAvailable?: number;
+  onBudgetChange?: (value: string) => void;
+}) {
   const [decisions, setDecisions] = useState<Record<string, OpportunityAction>>({});
   const [selected, setSelected] = useState<string[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -260,6 +514,8 @@ export function OptimizationSection({ plan }: { plan: OptimizationPlan }) {
     setSelected([]);
   };
 
+  const budgetInputValue = typeof budgetAvailable === "number" ? String(budgetAvailable) : "";
+
   if (!plan.available) {
     return (
       <Card className="border-dashed">
@@ -272,8 +528,57 @@ export function OptimizationSection({ plan }: { plan: OptimizationPlan }) {
         </CardContent>
       </Card>
     );
-  }  return (
+  }
+
+  return (
     <div className="space-y-3">
+      {/* ── §2 Saisie du budget ── */}
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.05] to-transparent">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Coins className="h-4.5 w-4.5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold tracking-tight">Quel est votre budget disponible ?</p>
+              <p className="text-[11px] text-muted-foreground">
+                Saisissez votre budget total disponible pour ce projet. L'analyse sera calculée automatiquement.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label className="sr-only">Budget total (TND)</label>                <Input
+                  type="number"
+                  min="0.01"
+                  step="1000"
+                  value={budgetInputValue}
+                  onChange={(e) => onBudgetChange?.(e.target.value)}
+                  placeholder="0 TND"
+                  className="h-10 text-base font-medium tabular-nums"
+                />
+            </div>
+            <Button
+              className="gap-1.5 whitespace-nowrap"
+              disabled={!Number.isFinite(Number(budgetInputValue)) || Number(budgetInputValue) <= 0}
+              onClick={() => onBudgetAnalyze?.(Number(budgetInputValue))}
+            >
+              <Sparkles className="h-4 w-4" />
+              Analyser mon budget avec l'IA
+            </Button>
+          </div>
+          {typeof budgetAvailable === "number" && budgetAvailable > 0 && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Budget analysé : <span className="font-semibold text-foreground">{formatTndInt(budgetAvailable)} TND</span>
+              {budgetAnalysis && (
+                <span className="ml-2 text-amber-700 dark:text-amber-300"> — {budgetAnalysis.projectReachablePct.toLocaleString("fr-FR")} % du projet réalisable</span>
+              )}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* ── §12/13 Coût total optimisable ── */}
       <Card className="">
         <CardContent className="p-4">
@@ -319,6 +624,195 @@ export function OptimizationSection({ plan }: { plan: OptimizationPlan }) {
           </p>
         </CardContent>
       </Card>
+
+      {/* ── §4 Capacité de construction (budget IA) ── */}
+      {budgetAnalysis && (
+        <Card className="border-primary/20">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Target className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-bold tracking-tight">👷 Capacité de construction</h3>
+              <span className="text-[10px] text-muted-foreground">— ce que vous pouvez construire avec votre budget</span>
+            </div>
+
+            {/* KPI */}
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <KPIBlock label="Budget disponible" value={formatTndInt(budgetAnalysis.availableBudget)} tone="text-primary" />
+              <KPIBlock label="Budget utilisé" value={formatTndInt(budgetAnalysis.usedBudget)} tone="text-amber-600 dark:text-amber-400" />
+              <KPIBlock label="Budget restant" value={formatTndInt(budgetAnalysis.remainingBudget)} tone="text-sky-600 dark:text-sky-400" />
+              <KPIBlock label="Part du projet réalisable" value={budgetAnalysis.projectReachablePct.toLocaleString("fr-FR") + " %"} tone="text-emerald-600 dark:text-emerald-400" />
+              <KPIBlock label="Coût total estimé" value={formatTndInt(budgetAnalysis.projectTotal)} tone="text-muted-foreground" />
+              {budgetAnalysis.perUnitEstimate != null && (
+                <KPIBlock label="Chiffre d'affaires estimé à m²" value={formatTndInt(budgetAnalysis.perUnitEstimate)} tone="text-muted-foreground" />
+              )}
+            </div>
+
+            {/* Tableau Quantitatif adapté */}
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="border-b border-border/40 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <th className="px-2 py-2">Catégorie</th>
+                    <th className="px-2 py-2 text-right">Coût estimé</th>
+                    <th className="px-2 py-2 text-right">Budget nécessaire</th>
+                    <th className="px-2 py-2 text-right">% du coût total</th>
+                    <th className="px-2 py-2">Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {budgetAnalysis.breakdown.map((cat) => {
+                    const status: string = cat.estimatedCost <= budgetAnalysis.availableBudget ? "realisable" : "report";
+                    if (status === "report" && cat.estimatedCost <= budgetAnalysis.availableBudget) {
+                      return null;
+                    }
+                    return (
+                      <tr key={cat.category} className="border-b border-border/20 hover:bg-muted/20">
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-2">
+                            <CategoryBadge name={cat.category} />
+                            <span className="text-foreground font-medium">{cat.label}</span>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums">{formatTndInt(cat.estimatedCost)}</td>
+                        <td className="px-2 py-2 text-right tabular-nums">
+                          {status === "realisable" ? formatTndInt(cat.estimatedCost) : "—"}
+                        </td>
+                        <td className="px-2 py-2 text-right">
+                          <span className="tabular-nums">
+                            {cat.percentage.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %
+                          </span>
+                        </td>
+                        <td className="px-2 py-2">
+                          <span className={cn("rounded-full border px-2 py-0.5 text-[9px] font-semibold", STATUS_TONE[status])}>
+                            {STATUS_LABEL[status]}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Scénarios */}              <div className="mt-3 space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Que puis-je construire avec mon budget ?</p>
+                {budgetAnalysis.scenarios.map((sc) => (
+                  <div key={sc.scenario} className="overflow-hidden rounded-xl border border-border/40">
+                    <div className={cn(
+                      "flex items-center gap-2.5 px-3 py-2 text-left",
+                      sc.scenario === "actuel" && "bg-primary/5 border-primary/30",
+                      sc.scenario === "plus_cinquantaine" && "bg-sky-500/5 border-sky-500/30",
+                      sc.scenario === "complet" && "bg-emerald-500/5 border-emerald-500/30",
+                    )}>
+                      {sc.scenario === "actuel" && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-black text-primary">1</span>}
+                      {sc.scenario === "plus_cinquantaine" && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-[10px] font-black text-sky-600 dark:text-sky-400">2</span>}
+                      {sc.scenario === "complet" && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-[10px] font-black text-emerald-600 dark:text-emerald-400">3</span>}
+                      <span className="text-[12px] font-semibold">
+                        {sc.scenario === "actuel" && "Budget actuel"}
+                        {sc.scenario === "plus_cinquantaine" && "+ 50 000 TND"}
+                        {sc.scenario === "complet" && "Projet complet"}
+                      </span>
+                      <span className="ml-auto text-[11px] font-bold tabular-nums">
+                        {sc.scenario === "actuel" && "Budget : "}
+                        {sc.scenario === "plus_cinquantaine" && "Budget : "}
+                        {sc.scenario === "complet" && "Budget : "}
+                        {formatTndInt(sc.budget)} TND
+                        <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                          · {sc.progressPct.toLocaleString("fr-FR")} %
+                        </span>
+                      </span>
+                    </div>
+                    {sc.scenario === "actuel" && (
+                      <div className="border-t border-border/30 px-3 py-2 text-[11px] text-muted-foreground">
+                        {sc.reachableCategories.length > 0 && (
+                          <span className="font-medium text-foreground">
+                            Travaux réalisables : {sc.reachableCategories.map((c) => categoryLabel(c)).join(", ")}
+                          </span>
+                        )}
+                        {sc.partialCategories.length > 0 && (
+                          <span className="block mt-1">
+                            Partiellement réalisables : {sc.partialCategories.map((c) => categoryLabel(c)).join(", ")}
+                          </span>
+                        )}
+                        {sc.reportCategories.length > 0 && (
+                          <span className="block mt-1 text-amber-700 dark:text-amber-300">
+                            À reporter : {sc.reportCategories.map((c) => categoryLabel(c)).join(", ")}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+            {/* Progression visuelle */}
+            <div className="mt-3 rounded-xl border border-border/40 bg-muted/20 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Progression du projet</p>
+              <div className="mt-1 flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="h-3 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-emerald-500"
+                      style={{ width: `${budgetAnalysis.projectReachablePct}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                  {budgetAnalysis.projectReachablePct.toLocaleString("fr-FR")} %
+                </span>
+              </div>
+              <div className="mt-1 flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="h-3 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${budgetAnalysis.selectedCostSharePct}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold tabular-nums text-primary">
+                  {budgetAnalysis.selectedCostSharePct.toLocaleString("fr-FR")} %
+                </span>
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {budgetProgressionBlocks(budgetAnalysis.projectReachablePct)}
+              </p>
+            </div>
+
+            {/* Recommandation IA */}
+            {budgetAnalysis.recommendation && (
+              <div className="mt-3 rounded-xl border border-primary/20 bg-primary/[0.04] p-3">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Recommandation de l'IA</p>
+                    <p className="mt-1 text-[11px] leading-snug text-foreground">{budgetAnalysis.recommendation}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Phrase récapitulative */}
+            {budgetAnalysis.summarySentence && (
+              <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-3">
+                <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">
+                  {budgetAnalysis.summarySentence}
+                </p>
+              </div>
+            )}
+
+            {/* Bouton modifier */}
+            {budgetAnalysis.availableBudget > 0 && (
+              <div className="mt-3 flex justify-end">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={onBudgetEdit}>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Modifier mon budget
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── §4 Parcours d'optimisation ── */}
       <Card className="border-primary/20">

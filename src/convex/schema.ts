@@ -1409,6 +1409,15 @@ const schema = defineSchema(
       .index("by_user_project", ["userId", "projectId"])
       .index("by_user_project_version", ["userId", "projectId", "version"]),
 
+    budgetAnalyses: defineTable({
+      projectId: v.id("projects"),
+      userId: v.id("users"),
+      budgetAvailable: v.number(),
+      analyzedAt: v.number(),
+      result: v.any(),
+    })
+      .index("by_project_user", ["projectId", "userId"]),
+
     projectRoadmaps: defineTable({
       userId: v.id("users"),
       projectId: v.id("projects"),
