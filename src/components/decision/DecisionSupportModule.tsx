@@ -66,6 +66,14 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { predictiveIntelligence } from "@/convex/materialSelectionEngine";
 import {
+  buildMaterialIntelligence,
+  type CategoryTrendRow,
+  type MaterialTrendRow,
+  type PriceListRow,
+  type SupplierMatch,
+} from "@/lib/materialIntelligence";
+import { MaterialAnalysisSection } from "@/components/decision/MaterialAnalysisSection";
+import {
   buildDecisionAnalysis,
   buildSimulations,
   groupsPresent,
@@ -407,6 +415,20 @@ export function DecisionSupportModule({
     allowed ? { projectId: projectId as Id<"projects"> } : "skip",
   );
   const trends = useQuery(api.marketData.getPriceTrends, allowed ? {} : "skip");
+  // ── Source principale : la « Liste des prix » + l'historique PAR MATÉRIAU ──
+  const priceList = useQuery(api.materials.getMaterialPrices, allowed ? {} : "skip");
+  const materialTrends = useQuery(api.marketData.getMaterialPriceTrends, allowed ? {} : "skip");
+  const supplierNames = useMemo<string[]>(() => {
+    const ws = workspaceQuery?.workspace;
+    if (!ws) return [];
+    const set = new Set<string>();
+    for (const l of ws.lines) set.add(l.catalogName || l.designation);
+    return Array.from(set).filter(Boolean).slice(0, 150);
+  }, [workspaceQuery]);
+  const suppliers = useQuery(
+    api.marketData.getCheapestSuppliers,
+    allowed && supplierNames.length > 0 ? { names: supplierNames } : "skip",
+  );
 
   // ── Défilement vers le module lorsqu'on suit le Journey (ancre) ──────────
   useEffect(() => {
@@ -455,6 +477,29 @@ export function DecisionSupportModule({
     () => (workspaceQuery ? groupsPresent(workspaceQuery.workspace.lines) : []),
     [workspaceQuery],
   );
+
+  // ── Analyse MATÉRIAU PAR MATÉRIAU (nouvelle logique) ─────────────────────
+  // Chaque matériau du Quantitatif est croisé avec la Liste des prix et son
+  // propre historique ; l'agrégation projet en découle. Aucune analyse directe
+  // des catégories du Quantitatif.
+  const materialIntel = useMemo(() => {
+    if (!allowed || !workspaceQuery) return null;
+    const ws = workspaceQuery.workspace;
+    return buildMaterialIntelligence({
+      lines: ws.lines,
+      priceList: (priceList ?? []) as unknown as PriceListRow[],
+      materialTrends: (materialTrends ?? []) as unknown as MaterialTrendRow[],
+      categoryTrends: (trends ?? []) as unknown as CategoryTrendRow[],
+      variants: ws.variants,
+      suppliers: (suppliers ?? []) as unknown as SupplierMatch[],
+      scenario: ws.scenario,
+      materialsBudget: ws.budget.materialsBudget,
+      projectTotal,
+      lossReduction: intelligence?.lossReduction ?? null,
+      budgetItems: intelligence?.budget.items ?? null,
+      riskItems: intelligence?.budget.riskItems ?? null,
+    });
+  }, [allowed, workspaceQuery, priceList, materialTrends, trends, suppliers, intelligence, projectTotal]);
 
   // ── Signature des données (quantitatif / prix / scénario / marché) ───────
   const signature = useMemo(
@@ -616,6 +661,9 @@ export function DecisionSupportModule({
           </p>
         </div>
       )}
+
+      {/* ── Analyse de vos matériaux — matériau par matériau (prioritaire) ── */}
+      {materialIntel && <MaterialAnalysisSection intel={materialIntel} />}
 
       <KpiGrid analysis={a} />
       <GlobalScoreCard analysis={a} />

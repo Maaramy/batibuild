@@ -386,6 +386,95 @@ export const getPriceTrends = query({
   },
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Tendances de prix PAR MATÉRIAU (et non par catégorie)
+// ═══════════════════════════════════════════════════════════════════════════
+// L'Intelligence prédictive analyse chaque matériau individuellement : elle a
+// donc besoin de l'évolution RÉELLE de CHAQUE matériau de la Liste des prix.
+//
+// Deux historiques réels sont fusionnés, par `materialPriceId` :
+//   • `priceHistory`        → changements de la référence (source « publication ») ;
+//   • `offerPriceHistory`   → variations des offres fournisseurs rattachées
+//     (source « marché »).
+//
+// Aucune valeur n'est inventée : un matériau sans variation enregistrée est
+// simplement ABSENT du résultat (le module affiche alors « données
+// insuffisantes » pour ce matériau au lieu d'une tendance fabriquée).
+
+export const getMaterialPriceTrends = query({
+  args: {},
+  handler: async (ctx) => {
+    const offers = await ctx.db.query("materialOffers").collect();
+    const offerHistory = await ctx.db.query("offerPriceHistory").collect();
+    const directHistory = await ctx.db.query("priceHistory").collect();
+
+    const offerById = new globalThis.Map(offers.map((o) => [o._id, o]));
+
+    const acc = new globalThis.Map<
+      string,
+      {
+        changes: number;
+        sumPct: number;
+        lastPct: number;
+        first: number;
+        last: number;
+        market: number;
+        publication: number;
+      }
+    >();
+
+    const push = (
+      materialPriceId: string,
+      pct: number,
+      at: number,
+      kind: "marche" | "publication",
+    ) => {
+      if (!materialPriceId) return;
+      const cur = acc.get(materialPriceId) ?? {
+        changes: 0,
+        sumPct: 0,
+        lastPct: 0,
+        first: 0,
+        last: 0,
+        market: 0,
+        publication: 0,
+      };
+      cur.changes += 1;
+      cur.sumPct += Number.isFinite(pct) ? pct : 0;
+      cur.lastPct = Number.isFinite(pct) ? pct : 0;
+      if (at > 0) {
+        cur.first = cur.first ? Math.min(cur.first, at) : at;
+        cur.last = Math.max(cur.last, at);
+      }
+      if (kind === "marche") cur.market += 1;
+      else cur.publication += 1;
+      acc.set(materialPriceId, cur);
+    };
+
+    for (const h of directHistory) {
+      const pct = h.previousPrice > 0 ? ((h.newPrice - h.previousPrice) / h.previousPrice) * 100 : 0;
+      push(String(h.materialPriceId), pct, Number(h.changedAt) || 0, "publication");
+    }
+
+    for (const h of offerHistory) {
+      const offer = offerById.get(h.offerId);
+      if (!offer) continue;
+      const pct = h.previousAvg > 0 ? ((h.newAvg - h.previousAvg) / h.previousAvg) * 100 : 0;
+      push(String(offer.productId), pct, Number(h.changedAt) || 0, "marche");
+    }
+
+    return [...acc.entries()].map(([materialPriceId, a]) => ({
+      materialPriceId,
+      changes: a.changes,
+      netPct: a.changes > 0 ? a.sumPct / a.changes : 0,
+      lastPct: a.lastPct,
+      firstChangedAt: a.first || undefined,
+      lastChangedAt: a.last || undefined,
+      source: a.market >= a.publication ? ("marche" as const) : ("publication" as const),
+    }));
+  },
+});
+
 // ── Supplier comparison ───────────────────────────────────────────────────
 export const getSupplierComparison = query({
   args: { productId: v.id("materialPrices") },
