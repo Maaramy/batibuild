@@ -64,6 +64,8 @@ export const getProjectBudgetContext = query({
     return {
       userId: user._id,
       projectName: project.name,
+      projectCategory: project.category,
+      region: project.region ?? null,
       breakdown,
       lots,
       surface: project.surface ? project.surface * (project.floors || 1) : undefined,

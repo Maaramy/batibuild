@@ -31,6 +31,19 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { cn, formatTnd } from "@/lib/utils";
 import { PREDICTION_CONFIDENCE_LABELS } from "@/lib/decisionAnalysis";
 import {
@@ -46,6 +59,7 @@ import {
 import {
   budgetProgressionBlocks,
   formatTndAmount,
+  MIN_BUDGET_TND,
   type BudgetAnalysis,
 } from "@/lib/budgetEngine";
 
@@ -77,14 +91,54 @@ const STATUS_TONE: Record<string, string> = {
 const STATUS_LABEL: Record<string, string> = {
   realisable: "Réalisable",
   partiel: "Partiellement réalisable",
-  report: "À reporter",
+  report: "À financer",
 };
 
 
 
-function BudgetAnalysisCard({ analysis, onEdit }: { analysis: BudgetAnalysis; onEdit: () => void }) {
+/** Palette cohérente avec les tons du projet (thème Batibuild). */
+const CATEGORY_COLORS = [
+  "#6366f1",
+  "#0ea5e9",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#14b8a6",
+  "#ec4899",
+];
+
+function BudgetAnalysisCard({
+  analysis,
+  onEdit,
+  projectContextLabel,
+}: {
+  analysis: BudgetAnalysis;
+  onEdit: () => void;
+  projectContextLabel?: string;
+}) {
+  // Graphique 1 : Chaîne budget disponible → utilisé → restant.
+  const budgetFlowData = [
+    { name: "Disponible", montant: analysis.availableBudget, color: "#0ea5e9" },
+    { name: "Utilisé", montant: analysis.usedBudget, color: "#f59e0b" },
+    { name: "Restant", montant: analysis.remainingBudget, color: "#10b981" },
+  ];
+
+  // Graphique 2 : répartition du coût TOTAL par catégorie (montants réels).
+  const costShareData = analysis.breakdown.map((cat, i) => ({
+    name: cat.categoryLabel,
+    value: cat.estimatedCost,
+    pct: cat.pctOfTotal,
+    color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+  }));
+
   return (
     <div className="space-y-3">
+      {projectContextLabel && (
+        <p className="text-[10px] text-muted-foreground">
+          Analyse liée au projet sélectionné — {projectContextLabel}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <KPIBlock label="Budget disponible" value={formatTndAmount(analysis.availableBudget)} tone="text-primary" />
         <KPIBlock label="Budget utilisé" value={formatTndAmount(analysis.usedBudget)} tone="text-amber-600 dark:text-amber-400" />
@@ -102,7 +156,9 @@ function BudgetAnalysisCard({ analysis, onEdit }: { analysis: BudgetAnalysis; on
             <tr className="border-b border-border/40 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
               <th className="px-2 py-2">Catégorie</th>
               <th className="px-2 py-2 text-right">Coût estimé</th>
-              <th className="px-2 py-2 text-right">Budget nécessaire</th>
+              <th className="px-2 py-2 text-right" title="Montant du budget effectivement alloué à cette catégorie">
+                  Budget nécessaire
+                </th>
               <th className="px-2 py-2 text-right">% du coût total</th>
               <th className="px-2 py-2">Statut</th>
             </tr>
@@ -117,7 +173,12 @@ function BudgetAnalysisCard({ analysis, onEdit }: { analysis: BudgetAnalysis; on
                   </div>
                 </td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatTndAmount(cat.estimatedCost)}</td>
-                <td className="px-2 py-2 text-right tabular-nums">{formatTndAmount(cat.budgetNeeded)}</td>
+                <td
+                  className="px-2 py-2 text-right tabular-nums"
+                  title={`Budget cumulé pour atteindre ce poste : ${formatTndAmount(cat.budgetNeeded)}`}
+                >
+                  {formatTndAmount(cat.fundedAmount)}
+                </td>
                 <td className="px-2 py-2 text-right">
                   <span className="tabular-nums">{cat.pctOfTotal} %</span>
                 </td>
@@ -142,7 +203,7 @@ function BudgetAnalysisCard({ analysis, onEdit }: { analysis: BudgetAnalysis; on
               className={cn(
                 "flex flex-wrap items-center gap-2.5 px-3 py-2 text-left",
                 sc.scenario === "actuel" && "border-primary/30 bg-primary/5",
-                sc.scenario === "plus_cinquantaine" && "border-sky-500/30 bg-sky-500/5",
+                sc.scenario === "plus_palier" && "border-sky-500/30 bg-sky-500/5",
                 sc.scenario === "complet" && "border-emerald-500/30 bg-emerald-500/5",
               )}
             >
@@ -150,7 +211,7 @@ function BudgetAnalysisCard({ analysis, onEdit }: { analysis: BudgetAnalysis; on
                 className={cn(
                   "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black",
                   sc.scenario === "actuel" && "bg-primary/10 text-primary",
-                  sc.scenario === "plus_cinquantaine" && "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+                  sc.scenario === "plus_palier" && "bg-sky-500/10 text-sky-600 dark:text-sky-400",
                   sc.scenario === "complet" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
                 )}
               >
@@ -176,6 +237,14 @@ function BudgetAnalysisCard({ analysis, onEdit }: { analysis: BudgetAnalysis; on
                   À reporter : {sc.deferredCategories.join(", ")}
                 </span>
               )}
+              {sc.additionalCategories.length > 0 && (
+                <span className="mt-1 block text-sky-700 dark:text-sky-300">
+                  Travaux supplémentaires possibles : {sc.additionalCategories.join(", ")}
+                </span>
+              )}
+              <span className="mt-1 block text-[10px] text-muted-foreground">
+                Reste à financer : {formatTndAmount(sc.remainingToFund)} ({sc.remainingToFundPct} % du coût total)
+              </span>
             </div>
           </div>
         ))}
@@ -216,6 +285,87 @@ function BudgetAnalysisCard({ analysis, onEdit }: { analysis: BudgetAnalysis; on
         </p>
       </div>
 
+      {/* Graphiques — budget disponible / utilisé / restant + répartition du coût */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="rounded-xl border border-border/40 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Budget disponible → utilisé → restant
+          </p>
+          <div className="mt-2 h-[180px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={budgetFlowData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  width={54}
+                  tickFormatter={(v: number) => new Intl.NumberFormat("fr-FR").format(Math.round(v))}
+                />
+                <Tooltip
+                  formatter={(v: number) => formatTndAmount(v)}
+                  contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                />
+                <Bar dataKey="montant" radius={[6, 6, 0, 0]}>
+                  {budgetFlowData.map((d) => (
+                    <Cell key={d.name} fill={d.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border/40 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Répartition du coût total par catégorie
+          </p>
+          <div className="mt-2 h-[180px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={costShareData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="45%"
+                  outerRadius="72%"
+                  paddingAngle={2}
+                >
+                  {costShareData.map((d) => (
+                    <Cell key={d.name} fill={d.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(v: number, _n, p) => `${formatTndAmount(v)} (${(p?.payload as { pct?: number })?.pct ?? 0} %)`}
+                  contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Écart financier — §3 / §9 */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <KPIBlock
+          label="Reste à financer pour le projet complet"
+          value={formatTndAmount(analysis.gapToProjectTotal)}
+          tone="text-red-600 dark:text-red-400"
+        />
+        <KPIBlock
+          label={analysis.nextCategoryLabel ? `Manque pour « ${analysis.nextCategoryLabel} »` : "Manque pour le chantier suivant"}
+          value={analysis.gapToNextCategory > 0 ? formatTndAmount(analysis.gapToNextCategory) : "Budget suffisant"}
+          tone="text-amber-600 dark:text-amber-400"
+        />
+        <KPIBlock
+          label="Part du coût total des travaux sélectionnables"
+          value={`${analysis.selectedCostSharePct} %`}
+          tone="text-primary"
+        />
+      </div>
+
       {analysis.recommendation && (
         <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3">
           <div className="flex items-start gap-2">
@@ -223,6 +373,12 @@ function BudgetAnalysisCard({ analysis, onEdit }: { analysis: BudgetAnalysis; on
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Recommandation de l'IA</p>
               <p className="mt-1 text-[11px] leading-snug text-foreground">{analysis.recommendation}</p>
+              {analysis.optimalCombination && (
+                <p className="mt-1.5 text-[10px] text-muted-foreground">
+                  <span className="font-semibold text-foreground">Combinaison optimale : </span>
+                  {analysis.optimalCombination}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -416,6 +572,7 @@ export function OptimizationSection({
   onBudgetEdit,
   budgetAvailable,
   onBudgetChange,
+  projectContextLabel,
 }: {
   plan: OptimizationPlan;
   budgetAnalysis?: BudgetAnalysis | null;
@@ -423,6 +580,8 @@ export function OptimizationSection({
   onBudgetEdit?: () => void;
   budgetAvailable?: number;
   onBudgetChange?: (value: string) => void;
+  /** Contexte projet (type, région, surface) — traçabilité de la simulation. */
+  projectContextLabel?: string;
 }) {
   const [decisions, setDecisions] = useState<Record<string, OpportunityAction>>({});
   const [selected, setSelected] = useState<string[]>([]);
@@ -505,23 +664,28 @@ export function OptimizationSection({
               <Input
                 ref={budgetInputRef}
                 type="number"
-                min="0.01"
+                min={MIN_BUDGET_TND}
                 step="1000"
                 value={budgetInputValue}
                 onChange={(e) => onBudgetChange?.(e.target.value)}
-                placeholder="0 TND"
+                placeholder={`${formatTndAmount(MIN_BUDGET_TND)} minimum`}
+                aria-describedby="budget-help"
                 className="h-10 text-base font-medium tabular-nums"
               />
             </div>
             <Button
               className="gap-1.5 whitespace-nowrap"
-              disabled={!Number.isFinite(Number(budgetInputValue)) || Number(budgetInputValue) <= 0}
+              disabled={!Number.isFinite(Number(budgetInputValue)) || Number(budgetInputValue) < MIN_BUDGET_TND}
               onClick={() => onBudgetAnalyze?.(Number(budgetInputValue))}
             >
               <Sparkles className="h-4 w-4" />
               Analyser mon budget avec l'IA
             </Button>
           </div>
+          <p id="budget-help" className="mt-1.5 text-[10px] text-muted-foreground">
+            Budget minimum accepté : {formatTndAmount(MIN_BUDGET_TND)} (montant exigé par le module). La simulation
+            compare ce budget au Quantitatif réel du projet sélectionné.
+          </p>
           {typeof budgetAvailable === "number" && budgetAvailable > 0 && (
             <p className="mt-2 text-[11px] text-muted-foreground">
               Budget analysé : <span className="font-semibold text-foreground">{formatTndAmount(budgetAvailable)}</span>
@@ -546,7 +710,11 @@ export function OptimizationSection({
             </div>
 
             {budgetAnalysis.available ? (
-              <BudgetAnalysisCard analysis={budgetAnalysis} onEdit={focusBudgetInput} />
+              <BudgetAnalysisCard
+                analysis={budgetAnalysis}
+                onEdit={focusBudgetInput}
+                projectContextLabel={projectContextLabel}
+              />
             ) : (
               <p className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-800 dark:text-amber-200">
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />

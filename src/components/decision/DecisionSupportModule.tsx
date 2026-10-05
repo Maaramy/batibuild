@@ -139,6 +139,7 @@ export function DecisionSupportModule({
   projectId,
   projectName,
   projectTypeLabel,
+  regionLabel,
   surface,
   projectTotal,
   scenarioLabel,
@@ -282,19 +283,48 @@ export function DecisionSupportModule({
     (budget: number) => {
       const value = Math.max(0, Math.round(budget));
       setAnalyzedBudget(value);
-      // Seuls le budget et un résumé traçable sont mémorisés : le tableau
-      // détaillé est toujours recalculé à partir du Quantitatif à jour.
+      const ctx = budgetContext;
+      if (!ctx) return;
+      // Analyse complète mémorisée (§12) : budget, date, résultat, catégories,
+      // budget utilisé / restant, progression et recommandation. Le tableau
+      // détaillé est par ailleurs recalculé à chaque rendu à partir du
+      // Quantitatif à jour (§11).
+      const analysis = buildBudgetAnalysis({
+        projectId,
+        userId: ctx.userId,
+        projectName: projectName ?? ctx.projectName,
+        scenarioLabel,
+        projectTotal,
+        budgetAvailable: value,
+        breakdown: ctx.breakdown,
+        lots: ctx.lots,
+        surface,
+      });
       void saveBudget({
         projectId: projectId as Id<"projects">,
         budgetAvailable: value,
         result: {
-          projectTotal,
-          scenarioLabel,
-          analyzedAt: Date.now(),
+          projectTotal: analysis.projectTotal,
+          scenarioLabel: analysis.scenarioLabel,
+          analyzedAt: analysis.generatedAt,
+          usedBudget: analysis.usedBudget,
+          remainingBudget: analysis.remainingBudget,
+          projectReachablePct: analysis.projectReachablePct,
+          realisableCategories: analysis.statusSummary.realisable.map((l) => l.categoryLabel),
+          partielCategories: analysis.statusSummary.partiel.map((l) => l.categoryLabel),
+          reportCategories: analysis.statusSummary.report.map((l) => l.categoryLabel),
+          scenarios: analysis.scenarios.map((s) => ({
+            scenario: s.scenario,
+            budget: s.budget,
+            progressPct: s.progressPct,
+            remainingToFund: s.remainingToFund,
+          })),
+          recommendation: analysis.recommendation,
+          summarySentence: analysis.summarySentence,
         },
       });
     },
-    [saveBudget, projectId, projectTotal, scenarioLabel],
+    [saveBudget, budgetContext, projectId, projectName, scenarioLabel, projectTotal, surface],
   );
 
   // ── Signature des données (quantitatif / prix / scénario / marché) ───────
@@ -469,6 +499,16 @@ export function DecisionSupportModule({
           budgetAvailable={budgetAvailable ?? undefined}
           onBudgetChange={(value) => setBudgetAvailable(value === "" ? null : Number(value))}
           onBudgetAnalyze={runBudgetAnalysis}
+          projectContextLabel={
+            [
+              projectTypeLabel,
+              regionLabel,
+              surface ? `${surface} m²` : null,
+              scenarioLabel,
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined
+          }
         />
       )}
     </section>

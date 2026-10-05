@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildBudgetAnalysis, type CategoryBreakdownItem } from '@/lib/budgetEngine'
+import {
+  buildBudgetAnalysis,
+  MIN_BUDGET_TND,
+  BUDGET_SIMULATION_STEP_TND,
+  type CategoryBreakdownItem,
+} from '@/lib/budgetEngine'
 
 const makeBreakdown: CategoryBreakdownItem[] = [
   { category: 'etudes', label: 'Frais préliminaires et études', estimatedCost: 5000, percentage: 4.2 },
@@ -37,6 +42,25 @@ describe('buildBudgetAnalysis — déterministe et lié au projet', () => {
     expect(analysis.remainingBudget).toBe(0)
     expect(analysis.projectReachablePct).toBe(50)
     expect(analysis.budgetUsedPct).toBe(100)
+    // Part du coût total correspondant aux travaux sélectionnables.
+    expect(analysis.selectedCostSharePct).toBe(50)
+  })
+
+  it("calcule l'écart avec le coût total et le chantier suivant", () => {
+    const analysis = analyze(60000)
+
+    expect(analysis.gapToProjectTotal).toBe(60000)
+    expect(analysis.nextCategoryLabel).toBe('Gros œuvre')
+    // 60 000 de gros œuvre, 55 000 financés → 5 000 manquants.
+    expect(analysis.gapToNextCategory).toBe(5000)
+  })
+
+  it('propose une combinaison optimale de catégories pour le budget', () => {
+    const analysis = analyze(60000)
+
+    expect(analysis.optimalCombination).toContain('Frais préliminaires et études')
+    expect(analysis.optimalCombination).toContain('Gros œuvre')
+    expect(analysis.optimalCombination).toContain('55 000 TND')
   })
 
   it('classe les chantiers selon la priorité de construction et le budget', () => {
@@ -71,20 +95,39 @@ describe('buildBudgetAnalysis — déterministe et lié au projet', () => {
     expect(grosOeuvre?.pctOfTotal).toBe(50)
   })
 
-  it('génère trois scénarios dynamiques (actuel, +50 000, projet complet)', () => {
+  it('génère trois scénarios dynamiques (actuel, budget augmenté, projet complet)', () => {
     const analysis = analyze(60000)
 
     expect(analysis.scenarios.map((s) => s.scenario)).toEqual([
       'actuel',
-      'plus_cinquantaine',
+      'plus_palier',
       'complet',
     ])
     expect(analysis.scenarios[0].budget).toBe(60000)
-    expect(analysis.scenarios[1].budget).toBe(110000)
+    expect(analysis.scenarios[1].budget).toBe(60000 + BUDGET_SIMULATION_STEP_TND)
     expect(analysis.scenarios[2].budget).toBe(120000)
     // Le budget « projet complet » finance nécessairement 100 % du projet.
     expect(analysis.scenarios[2].progressPct).toBe(100)
     expect(analysis.scenarios[2].remaining).toBe(0)
+  })
+
+  it('indique le montant et le pourcentage restant à financer par scénario', () => {
+    const analysis = analyze(60000)
+    const [actuel, , complet] = analysis.scenarios
+
+    expect(actuel.remainingToFund).toBe(60000)
+    expect(actuel.remainingToFundPct).toBe(50)
+    expect(complet.remainingToFund).toBe(0)
+    expect(complet.remainingToFundPct).toBe(0)
+  })
+
+  it('liste les travaux supplémentaires possibles dans le scénario budget augmenté', () => {
+    const analysis = analyze(60000)
+    const [, boosted] = analysis.scenarios
+
+    // 60 000 → 70 000 finance en plus 10 000 de second œuvre.
+    expect(boosted.additionalCategories).toContain('Second œuvre et finitions')
+    expect(boosted.progressPct).toBeGreaterThan(analysis.scenarios[0].progressPct)
   })
 
   it('fait progresser les scénarios avec le budget (monotonic)', () => {
@@ -112,6 +155,18 @@ describe('buildBudgetAnalysis — déterministe et lié au projet', () => {
     expect(analysis.recommendation.toLowerCase()).toContain('finition')
   })
 
+  it('refuse un budget inférieur au minimum requis de 25 000 TND', () => {
+    const analysis = analyze(MIN_BUDGET_TND - 1)
+
+    expect(analysis.available).toBe(false)
+    expect(analysis.reason).toContain('25 000 TND')
+    expect(analysis.scenarios).toHaveLength(0)
+  })
+
+  it('accepte un budget exactement égal au minimum', () => {
+    expect(analyze(MIN_BUDGET_TND).available).toBe(true)
+  })
+
   it('marque tous les chantiers comme réalisables quand le budget couvre le projet', () => {
     const analysis = analyze(150000)
 
@@ -120,6 +175,8 @@ describe('buildBudgetAnalysis — déterministe et lié au projet', () => {
     expect(analysis.statusSummary.partiel).toHaveLength(0)
     expect(analysis.statusSummary.report).toHaveLength(0)
     expect(analysis.remainingBudget).toBe(30000)
+    expect(analysis.gapToNextCategory).toBe(0)
+    expect(analysis.nextCategoryLabel).toBe('')
   })
 
   it('indique une indisponibilité explicite si le budget est nul', () => {
@@ -142,11 +199,12 @@ describe('buildBudgetAnalysis — déterministe et lié au projet', () => {
     })
 
     expect(analysis.available).toBe(false)
-    expect(analysis.reason).toContain('décomposition')
+    expect(analysis.reason).toContain('Quantitatif détaillé')
   })
 
-  it('est déterministe : deux appels donnent le même résultat', () => {
-    expect(JSON.stringify(analyze(60000))).toBe(JSON.stringify(analyze(60000)))
+  it('est déterministe : deux appels donnent le même résultat (hors horodatage)', () => {
+    const strip = ({ generatedAt, ...rest }: ReturnType<typeof analyze>) => rest
+    expect(JSON.stringify(strip(analyze(60000)))).toBe(JSON.stringify(strip(analyze(60000))))
   })
 
   it('horodate chaque analyse', () => {
