@@ -249,6 +249,7 @@ export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecis
   const [customLabel, setCustomLabel] = useState("");
   const [customCost, setCustomCost] = useState("");
   const [seq, setSeq] = useState(1);
+  const [openPlanRows, setOpenPlanRows] = useState<Record<string, boolean>>({});
   const [showQuantitatif, setShowQuantitatif] = useState(false);
 
   // ── Postes du plan : Quantitatif + travaux personnalisés ────────────────
@@ -568,27 +569,79 @@ export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecis
                   </div>
                 ) : (
                   <>
-                    {plan.works.map((w) => (
-                      <div key={w.id} className="overflow-hidden rounded-xl border border-border/40">
-                        <div className="flex items-center gap-2.5 bg-muted/20 px-3 py-2.5">
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-[12px] font-semibold">
-                              {shortLabel(w.label)}
-                              {w.custom ? (
-                                <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-px text-[9px] font-medium text-primary">
-                                  perso.
-                                </span>
-                              ) : null}
+                    {plan.works.map((w) => {
+                      const parts = w.parts ?? [];
+                      const hasParts = parts.length > 0;
+                      const rowOpen = openPlanRows[w.id] ?? false;
+                      return (
+                        <div key={w.id} className="overflow-hidden rounded-xl border border-border/40">
+                          <button
+                            type="button"
+                            disabled={!hasParts}
+                            onClick={() =>
+                              setOpenPlanRows((s) => ({ ...s, [w.id]: !rowOpen }))
+                            }
+                            className={cn(
+                              "flex w-full items-center gap-2.5 px-3 py-2.5 text-left bg-muted/20",
+                              hasParts && "transition-colors hover:bg-muted/40",
+                            )}
+                          >
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-[12px] font-semibold">
+                                {shortLabel(w.label)}
+                                {w.custom ? (
+                                  <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-px text-[9px] font-medium text-primary">
+                                    perso.
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span className="block text-[10px] text-muted-foreground">
+                                {formatTndAmount(w.cost)} · {formatPercent(w.pct)} financé
+                                {hasParts
+                                  ? ` · ${parts.length} sous-catégorie${parts.length > 1 ? "s" : ""}`
+                                  : ""}
+                              </span>
                             </span>
-                            <span className="block text-[10px] text-muted-foreground">
-                              {formatTndAmount(w.cost)} · {formatPercent(w.pct)} financé
-                            </span>
-                          </span>
-                          <RealizationBar pct={w.pct} />
-                          <StatusBadge status={w.status} />
+                            <RealizationBar pct={w.pct} />
+                            <StatusBadge status={w.status} />
+                            {hasParts ?
+                              rowOpen ? (
+                                <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                              )
+                            : null}
+                          </button>
+
+                          {hasParts && rowOpen && (
+                            <div className="space-y-1.5 border-t border-border/30 p-2.5">
+                              <p className="text-[9.5px] uppercase tracking-wide text-muted-foreground">
+                                Sous-catégories — réalisation par poste
+                              </p>
+                              {parts.map((p) => (
+                                <div
+                                  key={p.id}
+                                  className="overflow-hidden rounded-lg border border-border/30"
+                                >
+                                  <div className="flex items-center gap-2 bg-background px-2.5 py-2">
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block text-[11.5px] font-medium">
+                                        {shortLabel(p.label)}
+                                      </span>
+                                      <span className="block text-[10px] text-muted-foreground">
+                                        {formatTndAmount(p.cost)} · {formatPercent(p.pct)} financé
+                                      </span>
+                                    </span>
+                                    <RealizationBar pct={p.pct} />
+                                    <StatusBadge status={p.status} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
 
                     <div className="overflow-hidden rounded-xl border border-primary/20">
                       <div className="flex items-center gap-2.5 bg-primary/[0.06] px-3 py-2.5">

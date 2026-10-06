@@ -62,7 +62,8 @@ function makeAnalysis(): BudgetAnalysis {
     ]),
     cat("second_oeuvre", "Second œuvre", 38000, [
       sub("s1", "Toiture", 15000),
-      sub("s2", "Revêtements sol", 13000),
+      sub("s2a", "Revêtements sol carrelage", 8000),
+      sub("s2b", "Revêtements sol parquet", 5000),
       sub("s3", "Peinture intérieure", 10000),
     ]),
     cat("equipements", "Équipements", 18000, [
@@ -260,6 +261,43 @@ describe("buildConstructionPlan", () => {
     expect(partial).toBeDefined();
     expect(plan.nextStep).toContain("Terminer");
     expect(plan.nextStep).toContain(partial!.label);
+  });
+
+  it("expose les sous-catégories financées sous chaque poste", () => {
+    const works = deriveWorks(makeAnalysis());
+    const plan = buildConstructionPlan({ works, budget: 60000, selectedIds: null });
+
+    // Poste mono-sous-lot.
+    const fondations = plan.works.find((w) => w.id === "w:fondations");
+    expect(fondations?.parts).toHaveLength(1);
+    expect(fondations?.parts?.[0].label).toBe("Fondations et longrines");
+    expect(fondations?.parts?.[0].status).toBe("realisable");
+
+    // Poste multi-sous-lots.
+    const revetements = plan.works.find((w) => w.id === "w:revetements");
+    expect(revetements?.parts).toHaveLength(2);
+
+    // Invariants : les sous-catégories couvrent exactement le poste (coût et
+    // financement), triées par coût décroissant (règle du budgetEngine).
+    for (const w of plan.works) {
+      if (!w.parts || w.parts.length === 0) continue;
+      const costSum = w.parts.reduce((s, p) => s + p.cost, 0);
+      const fundedSum = w.parts.reduce((s, p) => s + p.funded, 0);
+      expect(Math.abs(costSum - w.cost)).toBeLessThan(0.01);
+      expect(Math.abs(fundedSum - w.funded)).toBeLessThan(0.01);
+      for (let i = 1; i < w.parts.length; i += 1) {
+        expect(w.parts[i - 1].cost).toBeGreaterThanOrEqual(w.parts[i].cost);
+      }
+    }
+
+    // Poste partiel : seule la sous-catégorie en cours reçoit le solde.
+    const partialPlan = buildConstructionPlan({ works, budget: 47000, selectedIds: null });
+    const partial = partialPlan.works.find((w) => w.status === "partiel");
+    expect(partial).toBeDefined();
+    expect(partial?.parts).toHaveLength(1);
+    expect(partial!.parts![0].funded).toBeGreaterThan(0);
+    expect(partial!.parts![0].status).toBe("partiel");
+    expect(partial!.parts![0].pct).toBeLessThan(100);
   });
 });
 

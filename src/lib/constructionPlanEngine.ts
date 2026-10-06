@@ -34,6 +34,21 @@ export interface ScenarioTotal {
   totalCost: number;
 }
 
+/** Sous-lot du Quantitatif regroupé dans un poste. */
+export interface WorkPartSource {
+  id: string;
+  label: string;
+  cost: number;
+}
+
+/** Sous-catégorie du plan après allocation (affichée sous le poste). */
+export interface WorkPart extends WorkPartSource {
+  funded: number;
+  /** % de réalisation de la sous-catégorie (0 → 100). */
+  pct: number;
+  status: BudgetStatus;
+}
+
 /** Travaux dérivé du Quantitatif (regroupé en postes de chantier). */
 export interface WorkItem {
   /** Identifiant stable (« w:fondations », poste personnalisé…). */
@@ -47,6 +62,8 @@ export interface WorkItem {
   categoryId: string;
   /** Travail ajouté manuellement par l'utilisateur. */
   custom?: boolean;
+  /** Sous-lots du Quantitatif regroupés dans ce poste (si détaillables). */
+  parts?: WorkPartSource[];
 }
 
 /** Travail du plan après allocation du budget. */
@@ -55,6 +72,8 @@ export interface PlannedWork extends WorkItem {
   /** % de réalisation du poste (0 → 100). */
   pct: number;
   status: BudgetStatus;
+  /** Sous-catégories financées. */
+  parts?: WorkPart[];
 }
 
 /** Ligne de priorisation IA. */
@@ -205,13 +224,20 @@ function matchCanonical(label: string): CanonicalWorkDef | null {
   return CANONICAL_WORKS.find((w) => w.match.test(normalized)) ?? null;
 }
 
-function mergeWork(map: Map<string, WorkItem>, item: WorkItem): void {
+function mergeWork(
+  map: Map<string, WorkItem>,
+  item: { id: string; label: string; cost: number; rank: number; categoryId: string },
+  part?: WorkPartSource,
+): void {
   const existing = map.get(item.id);
-  if (existing) {
-    existing.cost = Math.round((existing.cost + item.cost) * 100) / 100;
-  } else {
-    map.set(item.id, { ...item });
+  if (!existing) {
+    map.set(item.id, { ...item, parts: part ? [part] : undefined });
+    return;
   }
+  existing.cost = Math.round((existing.cost + item.cost) * 100) / 100;
+  // Invariant : si des sous-lots sont détenus, ils couvrent TOUT le coût du
+  // poste — sinon le poste reste sans détail (pas de sous-catégorie affichée).
+  if (part && existing.parts) existing.parts.push(part);
 }
 
 /**
@@ -232,13 +258,21 @@ export function deriveWorks(analysis: BudgetAnalysis): WorkItem[] {
         if (cost <= 0) return;
         const def = matchCanonical(rawLabel);
         if (def) {
-          mergeWork(canonical, {
-            id: `w:${def.id}`,
-            label: def.label,
-            cost,
-            rank: def.rank,
-            categoryId: cat.categoryId,
-          });
+          mergeWork(
+            canonical,
+            {
+              id: `w:${def.id}`,
+              label: def.label,
+              cost,
+              rank: def.rank,
+              categoryId: cat.categoryId,
+            },
+            {
+              id: `part:${cat.categoryId}:${sub.subcategoryId}`,
+              label: rawLabel,
+              cost,
+            },
+          );
         } else {
           others.push({
             id: `w:sub:${cat.categoryId}:${sub.subcategoryId}`,
@@ -252,13 +286,17 @@ export function deriveWorks(analysis: BudgetAnalysis): WorkItem[] {
     } else if (cat.estimatedCost > 0) {
       const def = matchCanonical(cat.categoryLabel);
       if (def) {
-        mergeWork(canonical, {
-          id: `w:${def.id}`,
-          label: def.label,
-          cost: cat.estimatedCost,
-          rank: def.rank,
-          categoryId: cat.categoryId,
-        });
+        mergeWork(
+          canonical,
+          {
+            id: `w:${def.id}`,
+            label: def.label,
+            cost: cat.estimatedCost,
+            rank: def.rank,
+            categoryId: cat.categoryId,
+          },
+          { id: `part:cat:${cat.categoryId}`, label: cat.categoryLabel, cost: cat.estimatedCost },
+        );
       } else {
         others.push({
           id: `w:cat:${cat.categoryId}`,
@@ -303,7 +341,37 @@ function allocate(ordered: WorkItem[], budget: number): PlannedWork[] {
     }
     remaining = round2(Math.max(0, remaining - funded));
     const pct = w.cost > 0 ? round1(Math.max(0, Math.min(100, (funded / w.cost) * 100))) : 0;
-    return { ...w, funded: round2(funded), pct, status };
+    return { ...w, funded: round2(funded), pct, status, parts: allocateParts(w.parts, funded) };
+  });
+}
+
+/**
+ * Répartit le montant financé d'un poste sur ses sous-catégories, dans l'ordre
+ * d'importance (coût décroissant — même règle que `budgetEngine`). La somme
+ * des sous-catégories égale toujours le montant du poste.
+ */
+function allocateParts(parts: WorkPartSource[] | undefined, funded: number): WorkPart[] | undefined {
+  if (!parts || parts.length === 0) return undefined;
+  const ordered = [...parts].sort((a, b) => b.cost - a.cost);
+  let left = Math.max(0, funded);
+  return ordered.map((p) => {
+    let partFunded: number;
+    if (p.cost > 0 && left >= p.cost) {
+      partFunded = p.cost;
+    } else if (p.cost > 0 && left > 0) {
+      partFunded = round2(left);
+    } else {
+      partFunded = 0;
+    }
+    left = round2(Math.max(0, left - partFunded));
+    const pct = p.cost > 0 ? round1(Math.max(0, Math.min(100, (partFunded / p.cost) * 100))) : 0;
+    return {
+      ...p,
+      funded: round2(partFunded),
+      pct,
+      status:
+        p.cost > 0 && partFunded >= p.cost ? "realisable" : partFunded > 0 ? "partiel" : "report",
+    };
   });
 }
 
