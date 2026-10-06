@@ -233,8 +233,6 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
 
 export interface CapacityDecisionCardProps {
   analysis: BudgetAnalysis;
-  /** Budget déjà dépensé par l'utilisateur (TND), saisi sur la carte ci-dessus. */
-  spentBudget?: number;
   /** Totaux des scénarios d'estimation (Économique / Standard / Premium). */
   scenarioTotals?: ScenarioTotal[];
 }
@@ -245,7 +243,7 @@ interface CustomWorkDraft {
   cost: number;
 }
 
-export function CapacityDecisionCard({ analysis, spentBudget = 0, scenarioTotals }: CapacityDecisionCardProps) {
+export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecisionCardProps) {
   const [open, setOpen] = useState(true);
   const [deselected, setDeselected] = useState<Set<string>>(() => new Set());
   const [customWorks, setCustomWorks] = useState<CustomWorkDraft[]>([]);
@@ -294,7 +292,6 @@ export function CapacityDecisionCard({ analysis, spentBudget = 0, scenarioTotals
   );
 
   const globalPct = clampPct(plan.globalPct);
-  const totalBudget = Math.max(0, analysis.availableBudget + Math.max(0, spentBudget));
   const worksRealisable = plan.works.filter((w) => w.status === "realisable");
   const worksPartiel = plan.works.filter((w) => w.status === "partiel");
   const worksReport = plan.works.filter((w) => w.status === "report");
@@ -349,11 +346,7 @@ export function CapacityDecisionCard({ analysis, spentBudget = 0, scenarioTotals
             icon={<span aria-hidden>💰</span>}
             label="Budget"
             value={formatTndAmount(plan.budget)}
-            hint={
-              spentBudget > 0
-                ? `total ${formatTndAmount(totalBudget)} · dépensé ${formatTndAmount(spentBudget)}`
-                : "budget restant à allouer"
-            }
+            hint="budget restant à allouer"
           />
           <SummaryTile
             icon={<span aria-hidden>🏗️</span>}

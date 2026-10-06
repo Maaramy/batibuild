@@ -256,8 +256,6 @@ export function DecisionSupportModule({
 
   const [budgetAvailable, setBudgetAvailable] = useState<number | null>(null);
   const [analyzedBudget, setAnalyzedBudget] = useState<number | null>(null);
-  /** Budget déjà dépensé (saisi) : le reste est ce qui finance les travaux. */
-  const [spentBudget, setSpentBudget] = useState<number>(0);
 
   // Restauration du dernier budget analysé pour ce projet.
   useEffect(() => {
@@ -265,8 +263,6 @@ export function DecisionSupportModule({
     if (typeof savedBudget?.budgetAvailable === "number" && savedBudget.budgetAvailable > 0) {
       setAnalyzedBudget(savedBudget.budgetAvailable);
       setBudgetAvailable(savedBudget.budgetAvailable);
-      const restoredSpent = Number(savedBudget.spentBudget) || 0;
-      if (restoredSpent > 0) setSpentBudget(restoredSpent);
     }
   }, [savedBudget, analyzedBudget]);
 
@@ -279,13 +275,12 @@ export function DecisionSupportModule({
       projectName: projectName ?? ctx.projectName,
       scenarioLabel,
       projectTotal,
-      // Le budget simulant les travaux est le RESTANT : total − déjà dépensé.
-      budgetAvailable: Math.max(0, analyzedBudget - spentBudget),
+      budgetAvailable: analyzedBudget,
       breakdown: ctx.breakdown,
       lots: ctx.lots,
       surface,
     });
-  }, [budgetContext, analyzedBudget, spentBudget, projectId, projectName, scenarioLabel, projectTotal, surface]);
+  }, [budgetContext, analyzedBudget, projectId, projectName, scenarioLabel, projectTotal, surface]);
 
   const runBudgetAnalysis = useCallback(
     (budget: number) => {
@@ -293,17 +288,13 @@ export function DecisionSupportModule({
       setAnalyzedBudget(value);
       const ctx = budgetContext;
       if (!ctx) return;
-      // Le plan finance le budget RESTANT (total − déjà dépensé) ; le total
-      // saisi est enregistré tel quel pour restituer les deux champs au
-      // rechargement.
-      const net = Math.max(0, value - spentBudget);
       const analysis = buildBudgetAnalysis({
         projectId,
         userId: ctx.userId,
         projectName: projectName ?? ctx.projectName,
         scenarioLabel,
         projectTotal,
-        budgetAvailable: net,
+        budgetAvailable: value,
         breakdown: ctx.breakdown,
         lots: ctx.lots,
         surface,
@@ -312,7 +303,6 @@ export function DecisionSupportModule({
         projectId: projectId as Id<"projects">,
         budgetAvailable: value,
         result: {
-          spentBudget: spentBudget,
           projectTotal: analysis.projectTotal,
           scenarioLabel: analysis.scenarioLabel,
           analyzedAt: analysis.generatedAt,
@@ -333,15 +323,8 @@ export function DecisionSupportModule({
         },
       });
     },
-    [saveBudget, budgetContext, projectId, projectName, scenarioLabel, projectTotal, surface, spentBudget],
+    [saveBudget, budgetContext, projectId, projectName, scenarioLabel, projectTotal, surface],
   );
-
-  /** Curseur de budget : recalcul immédiat, sans réenregistrement. */
-  const slideBudget = useCallback((value: number) => {
-    const next = Math.max(0, Math.round(value));
-    setBudgetAvailable(next);
-    setAnalyzedBudget(next);
-  }, []);
 
   // ── Signature des données (quantitatif / prix / scénario / marché) ───────
   const signature = useMemo(
@@ -488,12 +471,6 @@ export function DecisionSupportModule({
           budgetAvailable={budgetAvailable ?? undefined}
           onBudgetChange={(value) => setBudgetAvailable(value === "" ? null : Number(value))}
           onBudgetAnalyze={runBudgetAnalysis}
-          spentBudget={spentBudget}
-          onSpentChange={(value) => {
-            const parsed = Number(String(value).replace(",", "."));
-            setSpentBudget(Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 0);
-          }}
-          onBudgetSlide={slideBudget}
           scenarioTotals={scenarioTotals}
           projectContextLabel={
             [
