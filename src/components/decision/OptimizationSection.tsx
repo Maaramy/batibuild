@@ -504,10 +504,6 @@ export function OptimizationSection({
         </CardContent>
       </Card>
 
-      {/* ── Intelligence prédictive IA — module complémentaire affiché
-             au-dessus du résultat existant, dès que le budget est analysé ── */}
-      {predictive}
-
       {/* ── Capacité de construction (résultat de l'analyse budget) ── */}
       {budgetAnalysis?.available ? (
         <BudgetCapacityCard analysis={budgetAnalysis} />
@@ -522,6 +518,11 @@ export function OptimizationSection({
           </CardContent>
         </Card>
       ) : null}
+
+      {/* ── Intelligence prédictive IA — module complémentaire affiché
+             juste en dessous de « Capacité de construction », dès que le budget
+             est analysé ── */}
+      {predictive}
     </div>
   );
 }

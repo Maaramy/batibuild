@@ -1,7 +1,7 @@
 // ============================================================================
 // AIDE À LA DÉCISION — « Intelligence prédictive IA »
 // ----------------------------------------------------------------------------
-// Module COMPLÉMENTAIRE, affiché AU-DESSUS du résultat existant (le module
+// Module COMPLÉMENTAIRE, affiché juste APRÈS le résultat existant (le module
 // budget « Capacité de construction ») dès que l'utilisateur a saisi son budget
 // et cliqué sur « Analyser mon budget avec l'IA ». Il ne remplace rien : le
 // Quantitatif détaillé, les travaux sélectionnés et les calculs existants
