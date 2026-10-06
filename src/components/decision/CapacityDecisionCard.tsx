@@ -16,7 +16,6 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import {
-  Check,
   ChevronDown,
   ChevronUp,
   Hammer,
@@ -549,64 +548,64 @@ export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecis
               </div>
             </div>
 
-            {/* ── ⭐ Plan de construction selon votre budget ── */}
-            <div className="overflow-hidden rounded-xl border border-primary/20">
-              <div className="flex items-center gap-2 bg-primary/[0.06] px-3 py-2">
-                <Check className="h-3.5 w-3.5 text-primary" />
-                <p className="text-[11px] font-bold">Plan de construction selon votre budget</p>
+            {/* ── ⭐ Plan de construction selon votre budget ──
+                (présentation alignée sur « Quantitatif détaillé — réalisation
+                par poste » : même lignes, même barre, même badge d'état) ── */}
+            <div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Plan de construction selon votre budget
+                </p>
                 <span className="ml-auto text-[10px] font-semibold tabular-nums text-primary">
                   {formatTndAmount(plan.budget)} → {formatPercent(globalPct)}
                 </span>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-[11px]">
-                  <thead>
-                    <tr className="border-b border-border/40 bg-muted/20 text-left text-[9.5px] uppercase tracking-wide text-muted-foreground">
-                      <th className="px-3 py-1.5 font-semibold">Travaux</th>
-                      <th className="px-2 py-1.5 text-right font-semibold">Coût estimé</th>
-                      <th className="px-2 py-1.5 text-right font-semibold">Réalisable</th>
-                      <th className="px-3 py-1.5 text-right font-semibold">État</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {plan.works.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-3 py-3 text-center text-muted-foreground">
-                          Sélectionnez au moins un travail pour générer le plan.
-                        </td>
-                      </tr>
-                    )}
+
+              <div className="space-y-2">
+                {plan.works.length === 0 ? (
+                  <div className="rounded-xl border border-dashed px-3 py-3 text-center text-[11px] text-muted-foreground">
+                    Sélectionnez au moins un travail pour générer le plan.
+                  </div>
+                ) : (
+                  <>
                     {plan.works.map((w) => (
-                      <tr key={w.id} className="border-b border-border/25 last:border-0">
-                        <td className="px-3 py-2 font-medium">
-                          {shortLabel(w.label)}
-                          {w.custom ? <span className="ml-1 text-[9px] text-primary">perso.</span> : null}
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">
-                          {formatTndAmount(w.cost)}
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex justify-end">
-                            <RealizationBar pct={w.pct} />
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-right">
+                      <div key={w.id} className="overflow-hidden rounded-xl border border-border/40">
+                        <div className="flex items-center gap-2.5 bg-muted/20 px-3 py-2.5">
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[12px] font-semibold">
+                              {shortLabel(w.label)}
+                              {w.custom ? (
+                                <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-px text-[9px] font-medium text-primary">
+                                  perso.
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground">
+                              {formatTndAmount(w.cost)} · {formatPercent(w.pct)} financé
+                            </span>
+                          </span>
+                          <RealizationBar pct={w.pct} />
                           <StatusBadge status={w.status} />
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     ))}
-                    {plan.works.length > 0 && (
-                      <tr className="bg-muted/20 font-semibold">
-                        <td className="px-3 py-2">Total programme sélectionné</td>
-                        <td className="px-2 py-2 text-right tabular-nums">{formatTndAmount(plan.selectedCost)}</td>
-                        <td className="px-2 py-2 text-right tabular-nums text-primary">
-                          {formatTndAmount(plan.funded)}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums">{formatPercent(globalPct)}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+
+                    <div className="overflow-hidden rounded-xl border border-primary/20">
+                      <div className="flex items-center gap-2.5 bg-primary/[0.06] px-3 py-2.5">
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[12px] font-semibold">Total programme sélectionné</span>
+                          <span className="block text-[10px] text-muted-foreground">
+                            {formatTndAmount(plan.selectedCost)} · {formatTndAmount(plan.funded)} financés
+                          </span>
+                        </span>
+                        <RealizationBar pct={globalPct} />
+                        <span className="text-[11px] font-bold tabular-nums text-primary">
+                          {formatPercent(globalPct)}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
