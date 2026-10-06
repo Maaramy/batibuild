@@ -25,6 +25,7 @@ import {
   MIN_BUDGET_TND,
   formatTndAmount,
   type BudgetAnalysis,
+  type QuantitatifLot,
 } from "@/lib/budgetEngine";
 import type { OptimizationPlan } from "@/lib/optimizationEngine";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
@@ -36,6 +37,7 @@ export function OptimizationSection({
   onBudgetAnalyze,
   budgetAvailable,
   onBudgetChange,
+  lots,
   scenarioTotals,
   projectContextLabel,
 }: {
@@ -45,6 +47,8 @@ export function OptimizationSection({
   onBudgetAnalyze?: (budget: number) => void;
   budgetAvailable?: number;
   onBudgetChange?: (value: string) => void;
+  /** Lots du Quantitatif détaillé (source des postes manquant au coût). */
+  lots?: QuantitatifLot[];
   /** Totaux des scénarios d'estimation (Économique / Standard / Premium). */
   scenarioTotals?: ScenarioTotal[];
   projectContextLabel?: string;
@@ -115,7 +119,7 @@ export function OptimizationSection({
 
       {/* ── Capacité de construction (module d'aide à la décision) ── */}
       {budgetAnalysis?.available ? (
-        <CapacityDecisionCard analysis={budgetAnalysis} scenarioTotals={scenarioTotals} />
+        <CapacityDecisionCard analysis={budgetAnalysis} lots={lots} scenarioTotals={scenarioTotals} />
       ) : budgetAnalysis?.reason ? (
         <Card className="border-dashed">
           <CardContent className="flex items-start gap-2.5 p-4">

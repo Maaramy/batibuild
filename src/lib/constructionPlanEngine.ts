@@ -23,6 +23,7 @@ import {
   formatTndAmount,
   type BudgetAnalysis,
   type BudgetStatus,
+  type QuantitatifLot,
 } from "@/lib/budgetEngine";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -232,6 +233,82 @@ function isExcludedWorkLabel(label: string): boolean {
   return normalizeWorkLabel(label).includes("equipement");
 }
 
+/**
+ * Construit le poste « Aménagements extérieurs » à partir DU QUANTITATIF
+ * DÉTAILLÉ du résultat « Coût estimation de construction » (lots + sous-lots +
+ * articles), lorsque la catégorie n'apparaît pas dans la décomposition du coût.
+ * Les lignes « Équipements » restent exclues. Aucun montant n'est inventé :
+ * seuls les totaux réels du Quantitatif sont lus.
+ */
+function amenagementWorkFromLots(lots: QuantitatifLot[]): WorkItem | null {
+  const def = CANONICAL_WORKS.find((w) => w.id === "amenagement_exterieur");
+  if (!def) return null;
+
+  const groups = new Map<
+    string,
+    {
+      label: string;
+      total: number;
+      lines: Array<{ designation: string; cost: number; quantity?: number; unit?: string }>;
+    }
+  >();
+  let total = 0;
+
+  for (const lot of lots) {
+    const lotName = normalizeWorkLabel(lot.name);
+    const lotId = normalizeWorkLabel(String(lot.id ?? "").replace(/_/g, " "));
+    const matches =
+      lotName.includes("amenagement") ||
+      lotId.includes("amenagement") ||
+      matchCanonical(lot.name)?.id === def.id;
+    if (!matches) continue;
+
+    for (const line of lot.lines ?? []) {
+      const cost =
+        Number.isFinite(Number(line.total)) && Number(line.total) > 0
+          ? Number(line.total)
+          : (Number(line.quantity) || 0) * (Number(line.unitPrice) || 0);
+      if (cost <= 0) continue;
+      const groupLabel = String(line.subcategory ?? "").trim() || lot.name;
+      if (isExcludedWorkLabel(groupLabel)) continue;
+      const group = groups.get(groupLabel) ?? { label: groupLabel, total: 0, lines: [] };
+      group.lines.push({
+        designation: String(line.designation ?? "").trim() || "Article",
+        cost: round2(cost),
+        quantity: line.quantity,
+        unit: line.unit,
+      });
+      group.total = round2(group.total + cost);
+      groups.set(groupLabel, group);
+      total = round2(total + cost);
+    }
+  }
+
+  if (total <= 0) return null;
+
+  const parts: WorkPartSource[] = [...groups.values()].map((group, idx) => ({
+    id: `part:lot:${def.id}:${idx}`,
+    label: group.label,
+    cost: group.total,
+    articles: group.lines.map((line, i) => ({
+      id: `art:lot:${def.id}:${idx}:${i}`,
+      label: line.designation,
+      cost: line.cost,
+      quantity: line.quantity,
+      unit: line.unit,
+    })),
+  }));
+
+  return {
+    id: `w:${def.id}`,
+    label: def.label,
+    cost: total,
+    rank: def.rank,
+    categoryId: "amenagements_exterieurs",
+    parts,
+  };
+}
+
 /** Poste personnalisé : l'utilisateur le déclare prioritaire, on le finance tôt. */
 export const CUSTOM_WORK_RANK = 10;
 
@@ -275,7 +352,7 @@ function mergeWork(
  * les sous-lots sont regroupés sur les postes canoniques ; les postes non
  * reconnus sont conservés tels quels, rangés par priorité de catégorie.
  */
-export function deriveWorks(analysis: BudgetAnalysis): WorkItem[] {
+export function deriveWorks(analysis: BudgetAnalysis, lots?: QuantitatifLot[]): WorkItem[] {
   const canonical = new Map<string, WorkItem>();
   const others: WorkItem[] = [];
 
@@ -354,10 +431,17 @@ export function deriveWorks(analysis: BudgetAnalysis): WorkItem[] {
   }
 
   const list = [...canonical.values(), ...others].filter((w) => w.cost > 0);
+  const hasAmenagement = () => list.some((w) => w.id === `w:amenagement_exterieur` && w.cost > 0);
 
-  // Le poste « Aménagements extérieurs » est TOUJOURS proposé (à la place des
-  // Équipements) : s'aucun montant n'existe dans le Quantitatif, il apparaît
-  // « à chiffrer » (0 TND — aucun montant inventé).
+  // Le poste « Aménagements extérieurs » vient du QUANTITATIF DÉTAILLÉ du
+  // résultat « Coût estimation de construction » quand la décomposition du coût
+  // n'en porte pas le montant (aucun montant inventé).
+  if (!hasAmenagement() && lots && lots.length > 0) {
+    const fromLots = amenagementWorkFromLots(lots);
+    if (fromLots) list.push(fromLots);
+  }
+
+  // En dernier recours, il est proposé « à chiffrer » (0 TND).
   const amenagement = CANONICAL_WORKS.find((w) => w.id === "amenagement_exterieur");
   if (amenagement && !list.some((w) => w.id === `w:${amenagement.id}`)) {
     list.push({

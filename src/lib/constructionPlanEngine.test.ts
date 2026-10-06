@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { BudgetAnalysis, BudgetArticleLine, BudgetCategoryLine } from "@/lib/budgetEngine";
+import type {
+  BudgetAnalysis,
+  BudgetArticleLine,
+  BudgetCategoryLine,
+  QuantitatifLot,
+} from "@/lib/budgetEngine";
 import {
   BUDGET_STEP_DELTAS,
   CANONICAL_WORKS,
@@ -368,6 +373,46 @@ describe("buildConstructionPlan", () => {
     expect(plan.deferredLabels.some((l) => normalizeWorkLabel(l).includes("equipement"))).toBe(false);
     expect(plan.aiPriorities.some((p) => normalizeWorkLabel(p.label).includes("equipement"))).toBe(false);
     expect(plan.answerSentence).not.toContain("quipement");
+  });
+
+  it("récupère « Aménagements extérieurs » depuis le Quantitatif détaillé", () => {
+    const base = makeAnalysis();
+    base.breakdown = base.breakdown.filter((c) => c.categoryId !== "amenagements_exterieurs");
+    const lots: QuantitatifLot[] = [
+      {
+        id: "amenagements_exterieurs",
+        name: "Aménagements extérieurs",
+        subtotal: 4000,
+        lines: [
+          {
+            designation: "Clôture et portail",
+            subcategory: "Clôture",
+            quantity: 40,
+            unit: "m",
+            unitPrice: 75,
+            total: 3000,
+          },
+          { designation: "Gazon et massifs", subcategory: "Jardin", total: 1000 },
+        ],
+      },
+    ];
+
+    const works = deriveWorks(base, lots);
+    const amen = works.find((w) => w.id === "w:amenagement_exterieur");
+    expect(amen).toBeDefined();
+    expect(amen!.cost).toBe(4000);
+    expect(amen!.parts).toHaveLength(2);
+    expect(amen!.parts!.map((p) => p.label).sort()).toEqual(["Clôture", "Jardin"]);
+    const cloture = amen!.parts!.find((p) => p.label === "Clôture")!;
+    expect(cloture.cost).toBe(3000);
+    expect(cloture.articles).toHaveLength(1);
+    expect(cloture.articles![0].label).toBe("Clôture et portail");
+    expect(cloture.articles![0].quantity).toBe(40);
+
+    // Le montant entre dans le plan : 114 000 (sans la catégorie) + 4 000.
+    const plan = buildConstructionPlan({ works, budget: 60000, selectedIds: null });
+    expect(plan.selectedCost).toBe(118000);
+    expect(plan.deferredLabels).toContain("Aménagements extérieurs");
   });
 
   it("propose toujours « Aménagements extérieurs », à chiffrer si absent", () => {

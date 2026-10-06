@@ -35,6 +35,7 @@ import {
   formatTndAmount,
   type BudgetAnalysis,
   type BudgetStatus,
+  type QuantitatifLot,
 } from "@/lib/budgetEngine";
 import {
   CUSTOM_WORK_RANK,
@@ -232,6 +233,8 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
 
 export interface CapacityDecisionCardProps {
   analysis: BudgetAnalysis;
+  /** Lots du Quantitatif détaillé (source des postes manquant au coût). */
+  lots?: QuantitatifLot[];
   /** Totaux des scénarios d'estimation (Économique / Standard / Premium). */
   scenarioTotals?: ScenarioTotal[];
 }
@@ -242,7 +245,7 @@ interface CustomWorkDraft {
   cost: number;
 }
 
-export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecisionCardProps) {
+export function CapacityDecisionCard({ analysis, lots, scenarioTotals }: CapacityDecisionCardProps) {
   const [open, setOpen] = useState(true);
   const [deselected, setDeselected] = useState<Set<string>>(() => new Set());
   const [customWorks, setCustomWorks] = useState<CustomWorkDraft[]>([]);
@@ -255,7 +258,7 @@ export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecis
 
   // ── Postes du plan : Quantitatif + travaux personnalisés ────────────────
   const works = useMemo<WorkItem[]>(() => {
-    const base = deriveWorks(analysis);
+    const base = deriveWorks(analysis, lots);
     const custom: WorkItem[] = customWorks.map((w) => ({
       id: w.id,
       label: w.label,
@@ -265,7 +268,7 @@ export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecis
       custom: true,
     }));
     return [...base, ...custom];
-  }, [analysis, customWorks]);
+  }, [analysis, lots, customWorks]);
 
   const selectedIds = useMemo(
     () => works.filter((w) => !deselected.has(w.id)).map((w) => w.id),
