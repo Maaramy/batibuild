@@ -826,11 +826,13 @@ export function CapacityDecisionCard({ analysis, lots, scenarioTotals }: Capacit
               ))}
             </div>
 
-            {/* ── Comparaison Économique / Standard / Premium ── */}
+            {/* ── Comparaison des scénarios (Économique / Standard / Premium /
+                Personnalisé) — mêmes montants que le résultat « Coût de
+                construction » ── */}
             {scenarioRows.length > 0 && (
               <div className="space-y-1.5">
                 <SectionTitle hint="même budget, selon la solution d'estimation">
-                  Comparaison Économique / Standard / Premium
+                  Comparaison des scénarios d'estimation
                 </SectionTitle>
                 <div className="overflow-hidden rounded-xl border border-border/40">
                   {scenarioRows.map((row) => (
@@ -839,6 +841,11 @@ export function CapacityDecisionCard({ analysis, lots, scenarioTotals }: Capacit
                       className="flex flex-wrap items-center gap-2 border-b border-border/25 bg-background px-2.5 py-2 last:border-0"
                     >
                       <span className="text-[11.5px] font-semibold">{row.label}</span>
+                      {row.selected && (
+                        <span className="rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-primary">
+                          Retenu
+                        </span>
+                      )}
                       <span className="text-[11px] tabular-nums text-muted-foreground">
                         coût {formatTndAmount(row.totalCost)}
                         {row.perSqm ? ` · ${formatTndAmount(row.perSqm)}/m²` : ""}

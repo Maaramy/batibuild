@@ -28,11 +28,13 @@ import {
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-/** Total d'un scénario du module d'estimation (Économique / Standard / Premium). */
+/** Total d'un scénario du module d'estimation (Économique / Standard / Premium / Personnalisé). */
 export interface ScenarioTotal {
   key: string;
   label: string;
   totalCost: number;
+  /** Scénario retenu par le projet (mis en avant dans la comparaison). */
+  selected?: boolean;
 }
 
 /** Article du Quantitatif intégré à une sous-catégorie. */
@@ -819,6 +821,8 @@ export interface ScenarioCapacityRow {
   key: string;
   label: string;
   totalCost: number;
+  /** Scénario retenu par le projet. */
+  selected?: boolean;
   /** % du coût de ce scénario finançable avec le budget restant. */
   capacityPct: number;
   /** Montant manquant pour couvrir ce scénario. */
@@ -839,6 +843,7 @@ export function compareScenarioCapacity(
       key: t.key,
       label: t.label,
       totalCost: round2(t.totalCost),
+      selected: t.selected,
       capacityPct: round1(Math.min(100, (safeBudget / t.totalCost) * 100)),
       missing: round2(Math.max(0, t.totalCost - safeBudget)),
       perSqm: surface && surface > 0 ? round2(t.totalCost / surface) : undefined,
