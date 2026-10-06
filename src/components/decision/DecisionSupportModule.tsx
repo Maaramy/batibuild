@@ -17,11 +17,10 @@
 // • Réservé au forfait Client Pro : un état verrouillé élégant s'affiche pour
 //   les autres profils, et aucun calcul IA avancé n'est alors lancé.
 //
-// • Contenu : le module de budget (« Capacité de construction ») et le parcours
-//   « Optimisez votre projet » (leviers + simulation + décisions). L'analyse
-//   détaillée des matériaux est désormais affichée dans « Coût de
-//   construction » (sous la carte « Confiance ») ; elle est seulement relue
-//   ici pour alimenter le moteur d'optimisation.
+// • Contenu : le module de budget (« Capacité de construction ») uniquement.
+//   Le parcours « Optimisez votre projet » et le bloc « Coût total » ont été
+//   retirés de cette page ; l'analyse détaillée des matériaux reste affichée
+//   dans « Coût de construction » (sous la carte « Confiance »).
 // ============================================================================
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -29,7 +28,6 @@ import { useLocation } from "react-router";
 import { useQuery } from "convex/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  BrainCircuit,
   Calculator,
   CircleCheck,
   Clock3,
@@ -39,7 +37,6 @@ import {
   Loader2,
   Lock,
   RefreshCw,
-  Sparkles,
   TriangleAlert,
 } from "lucide-react";
 
@@ -65,7 +62,6 @@ import {
 } from "@/lib/decisionAnalysis";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -368,33 +364,9 @@ export function DecisionSupportModule({
   const ready = allowed && workspaceQuery != null && trends != null;
   const loading = access === undefined || (allowed && (workspaceQuery === undefined || trends === undefined || committedSignature === null));
 
-  // ── En-tête commun (toujours visible) ────────────────────────────────────
-  const header = (
-    <div className="rounded-2xl border bg-gradient-to-br from-primary/[0.07] via-background to-background p-4 shadow-sm">
-      <div className="flex flex-wrap items-start gap-2.5">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <BrainCircuit className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <h2 className="text-base font-bold tracking-tight">Intelligence prédictive IA</h2>
-            <Badge className="rounded-full border border-primary/25 bg-primary/10 text-[9px] text-primary">
-              <Sparkles className="mr-1 h-3 w-3" />
-              Aide à la décision
-            </Badge>
-          </div>
-          <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-            Anticipez vos achats, maîtrisez votre budget et réduisez les pertes grâce à l'analyse prédictive.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-
   if (access !== undefined && !allowed) {
     return (
       <section id="aide-a-la-decision" className="scroll-mt-24 space-y-3">
-        {header}
         <DecisionLocked />
       </section>
     );
@@ -403,7 +375,6 @@ export function DecisionSupportModule({
   if (loading) {
     return (
       <section id="aide-a-la-decision" className="scroll-mt-24 space-y-3">
-        {header}
         <DecisionLoading />
       </section>
     );
@@ -412,7 +383,6 @@ export function DecisionSupportModule({
   if (!ready || !analysis || !workspaceQuery) {
     return (
       <section id="aide-a-la-decision" className="scroll-mt-24 space-y-3">
-        {header}
         <Card className="border-dashed">
           <CardContent className="flex items-start gap-2.5 p-4">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -429,8 +399,6 @@ export function DecisionSupportModule({
 
   return (
     <section id="aide-a-la-decision" className="scroll-mt-24 space-y-3">
-      {header}
-
       {/* ── Bandeau mise à jour (§17) ── */}
       <AnimatePresence>
         {(stale || refreshing) && (

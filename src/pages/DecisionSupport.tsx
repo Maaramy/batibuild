@@ -1,10 +1,9 @@
 // ============================================================================
-// AIDE À LA DÉCISION — page dédiée (Intelligence prédictive IA)
+// AIDE À LA DÉCISION — page dédiée (copilote budget & achats)
 // ----------------------------------------------------------------------------
 // Page individuelle du parcours du projet (groupe A, étape n°2). Elle affiche
-// uniquement le module « Intelligence prédictive IA » (copilote financier &
-// achats) sur les données déjà enregistrées du projet — aucune analyse n'est
-// relancée ici.
+// le module de budget (« Capacité de construction ») sur les données déjà
+// enregistrées du projet — aucune analyse n'est relancée ici.
 //
 // Le module a été RETIRÉ de la page de résultat « Coût estimatif » : il n'est
 // plus affiché en extension du résultat, mais uniquement sur cette page,
@@ -153,7 +152,7 @@ export default function DecisionSupport() {
               </CardContent>
             </Card>
 
-            {/* ── Intelligence prédictive IA ── */}
+            {/* ── Module budget / capacité de construction ── */}
             <DecisionSupportModule
               projectId={project._id}
               projectName={project.name}
