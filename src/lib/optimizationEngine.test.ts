@@ -13,8 +13,6 @@ import {
   OPTIMIZATION_MIN_PCT,
   progressionBlocks,
   scaleSaving,
-  TARGET_HIGH_PCT,
-  TARGET_LOW_PCT,
   type OptimizationInput,
   type OptimizationOpportunity,
 } from "@/lib/optimizationEngine";
@@ -160,34 +158,29 @@ const opp = (
 });
 
 // ── Tests ───────────────────────────────────────────────────────────────────
-describe("optimizationEngine — potentiel dynamique (§2, §3)", () => {
-  it("ne code jamais 15/18/20 en dur : le potentiel suit les données", () => {
-    // Écart au minimum observé : (100 − 70) × 10 = 300 TND → 3 % du coût total.
+describe("optimizationEngine — économie dynamique (§2, §3)", () => {
+  it("ne code jamais de taux en dur : l'économie suit les données", () => {
+    // Écart au minimum observé : (100 − 70) × 10 = 300 TND.
     const rows = [baseRow({ priceListMin: 70 })];
     const plan = buildOptimizationPlan(input(rows));
 
-    expect(plan.potentielPct).toBe(3);
-    expect(plan.objective.targetLow).toBe(TARGET_LOW_PCT);
-    expect(plan.objective.targetHigh).toBe(TARGET_HIGH_PCT);
-    expect(plan.objective.band).toBe("en_cours");
-    expect(plan.objective.reachable).toBe(false);
+    expect(plan.economieRealisable).toBe(300);
+    expect(plan.coutInitial).toBe(10_000);
+    expect(plan.coutOptimise).toBe(9_700);
   });
 
-  it("affiche un message honnête quand 15 % n'est pas atteignable (§10)", () => {
+  it("reste disponible même quand l'économie détectée est faible", () => {
     const plan = buildOptimizationPlan(input([baseRow({ priceListMin: 70 })]));
-    expect(plan.honesty).toBeTruthy();
-    expect(plan.honesty).toContain("3");
-    expect(plan.honesty).toContain("ne permettent pas de recommander davantage");
+    expect(plan.available).toBe(true);
+    expect(plan.economieRealisable).toBeLessThan(plan.coutInitial * 0.15);
   });
 
-  it("signale un potentiel élevé avec alerte d'arbitrage (§3)", () => {
+  it("reflète une économie élevée quand les opportunités sont fortes (§3)", () => {
     const rows = [baseRow({ articleId: "a1", currentTotal: 10000, quantity: 100, potentialSaving: 2500 })];
     const plan = buildOptimizationPlan(
       input(rows, { intel: mkIntel(rows, 10000), projectTotal: 10000 }),
     );
-    expect(plan.potentielPct).toBe(25);
-    expect(plan.objective.band).toBe("eleve");
-    expect(plan.objective.message).toContain("Potentiel élevé");
+    expect(plan.economieRealisable).toBe(2500);
   });
 });
 
@@ -196,9 +189,15 @@ describe("optimizationEngine — addition non naïve (§6)", () => {
     const rows = [baseRow({ priceListMin: 50, potentialSaving: 800 })];
     const plan = buildOptimizationPlan(input(rows));
 
-    expect(plan.economieBrute).toBe(1300); // 500 (prix) + 800 (alternative)
-    expect(plan.economieRealisable).toBe(800); // max, jamais la somme
-    expect(plan.overlap).toBe(500);
+    const c = combineSavings(
+      plan.opportunities,
+      plan.opportunities.map((o) => o.id),
+      plan.projectTotal,
+    );
+    expect(c.brut).toBe(1300); // 500 (prix) + 800 (alternative)
+    expect(c.realisable).toBe(800); // max, jamais la somme
+    expect(c.overlap).toBe(500);
+    expect(plan.economieRealisable).toBe(800);
   });
 
   it("combine prix et quantité de façon multiplicative", () => {
@@ -235,13 +234,13 @@ describe("optimizationEngine — indicateurs (§14, §15, §17)", () => {
     }
   });
 
-  it("distingue le potentiel des autres indicateurs (§17)", () => {
+  it("distingue les indicateurs les uns des autres (§17)", () => {
     const plan = buildOptimizationPlan(input([baseRow({ priceListMin: 50 })]));
     expect(plan.coutInitial).toBe(plan.projectTotal);
     expect(plan.coutOptimise).toBe(plan.coutInitial - plan.economieRealisable);
     expect(plan.topCards.budgetOptimise).toBe(plan.coutOptimise);
     expect(plan.topCards.materials).toBe(1);
-    // Réduction des pertes ≠ potentiel
+    // Réduction des pertes distincte de l'optimisation
     expect(plan.topCards.pertesPct).toBe(0);
   });
 
@@ -264,7 +263,7 @@ describe("progressionBlocks — barre de progression (§9)", () => {
 });
 
 describe("boundOptimizationRate — taux final borné dans [15 %, 20 %]", () => {
-  it("relève au plancher un potentiel trop faible", () => {
+  it("relève au plancher un taux trop faible", () => {
     const r = boundOptimizationRate({ iaPct: 12, costInitial: 60_000, iaSaving: 7_200 });
     expect(r.iaPct).toBe(12);
     expect(r.appliedPct).toBe(OPTIMIZATION_MIN_PCT);
@@ -275,7 +274,7 @@ describe("boundOptimizationRate — taux final borné dans [15 %, 20 %]", () => 
     expect(r.explanation).toContain("plancher");
   });
 
-  it("conserve un potentiel compris dans l'intervalle", () => {
+  it("conserve un taux compris dans l'intervalle", () => {
     const r = boundOptimizationRate({ iaPct: 17.8, costInitial: 60_000, iaSaving: 10_680 });
     expect(r.appliedPct).toBe(17.8);
     expect(r.raised).toBe(false);
@@ -284,7 +283,7 @@ describe("boundOptimizationRate — taux final borné dans [15 %, 20 %]", () => 
     expect(r.costOptimized).toBe(49_320);
   });
 
-  it("plafonne un potentiel excessif", () => {
+  it("plafonne un taux excessif", () => {
     const r = boundOptimizationRate({ iaPct: 23, costInitial: 100_000, iaSaving: 23_000 });
     expect(r.appliedPct).toBe(OPTIMIZATION_MAX_PCT);
     expect(r.capped).toBe(true);

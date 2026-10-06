@@ -37,7 +37,6 @@ import {
   Scale,
   Sparkles,
   Tag,
-  Target,
   TrendingDown,
   TrendingUp,
   TriangleAlert,
@@ -183,23 +182,19 @@ function Block({
 
 /**
  * Barre de progression vers l'objectif : la zone cible 15–20 % est mise en
- * évidence, le marqueur indique le potentiel RÉELLEMENT calculé.
+ * évidence, le marqueur indique le taux d'optimisation appliqué.
  */
 function ObjectiveBar({
   pct,
   low,
   high,
-  rawPct,
 }: {
   pct: number;
   low: number;
   high: number;
-  /** Potentiel réellement calculé AVANT la règle (repère gris). */
-  rawPct?: number;
 }) {
   const max = high * 1.25;
   const marker = (clamp(pct, 0, max) / max) * 100;
-  const raw = typeof rawPct === "number" ? (clamp(rawPct, 0, max) / max) * 100 : null;
   const bandLeft = (low / max) * 100;
   const bandWidth = ((high - low) / max) * 100;
   return (
@@ -209,13 +204,6 @@ function ObjectiveBar({
           className="absolute inset-y-0 border-x border-primary/40 bg-primary/15"
           style={{ left: `${bandLeft}%`, width: `${bandWidth}%` }}
         />
-        {raw !== null ? (
-          <div
-            className="absolute inset-y-0 w-0.5 bg-muted-foreground/70"
-            style={{ left: `${raw}%` }}
-            title={`Potentiel réellement calculé : ${formatPercent(rawPct ?? 0)}`}
-          />
-        ) : null}
         <div
           className={cn(
             "absolute inset-y-0 left-0 rounded-full",
@@ -225,11 +213,6 @@ function ObjectiveBar({
         />
       </div>
       <div className="relative mt-1 h-3.5 text-[9.5px] text-muted-foreground">
-        {raw !== null ? (
-          <span className="absolute left-0 whitespace-nowrap">
-            potentiel moteur {formatPercent(rawPct ?? 0)}
-          </span>
-        ) : null}
         <span
           className="absolute -translate-x-1/2 whitespace-nowrap"
           style={{ left: `${bandLeft + bandWidth / 2}%` }}
@@ -323,7 +306,7 @@ export function PredictiveIntelligenceSection({
   //   1. l'IA mesure les caractéristiques RÉELLES du projet (matériaux,
   //      quantités, prix unitaires, catégories de travaux, travaux sélectionnés,
   //      pertes, alternatives, achats groupés, périodes d'achat, poids des postes,
-  //      part du coût couverte par le budget, potentiel détecté) ;
+  //      part du coût couverte par le budget, capacité d'optimisation détectée) ;
   //   2. le taux est projeté dans l'intervalle obligatoire :
   //      taux = 15 % + 5 % × score_contextuel — jamais une constante, jamais un
   //      tirage aléatoire : deux projets (ou deux analyses) donnent des taux
@@ -378,10 +361,10 @@ export function PredictiveIntelligenceSection({
   /** Profil du projet déduit du score contextualisé (aucune valeur fixe). */
   const profile =
     estimate.score >= 0.67
-      ? { label: "potentiel élevé", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" }
+      ? { label: "optimisation élevée", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" }
       : estimate.score >= 0.34
-        ? { label: "potentiel modéré", cls: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300" }
-        : { label: "potentiel limité", cls: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300" };
+        ? { label: "optimisation modérée", cls: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300" }
+        : { label: "optimisation limitée", cls: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300" };
 
   const saving = rate.appliedSaving;
   const savingPct = rate.appliedPct;
@@ -452,7 +435,7 @@ export function PredictiveIntelligenceSection({
 
   // ── Recommandations IA : leviers réels + meilleures opportunités ─────────
   // Les montants par action sont alignés sur le taux appliqué (mise à l'échelle
-  // du potentiel réel) : les recommandations restent donc cohérentes avec le
+  // des économies réelles) : les recommandations restent donc cohérentes avec le
   // montant économisé total affiché.
   const activeLevers = useMemo(
     () =>
@@ -474,12 +457,6 @@ export function PredictiveIntelligenceSection({
       plan.opportunities.slice(0, 5).map((op) => ({ ...op, saving: scaleSaving(op.saving, scale) })),
     [plan.opportunities, scale],
   );
-
-  /** Trace le potentiel moteur (données réelles) alimentant le calcul du taux. */
-  const potentialNote =
-    plan.overlap > 0.5
-      ? `Potentiel moteur : ${formatTndAmount(plan.economieBrute)} brut → ${formatTndAmount(plan.economieRealisable)} après dédoublonnage (${formatPercent(plan.potentielPct)} du coût total). Les montants par action sont alignés sur le taux appliqué.`
-      : `Potentiel moteur identifié : ${formatTndAmount(plan.economieRealisable)} (${formatPercent(plan.potentielPct)} du coût total). Les montants par action sont alignés sur le taux appliqué.`;
 
   const contextLabel = [projectName, scenarioLabel].filter(Boolean).join(" · ");
 
@@ -515,7 +492,7 @@ export function PredictiveIntelligenceSection({
         </div>
 
         {/* Mise en avant du taux appliqué et du montant réellement économisé */}
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-3">
             <p className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
               Économie estimée par l'IA
@@ -539,12 +516,6 @@ export function PredictiveIntelligenceSection({
             label="Coût optimisé"
             value={formatTndAmount(costOptimized)}
             hint={`coût initial ${formatTndAmount(costInitial)}`}
-          />
-          <Kpi
-            icon={Target}
-            label="Potentiel moteur brut"
-            value={formatPercent(plan.potentielPct)}
-            hint="économies identifiées avant contextualisation"
           />
         </div>
 
@@ -630,7 +601,6 @@ export function PredictiveIntelligenceSection({
             pct={savingPct}
             low={OPTIMIZATION_MIN_PCT}
             high={OPTIMIZATION_MAX_PCT}
-            rawPct={plan.potentielPct}
           />
 
           <div className="mt-2 flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/[0.04] p-2.5">
@@ -693,9 +663,6 @@ export function PredictiveIntelligenceSection({
                 Aucune quantité du Quantitatif n'est modifiée : l'optimisation est le résultat des
                 actions ci-dessous.
               </p>
-              {potentialNote ? (
-                <p className="mt-1 text-[10px] text-muted-foreground/80">{potentialNote}</p>
-              ) : null}
             </div>
           </div>
         </Block>

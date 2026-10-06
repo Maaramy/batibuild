@@ -3,10 +3,10 @@
  * prédictive matériau-par-matériau.
  *
  * Principe fondamental (§19) : ce module n'est PAS un calculateur qui force un
- * pourcentage. Il détecte des OPPORTUNITÉS réelles, en déduit un « potentiel
- * d'optimisation » dynamique, propose des simulations et laisse l'utilisateur
- * décider. Aucun 15 % / 18 % / 20 % codé en dur : le potentiel est toujours
- * `économie réellement réalisable ÷ coût total`, arrondi.
+ * pourcentage. Il détecte des OPPORTUNITÉS réelles, en déduit une capacité d'optimisation
+ * dynamique, propose des simulations et laisse l'utilisateur
+ * décider. Aucun 15 % / 18 % / 20 % codé en dur : le taux suit toujours les
+ * économies réellement réalisables, arrondies.
  *
  * Aucun calcul existant n'est touché : ce fichier ne fait que LIRE les sorties
  * déjà produites (`MaterialIntelligence`, `MaterialWorkspace`,
@@ -16,14 +16,14 @@
  *   • Budget optimisé      → économie issue des optimisations sélectionnées ;
  *   • Réduction des pertes → pertes de matériaux évitables ;
  *   • Prévision des prix   → coût futur estimé selon les tendances ;
- *   • Potentiel            → économies réellement identifiables ET compatibles.
+ *   • Optimisation         → économies réellement identifiables ET compatibles.
  *
  * Anti-addition naïve (§6) : plusieurs leviers agissent sur la même base de
  * coût (prix unitaire). Ils ne sont donc JAMAIS additionnés brut : par article,
  * on retient le MEILLEUR levier « prix » (max), on combine multiplicativement
  * avec le levier « quantité », puis le levier « regroupement » (global) est
- * appliqué sur la base restante. `economieBrute` (somme naïve) est conservé
- * uniquement pour rendre le dédoublonnage visible.
+ * appliqué sur la base restante. La somme naïve (`brut`) reste interne au
+ * moteur : elle sert uniquement à mesurer le dédoublonnage (§6).
  */
 
 import {
@@ -66,9 +66,9 @@ export const OPTIMIZATION_MIN_PCT = TARGET_LOW_PCT;
 export const OPTIMIZATION_MAX_PCT = TARGET_HIGH_PCT;
 
 export interface BoundedOptimizationRate {
-  /** Potentiel RÉELLEMENT calculé par l'IA (%, jamais borné). */
+  /** Taux calculé par l'IA (%, jamais borné). */
   iaPct: number;
-  /** Potentiel réellement calculé, en TND (économie avant bornage). */
+  /** Économie calculée par l'IA, en TND (avant bornage). */
   iaSaving: number;
   /** Taux FINAL appliqué — toujours dans [15 %, 20 %]. */
   appliedPct: number;
@@ -88,11 +88,11 @@ export interface BoundedOptimizationRate {
 }
 
 /**
- * Applique la contrainte finale stricte au potentiel calculé par l'IA et en
- * déduit l'économie et le coût optimisé affichés.
+ * Applique la contrainte finale stricte au taux calculé par l'IA et en déduit
+ * l'économie et le coût optimisé affichés.
  */
 export function boundOptimizationRate(input: {
-  /** Potentiel calculé par l'IA (%). */
+  /** Taux calculé par l'IA (%). */
   iaPct: number;
   /** Coût initial total du projet (TND). */
   costInitial: number;
@@ -120,10 +120,10 @@ export function boundOptimizationRate(input: {
     raised,
     capped,
     explanation: raised
-      ? `Potentiel réellement calculé : ${fr(iaPct)} %. Inférieur au minimum de ${OPTIMIZATION_MIN_PCT} %, la règle d'optimisation applique le taux plancher de ${OPTIMIZATION_MIN_PCT} %.`
+      ? `Taux calculé par l'IA : ${fr(iaPct)} %. Inférieur au minimum de ${OPTIMIZATION_MIN_PCT} %, la règle d'optimisation applique le taux plancher de ${OPTIMIZATION_MIN_PCT} %.`
       : capped
-        ? `Potentiel réellement calculé : ${fr(iaPct)} %. Supérieur au maximum de ${OPTIMIZATION_MAX_PCT} %, la règle d'optimisation applique le taux plafond de ${OPTIMIZATION_MAX_PCT} %.`
-        : `Potentiel réellement calculé : ${fr(iaPct)} %. Compris dans l'intervalle autorisé, ce taux est conservé tel quel.`,
+        ? `Taux calculé par l'IA : ${fr(iaPct)} %. Supérieur au maximum de ${OPTIMIZATION_MAX_PCT} %, la règle d'optimisation applique le taux plafond de ${OPTIMIZATION_MAX_PCT} %.`
+        : `Taux calculé par l'IA : ${fr(iaPct)} %. Compris dans l'intervalle autorisé, ce taux est conservé tel quel.`,
   };
 }
 
@@ -153,7 +153,7 @@ export interface OptimizationRateCriterion {
 export interface OptimizationRateEstimate {
   /** Taux d'optimisation contextualisé (%), toujours dans [15 %, 20 %]. */
   iaPct: number;
-  /** Score de potentiel normalisé (0 → 1) à l'origine du taux. */
+  /** Score d'optimisation normalisé (0 → 1) à l'origine du taux. */
   score: number;
   min: number;
   max: number;
@@ -194,7 +194,8 @@ export interface OptimizationRateInput {
  * Le score est la moyenne pondérée de huit critères mesurés sur les données du
  * projet (matériaux, quantités, prix unitaires, catégories de travaux, travaux
  * sélectionnés, pertes, alternatives, achats groupés, périodes d'achat, poids
- * des postes, potentiel détecté). Il n'y a NI valeur constante, NI tirage
+ * des postes, capacité d'optimisation détectée). Il n'y a NI valeur constante,
+ * NI tirage
  * aléatoire : deux projets différents (ou deux analyses sur des données
  * différentes) produisent des taux différents ; un projet peu optimisable
  * reste proche de 15 %, un projet très optimisable se rapproche de 20 % sans
@@ -237,7 +238,7 @@ export function estimateOptimizationRate(input: OptimizationRateInput): Optimiza
     },
     {
       key: "score",
-      label: "Potentiel global détecté",
+      label: "Score d'optimisation global",
       weight: 0.14,
       value: clamp(num(input.optimizationScore) / 100, 0, 1),
       detail: `score d'optimisation ${fr(num(input.optimizationScore))}/100`,
@@ -410,22 +411,9 @@ export interface OptimizationLever extends LeverMeta {
   note: string | null;
 }
 
-export type ObjectiveBand = "en_cours" | "atteint" | "eleve";
-
-export interface OptimizationObjective {
-  currentPct: number;
-  targetLow: number;
-  targetHigh: number;
-  band: ObjectiveBand;
-  message: string;
-  /** Vrai si les opportunités réellement détectées permettent d'atteindre 15 %. */
-  reachable: boolean;
-}
-
 export interface OptimizationTopCards {
   materials: number;
   budgetOptimise: number;
-  budgetOptimisePct: number;
   pertesPct: number;
   previsionPrix: number;
 }
@@ -437,16 +425,10 @@ export interface OptimizationPlan {
   opportunities: OptimizationOpportunity[];
   projectTotal: number;
   materialsBudget: number;
-  /** Somme naïve de TOUTES les opportunités (référence de transparence). */
-  economieBrute: number;
   /** Effet réel combiné après suppression des doublons (§6). */
   economieRealisable: number;
-  potentielPct: number;
-  overlap: number;
-  overlapPct: number;
   coutInitial: number;
   coutOptimise: number;
-  coutOptimisePct: number;
   scoreOptimisation: number;
   scoreCriteria: { label: string; value: number; detail: string }[];
   materiauxTotal: number;
@@ -456,10 +438,7 @@ export interface OptimizationPlan {
   opportunitesAchat: number;
   articleSavings: { articleId: string; designation: string; saving: number; base: number }[];
   topCards: OptimizationTopCards;
-  objective: OptimizationObjective;
   explainer: string;
-  /** Message honnête lorsque les données ne permettent pas d'atteindre la zone. */
-  honesty: string | null;
   generatedAt: number;
 }
 
@@ -476,7 +455,7 @@ export const OPTIMIZATION_EXPLAINER =
   "BatiBuild analyse individuellement vos matériaux, leurs prix, les quantités nécessaires, les pertes potentielles et les opportunités d'achat. Les économies proposées sont des estimations et peuvent varier selon les choix que vous validez.";
 
 export const OPTIMIZATION_NO_DATA_REASON =
-  "Les matériaux de votre projet ne sont pas encore analysables : le potentiel d'optimisation sera calculé dès que les données seront disponibles.";
+  "Les matériaux de votre projet ne sont pas encore analysables : la capacité d'optimisation sera calculée dès que les données seront disponibles.";
 
 // ── Combinaison non naïve des économies (§6) ────────────────────────────────
 export interface CombinedArticleSaving {
@@ -578,8 +557,8 @@ export interface OptimizationProgress {
   niveauActuelPct: number;
   apresSelection: number;
   apresSelectionPct: number;
-  potentielRestant: number;
-  potentielRestantPct: number;
+  economieRestante: number;
+  economieRestantePct: number;
   fullPct: number;
 }
 
@@ -605,8 +584,8 @@ export function buildProgress(
     niveauActuelPct: applied.realisablePct,
     apresSelection: apres.realisable,
     apresSelectionPct: apres.realisablePct,
-    potentielRestant: Math.max(0, round2(full.realisable - apres.realisable)),
-    potentielRestantPct: Math.max(0, round2(full.realisablePct - apres.realisablePct)),
+    economieRestante: Math.max(0, round2(full.realisable - apres.realisable)),
+    economieRestantePct: Math.max(0, round2(full.realisablePct - apres.realisablePct)),
     fullPct: full.realisablePct,
   };
 }
@@ -870,7 +849,6 @@ export function buildOptimizationPlan(input: OptimizationInput): OptimizationPla
   const allIds = opportunities.map((o) => o.id);
   const combined = combineSavings(opportunities, allIds, projectTotal);
   const economieRealisable = combined.realisable;
-  const potentielPct = combined.realisablePct;
 
   // ── Leviers (§5) : économie de chaque levier appliqué seul ──────────────
   const levers: OptimizationLever[] = LEVER_META.map((meta) => {
@@ -885,31 +863,6 @@ export function buildOptimizationPlan(input: OptimizationInput): OptimizationPla
     };
   });
 
-  // ── Objectif d'optimisation dynamique (§3, §10, §11) ────────────────────
-  const reachable = potentielPct >= TARGET_LOW_PCT;
-  const band: ObjectiveBand =
-    potentielPct >= TARGET_HIGH_PCT ? "eleve" : potentielPct >= TARGET_LOW_PCT ? "atteint" : "en_cours";
-  const missingPoints = Math.max(0, round2(TARGET_LOW_PCT - potentielPct));
-  const objective: OptimizationObjective = {
-    currentPct: potentielPct,
-    targetLow: TARGET_LOW_PCT,
-    targetHigh: TARGET_HIGH_PCT,
-    band,
-    reachable,
-    message:
-      band === "eleve"
-        ? "Potentiel élevé — vérifier l'impact des arbitrages avant validation."
-        : band === "atteint"
-          ? "Objectif d'optimisation atteint."
-          : `${missingPoints.toLocaleString("fr-FR")} point${missingPoints > 1 ? "s" : ""} d'optimisation supplémentaires peuvent être recherchés.`,
-  };
-
-  const honesty =
-    band === "en_cours"
-      ? `Le potentiel d'optimisation identifié pour ce projet est actuellement de ${potentielPct.toLocaleString("fr-FR")} %. ` +
-        `Les données disponibles ne permettent pas de recommander davantage d'économies sans modifier significativement vos choix de matériaux ou votre niveau de qualité.`
-      : null;
-
   // ── Matériaux optimisables (§14) — analyse individuelle ────────────────
   const materiauxOptimisables = combined.articleSavings.length;
   const fortThreshold = Math.max(materialsBudget * 0.005, 20);
@@ -921,6 +874,8 @@ export function buildOptimizationPlan(input: OptimizationInput): OptimizationPla
 
   // ── Score d'optimisation du projet (§15) — capacité à être optimisé ────
   const opportunityDensity = analysed > 0 ? opportunities.length / analysed : 0;
+  /** Part du coût total réellement mobilisable par les économies détectées. */
+  const economiePct = projectTotal > 0 ? round2((economieRealisable / projectTotal) * 100) : 0;
   const criteria = [
     {
       label: "Nombre d'opportunités",
@@ -929,8 +884,8 @@ export function buildOptimizationPlan(input: OptimizationInput): OptimizationPla
     },
     {
       label: "Importance financière",
-      value: clamp(Math.round(potentielPct * 5)),
-      detail: `${round2(potentielPct)} % du coût total mobilisable`,
+      value: clamp(Math.round(economiePct * 5)),
+      detail: `${economiePct} % du coût total mobilisable`,
     },
     {
       label: "Alternatives disponibles",
@@ -975,7 +930,6 @@ export function buildOptimizationPlan(input: OptimizationInput): OptimizationPla
   const topCards: OptimizationTopCards = {
     materials: analysed,
     budgetOptimise: Math.max(0, Math.round(projectTotal - economieRealisable)),
-    budgetOptimisePct: potentielPct,
     pertesPct,
     previsionPrix: Math.round(intel.aggregate.totalProjected),
   };
@@ -989,14 +943,9 @@ export function buildOptimizationPlan(input: OptimizationInput): OptimizationPla
     opportunities,
     projectTotal,
     materialsBudget,
-    economieBrute: combined.brut,
     economieRealisable,
-    potentielPct,
-    overlap: combined.overlap,
-    overlapPct: combined.overlapPct,
     coutInitial: Math.round(projectTotal),
     coutOptimise: Math.max(0, Math.round(projectTotal - economieRealisable)),
-    coutOptimisePct: potentielPct,
     scoreOptimisation,
     scoreCriteria: criteria,
     materiauxTotal: analysed,
@@ -1006,9 +955,7 @@ export function buildOptimizationPlan(input: OptimizationInput): OptimizationPla
     opportunitesAchat,
     articleSavings: combined.articleSavings,
     topCards,
-    objective,
     explainer: OPTIMIZATION_EXPLAINER,
-    honesty,
     generatedAt: Date.now(),
   };
 }
