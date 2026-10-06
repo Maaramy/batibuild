@@ -53,7 +53,6 @@ import {
 } from "@/lib/materialIntelligence";
 
 import { OptimizationSection } from "@/components/decision/OptimizationSection";
-import { PredictiveIntelligenceSection } from "@/components/decision/PredictiveIntelligenceSection";
 import { buildOptimizationPlan, type OptimizationPlan } from "@/lib/optimizationEngine";
 import { buildBudgetAnalysis, type BudgetAnalysis } from "@/lib/budgetEngine";
 import {
@@ -468,18 +467,6 @@ export function DecisionSupportModule({
       {optimization && (
         <OptimizationSection
           plan={optimization}
-          predictive={
-            budgetAnalysis && materialIntel ? (
-              <PredictiveIntelligenceSection
-                plan={optimization}
-                budget={budgetAnalysis}
-                intel={materialIntel}
-                analysis={a}
-                projectName={projectName}
-                scenarioLabel={scenarioLabel}
-              />
-            ) : null
-          }
           budgetAnalysis={budgetAnalysis}
           budgetAvailable={budgetAvailable ?? undefined}
           onBudgetChange={(value) => setBudgetAvailable(value === "" ? null : Number(value))}
