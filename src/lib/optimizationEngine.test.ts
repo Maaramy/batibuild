@@ -6,6 +6,8 @@ import type { MaterialIntelRow, MaterialIntelligence } from "@/lib/materialIntel
 import {
   boundOptimizationRate,
   buildOptimizationPlan,
+  estimateOptimizationRate,
+  type OptimizationRateInput,
   combineSavings,
   OPTIMIZATION_MAX_PCT,
   OPTIMIZATION_MIN_PCT,
@@ -323,5 +325,81 @@ describe("boundOptimizationRate — taux final borné dans [15 %, 20 %]", () => 
     expect(r.appliedSaving).toBe(12_000);
     expect(r.scale).toBe(0);
     expect(scaleSaving(500, r.scale)).toBe(0);
+  });
+});
+
+describe("estimateOptimizationRate — taux contextualisé, jamais constant", () => {
+  const rateInput = (o: Partial<OptimizationRateInput> = {}): OptimizationRateInput => ({
+    costInitial: 100_000,
+    materialsBudget: 40_000,
+    analysed: 20,
+    opportunities: 12,
+    alternatives: 6,
+    rising: 4,
+    avoidableLoss: 600,
+    purchaseOpportunities: 5,
+    groupable: 6,
+    budgetCoverage: 0.6,
+    optimizationScore: 60,
+    ...o,
+  });
+
+  it("reste toujours dans [15 %, 20 %], même sur des données extrêmes", () => {
+    for (const r of [
+      rateInput(),
+      rateInput({ analysed: 0, opportunities: 0, alternatives: 0, rising: 0, avoidableLoss: 0, purchaseOpportunities: 0, groupable: 0, optimizationScore: 0, budgetCoverage: 0 }),
+      rateInput({ analysed: 500, opportunities: 2_000, alternatives: 500, rising: 500, avoidableLoss: 900_000, purchaseOpportunities: 400, groupable: 500, optimizationScore: 100, budgetCoverage: 0 }),
+      rateInput({ costInitial: Number.NaN, materialsBudget: Number.NaN, avoidableLoss: Number.NaN, optimizationScore: Number.NaN }),
+    ]) {
+      const e = estimateOptimizationRate(r);
+      expect(e.iaPct).toBeGreaterThanOrEqual(OPTIMIZATION_MIN_PCT);
+      expect(e.iaPct).toBeLessThanOrEqual(OPTIMIZATION_MAX_PCT);
+      expect(Number.isFinite(e.iaPct)).toBe(true);
+      // Projection linéaire taux = 15 + 5 × score. Le score exposé est arrondi
+      // à 2 décimales pour l'affichage : l'écart maximal induit est de 0,03 pt.
+      expect(e.iaPct).toBeCloseTo(15 + 5 * e.score, 1);
+      expect(Math.abs(e.iaPct - (15 + 5 * e.score))).toBeLessThanOrEqual(0.05);
+      expect(e.score).toBeGreaterThanOrEqual(0);
+      expect(e.score).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("produit des taux DIFFÉRENTS selon les caractéristiques du projet", () => {
+    const a = estimateOptimizationRate(rateInput({ opportunities: 3, alternatives: 1, rising: 1, avoidableLoss: 40, purchaseOpportunities: 0, groupable: 0, optimizationScore: 22, budgetCoverage: 0.95 }));
+    const b = estimateOptimizationRate(rateInput());
+    const c = estimateOptimizationRate(rateInput({ opportunities: 38, alternatives: 18, rising: 9, avoidableLoss: 2_400, purchaseOpportunities: 14, groupable: 16, optimizationScore: 88, budgetCoverage: 0.3 }));
+
+    // Projets de plus en plus optimisables → taux strictement croissants.
+    expect(a.iaPct).toBeLessThan(b.iaPct);
+    expect(b.iaPct).toBeLessThan(c.iaPct);
+    // Aucun des trois n'est collé aux bornes : le taux est bien calculé.
+    expect(a.iaPct).toBeGreaterThan(OPTIMIZATION_MIN_PCT);
+    expect(c.iaPct).toBeLessThan(OPTIMIZATION_MAX_PCT);
+    expect(new Set([a.iaPct, b.iaPct, c.iaPct]).size).toBe(3);
+  });
+
+  it("renvoie toujours le même taux pour les mêmes données (aucun tirage aléatoire)", () => {
+    expect(estimateOptimizationRate(rateInput())).toEqual(estimateOptimizationRate(rateInput()));
+  });
+
+  it("expose les critères réels et leurs poids", () => {
+    const e = estimateOptimizationRate(rateInput());
+    expect(e.criteria).toHaveLength(8);
+    expect(e.criteria.reduce((s, c) => s + c.weight, 0)).toBeCloseTo(1, 6);
+    for (const c of e.criteria) {
+      expect(c.value).toBeGreaterThanOrEqual(0);
+      expect(c.value).toBeLessThanOrEqual(1);
+      expect(c.detail.length).toBeGreaterThan(0);
+    }
+    // Les critères reflètent les données fournies.
+    expect(e.criteria.find((c) => c.key === "densite")?.detail).toContain("12");
+    expect(e.criteria.find((c) => c.key === "substitution")?.detail).toContain("6");
+  });
+
+  it("ne renvoie jamais 20 % par défaut sur un projet peu optimisable", () => {
+    const lean = estimateOptimizationRate(rateInput({ analysed: 30, opportunities: 1, alternatives: 0, rising: 0, avoidableLoss: 0, purchaseOpportunities: 0, groupable: 0, optimizationScore: 15, budgetCoverage: 1 }));
+    expect(lean.iaPct).toBeLessThan(OPTIMIZATION_MAX_PCT);
+    expect(lean.iaPct).toBeGreaterThanOrEqual(OPTIMIZATION_MIN_PCT);
+    expect(lean.score).toBeLessThan(0.2);
   });
 });

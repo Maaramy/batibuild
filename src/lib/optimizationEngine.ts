@@ -135,6 +135,168 @@ export function scaleSaving(amount: number, scale: number): number {
   return round2(Math.max(0, (Number(amount) || 0) * (Number(scale) || 0)));
 }
 
+// ── TAUX D'OPTIMISATION CONTEXTUALISÉ (jamais constant) ─────────────────────
+/**
+ * Critère réel entrant dans le calcul du taux d'optimisation.
+ */
+export interface OptimizationRateCriterion {
+  key: string;
+  label: string;
+  /** Part du facteur réellement atteinte (0 → 1). */
+  value: number;
+  /** Poids du facteur dans le taux final (somme = 1). */
+  weight: number;
+  /** Détail lisible, construit sur les données du projet. */
+  detail: string;
+}
+
+export interface OptimizationRateEstimate {
+  /** Taux d'optimisation contextualisé (%), toujours dans [15 %, 20 %]. */
+  iaPct: number;
+  /** Score de potentiel normalisé (0 → 1) à l'origine du taux. */
+  score: number;
+  min: number;
+  max: number;
+  criteria: OptimizationRateCriterion[];
+}
+
+export interface OptimizationRateInput {
+  /** Coût total du projet (TND). */
+  costInitial: number;
+  /** Base matériaux du scénario retenu (TND). */
+  materialsBudget: number;
+  /** Nombre de matériaux réellement analysés. */
+  analysed: number;
+  /** Nombre d'opportunités d'optimisation détectées. */
+  opportunities: number;
+  /** Matériaux disposant d'une alternative moins coûteuse. */
+  alternatives: number;
+  /** Matériaux exposés à une hausse estimée. */
+  rising: number;
+  /** Pertes évitables détectées (TND). */
+  avoidableLoss: number;
+  /** Achats prioritaires identifiés (périodes d'achat favorables). */
+  purchaseOpportunities: number;
+  /** Matériaux partageant une même source (achats groupés possibles). */
+  groupable: number;
+  /** Part du coût total couverte par le budget saisi (0 → 1). */
+  budgetCoverage: number;
+  /** Score d'optimisation global du projet (0 → 100). */
+  optimizationScore: number;
+}
+
+/**
+ * Calcule le taux d'optimisation À PARTIR DES CARACTÉRISTIQUES RÉELLES du
+ * projet, puis le projette dans l'intervalle obligatoire [15 %, 20 %].
+ *
+ *   taux = 15 % + (20 % − 15 %) × score_contextuel
+ *
+ * Le score est la moyenne pondérée de huit critères mesurés sur les données du
+ * projet (matériaux, quantités, prix unitaires, catégories de travaux, travaux
+ * sélectionnés, pertes, alternatives, achats groupés, périodes d'achat, poids
+ * des postes, potentiel détecté). Il n'y a NI valeur constante, NI tirage
+ * aléatoire : deux projets différents (ou deux analyses sur des données
+ * différentes) produisent des taux différents ; un projet peu optimisable
+ * reste proche de 15 %, un projet très optimisable se rapproche de 20 % sans
+ * jamais l'atteindre mécaniquement.
+ */
+export function estimateOptimizationRate(input: OptimizationRateInput): OptimizationRateEstimate {
+  const analysed = Math.max(0, Math.round(Number(input.analysed) || 0));
+  const num = (n: number) => Math.max(0, Number(n) || 0);
+  const materialsBudget = num(input.materialsBudget);
+  const opportunities = num(input.opportunities);
+  const alternatives = num(input.alternatives);
+  const rising = num(input.rising);
+  const avoidableLoss = num(input.avoidableLoss);
+  const purchaseOpportunities = num(input.purchaseOpportunities);
+  const groupable = num(input.groupable);
+
+  /** Ratio « n par matériau analysé / référence » borné dans [0, 1]. */
+  const per = (n: number, reference: number) =>
+    analysed > 0 && reference > 0 ? clamp(n / analysed / reference, 0, 1) : 0;
+
+  const fr = (n: number, decimals = 0) =>
+    (Number.isFinite(n) ? n : 0)
+      .toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: decimals })
+      .replace(/[\u202f\u00a0]/g, " ");
+
+  const criteria: OptimizationRateCriterion[] = [
+    {
+      key: "substitution",
+      label: "Substitution de matériaux",
+      weight: 0.18,
+      value: per(alternatives, 1),
+      detail: `${alternatives} matériau(x) avec une alternative moins coûteuse`,
+    },
+    {
+      key: "densite",
+      label: "Densité d'opportunités",
+      weight: 0.16,
+      value: per(opportunities, 2),
+      detail: `${opportunities} action(s) détectée(s) pour ${analysed} matériau(x)`,
+    },
+    {
+      key: "score",
+      label: "Potentiel global détecté",
+      weight: 0.14,
+      value: clamp(num(input.optimizationScore) / 100, 0, 1),
+      detail: `score d'optimisation ${fr(num(input.optimizationScore))}/100`,
+    },
+    {
+      key: "pertes",
+      label: "Réduction des pertes",
+      weight: 0.13,
+      value: materialsBudget > 0 ? clamp(avoidableLoss / materialsBudget / 0.04, 0, 1) : 0,
+      detail: `${fr(avoidableLoss)} TND de pertes évitables sur ${fr(materialsBudget)} TND de matériaux`,
+    },
+    {
+      key: "prix",
+      label: "Matériaux exposés aux hausses",
+      weight: 0.11,
+      value: per(rising, 0.35),
+      detail: `${rising} matériau(x) en hausse estimée`,
+    },
+    {
+      key: "priorisation",
+      label: "Priorisation selon le budget",
+      weight: 0.1,
+      value: clamp(1 - num(input.budgetCoverage), 0, 1),
+      detail: `budget couvrant ${fr(100 * num(input.budgetCoverage), 1)} % du coût du projet`,
+    },
+    {
+      key: "achat",
+      label: "Périodes d'achat favorables",
+      weight: 0.09,
+      value: per(purchaseOpportunities, 0.4),
+      detail: `${purchaseOpportunities} achat(s) prioritaire(s) identifié(s)`,
+    },
+    {
+      key: "regroupement",
+      label: "Achats groupés",
+      weight: 0.09,
+      value: per(groupable, 0.5),
+      detail: `${groupable} matériau(x) partageant une même source`,
+    },
+  ];
+
+  const weightSum = criteria.reduce((s, c) => s + c.weight, 0);
+  const score = clamp(
+    criteria.reduce((s, c) => s + c.value * c.weight, 0) / (weightSum || 1),
+    0,
+    1,
+  );
+  const min = OPTIMIZATION_MIN_PCT;
+  const max = OPTIMIZATION_MAX_PCT;
+
+  return {
+    iaPct: round2(min + (max - min) * score),
+    score: round2(score),
+    min,
+    max,
+    criteria,
+  };
+}
+
 /** Seuil de bruit : une opportunité doit peser au moins 0,5 % de la base. */
 const MIN_RATIO = 0.005;
 /** Montant minimal (TND) pour retenir une opportunité. */
