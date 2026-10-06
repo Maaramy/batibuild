@@ -42,6 +42,99 @@ const round2 = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 100) / 1
 export const TARGET_LOW_PCT = 15;
 export const TARGET_HIGH_PCT = 20;
 
+// ── RÈGLE D'OPTIMISATION — taux final borné dans [15 %, 20 %] ───────────────
+/**
+ * Bornes STRICTES du taux d'optimisation AFFICHÉ. Le taux est toujours calculé
+ * à partir des données réelles du projet (Quantitatif détaillé, matériaux,
+ * quantités, prix unitaires, catégories de travaux, travaux sélectionnés,
+ * pertes estimées, alternatives, périodes d'achat, priorisation) puis ramené
+ * dans cet intervalle :
+ *
+ *     taux_applique = MAX(15 %, MIN(taux_ia_calcule, 20 %))
+ *
+ * Le taux n'est JAMAIS fixe : il varie d'un projet à l'autre et n'est borné
+ * qu'aux deux extrémités. Toutes les valeurs affichées par le module en
+ * découlent (économie = coût initial × taux, coût optimisé = coût initial −
+ * économie, répartition par poste, leviers, graphique, simulation, résumé),
+ * ce qui garantit leur cohérence.
+ *
+ * Aucun Quantitatif n'est modifié : l'optimisation reste présentée comme le
+ * RÉSULTAT des actions proposées par l'IA, jamais comme un ajustement de
+ * quantités.
+ */
+export const OPTIMIZATION_MIN_PCT = TARGET_LOW_PCT;
+export const OPTIMIZATION_MAX_PCT = TARGET_HIGH_PCT;
+
+export interface BoundedOptimizationRate {
+  /** Potentiel RÉELLEMENT calculé par l'IA (%, jamais borné). */
+  iaPct: number;
+  /** Potentiel réellement calculé, en TND (économie avant bornage). */
+  iaSaving: number;
+  /** Taux FINAL appliqué — toujours dans [15 %, 20 %]. */
+  appliedPct: number;
+  /** Économie affichée = coût initial × taux appliqué (TND). */
+  appliedSaving: number;
+  /** Coût optimisé affiché = coût initial − économie (TND). */
+  costOptimized: number;
+  costInitial: number;
+  /** Facteur d'alignement des montants réels sur le taux appliqué. */
+  scale: number;
+  /** Vrai si le taux a été relevé au plancher. */
+  raised: boolean;
+  /** Vrai si le taux a été plafonné. */
+  capped: boolean;
+  /** Explication prête à afficher (pourquoi exactement ce taux). */
+  explanation: string;
+}
+
+/**
+ * Applique la contrainte finale stricte au potentiel calculé par l'IA et en
+ * déduit l'économie et le coût optimisé affichés.
+ */
+export function boundOptimizationRate(input: {
+  /** Potentiel calculé par l'IA (%). */
+  iaPct: number;
+  /** Coût initial total du projet (TND). */
+  costInitial: number;
+  /** Économie réelle détectée avant bornage (TND). */
+  iaSaving: number;
+}): BoundedOptimizationRate {
+  const iaPct = round2(Math.max(0, Number(input.iaPct) || 0));
+  const costInitial = Math.max(0, Math.round(Number(input.costInitial) || 0));
+  const iaSaving = Math.max(0, round2(Number(input.iaSaving) || 0));
+
+  const appliedPct = round2(clamp(iaPct, OPTIMIZATION_MIN_PCT, OPTIMIZATION_MAX_PCT));
+  const appliedSaving = Math.round(costInitial * (appliedPct / 100));
+  const raised = iaPct < OPTIMIZATION_MIN_PCT;
+  const capped = iaPct > OPTIMIZATION_MAX_PCT;
+  const fr = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+
+  return {
+    iaPct,
+    iaSaving,
+    appliedPct,
+    appliedSaving,
+    costOptimized: Math.max(0, costInitial - appliedSaving),
+    costInitial,
+    scale: iaSaving > 0 ? appliedSaving / iaSaving : 0,
+    raised,
+    capped,
+    explanation: raised
+      ? `Potentiel réellement calculé : ${fr(iaPct)} %. Inférieur au minimum de ${OPTIMIZATION_MIN_PCT} %, la règle d'optimisation applique le taux plancher de ${OPTIMIZATION_MIN_PCT} %.`
+      : capped
+        ? `Potentiel réellement calculé : ${fr(iaPct)} %. Supérieur au maximum de ${OPTIMIZATION_MAX_PCT} %, la règle d'optimisation applique le taux plafond de ${OPTIMIZATION_MAX_PCT} %.`
+        : `Potentiel réellement calculé : ${fr(iaPct)} %. Compris dans l'intervalle autorisé, ce taux est conservé tel quel.`,
+  };
+}
+
+/**
+ * Aligne un montant d'économie réel sur le taux appliqué (arrondi au centime).
+ * `scale` vient de `boundOptimizationRate`.
+ */
+export function scaleSaving(amount: number, scale: number): number {
+  return round2(Math.max(0, (Number(amount) || 0) * (Number(scale) || 0)));
+}
+
 /** Seuil de bruit : une opportunité doit peser au moins 0,5 % de la base. */
 const MIN_RATIO = 0.005;
 /** Montant minimal (TND) pour retenir une opportunité. */

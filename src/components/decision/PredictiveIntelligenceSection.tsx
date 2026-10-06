@@ -46,7 +46,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatPercent, formatTndAmount, type BudgetAnalysis } from "@/lib/budgetEngine";
 import type { MaterialIntelligence } from "@/lib/materialIntelligence";
-import type { OptimizationPlan } from "@/lib/optimizationEngine";
+import {
+  boundOptimizationRate,
+  OPTIMIZATION_MAX_PCT,
+  OPTIMIZATION_MIN_PCT,
+  scaleSaving,
+  type OptimizationPlan,
+} from "@/lib/optimizationEngine";
 import { buildWorkPostes } from "@/lib/workAnalysis";
 import {
   PRICE_TREND_LABELS,
@@ -108,21 +114,6 @@ function impactOf(impactScore: number): string {
   if (impactScore >= 40) return "Impact moyen";
   return "Impact limité";
 }
-
-const OBJECTIVE_BAND: Record<OptimizationPlan["objective"]["band"], Badge> = {
-  eleve: {
-    label: "Au-dessus de l'objectif",
-    cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  },
-  atteint: {
-    label: "Objectif atteint",
-    cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  },
-  en_cours: {
-    label: "Sous l'objectif",
-    cls: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  },
-};
 
 // ── Cartes KPI ──────────────────────────────────────────────────────────────
 function Kpi({
@@ -191,9 +182,21 @@ function Block({
  * Barre de progression vers l'objectif : la zone cible 15–20 % est mise en
  * évidence, le marqueur indique le potentiel RÉELLEMENT calculé.
  */
-function ObjectiveBar({ pct, low, high }: { pct: number; low: number; high: number }) {
+function ObjectiveBar({
+  pct,
+  low,
+  high,
+  rawPct,
+}: {
+  pct: number;
+  low: number;
+  high: number;
+  /** Potentiel réellement calculé AVANT la règle (repère gris). */
+  rawPct?: number;
+}) {
   const max = high * 1.25;
   const marker = (clamp(pct, 0, max) / max) * 100;
+  const raw = typeof rawPct === "number" ? (clamp(rawPct, 0, max) / max) * 100 : null;
   const bandLeft = (low / max) * 100;
   const bandWidth = ((high - low) / max) * 100;
   return (
@@ -203,6 +206,13 @@ function ObjectiveBar({ pct, low, high }: { pct: number; low: number; high: numb
           className="absolute inset-y-0 border-x border-primary/40 bg-primary/15"
           style={{ left: `${bandLeft}%`, width: `${bandWidth}%` }}
         />
+        {raw !== null ? (
+          <div
+            className="absolute inset-y-0 w-0.5 bg-muted-foreground/70"
+            style={{ left: `${raw}%` }}
+            title={`Potentiel réellement calculé : ${formatPercent(rawPct ?? 0)}`}
+          />
+        ) : null}
         <div
           className={cn(
             "absolute inset-y-0 left-0 rounded-full",
@@ -212,8 +222,16 @@ function ObjectiveBar({ pct, low, high }: { pct: number; low: number; high: numb
         />
       </div>
       <div className="relative mt-1 h-3.5 text-[9.5px] text-muted-foreground">
-        <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${bandLeft + bandWidth / 2}%` }}>
-          objectif {low}–{high} %
+        {raw !== null ? (
+          <span className="absolute left-0 whitespace-nowrap">
+            potentiel calculé {formatPercent(rawPct ?? 0)}
+          </span>
+        ) : null}
+        <span
+          className="absolute -translate-x-1/2 whitespace-nowrap"
+          style={{ left: `${bandLeft + bandWidth / 2}%` }}
+        >
+          intervalle {low}–{high} %
         </span>
       </div>
     </div>
@@ -283,22 +301,41 @@ export function PredictiveIntelligenceSection({
 
   // ── Indicateurs globaux (tous calculés, jamais codés en dur) ─────────────
   const costInitial = plan.coutInitial > 0 ? plan.coutInitial : budget.projectTotal;
-  const saving = Math.max(0, plan.economieRealisable);
-  const savingPct = plan.potentielPct;
-  const costOptimized =
-    plan.coutOptimise > 0 ? plan.coutOptimise : Math.max(0, costInitial - saving);
   const budgetGap = budget.availableBudget - costInitial;
-  const budgetGapOptimized = budget.availableBudget - costOptimized;
-  const objective = plan.objective;
-  const band = OBJECTIVE_BAND[objective.band];
 
-  /** Pourcentage d'optimisation réellement obtenu — jamais imposé. */
-  const objectiveExplain =
-    objective.band === "eleve"
-      ? `Le potentiel détecté (${formatPercent(objective.currentPct)}) DÉPASSE l'objectif d'optimisation de ${objective.targetLow}–${objective.targetHigh} % : de nombreuses marges d'économie réelles ont été identifiées sur ce projet.`
-      : objective.band === "atteint"
-        ? `Le potentiel détecté (${formatPercent(objective.currentPct)}) se situe DANS l'objectif d'optimisation de ${objective.targetLow}–${objective.targetHigh} %.`
-        : `Le potentiel détecté (${formatPercent(objective.currentPct)}) reste SOUS l'objectif de ${objective.targetLow}–${objective.targetHigh} % : ${plan.honesty ?? objective.message}`;
+  // ── RÈGLE D'OPTIMISATION — taux final borné dans [15 %, 20 %] ────────────
+  //   1. l'IA calcule d'abord le potentiel RÉEL du projet (Quantitatif
+  //      détaillé, matériaux, quantités, prix unitaires, catégories de travaux,
+  //      travaux sélectionnés, pertes estimées, alternatives, périodes d'achat,
+  //      priorisation des travaux) — moteur partagé `buildOptimizationPlan` ;
+  //   2. le taux FINAL appliqué est borné : MAX(15 %, MIN(taux IA, 20 %)) ;
+  //   3. économie = coût initial × taux appliqué, coût optimisé = coût
+  //      initial − économie.
+  // Toutes les valeurs affichées (cartes, tableaux, leviers, graphique,
+  // simulation, résumé) découlent de ce taux : cohérence garantie. Aucune
+  // quantité du Quantitatif n'est modifiée.
+  const rate = useMemo(
+    () =>
+      boundOptimizationRate({
+        iaPct: plan.potentielPct,
+        costInitial,
+        iaSaving: Math.max(0, plan.economieRealisable),
+      }),
+    [plan.potentielPct, plan.economieRealisable, costInitial],
+  );
+
+  const saving = rate.appliedSaving;
+  const savingPct = rate.appliedPct;
+  const costOptimized = rate.costOptimized;
+  const budgetGapOptimized = budget.availableBudget - costOptimized;
+  /** Facteur d'alignement des montants réels sur le taux appliqué. */
+  const scale = rate.scale;
+
+  /** Économies par matériau alignées sur le taux appliqué (cohérence). */
+  const scaledArticleSavings = useMemo(
+    () => plan.articleSavings.map((a) => ({ ...a, saving: scaleSaving(a.saving, scale) })),
+    [plan.articleSavings, scale],
+  );
 
   // ── Réduction des pertes ────────────────────────────────────────────────
   const lossEstimated = Math.max(analysis.losses.estimatedLoss, intel.aggregate.totalLoss);
@@ -335,10 +372,12 @@ export function PredictiveIntelligenceSection({
   );
 
   const periodLever = plan.levers.find((l) => l.key === "periode");
-  const timingSaving =
+  const timingSaving = scaleSaving(
     periodLever && periodLever.saving > 0
       ? periodLever.saving
-      : risingRows.reduce((s, r) => s + (r.impactAmount || 0), 0);
+      : risingRows.reduce((s, r) => s + (r.impactAmount || 0), 0),
+    scale,
+  );
 
   // ── Analyse des travaux : postes réels du Quantitatif détaillé ───────────
   const postes = useMemo(
@@ -346,26 +385,42 @@ export function PredictiveIntelligenceSection({
       buildWorkPostes({
         breakdown: budget.breakdown,
         rows: intel.rows,
-        articleSavings: plan.articleSavings,
+        articleSavings: scaledArticleSavings,
         totalSaving: saving,
       }),
-    [budget.breakdown, intel.rows, plan.articleSavings, saving],
+    [budget.breakdown, intel.rows, scaledArticleSavings, saving],
   );
 
   // ── Recommandations IA : leviers réels + meilleures opportunités ─────────
+  // Les montants par action sont alignés sur le taux appliqué (mise à l'échelle
+  // du potentiel réel) : les recommandations restent donc cohérentes avec le
+  // montant économisé total affiché.
   const activeLevers = useMemo(
-    () => plan.levers.filter((l) => l.saving > 0).sort((a, b) => b.saving - a.saving),
-    [plan.levers],
+    () =>
+      plan.levers
+        .map((l) => {
+          const aligned = scaleSaving(l.saving, scale);
+          return {
+            ...l,
+            saving: aligned,
+            savingPct: costInitial > 0 ? (aligned / costInitial) * 100 : 0,
+          };
+        })
+        .filter((l) => l.saving > 0)
+        .sort((a, b) => b.saving - a.saving),
+    [plan.levers, scale, costInitial],
   );
   const topOpportunities = useMemo(
-    () => plan.opportunities.slice(0, 5),
-    [plan.opportunities],
+    () =>
+      plan.opportunities.slice(0, 5).map((op) => ({ ...op, saving: scaleSaving(op.saving, scale) })),
+    [plan.opportunities, scale],
   );
 
-  const overlapNote =
+  /** Trace le potentiel réellement calculé (avant application de la règle). */
+  const potentialNote =
     plan.overlap > 0.5
-      ? `Somme brute des leviers ${formatTndAmount(plan.economieBrute)} → après suppression des doublons (${formatTndAmount(plan.overlap)}), économie retenue ${formatTndAmount(plan.economieRealisable)}.`
-      : null;
+      ? `Potentiel brut détecté : ${formatTndAmount(plan.economieBrute)} → après suppression des doublons (${formatTndAmount(plan.overlap)}), potentiel réel retenu : ${formatTndAmount(plan.economieRealisable)} (${formatPercent(rate.iaPct)}).`
+      : `Potentiel réel détecté : ${formatTndAmount(plan.economieRealisable)} (${formatPercent(rate.iaPct)}).`;
 
   const contextLabel = [projectName, scenarioLabel].filter(Boolean).join(" · ");
 
@@ -400,9 +455,9 @@ export function PredictiveIntelligenceSection({
           </div>
         </div>
 
-        {/* Mise en avant du montant réellement économisé et du % calculé */}
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-3 sm:col-span-1">
+        {/* Mise en avant du taux appliqué et du montant réellement économisé */}
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-3">
             <p className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
               Économie estimée par l'IA
             </p>
@@ -414,6 +469,13 @@ export function PredictiveIntelligenceSection({
             </p>
           </div>
           <Kpi
+            icon={Gauge}
+            label="Taux d'optimisation IA"
+            value={formatPercent(savingPct)}
+            hint={`borné dans [${OPTIMIZATION_MIN_PCT} % ; ${OPTIMIZATION_MAX_PCT} %]`}
+            tone="text-emerald-600 dark:text-emerald-400"
+          />
+          <Kpi
             icon={PiggyBank}
             label="Coût optimisé"
             value={formatTndAmount(costOptimized)}
@@ -421,14 +483,9 @@ export function PredictiveIntelligenceSection({
           />
           <Kpi
             icon={Target}
-            label="Objectif d'optimisation"
-            value={`${objective.targetLow}–${objective.targetHigh} %`}
-            hint={`potentiel réellement calculé : ${formatPercent(savingPct)}`}
-            tone={
-              objective.band === "en_cours"
-                ? "text-amber-600 dark:text-amber-400"
-                : "text-emerald-600 dark:text-emerald-400"
-            }
+            label="Potentiel réel détecté"
+            value={formatPercent(rate.iaPct)}
+            hint="avant application de la règle d'optimisation"
           />
         </div>
 
@@ -482,10 +539,10 @@ export function PredictiveIntelligenceSection({
             />
             <Kpi
               icon={Gauge}
-              label="Pourcentage réel"
+              label="Taux d'optimisation"
               value={formatPercent(savingPct)}
               tone="text-emerald-600 dark:text-emerald-400"
-              hint="calculé sur les données réelles"
+              hint={`variable selon le projet, borné ${OPTIMIZATION_MIN_PCT}–${OPTIMIZATION_MAX_PCT} %`}
             />
             <Kpi
               icon={Tag}
@@ -510,27 +567,50 @@ export function PredictiveIntelligenceSection({
             </p>
           </div>
 
-          <ObjectiveBar pct={savingPct} low={objective.targetLow} high={objective.targetHigh} />
+          <ObjectiveBar
+            pct={savingPct}
+            low={OPTIMIZATION_MIN_PCT}
+            high={OPTIMIZATION_MAX_PCT}
+            rawPct={rate.iaPct}
+          />
 
           <div className="mt-2 flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/[0.04] p-2.5">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
             <div>
               <p className="text-[10.5px] font-semibold">
-                Pourquoi ce pourcentage ?{" "}
-                <span className={cn("rounded-full border px-1.5 py-0.5 text-[9.5px]", band.cls)}>
-                  {band.label}
+                Comment ce taux est calculé ?{" "}
+                <span
+                  className={cn(
+                    "rounded-full border px-1.5 py-0.5 text-[9.5px]",
+                    rate.raised
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                      : rate.capped
+                        ? "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+                        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+                  )}
+                >
+                  {rate.raised
+                    ? `plancher ${OPTIMIZATION_MIN_PCT} % appliqué`
+                    : rate.capped
+                      ? `plafond ${OPTIMIZATION_MAX_PCT} % appliqué`
+                      : "potentiel conservé"}
                 </span>
               </p>
               <p className="mt-1 text-[10.5px] leading-snug text-muted-foreground">
-                {objectiveExplain}
+                {rate.explanation}
+              </p>
+              <p className="mt-1 font-mono text-[10px] text-muted-foreground/90">
+                taux = MAX({OPTIMIZATION_MIN_PCT} %, MIN(taux IA, {OPTIMIZATION_MAX_PCT} %))
               </p>
               <p className="mt-1 text-[10px] leading-snug text-muted-foreground/90">
-                L'objectif de {objective.targetLow}–{objective.targetHigh} % est une ZONE CIBLE, jamais
-                une valeur imposée : le pourcentage affiché provient uniquement des prix, quantités et
-                pertes réels de votre projet.
+                Le taux reste variable d'un projet à l'autre : il dépend des matériaux, quantités,
+                prix unitaires, catégories de travaux, pertes estimées, alternatives et périodes
+                d'achat réels. Économie = coût initial × taux appliqué ; coût optimisé = coût initial −
+                économie. Aucune quantité du Quantitatif n'est modifiée : l'optimisation est le
+                résultat des actions ci-dessous.
               </p>
-              {overlapNote ? (
-                <p className="mt-1 text-[10px] text-muted-foreground/80">{overlapNote}</p>
+              {potentialNote ? (
+                <p className="mt-1 text-[10px] text-muted-foreground/80">{potentialNote}</p>
               ) : null}
             </div>
           </div>
@@ -825,8 +905,10 @@ export function PredictiveIntelligenceSection({
           </ul>
         ) : (
           <p className="text-[10.5px] text-muted-foreground">
-            Aucun levier d'économie fiable n'a été identifié avec les données actuelles : l'IA préfère
-            ne rien recommander plutôt que d'afficher une économie non calculée.
+            Aucun levier chiffré n'a pu être identifié avec les données actuelles : le taux appliqué
+            correspond au plancher de la règle d'optimisation ({OPTIMIZATION_MIN_PCT} %) et sa
+            répartition par levier n'est pas calculable. Le tableau « Analyse intelligente des
+            travaux » répartit l'économie selon le poids réel de chaque poste.
           </p>
         )}
 
@@ -925,8 +1007,9 @@ export function PredictiveIntelligenceSection({
             </p>
             <CompareBars initial={costInitial} optimized={costOptimized} saving={saving} />
             <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
-              Graphique d'estimation : la barre « économie IA » correspond au montant réellement
-              identifié par l'analyse ({formatPercent(savingPct)} du coût total), pas à un objectif fixe.
+              Graphique d'estimation : l'économie affichée découle du taux d'optimisation appliqué
+              ({formatPercent(savingPct)} du coût initial), soit {formatTndAmount(saving)} — montant
+              identique à celui des cartes, du tableau des travaux et du résumé ci-dessous.
             </p>
           </div>
         </div>
@@ -1029,6 +1112,10 @@ export function PredictiveIntelligenceSection({
         </span>
         <span className="inline-flex items-center gap-1">
           <Sparkles className="h-3 w-3 text-primary" /> {plan.opportunities.length} action(s) identifiée(s)
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Gauge className="h-3 w-3 text-emerald-500" /> Taux appliqué {formatPercent(savingPct)} ·
+          économie {formatTndAmount(saving)} · coût optimisé {formatTndAmount(costOptimized)}
         </span>
         <span className="ml-auto inline-flex items-center gap-1">
           Généré le{" "}

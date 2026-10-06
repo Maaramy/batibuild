@@ -4,9 +4,13 @@ import type { MaterialWorkspace } from "@/convex/materialSelectionEngine";
 import type { DecisionAnalysis } from "@/lib/decisionAnalysis";
 import type { MaterialIntelRow, MaterialIntelligence } from "@/lib/materialIntelligence";
 import {
+  boundOptimizationRate,
   buildOptimizationPlan,
   combineSavings,
+  OPTIMIZATION_MAX_PCT,
+  OPTIMIZATION_MIN_PCT,
   progressionBlocks,
+  scaleSaving,
   TARGET_HIGH_PCT,
   TARGET_LOW_PCT,
   type OptimizationInput,
@@ -254,5 +258,70 @@ describe("progressionBlocks — barre de progression (§9)", () => {
     expect(mid).toHaveLength(18);
     expect(mid).toContain("█");
     expect(mid).toContain("░");
+  });
+});
+
+describe("boundOptimizationRate — taux final borné dans [15 %, 20 %]", () => {
+  it("relève au plancher un potentiel trop faible", () => {
+    const r = boundOptimizationRate({ iaPct: 12, costInitial: 60_000, iaSaving: 7_200 });
+    expect(r.iaPct).toBe(12);
+    expect(r.appliedPct).toBe(OPTIMIZATION_MIN_PCT);
+    expect(r.raised).toBe(true);
+    expect(r.capped).toBe(false);
+    expect(r.appliedSaving).toBe(9_000);
+    expect(r.costOptimized).toBe(51_000);
+    expect(r.explanation).toContain("plancher");
+  });
+
+  it("conserve un potentiel compris dans l'intervalle", () => {
+    const r = boundOptimizationRate({ iaPct: 17.8, costInitial: 60_000, iaSaving: 10_680 });
+    expect(r.appliedPct).toBe(17.8);
+    expect(r.raised).toBe(false);
+    expect(r.capped).toBe(false);
+    expect(r.appliedSaving).toBe(10_680);
+    expect(r.costOptimized).toBe(49_320);
+  });
+
+  it("plafonne un potentiel excessif", () => {
+    const r = boundOptimizationRate({ iaPct: 23, costInitial: 100_000, iaSaving: 23_000 });
+    expect(r.appliedPct).toBe(OPTIMIZATION_MAX_PCT);
+    expect(r.capped).toBe(true);
+    expect(r.raised).toBe(false);
+    expect(r.appliedSaving).toBe(20_000);
+    expect(r.costOptimized).toBe(80_000);
+    expect(r.explanation).toContain("plafond");
+  });
+
+  it("ne sort jamais de [15 %, 20 %] quelles que soient les données", () => {
+    for (const iaPct of [0, 1, 5.4, 12, 14.99, 15, 15.2, 16.7, 18.9, 20, 20.01, 25, 60, 100, -5]) {
+      const r = boundOptimizationRate({ iaPct, costInitial: 123_456, iaSaving: 9_876.54 });
+      expect(r.appliedPct).toBeGreaterThanOrEqual(OPTIMIZATION_MIN_PCT);
+      expect(r.appliedPct).toBeLessThanOrEqual(OPTIMIZATION_MAX_PCT);
+      // Cohérence montants ↔ taux affiché.
+      expect(r.appliedSaving).toBe(Math.round(r.costInitial * (r.appliedPct / 100)));
+      expect(r.costOptimized).toBe(r.costInitial - r.appliedSaving);
+      expect(r.costOptimized).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("reste variable d'un projet à l'autre (jamais un taux fixe)", () => {
+    const a = boundOptimizationRate({ iaPct: 15.4, costInitial: 100_000, iaSaving: 15_400 });
+    const b = boundOptimizationRate({ iaPct: 18.9, costInitial: 100_000, iaSaving: 18_900 });
+    expect(a.appliedPct).not.toBe(b.appliedPct);
+    expect(a.appliedSaving).not.toBe(b.appliedSaving);
+  });
+
+  it("fournit un facteur d'alignement cohérent avec le montant réel", () => {
+    const r = boundOptimizationRate({ iaPct: 23, costInitial: 100_000, iaSaving: 23_000 });
+    expect(r.appliedSaving).toBeCloseTo(r.iaSaving * r.scale, 6);
+    expect(scaleSaving(1_000, r.scale)).toBeCloseTo(869.6, 1);
+  });
+
+  it("applique quand même le plancher sans économie chiffrée (facteur neutre)", () => {
+    const r = boundOptimizationRate({ iaPct: 0, costInitial: 80_000, iaSaving: 0 });
+    expect(r.appliedPct).toBe(OPTIMIZATION_MIN_PCT);
+    expect(r.appliedSaving).toBe(12_000);
+    expect(r.scale).toBe(0);
+    expect(scaleSaving(500, r.scale)).toBe(0);
   });
 });
