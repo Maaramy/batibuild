@@ -98,7 +98,12 @@ export const getBudgetAnalysis = query({
       )
       .first()
     if (!rec) return null
-    return { budgetAvailable: rec.budgetAvailable, analyzedAt: rec.analyzedAt }
+    return {
+      budgetAvailable: rec.budgetAvailable,
+      analyzedAt: rec.analyzedAt,
+      // Budget déjà dépensé saisi avec l'analyse (restauration du module).
+      spentBudget: Number(rec.result?.spentBudget) || 0,
+    }
   },
 })
 

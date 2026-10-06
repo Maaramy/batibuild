@@ -32,6 +32,7 @@ import {
   BUDGET_SCENARIO_LABELS,
   type BudgetScenarioKey,
 } from "@/convex/quantitatifCustomLogic";
+import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
 
 const SCENARIO_KEYS: BudgetScenarioKey[] = ["economique", "standard", "premium"];
 
@@ -85,6 +86,20 @@ export default function DecisionSupport() {
   const scenarioSel = scenarios?.[scenarioKey];
   const projectTotal = scenarioSel?.totalCost ?? ce?.totalCost ?? 0;
   const scenarioLabel = scenarioSel?.label ?? BUDGET_SCENARIO_LABELS[scenarioKey];
+
+  // Totaux des 3 solutions → comparaison Économique / Standard / Premium
+  // dans le module « Capacité de construction ».
+  const scenarioTotals = useMemo<ScenarioTotal[]>(
+    () =>
+      !scenarios
+        ? []
+        : SCENARIO_KEYS.map((key) => ({
+            key,
+            label: scenarios[key]?.label ?? BUDGET_SCENARIO_LABELS[key],
+            totalCost: Number(scenarios[key]?.totalCost) || 0,
+          })).filter((row) => row.totalCost > 0),
+    [scenarios],
+  );
 
   const builtSurface = project?.surface
     ? project.surface * (project.floors || 1)
@@ -161,6 +176,7 @@ export default function DecisionSupport() {
               surface={builtSurface}
               projectTotal={projectTotal}
               scenarioLabel={scenarioLabel}
+              scenarioTotals={scenarioTotals.length > 0 ? scenarioTotals : undefined}
             />
           </>
         )}
