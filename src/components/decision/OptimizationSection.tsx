@@ -13,7 +13,7 @@
 // « Confiance » de la page « Coût de construction ».
 // ============================================================================
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -424,9 +424,16 @@ export function OptimizationSection({
   budgetAvailable,
   onBudgetChange,
   projectContextLabel,
+  predictive,
 }: {
   /** Plan d'optimisation calculé en amont — plus affiché sur cette page. */
   plan: OptimizationPlan;
+  /**
+   * Module « Intelligence prédictive IA » — rendu AU-DESSUS du résultat
+   * existant, juste après la saisie du budget et uniquement lorsque le budget
+   * a été analysé. Le résultat existant n'est ni déplacé ni modifié.
+   */
+  predictive?: ReactNode;
   budgetAnalysis: BudgetAnalysis | null;
   onBudgetAnalyze?: (budget: number) => void;
   budgetAvailable?: number;
@@ -496,6 +503,10 @@ export function OptimizationSection({
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Intelligence prédictive IA — module complémentaire affiché
+             au-dessus du résultat existant, dès que le budget est analysé ── */}
+      {predictive}
 
       {/* ── Capacité de construction (résultat de l'analyse budget) ── */}
       {budgetAnalysis?.available ? (
