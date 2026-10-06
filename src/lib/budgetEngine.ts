@@ -285,6 +285,12 @@ export interface BudgetAnalysisInput {
   breakdown: CategoryBreakdownItem[];
   lots?: QuantitatifLot[];
   surface?: number;
+  /**
+   * Coût au m² ENREGISTRÉ du scénario courant (page résultat « Estimation du
+   * coût de construction ») — source de vérité pour l'affichage ¤/m². Repli
+   * sur `projectTotal / surface` uniquement si non fourni.
+   */
+  costPerM2?: number;
 }
 
 /** Écart du scénario « budget augmenté », en TND. */
@@ -395,15 +401,15 @@ function buildHierarchy(
 
   // Les sous-catégories sont ordonnées par importance (coût décroissant, puis
   // ordre du Quantitatif) : c'est l'ordre dans lequel le budget est engagé.
+  // Les montants sont STRICTEMENT ceux du Quantitatif enregistré (résultat
+  // « Estimation du coût de construction ») : aucune remise à l'échelle. Si le
+  // détail ne recouvre pas tout le coût de la catégorie, l'écart reste visible
+  // dans le % de réalisation (aucun montant ajouté ni modifié).
   const orderedGroups = [...groups.values()].sort((a, b) => b.total - a.total);
-  const detailedTotal = round2(orderedGroups.reduce((s, g) => s + g.total, 0));
-  // Si le détail ne recouvre pas tout le coût de la catégorie, la différence
-  // reste affichée telle quelle dans le % de réalisation (aucun montant ajouté).
-  const scale = detailedTotal > 0 ? cost / detailedTotal : 0;
 
   let left = round2(categoryFunded);
   return orderedGroups.map((g, idx) => {
-    const subCost = scale > 0 ? round2(g.total * scale) : round2(g.total);
+    const subCost = round2(g.total);
     let subFunded: number;
     if (left >= subCost) {
       subFunded = subCost;
@@ -416,7 +422,7 @@ function buildHierarchy(
 
     let articleLeft = subFunded;
     const articles = g.lines.map((line) => {
-      const lineCost = scale > 0 ? round2(line.estimatedCost * scale) : line.estimatedCost;
+      const lineCost = line.estimatedCost;
       const articleFunded =
         articleLeft >= lineCost ? lineCost : articleLeft > 0 ? articleLeft : 0;
       articleLeft = round2(Math.max(0, articleLeft - articleFunded));
@@ -501,7 +507,6 @@ function toScenario(
   budget: number,
   sim: SimulatedScenario,
   projectTotal: number,
-  baseBudget: number,
 ): BudgetScenarioLine {
   const reachableCategories = sim.lines.filter((l) => l.status === "realisable").map((l) => l.categoryLabel);
   const partialCategories = sim.lines.filter((l) => l.status === "partiel").map((l) => l.categoryLabel);
@@ -639,14 +644,13 @@ export function buildBudgetAnalysis(input: BudgetAnalysisInput): BudgetAnalysis 
   const current = simulateScenario(ordered, projectTotal, budget, lots);
   const boostedBudget = round2(budget + BUDGET_SIMULATION_STEP_TND);
   const scenarios: BudgetScenarioLine[] = [
-    toScenario("actuel", "Budget actuel", budget, current, projectTotal, budget),
+    toScenario("actuel", "Budget actuel", budget, current, projectTotal),
     toScenario(
       "plus_palier",
       `+ ${frNumber(BUDGET_SIMULATION_STEP_TND)} TND`,
       boostedBudget,
       simulateScenario(ordered, projectTotal, boostedBudget, lots),
       projectTotal,
-      budget,
     ),
     toScenario(
       "complet",
@@ -654,7 +658,6 @@ export function buildBudgetAnalysis(input: BudgetAnalysisInput): BudgetAnalysis 
       projectTotal,
       simulateScenario(ordered, projectTotal, projectTotal, lots),
       projectTotal,
-      budget,
     ),
   ];
 
@@ -749,8 +752,14 @@ export function buildBudgetAnalysis(input: BudgetAnalysisInput): BudgetAnalysis 
     gapToNextCategory,
     nextCategoryLabel: nextCategory?.categoryLabel ?? "",
     optimalCombination,
+    // Coût au m² : valeur ENREGISTRÉE du scénario (page résultat) ; repli
+    // sur total ÷ surface seulement si elle n'est pas fournie.
     perUnitEstimate:
-      input.surface && input.surface > 0 ? round2(projectTotal / input.surface) : undefined,
+      Number(input.costPerM2) > 0
+        ? round2(Number(input.costPerM2))
+        : input.surface && input.surface > 0
+          ? round2(projectTotal / input.surface)
+          : undefined,
     breakdown: current.lines,
     statusSummary: { realisable, partiel, report },
     scenarios,

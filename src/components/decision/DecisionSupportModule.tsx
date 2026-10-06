@@ -127,6 +127,8 @@ export interface DecisionSupportModuleProps {
   surface?: number;
   /** Coût total du scénario retenu — même valeur que « Coût estimatif ». */
   projectTotal: number;
+  /** Coût au m² ENREGISTRÉ du scénario — même valeur que le résultat. */
+  costPerM2?: number;
   /** Libellé du scénario retenu (Économique / Standard / Premium / Personnalisé). */
   scenarioLabel: string;
   /** Totaux des scénarios d'estimation pour la comparaison du module budget. */
@@ -140,6 +142,7 @@ export function DecisionSupportModule({
   regionLabel,
   surface,
   projectTotal,
+  costPerM2,
   scenarioLabel,
   scenarioTotals,
 }: DecisionSupportModuleProps) {
@@ -271,12 +274,13 @@ export function DecisionSupportModule({
       projectName: projectName ?? ctx.projectName,
       scenarioLabel,
       projectTotal,
+      costPerM2,
       budgetAvailable: analyzedBudget,
       breakdown: ctx.breakdown,
       lots: ctx.lots,
       surface,
     });
-  }, [budgetContext, analyzedBudget, projectId, projectName, scenarioLabel, projectTotal, surface]);
+  }, [budgetContext, analyzedBudget, projectId, projectName, scenarioLabel, projectTotal, costPerM2, surface]);
 
   const runBudgetAnalysis = useCallback(
     (budget: number) => {
@@ -290,6 +294,7 @@ export function DecisionSupportModule({
         projectName: projectName ?? ctx.projectName,
         scenarioLabel,
         projectTotal,
+        costPerM2,
         budgetAvailable: value,
         breakdown: ctx.breakdown,
         lots: ctx.lots,
@@ -319,7 +324,7 @@ export function DecisionSupportModule({
         },
       });
     },
-    [saveBudget, budgetContext, projectId, projectName, scenarioLabel, projectTotal, surface],
+    [saveBudget, budgetContext, projectId, projectName, scenarioLabel, projectTotal, costPerM2, surface],
   );
 
   // ── Signature des données (quantitatif / prix / scénario / marché) ───────

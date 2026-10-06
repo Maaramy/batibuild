@@ -74,6 +74,8 @@ export default function DecisionSupport() {
   const scenarioSel = scenarios?.[scenarioKey];
   const projectTotal = scenarioSel?.totalCost ?? ce?.totalCost ?? 0;
   const scenarioLabel = scenarioSel?.label ?? BUDGET_SCENARIO_LABELS[scenarioKey];
+  // Coût au m² ENREGISTRÉ du scénario (mêmes valeurs que le résultat).
+  const costPerM2 = scenarioSel?.costPerM2 ?? ce?.costPerSquareMeter;
 
   // Scénario « Personnalisé » : montant du scénario de référence (logique
   // identique à la page résultat), affiché seulement s'il porte des
@@ -182,6 +184,7 @@ export default function DecisionSupport() {
               regionLabel={regionLabel}
               surface={builtSurface}
               projectTotal={projectTotal}
+              costPerM2={costPerM2}
               scenarioLabel={scenarioLabel}
               scenarioTotals={scenarioTotals.length > 0 ? scenarioTotals : undefined}
             />
