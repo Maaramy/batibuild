@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { BudgetAnalysis, BudgetCategoryLine } from "@/lib/budgetEngine";
+import type { BudgetAnalysis, BudgetArticleLine, BudgetCategoryLine } from "@/lib/budgetEngine";
 import {
   BUDGET_STEP_DELTAS,
   CANONICAL_WORKS,
@@ -14,10 +14,20 @@ import {
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 
+function art(
+  designation: string,
+  estimatedCost: number,
+  quantity?: number,
+  unit?: string,
+): BudgetArticleLine {
+  return { designation, estimatedCost, fundedAmount: 0, realizationPct: 0, quantity, unit };
+}
+
 function sub(
   id: string,
   label: string,
   cost: number,
+  articles: BudgetArticleLine[] = [],
 ): BudgetCategoryLine["subcategories"][number] {
   return {
     subcategoryId: id,
@@ -27,7 +37,7 @@ function sub(
     pctOfCategory: 100,
     realizationPct: 0,
     status: "report",
-    articles: [],
+    articles,
   };
 }
 
@@ -56,9 +66,15 @@ function makeAnalysis(): BudgetAnalysis {
   const breakdown = [
     cat("etudes", "Études & frais préliminaires", 5000, [sub("e1", "Études de sol", 5000)]),
     cat("gros_oeuvre", "Gros œuvre", 55000, [
-      sub("g1", "Fondations et longrines", 12000),
-      sub("g2", "Structure et poteaux", 25000),
-      sub("g3", "Maçonnerie / murs", 18000),
+      sub("g1", "Fondations et longrines", 12000, [
+        art("Semelles filantes béton armé", 8000, 120, "m²"),
+        art("Longrines BA", 4000, 60, "m"),
+      ]),
+      sub("g2", "Structure et poteaux", 25000, [
+        art("Poteaux béton armé", 10000, 24, "u"),
+        art("Poutres et hourdis", 15000, 1, "lot"),
+      ]),
+      sub("g3", "Maçonnerie / murs", 18000, [art("Maçonnerie briques 11 cm", 18000, 1, "lot")]),
     ]),
     cat("second_oeuvre", "Second œuvre", 38000, [
       sub("s1", "Toiture", 15000),
@@ -298,6 +314,43 @@ describe("buildConstructionPlan", () => {
     expect(partial!.parts![0].funded).toBeGreaterThan(0);
     expect(partial!.parts![0].status).toBe("partiel");
     expect(partial!.parts![0].pct).toBeLessThan(100);
+  });
+
+  it("expose les articles de chaque sous-catégorie avec leur réalisation", () => {
+    const works = deriveWorks(makeAnalysis());
+    const plan = buildConstructionPlan({ works, budget: 60000, selectedIds: null });
+
+    // Poste intégralement financé → ses articles aussi, dans l'ordre du Quantitatif.
+    const fondations = plan.works.find((w) => w.id === "w:fondations");
+    const fondParts = fondations!.parts![0];
+    expect(fondParts.articles).toHaveLength(2);
+    expect(fondParts.articles!.map((a) => a.label)).toEqual([
+      "Semelles filantes béton armé",
+      "Longrines BA",
+    ]);
+    expect(fondParts.articles!.every((a) => a.status === "realisable")).toBe(true);
+    expect(fondParts.articles![0].quantity).toBe(120);
+    expect(fondParts.articles![0].unit).toBe("m²");
+
+    // Invariants : les articles couvrent exactement leur sous-catégorie.
+    for (const w of plan.works) {
+      for (const p of w.parts ?? []) {
+        if (!p.articles || p.articles.length === 0) continue;
+        const costSum = p.articles.reduce((s, a) => s + a.cost, 0);
+        const fundedSum = p.articles.reduce((s, a) => s + a.funded, 0);
+        expect(Math.abs(costSum - p.cost)).toBeLessThan(0.01);
+        expect(Math.abs(fundedSum - p.funded)).toBeLessThan(0.01);
+      }
+    }
+
+    // Sous-catégorie partiellement financée → article partiel aussi.
+    const partialPlan = buildConstructionPlan({ works, budget: 47000, selectedIds: null });
+    const murs = partialPlan.works.find((w) => w.id === "w:murs");
+    const mursArticle = murs!.parts![0].articles![0];
+    expect(mursArticle.status).toBe("partiel");
+    expect(mursArticle.funded).toBeGreaterThan(0);
+    expect(mursArticle.funded).toBeLessThan(mursArticle.cost);
+    expect(mursArticle.pct).toBeLessThan(100);
   });
 });
 

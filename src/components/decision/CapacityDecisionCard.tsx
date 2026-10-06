@@ -250,6 +250,7 @@ export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecis
   const [customCost, setCustomCost] = useState("");
   const [seq, setSeq] = useState(1);
   const [openPlanRows, setOpenPlanRows] = useState<Record<string, boolean>>({});
+  const [openPlanArticles, setOpenPlanArticles] = useState<Record<string, boolean>>({});
   const [showQuantitatif, setShowQuantitatif] = useState(false);
 
   // ── Postes du plan : Quantitatif + travaux personnalisés ────────────────
@@ -616,27 +617,89 @@ export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecis
                           {hasParts && rowOpen && (
                             <div className="space-y-1.5 border-t border-border/30 p-2.5">
                               <p className="text-[9.5px] uppercase tracking-wide text-muted-foreground">
-                                Sous-catégories — réalisation par poste
+                                Sous-catégories du poste « {shortLabel(w.label)} »
                               </p>
-                              {parts.map((p) => (
-                                <div
-                                  key={p.id}
-                                  className="overflow-hidden rounded-lg border border-border/30"
-                                >
-                                  <div className="flex items-center gap-2 bg-background px-2.5 py-2">
-                                    <span className="min-w-0 flex-1">
-                                      <span className="block text-[11.5px] font-medium">
-                                        {shortLabel(p.label)}
+                              {parts.map((p) => {
+                                const articleList = p.articles ?? [];
+                                const hasArticles = articleList.length > 0;
+                                const articleOpen = openPlanArticles[p.id] ?? false;
+                                return (
+                                  <div
+                                    key={p.id}
+                                    className="overflow-hidden rounded-lg border border-border/30"
+                                  >
+                                    <button
+                                      type="button"
+                                      disabled={!hasArticles}
+                                      onClick={() =>
+                                        setOpenPlanArticles((s) => ({ ...s, [p.id]: !articleOpen }))
+                                      }
+                                      className={cn(
+                                        "flex w-full items-center gap-2 bg-background px-2.5 py-2 text-left",
+                                        hasArticles && "transition-colors hover:bg-muted/20",
+                                      )}
+                                    >
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block text-[11.5px] font-medium">
+                                          {shortLabel(p.label)}
+                                        </span>
+                                        <span className="block text-[10px] text-muted-foreground">
+                                          {formatTndAmount(p.cost)} · {formatPercent(p.pct)} financé
+                                          {hasArticles
+                                            ? ` · ${articleList.length} article${
+                                                articleList.length > 1 ? "s" : ""
+                                              }`
+                                            : ""}
+                                        </span>
                                       </span>
-                                      <span className="block text-[10px] text-muted-foreground">
-                                        {formatTndAmount(p.cost)} · {formatPercent(p.pct)} financé
-                                      </span>
-                                    </span>
-                                    <RealizationBar pct={p.pct} />
-                                    <StatusBadge status={p.status} />
+                                      <RealizationBar pct={p.pct} />
+                                      <StatusBadge status={p.status} />
+                                      {hasArticles ?
+                                        articleOpen ? (
+                                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                        ) : (
+                                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                        )
+                                      : null}
+                                    </button>
+
+                                    {hasArticles && articleOpen && (
+                                      <div className="border-t border-border/20 p-2">
+                                        <div className="flex items-baseline gap-2 pb-1 text-[9.5px] uppercase tracking-wide text-muted-foreground">
+                                          <span className="min-w-0 flex-1">Article</span>
+                                          <span className="w-20 shrink-0 text-right sm:w-24">
+                                            Montant
+                                          </span>
+                                          <span className="w-20 shrink-0 text-right sm:w-32">
+                                            Réalisation
+                                          </span>
+                                        </div>
+                                        <ul className="space-y-1">
+                                          {articleList.map((a) => (
+                                            <li
+                                              key={a.id}
+                                              className="flex items-start gap-2 text-[11px]"
+                                            >
+                                              <span className="min-w-0 flex-1 break-words">
+                                                {a.quantity !== undefined ? (
+                                                  <span className="text-muted-foreground">
+                                                    {a.quantity} {a.unit} —{" "}
+                                                  </span>
+                                                ) : null}
+                                                {a.label}
+                                              </span>
+                                              <span className="w-20 shrink-0 whitespace-nowrap text-right tabular-nums sm:w-24">
+                                                {formatTndAmount(a.cost)}
+                                              </span>
+                                              <RealizationBar pct={a.pct} />
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>

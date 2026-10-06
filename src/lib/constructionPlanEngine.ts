@@ -34,11 +34,30 @@ export interface ScenarioTotal {
   totalCost: number;
 }
 
+/** Article du Quantitatif intégré à une sous-catégorie. */
+export interface WorkPartArticleSource {
+  id: string;
+  label: string;
+  cost: number;
+  quantity?: number;
+  unit?: string;
+}
+
+/** Article du plan après allocation (affiché sous la sous-catégorie). */
+export interface WorkPartArticle extends WorkPartArticleSource {
+  funded: number;
+  /** % de réalisation de l'article (0 → 100). */
+  pct: number;
+  status: BudgetStatus;
+}
+
 /** Sous-lot du Quantitatif regroupé dans un poste. */
 export interface WorkPartSource {
   id: string;
   label: string;
   cost: number;
+  /** Articles du Quantitatif de cette sous-catégorie (si détaillables). */
+  articles?: WorkPartArticleSource[];
 }
 
 /** Sous-catégorie du plan après allocation (affichée sous le poste). */
@@ -47,6 +66,8 @@ export interface WorkPart extends WorkPartSource {
   /** % de réalisation de la sous-catégorie (0 → 100). */
   pct: number;
   status: BudgetStatus;
+  /** Articles financés. */
+  articles?: WorkPartArticle[];
 }
 
 /** Travaux dérivé du Quantitatif (regroupé en postes de chantier). */
@@ -271,6 +292,18 @@ export function deriveWorks(analysis: BudgetAnalysis): WorkItem[] {
               id: `part:${cat.categoryId}:${sub.subcategoryId}`,
               label: rawLabel,
               cost,
+              articles:
+                sub.articles.length > 0
+                  ? sub.articles
+                      .map((a, i) => ({
+                        id: `art:${cat.categoryId}:${sub.subcategoryId}:${i}`,
+                        label: a.designation.trim() || "Article",
+                        cost: Math.max(0, a.estimatedCost),
+                        quantity: a.quantity,
+                        unit: a.unit,
+                      }))
+                      .filter((a) => a.cost > 0)
+                  : undefined,
             },
           );
         } else {
@@ -371,6 +404,39 @@ function allocateParts(parts: WorkPartSource[] | undefined, funded: number): Wor
       pct,
       status:
         p.cost > 0 && partFunded >= p.cost ? "realisable" : partFunded > 0 ? "partiel" : "report",
+      articles: allocateArticles(p.articles, partFunded),
+    };
+  });
+}
+
+/**
+ * Répartit le montant financé d'une sous-catégorie sur ses articles, dans
+ * l'ordre du Quantitatif (même règle que `budgetEngine`). La somme des
+ * articles égale toujours le montant de la sous-catégorie.
+ */
+function allocateArticles(
+  articles: WorkPartArticleSource[] | undefined,
+  funded: number,
+): WorkPartArticle[] | undefined {
+  if (!articles || articles.length === 0) return undefined;
+  let left = Math.max(0, funded);
+  return articles.map((a) => {
+    let articleFunded: number;
+    if (a.cost > 0 && left >= a.cost) {
+      articleFunded = a.cost;
+    } else if (a.cost > 0 && left > 0) {
+      articleFunded = round2(left);
+    } else {
+      articleFunded = 0;
+    }
+    left = round2(Math.max(0, left - articleFunded));
+    const pct = a.cost > 0 ? round1(Math.max(0, Math.min(100, (articleFunded / a.cost) * 100))) : 0;
+    return {
+      ...a,
+      funded: round2(articleFunded),
+      pct,
+      status:
+        a.cost > 0 && articleFunded >= a.cost ? "realisable" : articleFunded > 0 ? "partiel" : "report",
     };
   });
 }
