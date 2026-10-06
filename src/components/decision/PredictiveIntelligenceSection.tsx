@@ -358,14 +358,6 @@ export function PredictiveIntelligenceSection({
     [estimate.iaPct, costInitial, plan.economieRealisable],
   );
 
-  /** Profil du projet déduit du score contextualisé (aucune valeur fixe). */
-  const profile =
-    estimate.score >= 0.67
-      ? { label: "optimisation élevée", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" }
-      : estimate.score >= 0.34
-        ? { label: "optimisation modérée", cls: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300" }
-        : { label: "optimisation limitée", cls: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300" };
-
   const saving = rate.appliedSaving;
   const savingPct = rate.appliedPct;
   const costOptimized = rate.costOptimized;
@@ -602,69 +594,6 @@ export function PredictiveIntelligenceSection({
             low={OPTIMIZATION_MIN_PCT}
             high={OPTIMIZATION_MAX_PCT}
           />
-
-          <div className="mt-2 flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/[0.04] p-2.5">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-            <div>
-              <p className="text-[10.5px] font-semibold">
-                Comment ce taux est calculé ?{" "}
-                <span
-                  className={cn(
-                    "rounded-full border px-1.5 py-0.5 text-[9.5px]",
-                    rate.raised || rate.capped ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300" : profile.cls,
-                  )}
-                >
-                  {rate.raised
-                    ? `plancher ${OPTIMIZATION_MIN_PCT} % appliqué`
-                    : rate.capped
-                      ? `plafond ${OPTIMIZATION_MAX_PCT} % appliqué`
-                      : `${profile.label} · ${formatPercent(savingPct)}`}
-                </span>
-              </p>
-              <p className="mt-1 text-[10.5px] leading-snug text-muted-foreground">
-                Taux contextualisé calculé à partir de {estimate.criteria.length} critères réels du
-                projet : matériaux, quantités, prix unitaires, catégories de travaux, travaux
-                sélectionnés, pertes, alternatives, achats groupés, périodes d'achat, poids des postes
-                et part du coût couverte par votre budget. Il diffère d'un projet à l'autre et d'une
-                analyse à l'autre — aucune valeur fixe n'est appliquée.
-              </p>
-              <ul className="mt-1.5 grid grid-cols-1 gap-1 sm:grid-cols-2">
-                {estimate.criteria.map((c) => (
-                  <li
-                    key={c.key}
-                    className="rounded-lg border border-border/30 bg-background/60 px-2 py-1"
-                  >
-                    <div className="flex items-baseline gap-2">
-                      <span className="min-w-0 flex-1 text-[10px] font-medium">{c.label}</span>
-                      <span className="shrink-0 text-[9.5px] tabular-nums text-muted-foreground">
-                        {formatPercent(c.value * 100)}
-                      </span>
-                    </div>
-                    <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${clamp(c.value * 100)}%` }}
-                      />
-                    </div>
-                    <p className="mt-0.5 text-[9.5px] leading-snug text-muted-foreground">
-                      {c.detail}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-1.5 font-mono text-[10px] text-muted-foreground/90">
-                taux = {OPTIMIZATION_MIN_PCT} % + {OPTIMIZATION_MAX_PCT - OPTIMIZATION_MIN_PCT} % × score
-              </p>
-              <p className="mt-1 font-mono text-[10px] text-muted-foreground/90">
-                taux_final = MAX({OPTIMIZATION_MIN_PCT} %, MIN(taux_calculé, {OPTIMIZATION_MAX_PCT} %))
-              </p>
-              <p className="mt-1 text-[10px] leading-snug text-muted-foreground/90">
-                Économie = coût initial × taux appliqué ; coût optimisé = coût initial − économie.
-                Aucune quantité du Quantitatif n'est modifiée : l'optimisation est le résultat des
-                actions ci-dessous.
-              </p>
-            </div>
-          </div>
         </Block>
       </div>
 
