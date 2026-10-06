@@ -169,7 +169,7 @@ describe("deriveWorks", () => {
     expect(others[0].cost).toBe(3000);
   });
 
-  it("expose la liste canonique demandée (11 postes + études)", () => {
+  it("expose la liste canonique demandée (11 postes + études, second œuvre et transports)", () => {
     expect(CANONICAL_WORKS.map((w) => w.id)).toEqual([
       "etudes",
       "fondations",
@@ -182,6 +182,8 @@ describe("deriveWorks", () => {
       "menuiserie",
       "revetements",
       "peinture",
+      "second_oeuvre",
+      "transport",
       "amenagement_exterieur",
     ]);
   });
@@ -413,6 +415,70 @@ describe("buildConstructionPlan", () => {
     const plan = buildConstructionPlan({ works, budget: 60000, selectedIds: null });
     expect(plan.selectedCost).toBe(118000);
     expect(plan.deferredLabels).toContain("Aménagements extérieurs");
+  });
+
+  it("récupère Études, Second œuvre et Transports depuis le Quantitatif détaillé", () => {
+    const base = makeAnalysis();
+    base.breakdown = base.breakdown.filter(
+      (c) => c.categoryId !== "etudes" && c.categoryId !== "second_oeuvre" && c.categoryId !== "transport",
+    );
+    const lots: QuantitatifLot[] = [
+      {
+        id: "frais_preliminaires",
+        name: "Frais Préliminaires et Études",
+        subtotal: 5000,
+        lines: [
+          { designation: "Étude de sol", subcategory: "Études", quantity: 1, unit: "forfait", total: 3000 },
+          { designation: "Frais de dossier", subcategory: "Frais divers", total: 2000 },
+        ],
+      },
+      {
+        id: "second_oeuvre",
+        name: "Second œuvre et finitions",
+        subtotal: 3000,
+        lines: [
+          { designation: "Nettoyage fin de chantier", subcategory: "Nettoyage", total: 1000 },
+          { designation: "Finitions diverses", subcategory: "Finitions", total: 2000 },
+        ],
+      },
+      {
+        id: "transport",
+        name: "Transports & autres",
+        subtotal: 1500,
+        lines: [{ designation: "Transport gravats", subcategory: "Transport", total: 1500 }],
+      },
+    ];
+
+    const works = deriveWorks(base, lots);
+    const etudes = works.find((w) => w.id === "w:etudes");
+    expect(etudes?.cost).toBe(5000);
+    expect(etudes?.parts?.map((p) => p.label)).toEqual(["Études", "Frais divers"]);
+    expect(etudes?.parts?.[0].articles?.[0].label).toBe("Étude de sol");
+
+    const second = works.find((w) => w.id === "w:second_oeuvre");
+    expect(second?.label).toBe("Second œuvre et finitions");
+    expect(second?.cost).toBe(3000);
+    expect(second?.parts?.map((p) => p.label)).toEqual(["Nettoyage", "Finitions"]);
+
+    const transport = works.find((w) => w.id === "w:transport");
+    expect(transport?.label).toBe("Transports & autres");
+    expect(transport?.cost).toBe(1500);
+    expect(transport?.parts?.[0].articles?.[0].cost).toBe(1500);
+  });
+
+  it("ne reprend pas le Quantitatif quand la décomposition du coût porte déjà le poste", () => {
+    const lots: QuantitatifLot[] = [
+      {
+        id: "frais_preliminaires",
+        name: "Frais Préliminaires et Études",
+        subtotal: 9999,
+        lines: [{ designation: "Étude", subcategory: "Études", total: 9999 }],
+      },
+    ];
+    // La fixture porte déjà les Études à 5 000 TND : le lot (9 999) ne doit
+    // pas être ajouté (pas de double comptage).
+    const works = deriveWorks(makeAnalysis(), lots);
+    expect(works.find((w) => w.id === "w:etudes")?.cost).toBe(5000);
   });
 
   it("propose toujours « Aménagements extérieurs », à chiffrer si absent", () => {

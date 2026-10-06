@@ -217,11 +217,30 @@ export const CANONICAL_WORKS: CanonicalWorkDef[] = [
   },
   { id: "peinture", label: "Peinture", match: /peinture|enduit|tapisser|laque|scellant/, rank: 90 },
   {
+    id: "second_oeuvre",
+    label: "Second œuvre et finitions",
+    match: /second oeuvre|finition|nettoyage/,
+    rank: 75,
+  },
+  { id: "transport", label: "Transports & autres", match: /transport|divers/, rank: 95 },
+  {
     id: "amenagement_exterieur",
     label: "Aménagements extérieurs",
     match: /amenagement|exterieur|vrd|jardin|piscine|cloture|grillage|enseigne|parking/,
     rank: 100,
   },
+];
+
+/**
+ * Postes dont les données doivent venir DU QUANTITATIF DÉTAILLÉ du résultat
+ * « Coût estimation de construction » quand la décomposition du coût n'en
+ * porte pas le montant (aucun montant inventé).
+ */
+const LOT_SOURCE_TARGETS: Array<{ id: string; match: RegExp }> = [
+  { id: "etudes", match: /(frais prelim|etude)/ },
+  { id: "second_oeuvre", match: /(second oeuvre|finition|nettoyage)/ },
+  { id: "transport", match: /(transport|divers)/ },
+  { id: "amenagement_exterieur", match: /(amenagement)/ },
 ];
 
 /**
@@ -234,15 +253,12 @@ function isExcludedWorkLabel(label: string): boolean {
 }
 
 /**
- * Construit le poste « Aménagements extérieurs » à partir DU QUANTITATIF
- * DÉTAILLÉ du résultat « Coût estimation de construction » (lots + sous-lots +
- * articles), lorsque la catégorie n'apparaît pas dans la décomposition du coût.
- * Les lignes « Équipements » restent exclues. Aucun montant n'est inventé :
- * seuls les totaux réels du Quantitatif sont lus.
+ * Construit un poste à partir DU QUANTITATIF DÉTAILLÉ (lots + sous-lots +
+ * articles) : sous-catégories = sous-lots, articles = lignes. Seuls les
+ * montants réels du Quantitatif sont lus ; les lignes « Équipements » restent
+ * exclues.
  */
-function amenagementWorkFromLots(lots: QuantitatifLot[]): WorkItem | null {
-  const def = CANONICAL_WORKS.find((w) => w.id === "amenagement_exterieur");
-  if (!def) return null;
+function workFromLots(lots: QuantitatifLot[], def: { id: string; label: string; rank: number }, match: RegExp): WorkItem | null {
 
   const groups = new Map<
     string,
@@ -257,11 +273,7 @@ function amenagementWorkFromLots(lots: QuantitatifLot[]): WorkItem | null {
   for (const lot of lots) {
     const lotName = normalizeWorkLabel(lot.name);
     const lotId = normalizeWorkLabel(String(lot.id ?? "").replace(/_/g, " "));
-    const matches =
-      lotName.includes("amenagement") ||
-      lotId.includes("amenagement") ||
-      matchCanonical(lot.name)?.id === def.id;
-    if (!matches) continue;
+    if (!match.test(lotName) && !match.test(lotId)) continue;
 
     for (const line of lot.lines ?? []) {
       const cost =
@@ -431,17 +443,21 @@ export function deriveWorks(analysis: BudgetAnalysis, lots?: QuantitatifLot[]): 
   }
 
   const list = [...canonical.values(), ...others].filter((w) => w.cost > 0);
-  const hasAmenagement = () => list.some((w) => w.id === `w:amenagement_exterieur` && w.cost > 0);
 
-  // Le poste « Aménagements extérieurs » vient du QUANTITATIF DÉTAILLÉ du
-  // résultat « Coût estimation de construction » quand la décomposition du coût
-  // n'en porte pas le montant (aucun montant inventé).
-  if (!hasAmenagement() && lots && lots.length > 0) {
-    const fromLots = amenagementWorkFromLots(lots);
-    if (fromLots) list.push(fromLots);
+  // Postes manquant à la décomposition du coût : données récupérées depuis le
+  // QUANTITATIF DÉTAILLÉ (Études & frais préliminaires, Second œuvre et
+  // finitions, Transports & autres, Aménagements extérieurs).
+  if (lots && lots.length > 0) {
+    for (const target of LOT_SOURCE_TARGETS) {
+      if (list.some((w) => w.id === `w:${target.id}`)) continue;
+      const def = CANONICAL_WORKS.find((c) => c.id === target.id);
+      if (!def) continue;
+      const fromLots = workFromLots(lots, def, target.match);
+      if (fromLots) list.push(fromLots);
+    }
   }
 
-  // En dernier recours, il est proposé « à chiffrer » (0 TND).
+  // En dernier recours, le poste Aménagements est proposé « à chiffrer » (0 TND).
   const amenagement = CANONICAL_WORKS.find((w) => w.id === "amenagement_exterieur");
   if (amenagement && !list.some((w) => w.id === `w:${amenagement.id}`)) {
     list.push({
