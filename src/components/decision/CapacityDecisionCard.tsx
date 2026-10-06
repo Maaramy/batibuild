@@ -293,9 +293,10 @@ export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecis
   );
 
   const globalPct = clampPct(plan.globalPct);
-  const worksRealisable = plan.works.filter((w) => w.status === "realisable");
-  const worksPartiel = plan.works.filter((w) => w.status === "partiel");
-  const worksReport = plan.works.filter((w) => w.status === "report");
+  const pricedWorks = plan.works.filter((w) => w.cost > 0);
+  const worksRealisable = pricedWorks.filter((w) => w.status === "realisable");
+  const worksPartiel = pricedWorks.filter((w) => w.status === "partiel");
+  const worksReport = pricedWorks.filter((w) => w.status === "report");
 
   const toggleWork = (id: string) => {
     setDeselected((prev) => {
@@ -365,7 +366,7 @@ export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecis
           <SummaryTile
             icon={<span aria-hidden>✅</span>}
             label="Travaux réalisables"
-            value={`${worksRealisable.length} / ${plan.works.length}`}
+            value={`${worksRealisable.length} / ${pricedWorks.length}`}
             hint={
               plan.partialWorks.length > 0
                 ? `${plan.partialWorks.length} partiel · ${worksReport.length} à reporter`
@@ -498,7 +499,9 @@ export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecis
                           </span>
                         ) : null}
                       </span>
-                      <span className="shrink-0 tabular-nums text-muted-foreground">{formatTndAmount(w.cost)}</span>
+                      <span className="shrink-0 tabular-nums text-muted-foreground">
+                        {w.cost > 0 ? formatTndAmount(w.cost) : "à chiffrer"}
+                      </span>
                     </label>
                   );
                 })}
@@ -597,14 +600,22 @@ export function CapacityDecisionCard({ analysis, scenarioTotals }: CapacityDecis
                                 ) : null}
                               </span>
                               <span className="block text-[10px] text-muted-foreground">
-                                {formatTndAmount(w.cost)} · {formatPercent(w.pct)} financé
+                                {w.cost > 0
+                                  ? `${formatTndAmount(w.cost)} · ${formatPercent(w.pct)} financé`
+                                  : "à chiffrer · hors coût estimé"}
                                 {hasParts
                                   ? ` · ${parts.length} sous-catégorie${parts.length > 1 ? "s" : ""}`
                                   : ""}
                               </span>
                             </span>
                             <RealizationBar pct={w.pct} />
-                            <StatusBadge status={w.status} />
+                            {w.cost > 0 ? (
+                              <StatusBadge status={w.status} />
+                            ) : (
+                              <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[9.5px] font-semibold text-sky-700 dark:text-sky-300">
+                                À chiffrer
+                              </span>
+                            )}
                             {hasParts ?
                               rowOpen ? (
                                 <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />

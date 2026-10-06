@@ -83,8 +83,9 @@ function makeAnalysis(): BudgetAnalysis {
       sub("s3", "Peinture intérieure", 10000),
     ]),
     cat("equipements", "Équipements", 18000, [
-      sub("q1", "Installation électrique", 10000),
-      sub("q2", "Plomberie & sanitaires", 8000),
+      sub("q1", "Installation électrique", 9000),
+      sub("q2", "Plomberie & sanitaires", 7000),
+      sub("q3", "Équipements techniques", 2000),
     ]),
     cat("amenagements_exterieurs", "Aménagements extérieurs", 4000, [sub("a1", "Clôture & portail", 4000)]),
   ];
@@ -124,10 +125,12 @@ describe("normalizeWorkLabel", () => {
 });
 
 describe("deriveWorks", () => {
-  it("regroupe les sous-lots sur les postes canoniques sans perte de coût", () => {
+  it("regroupe les sous-lots sur les postes canoniques, hors Équipements exclus", () => {
     const works = deriveWorks(makeAnalysis());
     const total = works.reduce((s, w) => s + w.cost, 0);
-    expect(Math.round(total)).toBe(120000);
+    // 120 000 − 2 000 TND de postes « Équipements » (exclus du plan).
+    expect(Math.round(total)).toBe(118000);
+    expect(works.some((w) => normalizeWorkLabel(w.label).includes("equipement"))).toBe(false);
     const ids = works.map((w) => w.id);
     expect(ids).toContain("w:fondations");
     expect(ids).toContain("w:gros_oeuvre");
@@ -154,9 +157,11 @@ describe("deriveWorks", () => {
     const analysis = makeAnalysis();
     analysis.breakdown = [cat("transport", "Transport & divers", 3000, [sub("t1", "Benne Grue auxiliaire", 3000)])];
     const works = deriveWorks(analysis);
-    expect(works).toHaveLength(1);
-    expect(works[0].label).toBe("Benne Grue auxiliaire");
-    expect(works[0].cost).toBe(3000);
+    // Hors poste « Aménagements extérieurs » toujours proposé (à chiffrer).
+    const others = works.filter((w) => w.id !== "w:amenagement_exterieur");
+    expect(others).toHaveLength(1);
+    expect(others[0].label).toBe("Benne Grue auxiliaire");
+    expect(others[0].cost).toBe(3000);
   });
 
   it("expose la liste canonique demandée (11 postes + études)", () => {
@@ -184,11 +189,11 @@ describe("buildConstructionPlan", () => {
     const works = deriveWorks(makeAnalysis());
     const plan = buildConstructionPlan({ works, budget: 60000, selectedIds: null });
 
-    expect(plan.selectedCost).toBe(120000);
+    expect(plan.selectedCost).toBe(118000);
     expect(plan.funded).toBe(60000);
-    expect(plan.globalPct).toBe(50);
-    expect(plan.remainingToComplete).toBe(60000);
-    expect(plan.extraBudgetRecommended).toBe(60000);
+    expect(plan.globalPct).toBe(50.8);
+    expect(plan.remainingToComplete).toBe(58000);
+    expect(plan.extraBudgetRecommended).toBe(58000);
 
     // Études (5 000) + Fondations (12 000) + Gros œuvre structure (25 000) = 42 000
     const etudes = plan.works.find((w) => w.id === "w:etudes");
@@ -206,7 +211,7 @@ describe("buildConstructionPlan", () => {
     const works = deriveWorks(makeAnalysis());
     const plan = buildConstructionPlan({ works, budget: 500000, selectedIds: null });
     expect(plan.globalPct).toBe(100);
-    expect(plan.remainingBudget).toBe(500000 - 120000);
+    expect(plan.remainingBudget).toBe(500000 - 118000);
     expect(plan.remainingToComplete).toBe(0);
     expect(plan.extraBudgetRecommended).toBe(0);
     expect(plan.deferredLabels).toHaveLength(0);
@@ -352,6 +357,38 @@ describe("buildConstructionPlan", () => {
     expect(mursArticle.funded).toBeLessThan(mursArticle.cost);
     expect(mursArticle.pct).toBeLessThan(100);
   });
+
+  it("exclut les postes « Équipements » du plan (coûts retirés)", () => {
+    const works = deriveWorks(makeAnalysis());
+    expect(works.some((w) => normalizeWorkLabel(w.label).includes("equipement"))).toBe(false);
+
+    const plan = buildConstructionPlan({ works, budget: 60000, selectedIds: null });
+    // 120 000 − 2 000 TND d'Équipements = 118 000 TND de programme.
+    expect(plan.selectedCost).toBe(118000);
+    expect(plan.deferredLabels.some((l) => normalizeWorkLabel(l).includes("equipement"))).toBe(false);
+    expect(plan.aiPriorities.some((p) => normalizeWorkLabel(p.label).includes("equipement"))).toBe(false);
+    expect(plan.answerSentence).not.toContain("quipement");
+  });
+
+  it("propose toujours « Aménagements extérieurs », à chiffrer si absent", () => {
+    const base = makeAnalysis();
+    base.breakdown = base.breakdown.filter((c) => c.categoryId !== "amenagements_exterieurs");
+
+    const works = deriveWorks(base);
+    const amenagement = works.find((w) => w.id === "w:amenagement_exterieur");
+    expect(amenagement).toBeDefined();
+    expect(amenagement!.label).toBe("Aménagements extérieurs");
+    expect(amenagement!.cost).toBe(0);
+
+    const plan = buildConstructionPlan({ works, budget: 60000, selectedIds: null });
+    const row = plan.works.find((w) => w.id === "w:amenagement_exterieur");
+    expect(row).toBeDefined();
+    expect(row!.status).toBe("report");
+    // Poste non chiffré : ni « à reporter » ni priorité IA, aucun montant inventé.
+    expect(plan.deferredLabels).not.toContain("Aménagements extérieurs");
+    expect(plan.aiPriorities.some((p) => p.id === "w:amenagement_exterieur")).toBe(false);
+    expect(plan.selectedCost).toBe(114000);
+  });
 });
 
 // ── planBudgetSteps ────────────────────────────────────────────────────────
@@ -366,8 +403,8 @@ describe("planBudgetSteps", () => {
       expect(step.globalPct).toBeGreaterThanOrEqual(50);
       expect(step.extraPct).toBeGreaterThanOrEqual(0);
     }
-    // +10 000 TND sur 120 000 → 60 000 → 70 000 : 58,3 % du programme.
-    expect(steps[0].globalPct).toBeCloseTo(58.3, 0);
+    // +10 000 TND sur 118 000 TND de programme → 70 000 → 59,3 % du programme.
+    expect(steps[0].globalPct).toBeCloseTo(59.3, 0);
   });
 
   it("signale les travaux supplémentaires rendus réalisables", () => {

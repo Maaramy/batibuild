@@ -217,11 +217,20 @@ export const CANONICAL_WORKS: CanonicalWorkDef[] = [
   { id: "peinture", label: "Peinture", match: /peinture|enduit|tapisser|laque|scellant/, rank: 90 },
   {
     id: "amenagement_exterieur",
-    label: "Aménagement extérieur",
+    label: "Aménagements extérieurs",
     match: /amenagement|exterieur|vrd|jardin|piscine|cloture|grillage|enseigne|parking/,
     rank: 100,
   },
 ];
+
+/**
+ * Poste « Équipements » : EXCLU du plan à la demande de l'utilisateur — ses
+ * coûts ne sont plus simulés dans la sélection ni dans le plan (ils restent
+ * visibles dans le Quantitatif détaillé, qui n'est pas modifié).
+ */
+function isExcludedWorkLabel(label: string): boolean {
+  return normalizeWorkLabel(label).includes("equipement");
+}
 
 /** Poste personnalisé : l'utilisateur le déclare prioritaire, on le finance tôt. */
 export const CUSTOM_WORK_RANK = 10;
@@ -277,6 +286,8 @@ export function deriveWorks(analysis: BudgetAnalysis): WorkItem[] {
         const rawLabel = sub.subcategoryLabel.trim() || cat.categoryLabel;
         const cost = Math.max(0, sub.estimatedCost);
         if (cost <= 0) return;
+        // Poste « Équipements » : hors plan (choix utilisateur).
+        if (isExcludedWorkLabel(rawLabel)) return;
         const def = matchCanonical(rawLabel);
         if (def) {
           mergeWork(
@@ -316,7 +327,7 @@ export function deriveWorks(analysis: BudgetAnalysis): WorkItem[] {
           });
         }
       });
-    } else if (cat.estimatedCost > 0) {
+    } else if (cat.estimatedCost > 0 && !isExcludedWorkLabel(cat.categoryLabel)) {
       const def = matchCanonical(cat.categoryLabel);
       if (def) {
         mergeWork(
@@ -342,9 +353,23 @@ export function deriveWorks(analysis: BudgetAnalysis): WorkItem[] {
     }
   }
 
-  return [...canonical.values(), ...others]
-    .filter((w) => w.cost > 0)
-    .sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label, "fr"));
+  const list = [...canonical.values(), ...others].filter((w) => w.cost > 0);
+
+  // Le poste « Aménagements extérieurs » est TOUJOURS proposé (à la place des
+  // Équipements) : s'aucun montant n'existe dans le Quantitatif, il apparaît
+  // « à chiffrer » (0 TND — aucun montant inventé).
+  const amenagement = CANONICAL_WORKS.find((w) => w.id === "amenagement_exterieur");
+  if (amenagement && !list.some((w) => w.id === `w:${amenagement.id}`)) {
+    list.push({
+      id: `w:${amenagement.id}`,
+      label: amenagement.label,
+      cost: 0,
+      rank: amenagement.rank,
+      categoryId: "amenagements_exterieurs",
+    });
+  }
+
+  return list.sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label, "fr"));
 }
 
 // ── Allocation ─────────────────────────────────────────────────────────────
@@ -534,9 +559,13 @@ function buildAnswerSentence(plan: PlanCore, budget: number): string {
     return `Avec ${amount}, aucun poste du programme sélectionné ne peut être engagé : sélectionnez des travaux ou complétez votre budget.`;
   }
   if (plan.funded <= 0) {
+    const firstPriced = plan.works.find((w) => w.cost > 0);
+    if (!firstPriced) {
+      return `Avec ${amount}, aucun poste chiffré n'est sélectionné : sélectionnez des travaux du Quantitatif pour obtenir une simulation.`;
+    }
     return `Avec ${amount}, aucun chantier ne peut démarrer pour l'instant : il faut au minimum ${formatTndAmount(
-      plan.works[0]?.cost ?? 0,
-    )} pour engager « ${plan.works[0]?.label ?? ""} ».`;
+      firstPriced.cost,
+    )} pour engager « ${firstPriced.label} ».`;
   }
 
   const segments: string[] = [];
@@ -566,19 +595,20 @@ function buildAnswerSentence(plan: PlanCore, budget: number): string {
 }
 
 function buildNextStep(plan: PlanCore): string {
+  const priced = plan.works.filter((w) => w.cost > 0);
   const partial = plan.partialWorks[0];
   if (partial) {
-    const next = plan.works.find((w) => w.status === "report");
+    const next = priced.find((w) => w.status === "report");
     return (
       `Terminer « ${partial.label} » (${formatTndAmount(partial.missing)} à compléter) avant d'engager les travaux suivants` +
       (next ? `, à commencer par « ${next.label} ».` : ".")
     );
   }
-  const next = plan.works.find((w) => w.status === "report");
+  const next = priced.find((w) => w.status === "report");
   if (next) {
     return `Démarrer « ${next.label} » (${formatTndAmount(next.cost)}) — prochain chantier prioritaire du plan.`;
   }
-  if (plan.works.length > 0) {
+  if (priced.length > 0) {
     return "Programme complet finançable : lancez les travaux dans l'ordre du plan, chaque poste étant intégralement couvert.";
   }
   return "Sélectionnez les travaux à réaliser pour obtenir une prochaine étape.";
@@ -619,7 +649,9 @@ export function buildConstructionPlan(input: ConstructionPlanInput): Constructio
       pct: w.pct,
       missing: round2(Math.max(0, w.cost - w.funded)),
     }));
-  const deferredLabels = works.filter((w) => w.status === "report").map((w) => w.label);
+  const deferredLabels = works
+    .filter((w) => w.status === "report" && w.cost > 0)
+    .map((w) => w.label);
   const remainingToComplete = round2(Math.max(0, selectedCost - funded));
 
   const base = {
@@ -642,7 +674,7 @@ export function buildConstructionPlan(input: ConstructionPlanInput): Constructio
     answerSentence: buildAnswerSentence(base, budget),
     nextStep: buildNextStep(base),
     aiPriorities: buildAiPriorities(
-      works,
+      works.filter((w) => w.cost > 0),
       allWorks,
       new Set(excludedWorks.map((w) => w.id)),
       selectedCost,
