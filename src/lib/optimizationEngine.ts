@@ -787,7 +787,7 @@ export function buildOptimizationPlan(input: OptimizationInput): OptimizationPla
           row.impactAmount,
           "price",
           {
-            justification: `Hausse estimée de +${f(row.trendPct)} % sur ce matériau (${row.horizon ?? "prochaines semaines"}). Acheter avant la hausse évite ce surcoût.`,
+            justification: `Hausse estimée sur ce matériau (${row.horizon ?? "prochaines semaines"}). Acheter avant la hausse évite ce surcoût.`,
             consequences:
               "Prévision IA à confirmer : un achat anticipé immobilise de la trésorerie et nécessite du stockage.",
             confidence: row.confidence,

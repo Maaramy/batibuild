@@ -312,9 +312,9 @@ export function buildDecisionAnalysis(input: DecisionAnalysisInput): DecisionAna
     forecasts.length === 0
       ? "Données insuffisantes pour établir une prévision fiable."
       : trend === "hausse"
-        ? `${evolutionPct >= 0 ? "+" : ""}${evolutionPct.toLocaleString("fr-FR")} % — hausse probable des prix sur les ${horizon}.`
+        ? `Hausse probable des prix sur les ${horizon}.`
         : trend === "baisse"
-          ? `${evolutionPct.toLocaleString("fr-FR")} % — baisse possible détectée sur les ${horizon}.`
+          ? `Baisse possible détectée sur les ${horizon}.`
           : "Prix globalement stables sur les prochaines semaines.";
 
   const priceEvolution: PriceEvolutionView = {
@@ -525,7 +525,7 @@ export function buildDecisionAnalysis(input: DecisionAnalysisInput): DecisionAna
       id: "hausse",
       level: "hausse",
       title: "Hausse probable",
-      reason: `${exposed[0].designation} pourrait augmenter (${exposed[0].trendPct >= 0 ? "+" : ""}${exposed[0].trendPct.toLocaleString("fr-FR")} %).`,
+      reason: `${exposed[0].designation} pourrait augmenter prochainement (tendance à la hausse identifiée).`,
       impact: riseExposure,
       recommendation: "Envisagez un achat anticipé sur les postes les plus exposés.",
     });

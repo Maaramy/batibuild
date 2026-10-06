@@ -235,11 +235,7 @@ export function MaterialAnalysisSection({ intel }: { intel: MaterialIntelligence
                     />
                     <Field
                       label="Évolution"
-                      value={
-                        row.trendPct === 0
-                          ? "Stable"
-                          : `${row.trendPct > 0 ? "+" : ""}${frDec(row.trendPct)} %`
-                      }
+                      value={row.trend === "hausse" ? "Hausse" : row.trend === "baisse" ? "Baisse" : "Stable"}
                     />
                     <Field
                       label="Prévision"

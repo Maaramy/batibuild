@@ -804,8 +804,9 @@ export function PredictiveIntelligenceSection({
                   <span className="min-w-0 flex-1 text-[11.5px] font-medium break-words">
                     {r.designation}
                   </span>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold tabular-nums text-red-600 dark:text-red-400">
-                    <TrendingUp className="h-3 w-3" />+{formatPercent(r.trendPct)}
+                  {/* Libellé seul : le pourcentage de variation reste interne au moteur. */}
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400">
+                    {PRICE_TREND_LABELS[r.trend]}
                   </span>
                   <span className="rounded-full border border-border/40 bg-background px-1.5 py-0.5 text-[9.5px] text-muted-foreground">
                     {PREDICTION_CONFIDENCE_LABELS[r.confidence]}
@@ -1145,8 +1146,8 @@ export function PredictiveIntelligenceSection({
                       <td className={cn("py-2 pr-2 text-right font-semibold tabular-nums", TREND_CLS[r.trend])}>
                         <span className="inline-flex items-center gap-1 whitespace-nowrap">
                           <Icon className="h-3.5 w-3.5" />
+                          {/* Tendance en libellé uniquement — aucun pourcentage de variation affiché. */}
                           {PRICE_TREND_LABELS[r.trend]}
-                          {r.trendPct !== 0 ? ` ${r.trendPct > 0 ? "+" : ""}${formatPercent(r.trendPct)}` : ""}
                         </span>
                         <span className="mt-0.5 block text-[9.5px] font-normal text-muted-foreground">
                           {PREDICTION_CONFIDENCE_LABELS[r.confidence]}

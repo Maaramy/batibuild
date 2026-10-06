@@ -659,7 +659,7 @@ export function buildMaterialIntelligence(
     row.timingReason = !row.basis
       ? row.forecastMessage ?? MATERIAL_INSUFFICIENT_DATA_MESSAGE
       : timing === "acheter_maintenant"
-        ? `Hausse estimée de ${row.trendPct >= 0 ? "+" : ""}${row.trendPct.toLocaleString("fr-FR")} % : anticipez l'achat de ${row.designation}.`
+        ? `Hausse estimée sur ${row.designation} : anticipez l'achat pour éviter le surcoût.`
         : timing === "acheter_prochainement"
           ? row.trend === "hausse"
             ? `Légère hausse probable sur ${row.designation} : préparez la commande.`
