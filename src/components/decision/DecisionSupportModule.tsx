@@ -28,11 +28,8 @@ import { useLocation } from "react-router";
 import { useQuery } from "convex/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Calculator,
-  CircleCheck,
   Clock3,
   CreditCard,
-  FlaskConical,
   Info,
   Loader2,
   Lock,
@@ -58,7 +55,6 @@ import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
 import { buildBudgetAnalysis, type BudgetAnalysis } from "@/lib/budgetEngine";
 import {
   buildDecisionAnalysis,
-  PRICE_FORECAST_BASIS_LABELS,
   type DecisionAnalysis,
 } from "@/lib/decisionAnalysis";
 import { Card, CardContent } from "@/components/ui/card";
@@ -426,18 +422,8 @@ export function DecisionSupportModule({
         )}
       </AnimatePresence>
 
-      {/* ── Bandeau fiabilité (§16) ── */}
+      {/* ── Bandeau de date de génération ── */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border/40 bg-muted/20 px-3 py-2 text-[10px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <CircleCheck className="h-3 w-3 text-emerald-500" /> Données réelles du projet
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <FlaskConical className="h-3 w-3 text-sky-500" /> Prévisions IA
-          {a.priceEvolution.basis && ` (${PRICE_FORECAST_BASIS_LABELS[a.priceEvolution.basis]})`}
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Calculator className="h-3 w-3 text-amber-500" /> Estimations calculées
-        </span>
         <span className="ml-auto inline-flex items-center gap-1">
           <Clock3 className="h-3 w-3" />
           Généré le{" "}
