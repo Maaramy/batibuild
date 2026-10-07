@@ -10,13 +10,15 @@
 // prix que l'estimation du projet. Aucun montant ni prix n'est codé en dur.
 // ============================================================================
 
-import { runBIMEstimation } from "./bimEngine";
+import { runBIMEstimation, solarPanelUnitPrice } from "./bimEngine";
 import {
+  SOLAR_PANEL_TYPE,
   getCustomWorkDef,
   normalizeCustomWorkKeys,
+  normalizeSolarPanelCount,
   resolveCustomWorkSurface,
-  resolveSolarPanelCount,
   scenarioToFinishLevel,
+  type CustomWorkDef,
   type CustomWorkKey,
   type CustomWorkProjectContext,
 } from "../lib/customWorksCatalog";
@@ -44,8 +46,14 @@ export interface CustomWorkEstimate {
   emoji: string;
   /** Catégorie du moteur BIM ayant servi au chiffrage. */
   category: string;
-  /** Surface chiffrée (déduite du projet). */
+  /** Surface chiffrée (déduite du projet) — 0 pour les panneaux solaires. */
   surface: number;
+  /** Nombre de panneaux retenus (poste solaire uniquement). */
+  panelCount?: number;
+  /** Prix unitaire système d'UN panneau, en TND (poste solaire uniquement). */
+  panelUnitPrice?: number;
+  /** Unité de la quantité affichée (poste solaire : « panneaux »). */
+  quantityUnit?: string;
   /** Niveau de finition appliqué (scénario budgétaire). */
   finishLevel: string;
   /** Matériaux (structure + second œuvre). */
@@ -83,21 +91,77 @@ const CATEGORY_NATURE: Record<string, CustomWorkNature> = {
 const round2 = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
 
 /**
+ * Panneaux solaires — chiffrage UNIQUEMENT au nombre de panneaux :
+ *
+ *     coût total = nombre de panneaux × prix unitaire d'un panneau
+ *
+ * Le prix unitaire est défini par le système pour le type de panneau retenu
+ * (`solarPanelUnitPrice`, catalogue 2026 / prix en direct) ; aucune surface,
+ * aucun m² n'intervient. La quantité renvoyée est exprimée EN PANNEAUX.
+ */
+function estimateSolarPanels(
+  def: CustomWorkDef,
+  finishLevel: string,
+  panelCount?: number,
+): CustomWorkEstimate {
+  const count = normalizeSolarPanelCount(panelCount);
+  const unitPrice = solarPanelUnitPrice();
+  const total = round2(count * unitPrice);
+  const lines: CustomWorkLine[] = [
+    {
+      designation: SOLAR_PANEL_TYPE.label,
+      quantity: count,
+      unit: SOLAR_PANEL_TYPE.unit,
+      unitPrice,
+      total,
+      nature: "equipements",
+    },
+  ];
+  return {
+    key: "solaire",
+    label: def.label,
+    emoji: def.emoji,
+    category: def.category,
+    // Aucun métrage : le poste solaire se chiffre au nombre de panneaux.
+    surface: 0,
+    panelCount: count,
+    panelUnitPrice: unitPrice,
+    quantityUnit: SOLAR_PANEL_TYPE.unit,
+    finishLevel,
+    materials: 0,
+    equipments: total,
+    labor: 0,
+    transport: 0,
+    studies: 0,
+    total,
+    lines,
+  };
+}
+
+/**
  * Chiffre un travail personnalisé à partir des données du projet et du
  * scénario actif. Aucune valeur de prix n'est inventée : tout vient du moteur
- * BIM (catalogue 2026 / prix en direct lorsque disponibles).
+ * BIM (catalogue 2026 / prix en direct lorsque disponibles), sauf les panneaux
+ * solaires qui se chiffrent au nombre de panneaux (prix unitaire système).
  */
 export function estimateCustomWork(
   key: CustomWorkKey,
   ctx: CustomWorkProjectContext,
   region: string | undefined,
   scenario?: string,
+  panelCount?: number,
 ): CustomWorkEstimate {
   const def = getCustomWorkDef(key);
   if (!def) {
     throw new Error(`Travail personnalisé inconnu : ${key}`);
   }
   const finishLevel = scenarioToFinishLevel(scenario);
+
+  // Panneaux solaires : nombre de panneaux × prix unitaire système (aucun m²).
+  if (key === "solaire") {
+    return estimateSolarPanels(def, finishLevel, panelCount);
+  }
+
   const surface = resolveCustomWorkSurface(key, ctx);
   const result = runBIMEstimation(def.category, surface, 1, region, finishLevel);
 
@@ -123,21 +187,6 @@ export function estimateCustomWork(
         total: Number(item.totalPrice) || 0,
         nature,
       });
-    }
-  }
-
-  // Panneaux solaires : la quantité de panneaux est calculée sur une base de
-  // 2 m² par panneau (surface disponible ÷ 2 m²). Le montant du poste reste
-  // celui du chiffrage (mêmes prix), seul le nombre de panneaux — donc le prix
-  // unitaire — reflète cette base.
-  if (key === "solaire") {
-    const panels = resolveSolarPanelCount(surface);
-    for (const line of lines) {
-      if (line.nature === "equipements" && /photovolta/i.test(line.designation)) {
-        line.quantity = panels;
-        const unitPrice = line.total / panels;
-        line.unitPrice = Math.round(unitPrice * 100) / 100;
-      }
     }
   }
 
@@ -175,10 +224,11 @@ export function estimateSelectedCustomWorks(
   ctx: CustomWorkProjectContext,
   region: string | undefined,
   scenario?: string,
+  solarPanelCount?: number,
 ): CustomWorksRollup {
   // Dédoublonnage garanti : un même travail ne peut jamais être chiffré deux fois.
   const unique = normalizeCustomWorkKeys(keys);
-  const works = unique.map((key) => estimateCustomWork(key, ctx, region, scenario));
+  const works = unique.map((key) => estimateCustomWork(key, ctx, region, scenario, solarPanelCount));
   const total = round2(works.reduce((sum, w) => sum + w.total, 0));
   return { works, total };
 }

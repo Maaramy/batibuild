@@ -6,6 +6,7 @@ import { getCurrentUser } from "./users";
 import { buildLivePriceMap, withLivePrices } from "./bimEngine";
 import {
   normalizeCustomWorkKeys,
+  normalizeSolarPanelCount,
   type CustomWorkProjectContext,
 } from "../lib/customWorksCatalog";
 import {
@@ -23,8 +24,11 @@ import {
 //   de l'estimation (moteur BIM + base `materialPrices`).
 // • Les doublons sont impossibles : la sélection est dédoublonnée côté serveur
 //   (un travail déjà ajouté ne peut pas l'être une seconde fois).
-// • Seules les clés sont stockées : tout est recalculé à la lecture, donc un
-//   changement de scénario ou de paramètres projet met les coûts à jour.
+// • Seules les clés et le NOMBRE DE PANNEAUX solaires choisi sont stockés : tout
+//   est recalculé à la lecture, donc un changement de scénario, de nombre de
+//   panneaux ou de paramètres projet met les coûts à jour.
+// • Les panneaux solaires ne sont jamais chiffrés au m² : coût = nombre de
+//   panneaux × prix unitaire système d'un panneau.
 //
 // Sécurité : chaque lecture / écriture vérifie que le projet appartient bien à
 // l'utilisateur connecté (ou à un administrateur).
@@ -84,6 +88,7 @@ async function computeRollupAsync(
     selectedScenario?: string;
   },
   keys: string[],
+  solarPanels?: number,
 ): Promise<CustomWorksRollup> {
   const normalized = normalizeCustomWorkKeys(keys);
   const livePrices = await loadLivePrices(ctx);
@@ -94,6 +99,7 @@ async function computeRollupAsync(
       ctxWork,
       project.region,
       project.selectedScenario,
+      normalizeSolarPanelCount(solarPanels),
     ),
   );
 }
@@ -112,11 +118,13 @@ export const getProjectCustomWorks = query({
       )
       .first();
     const keys = normalizeCustomWorkKeys(rec?.keys ?? []);
-    const rollup = await computeRollupAsync(ctx, project, keys);
+    const solarPanels = normalizeSolarPanelCount(rec?.solarPanels);
+    const rollup = await computeRollupAsync(ctx, project, keys, solarPanels);
     return {
       keys: rollup.works.map((w) => w.key),
       works: rollup.works,
       total: rollup.total,
+      solarPanels,
       scenario: project.selectedScenario ?? "standard",
       finishLevel: rollup.works[0]?.finishLevel ?? "standard",
     };
@@ -132,8 +140,10 @@ export const setProjectCustomWorks = mutation({
   args: {
     projectId: v.id("projects"),
     keys: v.array(v.string()),
+    /** Nombre de panneaux solaires choisi (1-5) — ignoré si le poste n'est pas retenu. */
+    solarPanels: v.optional(v.number()),
   },
-  handler: async (ctx, { projectId, keys }) => {
+  handler: async (ctx, { projectId, keys, solarPanels }) => {
     const owned = await loadOwnedProject(ctx, projectId);
     if (!owned) throw new Error("Accès refusé");
     const { project, user } = owned;
@@ -145,22 +155,35 @@ export const setProjectCustomWorks = mutation({
         q.eq("projectId", projectId).eq("userId", user._id),
       )
       .first();
+
+    // Le nombre de panneaux est conservé d'une écriture à l'autre s'il n'est pas
+    // transmis (changement de sélection sans toucher au sélecteur solaire).
+    const panelCount = normalizeSolarPanelCount(
+      solarPanels ?? existing?.solarPanels,
+    );
+
     if (existing) {
-      await ctx.db.patch(existing._id, { keys: normalized, updatedAt: Date.now() });
+      await ctx.db.patch(existing._id, {
+        keys: normalized,
+        solarPanels: panelCount,
+        updatedAt: Date.now(),
+      });
     } else {
       await ctx.db.insert("projectCustomWorks", {
         projectId,
         userId: user._id,
         keys: normalized,
+        solarPanels: panelCount,
         updatedAt: Date.now(),
       });
     }
 
-    const rollup = await computeRollupAsync(ctx, project, normalized);
+    const rollup = await computeRollupAsync(ctx, project, normalized, panelCount);
     return {
       keys: rollup.works.map((w) => w.key),
       works: rollup.works,
       total: rollup.total,
+      solarPanels: panelCount,
     };
   },
 });

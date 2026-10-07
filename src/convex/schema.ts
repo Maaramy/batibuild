@@ -1420,14 +1420,21 @@ const schema = defineSchema(
 
     // Travaux personnalisés — liste PRÉDÉFINIE de travaux complémentaires
     // choisis par l'utilisateur (Piscine, Garage, Jardin, Panneaux solaires).
-    // Seules les clés sont stockées : les coûts sont recalculés à la lecture
-    // via le moteur BIM, selon les données du projet et le scénario actif
-    // (aucun montant arbitraire, aucune duplication possible — clés uniques).
+    // Seules les clés (et le nombre de panneaux solaires) sont stockées : les
+    // coûts sont recalculés à la lecture via le moteur BIM, selon les données du
+    // projet et le scénario actif (aucun montant arbitraire, aucune duplication
+    // possible — clés uniques).
     projectCustomWorks: defineTable({
       projectId: v.id("projects"),
       userId: v.id("users"),
       /** Clés des travaux sélectionnés (uniques, ordre du catalogue). */
       keys: v.array(v.string()),
+      /**
+       * Nombre de panneaux solaires choisi (1-5). Le poste solaire se chiffre
+       * EXCLUSIVEMENT sur cette quantité : nombre de panneaux × prix unitaire
+       * système d'un panneau — jamais sur une surface en m².
+       */
+      solarPanels: v.optional(v.number()),
       updatedAt: v.number(),
     })
       .index("by_project_user", ["projectId", "userId"]),

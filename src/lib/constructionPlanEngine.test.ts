@@ -552,6 +552,35 @@ describe("compareScenarioCapacity", () => {
   it("ignore les scénarios sans coût", () => {
     expect(compareScenarioCapacity(60000, [{ key: "x", label: "X", totalCost: 0 }])).toHaveLength(0);
   });
+
+  it("intègre les travaux personnalisés (dont panneaux solaires) à chaque scénario", () => {
+    const rows = compareScenarioCapacity(
+      60000,
+      [
+        { key: "economique", label: "Économique", totalCost: 90000 },
+        { key: "premium", label: "Premium", totalCost: 180000 },
+      ],
+      90,
+      15000,
+    );
+    // Le montant est ajouté au scénario Économique comme aux autres.
+    expect(rows[0].baseCost).toBe(90000);
+    expect(rows[0].extraCost).toBe(15000);
+    expect(rows[0].totalCost).toBe(105000);
+    expect(rows[0].capacityPct).toBeCloseTo(57.1, 1);
+    expect(rows[0].missing).toBe(45000);
+    // Le coût au m² reste celui de la construction seule.
+    expect(rows[0].perSqm).toBe(1000);
+    expect(rows[1].totalCost).toBe(195000);
+
+    // Sans travaux personnalisés : coût total = coût de construction.
+    const plain = compareScenarioCapacity(60000, [
+      { key: "standard", label: "Standard", totalCost: 120000 },
+    ]);
+    expect(plain[0].extraCost).toBe(0);
+    expect(plain[0].baseCost).toBe(120000);
+    expect(plain[0].totalCost).toBe(120000);
+  });
 });
 
 describe("estimateBuildableSurface", () => {

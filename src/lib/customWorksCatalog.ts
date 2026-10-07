@@ -9,7 +9,12 @@
 // système le chiffre AUTOMATIQUEMENT à partir des données réelles du projet
 // (surface, niveaux, région…) et du scénario budgétaire actif, avec les MÊMES
 // données de prix que le reste de l'estimation (moteur BIM). Aucun montant
-// n'est saisi à la main, aucun prix n'est codé en dur.
+// n'est saisi à la main.
+//
+// Exception volontaire : les PANNEAUX SOLAIRES ne sont JAMAIS chiffrés au m².
+// Leur coût = nombre de panneaux choisi par l'utilisateur × prix unitaire d'un
+// panneau, ce prix étant DÉFINI PAR LE SYSTÈME selon le type de panneau retenu
+// (voir `SOLAR_PANEL_TYPE` et `bimEngine.solarPanelUnitPrice`).
 // ============================================================================
 
 /** Clés des travaux personnalisés prédéfinis. */
@@ -90,11 +95,61 @@ export function normalizeCustomWorkKeys(keys: readonly unknown[]): CustomWorkKey
   return CUSTOM_WORK_KEYS.filter((k) => set.has(k));
 }
 
+// ── Panneaux solaires : type retenu + nombre de panneaux ──────────────────
+//
+// Le poste « Panneaux solaires » est chiffré UNIQUEMENT à partir du nombre de
+// panneaux : aucun métrage, aucune surface, aucun m² n'entre dans son calcul.
+
+/** Type de panneau photovoltaïque proposé par le système. */
+export interface SolarPanelType {
+  /** Identifiant technique du type retenu. */
+  id: string;
+  /** Libellé affiché (et référence du poste dans le moteur BIM). */
+  label: string;
+  /** Puissance crête d'un panneau (Wc). */
+  powerWc: number;
+  /** Unité de quantité affichée dans les résultats. */
+  unit: string;
+}
+
+/**
+ * Type de panneau RETENU par le système pour le poste solaire (référence du
+ * catalogue matériaux 2026 « Panneau photovoltaïque 450 Wc monocristallin »).
+ * Le prix unitaire n'est pas saisi : il est défini par le système pour ce type
+ * (`bimEngine.solarPanelUnitPrice`, catalogue 2026 ou prix en direct).
+ */
+export const SOLAR_PANEL_TYPE: SolarPanelType = {
+  id: "photovoltaique_monocristallin_450wc",
+  label: "Panneau photovoltaïque 450 Wc monocristallin",
+  powerWc: 450,
+  unit: "panneaux",
+};
+
+/** Nombre de panneaux proposés à l'utilisateur (sélecteur 1 → 5). */
+export const SOLAR_PANEL_COUNT_OPTIONS: number[] = [1, 2, 3, 4, 5];
+
+/** Bornes du sélecteur de panneaux. */
+export const SOLAR_PANEL_MIN_COUNT = 1;
+export const SOLAR_PANEL_MAX_COUNT = 5;
+
+/** Nombre de panneaux retenu par défaut (aucun choix enregistré). */
+export const SOLAR_PANEL_DEFAULT_COUNT = 3;
+
+/**
+ * Borne le nombre de panneaux : entier entre 1 et 5 (valeur par défaut si
+ * absent ou invalide). Aucune surface n'intervient.
+ */
+export function normalizeSolarPanelCount(value: unknown): number {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n <= 0) return SOLAR_PANEL_DEFAULT_COUNT;
+  return Math.min(SOLAR_PANEL_MAX_COUNT, Math.max(SOLAR_PANEL_MIN_COUNT, n));
+}
+
 // ── Dimensions dérivées des données du projet ─────────────────────────────
 //
 // Les quantités à chiffrer (surface de bassin, surface de garage, surface
-// paysagère, surface de toiture pour le photovoltaïque) sont DÉDUITES des
-// données réelles du projet — jamais d'un montant. Aucune ne code un prix.
+// paysagère) sont DÉDUITES des données réelles du projet — jamais d'un montant.
+// Aucune ne code un prix. Les panneaux solaires n'utilisent AUCUNE surface.
 
 export interface CustomWorkProjectContext {
   /** Emprise au sol (m²). */
@@ -114,18 +169,6 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
-/**
- * Surface d'un panneau photovoltaïque (m²) — base de calcul des panneaux
- * solaires : 1 panneau = 2 m². La quantité de panneaux est déduite de la
- * surface disponible du projet (jamais d'un montant).
- */
-export const SOLAR_PANEL_AREA_M2 = 2;
-
-/** Nombre de panneaux solaires pour une surface donnée (1 panneau = 2 m²). */
-export function resolveSolarPanelCount(surface: number): number {
-  return Math.max(1, Math.floor((Number(surface) || 0) / SOLAR_PANEL_AREA_M2));
-}
-
 /** Surface bâtie totale (emprise × niveaux). */
 export function builtSurface(ctx: CustomWorkProjectContext): number {
   const emprise = Math.max(1, Number(ctx.surface) || 0);
@@ -137,15 +180,16 @@ export function builtSurface(ctx: CustomWorkProjectContext): number {
  *  • Piscine : 32 m² par bassin déclaré, sinon ~10 % de la surface bâtie
  *    (bornée 24-72 m²) ;
  *  • Garage : 18 m² par garage déclaré (au moins un) ;
- *  • Jardin : surface restante du terrain hors bâti, sinon ~25 % du bâti ;
- *  • Panneaux solaires : surface de toiture ≈ emprise au sol.
+ *  • Jardin : surface restante du terrain hors bâti, sinon ~25 % du bâti.
+ *
+ * Les panneaux solaires n'y figurent pas : leur quantité est un NOMBRE DE
+ * PANNEAUX choisi par l'utilisateur (aucun m²).
  */
 export function resolveCustomWorkSurface(
   key: CustomWorkKey,
   ctx: CustomWorkProjectContext,
 ): number {
   const built = builtSurface(ctx);
-  const emprise = Math.max(1, Number(ctx.surface) || 0);
   switch (key) {
     case "piscine": {
       const declared = Math.round(ctx.pools ?? 0);
@@ -162,7 +206,8 @@ export function resolveCustomWorkSurface(
       return clamp(Math.round(built * 0.25), 40, 300);
     }
     case "solaire":
-      return clamp(Math.round(emprise), 20, 400);
+      // Aucun métrage : le poste solaire se chiffre au nombre de panneaux.
+      return 0;
     default:
       return clamp(Math.round(built), 20, 400);
   }

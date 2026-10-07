@@ -820,34 +820,57 @@ export function planBudgetSteps(input: ConstructionPlanInput, deltas: number[] =
 export interface ScenarioCapacityRow {
   key: string;
   label: string;
+  /** Coût total du scénario : coût de construction + travaux personnalisés. */
   totalCost: number;
+  /** Coût de construction du scénario seul (hors travaux personnalisés). */
+  baseCost: number;
+  /** Travaux personnalisés (dont panneaux solaires) intégrés à ce scénario. */
+  extraCost: number;
   /** Scénario retenu par le projet. */
   selected?: boolean;
   /** % du coût de ce scénario finançable avec le budget disponible. */
   capacityPct: number;
   /** Montant manquant pour couvrir ce scénario. */
   missing: number;
-  /** Coût au m² de ce scénario, si la surface est connue. */
+  /** Coût de construction au m² de ce scénario, si la surface est connue. */
   perSqm?: number;
 }
 
+/**
+ * Compare la capacité de financement de chaque scénario d'estimation.
+ *
+ * `extraCost` (travaux personnalisés — piscine, garage, jardin, PANNEAUX
+ * SOLAIRES) est ajouté AUTOMATIQUEMENT au coût de chaque scénario, Économique
+ * compris : la capacité et le reste à financer portent donc sur le coût réel du
+ * projet. Le coût de construction seul reste disponible dans `baseCost` (et
+ * sert au coût au m²), afin de rester identique au résultat « Coût de
+ * construction ».
+ */
 export function compareScenarioCapacity(
   budget: number,
   totals: ScenarioTotal[],
   surface?: number,
+  extraCost = 0,
 ): ScenarioCapacityRow[] {
   const safeBudget = Math.max(0, Number(budget) || 0);
+  const extra = Math.max(0, Number(extraCost) || 0);
   return totals
     .filter((t) => t.totalCost > 0)
-    .map((t) => ({
-      key: t.key,
-      label: t.label,
-      totalCost: round2(t.totalCost),
-      selected: t.selected,
-      capacityPct: round1(Math.min(100, (safeBudget / t.totalCost) * 100)),
-      missing: round2(Math.max(0, t.totalCost - safeBudget)),
-      perSqm: surface && surface > 0 ? round2(t.totalCost / surface) : undefined,
-    }));
+    .map((t) => {
+      const baseCost = round2(t.totalCost);
+      const totalCost = round2(baseCost + extra);
+      return {
+        key: t.key,
+        label: t.label,
+        totalCost,
+        baseCost,
+        extraCost: extra,
+        selected: t.selected,
+        capacityPct: round1(Math.min(100, (safeBudget / totalCost) * 100)),
+        missing: round2(Math.max(0, totalCost - safeBudget)),
+        perSqm: surface && surface > 0 ? round2(baseCost / surface) : undefined,
+      };
+    });
 }
 
 // ── Surface constructible estimée ──────────────────────────────────────────

@@ -23,6 +23,7 @@ import {
   Info,
   Plus,
   Sparkles,
+  Sun,
   X,
 } from "lucide-react";
 
@@ -31,7 +32,13 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CUSTOM_WORK_CATALOG, type CustomWorkKey } from "@/lib/customWorksCatalog";
+import {
+  CUSTOM_WORK_CATALOG,
+  SOLAR_PANEL_COUNT_OPTIONS,
+  SOLAR_PANEL_DEFAULT_COUNT,
+  SOLAR_PANEL_TYPE,
+  type CustomWorkKey,
+} from "@/lib/customWorksCatalog";
 import type { CustomWorkEstimate, CustomWorkNature } from "@/convex/customWorksEngine";
 import {
   budgetProgressionBlocks,
@@ -292,6 +299,10 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
   const [deselected, setDeselected] = useState<Set<string>>(() => new Set());
   // Travaux personnalisés : sélection candidate avant validation.
   const [selectedKeys, setSelectedKeys] = useState<Set<CustomWorkKey>>(() => new Set());
+  // Nombre de panneaux solaires choisi localement (prioritaire jusqu'au prochain
+  // enregistrement serveur). Aucun métrage : le poste se chiffre au nombre de
+  // panneaux × prix unitaire système.
+  const [solarPanels, setSolarPanels] = useState<number | null>(null);
   const [openPlanRows, setOpenPlanRows] = useState<Record<string, boolean>>({});
   const [openPlanArticles, setOpenPlanArticles] = useState<Record<string, boolean>>({});
   const [showQuantitatif, setShowQuantitatif] = useState(false);
@@ -304,6 +315,15 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
   const saveCustomWorks = useMutation(api.customWorks.setProjectCustomWorks);
   const customWorks = customWorksData?.works ?? [];
   const customWorksTotal = customWorksData?.total ?? 0;
+
+  // Nombre de panneaux affiché : choix local → valeur enregistrée → défaut.
+  const panelCount =
+    solarPanels ?? customWorksData?.solarPanels ?? SOLAR_PANEL_DEFAULT_COUNT;
+  const solarWork = customWorks.find((w) => w.key === "solaire");
+  // Le sélecteur de panneaux apparaît dès que le poste solaire est sélectionné
+  // ou déjà ajouté au projet.
+  const solarSelectorVisible =
+    solarWork !== undefined || selectedKeys.has("solaire");
 
   // ── Postes du plan : Quantitatif + travaux personnalisés ────────────────
   const works = useMemo<WorkItem[]>(() => {
@@ -327,9 +347,19 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
     [works, analysis.availableBudget, selectedIds],
   );
 
+  // Comparaison des scénarios : les travaux personnalisés (dont les panneaux
+  // solaires) sont intégrés AUTOMATIQUEMENT au coût de chaque scénario —
+  // notamment au scénario Économique — avec un montant strictement identique à
+  // celui du récapitulatif et du coût total du projet.
   const scenarioRows = useMemo(
-    () => compareScenarioCapacity(analysis.availableBudget, scenarioTotals ?? [], analysis.surface),
-    [analysis.availableBudget, scenarioTotals, analysis.surface],
+    () =>
+      compareScenarioCapacity(
+        analysis.availableBudget,
+        scenarioTotals ?? [],
+        analysis.surface,
+        customWorksTotal,
+      ),
+    [analysis.availableBudget, scenarioTotals, analysis.surface, customWorksTotal],
   );
 
   const surface = useMemo(
@@ -361,8 +391,10 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
     void saveCustomWorks({
       projectId: projectId as Id<"projects">,
       keys: Array.from(merged),
+      solarPanels: panelCount,
     });
     setSelectedKeys(new Set());
+    setSolarPanels(null);
   };
 
   const removeCustomWork = (key: CustomWorkKey) => {
@@ -371,7 +403,26 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
     void saveCustomWorks({
       projectId: projectId as Id<"projects">,
       keys: remaining,
+      solarPanels: panelCount,
     });
+  };
+
+  /**
+   * Change le nombre de panneaux solaires : le coût est recalculé
+   * IMMÉDIATEMENT (nombre × prix unitaire système). Si le poste est déjà ajouté,
+   * la nouvelle valeur est enregistrée — la requête réactive met le
+   * récapitulatif, le budget et les scénarios à jour. Aucun métrage en m².
+   */
+  const changeSolarPanels = (count: number) => {
+    setSolarPanels(count);
+    const added = (customWorksData?.keys ?? []).includes("solaire");
+    if (projectId && added) {
+      void saveCustomWorks({
+        projectId: projectId as Id<"projects">,
+        keys: customWorksData?.keys ?? [],
+        solarPanels: count,
+      });
+    }
   };
 
   return (
@@ -562,7 +613,7 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
                   système selon le scénario budgétaire actif, avec les mêmes
                   données de prix que le reste de l'estimation. */}
               <div className="mt-2 rounded-xl border border-dashed border-border/50 p-2.5">
-                <SectionTitle hint="travaux complémentaires chiffrés automatiquement selon le scénario actif">
+                <SectionTitle hint="chiffrés automatiquement — panneaux solaires : nombre × prix unitaire">
                   Ajouter des travaux personnalisés
                 </SectionTitle>
 
@@ -612,6 +663,57 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
                   })}
                 </div>
 
+                {/* ── Sélecteur du nombre de panneaux solaires ──
+                    Les panneaux solaires ne se chiffrent JAMAIS au m² : le coût
+                    du poste = nombre de panneaux × prix unitaire système d'un
+                    panneau. Le changement du nombre est immédiat. */}
+                {solarSelectorVisible ? (
+                  <div className="mt-2 rounded-lg border border-primary/25 bg-primary/[0.04] p-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Sun className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span className="text-[11px] font-semibold">Nombre de panneaux solaires</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">
+                        {SOLAR_PANEL_TYPE.label}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {SOLAR_PANEL_COUNT_OPTIONS.map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          aria-pressed={panelCount === n}
+                          aria-label={`${n} panneau${n > 1 ? "x" : ""} solaire${n > 1 ? "s" : ""}`}
+                          onClick={() => changeSolarPanels(n)}
+                          className={cn(
+                            "rounded-md border px-2 py-1 text-[11px] font-semibold tabular-nums transition-colors",
+                            panelCount === n
+                              ? "border-primary/40 bg-primary text-primary-foreground"
+                              : "border-border/50 bg-background hover:bg-muted/30",
+                          )}
+                        >
+                          {n} panneau{n > 1 ? "x" : ""}
+                        </button>
+                      ))}
+                    </div>
+                    {solarWork ? (
+                      <p className="mt-1.5 text-[11px] font-semibold tabular-nums">
+                        {solarWork.panelCount} panneaux × {formatTndAmount(solarWork.panelUnitPrice ?? 0)} ={" "}
+                        <span className="text-primary">{formatTndAmount(solarWork.total)}</span>
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-[10.5px] text-muted-foreground">
+                        Coût calculé automatiquement après ajout : {panelCount} panneaux × prix unitaire
+                        système d'un panneau — aucun métrage en m².
+                      </p>
+                    )}
+                    <p className="mt-0.5 text-[9.5px] leading-snug text-muted-foreground">
+                      Changer le nombre de panneaux recalcule immédiatement le coût du poste, intégré tel
+                      quel au récapitulatif, au budget disponible et aux scénarios budgétaires
+                      (Économique compris).
+                    </p>
+                  </div>
+                ) : null}
+
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Button
                     size="sm"
@@ -646,7 +748,14 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
                             <span aria-hidden>{w.emoji}</span>
                             <span className="text-[11.5px] font-semibold">{w.label}</span>
                             <span className="text-[10px] tabular-nums text-muted-foreground">
-                              {w.surface} m² · {w.finishLevel}
+                              {/* Panneaux solaires : la quantité s'exprime EN
+                                  PANNEAUX (nombre × prix unitaire système),
+                                  jamais en m². */}
+                              {w.key === "solaire"
+                                ? `${w.panelCount ?? 0} panneaux × ${formatTndAmount(w.panelUnitPrice ?? 0)}`
+                                : `${w.surface} m²`}
+                              {" · "}
+                              {w.finishLevel}
                             </span>
                             <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10.5px] font-bold tabular-nums text-primary">
                               {formatTndAmount(w.total)}
@@ -661,11 +770,21 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
                             </button>
                           </div>
                           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
-                            <span>Matériaux : {formatTndAmount(w.materials)}</span>
-                            <span>Équipements : {formatTndAmount(w.equipments)}</span>
-                            <span>Main-d'œuvre : {formatTndAmount(w.labor)}</span>
-                            <span>Transport : {formatTndAmount(w.transport)}</span>
-                            <span>Études : {formatTndAmount(w.studies)}</span>
+                            {w.materials > 0 ? (
+                              <span>Matériaux : {formatTndAmount(w.materials)}</span>
+                            ) : null}
+                            {w.equipments > 0 ? (
+                              <span>Équipements : {formatTndAmount(w.equipments)}</span>
+                            ) : null}
+                            {w.labor > 0 ? (
+                              <span>Main-d'œuvre : {formatTndAmount(w.labor)}</span>
+                            ) : null}
+                            {w.transport > 0 ? (
+                              <span>Transport : {formatTndAmount(w.transport)}</span>
+                            ) : null}
+                            {w.studies > 0 ? (
+                              <span>Études : {formatTndAmount(w.studies)}</span>
+                            ) : null}
                           </div>
                         </li>
                       ))}
@@ -964,11 +1083,12 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
             </div>
 
             {/* ── Comparaison des scénarios (Économique / Standard / Premium /
-                Personnalisé) — mêmes montants que le résultat « Coût de
-                construction » ── */}
+                Personnalisé) — le coût de construction est identique au
+                résultat « Coût de construction » ; les travaux personnalisés
+                (dont les panneaux solaires) y sont intégrés automatiquement. ── */}
             {scenarioRows.length > 0 && (
               <div className="space-y-1.5">
-                <SectionTitle hint="même budget, selon la solution d'estimation">
+                <SectionTitle hint="même budget, travaux personnalisés inclus (panneaux solaires compris)">
                   Comparaison des scénarios d'estimation
                 </SectionTitle>
                 <div className="overflow-hidden rounded-xl border border-border/40">
@@ -984,7 +1104,10 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
                         </span>
                       )}
                       <span className="text-[11px] tabular-nums text-muted-foreground">
-                        coût {formatTndAmount(row.totalCost)}
+                        coût {formatTndAmount(row.baseCost)}
+                        {row.extraCost > 0
+                          ? ` + ${formatTndAmount(row.extraCost)} travaux perso. = ${formatTndAmount(row.totalCost)}`
+                          : ""}
                         {row.perSqm ? ` · ${formatTndAmount(row.perSqm)}/m²` : ""}
                       </span>
                       <div className="ml-auto flex items-center gap-2">
