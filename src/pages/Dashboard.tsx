@@ -248,13 +248,12 @@ export default function Dashboard() {
   const formatter = new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 });
 
   const sidebarContent = (
-    <>
-      <div className="p-4 sm:p-5 border-b border-border/30">
+    <>          <div className="p-4 sm:p-5 border-b border-border/30">
         <div className="flex items-center gap-2">
-          <LogoMark className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg" />
+          <LogoMark className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg" />
           <div>
-            <span className="text-sm sm:text-base font-semibold">batibuild</span>
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground">Tableau de bord</p>
+            <span className="text-base font-semibold leading-tight">batibuild</span>
+            <p className="text-xs text-muted-foreground">Tableau de bord</p>
           </div>
         </div>
       </div>
@@ -266,19 +265,19 @@ export default function Dashboard() {
               <button
                 onClick={() => { setViewMode(isSupplier ? "supplier" : "expert"); setMobileSidebarOpen(false); }}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] sm:text-xs font-medium transition-all",
+                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all",
                   viewMode !== "client" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}>
-                {isSupplier ? <Store className="h-3 w-3" /> : <Briefcase className="h-3 w-3" />}
+                {isSupplier ? <Store className="h-4 w-4" /> : <Briefcase className="h-4 w-4" />}
                 {isSupplier ? "Fournisseur" : "Expert"}
               </button>
               <button
                 onClick={() => { setViewMode("client"); setMobileSidebarOpen(false); }}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] sm:text-xs font-medium transition-all",
+                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all",
                   viewMode === "client" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}>
-                <User className="h-3 w-3" />
+                <User className="h-4 w-4" />
                 Client
               </button>
             </div>
@@ -362,14 +361,14 @@ export default function Dashboard() {
           </div>
         ))}
       </nav>
-      <div className="p-3 sm:p-4 border-t border-border/30 space-y-1.5">
-        <button onClick={() => navigate("/dashboard/settings")}
-          className="w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all">
+      <div className="p-3 sm:p-4 border-t border-border/30 space-y-1.5">              <button
+                onClick={() => navigate("/dashboard/settings")}
+          className="w-full flex items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all">
           <Settings className="h-4 w-4 shrink-0" />
           Paramètres
         </button>
         <button onClick={handleSignOut}
-          className="w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all">
+          className="w-full flex items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all">
           <LogOut className="h-4 w-4 shrink-0" />
           Déconnexion
         </button>
@@ -394,8 +393,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Desktop Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-56 lg:w-64 border-r border-border/40 bg-background/80 backdrop-blur-sm hidden lg:flex flex-col z-40">
+      {/* Desktop Sidebar */}        <aside className="fixed left-0 top-0 h-full w-56 lg:w-64 border-r border-border/40 bg-background/80 backdrop-blur-sm hidden lg:flex flex-col z-40">
         {sidebarContent}
       </aside>
 
@@ -403,8 +401,8 @@ export default function Dashboard() {
       <div className="lg:pl-56 xl:pl-64">
         {/* Top header */}
         <header className="glass-header sticky top-0 z-30">
-          <div className="flex items-center justify-between px-3 sm:px-5 lg:px-6 h-12 sm:h-14 lg:h-16">
-            <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+          <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 h-14">
+            <div className="flex items-center gap-3 min-w-0">
               <button onClick={() => setMobileSidebarOpen(true)}
                 className="lg:hidden flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg border border-border/50 active:bg-muted/50">
                 <Menu className="h-4 w-4" />
@@ -448,24 +446,24 @@ export default function Dashboard() {
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Avatar className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 border border-border/40 cursor-pointer">
+                  <Avatar className="h-9 w-9 sm:h-10 sm:w-10 lg:h-11 lg:w-11 border border-border/40 cursor-pointer">
                     <AvatarImage src={user?.image || ""} alt="Photo" className="object-cover" />
                     <AvatarFallback className="bg-primary/10 text-primary text-[9px] sm:text-[10px] lg:text-xs">
                       {user?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
                     </AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <div className="px-2 py-1.5 border-b border-border/20">
-                    <p className="text-xs font-medium truncate">{user?.name || "Utilisateur"}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{user?.email || ""}</p>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-3 py-2 border-b border-border/20">
+                    <p className="text-sm font-medium truncate">{user?.name || "Utilisateur"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email || ""}</p>
                   </div>
-                  <DropdownMenuItem onClick={() => navigate("/dashboard/profile")} className="cursor-pointer gap-2 text-xs">
-                    <User className="h-3.5 w-3.5" />
+                  <DropdownMenuItem onClick={() => navigate("/dashboard/profile")} className="cursor-pointer gap-2">
+                    <User className="h-4 w-4" />
                     Mon profil
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/dashboard/pricing")} className="cursor-pointer gap-2 text-xs">
-                    <CreditCard className="h-3.5 w-3.5" />
+                  <DropdownMenuItem onClick={() => navigate("/dashboard/pricing")} className="cursor-pointer gap-2">
+                    <CreditCard className="h-4 w-4" />
                     Abonnement
                   </DropdownMenuItem>
                   {(user?.role === "admin" || user?.role === "moderator") && (
@@ -481,8 +479,8 @@ export default function Dashboard() {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer gap-2 text-xs text-destructive focus:text-destructive">
-                    <LogOut className="h-3.5 w-3.5" />
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer gap-2 text-destructive focus:text-destructive">
+                    <LogOut className="h-4 w-4" />
                     Déconnexion
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -491,7 +489,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <div className="p-3 sm:p-5 lg:p-6 xl:p-8 space-y-3 sm:space-y-4 lg:space-y-6">
+        <div className="p-4 sm:p-6 lg:p-8 xl:p-10 space-y-5">
           {/* ══════ PROFIL INCOMPLET (nom / téléphone manquants) ══════ */}
           <ProfileCompletionBanner />
 
@@ -871,70 +869,70 @@ export default function Dashboard() {
             <>
               <ClientProPaywall>
           {/* Quick actions - horizontal scroll on mobile */}
-          <div className="overflow-x-auto scrollbar-none -mx-3 sm:mx-0 px-3 sm:px-0">
-            <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 min-w-max sm:min-w-0">
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+          <div className="overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0">
+            <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 min-w-max sm:min-w-0">
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[190px] sm:w-auto"
                 onClick={() => navigate("/dashboard/new")}>
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                <CardContent className="p-4 sm:p-5 flex items-center gap-4">
+                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Nouveau projet</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Estimation</p>
+                    <p className="text-base font-semibold truncate">Nouveau projet</p>
+                    <p className="text-sm text-muted-foreground truncate">Estimation</p>
                   </div>
                 </CardContent>
               </Card>
               {isFeatureEnabled("investment_project") && (
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[190px] sm:w-auto"
                 onClick={() => navigate("/dashboard/investments")}>
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                    <Landmark className="h-4 w-4 sm:h-5 sm:w-5" />
+                <CardContent className="p-4 sm:p-5 flex items-center gap-4">
+                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                    <Landmark className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Nouveau investissement</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Analyse immobilière</p>
+                    <p className="text-base font-semibold truncate">Nouveau investissement</p>
+                    <p className="text-sm text-muted-foreground truncate">Analyse immobilière</p>
                   </div>
                 </CardContent>
               </Card>
               )}
               {isFeatureEnabled("ai_materials") && (
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[190px] sm:w-auto"
                 onClick={() => navigate("/dashboard/materials")}>
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                <CardContent className="p-4 sm:p-5 flex items-center gap-4">
+                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Prix</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Matériaux 2026</p>
+                    <p className="text-base font-semibold truncate">Prix des matériaux</p>
+                    <p className="text-sm text-muted-foreground truncate">Matériaux 2026</p>
                   </div>
                 </CardContent>
               </Card>
               )}
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[190px] sm:w-auto"
                 onClick={() => navigate("/dashboard/pricing")}>
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
+                <CardContent className="p-4 sm:p-5 flex items-center gap-4">
+                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <CreditCard className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Abonnement</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Offres</p>
+                    <p className="text-base font-semibold truncate">Abonnement</p>
+                    <p className="text-sm text-muted-foreground truncate">Offres</p>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
+              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[190px] sm:w-auto"
                 onClick={() => navigate("/dashboard/guide")}>
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-                    <Rocket className="h-4 w-4 sm:h-5 sm:w-5" />
+                <CardContent className="p-4 sm:p-5 flex items-center gap-4">
+                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                    <Rocket className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Démarche</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Projet de A à Z</p>
+                    <p className="text-base font-semibold truncate">Démarche</p>
+                    <p className="text-sm text-muted-foreground truncate">Projet de A à Z</p>
                   </div>
                 </CardContent>
               </Card>
@@ -942,14 +940,14 @@ export default function Dashboard() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-            <StatsCard icon={HardHat} label="Projets constr." value={stats.totalProjects}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+            <StatsCard icon={HardHat} label="Projets construits" value={stats.totalProjects}
               gradient="from-blue-500/20 to-cyan-500/20" iconColor="text-blue-600 dark:text-blue-400" />
             <StatsCard icon={CheckCircle2} label="Terminés" value={stats.completedProjects}
               gradient="from-emerald-500/20 to-teal-500/20" iconColor="text-emerald-600 dark:text-emerald-400" />
             <StatsCard icon={TrendingUp} label="Coût total" value={formatter.format(stats.totalEstimatedCost)}
               gradient="from-teal-500/20 to-emerald-500/20" iconColor="text-teal-600 dark:text-teal-400" />
-            <StatsCard icon={BarChart3} label="Moyenne" value={formatter.format(stats.averageCostPerProject)}
+            <StatsCard icon={BarChart3} label="Coût moyen" value={formatter.format(stats.averageCostPerProject)}
               gradient="from-amber-500/20 to-orange-500/20" iconColor="text-amber-600 dark:text-amber-400" />
           </div>
 
@@ -958,27 +956,27 @@ export default function Dashboard() {
 
           {/* Projects section */}
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm shadow-none">
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-                  <HardHat className="h-4 w-4" />
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-5 lg:p-6">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                  <HardHat className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <CardTitle className="text-sm sm:text-base lg:text-lg">Mes projets de construction</CardTitle>
-                  <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
+                  <CardTitle className="text-base sm:text-lg">Mes projets de construction</CardTitle>
+                  <CardDescription className="text-sm">
                     {projects.length} projet{projects.length > 1 ? "s" : ""} de construction
                   </CardDescription>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Button size="sm" className="h-8 gap-1 text-xs sm:text-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500" onClick={() => navigate("/dashboard/new")}>
-                  <Plus className="h-3.5 w-3.5" /> Nouveau projet
+                <Button className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500" onClick={() => navigate("/dashboard/new")}>
+                  <Plus className="h-4 w-4" /> Nouveau projet
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-3 sm:p-4 lg:p-5 pt-0">
+            <CardContent className="p-4 sm:p-5 lg:p-6 pt-1">
               {/* Statistiques */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                 <MiniStat icon={HardHat} label="Projets" value={stats.totalProjects} tone={{ bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" }} />
                 <MiniStat icon={Clock} label="En cours" value={stats.analyzingProjects} tone={{ bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400" }} />
                 <MiniStat icon={TrendingUp} label="Coût estimé" value={formatter.format(stats.totalEstimatedCost)} tone={{ bg: "bg-teal-500/10", text: "text-teal-600 dark:text-teal-400" }} />
@@ -986,26 +984,26 @@ export default function Dashboard() {
               </div>
 
               {/* Recherche */}
-              <div className="relative mb-3 sm:max-w-xs">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <div className="relative mb-4 sm:max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input type="text" placeholder="Rechercher un projet..." value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-border/40 bg-background pl-8 pr-2.5 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
+                  className="h-11 w-full rounded-lg border border-border/40 bg-background pl-10 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
               </div>
 
               {/* Filtres */}
               <div className="overflow-x-auto scrollbar-none">
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="mb-3 bg-transparent border-b border-border/20 rounded-none p-0 h-auto w-full justify-start gap-3 sm:gap-4 lg:gap-6 min-w-max">
+                  <TabsList className="mb-4 bg-transparent border-b border-border/20 rounded-none p-0 h-auto w-full justify-start gap-4 sm:gap-5 lg:gap-6 min-w-max">
                     {[
-                      { value: "all", label: "Tous" },
+                      { value: "all", label: "Tous les projets" },
                       { value: "completed", label: "Terminés" },
                       { value: "analyzing", label: "En cours" },
                       { value: "drafts", label: "Brouillons" },
                       { value: "favorites", label: "Favoris" },
                     ].map((tab) => (
                       <TabsTrigger key={tab.value} value={tab.value}
-                        className="px-0 py-1.5 sm:py-2 text-[10px] sm:text-xs lg:text-sm data-[state=active]:text-primary data-[state=active]:shadow-none relative rounded-none bg-transparent after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-primary after:scale-x-0 data-[state=active]:after:scale-x-100 after:transition-transform">
+                        className="px-0 py-2 sm:py-2.5 text-xs sm:text-sm lg:text-base data-[state=active]:text-primary data-[state=active]:shadow-none relative rounded-none bg-transparent after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-primary after:scale-x-0 data-[state=active]:after:scale-x-100 after:transition-transform">
                         {tab.label}
                       </TabsTrigger>
                     ))}
@@ -1014,36 +1012,34 @@ export default function Dashboard() {
               </div>
 
               {filteredProjects.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-emerald-300/40 dark:border-emerald-800/30 bg-emerald-50/40 dark:bg-emerald-950/20 text-center py-6 sm:py-8 px-4">
-                  <div className="mx-auto mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-emerald-500/10">
-                    <HardHat className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-300" />
+                <div className="rounded-xl border border-dashed border-emerald-300/40 dark:border-emerald-800/30 bg-emerald-50/40 dark:bg-emerald-950/20 text-center py-8 sm:py-10 px-5">
+                  <div className="mx-auto mb-3 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-emerald-500/10">
+                    <HardHat className="h-6 w-6 sm:h-7 sm:w-7 text-emerald-600 dark:text-emerald-300" />
                   </div>
-                  <p className="text-sm sm:text-base font-medium mb-1">Aucun projet de construction</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-3 max-w-md mx-auto">
+                  <p className="text-base sm:text-lg font-semibold mb-1">Aucun projet de construction</p>
+                  <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
                     Importez une photo, un plan PDF, une image satellite ou un croquis : l'IA estime les surfaces, les matériaux et le coût — marché tunisien 2026.
                   </p>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 text-xs bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-600/40 transition-all active:scale-[0.97]"
+                  <Button className="gap-2 text-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-600/40 transition-all active:scale-[0.97]"
                     onClick={() => navigate("/dashboard/new")}
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <Sparkles className="h-4 w-4" />
                     Nouveau projet
-                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    <ArrowUpRight className="h-4 w-4" />
                   </Button>
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
                     {visibleProjects.map((project: any) => (
                       <ProjectCard key={project._id} project={project} />
                     ))}
                   </div>
                   {filteredProjects.length > 3 && (
-                    <div className="mt-3 text-center">
-                      <Button variant="outline" size="sm" className="h-9 gap-1 text-xs" onClick={() => setShowAllProjects((v) => !v)}>
-                        {showAllProjects ? "Voir moins" : `Voir plus (${filteredProjects.length})`}
-                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllProjects ? "rotate-180" : ""}`} />
+                    <div className="mt-4 text-center">
+                      <Button variant="outline" className="h-11 gap-2" onClick={() => setShowAllProjects((v) => !v)}>
+                        {showAllProjects ? "Voir moins" : `Voir plus (${filteredProjects.length} projets)`}
+                        <ChevronDown className={`h-4 w-4 transition-transform ${showAllProjects ? "rotate-180" : ""}`} />
                       </Button>
                     </div>
                   )}
@@ -1052,30 +1048,29 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* ── Mes projets d'investissement enregistrés (avec statistiques) ── */}
-          {isFeatureEnabled("investment_project") && (
+          {/* ── Mes projets d'investissement enregistrés (avec statistiques) ── */}          {isFeatureEnabled("investment_project") && (
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm shadow-none">
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-                  <Landmark className="h-4 w-4" />
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-5 lg:p-6">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                  <Landmark className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <CardTitle className="text-sm sm:text-base lg:text-lg">Mes projets d'investissement</CardTitle>
-                  <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
+                  <CardTitle className="text-base sm:text-lg">Mes projets d'investissement</CardTitle>
+                  <CardDescription className="text-sm">
                     {analyses.length} analyse{analyses.length > 1 ? "s" : ""} enregistrée{analyses.length > 1 ? "s" : ""}
                   </CardDescription>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Button size="sm" className="h-8 gap-1 text-xs sm:text-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500" onClick={() => navigate("/dashboard/investments")}>
-                  <Plus className="h-3.5 w-3.5" /> Nouvelle analyse
+                <Button className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500" onClick={() => navigate("/dashboard/investments")}>
+                  <Plus className="h-4 w-4" /> Nouvelle analyse
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-3 sm:p-4 lg:p-5 pt-0">
+            <CardContent className="p-4 sm:p-5 lg:p-6 pt-1">
               {/* Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                 <MiniStat icon={Wallet} label="Budget investi" value={fmtTND(investStats.totalBudget)} tone={{ bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" }} />
                 <MiniStat icon={Percent} label="Rendement net moyen" value={fmtPct(investStats.avgYield)} tone={{ bg: "bg-teal-500/10", text: "text-teal-600 dark:text-teal-400" }} />
                 <MiniStat icon={Gauge} label="Meilleur score" value={investStats.bestScore ? `${investStats.bestScore}/100` : "—"} tone={{ bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400" }} />
@@ -1083,37 +1078,35 @@ export default function Dashboard() {
               </div>
 
               {analyses.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-emerald-300/40 dark:border-emerald-800/30 bg-emerald-50/40 dark:bg-emerald-950/20 text-center py-6 sm:py-8 px-4">
-                  <div className="mx-auto mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-emerald-500/10">
-                    <Landmark className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-300" />
+                <div className="rounded-xl border border-dashed border-emerald-300/40 dark:border-emerald-800/30 bg-emerald-50/40 dark:bg-emerald-950/20 text-center py-8 sm:py-10 px-5">
+                  <div className="mx-auto mb-3 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-emerald-500/10">
+                    <Landmark className="h-6 w-6 sm:h-7 sm:w-7 text-emerald-600 dark:text-emerald-300" />
                   </div>
-                  <p className="text-sm sm:text-base font-medium mb-1">Aucun projet d'investissement</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-3 max-w-md mx-auto">
+                  <p className="text-base sm:text-lg font-semibold mb-1">Aucun projet d'investissement</p>
+                  <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
                     Analysez un bien immobilier, comparez les scénarios et enregistrez vos prévisions, rendements et score IA — marché tunisien 2026.
                   </p>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 text-xs bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-600/40 transition-all active:scale-[0.97]"
+                  <Button className="gap-2 text-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-600/40 transition-all active:scale-[0.97]"
                     onClick={() => navigate("/dashboard/investments")}
 
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <Sparkles className="h-4 w-4" />
                     Lancer une analyse
-                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    <ArrowUpRight className="h-4 w-4" />
                   </Button>
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
                     {visibleInvestments.map((a: any) => (
                       <InvestmentCard key={a._id} analysis={a} />
                     ))}
                   </div>
                   {analyses.length > 3 && (
-                    <div className="mt-3 text-center">
-                      <Button variant="outline" size="sm" className="h-9 gap-1 text-xs" onClick={() => setShowAllInvestments((v) => !v)}>
-                        {showAllInvestments ? "Voir moins" : `Voir plus (${analyses.length})`}
-                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllInvestments ? "rotate-180" : ""}`} />
+                    <div className="mt-4 text-center">
+                      <Button variant="outline" className="h-11 gap-2" onClick={() => setShowAllInvestments((v) => !v)}>
+                        {showAllInvestments ? "Voir moins" : `Voir plus (${analyses.length} analyses)`}
+                        <ChevronDown className={`h-4 w-4 transition-transform ${showAllInvestments ? "rotate-180" : ""}`} />
                       </Button>
                     </div>
                   )}
@@ -1121,7 +1114,7 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
-          )}
+          ))}
               </ClientProPaywall>
             </>
           )}

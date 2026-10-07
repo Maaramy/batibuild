@@ -160,6 +160,284 @@
    Design system — shadcn/ui premium SaaS
    ============================================================================ */
 
+/* ── Typography scale (Batibuild global) ─────────────────────────────────
+   Mirrors `src/lib/typography.ts` and the Gemini-style brief:
+   readable even on mobile, calm line-height, clear hierarchy, breathing space.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Base font size reference for the tokens below: 16px. */
+:root {
+  --font-size-xs: 0.9375rem;   /* ~15px */
+  --font-size-sm: 1rem;         /* 16px */
+  --font-size-md: 1rem;         /* 16px — primary body */
+  --font-size-base: 1rem;       /* alias kept for legacy usage */
+  --font-size-lg: 1.0625rem;    /* ~17px */
+  --font-size-xl: 1.25rem;      /* 20px */
+  --font-size-2xl: 1.5rem;      /* 24px */
+  --font-size-3xl: 1.875rem;    /* 30px */
+  --font-size-4xl: 2.125rem;    /* ~34px */
+
+  --leading-body: 1.55;
+  --leading-body-tight: 1.45;
+  --leading-heading: 1.25;
+  --leading-label: 1.35;
+  --leading-micro: 1.4;
+
+  --card-padding: 1.125rem;
+  --section-gap: 1.375rem;
+  --paragraph-gap: 0.875rem;
+}
+
+/* Touch target / readability baseline on small screens.
+   Keep body readable and inputs large enough to prevent iOS zoom. */
+html {
+  font-size: 16px;
+}
+
+/* Fluid responsive font helpers using clamp().
+   Avoids multiplying breakpoint rules while keeping reading comfort. */
+.font-size-display {
+  font-size: clamp(var(--font-size-3xl), 4vw, var(--font-size-4xl));
+}
+.font-size-heading-1 {
+  font-size: clamp(var(--font-size-3xl), 3.5vw, var(--font-size-3xl));
+}
+.font-size-heading-2 {
+  font-size: clamp(var(--font-size-xl), 2.5vw, var(--font-size-2xl));
+}
+.font-size-heading-3 {
+  font-size: clamp(var(--font-size-lg), 1.6vw, var(--font-size-xl));
+}
+.font-size-body {
+  font-size: var(--font-size-md);
+}
+.font-size-secondary {
+  font-size: var(--font-size-sm);
+}
+.font-size-label {
+  font-size: var(--font-size-xs);
+}
+
+/* Base type rhythm for the app */
+body {
+  font-size: var(--font-size-md);
+  line-height: var(--leading-body);
+}
+
+/* Headings — strong but not oversized, comfortable leading */
+h1, h2, h3, h4 {
+  line-height: var(--leading-heading);
+  letter-spacing: -0.01em;
+}
+h1 {
+  font-size: var(--font-size-3xl);
+  font-weight: 600;
+}
+h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+}
+h3 {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+}
+h4 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+p {
+  margin-block-start: 0;
+  margin-block-end: var(--paragraph-gap);
+}
+
+button:not([disabled]),
+[role="button"]:not([disabled]) {
+  cursor: pointer;
+}
+
+/* ━━━ Card / surface readability ━━━ */
+/* Give cards a bit more internal space and more legible titles. */
+[data-slot="card"] {
+  padding-block: var(--card-padding);
+}
+[data-slot="card"] [data-slot="card-title"],
+[data-slot="card-title"] {
+  font-size: var(--font-size-lg);
+  line-height: var(--leading-heading);
+}
+[data-slot="card"] [data-slot="card-description"],
+[data-slot="card-description"] {
+  font-size: var(--font-size-sm);
+  line-height: var(--leading-body-tight);
+}
+
+/* ━━━ Table readability ━━━ */
+[data-slot="table"] {
+  font-size: var(--font-size-sm);
+  line-height: var(--leading-body-tight);
+}
+[data-slot="table-head"] {
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.01em;
+}
+[data-slot="table-cell"] {
+  padding-block: 0.75rem;
+}
+[data-slot="table"] [data-slot="table"] th,
+[data-slot="table"] [data-slot="table"] td {
+  padding-inline: 0.875rem;
+}
+
+/* ━━━ Form readability ━━━ */
+[data-slot="input"],
+[data-slot="textarea"],
+textarea,
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="search"],
+select {
+  font-size: var(--font-size-md);
+  line-height: var(--leading-body-tight);
+}
+[data-slot="select"] {
+  font-size: var(--font-size-md);
+}
+
+/* ━━━ Label / eyebrow readability ━━━ */
+.label-overline {
+  font-size: var(--font-size-xs);
+  line-height: var(--leading-micro);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+.data-label {
+  font-size: var(--font-size-sm);
+  line-height: var(--leading-label);
+  color: var(--muted-foreground);
+}
+
+/* ━━━ Button readability (16px+ minimum) ━━━ */
+[data-slot="button"] {
+  font-size: var(--font-size-md);
+  line-height: var(--leading-label);
+  font-weight: 500;
+  padding-inline: 1rem;
+}
+[data-slot="button"][data-size="sm"] {
+  font-size: var(--font-size-md);
+  padding-inline: 0.875rem;
+}
+[data-slot="button"][data-size="lg"] {
+  font-size: var(--font-size-md);
+  padding-inline: 1.5rem;
+}
+
+/* ━━━ Badge readability (avoid tiny badges where possible) ━━━ */
+[data-slot="badge"] {
+  font-size: var(--font-size-xs);
+  line-height: var(--leading-label);
+  padding-inline: 0.625rem;
+  padding-block: 0.25rem;
+  white-space: nowrap;
+}
+
+/* ━━━ Tabs readability ━━━ */
+[data-slot="tabs-list"] {
+  padding-block: 0.375rem;
+}
+[data-slot="tabs-trigger"] {
+  font-size: var(--font-size-sm);
+  line-height: var(--leading-label);
+  padding-inline: 1rem;
+}
+
+/* ━━━ Avatar text fallback ━━━ */
+[data-slot="avatar-fallback"] {
+  font-size: var(--font-size-md);
+  line-height: var(--leading-label);
+  font-weight: 600;
+}
+
+/* ━━━ Priority values: montants, résultats, KPIs ━━━ */
+.font-emphasis {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  line-height: var(--leading-heading);
+}
+.font-emphasis-2 {
+  font-size: var(--font-size-3xl);
+  font-weight: 650;
+  line-height: var(--leading-heading);
+}
+.font-mono-emphasis {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  line-height: var(--leading-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ━━━ Separator / section rhythm ━━━ */
+.section {
+  margin-block-start: var(--section-gap);
+  margin-block-end: var(--section-gap);
+}
+.card-section {
+  margin-block-start: var(--section-gap);
+}
+
+/* Utility: calmer spacing for lists and stacked content */
+.list-item {
+  margin-block-start: var(--paragraph-gap);
+}
+
+/* ━━━ Body copy blocks (prose-like) ━━━ */
+.prose {
+  font-size: var(--font-size-md);
+  line-height: var(--leading-body);
+  color: var(--foreground);
+}
+.prose p {
+  margin-block-end: var(--paragraph-gap);
+}
+.prose-h2 {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  margin-block-start: var(--section-gap);
+  margin-block-end: 0.625rem;
+  line-height: var(--leading-heading);
+}
+.prose-h3 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin-block-start: var(--section-gap);
+  margin-block-end: 0.5rem;
+  line-height: var(--leading-heading);
+}
+
+/* ━━━ Micro utility: small muted label for metadata ━━━ */
+.muted-micro {
+  font-size: var(--font-size-xs);
+  line-height: var(--leading-micro);
+  color: var(--muted-foreground);
+}
+
+/* ━━━ Mobile-friendly touch spacing for interactive rows ━━━ */
+.touch-friendly {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+/* ━━━ Safe viewport spacing on mobile browsers ━━━ */
+.page-safe {
+  padding-block: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-bottom));
+}
+
 /* Body: subtle slate gradient (light: slate-50 → white → slate-50, dark: gray-950 → gray-900) */
 body {
   background-image: linear-gradient(180deg, oklch(0.985 0.002 250), oklch(1 0 0) 32%, oklch(0.985 0.002 250));
@@ -170,11 +448,6 @@ body {
 }
 
 @layer utilities {
-  /* Micro-label: uppercase tracking-widest 9-10px slate-400 */
-  .label-overline {
-    @apply text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground;
-  }
-
   /* Calm card shadow — Batibuild design system. Flat surfaces, soft rim, minimal depth.
      Never a heavy multi-layer shadow and never a hard colored border. */
   .shadow-soft {
@@ -190,29 +463,6 @@ body {
     box-shadow: 0 0 0 1px oklch(1 0 0 / 0.07), 0 4px 12px -8px oklch(0 0 0 / 0.5);
   }
 
-  /* Ink weight for typographic hierarchy (brand-sans stack, tight tracking on headings) */
-  .text-display {
-    @apply text-3xl sm:text-4xl font-semibold tracking-tight leading-tight;
-  }
-  .text-heading-1 {
-    @apply text-2xl sm:text-3xl font-semibold tracking-tight leading-tight;
-  }
-  .text-heading-2 {
-    @apply text-xl sm:text-2xl font-semibold tracking-tight leading-tight;
-  }
-  .text-heading-3 {
-    @apply text-base sm:text-lg font-semibold tracking-tight leading-snug;
-  }
-  .text-body {
-    @apply text-sm sm:text-base leading-relaxed;
-  }
-  .text-caption {
-    @apply text-xs leading-relaxed text-muted-foreground;
-  }
-  .text-micro {
-    @apply text-[11px] leading-relaxed text-muted-foreground;
-  }
-
   /* Layout primitives used throughout the refreshed shell and pages */
   .shell-page {
     @apply max-w-7xl;
@@ -224,24 +474,39 @@ body {
     @apply space-y-5;
   }
 
-  /* Compact KPI tile — value + eyebrow, no color fill by default */
-  .kpi-tile {
-    @apply rounded-xl border border-border/40 bg-card/70 px-4 py-3.5 backdrop-blur-sm;
-  }
-  .kpi-tile .kpi-value {
-    @apply text-xl sm:text-2xl font-semibold tracking-tight tabular-nums;
-  }
-  .kpi-tile .kpi-label {
-    @apply text-[11px] font-medium text-muted-foreground uppercase tracking-wide mt-0.5;
+  /* Dotted watermark (hero cards) */
+  .dotted-watermark {
+    background-image: radial-gradient(oklch(1 0 0 / 0.18) 1px, transparent 1px);
+    background-size: 18px 18px;
   }
 
-  /* Timeline / journey line item — horizontal on desktop, vertical on mobile */
-  .timeline-line {
-    @apply relative flex flex-col gap-0;
+  /* Zebra rows */
+  .table-zebra tbody tr:nth-child(odd) {
+    background: var(--muted);
   }
-  .dark .timeline-line::before {
-    background: oklch(1 0 0 / 0.08);
+
+  /* Glass sticky headers */
+  .glass-header {
+    background: oklch(1 0 0 / 0.72);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid oklch(0.92 0.004 248 / 0.6);
   }
+  .dark .glass-header {
+    background: oklch(0.145 0.012 258 / 0.72);
+    border-bottom: 1px solid oklch(1 0 0 / 0.08);
+  }
+
+  /* Primary gradient buttons with colored shadow */
+  .btn-gradient {
+    background-image: linear-gradient(135deg, oklch(0.62 0.15 163) 0%, oklch(0.55 0.16 168) 100%);
+    box-shadow: 0 8px 20px -8px oklch(0.62 0.15 163 / 0.55);
+  }
+  .btn-gradient:hover {
+    filter: brightness(1.06);
+    box-shadow: 0 10px 26px -8px oklch(0.62 0.15 163 / 0.65);
+  }
+}
 
   /* Dotted watermark (hero cards) */
   .dotted-watermark {
