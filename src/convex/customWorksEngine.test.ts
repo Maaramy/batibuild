@@ -11,9 +11,9 @@ import {
   normalizeSolarPanelCount,
   resolveCustomWorkSurface,
   scenarioToFinishLevel,
+  solarPanelUnitPrice,
   type CustomWorkProjectContext,
 } from "../lib/customWorksCatalog";
-import { solarPanelUnitPrice } from "./bimEngine";
 import {
   estimateCustomWork,
   estimateSelectedCustomWorks,
@@ -61,6 +61,23 @@ describe("customWorksCatalog", () => {
     expect(SOLAR_PANEL_DEFAULT_COUNT).toBeLessThanOrEqual(5);
     expect(SOLAR_PANEL_TYPE.unit).toBe("panneaux");
     expect(SOLAR_PANEL_TYPE.powerWc).toBeGreaterThan(0);
+  });
+
+  it("définit par le système le prix unitaire TTC posé d'un panneau (1 800 à 2 000 DT)", () => {
+    // Référentiel : installation raccordée au réseau, matériel + pose.
+    expect(solarPanelUnitPrice("economique")).toBe(1800);
+    expect(solarPanelUnitPrice("standard")).toBe(1900);
+    expect(solarPanelUnitPrice("premium")).toBe(2000);
+    // Niveau inconnu → grille standard ; toujours dans la fourchette marché.
+    expect(solarPanelUnitPrice(undefined)).toBe(1900);
+    for (const level of ["economique", "standard", "premium", undefined]) {
+      const price = solarPanelUnitPrice(level);
+      expect(price).toBeGreaterThanOrEqual(1800);
+      expect(price).toBeLessThanOrEqual(2000);
+    }
+    // Installation complète 4-5 panneaux ≈ 7 500 à 9 800 DT TTC.
+    expect(4 * solarPanelUnitPrice("economique")).toBeGreaterThanOrEqual(7200);
+    expect(5 * solarPanelUnitPrice("premium")).toBeLessThanOrEqual(10000);
   });
 
   it("borne le nombre de panneaux à un entier de 1 à 5 (défaut si absent)", () => {
@@ -112,7 +129,7 @@ describe("estimateCustomWork", () => {
   });
 
   it("chiffre les panneaux solaires : nombre de panneaux × prix unitaire système", () => {
-    const unitPrice = solarPanelUnitPrice();
+    const unitPrice = solarPanelUnitPrice("standard");
     expect(unitPrice).toBeGreaterThan(0);
 
     for (const count of SOLAR_PANEL_COUNT_OPTIONS) {
@@ -127,11 +144,17 @@ describe("estimateCustomWork", () => {
       }
       // La quantité affichée est exprimée EN PANNEAUX, jamais en m².
       expect(work.surface).toBe(0);
-      const panel = work.lines[0];
-      expect(panel.unit).toBe("panneaux");
-      expect(panel.quantity).toBe(count);
-      expect(panel.unitPrice).toBe(unitPrice);
-      expect(panel.total).toBe(work.total);
+      for (const line of work.lines) {
+        expect(line.unit).toBe("panneaux");
+        expect(line.quantity).toBe(count);
+      }
+      // Le prix TTC posé est décomposé en natures : matériel ET pose.
+      expect(work.equipments).toBeGreaterThan(0);
+      expect(work.materials).toBeGreaterThan(0);
+      expect(work.labor).toBeGreaterThan(0);
+      expect(work.transport).toBeGreaterThan(0);
+      expect(work.studies).toBeGreaterThan(0);
+      expect(work.lines.reduce((s, l) => s + l.total, 0)).toBe(work.total);
     }
   });
 
@@ -151,16 +174,20 @@ describe("estimateCustomWork", () => {
     expect(estimateCustomWork("garage", { ...CTX, garages: 2 }, "tunis", "standard").surface).toBe(36);
   });
 
-  it("utilise le même prix unitaire système dans tous les scénarios budgétaires", () => {
+  it("suit la grille système TTC posé dans chaque scénario (4 panneaux ≈ 7 200-8 000 DT)", () => {
     const eco = estimateCustomWork("solaire", CTX, "tunis", "economique", 4);
     const std = estimateCustomWork("solaire", CTX, "tunis", "standard", 4);
     const prem = estimateCustomWork("solaire", CTX, "tunis", "premium", 4);
-    expect(eco.panelUnitPrice).toBe(std.panelUnitPrice);
-    expect(prem.panelUnitPrice).toBe(std.panelUnitPrice);
-    // Le montant est intégré à l'identique dans chaque scénario.
-    expect(eco.total).toBe(std.total);
-    expect(prem.total).toBe(std.total);
-    expect(eco.total).toBe(round2(4 * (std.panelUnitPrice as number)));
+    expect(eco.panelUnitPrice).toBe(1800);
+    expect(std.panelUnitPrice).toBe(1900);
+    expect(prem.panelUnitPrice).toBe(2000);
+    // Le montant est intégré automatiquement à chaque scénario budgétaire.
+    expect(eco.total).toBe(7200);
+    expect(std.total).toBe(7600);
+    expect(prem.total).toBe(8000);
+    for (const w of [eco, std, prem]) {
+      expect(w.total).toBe(round2(w.panelCount! * (w.panelUnitPrice as number)));
+    }
   });
 
   it("retombe sur 3 panneaux si aucun nombre n'est fourni", () => {

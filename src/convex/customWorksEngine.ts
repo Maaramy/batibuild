@@ -7,10 +7,14 @@
 //
 // Réutilise le moteur BIM (`runBIMEstimation`) : mêmes quantités dérivées,
 // mêmes matériaux, mêmes prix unitaires, même main-d'œuvre, mêmes données de
-// prix que l'estimation du projet. Aucun montant ni prix n'est codé en dur.
+// prix que l'estimation du projet. Aucun montant n'est saisi à la main.
+//
+// Exception : les PANNEAUX SOLAIRES ne sont jamais chiffrés au m². Leur coût =
+// nombre de panneaux × prix unitaire système TTC POSÉ d'un panneau (matériel +
+// pose + raccordement), décomposé selon la structure du moteur BIM.
 // ============================================================================
 
-import { runBIMEstimation, solarPanelUnitPrice } from "./bimEngine";
+import { PROJECT_PCT, runBIMEstimation } from "./bimEngine";
 import {
   SOLAR_PANEL_TYPE,
   getCustomWorkDef,
@@ -18,6 +22,7 @@ import {
   normalizeSolarPanelCount,
   resolveCustomWorkSurface,
   scenarioToFinishLevel,
+  solarPanelUnitPrice,
   type CustomWorkDef,
   type CustomWorkKey,
   type CustomWorkProjectContext,
@@ -50,7 +55,7 @@ export interface CustomWorkEstimate {
   surface: number;
   /** Nombre de panneaux retenus (poste solaire uniquement). */
   panelCount?: number;
-  /** Prix unitaire système d'UN panneau, en TND (poste solaire uniquement). */
+  /** Prix unitaire système TTC POSÉ d'UN panneau, en TND (poste solaire). */
   panelUnitPrice?: number;
   /** Unité de la quantité affichée (poste solaire : « panneaux »). */
   quantityUnit?: string;
@@ -91,13 +96,48 @@ const CATEGORY_NATURE: Record<string, CustomWorkNature> = {
 const round2 = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
 
 /**
+ * Structure du poste solaire, reprise du moteur BIM (catégorie
+ * « installation_solaire ») : [gros œuvre, second œuvre, équipements,
+ * main-d'œuvre, transport, études]. Elle sert à décomposer le prix unitaire
+ * TTC POSÉ (matériel + pose + raccordement) en natures du Quantitatif.
+ */
+const SOLAR_STRUCTURE_KEYS = [
+  "gros_oeuvre",
+  "second_oeuvre",
+  "equipements",
+  "main_oeuvre",
+  "transport",
+  "etudes_imprevus",
+] as const;
+
+/** Libellés système des lignes du poste solaire (quantités en panneaux). */
+const SOLAR_LINE_LABELS: Record<CustomWorkNature, string> = {
+  materiaux: "Structure de fixation, câblage DC/AC et protections",
+  equipements: SOLAR_PANEL_TYPE.label,
+  main_oeuvre: "Pose & raccordement par un électricien photovoltaïque",
+  transport: "Livraison et manutention",
+  etudes: "Études, mise en service et garanties",
+};
+
+/** Ordre d'affichage des natures dans le poste solaire. */
+const SOLAR_NATURE_ORDER: CustomWorkNature[] = [
+  "materiaux",
+  "equipements",
+  "main_oeuvre",
+  "transport",
+  "etudes",
+];
+
+/**
  * Panneaux solaires — chiffrage UNIQUEMENT au nombre de panneaux :
  *
- *     coût total = nombre de panneaux × prix unitaire d'un panneau
+ *     coût total = nombre de panneaux × prix unitaire d'un panneau POSÉ
  *
- * Le prix unitaire est défini par le système pour le type de panneau retenu
- * (`solarPanelUnitPrice`, catalogue 2026 / prix en direct) ; aucune surface,
- * aucun m² n'intervient. La quantité renvoyée est exprimée EN PANNEAUX.
+ * Le prix unitaire est défini par le système pour le type de panneau retenu,
+ * TTC POSÉ : fourniture + pose + raccordement (`solarPanelUnitPrice`). Aucune
+ * surface, aucun m² n'intervient. Le montant est ensuite décomposé selon la
+ * structure du moteur BIM (matériaux, équipements, main-d'œuvre, transport,
+ * études) et la quantité renvoyée est exprimée EN PANNEAUX.
  */
 function estimateSolarPanels(
   def: CustomWorkDef,
@@ -105,18 +145,41 @@ function estimateSolarPanels(
   panelCount?: number,
 ): CustomWorkEstimate {
   const count = normalizeSolarPanelCount(panelCount);
-  const unitPrice = solarPanelUnitPrice();
+  const unitPrice = solarPanelUnitPrice(finishLevel);
   const total = round2(count * unitPrice);
-  const lines: CustomWorkLine[] = [
-    {
-      designation: SOLAR_PANEL_TYPE.label,
-      quantity: count,
-      unit: SOLAR_PANEL_TYPE.unit,
-      unitPrice,
-      total,
-      nature: "equipements",
-    },
-  ];
+
+  // Décomposition du coût total selon la structure système du poste solaire.
+  const pct = PROJECT_PCT[def.category] ?? ([13, 10, 65, 5, 2, 5] as const);
+  const byNature: Record<CustomWorkNature, number> = {
+    materiaux: 0,
+    equipements: 0,
+    main_oeuvre: 0,
+    transport: 0,
+    etudes: 0,
+  };
+  SOLAR_STRUCTURE_KEYS.forEach((key, i) => {
+    const nature = CATEGORY_NATURE[key] ?? "materiaux";
+    byNature[nature] = round2(byNature[nature] + total * (Number(pct[i]) || 0) / 100);
+  });
+  // Le reliquat d'arrondi reste sur la dernière nature : la somme des natures
+  // vaut EXACTEMENT le coût total (nombre de panneaux × prix unitaire).
+  const others = round2(
+    byNature.materiaux + byNature.equipements + byNature.main_oeuvre + byNature.transport,
+  );
+  byNature.etudes = round2(total - others);
+
+  // Un article par nature, quantifié EN PANNEAUX (jamais en m²).
+  const lines: CustomWorkLine[] = SOLAR_NATURE_ORDER.filter(
+    (nature) => byNature[nature] > 0,
+  ).map((nature) => ({
+    designation: SOLAR_LINE_LABELS[nature],
+    quantity: count,
+    unit: SOLAR_PANEL_TYPE.unit,
+    unitPrice: round2(byNature[nature] / count),
+    total: byNature[nature],
+    nature,
+  }));
+
   return {
     key: "solaire",
     label: def.label,
@@ -128,11 +191,11 @@ function estimateSolarPanels(
     panelUnitPrice: unitPrice,
     quantityUnit: SOLAR_PANEL_TYPE.unit,
     finishLevel,
-    materials: 0,
-    equipments: total,
-    labor: 0,
-    transport: 0,
-    studies: 0,
+    materials: byNature.materiaux,
+    equipments: byNature.equipements,
+    labor: byNature.main_oeuvre,
+    transport: byNature.transport,
+    studies: byNature.etudes,
     total,
     lines,
   };
@@ -142,7 +205,8 @@ function estimateSolarPanels(
  * Chiffre un travail personnalisé à partir des données du projet et du
  * scénario actif. Aucune valeur de prix n'est inventée : tout vient du moteur
  * BIM (catalogue 2026 / prix en direct lorsque disponibles), sauf les panneaux
- * solaires qui se chiffrent au nombre de panneaux (prix unitaire système).
+ * solaires qui se chiffrent au nombre de panneaux × prix unitaire TTC posé
+ * défini par le système (aucun m²).
  */
 export function estimateCustomWork(
   key: CustomWorkKey,

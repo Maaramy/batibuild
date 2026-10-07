@@ -348,35 +348,6 @@ export function withLivePrices<T>(map: LivePriceMap | undefined, fn: () => T): T
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PANNEAUX SOLAIRES — prix unitaire SYSTÈME d'UN panneau
-// ---------------------------------------------------------------------------
-// Le poste « Panneaux solaires » des travaux personnalisés n'est JAMAIS chiffré
-// au m² : son coût = nombre de panneaux × prix unitaire d'un panneau. Ce prix
-// unitaire est défini par le système selon le type de panneau retenu (le
-// monocristallin 450 Wc) et provient de la même source que le reste de
-// l'estimation : la base de prix en direct (materialPrices, modifiable depuis
-// l'administration) avec repli sur le catalogue officiel 2026.
-// ═══════════════════════════════════════════════════════════════════════════
-
-/** Poste BIM du type de panneau retenu par le système. */
-export const SOLAR_PANEL_ITEM_NAME = "Panneau photovoltaïque 450Wc monocristallin";
-
-/** Repli (TND) si la référence catalogue est introuvable — 450 Wc mono, 2026. */
-const SOLAR_PANEL_FALLBACK_TND = 440;
-
-/**
- * Prix unitaire système (TND) d'UN panneau solaire du type retenu. Aucune
- * surface n'intervient : ce montant est celui d'un seul panneau, tel que défini
- * par la base de prix du système.
- */
-export function solarPanelUnitPrice(): number {
-  const resolved = resolveCatalogItem(SOLAR_PANEL_ITEM_NAME, LIVE_PRICES);
-  const price = Number(resolved?.unitPrice);
-  const value = Number.isFinite(price) && price > 0 ? price : SOLAR_PANEL_FALLBACK_TND;
-  return Math.round(value * 100) / 100;
-}
-
 type RawBimItem = { n: string; q: number; u: string; up: number };
 
 /**

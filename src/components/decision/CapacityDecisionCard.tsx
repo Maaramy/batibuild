@@ -613,7 +613,7 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
                   système selon le scénario budgétaire actif, avec les mêmes
                   données de prix que le reste de l'estimation. */}
               <div className="mt-2 rounded-xl border border-dashed border-border/50 p-2.5">
-                <SectionTitle hint="chiffrés automatiquement — panneaux solaires : nombre × prix unitaire">
+                <SectionTitle hint="chiffrés automatiquement — panneaux solaires : nombre × prix unitaire TTC posé">
                   Ajouter des travaux personnalisés
                 </SectionTitle>
 
@@ -703,7 +703,7 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
                     ) : (
                       <p className="mt-1.5 text-[10.5px] text-muted-foreground">
                         Coût calculé automatiquement après ajout : {panelCount} panneaux × prix unitaire
-                        système d'un panneau — aucun métrage en m².
+                        TTC posé d'un panneau (matériel + pose + raccordement) — aucun métrage en m².
                       </p>
                     )}
                     <p className="mt-0.5 text-[9.5px] leading-snug text-muted-foreground">

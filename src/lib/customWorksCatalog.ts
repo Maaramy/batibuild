@@ -12,9 +12,10 @@
 // n'est saisi à la main.
 //
 // Exception volontaire : les PANNEAUX SOLAIRES ne sont JAMAIS chiffrés au m².
-// Leur coût = nombre de panneaux choisi par l'utilisateur × prix unitaire d'un
-// panneau, ce prix étant DÉFINI PAR LE SYSTÈME selon le type de panneau retenu
-// (voir `SOLAR_PANEL_TYPE` et `bimEngine.solarPanelUnitPrice`).
+// Leur coût = nombre de panneaux choisi par l'utilisateur × prix unitaire TTC
+// POSÉ d'un panneau (matériel + pose + raccordement), ce prix étant DÉFINI PAR
+// LE SYSTÈME selon le type de panneau retenu et le scénario (`SOLAR_PANEL_TYPE`
+// et `solarPanelUnitPrice`).
 // ============================================================================
 
 /** Clés des travaux personnalisés prédéfinis. */
@@ -110,20 +111,41 @@ export interface SolarPanelType {
   powerWc: number;
   /** Unité de quantité affichée dans les résultats. */
   unit: string;
+  /**
+   * Prix unitaire TTC (TND) d'un panneau POSÉ — fourniture, pose et
+   * raccordement compris —, par niveau de finition (scénario budgétaire).
+   * Référentiel système 2026 : une installation photovoltaïque raccordée au
+   * réseau revient à environ 1 800 à 2 000 DT TTC par panneau posé (soit ≈ 7
+   * 500 à 9 800 DT TTC pour une installation complète de 2 à 3 kWc, 4 à 5
+   * panneaux). Aucun métrage ne module ce prix.
+   */
+  unitPriceTnd: { economique: number; standard: number; premium: number };
 }
 
 /**
  * Type de panneau RETENU par le système pour le poste solaire (référence du
  * catalogue matériaux 2026 « Panneau photovoltaïque 450 Wc monocristallin »).
- * Le prix unitaire n'est pas saisi : il est défini par le système pour ce type
- * (`bimEngine.solarPanelUnitPrice`, catalogue 2026 ou prix en direct).
+ * Le prix unitaire n'est jamais saisi : il est défini par le système pour ce
+ * type de panneau, TTC posé (voir `unitPriceTnd`).
  */
 export const SOLAR_PANEL_TYPE: SolarPanelType = {
   id: "photovoltaique_monocristallin_450wc",
   label: "Panneau photovoltaïque 450 Wc monocristallin",
   powerWc: 450,
   unit: "panneaux",
+  unitPriceTnd: { economique: 1800, standard: 1900, premium: 2000 },
 };
+
+/**
+ * Prix unitaire système (TND TTC) d'UN panneau POSÉ, selon le niveau de
+ * finition (scénario budgétaire). Ce prix comprend le matériel, la pose et le
+ * raccordement : il n'est jamais calculé à partir d'une surface en m².
+ */
+export function solarPanelUnitPrice(finishLevel?: string): number {
+  const level =
+    finishLevel === "economique" || finishLevel === "premium" ? finishLevel : "standard";
+  return SOLAR_PANEL_TYPE.unitPriceTnd[level];
+}
 
 /** Nombre de panneaux proposés à l'utilisateur (sélecteur 1 → 5). */
 export const SOLAR_PANEL_COUNT_OPTIONS: number[] = [1, 2, 3, 4, 5];
