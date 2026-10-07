@@ -752,8 +752,8 @@ export function buildBudgetAnalysis(input: BudgetAnalysisInput): BudgetAnalysis 
     gapToNextCategory,
     nextCategoryLabel: nextCategory?.categoryLabel ?? "",
     optimalCombination,
-    // Coût au m² : valeur ENREGISTRÉE du scénario (page résultat) ; repli
-    // sur total ÷ surface seulement si elle n'est pas fournie.
+    // Coût au m² : valeur du scénario transmise par la page (imprévus retirés) ;
+    // repli sur total ÷ surface seulement si elle n'est pas fournie.
     perUnitEstimate:
       Number(input.costPerM2) > 0
         ? round2(Number(input.costPerM2))

@@ -35,7 +35,10 @@ import {
   type BudgetScenarioKey,
 } from "@/convex/quantitatifCustomLogic";
 import type { Id } from "@/convex/_generated/dataModel";
-import { withRealConstructionCost } from "@/lib/investmentPrefill";
+import {
+  legacyContingencyFactor,
+  withRealConstructionCost,
+} from "@/lib/investmentPrefill";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
 
 const SCENARIO_KEYS: BudgetScenarioKey[] = ["economique", "standard", "premium"];
@@ -74,8 +77,15 @@ export default function DecisionSupport() {
   const scenarioSel = scenarios?.[scenarioKey];
   const projectTotal = scenarioSel?.totalCost ?? ce?.totalCost ?? 0;
   const scenarioLabel = scenarioSel?.label ?? BUDGET_SCENARIO_LABELS[scenarioKey];
-  // Coût au m² ENREGISTRÉ du scénario (mêmes valeurs que le résultat).
-  const costPerM2 = scenarioSel?.costPerM2 ?? ce?.costPerSquareMeter;
+  // Coût au m² du scénario — les anciennes estimations portent la majoration
+  // d'imprévus dans leur coût au m² enregistré : on la retire ici (aucun imprévus
+  // dans les résultats de l'aide à la décision). Sans majoration, inchangé.
+  const costFactor = legacyContingencyFactor(project?.costEstimate);
+  const registeredCostPerM2 = scenarioSel?.costPerM2 ?? ce?.costPerSquareMeter;
+  const costPerM2 =
+    registeredCostPerM2 && costFactor !== 1
+      ? Math.round(registeredCostPerM2 * costFactor)
+      : registeredCostPerM2;
 
   // Scénario « Personnalisé » : montant du scénario de référence (logique
   // identique à la page résultat), affiché seulement s'il porte des

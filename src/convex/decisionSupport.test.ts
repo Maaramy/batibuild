@@ -13,7 +13,8 @@ const modules = import.meta.glob("./**/*.*s");
 // Les attentes re-prennent les ÉQUATIONS EXACTES de la page résultat
 // (`ProjectDetail.tsx`) :
 //   • retrait de l'ancienne majoration d'imprévus (`contingencyPercentage`) ;
-//   • décomposition du coût × facteur du scénario (`scaledBreakdown`) ;
+//   • décomposition du coût × facteur du scénario × retrait des imprévus
+//     (les RÉSULTATS de l'aide à la décision sont affichés sans imprévus) ;
 //   • Quantitatif détaillé × facteur du scénario × retrait d'imprévus
 //     (`scaleDqeLots(lots, scaleFactor × realCostFactor)`, arrondis compris).
 // ============================================================================
@@ -124,7 +125,7 @@ describe("getProjectBudgetContext — coûts strictement identiques au résultat
     userId = await createUser(t);
   });
 
-  it("scénario Premium + majoration legacy : reproduit exactement les équations de la page résultat", async () => {
+  it("scénario Premium + majoration legacy : reproduit les équations du module sans imprévus", async () => {
     const projectId = await createProject(t, userId, { selectedScenario: "premium" });
     const ctx = await asUser(t, userId).query(api.decisionSupport.getProjectBudgetContext, {
       projectId,
@@ -141,18 +142,19 @@ describe("getProjectBudgetContext — coûts strictement identiques au résultat
     // Total = `currentTotal` du résultat (scénario enregistré, corrigé).
     expect(ctx.totalCost).toBe(correctedSel);
 
-    // Décomposition = `scaledBreakdown` du résultat : × facteur du scénario,
-    // SANS retrait d'imprévus (le résultat n'applique ce retrait qu'aux totaux
-    // et scénarios, pas à `breakdown`).
+    // Décomposition du coût : postes au COÛT RÉEL — les résultats de l'aide à
+    // la décision n'affichent aucun imprévus. Un seul produit (facteur du
+    // scénario × retrait de la majoration), arrondi identique au Quantitatif.
+    const f = scaleFactor * REAL_COST_FACTOR;
     expect(ctx.breakdown).toEqual([
-      { ...BREAKDOWN[0], estimatedCost: Math.round(BREAKDOWN[0].estimatedCost * scaleFactor) },
-      { ...BREAKDOWN[1], estimatedCost: Math.round(BREAKDOWN[1].estimatedCost * scaleFactor) },
+      { ...BREAKDOWN[0], estimatedCost: Math.round(BREAKDOWN[0].estimatedCost * f) },
+      { ...BREAKDOWN[1], estimatedCost: Math.round(BREAKDOWN[1].estimatedCost * f) },
     ]);
-    expect(ctx.breakdown[0].estimatedCost).toBe(125_000);
+    expect(ctx.breakdown[0].estimatedCost).toBe(115_741);
+    expect(ctx.breakdown[1].estimatedCost).toBe(57_870);
 
     // Quantitatif = `scaleDqeLots(lots, scaleFactor × realCostFactor)` du
     // résultat : arronds identiques, prix unitaire recalculé depuis le total.
-    const f = scaleFactor * REAL_COST_FACTOR;
     expect(ctx.lots).toHaveLength(2);
     expect(ctx.lots[0].subtotal).toBe(Math.round(100_000 * f));
     expect(ctx.lots[0].lines[0].total).toBe(Math.round(6_400 * f));
@@ -169,7 +171,7 @@ describe("getProjectBudgetContext — coûts strictement identiques au résultat
     expect(ctx.surface).toBe(120);
   });
 
-  it("scénario Standard + majoration legacy : décomposition brute, quantitatif corrigé (comme le résultat)", async () => {
+  it("scénario Standard + majoration legacy : décomposition au coût réel, quantitatif corrigé", async () => {
     const projectId = await createProject(t, userId, { selectedScenario: "standard" });
     const ctx = await asUser(t, userId).query(api.decisionSupport.getProjectBudgetContext, {
       projectId,
@@ -181,9 +183,13 @@ describe("getProjectBudgetContext — coûts strictement identiques au résultat
     expect(ctx.totalCost).toBe(Math.round(255_960 * REAL_COST_FACTOR));
     expect(ctx.totalCost).toBe(237_000);
 
-    // Décomposition : facteur de scénario = 1 → montants ENREGISTRÉS bruts
-    // (le résultat n'y retire pas la majoration).
-    expect(ctx.breakdown.map((b) => b.estimatedCost)).toEqual([100_000, 50_000]);
+    // Décomposition : facteur de scénario = 1 → seul le retrait de la
+    // majoration s'applique (postes affichés sans imprévus).
+    expect(ctx.breakdown.map((b) => b.estimatedCost)).toEqual([
+      Math.round(100_000 * REAL_COST_FACTOR),
+      Math.round(50_000 * REAL_COST_FACTOR),
+    ]);
+    expect(ctx.breakdown.map((b) => b.estimatedCost)).toEqual([92_593, 46_296]);
 
     // Quantitatif : seul le retrait de la majoration s'applique.
     expect(ctx.lots[0].subtotal).toBe(Math.round(100_000 * REAL_COST_FACTOR));

@@ -127,7 +127,7 @@ export interface DecisionSupportModuleProps {
   surface?: number;
   /** Coût total du scénario retenu — même valeur que « Coût estimatif ». */
   projectTotal: number;
-  /** Coût au m² ENREGISTRÉ du scénario — même valeur que le résultat. */
+  /** Coût au m² du scénario, sans imprévus (coût réel, modules résultat). */
   costPerM2?: number;
   /** Libellé du scénario retenu (Économique / Standard / Premium / Personnalisé). */
   scenarioLabel: string;

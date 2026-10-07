@@ -33,11 +33,12 @@ async function loadOwnedProject(
  *
  * SOURCE UNIQUE DE VÉRITÉ : le résultat « Estimation du coût de construction »
  * enregistré (`costEstimate` + `dqe`). Aucun montant n'est recréé, estimé ni
- * généré ici — les données subissent UNIQUEMENT les mêmes transformations
- * d'affichage que la page résultat, calculées pour le scénario enregistré du
- * projet :
- *   • Décomposition du coût × facteur du scénario (identique à
- *     `scaledBreakdown` de `ProjectDetail`) ;
+ * généré ici — les données subissent UNIQUEMENT les transformations d'affichage
+ * de la page résultat, calculées pour le scénario enregistré du projet, plus le
+ * retrait des imprévus exigé pour les RÉSULTATS de l'aide à la décision :
+ *   • Décomposition du coût × facteur du scénario × retrait de l'ancienne
+ *     majoration d'imprévus (`contingencyPercentage`) : les postes affichés par
+ *     le module sont au coût réel, cohérents avec le scénario retenu ;
  *   • Quantitatif détaillé × facteur du scénario × retrait des anciennes
  *     marges d'imprévus (identique à `scaleDqeLots(lots, scaleFactor ×
  *     realCostFactor)` de `ProjectDetail`, arrondis compris).
@@ -74,17 +75,20 @@ export const getProjectBudgetContext = query({
         ? selTotal / stdTotal
         : 1
 
-    // ── Décomposition du coût — MÊME transforme que `scaledBreakdown` de la
-    // page résultat : montants enregistrés × facteur du scénario (sans
-    // correction d'imprévus, exactement comme le résultat).
+    // ── Décomposition du coût — montants enregistrés × facteur du scénario ×
+    // retrait de la majoration d'imprévus. Les RÉSULTATS de l'aide à la décision
+    // sont affichés SANS imprévus : les postes du module doivent donc retomber
+    // sur le coût réel, au même niveau que le scénario corrigé et le Quantitatif
+    // (un seul produit, arrondi identique à `scaleDqeLots`).
+    const breakdownFactor = scaleFactor * realCostFactor
     const breakdown = (stored?.breakdown ?? [])
       .map((c) => ({
         category: String(c.category),
         label: c.label,
         estimatedCost:
-          scaleFactor === 1
+          breakdownFactor === 1
             ? Number(c.estimatedCost) || 0
-            : Math.round((Number(c.estimatedCost) || 0) * scaleFactor),
+            : Math.round((Number(c.estimatedCost) || 0) * breakdownFactor),
         percentage: Number(c.percentage) || 0,
       }))
       .filter((c) => c.estimatedCost > 0)
