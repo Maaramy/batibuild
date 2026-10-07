@@ -175,12 +175,72 @@ body {
     @apply text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground;
   }
 
-  /* Soft diffuse card shadow (never hard borders) */
+  /* Calm card shadow — Batibuild design system. Flat surfaces, soft rim, minimal depth.
+     Never a heavy multi-layer shadow and never a hard colored border. */
   .shadow-soft {
-    box-shadow: 0 1px 2px oklch(0 0 0 / 0.03), 0 8px 24px -12px oklch(0 0 0 / 0.08);
+    box-shadow: 0 0 0 1px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.02);
+  }
+  .dark .shadow-soft {
+    box-shadow: 0 0 0 1px oklch(1 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.4);
   }
   .shadow-soft-lg {
-    box-shadow: 0 2px 4px oklch(0 0 0 / 0.04), 0 16px 40px -16px oklch(0 0 0 / 0.14);
+    box-shadow: 0 0 0 1px oklch(0 0 0 / 0.07), 0 4px 12px -8px oklch(0 0 0 / 0.12);
+  }
+  .dark .shadow-soft-lg {
+    box-shadow: 0 0 0 1px oklch(1 0 0 / 0.07), 0 4px 12px -8px oklch(0 0 0 / 0.5);
+  }
+
+  /* Ink weight for typographic hierarchy (brand-sans stack, tight tracking on headings) */
+  .text-display {
+    @apply text-3xl sm:text-4xl font-semibold tracking-tight leading-tight;
+  }
+  .text-heading-1 {
+    @apply text-2xl sm:text-3xl font-semibold tracking-tight leading-tight;
+  }
+  .text-heading-2 {
+    @apply text-xl sm:text-2xl font-semibold tracking-tight leading-tight;
+  }
+  .text-heading-3 {
+    @apply text-base sm:text-lg font-semibold tracking-tight leading-snug;
+  }
+  .text-body {
+    @apply text-sm sm:text-base leading-relaxed;
+  }
+  .text-caption {
+    @apply text-xs leading-relaxed text-muted-foreground;
+  }
+  .text-micro {
+    @apply text-[11px] leading-relaxed text-muted-foreground;
+  }
+
+  /* Layout primitives used throughout the refreshed shell and pages */
+  .shell-page {
+    @apply max-w-7xl;
+  }
+  .shell-section {
+    @apply space-y-5;
+  }
+  .shell-content {
+    @apply space-y-5;
+  }
+
+  /* Compact KPI tile — value + eyebrow, no color fill by default */
+  .kpi-tile {
+    @apply rounded-xl border border-border/40 bg-card/70 px-4 py-3.5 backdrop-blur-sm;
+  }
+  .kpi-tile .kpi-value {
+    @apply text-xl sm:text-2xl font-semibold tracking-tight tabular-nums;
+  }
+  .kpi-tile .kpi-label {
+    @apply text-[11px] font-medium text-muted-foreground uppercase tracking-wide mt-0.5;
+  }
+
+  /* Timeline / journey line item — horizontal on desktop, vertical on mobile */
+  .timeline-line {
+    @apply relative flex flex-col gap-0;
+  }
+  .dark .timeline-line::before {
+    background: oklch(1 0 0 / 0.08);
   }
 
   /* Dotted watermark (hero cards) */
