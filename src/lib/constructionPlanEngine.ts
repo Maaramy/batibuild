@@ -114,7 +114,7 @@ export interface AiPriority {
 }
 
 export interface ConstructionPlan {
-  /** Budget restant simulé (TND). */
+  /** Budget disponible simulé (TND). */
   budget: number;
   /** Postes sélectionnés, triés par ordre de construction. */
   works: PlannedWork[];
@@ -721,7 +721,7 @@ function buildNextStep(plan: PlanCore): string {
 export interface ConstructionPlanInput {
   /** Tous les postes dérivés du Quantitatif + personnalités. */
   works: WorkItem[];
-  /** Budget restant à allouer (TND). */
+  /** Budget disponible à allouer (TND). */
   budget: number;
   /** Ids sélectionnés ; `null` = tout est sélectionné. */
   selectedIds: string[] | null;
@@ -823,7 +823,7 @@ export interface ScenarioCapacityRow {
   totalCost: number;
   /** Scénario retenu par le projet. */
   selected?: boolean;
-  /** % du coût de ce scénario finançable avec le budget restant. */
+  /** % du coût de ce scénario finançable avec le budget disponible. */
   capacityPct: number;
   /** Montant manquant pour couvrir ce scénario. */
   missing: number;
@@ -853,7 +853,7 @@ export function compareScenarioCapacity(
 // ── Surface constructible estimée ──────────────────────────────────────────
 
 /**
- * Surface théorique réalisable avec le budget restant, à partir du coût au m²
+ * Surface théorique réalisable avec le budget disponible, à partir du coût au m²
  * du projet (`projectTotal / surface`). `null` si le prix au m² est inconnu.
  */
 export function estimateBuildableSurface(budget: number, perUnitCost?: number): number | null {

@@ -337,7 +337,7 @@ export function CapacityDecisionCard({ analysis, lots, scenarioTotals }: Capacit
           <Hammer className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-bold tracking-tight">Capacité de construction</h3>
           <span className="rounded-full border border-primary/30 bg-primary/[0.06] px-2 py-0.5 text-[10px] font-semibold text-primary">
-            budget restant {formatTndAmount(plan.budget)}
+            budget disponible {formatTndAmount(plan.budget)}
           </span>
           <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => setOpen((v) => !v)}>
             {open ? "Masquer le détail" : "Voir le détail"}
@@ -351,7 +351,7 @@ export function CapacityDecisionCard({ analysis, lots, scenarioTotals }: Capacit
             icon={<span aria-hidden>💰</span>}
             label="Budget"
             value={formatTndAmount(plan.budget)}
-            hint="budget restant à allouer"
+            hint="budget disponible à allouer"
           />
           <SummaryTile
             icon={<span aria-hidden>🏗️</span>}
