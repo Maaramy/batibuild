@@ -37,6 +37,7 @@ export function OptimizationSection({
   onBudgetAnalyze,
   budgetAvailable,
   onBudgetChange,
+  projectId,
   lots,
   scenarioTotals,
   projectContextLabel,
@@ -44,6 +45,8 @@ export function OptimizationSection({
   /** Plan d'optimisation calculé en amont — plus affiché sur cette page. */
   plan: OptimizationPlan;
   budgetAnalysis: BudgetAnalysis | null;
+  /** Identifiant du projet — travaux personnalisés enregistrés pour ce projet. */
+  projectId?: string;
   onBudgetAnalyze?: (budget: number) => void;
   budgetAvailable?: number;
   onBudgetChange?: (value: string) => void;
@@ -119,7 +122,12 @@ export function OptimizationSection({
 
       {/* ── Capacité de construction (module d'aide à la décision) ── */}
       {budgetAnalysis?.available ? (
-        <CapacityDecisionCard analysis={budgetAnalysis} lots={lots} scenarioTotals={scenarioTotals} />
+        <CapacityDecisionCard
+          analysis={budgetAnalysis}
+          projectId={projectId}
+          lots={lots}
+          scenarioTotals={scenarioTotals}
+        />
       ) : budgetAnalysis?.reason ? (
         <Card className="border-dashed">
           <CardContent className="flex items-start gap-2.5 p-4">

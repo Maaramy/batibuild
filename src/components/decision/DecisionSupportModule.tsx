@@ -462,6 +462,7 @@ export function DecisionSupportModule({
           budgetAvailable={budgetAvailable ?? undefined}
           onBudgetChange={(value) => setBudgetAvailable(value === "" ? null : Number(value))}
           onBudgetAnalyze={runBudgetAnalysis}
+          projectId={projectId}
           lots={budgetContext?.lots ?? undefined}
           scenarioTotals={scenarioTotals}
           projectContextLabel={

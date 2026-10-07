@@ -15,6 +15,7 @@
 // ============================================================================
 
 import { useMemo, useState, type ReactNode } from "react";
+import { useMutation, useQuery } from "convex/react";
 import {
   ChevronDown,
   ChevronUp,
@@ -25,10 +26,13 @@ import {
   X,
 } from "lucide-react";
 
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { CUSTOM_WORK_CATALOG, type CustomWorkKey } from "@/lib/customWorksCatalog";
+import type { CustomWorkEstimate, CustomWorkNature } from "@/convex/customWorksEngine";
 import {
   budgetProgressionBlocks,
   formatPercent,
@@ -46,6 +50,7 @@ import {
   planBudgetSteps,
   type ScenarioTotal,
   type WorkItem,
+  type WorkPartSource,
 } from "@/lib/constructionPlanEngine";
 
 // ── Helpers visuels (reprises du module budget) ────────────────────────────
@@ -233,42 +238,79 @@ function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
 
 export interface CapacityDecisionCardProps {
   analysis: BudgetAnalysis;
+  /** Identifiant du projet — travaux personnalisés enregistrés pour ce projet. */
+  projectId?: string;
   /** Lots du Quantitatif détaillé (source des postes manquant au coût). */
   lots?: QuantitatifLot[];
   /** Totaux des scénarios d'estimation (Économique / Standard / Premium). */
   scenarioTotals?: ScenarioTotal[];
 }
 
-interface CustomWorkDraft {
-  id: string;
-  label: string;
-  cost: number;
+/**
+ * Convertit un travail personnalisé chiffré en poste du plan de construction :
+ * le travail devient une CATÉGORIE à part entière, détaillée en natures
+ * (Matériaux, Équipements, Main-d'œuvre, Transport, Études) et en articles du
+ * Quantitatif (quantité, unité, prix unitaire, montant).
+ */
+function customWorkToItem(cw: CustomWorkEstimate): WorkItem {
+  const parts: WorkPartSource[] = [];
+  const addPart = (id: string, label: string, cost: number, nature: CustomWorkNature) => {
+    if (cost <= 0) return;
+    parts.push({
+      id,
+      label,
+      cost,
+      articles: cw.lines
+        .filter((l) => l.nature === nature)
+        .map((l, i) => ({
+          id: `${id}:${i}`,
+          label: l.designation,
+          cost: l.total,
+          quantity: l.quantity,
+          unit: l.unit,
+        })),
+    });
+  };
+  addPart(`cw:${cw.key}:mat`, "Matériaux", cw.materials, "materiaux");
+  addPart(`cw:${cw.key}:eq`, "Équipements", cw.equipments, "equipements");
+  addPart(`cw:${cw.key}:mo`, "Main-d'œuvre", cw.labor, "main_oeuvre");
+  addPart(`cw:${cw.key}:tr`, "Transport", cw.transport, "transport");
+  addPart(`cw:${cw.key}:et`, "Études & frais", cw.studies, "etudes");
+  return {
+    id: `cw:${cw.key}`,
+    label: `${cw.emoji} ${cw.label}`,
+    cost: cw.total,
+    rank: CUSTOM_WORK_RANK,
+    categoryId: "custom",
+    custom: true,
+    parts: parts.length > 0 ? parts : undefined,
+  };
 }
 
-export function CapacityDecisionCard({ analysis, lots, scenarioTotals }: CapacityDecisionCardProps) {
+export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals }: CapacityDecisionCardProps) {
   const [open, setOpen] = useState(true);
   const [deselected, setDeselected] = useState<Set<string>>(() => new Set());
-  const [customWorks, setCustomWorks] = useState<CustomWorkDraft[]>([]);
-  const [customLabel, setCustomLabel] = useState("");
-  const [customCost, setCustomCost] = useState("");
-  const [seq, setSeq] = useState(1);
+  // Travaux personnalisés : sélection candidate avant validation.
+  const [selectedKeys, setSelectedKeys] = useState<Set<CustomWorkKey>>(() => new Set());
   const [openPlanRows, setOpenPlanRows] = useState<Record<string, boolean>>({});
   const [openPlanArticles, setOpenPlanArticles] = useState<Record<string, boolean>>({});
   const [showQuantitatif, setShowQuantitatif] = useState(false);
 
+  // ── Travaux personnalisés (liste prédéfinie, chiffrés automatiquement) ──
+  const customWorksData = useQuery(
+    api.customWorks.getProjectCustomWorks,
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
+  );
+  const saveCustomWorks = useMutation(api.customWorks.setProjectCustomWorks);
+  const customWorks = customWorksData?.works ?? [];
+  const customWorksTotal = customWorksData?.total ?? 0;
+
   // ── Postes du plan : Quantitatif + travaux personnalisés ────────────────
   const works = useMemo<WorkItem[]>(() => {
     const base = deriveWorks(analysis, lots);
-    const custom: WorkItem[] = customWorks.map((w) => ({
-      id: w.id,
-      label: w.label,
-      cost: w.cost,
-      rank: CUSTOM_WORK_RANK,
-      categoryId: "custom",
-      custom: true,
-    }));
+    const custom = (customWorksData?.works ?? []).map(customWorkToItem);
     return [...base, ...custom];
-  }, [analysis, lots, customWorks]);
+  }, [analysis, lots, customWorksData]);
 
   const selectedIds = useMemo(
     () => works.filter((w) => !deselected.has(w.id)).map((w) => w.id),
@@ -310,22 +352,25 @@ export function CapacityDecisionCard({ analysis, lots, scenarioTotals }: Capacit
     });
   };
 
-  const addCustomWork = () => {
-    const cost = Math.round(Number(customCost.replace(",", ".")));
-    if (!customLabel.trim() || !Number.isFinite(cost) || cost <= 0) return;
-    setCustomWorks((prev) => [...prev, { id: `custom:${seq}`, label: customLabel.trim(), cost }]);
-    setSeq((n) => n + 1);
-    setCustomLabel("");
-    setCustomCost("");
+  // Ajoute les travaux sélectionnés à ceux déjà enregistrés (dédoublonnage
+  // serveur : un travail déjà ajouté ne peut pas l'être deux fois).
+  const addSelectedCustomWorks = () => {
+    if (!projectId || selectedKeys.size === 0) return;
+    const merged = new Set<string>(customWorksData?.keys ?? []);
+    for (const key of selectedKeys) merged.add(key);
+    void saveCustomWorks({
+      projectId: projectId as Id<"projects">,
+      keys: Array.from(merged),
+    });
+    setSelectedKeys(new Set());
   };
 
-  const removeCustomWork = (id: string) => {
-    setCustomWorks((prev) => prev.filter((w) => w.id !== id));
-    setDeselected((prev) => {
-      if (!prev.has(id)) return prev;
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
+  const removeCustomWork = (key: CustomWorkKey) => {
+    if (!projectId) return;
+    const remaining = (customWorksData?.keys ?? []).filter((k) => k !== key);
+    void saveCustomWorks({
+      projectId: projectId as Id<"projects">,
+      keys: remaining,
     });
   };
 
@@ -510,49 +555,141 @@ export function CapacityDecisionCard({ analysis, lots, scenarioTotals }: Capacit
                 })}
               </div>
 
-              {/* Travaux prioritaires personnalisés */}
-              <div className="mt-2 rounded-lg border border-dashed border-border/50 p-2">
-                <SectionTitle>Travaux prioritaires personnalisés</SectionTitle>
-                <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-                  <Input
-                    value={customLabel}
-                    onChange={(e) => setCustomLabel(e.target.value)}
-                    placeholder="Ex. : Garage, terrasse, clôture…"
-                    className="h-8 text-[11px]"
-                  />
-                  <Input
-                    type="number"
-                    min={0}
-                    step={500}
-                    value={customCost}
-                    onChange={(e) => setCustomCost(e.target.value)}
-                    placeholder="Montant (TND)"
-                    className="h-8 text-[11px] tabular-nums sm:w-40"
-                  />
-                  <Button size="sm" className="h-8 gap-1 whitespace-nowrap" onClick={addCustomWork}>
-                    <Plus className="h-3.5 w-3.5" /> Ajouter
-                  </Button>
-                </div>
-                {customWorks.length > 0 && (
-                  <ul className="mt-2 flex flex-wrap gap-1.5">
-                    {customWorks.map((w) => (
-                      <li
-                        key={w.id}
-                        className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/[0.06] px-2 py-0.5 text-[10px]"
+              {/* ── Travaux personnalisés (liste prédéfinie) ──
+                  Placés à la fin des étapes de calcul des travaux (après la
+                  sélection et la main-d'œuvre, avant le total du projet). Le
+                  coût de chaque travail est chiffré AUTOMATIQUEMENT par le
+                  système selon le scénario budgétaire actif, avec les mêmes
+                  données de prix que le reste de l'estimation. */}
+              <div className="mt-2 rounded-xl border border-dashed border-border/50 p-2.5">
+                <SectionTitle hint="travaux complémentaires chiffrés automatiquement selon le scénario actif">
+                  Ajouter des travaux personnalisés
+                </SectionTitle>
+
+                <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {CUSTOM_WORK_CATALOG.map((def) => {
+                    const added = (customWorksData?.keys ?? []).includes(def.key);
+                    const checked = selectedKeys.has(def.key);
+                    return (
+                      <label
+                        key={def.key}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg border px-2 py-1.5 text-[11px] transition-colors",
+                          added
+                            ? "cursor-not-allowed border-border/40 bg-muted/40 opacity-70"
+                            : checked
+                              ? "cursor-pointer border-primary/30 bg-primary/[0.05]"
+                              : "cursor-pointer border-border/40 bg-background hover:bg-muted/20",
+                        )}
                       >
-                        {shortLabel(w.label)} · {formatTndAmount(w.cost)}
-                        <button
-                          type="button"
-                          aria-label={`Retirer ${w.label}`}
-                          className="rounded-full p-0.5 hover:bg-primary/10"
-                          onClick={() => removeCustomWork(w.id)}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                        <input
+                          type="checkbox"
+                          className="accent-primary"
+                          disabled={added}
+                          checked={added || checked}
+                          onChange={() =>
+                            setSelectedKeys((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(def.key)) next.delete(def.key);
+                              else next.add(def.key);
+                              return next;
+                            })
+                          }
+                        />
+                        <span aria-hidden>{def.emoji}</span>
+                        <span className="min-w-0 flex-1 truncate font-medium">{def.label}</span>
+                        {added ? (
+                          <span className="shrink-0 rounded-full bg-emerald-500/10 px-1.5 py-px text-[9px] font-semibold text-emerald-700 dark:text-emerald-300">
+                            ajouté
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                            chiffré à l'ajout
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="h-8 gap-1"
+                    disabled={!projectId || selectedKeys.size === 0}
+                    onClick={addSelectedCustomWorks}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Ajouter les travaux sélectionnés
+                  </Button>
+                  {selectedKeys.size > 0 ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-[10.5px]"
+                      onClick={() => setSelectedKeys(new Set())}
+                    >
+                      Annuler la sélection
+                    </Button>
+                  ) : null}
+                </div>
+
+                {/* ── Récapitulatif : travaux personnalisés + total projet ── */}
+                {customWorks.length > 0 ? (
+                  <div className="mt-2.5 space-y-1.5 rounded-lg border border-primary/20 bg-primary/[0.03] p-2.5">
+                    <SectionTitle hint="articles, quantités et prix unitaires du Quantitatif">
+                      Travaux personnalisés sélectionnés
+                    </SectionTitle>
+                    <ul className="space-y-1.5">
+                      {customWorks.map((w) => (
+                        <li key={w.key} className="rounded-lg border border-border/40 bg-background p-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span aria-hidden>{w.emoji}</span>
+                            <span className="text-[11.5px] font-semibold">{w.label}</span>
+                            <span className="text-[10px] tabular-nums text-muted-foreground">
+                              {w.surface} m² · {w.finishLevel}
+                            </span>
+                            <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10.5px] font-bold tabular-nums text-primary">
+                              {formatTndAmount(w.total)}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`Retirer ${w.label}`}
+                              className="rounded-full p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => removeCustomWork(w.key)}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                            <span>Matériaux : {formatTndAmount(w.materials)}</span>
+                            <span>Équipements : {formatTndAmount(w.equipments)}</span>
+                            <span>Main-d'œuvre : {formatTndAmount(w.labor)}</span>
+                            <span>Transport : {formatTndAmount(w.transport)}</span>
+                            <span>Études : {formatTndAmount(w.studies)}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="flex items-center justify-between border-t border-border/40 pt-1.5">
+                      <span className="text-[11px] font-semibold">Total des travaux personnalisés</span>
+                      <span className="text-[12px] font-bold tabular-nums text-primary">
+                        {formatTndAmount(customWorksTotal)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold">Coût total estimatif du projet</span>
+                      <span className="text-[12px] font-bold tabular-nums">
+                        {formatTndAmount(analysis.projectTotal + customWorksTotal)}
+                      </span>
+                    </div>
+                    <p className="text-[9.5px] text-muted-foreground">
+                      Ces travaux sont intégrés comme catégories supplémentaires du projet et restent
+                      synchronisés avec le Quantitatif détaillé, le scénario retenu et l'estimation du
+                      coût de construction.
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </div>
 

@@ -1418,6 +1418,20 @@ const schema = defineSchema(
     })
       .index("by_project_user", ["projectId", "userId"]),
 
+    // Travaux personnalisés — liste PRÉDÉFINIE de travaux complémentaires
+    // choisis par l'utilisateur (Piscine, Garage, Jardin, Panneaux solaires).
+    // Seules les clés sont stockées : les coûts sont recalculés à la lecture
+    // via le moteur BIM, selon les données du projet et le scénario actif
+    // (aucun montant arbitraire, aucune duplication possible — clés uniques).
+    projectCustomWorks: defineTable({
+      projectId: v.id("projects"),
+      userId: v.id("users"),
+      /** Clés des travaux sélectionnés (uniques, ordre du catalogue). */
+      keys: v.array(v.string()),
+      updatedAt: v.number(),
+    })
+      .index("by_project_user", ["projectId", "userId"]),
+
     projectRoadmaps: defineTable({
       userId: v.id("users"),
       projectId: v.id("projects"),
