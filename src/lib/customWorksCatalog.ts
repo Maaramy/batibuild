@@ -114,6 +114,18 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
+/**
+ * Surface d'un panneau photovoltaïque (m²) — base de calcul des panneaux
+ * solaires : 1 panneau = 2 m². La quantité de panneaux est déduite de la
+ * surface disponible du projet (jamais d'un montant).
+ */
+export const SOLAR_PANEL_AREA_M2 = 2;
+
+/** Nombre de panneaux solaires pour une surface donnée (1 panneau = 2 m²). */
+export function resolveSolarPanelCount(surface: number): number {
+  return Math.max(1, Math.floor((Number(surface) || 0) / SOLAR_PANEL_AREA_M2));
+}
+
 /** Surface bâtie totale (emprise × niveaux). */
 export function builtSurface(ctx: CustomWorkProjectContext): number {
   const emprise = Math.max(1, Number(ctx.surface) || 0);

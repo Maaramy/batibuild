@@ -15,6 +15,7 @@ import {
   getCustomWorkDef,
   normalizeCustomWorkKeys,
   resolveCustomWorkSurface,
+  resolveSolarPanelCount,
   scenarioToFinishLevel,
   type CustomWorkKey,
   type CustomWorkProjectContext,
@@ -122,6 +123,21 @@ export function estimateCustomWork(
         total: Number(item.totalPrice) || 0,
         nature,
       });
+    }
+  }
+
+  // Panneaux solaires : la quantité de panneaux est calculée sur une base de
+  // 2 m² par panneau (surface disponible ÷ 2 m²). Le montant du poste reste
+  // celui du chiffrage (mêmes prix), seul le nombre de panneaux — donc le prix
+  // unitaire — reflète cette base.
+  if (key === "solaire") {
+    const panels = resolveSolarPanelCount(surface);
+    for (const line of lines) {
+      if (line.nature === "equipements" && /photovolta/i.test(line.designation)) {
+        line.quantity = panels;
+        const unitPrice = line.total / panels;
+        line.unitPrice = Math.round(unitPrice * 100) / 100;
+      }
     }
   }
 

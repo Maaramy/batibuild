@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   CUSTOM_WORK_CATALOG,
   CUSTOM_WORK_KEYS,
+  SOLAR_PANEL_AREA_M2,
   isCustomWorkKey,
   normalizeCustomWorkKeys,
   resolveCustomWorkSurface,
+  resolveSolarPanelCount,
   scenarioToFinishLevel,
   type CustomWorkProjectContext,
 } from "../lib/customWorksCatalog";
@@ -48,6 +50,12 @@ describe("customWorksCatalog", () => {
     expect(resolveCustomWorkSurface("jardin", CTX)).toBe(250);
   });
 
+  it("base les panneaux solaires sur 2 m² par panneau", () => {
+    expect(SOLAR_PANEL_AREA_M2).toBe(2);
+    expect(resolveSolarPanelCount(150)).toBe(75);
+    expect(resolveSolarPanelCount(0)).toBe(1);
+  });
+
   it("associe chaque scénario budgétaire à un niveau de finition du moteur BIM", () => {
     expect(scenarioToFinishLevel("economique")).toBe("economique");
     expect(scenarioToFinishLevel("standard")).toBe("standard");
@@ -73,6 +81,17 @@ describe("estimateCustomWork", () => {
         ) / 100,
       );
     }
+  });
+
+  it("calcule la quantité de panneaux solaires sur une base de 2 m² par panneau", () => {
+    const work = estimateCustomWork("solaire", CTX, "tunis", "standard");
+    expect(work.surface).toBe(150);
+    const panel = work.lines.find((l) => /photovolta/i.test(l.designation));
+    expect(panel).toBeDefined();
+    // 150 m² disponibles ÷ 2 m² par panneau = 75 panneaux.
+    expect(panel?.quantity).toBe(75);
+    // Le montant du poste reste inchangé : seul le prix unitaire suit la base.
+    expect(panel?.unitPrice).toBe(Math.round((panel!.total / 75) * 100) / 100);
   });
 
   it("respecte le scénario budgétaire (Économique < Standard < Premium)", () => {
