@@ -311,10 +311,11 @@ describe("bundle client — poids du build", () => {
 
       // Repli : si le chemin rapide est tué par le noyau (137), l'enveloppe
       // REJOUE la même commande en mode économe. Le faux binaire meurt dès que
-      // son plafond dépasse 748 Mo, comme la sandbox de déploiement.
+      // son plafond dépasse 860 Mo — un palier placé entre les plafonds réels
+      // (économe 848, rapide 900) : le chemin rapide échoue, le repli passe.
       writeFileSync(
         join(tmp, "node_modules", "typescript", "bin", "tsc"),
-        "#!/usr/bin/env node\nconst limit = Math.round(require('v8').getHeapStatistics().heap_size_limit / 1048576);\nconsole.log(limit);\nprocess.exit(limit > 748 ? 137 : 0);\n",
+        "#!/usr/bin/env node\nconst limit = Math.round(require('v8').getHeapStatistics().heap_size_limit / 1048576);\nconsole.log(limit);\nprocess.exit(limit > 860 ? 137 : 0);\n",
       );
       const attempts = execFileSync(join(bin, "tsc"), ["-b"], {
         cwd: tmp,

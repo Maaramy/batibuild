@@ -311,14 +311,23 @@ après l'autre) :
 | sans plafond | ≈ 990 Mo | ≈ 1 160 Mo → « Killed » |
 | plafond unique à 800 Mo | 876 Mo | 888 Mo |
 | anciens plafonds (752 / 704) | 859 Mo | 846 Mo → « Killed » |
-| **planchers actuels** | **796 Mo** (`--jitless`, cap 744) | cap **660** (620 → abandon de V8) |
+| **planchers actuels (re-mesurés 2026-10)** | cap **900** (JIT, 41 s) — repli `--jitless` cap **848** (119 s) | cap **660** (620 → abandon de V8) |
 
-Le contrôle de type de l'application (1 413 fichiers, ~109 000 lignes, ~897 000
-instanciations de types) réclame ≈ 720 Mo de données vivantes : avec le JIT, le
-RSS ne descend pas sous **846 Mo** (plafond 744) ; en `--jitless` (l'interpréteur
-seul, donc plus de cache de code JIT) le même contrôle tient dans **796 Mo**, au
-prix de ~2,3× le temps (≈ 130 s au lieu de ~55 s). C'est le point le plus bas
-atteignable sans rien désactiver.
+Le contrôle de type de l'application a grossi avec le projet : ses anciens
+planchers **abandonnent** désormais (re-mesure 2026-10), ce qui mettait le
+build de la plateforme hors délai (essai rapide + repli économe dépassent le
+temps alloué à la commande) :
+
+| cap `tsc` | résultat |
+| --- | --- |
+| 752 Mo (JIT) | abandon de V8 après 75 s |
+| **900 Mo (JIT)** | **OK en 41 s — chemin rapide** |
+| 744 Mo (`--jitless`) | abandon de V8 après 126 s |
+| **848 Mo (`--jitless`)** | **OK en 119 s — chemin économe** |
+
+Le chemin économe paie toujours le même tribut : `--jitless` (l'interpréteur
+seul, donc plus de cache de code JIT) coûte ~2,8× le temps. C'est le point le
+plus bas atteignable sans rien désactiver.
 
 `vite build` ne peut pas être allégé de la même façon. Il **refuse** `--jitless`
 (échec immédiat : Node charge `undici`, dont le parseur HTTP est un module
@@ -341,7 +350,7 @@ Le plafond est donc appliqué à **deux endroits**, parce que la commande de mis
 en production n'est pas celle de `package.json` :
 
 1. **`scripts/build.sh`**, utilisé par `bun run build` (donc aussi par Vercel) :
-   `--max-old-space-size=752` exporté pour les deux phases. Le poser dans la
+   `--max-old-space-size=900` exporté pour les deux phases. Le poser dans la
    ligne `build` de `package.json` ne suffirait pas : les plateformes qui
    recopient la commande de build en retirent les préfixes d'environnement.
 2. **`scripts/harden-build-bins.mjs`**, lancé par le `postinstall` : la mise en
@@ -358,9 +367,9 @@ en production n'est pas celle de `package.json` :
 L'enveloppe de `tsc` **choisit son chemin selon le budget mémoire mesuré du
 cgroup**, avant de lancer Node :
 
-- budget confortable (≥ 1 100 Mo libres) → chemin rapide (cap 752 Mo, JIT) ;
-- budget serré → chemin économe d'emblée (`--jitless`, cap 744 Mo) : inutile de
-  payer 55 s d'un essai que le noyau va tuer, et inutile de déclencher l'OOM
+- budget confortable (≥ 1 250 Mo libres) → chemin rapide (cap 900 Mo, JIT) ;
+- budget serré → chemin économe d'emblée (`--jitless`, cap 848 Mo) : inutile de
+  payer 41 s d'un essai que le noyau va tuer, et inutile de déclencher l'OOM
   killer juste avant la tentative qui compte.
 
 Le chemin rapide garde son repli : si V8 abandonne (`134`) ou si le noyau tue
@@ -372,7 +381,7 @@ Pour mesurer ou ajuster les plafonds (`HEAP_MB_BY_TARGET`, `JITLESS_HEAP_MB` et
 `BB_BUILD_HEAP_MB` pour `scripts/build.sh`), et pour forcer un chemin :
 
 ```bash
-BB_BUILD_HEAP_MB=900 bun run build
+BB_BUILD_HEAP_MB=1024 bun run build
 BB_FAST_MIN_FREE_MB=0 bash -c 'tsc --version'        # toujours le chemin rapide
 BB_FAST_MIN_FREE_MB=999999 bash -c 'tsc --version'   # toujours le chemin économe
 ```
@@ -383,8 +392,8 @@ donc le budget qu'elle mesure, puis la durée et l'état du cgroup en cas
 d'échec :
 
 ```
-[heap-guard] tsc : 1 884 Mo libres — chemin rapide (plafond 752 Mo)
-[heap-guard] tsc : mémoire insuffisante après 51 s — nouvelle tentative en mode économe (--jitless, plafond 744 Mo)
+[heap-guard] tsc : 1 884 Mo libres — chemin rapide (plafond 900 Mo)
+[heap-guard] tsc : mémoire insuffisante après 41 s — nouvelle tentative en mode économe (--jitless, plafond 848 Mo)
 [heap-guard] vite : abandon de V8 après 29 s — nouvelle tentative (plafond 900 Mo)
 [heap-guard] vite : SIGKILL — processus tué par le noyau (mémoire du sandbox) après 32 s — cgroup 2 048 Mo, pic 2 048 Mo, libres 48 Mo
 ```
@@ -396,7 +405,7 @@ les deux étapes passent sans message d'échec, c'est que tout a tenu.
 
 Si un environnement installe les dépendances avec `--ignore-scripts` (donc sans
 `postinstall`), le plafond peut être posé à la main avec
-`NODE_OPTIONS=--max-old-space-size=752` — à garder proche du passage, car cette
+`NODE_OPTIONS=--max-old-space-size=900` — à garder proche du passage, car cette
 variable s'applique alors à **tous** les processus Node de la sandbox (serveur
 de dev, tests), pas seulement au build. Les drapeaux du chemin économe
 (`--jitless`) sont, eux, le travail de l'enveloppe : les appliquer globalement

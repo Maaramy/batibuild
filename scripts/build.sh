@@ -17,16 +17,18 @@
 # peut pas être « nettoyé » : il s'applique quelle que soit la façon dont la
 # commande a été transmise.
 #
-# Valeur : 752 Mo, le plafond du chemin RAPIDE mesuré de `tsc` (744 Mo → OK à
-# 856 Mo de RSS, 736 Mo → abandon de V8 ; au-dessus, V8 conserve des déchets
-# jusqu'à franchir la limite du cgroup). Le chemin économe (`--jitless`, 796 Mo
-# de RSS) et le choix entre les deux sont dans scripts/harden-build-bins.mjs :
-# `tsc` étant résolu via node_modules/.bin, ce choix s'applique aussi ici.
+# Valeur : 900 Mo, le plafond du chemin RAPIDE de `tsc` — re-mesuré en
+# 2026-10 : le contrôle de type a grossi, 752 Mo abandonne (V8, 75 s) et le
+# repli économe 744 abandonne aussi (126 s), ce qui mettait le build hors
+# délai ; 900 Mo passe en 41 s. Le chemin économe (`--jitless`, 848 Mo) et le
+# choix entre les deux sont dans scripts/harden-build-bins.mjs : `tsc` étant
+# résolu via node_modules/.bin, ce choix s'applique aussi ici.
 # Surchargeable via BB_BUILD_HEAP_MB.
 #
-# 752 Mo ne convient PAS à `vite build` : sous ~660 Mo de tas, Rollup abandonne
+# Ce plafond ne gouverne PAS `vite build` : son plancher mesuré est bien plus
+# bas — sous ~660 Mo de tas, Rollup abandonne
 # (« Ineffective mark-compacts near heap limit »). Les enveloppes de
-# node_modules/.bin posent donc leur propre plafond par binaire (tsc 752/744,
+# node_modules/.bin posent donc leur propre plafond par binaire (tsc 900/848,
 # vite 660 puis 900 si V8 abandonne) ; un drapeau de ligne de commande l'emporte
 # sur NODE_OPTIONS, cette variable n'est ici qu'un filet de sécurité pour un
 # appel direct aux binaires.
@@ -40,7 +42,7 @@
 
 set -eu
 
-export NODE_OPTIONS="--max-old-space-size=${BB_BUILD_HEAP_MB:-752}${NODE_OPTIONS:+ $NODE_OPTIONS}"
+export NODE_OPTIONS="--max-old-space-size=${BB_BUILD_HEAP_MB:-900}${NODE_OPTIONS:+ $NODE_OPTIONS}"
 
 echo "[build] NODE_OPTIONS=$NODE_OPTIONS"
 

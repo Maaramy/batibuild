@@ -24,16 +24,28 @@
 //   · sans plafond ................. tsc ≈ 990 Mo · vite ≈ 1 160 Mo → tués
 //   · plafonds v1 (800/800) ........ tsc ≈ 876 Mo · vite ≈ 888 Mo → tués
 //   · plafonds v2 (752/704) ........ tsc ≈ 859 Mo · vite ≈ 846 Mo → tsc tué
-//   · ACTUEL ....................... tsc ≈ 796 Mo (`--jitless`) · vite : cap 660
+//   · avant re-mesure 2026-10 ...... tsc ≈ 796 Mo (`--jitless`) · vite : cap 660
+//
+// ── RE-MESURE 2026-10 : les planchers précédents ont ÉTÉ DÉPASSÉS ──────────
+// Le contrôle de type a grossi avec le projet : `tsc -b` ABANDONNE désormais
+// au plafond rapide comme au repli économe, ce qui a fait échouer le build de
+// la plateforme (essai + repli dépassent le délai alloué à la commande) :
+//   · cap 752 (JIT) ........  abandon de V8 après 75 s  → build mort
+//   · cap 900 (JIT) ........  OK en 41 s   ← nouveau chemin rapide
+//   · cap 744 (`--jitless`)  abandon de V8 après 126 s
+//   · cap 848 (`--jitless`)  OK en 119 s  ← nouveau chemin économe
+//   · `vite build` cap 660 .  toujours bon (26 s), inchangé
 //
 // ── Les planchers mesurés ──────────────────────────────────────────────────
-// Le contrôle de type de cette application (1 413 fichiers, ~109 000 lignes,
-// ~897 000 instanciations de types) réclame ≈ 720 Mo de données vivantes :
-//   · avec JIT, le RSS ne descend pas sous 846 Mo (plafond 744 Mo) — 859 Mo à
-//     752 Mo, le plafond du chemin rapide ;
-//   · en `--jitless` (interpréteur seul : plus de cache de code JIT), le même
-//     contrôle tient dans 796 Mo, au prix de ~2,3× le temps (≈ 130 s au lieu de
-//     ~55 s). C'est le point le plus bas atteignable sans rien désactiver.
+// Le contrôle de type de cette application a grossi avec le projet : ses
+// données vivantes dépassent désormais l'ancien plancher de 720 Mo, d'où la
+// re-mesure de 2026-10 ci-dessus. Planchers validés aujourd'hui :
+//   · chemin rapide (JIT) : cap 900 Mo, OK en 41 s ; à 752 Mo V8 abandonne
+//     (« Ineffective mark-compacts near heap limit ») au bout de 75 s ;
+//   · chemin économe (`--jitless`, interpréteur seul : plus de cache de code
+//     JIT) : cap 848 Mo, OK en 119 s (≈ 2,8× le temps) ; à 744 Mo il abandonne
+//     aussi (126 s) — c'est cette double mort qui mettait le build hors délai.
+// C'est le point le plus bas atteignable sans rien désactiver.
 // `vite build` ne peut PAS être allégé de la même façon : `--jitless` échoue
 // aussitôt (Node charge `undici`, dont le parseur HTTP est un module
 // `WebAssembly` : « ReferenceError: WebAssembly is not defined »), et
@@ -54,9 +66,9 @@
 //
 // ── Stratégie : le budget décide, l'échec se replie ────────────────────────
 // `tsc` lit la mémoire réellement disponible du cgroup AVANT de lancer node :
-//   · budget confortable (≥ 1 100 Mo libres) → chemin rapide (752 Mo, JIT) ;
+//   · budget confortable (≥ 1 250 Mo libres) → chemin rapide (900 Mo, JIT) ;
 //   · budget serré                        → chemin économe d'emblée (`--jitless`,
-//     744 Mo) : inutile de payer 55 s d'un essai que le noyau va tuer, et
+//     848 Mo) : inutile de payer 41 s d'un essai que le noyau va tuer, et
 //     surtout inutile de déclencher l'OOM killer avant la tentative qui compte.
 // Le chemin rapide garde en plus son repli : si V8 abandonne (134) ou si le
 // noyau tue (137), la même commande est REJOUÉE en `--jitless`. Un
@@ -85,8 +97,11 @@ import { pathToFileURL } from "node:url";
 /** Marqueur présent uniquement dans les enveloppes écrites par ce script. */
 export const MARKER = "budgetbati-build-heap-guard";
 
-/** Plafond du chemin économe `--jitless` de `tsc` (mesuré : 796 Mo de RSS). */
-export const JITLESS_HEAP_MB = "744";
+/**
+ * Plafond du chemin économe `--jitless` de `tsc`. Re-mesuré 2026-10 : 744 Mo
+ * ABANDONNE (V8, 126 s) — le contrôle de type a grossi —, 848 Mo passe (119 s).
+ */
+export const JITLESS_HEAP_MB = "848";
 
 /**
  * Plafond du REPLI de `vite build`. `vite` refuse `--jitless` (Node charge
@@ -99,18 +114,20 @@ export const VITE_ABORT_RETRY_MB = "900";
 
 /**
  * Budget (Mo réellement libres dans le cgroup) en dessous duquel `tsc` part
- * directement en `--jitless`. 1 100 Mo = les 859 Mo du chemin rapide mesurés
- * + ~250 Mo de marge pour le CLI Convex parent et la pression mémoire.
+ * directement en `--jitless`. 1 250 Mo ≈ RSS attendu du chemin rapide
+ * (~1 010 Mo : plafond 900 + overhead node/V8, mesuré 859 à l'ancien plafond
+ * 752, soit +107) + ~250 Mo de marge pour le CLI Convex parent et la pression
+ * mémoire — la même marge que l'ancien 1 100 (859 + 250).
  * Surchargeable par `BB_FAST_MIN_FREE_MB` (les tests s'en servent).
  */
-export const FAST_PATH_MIN_FREE_MB = "1100";
+export const FAST_PATH_MIN_FREE_MB = "1250";
 
 /**
- * Plafonds de tas, par binaire, en Mo — les PLANCHERS mesurés. `BB_BUILD_HEAP_MB`
- * surcharge `tsc` ; ne pas remonter les valeurs par défaut sans re-mesurer le
- * pic de RSS.
+ * Plafonds de tas, par binaire, en Mo — les PLANCHERS mesurés (re-mesurés
+ * 2026-10 : tsc 752 abandonne, 900 passe). `BB_BUILD_HEAP_MB` surcharge `tsc` ;
+ * ne pas remonter les valeurs par défaut sans re-mesurer le pic de RSS.
  */
-export const HEAP_MB_BY_TARGET = { tsc: "752", vite: "660" };
+export const HEAP_MB_BY_TARGET = { tsc: "900", vite: "660" };
 
 /** Plafond de `tsc` (compatibilité : sert aussi de valeur par défaut). */
 export const HEAP_MB = process.env.BB_BUILD_HEAP_MB || HEAP_MB_BY_TARGET.tsc;
