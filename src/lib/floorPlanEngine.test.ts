@@ -180,4 +180,39 @@ describe("generateFloorPlans", () => {
     });
     expect(JSON.stringify(again.map((v) => v.floors))).toBe(JSON.stringify(maison.map((v) => v.floors)));
   });
+
+  it("intègre les travaux complémentaires sélectionnés comme besoins du projet", () => {
+    const base = {
+      category: "maison",
+      surface: 150,
+      floors: 1,
+      bedrooms: 3,
+      bathrooms: 2,
+      wcs: 2,
+    };
+    const withWorks = generateFloorPlans({
+      ...base,
+      works: ["garage", "cuisine_exterieure", "piscine", "jardin", "solaire"],
+    });
+
+    for (const v of withWorks) {
+      expect(v.validation.noOverlap).toBe(true);
+      const kinds = new Set(v.floors[0].rooms.map((r) => r.kind));
+      // Garage sélectionné → espace intégré au programme.
+      expect(kinds.has("garage")).toBe(true);
+      // Cuisine extérieure sélectionnée → zone dédiée.
+      expect(v.floors[0].rooms.some((r) => r.label.includes("Cuisine extérieure"))).toBe(true);
+      // Les contraintes extérieures (piscine, jardin, solaire) sont prises en compte.
+      expect(v.conceptNote).toContain("Contraintes du projet prises en compte");
+      expect(v.conceptNote).toContain("piscine");
+      expect(v.conceptNote).toContain("panneaux solaires");
+    }
+
+    // Sans travail complémentaire, le programme reste inchangé.
+    const withoutWorks = generateFloorPlans(base);
+    for (const v of withoutWorks) {
+      expect(v.floors[0].rooms.some((r) => r.kind === "garage")).toBe(false);
+      expect(v.conceptNote).not.toContain("Contraintes du projet prises en compte");
+    }
+  });
 });

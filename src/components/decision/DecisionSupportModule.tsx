@@ -133,6 +133,11 @@ export interface DecisionSupportModuleProps {
   scenarioLabel: string;
   /** Totaux des scénarios d'estimation pour la comparaison du module budget. */
   scenarioTotals?: ScenarioTotal[];
+  /**
+   * Travaux complémentaires accessibles ? (type de projet logement /
+   * immobilier neuf ET surface couverte ≥ 120 m²). Masqués sinon.
+   */
+  complementaryWorksEnabled?: boolean;
 }
 
 export function DecisionSupportModule({
@@ -145,6 +150,7 @@ export function DecisionSupportModule({
   costPerM2,
   scenarioLabel,
   scenarioTotals,
+  complementaryWorksEnabled,
 }: DecisionSupportModuleProps) {
   const { hash } = useLocation();
   const access = useQuery(api.access.checkClientProAccess);
@@ -465,6 +471,7 @@ export function DecisionSupportModule({
           projectId={projectId}
           lots={budgetContext?.lots ?? undefined}
           scenarioTotals={scenarioTotals}
+          complementaryWorksEnabled={complementaryWorksEnabled}
           projectContextLabel={
             [
               projectTypeLabel,

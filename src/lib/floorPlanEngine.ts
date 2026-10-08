@@ -119,6 +119,16 @@ export interface FloorPlanInput {
   kitchens?: number;
   livingRooms?: number;
   wcs?: number;
+  /**
+   * Travaux complémentaires RÉELLEMENT sélectionnés par l'utilisateur
+   * (clés de la liste prédéfinie : piscine, garage, cuisine_exterieure, jardin,
+   * solaire). Ils deviennent des besoins / contraintes du programme : le garage
+   * et la cuisine extérieure entrent dans le programme des pièces, les autres
+   * sont rappelés dans la note conceptuelle (implantation piscine, espaces
+   * extérieurs, toiture pour le solaire). Aucune liste indépendante n'est
+   * créée : ces clés viennent de la sélection enregistrée du projet.
+   */
+  works?: string[];
 }
 
 // ── PRNG déterministe (mulberry32) ──────────────────────────────────────────
@@ -254,6 +264,7 @@ function residentialProgram(
   const livingRooms =
     input.livingRooms && input.livingRooms > 0 ? input.livingRooms : 1;
   const wcs = input.wcs && input.wcs > 0 ? input.wcs : Math.max(1, bathrooms);
+  const works = input.works ?? [];
 
   const mkChambre = (i: number): ProgramItem => ({
     kind: "chambre",
@@ -307,6 +318,21 @@ function residentialProgram(
         min: 1.5,
         priority: 5,
       });
+
+      // Travaux complémentaires sélectionnés : ils deviennent des besoins du
+      // programme et sont intégrés à la conception (espace et accès prévus).
+      if (works.includes("garage")) {
+        items.push({ kind: "garage", label: "Garage", target: 18, min: 12, priority: 8 });
+      }
+      if (works.includes("cuisine_exterieure")) {
+        items.push({
+          kind: "polyvalent",
+          label: "Cuisine extérieure / barbecue",
+          target: 12,
+          min: 8,
+          priority: 6,
+        });
+      }
 
       // Sur un R+1 avec peu de chambres, quelques chambres peuvent monter au RDC
       if (levels === 1) {
@@ -949,7 +975,27 @@ function conceptNote(
     variant.floors.length > 1
       ? `${variant.floors.length} niveaux d'une emprise de ${variant.footprint.length.toFixed(1)} × ${variant.footprint.width.toFixed(1)} m`
       : `une emprise unique de ${variant.footprint.length.toFixed(1)} × ${variant.footprint.width.toFixed(1)} m`;
-  return `Variante « ${style} » : ${levelsTxt}. ${form.charAt(0).toUpperCase() + form.slice(1)}. ${org} Points forts : ${s}.`;
+
+  // Travaux complémentaires sélectionnés : rappelés comme contraintes / besoins
+  // du projet pris en compte lors de la génération du plan architectural.
+  const works = input.works ?? [];
+  const constraints: string[] = [];
+  if (works.includes("garage"))
+    constraints.push("un garage intégré avec accès véhicule direct depuis la voirie");
+  if (works.includes("cuisine_exterieure"))
+    constraints.push("une cuisine extérieure / barbecue protégée, implantée en façade arrière");
+  if (works.includes("piscine"))
+    constraints.push("une zone d'implantation réservée à la piscine, à l'écart du bâti");
+  if (works.includes("jardin"))
+    constraints.push("des espaces extérieurs aménagés en jardin autour du bâti");
+  if (works.includes("solaire"))
+    constraints.push("une toiture orientée et dimensionnée pour l'installation de panneaux solaires");
+  const constraintsTxt =
+    constraints.length > 0
+      ? ` Contraintes du projet prises en compte : ${constraints.join(", ")}.`
+      : "";
+
+  return `Variante « ${style} » : ${levelsTxt}. ${form.charAt(0).toUpperCase() + form.slice(1)}. ${org} Points forts : ${s}.${constraintsTxt}`;
 }
 
 // ── Styles des 10 variantes ─────────────────────────────────────────────────

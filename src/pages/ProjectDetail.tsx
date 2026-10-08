@@ -26,6 +26,7 @@ import { RecommendedProvidersPanel } from "@/components/RecommendedProvidersPane
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 import { ArticleEditDialog } from "@/components/quantitatif/ArticleEditDialog";
 import { QuantitatifDetails } from "@/components/quantitatif/QuantitatifDetails";
+import { ComplementaryWorksSection } from "@/components/complementary/ComplementaryWorksSection";
 import { MaterialIntelligenceSection } from "@/components/decision/MaterialIntelligenceSection";
 import {
   AlertDialog,
@@ -50,6 +51,16 @@ import {
   type BudgetScenarioKey,
   type QuantitatifCustomizationEntry,
 } from "@/convex/quantitatifCustomLogic";
+import {
+  SOLAR_PANEL_DEFAULT_COUNT,
+  isComplementaryWorkEligible,
+  normalizeCustomWorkKeys,
+  type CustomWorkKey,
+} from "@/lib/customWorksCatalog";
+import {
+  complementaryWorksTotal,
+  withComplementaryWorksLot,
+} from "@/lib/complementaryWorks";
 import { runBIMEstimation } from "@/convex/bimEngine";
 import {
   buildInvestmentPrefill,
@@ -193,6 +204,15 @@ export default function ProjectDetail() {
     api.quantitatifCustom.getCustomization,
     project?._id ? { projectId: project._id } : "skip",
   );
+  // ── Travaux complémentaires ──
+  // UNE seule source de vérité (enregistrée côté serveur) : la même sélection
+  // alimente le scénario « Personnalisé », le Quantitatif détaillé, le coût
+  // total ET le module « Plans architecturaux AI ».
+  const customWorksData = useQuery(
+    api.customWorks.getProjectCustomWorks,
+    project?._id ? { projectId: project._id } : "skip",
+  );
+  const setProjectCustomWorks = useMutation(api.customWorks.setProjectCustomWorks);
 
   const PROGRESS_STEPS = [
     "Préparation des données...",
@@ -271,7 +291,7 @@ export default function ProjectDetail() {
     // Contrôle PDF centralisé : le forfait Free ouvre l'accès au dialogue
     // Client Pro au lieu de générer le fichier.
     pdfGate.requestPdfDownload(() => {
-      if (hasCustomization && personalized) {
+      if (hasPersonalizedScenario && personalized) {
         void generatePDF(PERSONALIZED_SCENARIO_KEY);
         return;
       }
@@ -387,11 +407,45 @@ export default function ProjectDetail() {
     [customizationEntries],
   );
   const hasCustomization = customizationEntries.length > 0;
-  const baseScenarioKey = (customization?.baseScenario ?? "standard") as BudgetScenarioKey;
-  // Le scénario « Personnalisé » n'existe que s'il porte au moins une
-  // modification : sans modification, il retombe sur son scénario de référence.
+  // ── Travaux complémentaires (liste prédéfinie) ──
+  // Accessibles UNIQUEMENT pour les projets de type logement / immobilier neuf
+  // dont la surface couverte est ≥ 120 m². Hors de ces conditions, la
+  // fonctionnalité est masquée et le comportement d'origine est conservé.
+  const complementaryEligible = isComplementaryWorkEligible(
+    normalizeLegacyCategory(project?.category as string),
+    project?.surface,
+  );
+  const complementaryWorks = useMemo(
+    () => (complementaryEligible ? customWorksData?.works ?? [] : []),
+    [complementaryEligible, customWorksData],
+  );
+  const complementaryKeys = useMemo<CustomWorkKey[]>(
+    () =>
+      complementaryEligible
+        ? normalizeCustomWorkKeys(customWorksData?.keys ?? [])
+        : [],
+    [complementaryEligible, customWorksData],
+  );
+  const complementaryWorksTotalValue = complementaryWorksTotal(complementaryWorks);
+  const hasComplementaryWorks = complementaryKeys.length > 0;
+  // Le scénario « Personnalisé » existe dès qu'il porte des modifications
+  // d'articles OU des travaux complémentaires ; sans rien, il retombe sur son
+  // scénario de référence (comportement d'origine).
+  const hasPersonalizedScenario = hasCustomization || hasComplementaryWorks;
+  // Libellé du badge du scénario « Personnalisé » (articles modifiés ou
+  // travaux complémentaires sélectionnés).
+  const personalizedBadgeLabel = hasCustomization
+    ? `${customizationEntries.length} article${customizationEntries.length > 1 ? "s" : ""} modifié${customizationEntries.length > 1 ? "s" : ""}`
+    : `${complementaryKeys.length} travail${complementaryKeys.length > 1 ? "x" : ""} complémentaire${complementaryKeys.length > 1 ? "s" : ""}`;
+  // Scénario de référence du scénario « Personnalisé » : les modifications
+  // d'articles priment, sinon le scénario budgétaire courant du projet.
+  const storedScenarioKey = (project as any)?.selectedScenario;
+  const baseScenarioKey = (customization?.baseScenario ??
+    (["economique", "standard", "premium"].includes(storedScenarioKey)
+      ? storedScenarioKey
+      : "standard")) as BudgetScenarioKey;
   const isPersonalizedScenario =
-    hasCustomization && selectedScenario === PERSONALIZED_SCENARIO_KEY;
+    hasPersonalizedScenario && selectedScenario === PERSONALIZED_SCENARIO_KEY;
   const effectiveScenario: BudgetScenarioKey =
     selectedScenario === PERSONALIZED_SCENARIO_KEY
       ? baseScenarioKey
@@ -427,29 +481,84 @@ export default function ProjectDetail() {
   // Surface construite (m²) — base du coût au m².
   const builtSurface = project?.surface ? project.surface * (project.floors || 1) : 0;
 
-  // Totaux du scénario « Personnalisé » = scénario de référence + modifications.
+  // Totaux du scénario « Personnalisé » = scénario de référence + modifications
+  // d'articles + travaux complémentaires (catégorie « Travaux personnalisés »,
+  // insérée juste avant « Aménagement extérieur »).
   const personalized = useMemo(() => {
-    if (!hasCustomization || !rawDqeLots.length) return null;
+    if (!hasPersonalizedScenario || !rawDqeLots.length) return null;
     const baseFactor = budgetScenarioFactor(scenarios, baseScenarioKey);
     const scaled = scaleDqeLots(rawDqeLots, baseFactor * realCostFactor);
-    const overlay = overlayCustomizations(scaled, customizationEntries, {
-      scaleFactor: baseFactor,
-      realCostFactor,
-    });
+    const overlay = hasCustomization
+      ? overlayCustomizations(scaled, customizationEntries, {
+          scaleFactor: baseFactor,
+          realCostFactor,
+        })
+      : { lots: scaled, modifiedCount: 0 };
+    // Les travaux complémentaires n'intègrent QUE le scénario Personnalisé :
+    // les scénarios Économique / Standard / Premium ne sont jamais modifiés.
+    const lots = withComplementaryWorksLot(overlay.lots, complementaryWorks);
     return {
-      lots: overlay.lots,
-      totals: computeQuantitatifTotals(overlay.lots, builtSurface),
+      lots,
+      totals: computeQuantitatifTotals(lots, builtSurface),
       modifiedCount: overlay.modifiedCount,
     };
   }, [
+    hasPersonalizedScenario,
     hasCustomization,
     rawDqeLots,
     scenarios,
     baseScenarioKey,
     realCostFactor,
     customizationEntries,
+    complementaryWorks,
     builtSurface,
   ]);
+
+  // ── Ajout / retrait d'un travail complémentaire ───────────────────────────
+  // La sélection est enregistrée côté serveur (source unique) : la requête
+  // réactive met aussitôt à jour le Quantitatif détaillé, le scénario
+  // Personnalisé, le coût total et le module Plans architecturaux AI. Les
+  // scénarios Économique / Standard / Premium ne sont jamais touchés.
+  const saveComplementaryWorks = (keys: CustomWorkKey[], solarPanels?: number) => {
+    if (!project?._id) return;
+    void setProjectCustomWorks({
+      projectId: project._id,
+      keys,
+      solarPanels: solarPanels ?? customWorksData?.solarPanels ?? SOLAR_PANEL_DEFAULT_COUNT,
+    }).catch((err: any) =>
+      toast.error(err?.message || "Erreur lors de l'enregistrement des travaux"),
+    );
+  };
+
+  const toggleComplementaryWork = (key: CustomWorkKey) => {
+    const next = complementaryKeys.includes(key)
+      ? complementaryKeys.filter((k) => k !== key)
+      : [...complementaryKeys, key];
+    saveComplementaryWorks(next);
+  };
+
+  const changeComplementarySolarPanels = (count: number) => {
+    saveComplementaryWorks(complementaryKeys, count);
+  };
+
+  // Un ajout de travail déclenche l'affichage du scénario « Personnalisé » ;
+  // retirer le dernier travail (sans modification d'article) ramène au scénario
+  // de référence. La sélection initiale n'est pas modifiée à l'ouverture.
+  const complementaryInitRef = useRef(false);
+  const complementaryCountRef = useRef(0);
+  useEffect(() => {
+    const count = complementaryKeys.length;
+    if (!complementaryInitRef.current) {
+      complementaryInitRef.current = true;
+      complementaryCountRef.current = count;
+      return;
+    }
+    if (count === complementaryCountRef.current) return;
+    complementaryCountRef.current = count;
+    if (count > 0) setSelectedScenario(PERSONALIZED_SCENARIO_KEY);
+    else if (!hasCustomization)
+      setSelectedScenario((s) => (s === PERSONALIZED_SCENARIO_KEY ? baseScenarioKey : s));
+  }, [complementaryKeys.length, hasCustomization, baseScenarioKey]);
 
   const { isEnabled: isFeatureEnabled, flags: journeyFlags } = useFeatureFlags();
 
@@ -960,7 +1069,7 @@ export default function ProjectDetail() {
                       )}
                       Télécharger le devis
                     </button>
-                    {hasCustomization && (
+                    {hasPersonalizedScenario && (
                       <button
                         onClick={() => pdfGate.requestPdfDownload(openScenarioPicker)}
                         disabled={exporting}
@@ -1069,7 +1178,7 @@ export default function ProjectDetail() {
             {/* ═══ Budget Scenarios ═══ */}
             {scenarios && (
               <SectionCard icon={PiggyBank} title="Scénarios budgétaires" badge="cliquez pour appliquer">
-                <div className={cn("grid grid-cols-1 gap-3", hasCustomization ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3")}>
+                <div className={cn("grid grid-cols-1 gap-3", hasPersonalizedScenario ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3")}>
                   {(["economique", "standard", "premium"] as const).map((key) => {
                     const s = scenarios[key];
                     if (!s) return null;
@@ -1106,9 +1215,9 @@ export default function ProjectDetail() {
                       );
                     })}
 
-                    {/* Scénario « Personnalisé » : affiché uniquement lorsqu'au
-                        moins une modification d'article existe. */}
-                    {hasCustomization && personalized && (
+                    {/* Scénario « Personnalisé » : affiché dès qu'il porte une
+                        modification d'article ou des travaux complémentaires. */}
+                    {hasPersonalizedScenario && personalized && (
                       <button
                         onClick={() => chooseScenario(PERSONALIZED_SCENARIO_KEY)}
                         className={cn(
@@ -1119,7 +1228,7 @@ export default function ProjectDetail() {
                         )}>
                         <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                           <Badge className="bg-amber-500 text-white text-[9px] h-4.5 px-2 shadow whitespace-nowrap">
-                            {customizationEntries.length} article{customizationEntries.length > 1 ? "s" : ""} modifié{customizationEntries.length > 1 ? "s" : ""}
+                            {personalizedBadgeLabel}
 
                           </Badge>
                         </div>
@@ -1142,7 +1251,7 @@ export default function ProjectDetail() {
                     )}
                   </div>
 
-                  {hasCustomization && personalized && (
+                  {hasPersonalizedScenario && personalized && (
                     <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-border/10">
                       <p className="text-[10px] text-muted-foreground flex-1 min-w-[180px]">
                         Scénario Personnalisé dérivé de « {BUDGET_SCENARIO_LABELS[baseScenarioKey]} » —
@@ -1154,15 +1263,34 @@ export default function ProjectDetail() {
                         className="h-7 text-[10px] gap-1.5 text-amber-600 border-amber-400/40 hover:text-amber-700 shrink-0"
                         onClick={() => setConfirmResetAll(true)}>
                         <RotateCcw className="h-3 w-3" />
-                        Réinitialiser toutes les modifications
+                        Réinitialiser toutes les personnalisations
                       </Button>
                     </div>
                   )}
                 </SectionCard>
               )}
 
-
-
+            {/* ═══ Travaux complémentaires — liste prédéfinie ═══
+                Accessibles uniquement pour les projets éligibles (logement /
+                immobilier neuf, surface couverte ≥ 120 m²). Les travaux
+                sélectionnés n'intègrent QUE le scénario « Personnalisé » et
+                apparaissent dans le Quantitatif détaillé (catégorie « Travaux
+                personnalisés », juste avant « Aménagement extérieur »). */}
+            {complementaryEligible && (
+              <ComplementaryWorksSection
+                works={complementaryWorks}
+                selectedKeys={complementaryKeys}
+                total={complementaryWorksTotalValue}
+                solarPanels={customWorksData?.solarPanels}
+                onToggle={toggleComplementaryWork}
+                onChangeSolarPanels={changeComplementarySolarPanels}
+                baseTotal={
+                  personalized
+                    ? personalized.totals.total - complementaryWorksTotalValue
+                    : undefined
+                }
+              />
+            )}
 
             {/* ═══ Quantitatif détaillé — Vue par étapes de construction ═══ */}
             {(() => {
@@ -1221,9 +1349,7 @@ export default function ProjectDetail() {
               if (hasDqeLots) {
                 const dqeScenarioBadge = isPersonalizedScenario
                   ? {
-                      label: `${PERSONALIZED_SCENARIO_LABEL} — ${customizationEntries.length} article${
-                        customizationEntries.length > 1 ? "s" : ""
-                      } modifié${customizationEntries.length > 1 ? "s" : ""}`,
+                      label: `${PERSONALIZED_SCENARIO_LABEL} — ${personalizedBadgeLabel}`,
                       tone: "amber" as const,
                     }
                   : selectedScenario !== "standard" && scenarios
@@ -1291,15 +1417,17 @@ export default function ProjectDetail() {
                       <AlertDialogContent className="max-w-sm">
                         <AlertDialogHeader>
                           <AlertDialogTitle className="text-sm">
-                            Réinitialiser toutes les modifications ?
+                            Réinitialiser toutes les personnalisations ?
                           </AlertDialogTitle>
                           <AlertDialogDescription className="text-xs">
-                            Les {customizationEntries.length} article
-                            {customizationEntries.length > 1 ? "s" : ""} personnalisé
-                            {customizationEntries.length > 1 ? "s" : ""} seront restaurés selon le
-                            scénario de référence « {BUDGET_SCENARIO_LABELS[baseScenarioKey]} » et le
-                            scénario Personnalisé sera supprimé. Les scénarios Économique, Standard
-                            et Premium ne sont jamais modifiés.
+                            {hasCustomization
+                              ? `Les ${customizationEntries.length} article${customizationEntries.length > 1 ? "s" : ""} personnalisé${customizationEntries.length > 1 ? "s" : ""} seront restaurés selon le scénario de référence « ${BUDGET_SCENARIO_LABELS[baseScenarioKey]} ». `
+                              : ""}
+                            {hasComplementaryWorks
+                              ? `Les ${complementaryKeys.length} travail${complementaryKeys.length > 1 ? "x" : ""} complémentaire${complementaryKeys.length > 1 ? "s" : ""} sélectionné${complementaryKeys.length > 1 ? "s" : ""} seront retirés. `
+                              : ""}
+                            Le scénario Personnalisé sera supprimé. Les scénarios Économique,
+                            Standard et Premium ne sont jamais modifiés.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -1308,9 +1436,19 @@ export default function ProjectDetail() {
                             className="text-xs"
                             onClick={async () => {
                               try {
-                                await resetAllCustomizations({ projectId: project._id });
+                                if (hasCustomization) {
+                                  await resetAllCustomizations({ projectId: project._id });
+                                }
+                                if (hasComplementaryWorks) {
+                                  await setProjectCustomWorks({
+                                    projectId: project._id,
+                                    keys: [],
+                                    solarPanels:
+                                      customWorksData?.solarPanels ?? SOLAR_PANEL_DEFAULT_COUNT,
+                                  });
+                                }
                                 chooseScenario(baseScenarioKey);
-                                toast.success("Toutes les modifications ont été réinitialisées");
+                                toast.success("Toutes les personnalisations ont été réinitialisées");
                               } catch (err: any) {
                                 toast.error(err?.message || "Erreur lors de la réinitialisation");
                               }

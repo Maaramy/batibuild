@@ -22,7 +22,12 @@ import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
-import { projectTypeLabel, inferFloorsFromCategory } from "@/convex/projectTypes";
+import {
+  projectTypeLabel,
+  inferFloorsFromCategory,
+  normalizeLegacyCategory,
+} from "@/convex/projectTypes";
+import { isComplementaryWorkEligible } from "@/lib/customWorksCatalog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,6 +99,27 @@ export default function PlanGenerator() {
     loading || !id ? "skip" : { projectId: id as any },
   );
 
+  // ── Travaux complémentaires sélectionnés par l'utilisateur ──
+  // Source unique (enregistrée côté serveur, partagée avec le résultat
+  // « Coût de construction ») : aucune liste indépendante n'est créée. Chaque
+  // travail devient un besoin / une contrainte du programme architectural.
+  const customWorks = useQuery(
+    api.customWorks.getProjectCustomWorks,
+    loading || !id ? "skip" : { projectId: id as any },
+  );
+  const planWorks = useMemo(() => customWorks?.keys ?? [], [customWorks]);
+  // Mêmes conditions d'accès que le résultat d'estimation : les travaux
+  // complémentaires ne sont pris en compte que pour les projets éligibles
+  // (type de projet logement / immobilier neuf ET surface ≥ 120 m²).
+  const worksEligible = useMemo(
+    () =>
+      isComplementaryWorkEligible(
+        normalizeLegacyCategory((project?.category ?? "") as string),
+        project?.surface,
+      ),
+    [project?.category, project?.surface],
+  );
+
   // ── Génération des 10 variantes (déterministe) + réparation architecturale
   // de chaque niveau : garantit murs continus, surfaces exactes, ouvertures
   // dans les murs, accès à toute pièce (2D et 3D partagent les mêmes données).
@@ -108,6 +134,7 @@ export default function PlanGenerator() {
       kitchens: project.kitchens ?? undefined,
       livingRooms: project.livingRooms ?? undefined,
       wcs: project.wcs ?? undefined,
+      works: worksEligible ? planWorks : [],
     }).map((variant) => ({
       ...variant,
       floors: variant.floors.map((f) =>
@@ -117,7 +144,7 @@ export default function PlanGenerator() {
         }),
       ),
     }));
-  }, [project]);
+  }, [project, planWorks, worksEligible]);
 
   const variants = allVariants;
   const bestScore = useMemo(

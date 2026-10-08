@@ -371,11 +371,18 @@ export function QuantitatifDetails({
                         soit {fmt(displayedCostM2)}/m² · {builtSurface} m² · TVA 19% incluse
                       </p>
                     )}
-                    {isPersonalized && (
+                    {isPersonalized && modifiedCount > 0 && (
                       <p className="text-[9px] text-amber-700 mt-1">
                         Scénario Personnalisé — {modifiedCount} article
                         {modifiedCount > 1 ? "s" : ""} modifié
                         {modifiedCount > 1 ? "s" : ""} par rapport au scénario de référence.
+                      </p>
+                    )}
+                    {isPersonalized &&
+                      lots.some((l: { customWorks?: boolean }) => l?.customWorks) && (
+                      <p className="text-[9px] text-amber-700 mt-0.5">
+                        Travaux personnalisés inclus (catégorie « Travaux personnalisés »,
+                        juste avant « Aménagement extérieur ») — uniquement dans ce scénario.
                       </p>
                     )}
                     {dqeTotals && (

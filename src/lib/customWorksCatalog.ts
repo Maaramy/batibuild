@@ -19,7 +19,12 @@
 // ============================================================================
 
 /** Clés des travaux personnalisés prédéfinis. */
-export type CustomWorkKey = "piscine" | "garage" | "jardin" | "solaire";
+export type CustomWorkKey =
+  | "piscine"
+  | "garage"
+  | "cuisine_exterieure"
+  | "jardin"
+  | "solaire";
 
 export interface CustomWorkDef {
   key: CustomWorkKey;
@@ -55,6 +60,13 @@ export const CUSTOM_WORK_CATALOG: CustomWorkDef[] = [
     emoji: "🚗",
     category: "garage",
     nature: "Garage / abri",
+  },
+  {
+    key: "cuisine_exterieure",
+    label: "Cuisine extérieure",
+    emoji: "🔥",
+    category: "cuisine_exterieure",
+    nature: "Cuisine & barbecue extérieurs",
   },
   {
     key: "jardin",
@@ -202,6 +214,7 @@ export function builtSurface(ctx: CustomWorkProjectContext): number {
  *  • Piscine : 32 m² par bassin déclaré, sinon ~10 % de la surface bâtie
  *    (bornée 24-72 m²) ;
  *  • Garage : 18 m² par garage déclaré (au moins un) ;
+ *  • Cuisine extérieure : ~6 % du bâti (bornée 10-24 m²) ;
  *  • Jardin : surface restante du terrain hors bâti, sinon ~25 % du bâti.
  *
  * Les panneaux solaires n'y figurent pas : leur quantité est un NOMBRE DE
@@ -222,6 +235,10 @@ export function resolveCustomWorkSurface(
       const declared = Math.round(ctx.garages ?? 0);
       return 18 * Math.max(1, declared);
     }
+    case "cuisine_exterieure":
+      // Cuisine d'été : surface déduite du bâti (~6 %), bornée 10-24 m²
+      // (plan de travail, barbecue / plancha et auvent).
+      return clamp(Math.round(built * 0.06), 10, 24);
     case "jardin": {
       const terrain = Number(ctx.surfaceTotale) || 0;
       if (terrain > built) return clamp(Math.round(terrain - built), 30, 400);
@@ -245,3 +262,51 @@ export function scenarioToFinishLevel(scenario?: string): "economique" | "standa
   if (scenario === "premium") return "premium";
   return "standard";
 }
+
+// ── Conditions d'accès aux travaux complémentaires ─────────────────────────
+//
+// La fonctionnalité « Travaux complémentaires » n'est proposée que pour les
+// projets de type logement/immobilier neuf ET dont la surface couverte est
+// supérieure ou égale à 120 m². En dehors de ces conditions, elle est masquée
+// et le scénario « Personnalisé » se comporte exactement comme avant.
+
+export const COMPLEMENTARY_WORK_PROJECT_TYPES: string[] = [
+  "maison",
+  "villa",
+  "appartement",
+  "duplex",
+  "projet_neuf",
+];
+
+/** Surface couverte minimale du projet (m²) pour accéder aux travaux. */
+export const COMPLEMENTARY_WORK_MIN_SURFACE = 120;
+
+/**
+ * Le projet est-il éligible aux travaux complémentaires ?
+ * Les anciens slugs « Maison R+1 / R+2 » sont ramenés à « maison » par les
+ * appelants (`normalizeLegacyCategory`) ; la comparaison reste tolérante ici.
+ */
+export function isComplementaryWorkEligible(
+  category: string | undefined | null,
+  surface: number | undefined | null,
+): boolean {
+  const cat = String(category ?? "").trim();
+  if (!COMPLEMENTARY_WORK_PROJECT_TYPES.includes(cat)) return false;
+  const s = Number(surface);
+  return Number.isFinite(s) && s >= COMPLEMENTARY_WORK_MIN_SURFACE;
+}
+
+// ── Catégorie « Travaux personnalisés » du Quantitatif détaillé ────────────
+//
+// Les travaux complémentaires sélectionnés sont regroupés dans UNE catégorie
+// dédiée du Quantitatif détaillé, placée immédiatement AVANT la catégorie
+// « Aménagement extérieur ». Cet identifiant n'est pas modifiable par
+// l'utilisateur (hors des catégories éditables) et n'entre jamais en conflit
+// avec un lot existant du moteur DQE.
+
+export const COMPLEMENTARY_WORKS_LOT_ID = "travaux_personnalises";
+export const COMPLEMENTARY_WORKS_LOT_NAME = "Travaux personnalisés";
+
+/** Identifiant / libellé du lot « Aménagement extérieur » du moteur DQE. */
+export const EXTERIOR_LOT_ID = "amenagements_exterieurs";
+export const EXTERIOR_LOT_MATCH = /amenagement/;

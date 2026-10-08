@@ -26,7 +26,8 @@ import { DecisionSupportModule } from "@/components/decision/DecisionSupportModu
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { usePageSEO } from "@/hooks/use-page-seo";
-import { projectTypeLabel } from "@/convex/projectTypes";
+import { normalizeLegacyCategory, projectTypeLabel } from "@/convex/projectTypes";
+import { isComplementaryWorkEligible } from "@/lib/customWorksCatalog";
 import { REGION_LABELS } from "@/lib/projectPdf";
 import {
   BUDGET_SCENARIO_LABELS,
@@ -126,6 +127,13 @@ export default function DecisionSupport() {
   const regionLabel = project?.region
     ? REGION_LABELS[project.region] ?? project.region
     : undefined;
+  // Travaux complémentaires : mêmes conditions d'accès que sur le résultat
+  // d'estimation (type de projet logement / immobilier neuf ET surface
+  // couverte ≥ 120 m²). Masqués sinon.
+  const complementaryWorksEligible = isComplementaryWorkEligible(
+    normalizeLegacyCategory(project?.category as string),
+    project?.surface,
+  );
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
@@ -197,6 +205,7 @@ export default function DecisionSupport() {
               costPerM2={costPerM2}
               scenarioLabel={scenarioLabel}
               scenarioTotals={scenarioTotals.length > 0 ? scenarioTotals : undefined}
+              complementaryWorksEnabled={complementaryWorksEligible}
             />
           </>
         )}

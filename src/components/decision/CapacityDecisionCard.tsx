@@ -251,6 +251,12 @@ export interface CapacityDecisionCardProps {
   lots?: QuantitatifLot[];
   /** Totaux des scénarios d'estimation (Économique / Standard / Premium). */
   scenarioTotals?: ScenarioTotal[];
+  /**
+   * Travaux complémentaires accessibles ? (type de projet logement /
+   * immobilier neuf ET surface couverte ≥ 120 m²). Masqués sinon — les
+   * montants des travaux enregistrés sont alors ignorés eux aussi.
+   */
+  complementaryWorksEnabled?: boolean;
 }
 
 /**
@@ -294,7 +300,13 @@ function customWorkToItem(cw: CustomWorkEstimate): WorkItem {
   };
 }
 
-export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals }: CapacityDecisionCardProps) {
+export function CapacityDecisionCard({
+  analysis,
+  projectId,
+  lots,
+  scenarioTotals,
+  complementaryWorksEnabled = true,
+}: CapacityDecisionCardProps) {
   const [open, setOpen] = useState(true);
   const [deselected, setDeselected] = useState<Set<string>>(() => new Set());
   // Travaux personnalisés : sélection candidate avant validation.
@@ -313,8 +325,10 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
     projectId ? { projectId: projectId as Id<"projects"> } : "skip",
   );
   const saveCustomWorks = useMutation(api.customWorks.setProjectCustomWorks);
-  const customWorks = customWorksData?.works ?? [];
-  const customWorksTotal = customWorksData?.total ?? 0;
+  // Hors conditions d'accès (type de projet / surface), les travaux
+  // complémentaires sont entièrement masqués et n'entrent dans aucun montant.
+  const customWorks = complementaryWorksEnabled ? customWorksData?.works ?? [] : [];
+  const customWorksTotal = complementaryWorksEnabled ? customWorksData?.total ?? 0 : 0;
 
   // Nombre de panneaux affiché : choix local → valeur enregistrée → défaut.
   const panelCount =
@@ -328,9 +342,11 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
   // ── Postes du plan : Quantitatif + travaux personnalisés ────────────────
   const works = useMemo<WorkItem[]>(() => {
     const base = deriveWorks(analysis, lots);
-    const custom = (customWorksData?.works ?? []).map(customWorkToItem);
+    const custom = complementaryWorksEnabled
+      ? (customWorksData?.works ?? []).map(customWorkToItem)
+      : [];
     return [...base, ...custom];
-  }, [analysis, lots, customWorksData]);
+  }, [analysis, lots, customWorksData, complementaryWorksEnabled]);
 
   const selectedIds = useMemo(
     () => works.filter((w) => !deselected.has(w.id)).map((w) => w.id),
@@ -606,12 +622,16 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
                 })}
               </div>
 
-              {/* ── Travaux personnalisés (liste prédéfinie) ──
+              {/* ── Travaux complémentaires (liste prédéfinie) ──
                   Placés à la fin des étapes de calcul des travaux (après la
                   sélection et la main-d'œuvre, avant le total du projet). Le
                   coût de chaque travail est chiffré AUTOMATIQUEMENT par le
                   système selon le scénario budgétaire actif, avec les mêmes
-                  données de prix que le reste de l'estimation. */}
+                  données de prix que le reste de l'estimation.
+                  Accessibles uniquement pour les projets éligibles (type de
+                  projet logement / immobilier neuf ET surface couverte ≥ 120
+                  m²) : entièrement masqués sinon. */}
+              {complementaryWorksEnabled ? (
               <div className="mt-2 rounded-xl border border-dashed border-border/50 p-2.5">
                 <SectionTitle hint="chiffrés automatiquement — panneaux solaires : nombre × prix unitaire TTC posé">
                   Ajouter des travaux personnalisés
@@ -810,6 +830,7 @@ export function CapacityDecisionCard({ analysis, projectId, lots, scenarioTotals
                   </div>
                 ) : null}
               </div>
+              ) : null}
             </div>
 
             {/* ── ⭐ Plan de construction selon votre budget ──

@@ -41,6 +41,7 @@ export function OptimizationSection({
   lots,
   scenarioTotals,
   projectContextLabel,
+  complementaryWorksEnabled,
 }: {
   /** Plan d'optimisation calculé en amont — plus affiché sur cette page. */
   plan: OptimizationPlan;
@@ -55,6 +56,8 @@ export function OptimizationSection({
   /** Totaux des scénarios d'estimation (Économique / Standard / Premium). */
   scenarioTotals?: ScenarioTotal[];
   projectContextLabel?: string;
+  /** Travaux complémentaires accessibles (type de projet + surface ≥ 120 m²). */
+  complementaryWorksEnabled?: boolean;
 }) {
   const budgetInputValue = typeof budgetAvailable === "number" ? String(budgetAvailable) : "";
   const budgetNumber = Number(budgetInputValue);
@@ -127,6 +130,7 @@ export function OptimizationSection({
           projectId={projectId}
           lots={lots}
           scenarioTotals={scenarioTotals}
+          complementaryWorksEnabled={complementaryWorksEnabled}
         />
       ) : budgetAnalysis?.reason ? (
         <Card className="border-dashed">
