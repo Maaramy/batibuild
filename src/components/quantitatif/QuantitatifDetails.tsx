@@ -20,6 +20,8 @@ import {
   quantitatifLineKey,
   type QuantitatifCustomizationEntry,
 } from "@/convex/quantitatifCustomLogic";
+import { CustomWorkIcon } from "@/components/CustomWorkIcon";
+import { getCustomWorkDef } from "@/lib/customWorksCatalog";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-TN", {
@@ -297,7 +299,16 @@ export function QuantitatifDetails({
                                           )}
                                         </p>
                                         {line.description && (
-                                          <p className="text-[10px] text-muted-foreground/60 leading-snug">
+                                          <p className="flex items-center gap-1 text-[10px] text-muted-foreground/60 leading-snug">
+                                            {/* Travail personnalisé : même icône
+                                                (lucide-react) que dans le reste
+                                                de la plateforme. */}
+                                            {line.workKey && (
+                                              <CustomWorkIcon
+                                                icon={getCustomWorkDef(line.workKey)?.icon}
+                                                className="h-3 w-3 text-primary/70"
+                                              />
+                                            )}
                                             {line.description}
                                           </p>
                                         )}

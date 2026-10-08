@@ -29,6 +29,12 @@ import type { CustomWorkEstimate } from "../convex/customWorksEngine";
 export interface QuantitatifLotLine {
   designation: string;
   description?: string;
+  /**
+   * Clé du travail complémentaire d'appartenance (ex. « piscine »). Purement
+   * présentationnel : elle permet au Quantitatif d'afficher l'icône du travail
+   * via `CustomWorkIcon`, comme le reste de la plateforme.
+   */
+  workKey?: string;
   quantity: number;
   unit: string;
   unitPrice: number;
@@ -89,7 +95,10 @@ export function buildComplementaryWorksLot(
       lines.push({
         designation: line.designation,
         // Poste d'appartenance : chaque travail garde ses propres articles.
-        description: `${work.emoji ? `${work.emoji} ` : ""}${work.label}`,
+        // L'icône n'est pas un texte : elle est rendue par `CustomWorkIcon`
+        // (même bibliothèque que toute la plateforme) à partir de `workKey`.
+        description: work.label,
+        workKey: work.key,
         quantity: Number(line.quantity) || 0,
         unit: line.unit,
         unitPrice: Number(line.unitPrice) || 0,

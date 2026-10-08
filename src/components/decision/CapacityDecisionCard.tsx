@@ -32,11 +32,13 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CustomWorkIcon } from "@/components/CustomWorkIcon";
 import {
   CUSTOM_WORK_CATALOG,
   SOLAR_PANEL_COUNT_OPTIONS,
   SOLAR_PANEL_DEFAULT_COUNT,
   SOLAR_PANEL_TYPE,
+  getCustomWorkDef,
   type CustomWorkKey,
 } from "@/lib/customWorksCatalog";
 import type { CustomWorkEstimate, CustomWorkNature } from "@/convex/customWorksEngine";
@@ -291,7 +293,9 @@ function customWorkToItem(cw: CustomWorkEstimate): WorkItem {
   addPart(`cw:${cw.key}:et`, "Études & frais", cw.studies, "etudes");
   return {
     id: `cw:${cw.key}`,
-    label: `${cw.emoji} ${cw.label}`,
+    // Aucune icône dans le texte : elle est rendue par `CustomWorkIcon` (même
+    // bibliothèque et même style que toutes les icônes de la plateforme).
+    label: cw.label,
     cost: cw.total,
     rank: CUSTOM_WORK_RANK,
     categoryId: "custom",
@@ -590,6 +594,9 @@ export function CapacityDecisionCard({
               <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                 {works.map((w) => {
                   const checked = !deselected.has(w.id);
+                  // Travail personnalisé : même icône (lucide-react) que partout
+                  // ailleurs dans la plateforme.
+                  const cwDef = w.id.startsWith("cw:") ? getCustomWorkDef(w.id.slice(3)) : undefined;
                   return (
                     <label
                       key={w.id}
@@ -606,6 +613,12 @@ export function CapacityDecisionCard({
                         checked={checked}
                         onChange={() => toggleWork(w.id)}
                       />
+                      {cwDef && (
+                        <CustomWorkIcon
+                          icon={cwDef.icon}
+                          className="h-3.5 w-3.5 text-muted-foreground"
+                        />
+                      )}
                       <span className="min-w-0 flex-1 truncate font-medium" title={w.label}>
                         {shortLabel(w.label)}
                         {w.custom ? (
@@ -667,7 +680,10 @@ export function CapacityDecisionCard({
                             })
                           }
                         />
-                        <span aria-hidden>{def.emoji}</span>
+                        <CustomWorkIcon
+                          icon={def.icon}
+                          className="h-3.5 w-3.5 text-muted-foreground"
+                        />
                         <span className="min-w-0 flex-1 truncate font-medium">{def.label}</span>
                         {added ? (
                           <span className="shrink-0 rounded-full bg-emerald-500/10 px-1.5 py-px text-[9px] font-semibold text-emerald-700 dark:text-emerald-300">
@@ -765,7 +781,10 @@ export function CapacityDecisionCard({
                       {customWorks.map((w) => (
                         <li key={w.key} className="rounded-lg border border-border/40 bg-background p-2">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span aria-hidden>{w.emoji}</span>
+                            <CustomWorkIcon
+                              icon={w.icon}
+                              className="h-3.5 w-3.5 text-primary"
+                            />
                             <span className="text-[11.5px] font-semibold">{w.label}</span>
                             <span className="text-[10px] tabular-nums text-muted-foreground">
                               {/* Panneaux solaires : la quantité s'exprime EN

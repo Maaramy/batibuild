@@ -18,6 +18,13 @@
 // et `solarPanelUnitPrice`).
 // ============================================================================
 
+/**
+ * Icônes lucide disponibles pour les travaux (noms de composants de la
+ * bibliothèque déjà utilisée par toute la plateforme). Ajouter un travail = ajouter
+ * son nom ici et son entrée dans `CUSTOM_WORK_CATALOG` + `CustomWorkIcon`.
+ */
+export type CustomWorkIconName = "Waves" | "Car" | "CookingPot" | "TreePine" | "Sun";
+
 /** Clés des travaux personnalisés prédéfinis. */
 export type CustomWorkKey =
   | "piscine"
@@ -30,8 +37,12 @@ export interface CustomWorkDef {
   key: CustomWorkKey;
   /** Libellé affiché. */
   label: string;
-  /** Pictogramme affiché dans la liste. */
-  emoji: string;
+  /**
+   * Nom du composant d'icône **lucide-react** (même bibliothèque que toute la
+   * plateforme, même style de tracé). Ce nom est résolu en composant par
+   * `CustomWorkIcon` — source unique : changer une icône ne se fait qu'ici.
+   */
+  icon: CustomWorkIconName;
   /**
    * Catégorie du moteur BIM utilisée pour le chiffrage automatique (mêmes
    * pourcentages de structure, mêmes profils matériaux/main-d'œuvre et mêmes
@@ -50,35 +61,39 @@ export const CUSTOM_WORK_CATALOG: CustomWorkDef[] = [
   {
     key: "piscine",
     label: "Piscine",
-    emoji: "🏊",
+    // Même icône que la catégorie « Matériaux pour piscine » de la plateforme.
+    icon: "Waves",
     category: "piscine",
     nature: "Piscine & bassin",
   },
   {
     key: "garage",
     label: "Garage",
-    emoji: "🚗",
+    icon: "Car",
     category: "garage",
     nature: "Garage / abri",
   },
   {
     key: "cuisine_exterieure",
     label: "Cuisine extérieure",
-    emoji: "🔥",
+    // Même icône que le type « Rénovation cuisine » de la plateforme.
+    icon: "CookingPot",
     category: "cuisine_exterieure",
     nature: "Cuisine & barbecue extérieurs",
   },
   {
     key: "jardin",
     label: "Jardin",
-    emoji: "🌳",
+    // Même icône que la catégorie « Aménagement extérieur / jardins ».
+    icon: "TreePine",
     category: "jardin",
     nature: "Aménagement paysager",
   },
   {
     key: "solaire",
     label: "Panneaux solaires",
-    emoji: "☀️",
+    // Même icône que la catégorie « Panneaux solaires » de la plateforme.
+    icon: "Sun",
     category: "installation_solaire",
     nature: "Énergie photovoltaïque",
   },

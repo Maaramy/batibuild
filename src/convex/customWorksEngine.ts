@@ -24,6 +24,7 @@ import {
   scenarioToFinishLevel,
   solarPanelUnitPrice,
   type CustomWorkDef,
+  type CustomWorkIconName,
   type CustomWorkKey,
   type CustomWorkProjectContext,
 } from "../lib/customWorksCatalog";
@@ -48,7 +49,11 @@ export interface CustomWorkLine {
 export interface CustomWorkEstimate {
   key: CustomWorkKey;
   label: string;
-  emoji: string;
+  /**
+   * Nom du composant d'icône lucide-react du travail (même bibliothèque que
+   * toute la plateforme). Résolu en composant par `CustomWorkIcon` côté client.
+   */
+  icon: CustomWorkIconName;
   /** Catégorie du moteur BIM ayant servi au chiffrage. */
   category: string;
   /** Surface chiffrée (déduite du projet) — 0 pour les panneaux solaires. */
@@ -183,7 +188,7 @@ function estimateSolarPanels(
   return {
     key: "solaire",
     label: def.label,
-    emoji: def.emoji,
+    icon: def.icon,
     category: def.category,
     // Aucun métrage : le poste solaire se chiffre au nombre de panneaux.
     surface: 0,
@@ -265,7 +270,7 @@ export function estimateCustomWork(
   return {
     key,
     label: def.label,
-    emoji: def.emoji,
+    icon: def.icon,
     category: def.category,
     surface,
     finishLevel,

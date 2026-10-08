@@ -70,6 +70,7 @@ export { default as CalendarClock } from "../../node_modules/lucide-react/dist/e
 export { default as CalendarDays } from "../../node_modules/lucide-react/dist/esm/icons/calendar-days.js";
 export { default as CalendarRange } from "../../node_modules/lucide-react/dist/esm/icons/calendar-range.js";
 export { default as Camera } from "../../node_modules/lucide-react/dist/esm/icons/camera.js";
+export { default as Car } from "../../node_modules/lucide-react/dist/esm/icons/car.js";
 export { default as ChartBar } from "../../node_modules/lucide-react/dist/esm/icons/chart-bar.js";
 export { default as Check } from "../../node_modules/lucide-react/dist/esm/icons/check.js";
 export { default as CheckCheck } from "../../node_modules/lucide-react/dist/esm/icons/check-check.js";
@@ -259,6 +260,7 @@ export { default as TrendingDown } from "../../node_modules/lucide-react/dist/es
 export { default as TrendingUp } from "../../node_modules/lucide-react/dist/esm/icons/trending-up.js";
 export { default as TriangleAlert } from "../../node_modules/lucide-react/dist/esm/icons/triangle-alert.js";
 export { default as TriangleAlertIcon } from "../../node_modules/lucide-react/dist/esm/icons/triangle-alert.js";
+export { default as TreePine } from "../../node_modules/lucide-react/dist/esm/icons/tree-pine.js";
 export { default as Trophy } from "../../node_modules/lucide-react/dist/esm/icons/trophy.js";
 export { default as Truck } from "../../node_modules/lucide-react/dist/esm/icons/truck.js";
 export { default as Upload } from "../../node_modules/lucide-react/dist/esm/icons/upload.js";

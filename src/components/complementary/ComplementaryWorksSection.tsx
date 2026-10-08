@@ -19,6 +19,7 @@ import { Check, Loader2, Plus, Sun, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { CustomWorkIcon } from "@/components/CustomWorkIcon";
 import { cn } from "@/lib/utils";
 import { formatTndAmount } from "@/lib/budgetEngine";
 import {
@@ -146,9 +147,10 @@ export function ComplementaryWorksSection({
                     >
                       {isOn ? <Check className="h-3 w-3" /> : null}
                     </span>
-                    <span aria-hidden className="text-base">
-                      {def.emoji}
-                    </span>
+                    <CustomWorkIcon
+                      icon={def.icon}
+                      className="h-4 w-4 text-muted-foreground"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-xs font-semibold">{def.label}</span>
                       <span className="block truncate text-[10.5px] text-muted-foreground">
@@ -234,7 +236,7 @@ export function ComplementaryWorksSection({
                         key={key}
                         className="flex flex-wrap items-center gap-2 rounded-lg border border-border/40 bg-background px-2.5 py-2"
                       >
-                        <span aria-hidden>{w.emoji}</span>
+                        <CustomWorkIcon icon={w.icon} className="h-3.5 w-3.5 text-primary" />
                         <span className="text-xs font-semibold">{w.label}</span>
                         <span className="text-[10.5px] tabular-nums text-muted-foreground">
                           {w.key === "solaire"
