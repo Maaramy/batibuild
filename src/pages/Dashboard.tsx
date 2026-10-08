@@ -57,6 +57,7 @@ import {
   Percent,
   Gauge,
   ChevronDown,
+  ChevronLeft,
   Rocket,
   MessageSquare,
   Link,
@@ -111,6 +112,9 @@ export default function Dashboard() {
   );
   // Sub-menu expansion state for professional sidebar
   const [proMenuOpen, setProMenuOpen] = useState(true);
+  // Sidebar desktop réductible : mode réduit = icônes seules (mobile :
+  // tiroir toujours déployé, une main suffit).
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const setUserRole = useMutation(api.users.setUserRole);
 
@@ -247,20 +251,41 @@ export default function Dashboard() {
 
   const formatter = new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 });
 
-  const sidebarContent = (
+  const sidebarContent = (collapsed: boolean) => (
     <>
-      <div className="p-4 sm:p-5 border-b border-border/30">
-        <div className="flex items-center gap-2">
-          <LogoMark className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg" />
-          <div>
-            <span className="text-sm sm:text-base font-semibold">batibuild</span>
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground">Tableau de bord</p>
+      <div className={cn("border-b border-border/30", collapsed ? "flex justify-center p-3" : "p-4 sm:p-5")}>
+        {collapsed ? (
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(false)}
+            aria-label="Déployer la navigation"
+            title="Déployer la navigation"
+            className="rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <LogoMark className="h-7 w-7 rounded-lg" />
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <LogoMark className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg" />
+            <div className="min-w-0 flex-1">
+              <span className="text-sm sm:text-base font-semibold">batibuild</span>
+              <p className="text-[9px] sm:text-[10px] text-muted-foreground">Tableau de bord</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed(true)}
+              aria-label="Réduire la navigation"
+              title="Réduire la navigation"
+              className="hidden h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring lg:grid"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
           </div>
-        </div>
+        )}
       </div>
-      <nav className="flex-1 p-3 sm:p-4 space-y-0.5">
+      <nav className={cn("flex-1 space-y-0.5", collapsed ? "p-2" : "p-3 sm:p-4")}>
         {/* Role switch button for professionals */}
-        {(isSupplier || isExpert) && (
+        {(isSupplier || isExpert) && !collapsed && (
           <div className="mb-2">
             <div className="flex items-center gap-1 rounded-lg border border-border/40 bg-muted/20 p-0.5">
               <button
@@ -335,7 +360,8 @@ export default function Dashboard() {
         })().map((item) => (
           <div key={item.label}>
             <button onClick={item.onClick}
-              className={`w-full flex items-center gap-2 sm:gap-3 ${'isSubItem' in item && item.isSubItem ? 'pl-9 sm:pl-10' : 'px-2.5 sm:px-3'} py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm transition-all ${
+              title={item.label}
+              className={`w-full flex items-center gap-2 sm:gap-3 ${collapsed ? 'justify-center !px-0' : ('isSubItem' in item && item.isSubItem ? 'pl-9 sm:pl-10' : 'px-2.5 sm:px-3')} py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm transition-all ${
                 'active' in item && item.active ? "bg-primary/10 text-primary font-medium"
                 : 'isExpandable' in item && item.isExpandable ? "text-foreground font-medium"
                 : 'isSubItem' in item && item.isSubItem ? "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -351,7 +377,7 @@ export default function Dashboard() {
                   'icon' in item && <item.icon className="h-4 w-4" />
                 )}
               </div>
-              <span className="flex-1 text-left truncate">{item.label}</span>
+              {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
               {'badge' in item && typeof item.badge === 'number' && item.badge > 0 && (
                 <UnreadBadge count={item.badge} className="h-5 min-w-5 shrink-0" />
               )}
@@ -362,16 +388,18 @@ export default function Dashboard() {
           </div>
         ))}
       </nav>
-      <div className="p-3 sm:p-4 border-t border-border/30 space-y-1.5">
+      <div className={cn("border-t border-border/30 space-y-1.5", collapsed ? "p-2" : "p-3 sm:p-4")}>
         <button onClick={() => navigate("/dashboard/settings")}
-          className="w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all">
+          title="Paramètres"
+          className={cn("w-full flex items-center gap-2 sm:gap-3 rounded-lg text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all", collapsed ? "justify-center px-2 py-2" : "px-2.5 sm:px-3 py-2 sm:py-2.5")}>
           <Settings className="h-4 w-4 shrink-0" />
-          Paramètres
+          {!collapsed && <span className="truncate">Paramètres</span>}
         </button>
         <button onClick={handleSignOut}
-          className="w-full flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all">
+          title="Déconnexion"
+          className={cn("w-full flex items-center gap-2 sm:gap-3 rounded-lg text-xs sm:text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all", collapsed ? "justify-center px-2 py-2" : "px-2.5 sm:px-3 py-2 sm:py-2.5")}>
           <LogOut className="h-4 w-4 shrink-0" />
-          Déconnexion
+          {!collapsed && <span className="truncate">Déconnexion</span>}
         </button>
       </div>
     </>
@@ -389,18 +417,22 @@ export default function Dashboard() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            {sidebarContent}
+            {sidebarContent(false)}
           </aside>
         </div>
       )}
 
       {/* Desktop Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-56 lg:w-64 border-r border-border/40 bg-background/80 backdrop-blur-sm hidden lg:flex flex-col z-40">
-        {sidebarContent}
+      {/* Desktop Sidebar — réductible en mode icônes (cf. `sidebarCollapsed`) */}
+      <aside className={cn(
+        "fixed left-0 top-0 h-full border-r border-border/40 bg-background/80 backdrop-blur-sm hidden lg:flex flex-col z-40 transition-[width] duration-200",
+        sidebarCollapsed ? "w-14" : "w-56 lg:w-64",
+      )}>
+        {sidebarContent(sidebarCollapsed)}
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-56 xl:pl-64">
+      <div className={cn(sidebarCollapsed ? "lg:pl-14" : "lg:pl-56 xl:pl-64")}>
         {/* Top header */}
         <header className="glass-header sticky top-0 z-30">
           <div className="flex items-center justify-between px-3 sm:px-5 lg:px-6 h-12 sm:h-14 lg:h-16">
@@ -870,6 +902,78 @@ export default function Dashboard() {
           {viewMode === "client" && (
             <>
               <ClientProPaywall>
+          {/* ══════ COMMAND CENTER — « Que souhaitez-vous faire ? » ══════
+              Uniquement les actions nécessaires à l'étape actuelle :
+              une question, des entrées courtes, aucune carte colorée. */}
+          <div className="rounded-xl border border-border/60 bg-card p-4 shadow-elev-1">
+            <p className="text-xs text-muted-foreground">
+              {user?.name ? `Bonjour, ${user.name.split(" ")[0]}` : "Bonjour"}
+            </p>
+            <h2 className="mt-0.5 text-base font-semibold sm:text-lg">
+              Que souhaitez-vous faire ?
+            </h2>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              {[
+                {
+                  icon: Plus,
+                  label: "Estimer un projet",
+                  hint: "Coût de construction",
+                  to: "/dashboard/new",
+                  enabled: isFeatureEnabled("construction_cost_estimation"),
+                },
+                {
+                  icon: LayoutGrid,
+                  label: "Continuer un projet",
+                  hint: `${stats.totalProjects} projet${stats.totalProjects > 1 ? "s" : ""}`,
+                  to: "/dashboard/projects",
+                  enabled: true,
+                },
+                {
+                  icon: FileDown,
+                  label: "Voir mes résultats",
+                  hint: "Rapports PDF",
+                  to: "/dashboard/reports",
+                  enabled: true,
+                },
+                {
+                  icon: Rocket,
+                  label: "Créer un plan IA",
+                  hint: "À partir d'un projet",
+                  to: "/dashboard/projects",
+                  enabled: true,
+                },
+                {
+                  icon: Sparkles,
+                  label: "Choisir mes matériaux",
+                  hint: "Sélection IA",
+                  to: "/dashboard/ai-materials",
+                  enabled: isFeatureEnabled("ai_materials"),
+                },
+              ]
+                .filter((action) => action.enabled)
+                .map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => navigate(action.to)}
+                    className="group flex items-center gap-2.5 rounded-lg border border-border/60 bg-background px-3 py-2.5 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.04] focus-visible:outline-2 focus-visible:outline-ring"
+                  >
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+                      <action.icon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-semibold">
+                        {action.label}
+                      </span>
+                      <span className="block truncate text-[10px] text-muted-foreground">
+                        {action.hint}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+            </div>
+          </div>
+
           {/* Quick actions - horizontal scroll on mobile */}
           <div className="overflow-x-auto scrollbar-none -mx-3 sm:mx-0 px-3 sm:px-0">
             <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 min-w-max sm:min-w-0">
